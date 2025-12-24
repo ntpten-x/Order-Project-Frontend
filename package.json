@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "validate": "npm run lint && npm run build"
   },
   "dependencies": {
     "antd": "^6.1.2",

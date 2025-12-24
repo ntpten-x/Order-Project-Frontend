@@ -1,6 +1,8 @@
 import { roleService } from "@/services/roles.service";
 import { NextResponse } from "next/server";
 
+export const dynamic = 'force-dynamic';
+
 export async function GET() {
     try {
         const roles = await roleService.getAllRoles();
