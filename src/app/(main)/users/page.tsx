@@ -1,9 +1,8 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Table, Tag, Space, Button, Card, Typography, message, Modal, Input, Form } from 'antd';
+import { Table, Tag, Space, Button, Card, Typography, message, Modal } from 'antd';
 import { UserOutlined, EditOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
-import { userService } from '@/services/users.service';
 import { User } from '@/types/api/users';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
@@ -67,6 +66,7 @@ export default function UsersPage() {
       title: 'Role',
       dataIndex: 'roles',
       key: 'roles',
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       render: (role: any) => (
         <Space direction="vertical" size={0}>
           <Tag color={role?.roles_name === 'Admin' ? 'gold' : 'blue'} className="mr-0">
@@ -82,6 +82,7 @@ export default function UsersPage() {
       title: 'Actions',
       key: 'actions',
       width: 150,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       render: (_: any, record: User) => (
         <Space size="middle">
           <Button 

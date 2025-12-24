@@ -1,7 +1,9 @@
+
 import { userService } from "@/services/users.service";
 import { NextRequest, NextResponse } from "next/server";
 
-export async function PUT(request: NextRequest, { params }: { params: { username: string; password: string; roleId: string; id: string } }) {
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function PUT(request: Request, { params }: { params: any }) {
     try {
         const { username, password, roleId, id } = params;
         const updateData: any = {

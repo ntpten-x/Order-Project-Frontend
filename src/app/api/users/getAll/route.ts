@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { userService } from "@/services/users.service";
 
-export async function GET(request: NextRequest) {
+export async function GET(_request: Request) {
     try {
         const users = await userService.getAllUsers();
         return NextResponse.json(users);

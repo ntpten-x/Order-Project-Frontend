@@ -7,8 +7,9 @@ import { UserOutlined, ShoppingCartOutlined, FileTextOutlined, HistoryOutlined, 
 const BottomNavigation = () => {
   const router = useRouter();
   const pathname = usePathname();
-  const [activeTab, setActiveTab] = useState('');
+  // const [activeTab, setActiveTab] = useState('');
 
+  /*
   useEffect(() => {
     if (pathname.includes('/users')) {
       setActiveTab('users');
@@ -18,6 +19,7 @@ const BottomNavigation = () => {
       setActiveTab('');
     }
   }, [pathname]);
+  */
 
   const menuItems = [
         {

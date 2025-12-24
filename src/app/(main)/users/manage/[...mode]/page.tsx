@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { Form, Input, Button, Card, Select, message, Typography, Space, Spin, Popconfirm } from 'antd';
+import { Form, Input, Button, Card, Select, message, Typography, Spin, Popconfirm } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import UserManageStyle from './style';
@@ -26,6 +26,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
     if (isEdit) {
       fetchUser();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEdit, userId]);
 
   const fetchRoles = async () => {
@@ -59,6 +60,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onFinish = async (values: any) => {
     setSubmitting(true);
     try {
