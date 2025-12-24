@@ -1,11 +1,12 @@
 
 import { userService } from "@/services/users.service";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function PUT(request: Request, { params }: { params: any }) {
     try {
         const { username, password, roleId, id } = params;
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const updateData: any = {
             username,
             roles_id: parseInt(roleId),

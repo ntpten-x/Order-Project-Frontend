@@ -1,7 +1,7 @@
 import { roleService } from "@/services/roles.service";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 
-export async function GET(_request: Request) {
+export async function GET() {
     try {
         const roles = await roleService.getAllRoles();
         return NextResponse.json(roles);
