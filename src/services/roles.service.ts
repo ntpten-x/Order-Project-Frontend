@@ -11,7 +11,7 @@ export const roleService = {
         return response.json();
     },
 
-    getRoleById: async (id: number): Promise<Role> => {
+    getRoleById: async (id: string): Promise<Role> => {
         const url = getProxyUrl("GET", `${BASE_PATH}/${id}`);
         const response = await fetch(url!, { cache: "no-store" });
         if (!response.ok) throw new Error("Failed to fetch role");
@@ -29,7 +29,7 @@ export const roleService = {
         return response.json();
     },
 
-    updateRole: async (id: number, data: Partial<Role>): Promise<Role> => {
+    updateRole: async (id: string, data: Partial<Role>): Promise<Role> => {
         const url = getProxyUrl("PUT", `${BASE_PATH}/${id}`);
         const response = await fetch(url!, {
             method: "PUT",
@@ -40,7 +40,7 @@ export const roleService = {
         return response.json();
     },
 
-    deleteRole: async (id: number): Promise<void> => {
+    deleteRole: async (id: string): Promise<void> => {
         const url = getProxyUrl("DELETE", `${BASE_PATH}/${id}`);
         const response = await fetch(url!, {
             method: "DELETE",

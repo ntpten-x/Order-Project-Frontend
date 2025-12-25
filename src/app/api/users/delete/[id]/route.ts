@@ -4,10 +4,10 @@ import { NextRequest, NextResponse } from "next/server";
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
     try {
         const { id } = params;
-        await userService.deleteUser(parseInt(id));
+        await userService.deleteUser(id);
         return NextResponse.json({ message: "User deleted successfully" });
-    } catch (error) {
+    } catch (error: any) {
         console.error("API Error:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
     }
 }

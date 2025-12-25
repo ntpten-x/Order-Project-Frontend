@@ -7,11 +7,11 @@ export async function POST(request: NextRequest, { params }: { params: { usernam
         const user = await userService.createUser({
             username,
             password,
-            roles_id: parseInt(roleId),
+            roles_id: roleId,
         });
         return NextResponse.json(user);
-    } catch (error) {
+    } catch (error: any) {
         console.error("API Error:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
     }
 }

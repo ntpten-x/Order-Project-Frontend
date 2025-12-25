@@ -10,16 +10,30 @@ export default function HomePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this user?")) return;
+
+    try {
+      await axios.delete(`/api/users/delete/${id}`);
+      setUsers(users.filter((u) => u.id !== id));
+    } catch (error: any) {
+      console.error("Error deleting user:", error);
+      alert(error.response?.data?.error || "Failed to delete user");
+    }
+  };
+
   useEffect(() => {
+
     const fetchUsers = async () => {
       try {
         setLoading(true);
         const response = await axios.get("/api/users/getAll");
         setUsers(response.data);
         setError(null);
-      } catch (error) {
+      } catch (error: any) {
         console.error("Error fetching users:", error);
-        setError("Failed to load users. Please try again later.");
+        const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || "Failed to load users. Please try again later.";
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -27,7 +41,6 @@ export default function HomePage() {
 
     fetchUsers();
   }, []);
-console.log("users ", users);
   return (
     <div className="min-h-screen bg-white text-black selection:bg-blue-500/30">
       {/* Navigation */}
@@ -124,13 +137,22 @@ console.log("users ", users);
                     </div>
                     <h3 className="text-lg font-bold mb-1 truncate">{user.username}</h3>
                     <p className="text-gray-500 text-sm">User ID: {user.id}</p>
-                    <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
+                <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
                        <span className="text-xs font-medium px-2 py-1 rounded bg-green-100 text-green-600">
                          Active
                        </span>
-                       <span className="text-xs text-gray-400">
-                         {user.roles?.display_name || "Member"}
-                       </span>
+                       <div className="flex items-center gap-2">
+                         <span className="text-xs text-gray-400">
+                           {user.roles?.display_name || "Member"}
+                         </span>
+                         <button
+                           onClick={() => handleDelete(user.id)}
+                           className="text-red-500 hover:text-red-700 transition-colors p-1"
+                           title="Delete User"
+                         >
+                           🗑️
+                         </button>
+                       </div>
                     </div>
                   </div>
                 ))}

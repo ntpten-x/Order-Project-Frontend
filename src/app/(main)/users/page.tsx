@@ -20,13 +20,14 @@ export default function UsersPage() {
     try {
       const response = await fetch('/api/users/getAll');
       if (!response.ok) {
-        throw new Error('Failed to fetch users');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลผู้ใช้ได้');
       }
       const data = await response.json();
       setUsers(data);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching users:', error);
-      message.error('Failed to load users data');
+      message.error(error.message || 'ไม่สามารถดึงข้อมูลผู้ใช้ได้');
     } finally {
       setLoading(false);
     }
@@ -41,8 +42,9 @@ export default function UsersPage() {
       title: 'ID',
       dataIndex: 'id',
       key: 'id',
-      width: 80,
-      sorter: (a: User, b: User) => a.id - b.id,
+      width: 250,
+      sorter: (a: User, b: User) => a.id.localeCompare(b.id),
+      render: (text: string) => <Text copyable={{ text }}>{text.substring(0, 8)}...</Text>
     },
     {
       title: 'Username',
@@ -53,13 +55,6 @@ export default function UsersPage() {
           <UserOutlined className="text-blue-500" />
           <Text strong>{text}</Text>
         </Space>
-      ),
-    },
-    {
-      title: 'Password',
-      key: 'password',
-      render: () => (
-        <Text>******</Text>
       ),
     },
     {
@@ -79,9 +74,42 @@ export default function UsersPage() {
       ),
     },
     {
+      title: 'Created Date',
+      dataIndex: 'create_date',
+      key: 'create_date',
+      render: (date: string) => date ? new Date(date).toLocaleString('th-TH') : '-',
+    },
+    {
+      title: 'Last Login',
+      dataIndex: 'last_login_at',
+      key: 'last_login_at',
+      render: (date: string) => date ? new Date(date).toLocaleString('th-TH') : '-',
+    },
+    {
+      title: 'Status',
+      dataIndex: 'is_active',
+      key: 'is_active',
+      render: (isActive: boolean) => (
+        <Tag color={isActive ? 'success' : 'error'}>
+          {isActive ? 'Active' : 'Inactive'}
+        </Tag>
+      ),
+    },
+    {
+      title: 'In Use',
+      dataIndex: 'is_use',
+      key: 'is_use',
+      render: (isUse: boolean) => (
+        <Tag color={isUse ? 'processing' : 'default'}>
+          {isUse ? 'In Use' : 'Not Use'}
+        </Tag>
+      ),
+    },
+    {
       title: 'Actions',
       key: 'actions',
       width: 150,
+      fixed: 'right' as const,
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       render: (_: any, record: User) => (
         <Space size="middle">
