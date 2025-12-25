@@ -7,6 +7,7 @@ import { User } from '@/types/api/users';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import UserPageStyle from './style';
+import { useSocket } from '@/hooks/useSocket';
 
 const { Title, Text } = Typography;
 
@@ -14,6 +15,7 @@ export default function UsersPage() {
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
+  const { socket } = useSocket();
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -37,6 +39,34 @@ export default function UsersPage() {
     fetchUsers();
   }, []);
 
+  useEffect(() => {
+    if (!socket) return;
+
+    // Listen for new user creation
+    socket.on('users:create', (newUser: User) => {
+      setUsers((prevUsers) => [...prevUsers, newUser]);
+      message.success(`ผู้ใช้ใหม่ ${newUser.username} ถูกเพิ่มแล้ว`);
+    });
+
+    // Listen for user updates
+    socket.on('users:update', (updatedUser: User) => {
+      setUsers((prevUsers) =>
+        prevUsers.map((user) => (user.id === updatedUser.id ? updatedUser : user))
+      );
+    });
+
+    // Listen for user deletion
+    socket.on('users:delete', ({ id }: { id: string }) => {
+      setUsers((prevUsers) => prevUsers.filter((user) => user.id !== id));
+    });
+
+    return () => {
+      socket.off('users:create');
+      socket.off('users:update');
+      socket.off('users:delete');
+    };
+  }, [socket]);
+
   const columns = [
     {
       title: 'ID',
@@ -47,7 +77,7 @@ export default function UsersPage() {
       render: (text: string) => <Text copyable={{ text }}>{text.substring(0, 8)}...</Text>
     },
     {
-      title: 'Username',
+      title: 'ชื่อผู้ใช้',
       dataIndex: 'username',
       key: 'username',
       render: (text: string) => (
@@ -58,7 +88,7 @@ export default function UsersPage() {
       ),
     },
     {
-      title: 'Role',
+      title: 'สิทธิ์',
       dataIndex: 'roles',
       key: 'roles',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -74,39 +104,39 @@ export default function UsersPage() {
       ),
     },
     {
-      title: 'Created Date',
+      title: 'วันที่สร้าง',
       dataIndex: 'create_date',
       key: 'create_date',
       render: (date: string) => date ? new Date(date).toLocaleString('th-TH') : '-',
     },
     {
-      title: 'Last Login',
+      title: 'วันที่เข้าสู่ระบบล่าสุด',
       dataIndex: 'last_login_at',
       key: 'last_login_at',
       render: (date: string) => date ? new Date(date).toLocaleString('th-TH') : '-',
     },
     {
-      title: 'Status',
+      title: 'สถานะ',
       dataIndex: 'is_active',
       key: 'is_active',
       render: (isActive: boolean) => (
         <Tag color={isActive ? 'success' : 'error'}>
-          {isActive ? 'Active' : 'Inactive'}
+          {isActive ? 'ใช้งาน' : 'ไม่ใช้งาน'}
         </Tag>
       ),
     },
     {
-      title: 'In Use',
+      title: 'ใช้งาน',
       dataIndex: 'is_use',
       key: 'is_use',
       render: (isUse: boolean) => (
         <Tag color={isUse ? 'processing' : 'default'}>
-          {isUse ? 'In Use' : 'Not Use'}
+          {isUse ? 'ใช้งาน' : 'ไม่ใช้งาน'}
         </Tag>
       ),
     },
     {
-      title: 'Actions',
+      title: 'การจัดการ',
       key: 'actions',
       width: 150,
       fixed: 'right' as const,
@@ -126,7 +156,20 @@ export default function UsersPage() {
               Modal.confirm({
                 title: 'ยืนยันที่การลบผู้ใช้',
                 content: `คุณต้องการลบผู้ใช้ ${record.username} หรือไม่?`,
-                onOk: () => message.success(`ลบผู้ใช้ ${record.username} สำเร็จ`),
+                onOk: async () => {
+                  try {
+                    const response = await fetch(`/api/users/delete/${record.id}`, {
+                      method: 'DELETE',
+                    });
+                    if (!response.ok) {
+                      throw new Error('Failed to delete user');
+                    }
+                    message.success(`ลบผู้ใช้ ${record.username} สำเร็จ`);
+                  } catch (error) {
+                    message.error('ไม่สามารถลบผู้ใช้ได้');
+                    console.error(error);
+                  }
+                },
               });
             }}
           />

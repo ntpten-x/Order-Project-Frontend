@@ -18,6 +18,7 @@ export const metadata: Metadata = {
 };
 
 import AntdRegistry from "@/lib/AntdRegistry";
+import { SocketProvider } from "@/contexts/SocketContext";
 
 export default function RootLayout({
   children,
@@ -30,7 +31,9 @@ export default function RootLayout({
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased font-sans`}
       >
         <AntdRegistry>
-          {children}
+          <SocketProvider>
+            {children}
+          </SocketProvider>
         </AntdRegistry>
       </body>
     </html>
