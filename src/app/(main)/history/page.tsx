@@ -66,12 +66,17 @@ export default function HistoryPage() {
       key: 'items',
       render: (items: any[]) => (
         <Space direction="vertical">
-          {items.map((item) => (
+          {(items || []).map((item) => (
             <div key={item.id}>
               <Text strong>{item.ingredient?.display_name}</Text>
               <Text type="secondary" style={{ marginLeft: 8 }}>
-                 x {item.quantity_ordered} {item.ingredient?.unit?.display_name}
+                 x {item.ordersDetail?.is_purchased ? item.ordersDetail.actual_quantity : item.quantity_ordered} {item.ingredient?.unit?.display_name}
               </Text>
+              {item.ordersDetail?.is_purchased && item.ordersDetail.actual_quantity !== item.quantity_ordered && (
+                  <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>
+                      (จากสั่ง {item.quantity_ordered})
+                  </Text>
+              )}
             </div>
           ))}
         </Space>

@@ -59,9 +59,16 @@ export default function BuyingPage() {
                 // If status changed to something not pending (e.g. cancelled) or deleted
                 // Navigate back
                 const status = event.data?.status;
-                if (event.action === "delete" || (status && status !== "pending")) {
-                    message.warning("ออเดอร์นี้ถูกยกเลิกหรือดำเนินการเสร็จสิ้นแล้ว");
+                if (event.action === "delete") {
+                    message.warning("ออเดอร์นี้ถูกยกเลิกเสร็จสิ้นแล้ว");
                     router.push("/items");
+                } else if (status && status !== "pending") {
+                     if (status === "completed") {
+                        message.success("การสั่งซื้อดำเนินการเสร็จสิ้นแล้ว");
+                     } else {
+                        message.warning("ออเดอร์นี้ถูกยกเลิกเสร็จสิ้นแล้ว");
+                     }
+                     router.push("/items");
                 }
             }
         });

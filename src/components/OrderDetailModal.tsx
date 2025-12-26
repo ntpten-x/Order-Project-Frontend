@@ -37,11 +37,28 @@ export default function OrderDetailModal({ order, open, onClose }: OrderDetailMo
         {
             title: 'จำนวน',
             key: 'quantity',
-            render: (record: any) => (
-                <Text>
-                    {record.quantity_ordered} {record.ingredient?.unit?.display_name || '-'}
-                </Text>
-            )
+            render: (record: any) => {
+                const isPurchased = record.ordersDetail?.is_purchased;
+                const actual = record.ordersDetail?.actual_quantity;
+                const ordered = record.quantity_ordered;
+                const unit = record.ingredient?.unit?.display_name || '-';
+
+                return (
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <Text strong>
+                            {isPurchased ? actual : ordered} {unit}
+                        </Text>
+                        {isPurchased && actual !== ordered && (
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                (สั่ง {ordered})
+                            </Text>
+                        )}
+                        {isPurchased && !record.ordersDetail?.is_purchased && (
+                            <Text type="danger" style={{ fontSize: 12 }}>ไม่ได้ซื้อ</Text>
+                        )}
+                    </div>
+                );
+            }
         }
     ];
 
