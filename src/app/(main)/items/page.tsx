@@ -1,9 +1,10 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Table, Tag, Typography, Card, Space, Button, message } from "antd";
-import { ReloadOutlined } from "@ant-design/icons";
+import { Table, Tag, Typography, Card, Space, Button, message, Modal } from "antd";
+import { ReloadOutlined, EditOutlined, StopOutlined } from "@ant-design/icons";
 import { Order, OrderStatus } from "@/types/api/orders";
+import EditOrderModal from "@/components/EditOrderModal";
 import { ordersService } from "@/services/orders.service";
 import { useSocket } from "@/hooks/useSocket";
 
@@ -84,7 +85,26 @@ export default function ItemsPage() {
     };
   }, [socket]);
 
+  // ... inside component ...
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+
+  const handleCancelOrder = (order: Order) => {
+    Modal.confirm({
+        title: 'ยืนยันการยกเลิก',
+        content: `คุณต้องการยกเลิกออเดอร์ ${order.id.substring(0, 8)} หรือไม่?`,
+        onOk: async () => {
+            try {
+                await ordersService.updateStatus(order.id, OrderStatus.CANCELLED);
+                message.success("ยกเลิกออเดอร์สำเร็จ");
+            } catch (error) {
+                message.error("ยกเลิกออเดอร์ล้มเหลว");
+            }
+        }
+    });
+  };
+
   const columns = [
+    // ... existing columns ...
     {
       title: 'Order ID',
       dataIndex: 'id',
@@ -132,6 +152,33 @@ export default function ItemsPage() {
       key: 'create_date',
       render: (date: string) => new Date(date).toLocaleString('th-TH'),
     },
+    {
+        title: 'จัดการ',
+        key: 'actions',
+        render: (_: any, record: Order) => (
+            <Space>
+                <Button 
+                    type="primary" 
+                    ghost 
+                    size="small" 
+                    icon={<EditOutlined />} 
+                    disabled={record.status !== OrderStatus.PENDING}
+                    onClick={() => setEditingOrder(record)}
+                >
+                    แก้ไข
+                </Button>
+                <Button 
+                    danger 
+                    size="small" 
+                    icon={<StopOutlined />} 
+                    disabled={record.status !== OrderStatus.PENDING}
+                    onClick={() => handleCancelOrder(record)}
+                >
+                    ยกเลิก
+                </Button>
+            </Space>
+        )
+    }
   ];
 
   return (
@@ -149,6 +196,13 @@ export default function ItemsPage() {
             pagination={{ pageSize: 10 }}
         />
       </Card>
+
+      <EditOrderModal 
+        open={!!editingOrder} 
+        order={editingOrder} 
+        onClose={() => setEditingOrder(null)} 
+        onSuccess={fetchOrders}
+      />
     </div>
   );
 }

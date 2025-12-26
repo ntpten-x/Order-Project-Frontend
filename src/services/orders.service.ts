@@ -58,7 +58,19 @@ export const ordersService = {
         return response.json();
     },
 
-    // Purchase Flow
+    updateOrder: async (id: string, items: { ingredient_id: string; quantity_ordered: number }[]): Promise<Order> => {
+        const url = getProxyUrl("PUT", `${BASE_PATH}/${id}`);
+        const response = await fetch(url!, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ items }),
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || errorData.message || "ไม่สามารถแก้ไขออเดอร์ได้");
+        }
+        return response.json();
+    },
     updatePurchaseDetail: async (data: {
         orders_item_id: string;
         actual_quantity: number;
