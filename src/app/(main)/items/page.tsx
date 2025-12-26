@@ -6,7 +6,6 @@ import { ReloadOutlined, EditOutlined, StopOutlined, EyeOutlined, ShoppingCartOu
 import { Order, OrderStatus } from "@/types/api/orders";
 import EditOrderModal from "@/components/EditOrderModal";
 import OrderDetailModal from "@/components/OrderDetailModal";
-import { ordersService } from "@/services/orders.service";
 import { useSocket } from "@/hooks/useSocket";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -34,8 +33,7 @@ export default function ItemsPage() {
       // User said "Pending items" -> "Wait to buy".
       // Let's show all for now but sorted by date.
       setOrders(data.filter((order: Order) => order.status === OrderStatus.PENDING));
-    } catch (error) {
-      console.error("Failed to fetch orders:", error);
+    } catch {
       message.error("ไม่สามารถโหลดรายการออเดอร์ได้");
     } finally {
         setLoading(false);
@@ -117,7 +115,7 @@ export default function ItemsPage() {
                 }
                 
                 message.success("ยกเลิกออเดอร์สำเร็จ");
-            } catch (error) {
+            } catch {
                 message.error("ยกเลิกออเดอร์ล้มเหลว");
             }
         }
@@ -142,7 +140,7 @@ export default function ItemsPage() {
       title: 'รายการสินค้า',
       dataIndex: 'ordersItems',
       key: 'items',
-      render: (items: any[]) => (
+      render: (items: any[]) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
         <Space direction="vertical">
           {(items || []).map((item) => (
             <div key={item.id}>
@@ -176,7 +174,7 @@ export default function ItemsPage() {
     {
         title: 'จัดการ',
         key: 'actions',
-        render: (_: any, record: Order) => (
+        render: (_: unknown, record: Order) => (
             <Space>
                 <Button 
                     size="small" 

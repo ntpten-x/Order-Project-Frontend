@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { UserOutlined, ShoppingCartOutlined, FileTextOutlined, HistoryOutlined, HomeOutlined, InfoCircleOutlined, UnorderedListOutlined } from '@ant-design/icons';
+import { UserOutlined, FileTextOutlined, HistoryOutlined, HomeOutlined, InfoCircleOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
 import { useSocket } from "@/hooks/useSocket";
 import { useState, useEffect } from 'react';
@@ -21,10 +21,10 @@ const BottomNavigation = () => {
         if (res.ok) {
             const data = await res.json();
             // Count all pending orders
-            const count = data.filter((o: any) => o.status === OrderStatus.PENDING).length;
+            const count = data.filter((o: any) => o.status === OrderStatus.PENDING).length; // eslint-disable-line @typescript-eslint/no-explicit-any
             setPendingCount(count);
         }
-    } catch (e) {
+    } catch {
         // Silent fail
     }
   };

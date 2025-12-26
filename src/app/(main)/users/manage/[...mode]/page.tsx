@@ -134,9 +134,9 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
         message.success('สร้างผู้ใช้สำเร็จ');
       }
       router.push('/users');
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
-      message.error(error.message || (isEdit ? 'ไม่สามารถอัปเดตผู้ใช้ได้' : 'ไม่สามารถสร้างผู้ใช้ได้'));
+      message.error((error as Error).message || (isEdit ? 'ไม่สามารถอัปเดตผู้ใช้ได้' : 'ไม่สามารถสร้างผู้ใช้ได้'));
     } finally {
       setSubmitting(false);
     }

@@ -39,6 +39,62 @@ export default function UsersPage() {
     }
   }, [user, authLoading, router]);
 
+  // Fetch Users Function
+  const fetchUsers = React.useCallback(async () => {
+    execute(async () => {
+      const response = await fetch('/api/users/getAll');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลผู้ใช้ได้');
+      }
+      const data = await response.json();
+      setUsers(data);
+    }, 'กำลังโหลดข้อมูลผู้ใช้...');
+  }, [execute]);
+
+  useEffect(() => {
+    // We already checked role in the render guard/redirect effect
+    // But we only fetch if we are actually allowed (client side check again or just rely on backend)
+    if (user?.role === 'Admin') {
+        fetchUsers();
+    }
+  }, [fetchUsers, user]);
+
+  useEffect(() => {
+    if (!socket) return;
+    // ... socket logic remains same ...
+    const handleCreate = (newUser: User) => {
+      setUsers((prevUsers) => [...prevUsers, newUser]);
+      message.success(`ผู้ใช้ใหม่ ${newUser.username} ถูกเพิ่มแล้ว`);
+    };
+    const handleUpdate = (updatedUser: User) => {
+      setUsers((prevUsers) =>
+        prevUsers.map((user) => (user.id === updatedUser.id ? updatedUser : user))
+      );
+    };
+    const handleDelete = ({ id }: { id: string }) => {
+      setUsers((prevUsers) => prevUsers.filter((user) => user.id !== id));
+    };
+    const handleStatusUpdate = ({ id, is_active }: { id: string, is_active: boolean }) => {
+        setUsers((prevUsers) =>
+            prevUsers.map((user) => (user.id === id ? { ...user, is_active } : user))
+        );
+    };
+
+    socket.on('users:create', handleCreate);
+    socket.on('users:update', handleUpdate);
+    socket.on('users:delete', handleDelete);
+    // Listen for user status updates
+    socket.on('users:update-status', handleStatusUpdate);
+
+    return () => {
+        socket.off('users:create', handleCreate);
+        socket.off('users:update', handleUpdate);
+        socket.off('users:delete', handleDelete);
+        socket.off('users:update-status', handleStatusUpdate);
+    };
+  }, [socket]);
+
   // Loading / Permission Check State
   if (authLoading || !user || user.role !== 'Admin') {
     return (
@@ -55,54 +111,6 @@ export default function UsersPage() {
         </div>
     );
   }
-
-  const fetchUsers = async () => {
-    execute(async () => {
-      const response = await fetch('/api/users/getAll');
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลผู้ใช้ได้');
-      }
-      const data = await response.json();
-      setUsers(data);
-    }, 'กำลังโหลดข้อมูลผู้ใช้...');
-  };
-
-  useEffect(() => {
-    // We already checked role in the render guard/redirect effect
-    fetchUsers();
-  }, []);
-
-  useEffect(() => {
-    if (!socket) return;
-    // ... socket logic remains same ...
-    socket.on('users:create', (newUser: User) => {
-      setUsers((prevUsers) => [...prevUsers, newUser]);
-      message.success(`ผู้ใช้ใหม่ ${newUser.username} ถูกเพิ่มแล้ว`);
-    });
-    socket.on('users:update', (updatedUser: User) => {
-      setUsers((prevUsers) =>
-        prevUsers.map((user) => (user.id === updatedUser.id ? updatedUser : user))
-      );
-    });
-    socket.on('users:delete', ({ id }: { id: string }) => {
-      setUsers((prevUsers) => prevUsers.filter((user) => user.id !== id));
-    });
-
-    // Listen for user status updates
-    socket.on('users:update-status', ({ id, is_active }: { id: string, is_active: boolean }) => {
-        setUsers((prevUsers) =>
-            prevUsers.map((user) => (user.id === id ? { ...user, is_active } : user))
-        );
-    });
-
-    return () => {
-        socket.off('users:create');
-        socket.off('users:update');
-        socket.off('users:delete');
-        socket.off('users:update-status');
-    };
-  }, [socket]);
   
   // ... columns ...
 
@@ -179,7 +187,7 @@ export default function UsersPage() {
       title: 'การจัดการ',
       key: 'actions',
       width: 150,
-      render: (_: any, record: User) => (
+      render: (_: unknown, record: User) => (
         <Space size="middle">
           <Button 
             type="text" 

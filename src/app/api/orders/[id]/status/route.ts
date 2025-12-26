@@ -8,8 +8,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         const cookie = request.headers.get("cookie") || "";
         const order = await ordersService.updateStatus(id, body.status, cookie);
         return NextResponse.json(order);
-    } catch (error: any) {
+    } catch (error) {
         console.error("API Error:", error);
-        return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ error: (error as Error).message || "Internal Server Error" }, { status: 500 });
     }
 }

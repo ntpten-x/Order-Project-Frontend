@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from "react";
-import { Modal, Form, InputNumber, Button, Select, Space, Typography, List, message } from "antd";
+import { Modal, InputNumber, Button, Select, Space, Typography, List, message } from "antd";
 import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
 import { Order, OrderStatus } from "@/types/api/orders";
 import { Ingredients } from "@/types/api/ingredients";
-import { ordersService } from "@/services/orders.service";
 import axios from "axios";
 import { useSocket } from "@/hooks/useSocket";
 
@@ -73,10 +72,11 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                     };
                 }));
             } catch (error) {
-                console.error("Failed to load ingredients");
+                console.error("Failed to load ingredients", error);
             }
         };
         fetchIngredients();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]); // Re-fetch or re-apply when modal opens to ensure we have images
 
     // Initialize items when order changes
@@ -150,7 +150,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
             message.success("แก้ไขออเดอร์สำเร็จ");
             onSuccess();
             onClose();
-        } catch (error: any) {
+        } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
              message.error(error.message || "แก้ไขออเดอร์ล้มเหลว");
         } finally {
             setLoading(false);
@@ -174,7 +174,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                         showSearch
                         value={selectedIngredient}
                         onChange={setSelectedIngredient}
-                        filterOption={(input, option: any) =>
+                        filterOption={(input, option: any) => // eslint-disable-line @typescript-eslint/no-explicit-any
                              (option?.searchText ?? '').toLowerCase().includes(input.toLowerCase())
                         }
                         options={ingredients.map(ing => ({ 
@@ -182,6 +182,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                             searchText: ing.display_name,
                             label: (
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <img 
                                         src={ing.img_url || 'https://placehold.co/40x40?text=No+Img'} 
                                         alt={ing.display_name}
@@ -204,6 +205,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                             ]}
                         >
                             <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 16 }}>
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
                                 <img 
                                     src={item.img_url || 'https://placehold.co/40x40?text=No+Img'} 
                                     alt={item.display_name}

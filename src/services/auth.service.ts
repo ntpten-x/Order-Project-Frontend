@@ -18,7 +18,7 @@ export const authService = {
         try {
             const response = await api.post<LoginResponse>("/auth/login", credentials);
             return response.data.user;
-        } catch (error: any) {
+        } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
             throw new Error(error.response?.data?.message || "เข้าสู่ระบบไม่สำเร็จ");
         }
     },

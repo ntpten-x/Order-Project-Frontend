@@ -2,10 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Card, Typography, List, Checkbox, InputNumber, Button, Space, Divider, message, Modal, Avatar, Tag } from "antd";
-import { ShoppingCartOutlined, ArrowLeftOutlined, CheckOutlined, PlusOutlined, MinusOutlined } from "@ant-design/icons";
+import { Card, Typography, List, Checkbox, InputNumber, Button, message, Modal, Avatar, Tag } from "antd";
+import { ShoppingCartOutlined, ArrowLeftOutlined, PlusOutlined, MinusOutlined } from "@ant-design/icons";
 import { Order } from "@/types/api/orders";
-import { ordersService } from "@/services/orders.service";
+// import { ordersService } from "@/services/orders.service";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSocket } from "@/hooks/useSocket";
 
@@ -33,6 +33,33 @@ export default function BuyingPage() {
     const [confirmModalOpen, setConfirmModalOpen] = useState(false);
     const { socket } = useSocket();
 
+    const fetchOrder = React.useCallback(async () => {
+        try {
+            setLoading(true);
+            // Use Proxy API
+            const response = await fetch(`/api/orders/${orderId}`, { cache: "no-store" });
+            if (!response.ok) throw new Error("Failed to load order");
+            const data = await response.json();
+            
+            setOrder(data);
+            
+            const initialItems = data.ordersItems?.map((item: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
+                ingredient_id: item.ingredient_id,
+                actual_quantity: item.quantity_ordered,
+                ordered_quantity: item.quantity_ordered,
+                is_purchased: false,
+                display_name: item.ingredient?.display_name || 'Unknown',
+                unit_name: item.ingredient?.unit?.display_name || '-',
+                img_url: item.ingredient?.img_url
+            })) || [];
+            setItems(initialItems);
+        } catch {
+            message.error("Failed to load order");
+        } finally {
+            setLoading(false);
+        }
+    }, [orderId]);
+
     useEffect(() => {
         if (!user) {
             router.push("/login");
@@ -46,7 +73,9 @@ export default function BuyingPage() {
         if (orderId) {
             fetchOrder();
         }
-    }, [orderId, user]);
+    }, [orderId, user, fetchOrder, router]);
+    // Actually, I'll exclude fetchOrder from dep array and disable rule or use useCallback. 
+    // Trying to be clean: define fetchOrder with useCallback.
 
     useEffect(() => {
         if (!socket || !orderId) return;
@@ -78,34 +107,9 @@ export default function BuyingPage() {
         return () => {
             socket.off("orders_updated");
         };
-    }, [socket, orderId]);
+    }, [socket, orderId, fetchOrder, router]);
 
-    const fetchOrder = async () => {
-        try {
-            setLoading(true);
-            // Use Proxy API
-            const response = await fetch(`/api/orders/${orderId}`, { cache: "no-store" });
-            if (!response.ok) throw new Error("Failed to load order");
-            const data = await response.json();
-            
-            setOrder(data);
-            
-            const initialItems = data.ordersItems?.map((item: any) => ({
-                ingredient_id: item.ingredient_id,
-                actual_quantity: item.quantity_ordered,
-                ordered_quantity: item.quantity_ordered,
-                is_purchased: false,
-                display_name: item.ingredient?.display_name || 'Unknown',
-                unit_name: item.ingredient?.unit?.display_name || '-',
-                img_url: item.ingredient?.img_url
-            })) || [];
-            setItems(initialItems);
-        } catch (error) {
-            message.error("Failed to load order");
-        } finally {
-            setLoading(false);
-        }
-    };
+
 
     const handleCheck = (id: string, checked: boolean) => {
         setItems(items.map(i => i.ingredient_id === id ? { ...i, is_purchased: checked } : i));
@@ -361,7 +365,7 @@ export default function BuyingPage() {
                     {items.filter(i => !i.is_purchased).length > 0 && (
                         <div style={{ marginTop: 16, padding: '12px', backgroundColor: '#fffbe6', borderRadius: 8, border: '1px solid #ffe58f' }}>
                              <Text type="warning">
-                                 มี {items.filter(i => !i.is_purchased).length} รายการที่ <b>"ไม่ได้เลือก"</b> (จะถูกบันทึกว่าไม่ได้ซื้อ)
+                                 มี {items.filter(i => !i.is_purchased).length} รายการที่ <b>&quot;ไม่ได้เลือก&quot;</b> (จะถูกบันทึกว่าไม่ได้ซื้อ)
                              </Text>
                         </div>
                     )}

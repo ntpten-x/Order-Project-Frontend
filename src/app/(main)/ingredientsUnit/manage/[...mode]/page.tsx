@@ -22,7 +22,7 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
     if (isEdit) {
       fetchIngredientsUnit();
     }
-  }, [isEdit, id]);
+  }, [isEdit, id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fetchIngredientsUnit = async () => {
     setLoading(true);
@@ -44,6 +44,7 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
     }
   };
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onFinish = async (values: any) => {
     setSubmitting(true);
     try {
@@ -75,9 +76,9 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
         message.success('สร้างหน่วยวัตถุดิบสำเร็จ');
       }
       router.push('/ingredientsUnit');
-    } catch (error: any) {
+    } catch (error) {
       console.error(error);
-      message.error(error.message || (isEdit ? 'ไม่สามารถอัปเดตหน่วยวัตถุดิบได้' : 'ไม่สามารถสร้างหน่วยวัตถุดิบได้'));
+      message.error((error as Error).message || (isEdit ? 'ไม่สามารถอัปเดตหน่วยวัตถุดิบได้' : 'ไม่สามารถสร้างหน่วยวัตถุดิบได้'));
     } finally {
       setSubmitting(false);
     }

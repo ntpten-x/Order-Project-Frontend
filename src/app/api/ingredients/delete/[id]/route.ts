@@ -5,7 +5,7 @@ export async function DELETE(request: Request, { params }: { params: { id: strin
     try {
         await ingredientsService.delete(params.id);
         return NextResponse.json({ message: "Ingredient deleted successfully" }, { status: 200 });
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }

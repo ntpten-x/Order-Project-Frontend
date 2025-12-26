@@ -51,7 +51,7 @@ export default function IngredientsUnitPage() {
           fetchIngredientsUnits();
       }
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
 
@@ -59,7 +59,7 @@ export default function IngredientsUnitPage() {
 
   useEffect(() => {
     fetchIngredientsUnits();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!socket) return;
@@ -143,7 +143,7 @@ export default function IngredientsUnitPage() {
       title: 'การจัดการ',
       key: 'actions',
       width: 150,
-      render: (_: any, record: IngredientsUnit) => (
+      render: (_: unknown, record: IngredientsUnit) => (
         <Space size="middle">
           <Button 
             type="text" 

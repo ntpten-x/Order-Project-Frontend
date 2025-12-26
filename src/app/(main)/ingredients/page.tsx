@@ -57,11 +57,11 @@ export default function IngredientsPage() {
           fetchIngredients();
       }
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     fetchIngredients();
-  }, []);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!socket) return;
@@ -140,7 +140,7 @@ export default function IngredientsPage() {
         title: 'หน่วย',
         dataIndex: ['unit', 'unit_name'], // Access nested property
         key: 'unit',
-        render: (_: any, record: Ingredients) => record.unit ? `${record.unit.display_name} (${record.unit.unit_name})` : '-',
+        render: (_: unknown, record: Ingredients) => record.unit ? `${record.unit.display_name} (${record.unit.unit_name})` : '-',
     },
     {
         title: 'วันที่สร้าง',
@@ -162,7 +162,7 @@ export default function IngredientsPage() {
       title: 'การจัดการ',
       key: 'actions',
       width: 150,
-      render: (_: any, record: Ingredients) => (
+      render: (_: unknown, record: Ingredients) => (
         <Space size="middle">
           <Button 
             type="text" 

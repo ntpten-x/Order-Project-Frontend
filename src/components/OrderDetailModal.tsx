@@ -18,7 +18,7 @@ export default function OrderDetailModal({ order, open, onClose }: OrderDetailMo
             title: 'รูปภาพ',
             dataIndex: ['ingredient', 'img_url'],
             key: 'img',
-            render: (src: string, record: any) => (
+            render: (src: string, record: any) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
                 <Avatar 
                     src={src || 'https://placehold.co/40x40?text=No+Img'} 
                     shape="square" 
@@ -37,7 +37,7 @@ export default function OrderDetailModal({ order, open, onClose }: OrderDetailMo
         {
             title: 'จำนวน',
             key: 'quantity',
-            render: (record: any) => {
+            render: (record: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
                 const isPurchased = record.ordersDetail?.is_purchased;
                 const actual = record.ordersDetail?.actual_quantity;
                 const ordered = record.quantity_ordered;
