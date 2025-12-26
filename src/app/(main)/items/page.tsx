@@ -38,9 +38,45 @@ export default function ItemsPage() {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on("orders_updated", () => {
-        // Simple strategy: Refresh all on any update for now
-        fetchOrders();
+    // Handle real-time updates without full refetch
+    socket.on("orders_updated", (payload: { action: string, data?: Order, id?: string, orderId?: string }) => {
+        const { action, data, id, orderId } = payload;
+        
+        switch (action) {
+            case "create":
+                if (data) {
+                    setOrders(prev => [data, ...prev]);
+                    message.success("มีออเดอร์ใหม่เข้ามา");
+                }
+                break;
+            case "update_status":
+                if (data) {
+                    setOrders(prev => prev.map(order => order.id === data.id ? data : order));
+                    message.info(`อัปเดตสถานะออเดอร์ ${data.id.substring(0,8)}`);
+                }
+                break;
+            case "delete":
+                if (id) {
+                    setOrders(prev => prev.filter(order => order.id !== id));
+                    message.warning("ลบออเดอร์แล้ว");
+                }
+                break;
+            case "update_item_detail":
+                 // For item detail updates, we might need to update the specific item inside the order.
+                 // The payload data is OrdersDetail, but the UI shows OrdersItems.
+                 // Since OrdersDetail is linked to OrdersItem, and we likely need to refresh the whole order structure or update carefully.
+                 // For simplicity and accuracy of nested relations, functionality: "Refetch specific order or all" is safer.
+                 // Let's refetch all for complex nested updates to avoid consistency issues, OR refetch just that order.
+                 if (orderId) {
+                     // Optimistic update is hard for deep nested without full object. 
+                     // Let's refetch to be safe for this complex case, but keep others optimistic.
+                     fetchOrders(); 
+                 }
+                 break;
+            default:
+                fetchOrders();
+                break;
+        }
     });
 
     return () => {
