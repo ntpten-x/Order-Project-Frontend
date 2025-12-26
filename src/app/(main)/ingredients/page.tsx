@@ -10,14 +10,20 @@ import { useGlobalLoading } from '@/contexts/GlobalLoadingContext';
 import { useAsyncAction } from '@/hooks/useAsyncAction';
 import { useSocket } from '@/hooks/useSocket';
 
+import { useAuth } from '@/contexts/AuthContext';
+import { Spin } from 'antd';
+
 const { Title, Text } = Typography;
 
 export default function IngredientsPage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [ingredients, setIngredients] = useState<Ingredients[]>([]);
   const { execute } = useAsyncAction();
   const { showLoading, hideLoading } = useGlobalLoading();
   const { socket } = useSocket();
+
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
   const fetchIngredients = async () => {
     execute(async () => {
@@ -30,6 +36,28 @@ export default function IngredientsPage() {
       setIngredients(data);
     }, 'กำลังโหลดข้อมูลวัตถุดิบ...');
   };
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user) {
+          setIsAuthorized(false);
+          // If not logged in, redirect (though layout might handle this)
+          setTimeout(() => {
+             router.replace('/login'); // or /
+          }, 1000); 
+      } else if (user.role !== 'Admin') {
+          setIsAuthorized(false);
+          message.error("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
+          setTimeout(() => {
+             router.replace('/items');
+          }, 1000); 
+      } else {
+          // Allow only Admin
+          setIsAuthorized(true);
+          fetchIngredients();
+      }
+    }
+  }, [user, authLoading, router]);
 
   useEffect(() => {
     fetchIngredients();
@@ -61,6 +89,24 @@ export default function IngredientsPage() {
       socket.off('ingredients:delete');
     };
   }, [socket]);
+
+  if (authLoading || isAuthorized === null) {
+      return (
+          <div className="flex h-screen justify-center items-center bg-gray-50 flex-col gap-4">
+              <Spin size="large" />
+              <Typography.Text type="secondary">กำลังตรวจสอบสิทธิ์การใช้งาน...</Typography.Text>
+          </div>
+      );
+  }
+
+  if (isAuthorized === false) {
+       return (
+          <div className="flex h-screen justify-center items-center bg-gray-50 flex-col gap-4">
+              <Spin size="large" />
+              <Typography.Text type="danger">คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับหน้าแรก...</Typography.Text>
+          </div>
+      );
+  }
 
   const columns = [
     // {

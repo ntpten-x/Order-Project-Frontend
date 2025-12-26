@@ -34,10 +34,19 @@ export default function BuyingPage() {
     const { socket } = useSocket();
 
     useEffect(() => {
+        if (!user) {
+            router.push("/login");
+            return;
+        }
+        if (user.role !== "Admin" && user.role !== "Manager") {
+            message.error("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
+            router.push("/items");
+            return;
+        }
         if (orderId) {
             fetchOrder();
         }
-    }, [orderId]);
+    }, [orderId, user]);
 
     useEffect(() => {
         if (!socket || !orderId) return;
@@ -74,10 +83,14 @@ export default function BuyingPage() {
     const fetchOrder = async () => {
         try {
             setLoading(true);
-            const data = await ordersService.getOrderById(orderId!);
+            // Use Proxy API
+            const response = await fetch(`/api/orders/${orderId}`, { cache: "no-store" });
+            if (!response.ok) throw new Error("Failed to load order");
+            const data = await response.json();
+            
             setOrder(data);
             
-            const initialItems = data.ordersItems?.map(item => ({
+            const initialItems = data.ordersItems?.map((item: any) => ({
                 ingredient_id: item.ingredient_id,
                 actual_quantity: item.quantity_ordered,
                 ordered_quantity: item.quantity_ordered,
@@ -120,7 +133,15 @@ export default function BuyingPage() {
                 is_purchased: i.is_purchased
             }));
             
-            await ordersService.confirmPurchase(orderId!, payload, user.id);
+            // Use Proxy API
+            const response = await fetch(`/api/orders/${orderId}/purchase`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: payload, purchased_by_id: user.id })
+            });
+
+            if (!response.ok) throw new Error("Failed to confirm purchase");
+
             message.success("บันทึกการสั่งซื้อเรียบร้อย");
             setConfirmModalOpen(false);
             router.push("/history");

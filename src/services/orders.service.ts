@@ -4,17 +4,26 @@ import { getProxyUrl } from "../lib/proxy-utils";
 
 const BASE_PATH = "/orders";
 
+const getHeaders = (cookie?: string, contentType: string = "application/json"): HeadersInit => {
+    const headers: any = {};
+    if (contentType) headers["Content-Type"] = contentType;
+    if (cookie) headers.Cookie = cookie;
+    return headers;
+};
+
 export const ordersService = {
     // Order Flow
     createOrder: async (data: {
         ordered_by_id: string;
         items: { ingredient_id: string; quantity_ordered: number }[];
         remark?: string;
-    }): Promise<Order> => {
+    }, cookie?: string): Promise<Order> => {
         const url = getProxyUrl("POST", BASE_PATH);
+        const headers = getHeaders(cookie);
+
         const response = await fetch(url!, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers,
             body: JSON.stringify(data),
         });
         if (!response.ok) {
@@ -24,9 +33,14 @@ export const ordersService = {
         return response.json();
     },
 
-    getAllOrders: async (): Promise<Order[]> => {
+    getAllOrders: async (cookie?: string): Promise<Order[]> => {
         const url = getProxyUrl("GET", BASE_PATH);
-        const response = await fetch(url!, { cache: "no-store" });
+        const headers = getHeaders(cookie, "");
+
+        const response = await fetch(url!, {
+            cache: "no-store",
+            headers
+        });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลออเดอร์ได้");
@@ -34,9 +48,14 @@ export const ordersService = {
         return response.json();
     },
 
-    getOrderById: async (id: string): Promise<Order> => {
+    getOrderById: async (id: string, cookie?: string): Promise<Order> => {
         const url = getProxyUrl("GET", `${BASE_PATH}/${id}`);
-        const response = await fetch(url!, { cache: "no-store" });
+        const headers = getHeaders(cookie, "");
+
+        const response = await fetch(url!, {
+            cache: "no-store",
+            headers
+        });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลออเดอร์ได้");
@@ -44,11 +63,13 @@ export const ordersService = {
         return response.json();
     },
 
-    updateStatus: async (id: string, status: OrderStatus): Promise<Order> => {
+    updateStatus: async (id: string, status: OrderStatus, cookie?: string): Promise<Order> => {
         const url = getProxyUrl("PUT", `${BASE_PATH}/${id}/status`);
+        const headers = getHeaders(cookie);
+
         const response = await fetch(url!, {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers,
             body: JSON.stringify({ status }),
         });
         if (!response.ok) {
@@ -58,11 +79,13 @@ export const ordersService = {
         return response.json();
     },
 
-    updateOrder: async (id: string, items: { ingredient_id: string; quantity_ordered: number }[]): Promise<Order> => {
+    updateOrder: async (id: string, items: { ingredient_id: string; quantity_ordered: number }[], cookie?: string): Promise<Order> => {
         const url = getProxyUrl("PUT", `${BASE_PATH}/${id}`);
+        const headers = getHeaders(cookie);
+
         const response = await fetch(url!, {
             method: "PUT",
-            headers: { "Content-Type": "application/json" },
+            headers,
             body: JSON.stringify({ items }),
         });
 
@@ -73,11 +96,13 @@ export const ordersService = {
         return response.json();
     },
 
-    confirmPurchase: async (id: string, items: { ingredient_id: string; actual_quantity: number; is_purchased: boolean }[], purchased_by_id: string): Promise<Order> => {
+    confirmPurchase: async (id: string, items: { ingredient_id: string; actual_quantity: number; is_purchased: boolean }[], purchased_by_id: string, cookie?: string): Promise<Order> => {
         const url = getProxyUrl("POST", `${BASE_PATH}/${id}/purchase`);
+        const headers = getHeaders(cookie);
+
         const response = await fetch(url!, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers,
             body: JSON.stringify({ items, purchased_by_id }),
         });
 
@@ -92,11 +117,13 @@ export const ordersService = {
         actual_quantity: number;
         purchased_by_id: string;
         is_purchased?: boolean;
-    }): Promise<OrdersDetail> => {
+    }, cookie?: string): Promise<OrdersDetail> => {
         const url = getProxyUrl("POST", "/ordersDetail/update");
+        const headers = getHeaders(cookie);
+
         const response = await fetch(url!, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers,
             body: JSON.stringify(data),
         });
         if (!response.ok) {
@@ -106,10 +133,13 @@ export const ordersService = {
         return response.json();
     },
 
-    deleteOrder: async (id: string): Promise<void> => {
+    deleteOrder: async (id: string, cookie?: string): Promise<void> => {
         const url = getProxyUrl("DELETE", `${BASE_PATH}/${id}`);
+        const headers = getHeaders(cookie, "");
+
         const response = await fetch(url!, {
             method: "DELETE",
+            headers
         });
 
         if (!response.ok) {

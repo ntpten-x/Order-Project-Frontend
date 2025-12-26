@@ -9,6 +9,7 @@ import OrderDetailModal from "@/components/OrderDetailModal";
 import { ordersService } from "@/services/orders.service";
 import { useSocket } from "@/hooks/useSocket";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 
 const { Title, Text } = Typography;
 
@@ -17,16 +18,22 @@ export default function ItemsPage() {
   const [loading, setLoading] = useState(true);
   const { socket } = useSocket();
   const router = useRouter();
+  const { user } = useAuth();
 
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const data = await ordersService.getAllOrders();
+      // Use Proxy API to forward cookies
+      const response = await fetch("/api/orders", { cache: "no-store", headers: { 'Content-Type': 'application/json' } });
+      if (!response.ok) {
+          throw new Error("Failed to fetch orders");
+      }
+      const data = await response.json();
       // Filter only pending items (conceptually based on user requirement "Waiting to buy")
       // But typically "Items" page might show all, let's filter for PENDING first or show all sorted.
       // User said "Pending items" -> "Wait to buy".
       // Let's show all for now but sorted by date.
-      setOrders(data.filter((order) => order.status === OrderStatus.PENDING));
+      setOrders(data.filter((order: Order) => order.status === OrderStatus.PENDING));
     } catch (error) {
       console.error("Failed to fetch orders:", error);
       message.error("ไม่สามารถโหลดรายการออเดอร์ได้");
@@ -98,7 +105,17 @@ export default function ItemsPage() {
         content: `คุณต้องการยกเลิกออเดอร์ ${order.id.substring(0, 8)} หรือไม่?`,
         onOk: async () => {
             try {
-                await ordersService.updateStatus(order.id, OrderStatus.CANCELLED);
+                // Use Proxy API for update status
+                const response = await fetch(`/api/orders/${order.id}/status`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: OrderStatus.CANCELLED })
+                });
+
+                if (!response.ok) {
+                    throw new Error("Failed to cancel order");
+                }
+                
                 message.success("ยกเลิกออเดอร์สำเร็จ");
             } catch (error) {
                 message.error("ยกเลิกออเดอร์ล้มเหลว");
@@ -168,6 +185,7 @@ export default function ItemsPage() {
                 >
                     ดู
                 </Button>
+                {(user?.role === 'Admin' || user?.role === 'Manager') && (
                 <Button
                     type="primary"
                     size="small"
@@ -178,6 +196,7 @@ export default function ItemsPage() {
                 >
                     สั่งซื้อ
                 </Button>
+                )}
                 <Button 
                     type="primary" 
                     ghost 

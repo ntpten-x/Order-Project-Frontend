@@ -10,14 +10,20 @@ import { useGlobalLoading } from '@/contexts/GlobalLoadingContext';
 import { useAsyncAction } from '@/hooks/useAsyncAction';
 import { useSocket } from '@/hooks/useSocket';
 
+import { useAuth } from '@/contexts/AuthContext';
+import { Spin } from 'antd';
+
 const { Title, Text } = Typography;
 
 export default function IngredientsUnitPage() {
   const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
   const [ingredientsUnits, setIngredientsUnits] = useState<IngredientsUnit[]>([]);
   const { execute } = useAsyncAction();
   const { showLoading, hideLoading } = useGlobalLoading();
   const { socket } = useSocket();
+
+  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
   const fetchIngredientsUnits = async () => {
     execute(async () => {
@@ -30,6 +36,26 @@ export default function IngredientsUnitPage() {
       setIngredientsUnits(data);
     }, 'กำลังโหลดข้อมูลหน่วยวัตถุดิบ...');
   };
+
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user || user.role !== 'Admin') {
+          // message.error('คุณไม่มีสิทธิ์เข้าถึงหน้านี้'); // Optional: show message before redirect?
+          // Let's emulate the Users page behavior
+          setIsAuthorized(false);
+          setTimeout(() => {
+             router.replace('/');
+          }, 1000); 
+      } else {
+          setIsAuthorized(true);
+          fetchIngredientsUnits();
+      }
+    }
+  }, [user, authLoading, router]);
+
+
+
+
 
   useEffect(() => {
     fetchIngredientsUnits();
@@ -59,6 +85,24 @@ export default function IngredientsUnitPage() {
       socket.off('ingredientsUnit:delete');
     };
   }, [socket]);
+
+  if (authLoading || isAuthorized === null) {
+      return (
+          <div className="flex h-screen justify-center items-center bg-gray-50 flex-col gap-4">
+              <Spin size="large" />
+              <Typography.Text type="secondary">กำลังตรวจสอบสิทธิ์การใช้งาน...</Typography.Text>
+          </div>
+      );
+  }
+
+  if (isAuthorized === false) {
+       return (
+          <div className="flex h-screen justify-center items-center bg-gray-50 flex-col gap-4">
+              <Spin size="large" />
+              <Typography.Text type="danger">คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับหน้าแรก...</Typography.Text>
+          </div>
+      );
+  }
 
   const columns = [
     // {

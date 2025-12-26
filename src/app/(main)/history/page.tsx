@@ -7,6 +7,7 @@ import { Order, OrderStatus } from "@/types/api/orders";
 import OrderDetailModal from "@/components/OrderDetailModal";
 import { ordersService } from "@/services/orders.service";
 import { useSocket } from "@/hooks/useSocket";
+import { useAuth } from "@/contexts/AuthContext";
 
 const { Title, Text } = Typography;
 
@@ -15,13 +16,18 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
   const { socket } = useSocket();
+  const { user } = useAuth();
 
   const fetchOrders = async () => {
     try {
       setLoading(true);
-      const data = await ordersService.getAllOrders();
+      // Use Proxy API
+      const response = await fetch("/api/orders", { cache: "no-store" });
+      if (!response.ok) throw new Error("Failed to fetch orders");
+      const data = await response.json();
+      
       // Show only Completed or Cancelled
-      setOrders(data.filter((order) => 
+      setOrders(data.filter((order: Order) => 
         order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED
       ));
     } catch (error) {
@@ -41,7 +47,10 @@ export default function HistoryPage() {
         cancelText: 'ยกเลิก',
         onOk: async () => {
             try {
-                await ordersService.deleteOrder(order.id);
+                // Use Proxy API
+                const response = await fetch(`/api/orders/${order.id}`, { method: 'DELETE' });
+                if (!response.ok) throw new Error("Failed to delete order");
+                
                 message.success("ลบประวัติออเดอร์สำเร็จ");
                 // Socket will handle update, or we can optimistic update
                 setOrders(prev => prev.filter(o => o.id !== order.id));
@@ -70,12 +79,6 @@ export default function HistoryPage() {
   }, [socket]);
 
   const columns = [
-    // {
-    //   title: 'Order ID',
-    //   dataIndex: 'id',
-    //   key: 'id',
-    //   render: (id: string) => <Text copyable>{id.substring(0, 8)}</Text>,
-    // },
     {
         title: 'ผู้สั่ง',
         dataIndex: ['ordered_by', 'username'],
@@ -134,6 +137,7 @@ export default function HistoryPage() {
                 >
                     ดู
                 </Button>
+                {user?.role === 'Admin' && (
                 <Button
                     danger
                     size="small"
@@ -142,6 +146,7 @@ export default function HistoryPage() {
                 >
                     ลบ
                 </Button>
+                )}
             </Space>
         )
     }

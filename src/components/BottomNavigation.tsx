@@ -4,11 +4,42 @@ import React from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { UserOutlined, ShoppingCartOutlined, FileTextOutlined, HistoryOutlined, HomeOutlined, InfoCircleOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { useAuth } from '@/contexts/AuthContext';
+import { useSocket } from "@/hooks/useSocket";
+import { useState, useEffect } from 'react';
+import { OrderStatus } from '@/types/api/orders';
 
 const BottomNavigation = () => {
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuth(); // Get user from AuthContext
+  const [pendingCount, setPendingCount] = useState(0);
+  const { socket } = useSocket();
+
+  const checkPendingOrders = async () => {
+    try {
+        const res = await fetch('/api/orders', { cache: 'no-store' });
+        if (res.ok) {
+            const data = await res.json();
+            // Count all pending orders
+            const count = data.filter((o: any) => o.status === OrderStatus.PENDING).length;
+            setPendingCount(count);
+        }
+    } catch (e) {
+        // Silent fail
+    }
+  };
+
+  useEffect(() => {
+    if (user) {
+        checkPendingOrders();
+    }
+  }, [user]);
+
+  useEffect(() => {
+      if (!socket) return;
+      socket.on('orders_updated', checkPendingOrders);
+      return () => { socket.off('orders_updated', checkPendingOrders); };
+  }, [socket]);
 
   // const [activeTab, setActiveTab] = useState('');
 
@@ -49,19 +80,17 @@ const BottomNavigation = () => {
       icon: <HistoryOutlined className="text-2xl" />,
       path: '/history',
     },
-    {
+    ...(user?.role === 'Admin' ? [{
       key: 'ingredients',
       label: 'วัตถุดิบ',
       icon: <UnorderedListOutlined className="text-2xl" />,
       path: '/ingredients', 
-    },
-    {
+    }, {
       key: 'ingredientsUnit',
       label: 'หน่วย',
       icon: <InfoCircleOutlined className="text-2xl" />,
       path: '/ingredientsUnit', 
-    },
-    ...(user?.role === 'Admin' ? [{
+    }, {
       key: 'manage',
       label: 'ผู้ใช้งาน',
       icon: <UserOutlined className="text-2xl" />,
@@ -100,6 +129,9 @@ const BottomNavigation = () => {
                         style={{ color: isActive ? activeColor : inactiveColor }}
                     >
                         {item.icon}
+                        {item.key === 'items' && pendingCount > 0 && (
+                            <div className="absolute top-0 right-0 translate-x-1/3 -translate-y-1/3 w-3 h-3 bg-red-500 rounded-full border-2 border-[#171717]" />
+                        )}
                     </div>
                   </div>
                   

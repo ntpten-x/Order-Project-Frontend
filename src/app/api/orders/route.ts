@@ -1,11 +1,12 @@
 import { ordersService } from "@/services/orders.service";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
-        const orders = await ordersService.getAllOrders();
+        const cookie = request.headers.get("cookie") || "";
+        const orders = await ordersService.getAllOrders(cookie);
         return NextResponse.json(orders);
     } catch (error: any) {
         console.error("API Error:", error);
@@ -13,10 +14,11 @@ export async function GET() {
     }
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const order = await ordersService.createOrder(body);
+        const cookie = request.headers.get("cookie") || "";
+        const order = await ordersService.createOrder(body, cookie);
         return NextResponse.json(order);
     } catch (error: any) {
         console.error("API Error:", error);

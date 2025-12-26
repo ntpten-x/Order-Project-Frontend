@@ -121,7 +121,19 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
         setLoading(true);
         try {
             const payload = items.map(i => ({ ingredient_id: i.ingredient_id, quantity_ordered: i.quantity_ordered }));
-            await ordersService.updateOrder(order.id, payload);
+            
+            // Use Proxy API to forward cookies
+            const response = await fetch(`/api/orders/${order.id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ items: payload })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || errorData.message || "แก้ไขออเดอร์ล้มเหลว");
+            }
+
             message.success("แก้ไขออเดอร์สำเร็จ");
             onSuccess();
             onClose();

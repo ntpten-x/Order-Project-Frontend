@@ -6,7 +6,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         const { id } = params;
         const body = await request.json();
         const { items, purchased_by_id } = body;
-        const order = await ordersService.confirmPurchase(id, items, purchased_by_id);
+        const cookie = request.headers.get("cookie") || "";
+        const order = await ordersService.confirmPurchase(id, items, purchased_by_id, cookie);
         return NextResponse.json(order);
     } catch (error: any) {
         console.error("API Error:", error);

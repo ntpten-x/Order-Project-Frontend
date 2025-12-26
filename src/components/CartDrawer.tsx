@@ -41,11 +41,22 @@ export default function CartDrawer() {
         quantity_ordered: item.quantity
       }));
 
-      await ordersService.createOrder({
-        ordered_by_id: user.id,
-        items: orderItems,
-        remark: "สั่งซื้อผ่านเว็บ"
+      const response = await fetch("/api/orders", {
+          method: "POST",
+          headers: {
+              "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+              ordered_by_id: user.id,
+              items: orderItems,
+              remark: "สั่งซื้อผ่านเว็บ"
+          })
       });
+
+      if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.error || errorData.message || "การสั่งซื้อล้มเหลว");
+      }
 
       message.success("สั่งออเดอร์สำเร็จ!");
       clearCart();

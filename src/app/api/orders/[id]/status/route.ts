@@ -5,7 +5,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
     try {
         const { id } = params;
         const body = await request.json();
-        const order = await ordersService.updateStatus(id, body.status);
+        const cookie = request.headers.get("cookie") || "";
+        const order = await ordersService.updateStatus(id, body.status, cookie);
         return NextResponse.json(order);
     } catch (error: any) {
         console.error("API Error:", error);
