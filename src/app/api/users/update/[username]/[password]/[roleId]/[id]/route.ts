@@ -1,9 +1,9 @@
 
 import { userService } from "@/services/users.service";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function PUT(request: Request, { params }: { params: any }) {
+export async function PUT(request: NextRequest, { params }: { params: any }) {
     try {
         const { username, password, roleId, id } = params;
 
@@ -28,7 +28,8 @@ export async function PUT(request: Request, { params }: { params: any }) {
             updateData.password = password;
         }
 
-        const user = await userService.updateUser(id, updateData); // id as string
+        const cookie = request.headers.get("cookie") || "";
+        const user = await userService.updateUser(id, updateData, cookie); // id as string
         return NextResponse.json(user);
     } catch (error: any) {
         console.error("API Error:", error);

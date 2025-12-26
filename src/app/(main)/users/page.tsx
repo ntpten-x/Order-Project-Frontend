@@ -13,6 +13,10 @@ import { useGlobalLoading } from '@/contexts/GlobalLoadingContext';
 
 const { Title, Text } = Typography;
 
+import { useAuth } from '@/contexts/AuthContext';
+
+import { Spin } from 'antd';
+
 export default function UsersPage() {
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
@@ -20,6 +24,37 @@ export default function UsersPage() {
   const { socket } = useSocket();
   const { execute } = useAsyncAction();
   const { showLoading, hideLoading } = useGlobalLoading();
+  const { user, loading: authLoading } = useAuth(); // Get auth state
+
+  // Protect Route
+  useEffect(() => {
+    if (!authLoading) {
+      if (!user || user.role !== 'Admin') {
+        const timer = setTimeout(() => {
+            message.error("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
+            router.push('/');
+        }, 1000); // 1s delay to show the "Checking permissions" text so it's not too jarring
+        return () => clearTimeout(timer);
+      }
+    }
+  }, [user, authLoading, router]);
+
+  // Loading / Permission Check State
+  if (authLoading || !user || user.role !== 'Admin') {
+    return (
+        <div style={{ 
+            height: '100vh', 
+            display: 'flex', 
+            flexDirection: 'column',
+            justifyContent: 'center', 
+            alignItems: 'center',
+            backgroundColor: '#f5f5f5'
+        }}>
+            <Spin size="large" />
+            <Text style={{ marginTop: 16, color: '#8c8c8c' }}>กำลังตรวจสอบสิทธิ์การใช้งาน...</Text>
+        </div>
+    );
+  }
 
   const fetchUsers = async () => {
     execute(async () => {
@@ -34,6 +69,7 @@ export default function UsersPage() {
   };
 
   useEffect(() => {
+    // We already checked role in the render guard/redirect effect
     fetchUsers();
   }, []);
 

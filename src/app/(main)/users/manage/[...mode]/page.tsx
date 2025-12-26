@@ -33,8 +33,11 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
     try {
       const response = await fetch('/api/roles/getAll');
       if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลบทบาทได้');
-      const data = await response.json();
-      setRoles(data);
+      const data: Role[] = await response.json();
+      // Filter out raw English role names if they are likely duplicates of Thai ones
+      // This assumes 'Admin', 'Manager', 'Employee' are the unwanted ones
+      const filteredRoles = data.filter(role => !['Admin', 'Manager', 'Employee'].includes(role.display_name));
+      setRoles(filteredRoles.length > 0 ? filteredRoles : data); // Fallback to all if filter removes everything
     } catch (error) {
       console.error(error);
       message.error('ไม่สามารถดึงข้อมูลบทบาทได้');

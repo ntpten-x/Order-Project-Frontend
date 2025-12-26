@@ -3,11 +3,12 @@
 import React from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { UserOutlined, ShoppingCartOutlined, FileTextOutlined, HistoryOutlined, HomeOutlined, InfoCircleOutlined, UnorderedListOutlined } from '@ant-design/icons';
-
+import { useAuth } from '@/contexts/AuthContext';
 
 const BottomNavigation = () => {
   const router = useRouter();
   const pathname = usePathname();
+  const { user } = useAuth(); // Get user from AuthContext
 
   // const [activeTab, setActiveTab] = useState('');
 
@@ -60,12 +61,12 @@ const BottomNavigation = () => {
       icon: <InfoCircleOutlined className="text-2xl" />,
       path: '/ingredientsUnit', 
     },
-    {
+    ...(user?.role === 'Admin' ? [{
       key: 'manage',
       label: 'ผู้ใช้งาน',
       icon: <UserOutlined className="text-2xl" />,
       path: '/users', 
-    },
+    }] : []),
 
   ];
 

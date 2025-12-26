@@ -4,7 +4,8 @@ import { userService } from "@/services/users.service";
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
     try {
         const { id } = params;
-        const users = await userService.getUserById(id);
+        const cookie = request.headers.get("cookie") || "";
+        const users = await userService.getUserById(id, cookie);
         return NextResponse.json(users);
     } catch (error: any) {
         console.error("API Error:", error);

@@ -1,11 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { userService } from "@/services/users.service";
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
-        const users = await userService.getAllUsers();
+        const cookie = request.headers.get("cookie") || "";
+        const users = await userService.getAllUsers(cookie);
         return NextResponse.json(users);
     } catch (error) {
         console.error("API Error:", error);

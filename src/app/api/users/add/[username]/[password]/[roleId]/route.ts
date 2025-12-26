@@ -4,11 +4,12 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(request: NextRequest, { params }: { params: { username: string; password: string; roleId: string } }) {
     try {
         const { username, password, roleId } = params;
+        const cookie = request.headers.get("cookie") || "";
         const user = await userService.createUser({
             username,
             password,
             roles_id: roleId,
-        });
+        }, cookie);
         return NextResponse.json(user);
     } catch (error: any) {
         console.error("API Error:", error);
