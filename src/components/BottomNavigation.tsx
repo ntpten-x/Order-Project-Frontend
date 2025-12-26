@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { UserOutlined, ShoppingCartOutlined, FileTextOutlined, HistoryOutlined, HomeOutlined } from '@ant-design/icons';
+import { UserOutlined, ShoppingCartOutlined, FileTextOutlined, HistoryOutlined, HomeOutlined, InfoCircleOutlined } from '@ant-design/icons';
 
 
 const BottomNavigation = () => {
@@ -47,7 +47,14 @@ const BottomNavigation = () => {
       label: 'ประวัติ',
       icon: <HistoryOutlined className="text-2xl" />,
       path: '/history',
-    },    {
+    },
+    {
+      key: 'ingredientsUnit',
+      label: 'หน่วย',
+      icon: <InfoCircleOutlined className="text-2xl" />,
+      path: '/ingredientsUnit', 
+    },
+    {
       key: 'manage',
       label: 'ผู้ใช้งาน',
       icon: <UserOutlined className="text-2xl" />,

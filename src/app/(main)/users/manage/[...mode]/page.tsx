@@ -201,7 +201,10 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
               <Form.Item
                 name="username"
                 label="ชื่อผู้ใช้"
-                rules={[{ required: true, message: 'กรุณากรอกชื่อผู้ใช้' }]}
+                rules={[
+                  { required: true, message: 'กรุณากรอกชื่อผู้ใช้' },
+                  { pattern: /^[a-zA-Z0-9\-_@.]*$/, message: 'กรุณากรอกภาษาอังกฤษ ตัวเลข หรืออักขระพิเศษ (- _ @ .)' }
+                ]}
               >
                 <Input size="large" placeholder="กรุณากรอกชื่อผู้ใช้" autoComplete="off" />
               </Form.Item>
@@ -209,7 +212,10 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
               <Form.Item
                 name="password"
                 label={isEdit ? "รหัสผ่านใหม่ (ปล่อยว่างเพื่อไม่เปลี่ยนรหัสผ่าน)" : "รหัสผ่าน"}
-                rules={[{ required: !isEdit, message: 'กรุณากรอกรหัสผ่าน' }]}
+                rules={[
+                  { required: !isEdit, message: 'กรุณากรอกรหัสผ่าน' },
+                  { pattern: /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]*$/, message: 'กรุณากรอกภาษาอังกฤษ ตัวเลข หรืออักขระพิเศษเท่านั้น' }
+                ]}
               >
                 <Input.Password size="large" placeholder="กรุณากรอกรหัสผ่าน" autoComplete="new-password" />
               </Form.Item>

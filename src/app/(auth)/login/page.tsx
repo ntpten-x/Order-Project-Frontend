@@ -54,7 +54,10 @@ export default function LoginPage() {
                 >
                     <Form.Item
                         name="username"
-                        rules={[{ required: true, message: "กรุณากรอกชื่อผู้ใช้!" }]}
+                        rules={[
+                            { required: true, message: "กรุณากรอกชื่อผู้ใช้!" },
+                            { pattern: /^[a-zA-Z0-9\-_@.]*$/, message: 'กรุณากรอกภาษาอังกฤษ ตัวเลข หรืออักขระพิเศษ (- _ @ .)' }
+                        ]}
                     >
                         <Input 
                             prefix={<UserOutlined className="text-gray-400" />} 
@@ -65,7 +68,10 @@ export default function LoginPage() {
 
                     <Form.Item
                         name="password"
-                        rules={[{ required: true, message: "กรุณากรอกรหัสผ่าน!" }]}
+                        rules={[
+                            { required: true, message: "กรุณากรอกรหัสผ่าน!" },
+                            { pattern: /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]*$/, message: 'กรุณากรอกภาษาอังกฤษ ตัวเลข หรืออักขระพิเศษเท่านั้น' }
+                        ]}
                     >
                         <Input.Password 
                             prefix={<LockOutlined className="text-gray-400" />} 
