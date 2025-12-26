@@ -9,6 +9,7 @@ import { useRouter } from 'next/navigation';
 import UserPageStyle from './style';
 import { useSocket } from '@/hooks/useSocket';
 import { useAsyncAction } from '@/hooks/useAsyncAction';
+import { useGlobalLoading } from '@/contexts/GlobalLoadingContext';
 
 const { Title, Text } = Typography;
 
@@ -18,6 +19,7 @@ export default function UsersPage() {
   // const [loading, setLoading] = useState(true); // Removed in favor of global loading
   const { socket } = useSocket();
   const { execute } = useAsyncAction();
+  const { showLoading, hideLoading } = useGlobalLoading();
 
   const fetchUsers = async () => {
     execute(async () => {
@@ -199,7 +201,21 @@ export default function UsersPage() {
               type="primary" 
               icon={<PlusOutlined />} 
               className="bg-blue-600 hover:bg-blue-700 transition-all rounded-lg"
-              onClick={() => router.push('/users/manage/add')}
+              onClick={() => {
+                showLoading();
+                router.push('/users/manage/add');
+                // Hide loading is not needed as page navigation will unmount potentially, 
+                // but usually the next page should handle turning it off or it stays on until hydrated?
+                // Actually, next.js navigation is client-side. We should probably set a timeout or rely on next page.
+                // However, without router events, simplest is to just show it.
+                // The global loader stays until hideLoading() is called.
+                // Since we are navigating, the new page will load. 
+                // If the new page doesn't turn it off, it will stay.
+                // To be safe, we relying on the Fact that GlobalLoadingProvider might be part of Layout
+                // which doesn't unmount. So we should hide it after a delay or let the next page hide it.
+                // A common trick is no-op or small timeout for UX, but actual route transition might be fast.
+                setTimeout(() => hideLoading(), 1000); // Temporary fix to ensure it doesn't get stuck if navigation fails or is fast.
+              }}
             >
               เพิ่มผู้ใช้
             </Button>

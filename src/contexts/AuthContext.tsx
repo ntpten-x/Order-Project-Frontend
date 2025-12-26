@@ -74,7 +74,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     if (loading) {
         return (
-            <div className="flex h-screen w-screen items-center justify-center">
+            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white">
                 <Spin size="large" />
             </div>
         );
