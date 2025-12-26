@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useState, ReactNode } from "react";
 import { Spin } from "antd";
-import { LoadingOutlined } from "@ant-design/icons";
 
 interface GlobalLoadingContextType {
     showLoading: (message?: string) => void;
@@ -14,11 +13,8 @@ const GlobalLoadingContext = createContext<GlobalLoadingContextType | undefined>
 
 export const GlobalLoadingProvider = ({ children }: { children: ReactNode }) => {
     const [isLoading, setIsLoading] = useState(false);
-    const [message, setMessage] = useState<string>("กำลังดำเนินการ...");
 
-    const showLoading = (msg?: string) => {
-        if (msg) setMessage(msg);
-        else setMessage("กำลังดำเนินการ...");
+    const showLoading = () => {
         setIsLoading(true);
     };
 
@@ -38,10 +34,10 @@ export const GlobalLoadingProvider = ({ children }: { children: ReactNode }) => 
     );
 };
 
-export const useGlobalLoading = (): GlobalLoadingContextType => {
+export function useGlobalLoading(): GlobalLoadingContextType {
     const context = useContext(GlobalLoadingContext);
     if (!context) {
         throw new Error("useGlobalLoading must be used within a GlobalLoadingProvider");
     }
     return context;
-};
+}
