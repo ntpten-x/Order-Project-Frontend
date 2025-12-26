@@ -2,9 +2,10 @@
 
 import React, { useEffect, useState } from "react";
 import { Table, Tag, Typography, Card, Space, Button, message, Modal } from "antd";
-import { ReloadOutlined, EditOutlined, StopOutlined } from "@ant-design/icons";
+import { ReloadOutlined, EditOutlined, StopOutlined, EyeOutlined } from "@ant-design/icons";
 import { Order, OrderStatus } from "@/types/api/orders";
 import EditOrderModal from "@/components/EditOrderModal";
+import OrderDetailModal from "@/components/OrderDetailModal";
 import { ordersService } from "@/services/orders.service";
 import { useSocket } from "@/hooks/useSocket";
 
@@ -23,7 +24,7 @@ export default function ItemsPage() {
       // But typically "Items" page might show all, let's filter for PENDING first or show all sorted.
       // User said "Pending items" -> "Wait to buy".
       // Let's show all for now but sorted by date.
-      setOrders(data);
+      setOrders(data.filter((order) => order.status === OrderStatus.PENDING));
     } catch (error) {
       console.error("Failed to fetch orders:", error);
       message.error("ไม่สามารถโหลดรายการออเดอร์ได้");
@@ -87,6 +88,7 @@ export default function ItemsPage() {
 
   // ... inside component ...
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
 
   const handleCancelOrder = (order: Order) => {
     Modal.confirm({
@@ -158,6 +160,13 @@ export default function ItemsPage() {
         render: (_: any, record: Order) => (
             <Space>
                 <Button 
+                    size="small" 
+                    icon={<EyeOutlined />} 
+                    onClick={() => setViewingOrder(record)}
+                >
+                    ดู
+                </Button>
+                <Button 
                     type="primary" 
                     ghost 
                     size="small" 
@@ -202,6 +211,12 @@ export default function ItemsPage() {
         order={editingOrder} 
         onClose={() => setEditingOrder(null)} 
         onSuccess={fetchOrders}
+      />
+      
+      <OrderDetailModal
+        open={!!viewingOrder}
+        order={viewingOrder}
+        onClose={() => setViewingOrder(null)}
       />
     </div>
   );
