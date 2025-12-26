@@ -2,13 +2,13 @@
 
 import React from 'react';
 import { useRouter, usePathname } from 'next/navigation';
-import { UserOutlined, ShoppingCartOutlined, FileTextOutlined, HistoryOutlined, HomeOutlined, LogoutOutlined } from '@ant-design/icons';
-import { useAuth } from '../contexts/AuthContext';
+import { UserOutlined, ShoppingCartOutlined, FileTextOutlined, HistoryOutlined, HomeOutlined } from '@ant-design/icons';
+
 
 const BottomNavigation = () => {
   const router = useRouter();
   const pathname = usePathname();
-  const { logout } = useAuth();
+
   // const [activeTab, setActiveTab] = useState('');
 
   /*
@@ -53,12 +53,7 @@ const BottomNavigation = () => {
       icon: <UserOutlined className="text-2xl" />,
       path: '/users', 
     },
-    {
-      key: 'logout',
-      label: 'ออกระบบ',
-      icon: <LogoutOutlined className="text-2xl" />,
-      path: '#',
-    }
+
   ];
 
   // Custom Colors - Dark Theme
@@ -78,11 +73,7 @@ const BottomNavigation = () => {
                 <button
                   key={item.key}
                   onClick={() => {
-                      if (item.key === 'logout') {
-                          logout();
-                      } else {
-                          router.push(item.path);
-                      }
+                      router.push(item.path);
                   }}
                   className="relative flex flex-col items-center justify-center w-full h-full group"
                 >

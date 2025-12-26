@@ -2,7 +2,7 @@ export interface User {
     id: string;
     username: string;
     role: string;
-    display_name?: string;
+    display_name: string;
     is_active?: boolean;
     is_use?: boolean;
 }

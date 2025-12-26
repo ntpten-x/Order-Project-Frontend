@@ -26,13 +26,11 @@ import {
   LockOutlined, 
   BarChartOutlined, 
   SafetyCertificateOutlined,
-  LoginOutlined,
-  RocketOutlined, 
   CheckCircleOutlined
 } from "@ant-design/icons";
 import { User } from "@/types/api/users";
 
-const { Header, Content, Footer } = Layout;
+const { Content, Footer } = Layout;
 const { Title, Text, Paragraph } = Typography;
 const { useToken } = antTheme;
 
@@ -84,49 +82,7 @@ export default function HomePage() {
 
   return (
     <Layout style={{ minHeight: "100vh", background: token.colorBgContainer }}>
-      {/* Navigation Header */}
-      <Header 
-        style={{ 
-          position: 'sticky', 
-          top: 0, 
-          zIndex: 100, 
-          width: '100%', 
-          display: 'flex', 
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          background: 'rgba(255, 255, 255, 0.95)',
-          backdropFilter: 'blur(10px)',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-          padding: '0 24px'
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-          <div style={{ 
-            width: 40, 
-            height: 40, 
-            background: `linear-gradient(135deg, ${token.colorPrimary}, ${token.colorPrimaryActive})`,
-            borderRadius: token.borderRadius,
-            display: 'flex',
-            alignItems: 'center', 
-            justifyContent: 'center',
-            color: '#fff',
-            fontWeight: 'bold',
-            fontSize: 18
-          }}>
-            O
-          </div>
-          <Text strong style={{ fontSize: 20 }}>OrderSystem</Text>
-        </div>
-        
-        <Space>
-          <Link href="/login">
-            <Button type="text" icon={<LoginOutlined />}>Sign In</Button>
-          </Link>
-          <Link href="/register">
-            <Button type="primary" icon={<RocketOutlined />}>Get Started</Button>
-          </Link>
-        </Space>
-      </Header>
+
 
       <Content style={{ padding: '0 24px', maxWidth: 1200, margin: '0 auto', width: '100%' }}>
         
