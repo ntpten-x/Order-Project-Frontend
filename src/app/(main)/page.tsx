@@ -1,29 +1,68 @@
 "use client";
 
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 import axios from "axios";
+import { 
+  Layout, 
+  Typography, 
+  Button, 
+  Card, 
+  List, 
+  Tag, 
+  Space, 
+  Spin, 
+  Result,
+  Row,
+  Col,
+  Modal,
+  message,
+  Avatar,
+  theme as antTheme
+} from "antd";
+import { 
+  DeleteOutlined, 
+  UserOutlined, 
+  LockOutlined, 
+  BarChartOutlined, 
+  SafetyCertificateOutlined,
+  LoginOutlined,
+  RocketOutlined, 
+  CheckCircleOutlined
+} from "@ant-design/icons";
 import { User } from "@/types/api/users";
 
+const { Header, Content, Footer } = Layout;
+const { Title, Text, Paragraph } = Typography;
+const { useToken } = antTheme;
+
 export default function HomePage() {
+  const { token } = useToken();
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this user?")) return;
-
-    try {
-      await axios.delete(`/api/users/delete/${id}`);
-      setUsers(users.filter((u) => u.id !== id));
-    } catch (error: any) {
-      console.error("Error deleting user:", error);
-      alert(error.response?.data?.error || "Failed to delete user");
-    }
+  const handleDelete = (id: string) => {
+    Modal.confirm({
+      title: 'Delete User',
+      content: 'Are you sure you want to delete this user? This action cannot be undone.',
+      okText: 'Delete',
+      okType: 'danger',
+      cancelText: 'Cancel',
+      onOk: async () => {
+        try {
+          await axios.delete(`/api/users/delete/${id}`);
+          setUsers(prev => prev.filter((u) => u.id !== id));
+          message.success('User deleted successfully');
+        } catch (error: any) {
+          console.error("Error deleting user:", error);
+          message.error(error.response?.data?.error || "Failed to delete user");
+        }
+      }
+    });
   };
 
   useEffect(() => {
-
     const fetchUsers = async () => {
       try {
         setLoading(true);
@@ -32,8 +71,9 @@ export default function HomePage() {
         setError(null);
       } catch (error: any) {
         console.error("Error fetching users:", error);
-        const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || "Failed to load users. Please try again later.";
+        const errorMessage = error.response?.data?.error || error.response?.data?.message || error.message || "Failed to load users.";
         setError(errorMessage);
+        message.error("Could not load users list");
       } finally {
         setLoading(false);
       }
@@ -41,179 +81,191 @@ export default function HomePage() {
 
     fetchUsers();
   }, []);
+
   return (
-    <div className="min-h-screen bg-white text-black selection:bg-blue-500/30">
-      {/* Navigation */}
-      <nav className="fixed top-0 w-full z-50 bg-white/70 backdrop-blur-xl border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <div className="w-10 h-10 bg-gradient-to-tr from-blue-600 to-indigo-500 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-blue-500/20">
-              O
-            </div>
-            <span className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-gray-900 to-gray-500">
-              OrderSystem
-            </span>
+    <Layout style={{ minHeight: "100vh", background: token.colorBgContainer }}>
+      {/* Navigation Header */}
+      <Header 
+        style={{ 
+          position: 'sticky', 
+          top: 0, 
+          zIndex: 100, 
+          width: '100%', 
+          display: 'flex', 
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          background: 'rgba(255, 255, 255, 0.95)',
+          backdropFilter: 'blur(10px)',
+          boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+          padding: '0 24px'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+          <div style={{ 
+            width: 40, 
+            height: 40, 
+            background: `linear-gradient(135deg, ${token.colorPrimary}, ${token.colorPrimaryActive})`,
+            borderRadius: token.borderRadius,
+            display: 'flex',
+            alignItems: 'center', 
+            justifyContent: 'center',
+            color: '#fff',
+            fontWeight: 'bold',
+            fontSize: 18
+          }}>
+            O
           </div>
-          <div className="flex items-center gap-6">
-            <Link 
-              href="/login" 
-              className="text-sm font-medium hover:text-blue-500 transition-colors"
-            >
-              Sign In
-            </Link>
-            <Link 
-              href="/register" 
-              className="px-5 py-2.5 bg-gray-900 text-white rounded-full text-sm font-medium hover:scale-105 active:scale-95 transition-all shadow-xl shadow-gray-200"
-            >
-              Get Started
-            </Link>
-          </div>
+          <Text strong style={{ fontSize: 20 }}>OrderSystem</Text>
         </div>
-      </nav>
+        
+        <Space>
+          <Link href="/login">
+            <Button type="text" icon={<LoginOutlined />}>Sign In</Button>
+          </Link>
+          <Link href="/register">
+            <Button type="primary" icon={<RocketOutlined />}>Get Started</Button>
+          </Link>
+        </Space>
+      </Header>
 
-      {/* Hero Section */}
-      <main className="relative pt-32 pb-20 overflow-hidden">
-        {/* Background Decorative Elements */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-full -z-10 opacity-30">
-          <div className="absolute top-20 left-10 w-72 h-72 bg-blue-400 rounded-full blur-[100px]" />
-          <div className="absolute bottom-20 right-10 w-96 h-96 bg-purple-400 rounded-full blur-[120px]" />
-        </div>
-
-        <div className="max-w-7xl mx-auto px-6 text-center">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-blue-50 border border-blue-100 text-blue-600 text-xs font-semibold mb-8 animate-fade-in">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-            </span>
+      <Content style={{ padding: '0 24px', maxWidth: 1200, margin: '0 auto', width: '100%' }}>
+        
+        {/* Hero Section */}
+        <div style={{ textAlign: 'center', padding: '80px 0 60px' }}>
+          <Tag color="blue" style={{ padding: '6px 16px', borderRadius: 20, marginBottom: 24, fontSize: 14 }}>
+            <SafetyCertificateOutlined style={{ marginRight: 6 }} /> 
             New: Role-based Access Control
-          </div>
+          </Tag>
           
-          <h1 className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tight mb-8">
-            Manage Orders with <br />
-            <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 via-indigo-500 to-purple-600">
-              Precision & Speed
-            </span>
-          </h1>
-
-          <p className="max-w-2xl mx-auto text-lg md:text-xl text-gray-600 mb-12 leading-relaxed">
+          <Title level={1} style={{ fontSize: 'clamp(2.5rem, 5vw, 4.5rem)', marginBottom: 24, lineHeight: 1.1 }}>
+             Manage Orders with <br />
+            <span style={{ color: token.colorPrimary }}>Precision & Speed</span>
+          </Title>
+          
+          <Paragraph type="secondary" style={{ fontSize: 18, maxWidth: 600, margin: '0 auto 40px' }}>
             A powerful, secure, and modern order management system built for high-performance teams. 
             Automate your workflow and focus on what matters most.
-          </p>
+          </Paragraph>
 
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-20">
-            <Link 
-              href="/register" 
-              className="w-full sm:w-auto px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-bold text-lg shadow-2xl shadow-blue-600/20 hover:scale-105 active:scale-95 transition-all"
-            >
-              Create Free Account
+          <Space size="large" wrap style={{ justifyContent: 'center' }}>
+            <Link href="/register">
+              <Button type="primary" size="large" style={{ minWidth: 180, height: 52, fontSize: 18 }}>
+                Create Free Account
+              </Button>
             </Link>
-            <Link 
-              href="/docs" 
-              className="w-full sm:w-auto px-8 py-4 bg-gray-100 hover:bg-gray-200 rounded-2xl font-bold text-lg transition-all"
-            >
-              View Documentation
+            <Link href="/docs">
+              <Button size="large" style={{ minWidth: 180, height: 52, fontSize: 18 }}>
+                View Documentation
+              </Button>
             </Link>
-          </div>
+          </Space>
+        </div>
 
-          <div className="mt-20">
-            <h2 className="text-3xl font-bold mb-10 text-left">Active Users</h2>
-            {loading ? (
-              <div className="flex justify-center py-20">
-                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-              </div>
-            ) : error ? (
-              <div className="p-8 bg-red-50 border border-red-100 rounded-2xl text-red-600">
-                {error}
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-                {users.map((user) => (
-                  <div 
-                    key={user.id}
-                    className="p-6 bg-white border border-gray-100 rounded-2xl text-left hover:border-blue-500/50 transition-all group shadow-sm"
+        {/* Users Section */}
+        <div style={{ marginTop: 60, marginBottom: 80 }}>
+          <Title level={2} style={{ marginBottom: 32 }}>Active Users</Title>
+          
+          {loading ? (
+             <div style={{ textAlign: 'center', padding: 80 }}>
+               <Spin size="large" />
+             </div>
+          ) : error ? (
+            <Result
+              status="error"
+              title="Failed to Load Users"
+              subTitle={error}
+            />
+          ) : (
+            <List
+              grid={{ gutter: 24, xs: 1, sm: 2, md: 3, lg: 4 }}
+              dataSource={users}
+              renderItem={(user) => (
+                <List.Item>
+                  <Card 
+                    hoverable
+                    style={{ borderRadius: token.borderRadiusLG }}
+                    bodyStyle={{ padding: 24 }}
+                    actions={[
+                      <Tag color="green" key="status" icon={<CheckCircleOutlined />}>Active</Tag>,
+                      <Button 
+                        key="delete" 
+                        type="text" 
+                        danger 
+                        icon={<DeleteOutlined />} 
+                        onClick={() => handleDelete(user.id)}
+                      />
+                    ]}
                   >
-                    <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center text-blue-600 text-xl font-bold mb-4">
-                      {user.username.charAt(0).toUpperCase()}
-                    </div>
-                    <h3 className="text-lg font-bold mb-1 truncate">{user.username}</h3>
-                    <p className="text-gray-500 text-sm">User ID: {user.id}</p>
-                <div className="mt-4 pt-4 border-t border-gray-100 flex items-center justify-between">
-                       <span className="text-xs font-medium px-2 py-1 rounded bg-green-100 text-green-600">
-                         Active
-                       </span>
-                       <div className="flex items-center gap-2">
-                         <span className="text-xs text-gray-400">
-                           {user.roles?.display_name || "Member"}
-                         </span>
-                         <button
-                           onClick={() => handleDelete(user.id)}
-                           className="text-red-500 hover:text-red-700 transition-colors p-1"
-                           title="Delete User"
-                         >
-                           🗑️
-                         </button>
-                       </div>
-                    </div>
-                  </div>
-                ))}
-                {users.length === 0 && (
-                  <div className="col-span-full py-20 text-center text-gray-500">
-                    No users found.
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
-
-          {/* Feature Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-32">
-            {[
-              {
-                title: "Role Management",
-                desc: "Granular access control for users and administrators.",
-                icon: "🔒"
-              },
-              {
-                title: "Real-time Stats",
-                desc: "Monitor your operations with live data visualization.",
-                icon: "📈"
-              },
-              {
-                title: "Secure API",
-                desc: "Enterprise-grade security for all your data transactions.",
-                icon: "🛡️"
-              }
-            ].map((feature, idx) => (
-              <div 
-                key={idx}
-                className="p-8 bg-white border border-gray-100 rounded-3xl text-left hover:border-blue-500/50 transition-all group shadow-sm"
-              >
-                <div className="text-4xl mb-4 group-hover:scale-110 transition-transform inline-block">
-                  {feature.icon}
-                </div>
-                <h3 className="text-xl font-bold mb-2">{feature.title}</h3>
-                <p className="text-gray-500 leading-relaxed">
-                  {feature.desc}
-                </p>
-              </div>
-            ))}
-          </div>
+                    <Card.Meta
+                      avatar={
+                        <Avatar 
+                          size={56} 
+                          style={{ backgroundColor: token.colorPrimary + '20', color: token.colorPrimary, fontWeight: 'bold' }}
+                        >
+                          {user.username?.charAt(0).toUpperCase()}
+                        </Avatar>
+                      }
+                      title={user.username}
+                      description={
+                        <Space direction="vertical" size={0}>
+                          <Text type="secondary" style={{ fontSize: 13 }}>ID: {user.id}</Text>
+                          <Text strong style={{ color: token.colorPrimary }}>
+                            {user.roles?.display_name || "Member"}
+                          </Text>
+                        </Space>
+                      }
+                    />
+                  </Card>
+                </List.Item>
+              )}
+            />
+          )}
+          
+          {!loading && !error && users.length === 0 && (
+            <div style={{ textAlign: 'center', padding: 80, background: token.colorFillAlter, borderRadius: token.borderRadiusLG }}>
+               <UserOutlined style={{ fontSize: 48, color: token.colorTextQuaternary, marginBottom: 16 }} />
+               <Title level={4} type="secondary">No users found</Title>
+            </div>
+          )}
         </div>
-      </main>
 
-      {/* Footer */}
-      <footer className="border-t border-gray-100 py-12">
-        <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-6">
-          <p className="text-gray-500 text-sm">
-            © 2025 OrderSystem. All rights reserved.
-          </p>
-          <div className="flex gap-8">
-            <Link href="#" className="text-sm text-gray-500 hover:text-blue-500">Privacy</Link>
-            <Link href="#" className="text-sm text-gray-500 hover:text-blue-500">Terms</Link>
-          </div>
-        </div>
-      </footer>
-    </div>
+        {/* Features Grid */}
+        <Row gutter={[32, 32]} style={{ marginBottom: 100 }}>
+          {[
+            {
+              title: "Role Management",
+              desc: "Granular access control for users and administrators.",
+              icon: <LockOutlined style={{ fontSize: 32, color: token.colorPrimary }} />
+            },
+            {
+              title: "Real-time Stats",
+              desc: "Monitor your operations with live data visualization.",
+              icon: <BarChartOutlined style={{ fontSize: 32, color: token.colorPrimary }} />
+            },
+            {
+              title: "Secure API",
+              desc: "Enterprise-grade security for all your data transactions.",
+              icon: <SafetyCertificateOutlined style={{ fontSize: 32, color: token.colorPrimary }} />
+            }
+          ].map((feature, idx) => (
+            <Col xs={24} md={8} key={idx}>
+              <Card bordered={false} style={{ height: '100%', background: token.colorFillAlter, borderRadius: token.borderRadiusLG }}>
+                <div style={{ marginBottom: 24 }}>{feature.icon}</div>
+                <Title level={4}>{feature.title}</Title>
+                <Paragraph type="secondary">{feature.desc}</Paragraph>
+              </Card>
+            </Col>
+          ))}
+        </Row>
+      </Content>
+
+      <Footer style={{ textAlign: 'center', background: 'transparent' }}>
+        <Space split={<div style={{ width: 1, height: 12, background: token.colorBorder }} />} size="large">
+           <Text type="secondary">© 2025 OrderSystem. All rights reserved.</Text>
+           <Link href="#"><Text type="secondary" className="hover:text-indigo-600 transition-colors">Privacy</Text></Link>
+           <Link href="#"><Text type="secondary">Terms</Text></Link>
+        </Space>
+      </Footer>
+    </Layout>
   );
 }
-

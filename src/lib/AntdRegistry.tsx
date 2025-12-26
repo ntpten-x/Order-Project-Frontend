@@ -5,6 +5,9 @@ import { createCache, extractStyle, StyleProvider } from '@ant-design/cssinjs';
 import type Entity from '@ant-design/cssinjs/lib/Cache';
 import { useServerInsertedHTML } from 'next/navigation';
 
+import { ConfigProvider } from 'antd';
+import theme from '@/theme/themeConfig';
+
 const AntdRegistry = ({ children }: React.PropsWithChildren) => {
   const cache = React.useMemo<Entity>(() => createCache(), []);
   const [isServerInserted, setIsServerInserted] = useState(false);
@@ -18,7 +21,13 @@ const AntdRegistry = ({ children }: React.PropsWithChildren) => {
     );
   });
 
-  return <StyleProvider cache={cache}>{children}</StyleProvider>;
+  return (
+    <StyleProvider cache={cache}>
+      <ConfigProvider theme={theme}>
+        {children}
+      </ConfigProvider>
+    </StyleProvider>
+  );
 };
 
 export default AntdRegistry;

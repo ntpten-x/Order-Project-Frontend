@@ -2,9 +2,9 @@
 
 import React, { useEffect, useState } from 'react';
 import { Table, Tag, Space, Button, Card, Typography, message, Modal } from 'antd';
-import { UserOutlined, EditOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
+import { UserOutlined, EditOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined, TeamOutlined } from '@ant-design/icons';
 import { User } from '@/types/api/users';
-import Link from 'next/link';
+
 import { useRouter } from 'next/navigation';
 import UserPageStyle from './style';
 import { useSocket } from '@/hooks/useSocket';
@@ -121,7 +121,7 @@ export default function UsersPage() {
       key: 'is_active',
       render: (isActive: boolean) => (
         <Tag color={isActive ? 'success' : 'error'}>
-          {isActive ? 'ใช้งาน' : 'ไม่ใช้งาน'}
+          {isActive ? 'กำลังใช้งาน' : 'ออฟไลน์'}
         </Tag>
       ),
     },
@@ -139,8 +139,6 @@ export default function UsersPage() {
       title: 'การจัดการ',
       key: 'actions',
       width: 150,
-      fixed: 'right' as const,
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       render: (_: any, record: User) => (
         <Space size="middle">
           <Button 
@@ -182,9 +180,13 @@ export default function UsersPage() {
     <div className="p-6 md:p-10 min-h-screen bg-gray-50">
       <div className="max-w-6xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
-          <div>
-            <Link href="/" className="text-blue-500 hover:text-blue-600 mb-2 inline-block">← Back to Home</Link>
-            <Title level={2} style={{ margin: 0 }}>จัดการผู้ใช้</Title>
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-white border border-gray-100 shadow-sm rounded-xl hidden md:flex items-center justify-center">
+              <TeamOutlined className="text-2xl text-blue-600" />
+            </div>
+            <div className="flex flex-col">
+              <Title level={2} style={{ margin: 0 }} className="!text-2xl font-bold">จัดการผู้ใช้</Title>
+            </div>
           </div>
           
           <Space>
@@ -216,6 +218,7 @@ export default function UsersPage() {
             columns={columns} 
             rowKey="id"
             loading={loading}
+            scroll={{ x: 1200 }} 
             pagination={{ 
               pageSize: 10,
               showSizeChanger: true,

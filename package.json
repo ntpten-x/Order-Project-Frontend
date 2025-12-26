@@ -10,6 +10,7 @@
     "validate": "npm run lint && npm run build"
   },
   "dependencies": {
+    "@ant-design/icons": "^6.1.0",
     "antd": "^6.1.2",
     "axios": "^1.13.2",
     "next": "^14.2.22",
