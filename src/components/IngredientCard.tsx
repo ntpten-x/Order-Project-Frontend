@@ -1,8 +1,9 @@
 import React from 'react';
-import { Card, Typography, Tag } from 'antd';
+import { Card, Typography, Button, message } from 'antd';
+import { ShoppingCartOutlined } from '@ant-design/icons';
 import { Ingredients } from '@/types/api/ingredients';
+import { useCart } from '@/contexts/CartContext';
 
-const { Meta } = Card;
 const { Title, Paragraph } = Typography;
 
 interface IngredientCardProps {
@@ -10,6 +11,13 @@ interface IngredientCardProps {
 }
 
 const IngredientCard: React.FC<IngredientCardProps> = ({ ingredient }) => {
+  const { addToCart } = useCart();
+
+  const handleAddToCart = () => {
+    addToCart(ingredient);
+    message.success(`Added ${ingredient.display_name} to cart`);
+  };
+
   return (
     <Card
       hoverable
@@ -30,9 +38,21 @@ const IngredientCard: React.FC<IngredientCardProps> = ({ ingredient }) => {
         </div>
       }
       style={{ width: '100%', borderRadius: 12, overflow: 'hidden' }}
-      bodyStyle={{ padding: '16px' }}
+      bodyStyle={{ padding: '16px', display: 'flex', flexDirection: 'column', height: '100%' }}
+      actions={[
+        <Button 
+            key="add" 
+            type="primary" 
+            icon={<ShoppingCartOutlined />} 
+            onClick={handleAddToCart}
+            block
+            style={{ margin: '0 16px' }}
+        >
+            เพิ่มลงตะกร้า
+        </Button>
+      ]}
     >
-      <div style={{ marginBottom: 8 }}>
+      <div style={{ marginBottom: 8, flexGrow: 1 }}>
         <Title level={4} style={{ margin: 0, lineHeight: 1.2 }}>
             {ingredient.display_name}
         </Title>
@@ -41,14 +61,14 @@ const IngredientCard: React.FC<IngredientCardProps> = ({ ingredient }) => {
                 {ingredient.ingredient_name}
             </Typography.Text>
         )}
-      </div>
       
-      <Paragraph 
-        ellipsis={{ rows: 2, expandable: false, symbol: '...' }} 
-        style={{ marginBottom: 0, minHeight: '44px', color: '#666' }}
-      >
-        {ingredient.description || 'No description available'}
-      </Paragraph>
+        <Paragraph 
+            ellipsis={{ rows: 2, expandable: false, symbol: '...' }} 
+            style={{ marginTop: 8, marginBottom: 0, minHeight: '44px', color: '#666' }}
+        >
+            {ingredient.description || '-'}
+        </Paragraph>
+      </div>
     </Card>
   );
 };

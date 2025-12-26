@@ -1,0 +1,118 @@
+"use client";
+
+import React, { useEffect, useState } from "react";
+import { Table, Tag, Typography, Card, Space, Button, message } from "antd";
+import { ReloadOutlined } from "@ant-design/icons";
+import { Order, OrderStatus } from "@/types/api/orders";
+import { ordersService } from "@/services/orders.service";
+import { useSocket } from "@/hooks/useSocket";
+
+const { Title, Text } = Typography;
+
+export default function ItemsPage() {
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { socket } = useSocket();
+
+  const fetchOrders = async () => {
+    try {
+      setLoading(true);
+      const data = await ordersService.getAllOrders();
+      // Filter only pending items (conceptually based on user requirement "Waiting to buy")
+      // But typically "Items" page might show all, let's filter for PENDING first or show all sorted.
+      // User said "Pending items" -> "Wait to buy".
+      // Let's show all for now but sorted by date.
+      setOrders(data);
+    } catch (error) {
+      console.error("Failed to fetch orders:", error);
+      message.error("ไม่สามารถโหลดรายการออเดอร์ได้");
+    } finally {
+        setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchOrders();
+  }, []);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on("orders_updated", () => {
+        // Simple strategy: Refresh all on any update for now
+        fetchOrders();
+    });
+
+    return () => {
+        socket.off("orders_updated");
+    };
+  }, [socket]);
+
+  const columns = [
+    {
+      title: 'Order ID',
+      dataIndex: 'id',
+      key: 'id',
+      render: (id: string) => <Text copyable>{id.substring(0, 8)}</Text>,
+    },
+    {
+        title: 'ผู้สั่ง',
+        dataIndex: ['ordered_by', 'username'],
+        key: 'ordered_by',
+        render: (text: string) => text || 'Unknown',
+    },
+    {
+      title: 'รายการสินค้า',
+      dataIndex: 'ordersItems',
+      key: 'items',
+      render: (items: any[]) => (
+        <Space direction="vertical">
+          {items.map((item) => (
+            <div key={item.id}>
+              <Text strong>{item.ingredient?.display_name}</Text>
+              <Text type="secondary" style={{ marginLeft: 8 }}>
+                 x {item.quantity_ordered} {item.ingredient?.unit?.display_name}
+              </Text>
+            </div>
+          ))}
+        </Space>
+      ),
+    },
+    {
+      title: 'สถานะ',
+      dataIndex: 'status',
+      key: 'status',
+      render: (status: OrderStatus) => {
+        let color = 'default';
+        if (status === OrderStatus.PENDING) color = 'gold';
+        if (status === OrderStatus.COMPLETED) color = 'green';
+        if (status === OrderStatus.CANCELLED) color = 'red';
+        return <Tag color={color}>{status.toUpperCase()}</Tag>;
+      },
+    },
+    {
+      title: 'วันที่สั่ง',
+      dataIndex: 'create_date',
+      key: 'create_date',
+      render: (date: string) => new Date(date).toLocaleString('th-TH'),
+    },
+  ];
+
+  return (
+    <div style={{ padding: 24, paddingBottom: 100 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+            <Title level={2} style={{ margin: 0 }}>รายการสั่งซื้อ (รอการซื้อ)</Title>
+            <Button icon={<ReloadOutlined />} onClick={fetchOrders}>Refresh</Button>
+        </div>
+      
+      <Card loading={loading}>
+        <Table 
+            dataSource={orders} 
+            columns={columns} 
+            rowKey="id" 
+            pagination={{ pageSize: 10 }}
+        />
+      </Card>
+    </div>
+  );
+}

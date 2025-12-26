@@ -12,6 +12,7 @@ import {
   message
 } from "antd";
 import IngredientCard from "@/components/IngredientCard";
+import CartDrawer from "@/components/CartDrawer";
 import { Ingredients } from "@/types/api/ingredients";
 import { useSocket } from "@/hooks/useSocket";
 
@@ -129,6 +130,7 @@ export default function HomePage() {
           />
         )}
       </Content>
+      <CartDrawer />
     </Layout>
   );
 }
