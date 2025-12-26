@@ -105,4 +105,16 @@ export const ordersService = {
         }
         return response.json();
     },
+
+    deleteOrder: async (id: string): Promise<void> => {
+        const url = getProxyUrl("DELETE", `${BASE_PATH}/${id}`);
+        const response = await fetch(url!, {
+            method: "DELETE",
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to delete order: ${response.status} ${errorText}`);
+        }
+    },
 };

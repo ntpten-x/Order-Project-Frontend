@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { Table, Tag, Typography, Card, Space, Button, message } from "antd";
-import { ReloadOutlined, EyeOutlined } from "@ant-design/icons";
+import { Table, Tag, Typography, Card, Space, Button, message, Modal } from "antd";
+import { ReloadOutlined, EyeOutlined, DeleteOutlined } from "@ant-design/icons";
 import { Order, OrderStatus } from "@/types/api/orders";
 import OrderDetailModal from "@/components/OrderDetailModal";
 import { ordersService } from "@/services/orders.service";
@@ -21,13 +21,35 @@ export default function HistoryPage() {
       setLoading(true);
       const data = await ordersService.getAllOrders();
       // Show only Completed or Cancelled
-      setOrders(data.filter(o => o.status === OrderStatus.COMPLETED || o.status === OrderStatus.CANCELLED));
+      setOrders(data.filter((order) => 
+        order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED
+      ));
     } catch (error) {
       console.error("Failed to fetch orders:", error);
       message.error("ไม่สามารถโหลดประวัติออเดอร์ได้");
     } finally {
         setLoading(false);
     }
+  };
+
+  const handleDeleteOrder = (order: Order) => {
+    Modal.confirm({
+        title: 'ยืนยันการลบ',
+        content: `คุณต้องการลบประวัติออเดอร์ ${order.id.substring(0, 8)} หรือไม่? ข้อมูลที่เกี่ยวข้องทั้งหมดจะถูกลบด้วย`,
+        okText: 'ลบ',
+        okType: 'danger',
+        cancelText: 'ยกเลิก',
+        onOk: async () => {
+            try {
+                await ordersService.deleteOrder(order.id);
+                message.success("ลบประวัติออเดอร์สำเร็จ");
+                // Socket will handle update, or we can optimistic update
+                setOrders(prev => prev.filter(o => o.id !== order.id));
+            } catch (error) {
+                message.error("ลบประวัติออเดอร์ล้มเหลว");
+            }
+        }
+    });
   };
 
   useEffect(() => {
@@ -104,13 +126,23 @@ export default function HistoryPage() {
         title: 'จัดการ',
         key: 'actions',
         render: (_: any, record: Order) => (
-             <Button 
-                size="small" 
-                icon={<EyeOutlined />} 
-                onClick={() => setViewingOrder(record)}
-            >
-                รายละเอียด
-            </Button>
+            <Space>
+                <Button 
+                    size="small" 
+                    icon={<EyeOutlined />} 
+                    onClick={() => setViewingOrder(record)}
+                >
+                    ดู
+                </Button>
+                <Button
+                    danger
+                    size="small"
+                    icon={<DeleteOutlined />}
+                    onClick={() => handleDeleteOrder(record)}
+                >
+                    ลบ
+                </Button>
+            </Space>
         )
     }
   ];
