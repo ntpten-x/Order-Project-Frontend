@@ -63,13 +63,13 @@ export default function IngredientsPage() {
   }, [socket]);
 
   const columns = [
-    {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 100,
-      render: (text: string) => <Text copyable={{ text }}>{text.substring(0, 8)}...</Text>
-    },
+    // {
+    //   title: 'ID',
+    //   dataIndex: 'id',
+    //   key: 'id',
+    //   width: 100,
+    //   render: (text: string) => <Text copyable={{ text }}>{text.substring(0, 8)}...</Text>
+    // },
     {
       title: 'รูปภาพ',
       dataIndex: 'img_url',

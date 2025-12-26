@@ -30,12 +30,12 @@ const BottomNavigation = () => {
       icon: <HomeOutlined className="text-2xl" />,
       path: '/',
     },
-    {
-      key: 'buying',
-      label: 'สั่งซื้อ',
-      icon: <ShoppingCartOutlined className="text-2xl" />,
-      path: '/buying',
-    },
+    // {
+    //   key: 'buying',
+    //   label: 'สั่งซื้อ',
+    //   icon: <ShoppingCartOutlined className="text-2xl" />,
+    //   path: '/buying',
+    // },
     {
       key: 'items',
       label: 'รายการ',

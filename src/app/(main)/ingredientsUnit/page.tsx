@@ -61,13 +61,13 @@ export default function IngredientsUnitPage() {
   }, [socket]);
 
   const columns = [
-    {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 250,
-      render: (text: string) => <Text copyable={{ text }}>{text.substring(0, 8)}...</Text>
-    },
+    // {
+    //   title: 'ID',
+    //   dataIndex: 'id',
+    //   key: 'id',
+    //   width: 250,
+    //   render: (text: string) => <Text copyable={{ text }}>{text.substring(0, 8)}...</Text>
+    // },
     {
       title: 'ชื่อหน่วย *ภาษาอังกฤษ',
       dataIndex: 'unit_name',

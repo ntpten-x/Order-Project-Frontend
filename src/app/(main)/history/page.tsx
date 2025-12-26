@@ -70,12 +70,12 @@ export default function HistoryPage() {
   }, [socket]);
 
   const columns = [
-    {
-      title: 'Order ID',
-      dataIndex: 'id',
-      key: 'id',
-      render: (id: string) => <Text copyable>{id.substring(0, 8)}</Text>,
-    },
+    // {
+    //   title: 'Order ID',
+    //   dataIndex: 'id',
+    //   key: 'id',
+    //   render: (id: string) => <Text copyable>{id.substring(0, 8)}</Text>,
+    // },
     {
         title: 'ผู้สั่ง',
         dataIndex: ['ordered_by', 'username'],

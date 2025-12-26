@@ -72,14 +72,14 @@ export default function UsersPage() {
 
 
   const columns = [
-    {
-      title: 'ID',
-      dataIndex: 'id',
-      key: 'id',
-      width: 250,
-      sorter: (a: User, b: User) => a.id.localeCompare(b.id),
-      render: (text: string) => <Text copyable={{ text }}>{text.substring(0, 8)}...</Text>
-    },
+    // {
+    //   title: 'ID',
+    //   dataIndex: 'id',
+    //   key: 'id',
+    //   width: 250,
+    //   sorter: (a: User, b: User) => a.id.localeCompare(b.id),
+    //   render: (text: string) => <Text copyable={{ text }}>{text.substring(0, 8)}...</Text>
+    // },
     {
       title: 'ชื่อผู้ใช้',
       dataIndex: 'username',
