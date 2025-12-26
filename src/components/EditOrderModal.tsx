@@ -19,8 +19,8 @@ interface EditOrderModalProps {
 export default function EditOrderModal({ order, open, onClose, onSuccess }: EditOrderModalProps) {
     const [loading, setLoading] = useState(false);
     const [ingredients, setIngredients] = useState<Ingredients[]>([]);
-    // Local state for items: { ingredient_id, quantity_ordered, display_name, unit_name }
-    const [items, setItems] = useState<{ ingredient_id: string; quantity_ordered: number; display_name: string; unit_name: string }[]>([]);
+    // Local state for items: { ingredient_id, quantity_ordered, display_name, unit_name, img_url }
+    const [items, setItems] = useState<{ ingredient_id: string; quantity_ordered: number; display_name: string; unit_name: string; img_url?: string }[]>([]);
     const [selectedIngredient, setSelectedIngredient] = useState<string | null>(null);
     const { socket } = useSocket();
 
@@ -38,7 +38,8 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                     ingredient_id: item.ingredient_id,
                     quantity_ordered: item.quantity_ordered,
                     display_name: item.ingredient?.display_name || 'Unknown',
-                    unit_name: item.ingredient?.unit?.display_name || '-'
+                    unit_name: item.ingredient?.unit?.display_name || '-',
+                    img_url: item.ingredient?.img_url
                 })) || [];
                 setItems(mappedItems);
             } else if (action === "update_status") {
@@ -60,13 +61,23 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
         const fetchIngredients = async () => {
             try {
                 const response = await axios.get("/api/ingredients/getAll");
-                setIngredients(response.data.filter((i: Ingredients) => i.is_active));
+                const allIngredients = response.data.filter((i: Ingredients) => i.is_active);
+                setIngredients(allIngredients);
+
+                // Fallback: Update existing items with images if they are missing
+                setItems(prevItems => prevItems.map(item => {
+                    const match = allIngredients.find((ing: Ingredients) => ing.id === item.ingredient_id);
+                    return {
+                        ...item,
+                        img_url: item.img_url || match?.img_url
+                    };
+                }));
             } catch (error) {
                 console.error("Failed to load ingredients");
             }
         };
         fetchIngredients();
-    }, []);
+    }, [open]); // Re-fetch or re-apply when modal opens to ensure we have images
 
     // Initialize items when order changes
     useEffect(() => {
@@ -75,7 +86,8 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                 ingredient_id: item.ingredient_id,
                 quantity_ordered: item.quantity_ordered,
                 display_name: item.ingredient?.display_name || 'Unknown',
-                unit_name: item.ingredient?.unit?.display_name || '-'
+                unit_name: item.ingredient?.unit?.display_name || '-',
+                img_url: item.ingredient?.img_url
             })) || [];
             setItems(mappedItems);
         }
@@ -97,7 +109,8 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
             ingredient_id: ing.id,
             quantity_ordered: 1,
             display_name: ing.display_name,
-            unit_name: ing.unit?.display_name || '-'
+            unit_name: ing.unit?.display_name || '-',
+            img_url: ing.img_url
         }]);
         setSelectedIngredient(null);
     };
@@ -191,6 +204,11 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                             ]}
                         >
                             <div style={{ display: 'flex', alignItems: 'center', width: '100%', gap: 16 }}>
+                                <img 
+                                    src={item.img_url || 'https://placehold.co/40x40?text=No+Img'} 
+                                    alt={item.display_name}
+                                    style={{ width: 48, height: 48, objectFit: 'cover', borderRadius: 8, border: '1px solid #f0f0f0' }}
+                                />
                                 <Text strong style={{ flex: 1 }}>{item.display_name}</Text>
                                 <InputNumber 
                                     min={1} 

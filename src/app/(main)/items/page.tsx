@@ -233,6 +233,7 @@ export default function ItemsPage() {
             dataSource={orders} 
             columns={columns} 
             rowKey="id" 
+            scroll={{ x: 800 }}
             pagination={{ pageSize: 10 }}
         />
       </Card>
