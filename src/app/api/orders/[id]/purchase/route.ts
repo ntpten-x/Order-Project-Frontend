@@ -1,0 +1,15 @@
+import { NextRequest, NextResponse } from "next/server";
+import { ordersService } from "@/services/orders.service";
+
+export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+    try {
+        const { id } = params;
+        const body = await request.json();
+        const { items, purchased_by_id } = body;
+        const order = await ordersService.confirmPurchase(id, items, purchased_by_id);
+        return NextResponse.json(order);
+    } catch (error: any) {
+        console.error("API Error:", error);
+        return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+    }
+}

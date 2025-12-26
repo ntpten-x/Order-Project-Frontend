@@ -65,9 +65,25 @@ export const ordersService = {
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ items }),
         });
+
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถแก้ไขออเดอร์ได้");
+            const errorText = await response.text();
+            throw new Error(`Failed to update order: ${response.status} ${errorText}`);
+        }
+        return response.json();
+    },
+
+    confirmPurchase: async (id: string, items: { ingredient_id: string; actual_quantity: number; is_purchased: boolean }[], purchased_by_id: string): Promise<Order> => {
+        const url = getProxyUrl("POST", `${BASE_PATH}/${id}/purchase`);
+        const response = await fetch(url!, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ items, purchased_by_id }),
+        });
+
+        if (!response.ok) {
+            const errorText = await response.text();
+            throw new Error(`Failed to confirm purchase: ${response.status} ${errorText}`);
         }
         return response.json();
     },

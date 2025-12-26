@@ -2,12 +2,13 @@
 
 import React, { useEffect, useState } from "react";
 import { Table, Tag, Typography, Card, Space, Button, message, Modal } from "antd";
-import { ReloadOutlined, EditOutlined, StopOutlined, EyeOutlined } from "@ant-design/icons";
+import { ReloadOutlined, EditOutlined, StopOutlined, EyeOutlined, ShoppingCartOutlined } from "@ant-design/icons";
 import { Order, OrderStatus } from "@/types/api/orders";
 import EditOrderModal from "@/components/EditOrderModal";
 import OrderDetailModal from "@/components/OrderDetailModal";
 import { ordersService } from "@/services/orders.service";
 import { useSocket } from "@/hooks/useSocket";
+import { useRouter } from "next/navigation";
 
 const { Title, Text } = Typography;
 
@@ -15,6 +16,7 @@ export default function ItemsPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const { socket } = useSocket();
+  const router = useRouter();
 
   const fetchOrders = async () => {
     try {
@@ -165,6 +167,16 @@ export default function ItemsPage() {
                     onClick={() => setViewingOrder(record)}
                 >
                     ดู
+                </Button>
+                <Button
+                    type="primary"
+                    size="small"
+                    style={{ backgroundColor: '#52c41a', borderColor: '#52c41a' }}
+                    icon={<ShoppingCartOutlined />}
+                    disabled={record.status !== OrderStatus.PENDING}
+                    onClick={() => router.push(`/buying?orderId=${record.id}`)}
+                >
+                    สั่งซื้อ
                 </Button>
                 <Button 
                     type="primary" 

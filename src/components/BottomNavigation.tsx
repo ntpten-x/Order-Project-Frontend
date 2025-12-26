@@ -31,10 +31,10 @@ const BottomNavigation = () => {
       path: '/',
     },
     {
-      key: 'orders',
+      key: 'buying',
       label: 'สั่งซื้อ',
       icon: <ShoppingCartOutlined className="text-2xl" />,
-      path: '/orders',
+      path: '/buying',
     },
     {
       key: 'items',
