@@ -8,18 +8,19 @@ import { User } from '@/types/api/users';
 import { useRouter } from 'next/navigation';
 import UserPageStyle from './style';
 import { useSocket } from '@/hooks/useSocket';
+import { useAsyncAction } from '@/hooks/useAsyncAction';
 
 const { Title, Text } = Typography;
 
 export default function UsersPage() {
   const router = useRouter();
   const [users, setUsers] = useState<User[]>([]);
-  const [loading, setLoading] = useState(true);
+  // const [loading, setLoading] = useState(true); // Removed in favor of global loading
   const { socket } = useSocket();
+  const { execute } = useAsyncAction();
 
   const fetchUsers = async () => {
-    setLoading(true);
-    try {
+    execute(async () => {
       const response = await fetch('/api/users/getAll');
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
@@ -27,12 +28,7 @@ export default function UsersPage() {
       }
       const data = await response.json();
       setUsers(data);
-    } catch (error: any) {
-      console.error('Error fetching users:', error);
-      message.error(error.message || 'ไม่สามารถดึงข้อมูลผู้ใช้ได้');
-    } finally {
-      setLoading(false);
-    }
+    }, 'กำลังโหลดข้อมูลผู้ใช้...');
   };
 
   useEffect(() => {
@@ -41,31 +37,37 @@ export default function UsersPage() {
 
   useEffect(() => {
     if (!socket) return;
-
-    // Listen for new user creation
+    // ... socket logic remains same ...
     socket.on('users:create', (newUser: User) => {
       setUsers((prevUsers) => [...prevUsers, newUser]);
       message.success(`ผู้ใช้ใหม่ ${newUser.username} ถูกเพิ่มแล้ว`);
     });
-
-    // Listen for user updates
     socket.on('users:update', (updatedUser: User) => {
       setUsers((prevUsers) =>
         prevUsers.map((user) => (user.id === updatedUser.id ? updatedUser : user))
       );
     });
-
-    // Listen for user deletion
     socket.on('users:delete', ({ id }: { id: string }) => {
       setUsers((prevUsers) => prevUsers.filter((user) => user.id !== id));
     });
 
+    // Listen for user status updates
+    socket.on('users:update-status', ({ id, is_active }: { id: string, is_active: boolean }) => {
+        setUsers((prevUsers) =>
+            prevUsers.map((user) => (user.id === id ? { ...user, is_active } : user))
+        );
+    });
+
     return () => {
-      socket.off('users:create');
-      socket.off('users:update');
-      socket.off('users:delete');
+        socket.off('users:create');
+        socket.off('users:update');
+        socket.off('users:delete');
+        socket.off('users:update-status');
     };
   }, [socket]);
+  
+  // ... columns ...
+
 
   const columns = [
     {
@@ -155,18 +157,15 @@ export default function UsersPage() {
                 title: 'ยืนยันที่การลบผู้ใช้',
                 content: `คุณต้องการลบผู้ใช้ ${record.username} หรือไม่?`,
                 onOk: async () => {
-                  try {
-                    const response = await fetch(`/api/users/delete/${record.id}`, {
-                      method: 'DELETE',
-                    });
-                    if (!response.ok) {
-                      throw new Error('Failed to delete user');
-                    }
-                    message.success(`ลบผู้ใช้ ${record.username} สำเร็จ`);
-                  } catch (error) {
-                    message.error('ไม่สามารถลบผู้ใช้ได้');
-                    console.error(error);
-                  }
+                  await execute(async () => {
+                      const response = await fetch(`/api/users/delete/${record.id}`, {
+                          method: 'DELETE',
+                      });
+                      if (!response.ok) {
+                          throw new Error('Failed to delete user');
+                      }
+                      message.success(`ลบผู้ใช้ ${record.username} สำเร็จ`);
+                  }, "กำลังลบผู้ใช้งาน...");
                 },
               });
             }}
@@ -193,7 +192,6 @@ export default function UsersPage() {
             <Button 
               icon={<ReloadOutlined />} 
               onClick={fetchUsers}
-              loading={loading}
             >
               Refresh
             </Button>
@@ -217,8 +215,7 @@ export default function UsersPage() {
             dataSource={users} 
             columns={columns} 
             rowKey="id"
-            loading={loading}
-            scroll={{ x: 1200 }} 
+            scroll={{ x: 1200 }}  
             pagination={{ 
               pageSize: 10,
               showSizeChanger: true,

@@ -13,15 +13,28 @@ export const SocketContext = createContext<SocketContextType>({
   isConnected: false,
 });
 
+import { useAuth } from "./AuthContext";
+
 export const SocketProvider = ({ children }: { children: ReactNode }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const { user } = useAuth();
 
   useEffect(() => {
+    if (!user) {
+        if (socket) {
+            socket.disconnect();
+            setSocket(null);
+            setIsConnected(false);
+        }
+        return;
+    }
+
     // connect to backend
     const socketUrl = process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:3000";
     const socketInstance = io(socketUrl, {
-        transports: ["websocket"], // force websocket to avoid polling issues
+        transports: ["websocket"], 
+        withCredentials: true, // Important: Send cookies for auth
     });
 
     socketInstance.on("connect", () => {
@@ -39,7 +52,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
     return () => {
       socketInstance.disconnect();
     };
-  }, []);
+  }, [user]);
 
   return (
     <SocketContext.Provider value={{ socket, isConnected }}>

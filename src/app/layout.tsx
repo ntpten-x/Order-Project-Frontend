@@ -19,6 +19,8 @@ export const metadata: Metadata = {
 
 import AntdRegistry from "@/lib/AntdRegistry";
 import { SocketProvider } from "@/contexts/SocketContext";
+import { AuthProvider } from "@/contexts/AuthContext";
+import { GlobalLoadingProvider } from "@/contexts/GlobalLoadingContext";
 
 export default function RootLayout({
   children,
@@ -31,9 +33,13 @@ export default function RootLayout({
         className={`${inter.variable} ${jetbrainsMono.variable} antialiased font-sans`}
       >
         <AntdRegistry>
-          <SocketProvider>
-            {children}
-          </SocketProvider>
+          <GlobalLoadingProvider>
+            <AuthProvider>
+              <SocketProvider>
+                {children}
+              </SocketProvider>
+            </AuthProvider>
+          </GlobalLoadingProvider>
         </AntdRegistry>
       </body>
     </html>
