@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, useState, ReactNode, useCallback } from "react";
 import { Spin } from "antd";
 
 interface GlobalLoadingContextType {
@@ -14,13 +14,13 @@ const GlobalLoadingContext = createContext<GlobalLoadingContextType | undefined>
 export const GlobalLoadingProvider = ({ children }: { children: ReactNode }) => {
     const [isLoading, setIsLoading] = useState(false);
 
-    const showLoading = () => {
+    const showLoading = useCallback(() => {
         setIsLoading(true);
-    };
+    }, []);
 
-    const hideLoading = () => {
+    const hideLoading = useCallback(() => {
         setIsLoading(false);
-    };
+    }, []);
 
     return (
         <GlobalLoadingContext.Provider value={{ showLoading, hideLoading, isLoading }}>
