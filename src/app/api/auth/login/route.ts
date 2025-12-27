@@ -38,6 +38,11 @@ export async function POST(request: NextRequest) {
 
     } catch (error: unknown) {
         console.error("Login Proxy Error:", error);
-        return NextResponse.json({ message: "Internal Server Error" }, { status: 500 });
+        console.error("Attempted Backend URL:", process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:3000");
+        return NextResponse.json({
+            message: "Internal Server Error",
+            detail: (error as Error).message,
+            backendUrl: process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:3000"
+        }, { status: 500 });
     }
 }
