@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { Table, Tag, Typography, Card, Space, Button, message, Modal } from "antd";
 import { ReloadOutlined, EditOutlined, StopOutlined, EyeOutlined, ShoppingCartOutlined } from "@ant-design/icons";
 import { Order, OrderStatus } from "@/types/api/orders";
 import EditOrderModal from "@/components/EditOrderModal";
 import OrderDetailModal from "@/components/OrderDetailModal";
-import { ordersService } from "@/services/orders.service";
+
 import { useSocket } from "@/hooks/useSocket";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
@@ -20,7 +20,7 @@ export default function ItemsPage() {
   const router = useRouter();
   const { user } = useAuth();
 
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
       // Use Proxy API to forward cookies
@@ -34,17 +34,17 @@ export default function ItemsPage() {
       // User said "Pending items" -> "Wait to buy".
       // Let's show all for now but sorted by date.
       setOrders(data.filter((order: Order) => order.status === OrderStatus.PENDING));
-    } catch (error) {
-      console.error("Failed to fetch orders:", error);
+    } catch {
+      console.error("Failed to fetch orders");
       message.error("ไม่สามารถโหลดรายการออเดอร์ได้");
     } finally {
         setLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     fetchOrders();
-  }, []);
+  }, [fetchOrders]);
 
   useEffect(() => {
     if (!socket) return;
@@ -93,7 +93,7 @@ export default function ItemsPage() {
     return () => {
         socket.off("orders_updated");
     };
-  }, [socket]);
+  }, [socket, fetchOrders]);
 
   // ... inside component ...
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
@@ -117,7 +117,7 @@ export default function ItemsPage() {
                 }
                 
                 message.success("ยกเลิกออเดอร์สำเร็จ");
-            } catch (error) {
+            } catch {
                 message.error("ยกเลิกออเดอร์ล้มเหลว");
             }
         }
@@ -142,7 +142,7 @@ export default function ItemsPage() {
       title: 'รายการสินค้า',
       dataIndex: 'ordersItems',
       key: 'items',
-      render: (items: any[]) => (
+      render: (items: { id: string; quantity_ordered: number; ingredient?: { display_name: string; unit?: { display_name: string } } }[]) => (
         <Space direction="vertical">
           {(items || []).map((item) => (
             <div key={item.id}>
@@ -176,7 +176,7 @@ export default function ItemsPage() {
     {
         title: 'จัดการ',
         key: 'actions',
-        render: (_: any, record: Order) => (
+        render: (_: unknown, record: Order) => (
             <Space>
                 <Button 
                     size="small" 

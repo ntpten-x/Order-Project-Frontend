@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Table, Tag, Space, Button, Card, Typography, message, Modal } from 'antd';
 import { EditOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined, ExperimentOutlined } from '@ant-design/icons';
 import { IngredientsUnit } from '@/types/api/ingredientsUnit';
@@ -25,7 +25,7 @@ export default function IngredientsUnitPage() {
 
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
-  const fetchIngredientsUnits = async () => {
+  const fetchIngredientsUnits = useCallback(async () => {
     execute(async () => {
       const response = await fetch('/api/ingredientsUnit/getAll');
       if (!response.ok) {
@@ -35,7 +35,7 @@ export default function IngredientsUnitPage() {
       const data = await response.json();
       setIngredientsUnits(data);
     }, 'กำลังโหลดข้อมูลหน่วยวัตถุดิบ...');
-  };
+  }, [execute]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -51,7 +51,7 @@ export default function IngredientsUnitPage() {
           fetchIngredientsUnits();
       }
     }
-  }, [user, authLoading, router]);
+  }, [user, authLoading, router, fetchIngredientsUnits]);
 
 
 
@@ -59,7 +59,7 @@ export default function IngredientsUnitPage() {
 
   useEffect(() => {
     fetchIngredientsUnits();
-  }, []);
+  }, [fetchIngredientsUnits]);
 
   useEffect(() => {
     if (!socket) return;
@@ -143,7 +143,7 @@ export default function IngredientsUnitPage() {
       title: 'การจัดการ',
       key: 'actions',
       width: 150,
-      render: (_: any, record: IngredientsUnit) => (
+      render: (_: unknown, record: IngredientsUnit) => (
         <Space size="middle">
           <Button 
             type="text" 

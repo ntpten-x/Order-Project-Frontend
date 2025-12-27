@@ -5,7 +5,7 @@ import { Table, Tag, Typography, Card, Space, Button, message, Modal } from "ant
 import { ReloadOutlined, EyeOutlined, DeleteOutlined } from "@ant-design/icons";
 import { Order, OrderStatus } from "@/types/api/orders";
 import OrderDetailModal from "@/components/OrderDetailModal";
-import { ordersService } from "@/services/orders.service";
+
 import { useSocket } from "@/hooks/useSocket";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -30,8 +30,8 @@ export default function HistoryPage() {
       setOrders(data.filter((order: Order) => 
         order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED
       ));
-    } catch (error) {
-      console.error("Failed to fetch orders:", error);
+    } catch {
+      console.error("Failed to fetch orders");
       message.error("ไม่สามารถโหลดประวัติออเดอร์ได้");
     } finally {
         setLoading(false);
@@ -54,7 +54,7 @@ export default function HistoryPage() {
                 message.success("ลบประวัติออเดอร์สำเร็จ");
                 // Socket will handle update, or we can optimistic update
                 setOrders(prev => prev.filter(o => o.id !== order.id));
-            } catch (error) {
+            } catch {
                 message.error("ลบประวัติออเดอร์ล้มเหลว");
             }
         }
@@ -89,7 +89,12 @@ export default function HistoryPage() {
       title: 'รายการสินค้า',
       dataIndex: 'ordersItems',
       key: 'items',
-      render: (items: any[]) => (
+      render: (items: { 
+          id: string; 
+          quantity_ordered: number; 
+          ordersDetail?: { is_purchased: boolean; actual_quantity: number };
+          ingredient?: { display_name: string; unit?: { display_name: string } };
+      }[]) => (
         <Space direction="vertical">
           {(items || []).map((item) => (
             <div key={item.id}>
@@ -128,7 +133,7 @@ export default function HistoryPage() {
     {
         title: 'จัดการ',
         key: 'actions',
-        render: (_: any, record: Order) => (
+        render: (_: unknown, record: Order) => (
             <Space>
                 <Button 
                     size="small" 

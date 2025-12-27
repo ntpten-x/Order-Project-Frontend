@@ -11,7 +11,7 @@ const { Title, Text } = Typography;
 export default function LoginPage() {
     const { login } = useAuth();
     const [loading, setLoading] = useState(false);
-    const [stats, setStatus] = useState<"initial" | "error">("initial");
+    const [, setStatus] = useState<"initial" | "error">("initial");
 
     const onFinish = async (values: LoginCredentials) => {
         setLoading(true);
@@ -23,11 +23,11 @@ export default function LoginPage() {
                 description: "ยินดีต้อนรับเข้าสู่ระบบ",
                 placement: "topRight",
             });
-        } catch (error: any) {
+        } catch (error: unknown) {
             setStatus("error");
             notification.error({
                 message: "เข้าสู่ระบบไม่สำเร็จ",
-                description: error.message || "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",
+                description: (error as { message: string }).message || "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",
                 placement: "topRight",
             });
         } finally {

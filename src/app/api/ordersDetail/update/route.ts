@@ -6,8 +6,8 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const detail = await ordersService.updatePurchaseDetail(body);
         return NextResponse.json(detail);
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("API Error:", error);
-        return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ error: (error as Error).message || "Internal Server Error" }, { status: 500 });
     }
 }

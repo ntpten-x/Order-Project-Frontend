@@ -3,14 +3,14 @@ import { Drawer, Button, List, Space, Typography, Badge, Avatar, message, Modal 
 import { ShoppingCartOutlined, MinusOutlined, PlusOutlined, DeleteOutlined } from "@ant-design/icons";
 import { useCart } from "@/contexts/CartContext";
 import { useAuth } from "@/contexts/AuthContext";
-import { ordersService } from "@/services/orders.service";
+
 import { useRouter } from "next/navigation";
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 export default function CartDrawer() {
   const [open, setOpen] = useState(false);
-  const { items, removeFromCart, updateQuantity, clearCart, itemCount } = useCart();
+  const { items, updateQuantity, clearCart, itemCount } = useCart();
   const { user } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -62,9 +62,9 @@ export default function CartDrawer() {
       clearCart();
       setOpen(false);
       router.push("/items");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Order failed:", error);
-      message.error(error.message || "การสั่งซื้อล้มเหลว");
+      message.error((error as Error).message || "การสั่งซื้อล้มเหลว");
     } finally {
       setLoading(false);
     }

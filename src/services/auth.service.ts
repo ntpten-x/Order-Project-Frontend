@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios, { AxiosError } from "axios";
 import { LoginCredentials, LoginResponse, User } from "../types/api/auth";
 
 // Use local API routes for Auth (BFF Pattern)
@@ -14,8 +14,9 @@ export const authService = {
         try {
             const response = await api.post<LoginResponse>("/auth/login", credentials);
             return response.data.user;
-        } catch (error: any) {
-            throw new Error(error.response?.data?.message || "เข้าสู่ระบบไม่สำเร็จ");
+        } catch (error: unknown) {
+            const message = (error as AxiosError<{ message: string }>).response?.data?.message;
+            throw new Error(message || "เข้าสู่ระบบไม่สำเร็จ");
         }
     },
 

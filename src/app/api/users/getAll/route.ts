@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
         const cookie = request.headers.get("cookie") || "";
         const users = await userService.getAllUsers(cookie);
         return NextResponse.json(users);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("API Error:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }

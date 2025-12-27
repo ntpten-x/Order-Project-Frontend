@@ -18,7 +18,7 @@ export default function OrderDetailModal({ order, open, onClose }: OrderDetailMo
             title: 'รูปภาพ',
             dataIndex: ['ingredient', 'img_url'],
             key: 'img',
-            render: (src: string, record: any) => (
+            render: (src: string, record: { ingredient?: { display_name?: string } }) => (
                 <Avatar 
                     src={src || 'https://placehold.co/40x40?text=No+Img'} 
                     shape="square" 
@@ -37,7 +37,7 @@ export default function OrderDetailModal({ order, open, onClose }: OrderDetailMo
         {
             title: 'จำนวน',
             key: 'quantity',
-            render: (record: any) => {
+            render: (record: { quantity_ordered: number; ingredient?: { unit?: { display_name?: string } }; ordersDetail?: { is_purchased: boolean; actual_quantity: number } }) => {
                 const isPurchased = record.ordersDetail?.is_purchased;
                 const actual = record.ordersDetail?.actual_quantity;
                 const ordered = record.quantity_ordered;

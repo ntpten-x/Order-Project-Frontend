@@ -6,7 +6,7 @@ export async function PUT(request: Request, { params }: { params: { id: string }
         const body = await request.json();
         const updatedIngredientsUnit = await ingredientsUnitService.update(params.id, body);
         return NextResponse.json(updatedIngredientsUnit);
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }

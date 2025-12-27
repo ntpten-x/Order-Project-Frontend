@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Form, Input, Button, Card, message, Typography, Spin, Popconfirm, Switch } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
@@ -18,13 +18,7 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
   const id = params.mode[1] || null;
   const isEdit = mode === 'edit' && !!id;
 
-  useEffect(() => {
-    if (isEdit) {
-      fetchIngredientsUnit();
-    }
-  }, [isEdit, id]);
-
-  const fetchIngredientsUnit = async () => {
+  const fetchIngredientsUnit = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/ingredientsUnit/getById/${id}`);
@@ -42,9 +36,17 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, form, router]);
 
-  const onFinish = async (values: any) => {
+  useEffect(() => {
+    if (isEdit) {
+      fetchIngredientsUnit();
+    }
+  }, [isEdit, id, fetchIngredientsUnit]);
+
+
+
+  const onFinish = async (values: unknown) => {
     setSubmitting(true);
     try {
       if (isEdit) {
@@ -75,9 +77,9 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
         message.success('สร้างหน่วยวัตถุดิบสำเร็จ');
       }
       router.push('/ingredientsUnit');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      message.error(error.message || (isEdit ? 'ไม่สามารถอัปเดตหน่วยวัตถุดิบได้' : 'ไม่สามารถสร้างหน่วยวัตถุดิบได้'));
+      message.error((error as { message: string }).message || (isEdit ? 'ไม่สามารถอัปเดตหน่วยวัตถุดิบได้' : 'ไม่สามารถสร้างหน่วยวัตถุดิบได้'));
     } finally {
       setSubmitting(false);
     }
