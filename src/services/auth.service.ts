@@ -1,13 +1,9 @@
 import axios from "axios";
-import { PROXY_CONFIGS } from "../lib/proxy-utils";
 import { LoginCredentials, LoginResponse, User } from "../types/api/auth";
 
-const API_URL = PROXY_CONFIGS.API_BASE_URL;
-
-// Create axios instance with credentials enabled
+// Use local API routes for Auth (BFF Pattern)
 const api = axios.create({
-    baseURL: API_URL,
-    withCredentials: true, // Important for cookies
+    baseURL: "/api", // Relative path to Next.js API
     headers: {
         "Content-Type": "application/json",
     },
