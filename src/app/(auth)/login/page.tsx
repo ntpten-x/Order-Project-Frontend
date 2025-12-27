@@ -1,27 +1,36 @@
 "use client";
 
 import React, { useState } from "react";
-import { Form, Input, Button, Card, Typography, message } from "antd";
+import { Form, Input, Button, Card, Typography, notification } from "antd";
 import { UserOutlined, LockOutlined } from "@ant-design/icons";
 import { useAuth } from "@/contexts/AuthContext";
-import { useRouter } from "next/navigation";
+import { LoginCredentials } from "@/types/api/auth";
+
 
 const { Title, Text } = Typography;
 
 export default function LoginPage() {
     const { login } = useAuth();
-    const router = useRouter();
     const [loading, setLoading] = useState(false);
+    const [, setStatus] = useState<"initial" | "error">("initial");
 
-    const onFinish = async (values: any) => { // eslint-disable-line @typescript-eslint/no-explicit-any
+    const onFinish = async (values: LoginCredentials) => {
         setLoading(true);
+        setStatus("initial");
         try {
-            await login({ username: values.username, password: values.password });
-            message.success('เข้าสู่ระบบสำเร็จ');
-            router.push('/groups'); // Default redirect, usually auth guard handles this but good to have explicit
-        } catch (error) {
-             console.error(error);
-             message.error('ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง');
+            await login(values);
+            notification.success({
+                message: "เข้าสู่ระบบสำเร็จ",
+                description: "ยินดีต้อนรับเข้าสู่ระบบ",
+                placement: "topRight",
+            });
+        } catch (error: unknown) {
+            setStatus("error");
+            notification.error({
+                message: "เข้าสู่ระบบไม่สำเร็จ",
+                description: (error as { message: string }).message || "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",
+                placement: "topRight",
+            });
         } finally {
             setLoading(false);
         }

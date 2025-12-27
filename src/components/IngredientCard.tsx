@@ -23,6 +23,7 @@ const IngredientCard: React.FC<IngredientCardProps> = ({ ingredient }) => {
       hoverable
       cover={
         <div style={{ position: 'relative', paddingTop: '56.25%', overflow: 'hidden' }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
             alt={ingredient.display_name}
             src={ingredient.img_url || 'https://placehold.co/600x400?text=No+Image'}

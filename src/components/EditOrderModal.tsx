@@ -71,8 +71,8 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                         img_url: item.img_url || match?.img_url
                     };
                 }));
-            } catch (error) {
-                console.error("Failed to load ingredients", error);
+            } catch {
+                console.error("Failed to load ingredients");
             }
         };
         fetchIngredients();
@@ -150,8 +150,8 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
             message.success("แก้ไขออเดอร์สำเร็จ");
             onSuccess();
             onClose();
-        } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
-             message.error(error.message || "แก้ไขออเดอร์ล้มเหลว");
+        } catch (error: unknown) {
+             message.error((error as Error).message || "แก้ไขออเดอร์ล้มเหลว");
         } finally {
             setLoading(false);
         }
@@ -174,8 +174,8 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                         showSearch
                         value={selectedIngredient}
                         onChange={setSelectedIngredient}
-                        filterOption={(input, option: any) => // eslint-disable-line @typescript-eslint/no-explicit-any
-                             (option?.searchText ?? '').toLowerCase().includes(input.toLowerCase())
+                        filterOption={(input, option: unknown) =>
+                             ((option as { searchText: string })?.searchText ?? '').toLowerCase().includes(input.toLowerCase())
                         }
                         options={ingredients.map(ing => ({ 
                             value: ing.id, 

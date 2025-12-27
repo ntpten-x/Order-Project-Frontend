@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Table, Tag, Space, Button, Card, Typography, message, Modal } from 'antd';
 import { UserOutlined, EditOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined, TeamOutlined } from '@ant-design/icons';
 import { User } from '@/types/api/users';
@@ -39,8 +39,7 @@ export default function UsersPage() {
     }
   }, [user, authLoading, router]);
 
-  // Fetch Users Function
-  const fetchUsers = React.useCallback(async () => {
+  const fetchUsers = useCallback(async () => {
     execute(async () => {
       const response = await fetch('/api/users/getAll');
       if (!response.ok) {
@@ -54,47 +53,40 @@ export default function UsersPage() {
 
   useEffect(() => {
     // We already checked role in the render guard/redirect effect
-    // But we only fetch if we are actually allowed (client side check again or just rely on backend)
-    if (user?.role === 'Admin') {
-        fetchUsers();
-    }
-  }, [fetchUsers, user]);
+    fetchUsers();
+  }, [fetchUsers]);
 
   useEffect(() => {
     if (!socket) return;
     // ... socket logic remains same ...
-    const handleCreate = (newUser: User) => {
+    socket.on('users:create', (newUser: User) => {
       setUsers((prevUsers) => [...prevUsers, newUser]);
       message.success(`ผู้ใช้ใหม่ ${newUser.username} ถูกเพิ่มแล้ว`);
-    };
-    const handleUpdate = (updatedUser: User) => {
+    });
+    socket.on('users:update', (updatedUser: User) => {
       setUsers((prevUsers) =>
         prevUsers.map((user) => (user.id === updatedUser.id ? updatedUser : user))
       );
-    };
-    const handleDelete = ({ id }: { id: string }) => {
+    });
+    socket.on('users:delete', ({ id }: { id: string }) => {
       setUsers((prevUsers) => prevUsers.filter((user) => user.id !== id));
-    };
-    const handleStatusUpdate = ({ id, is_active }: { id: string, is_active: boolean }) => {
+    });
+
+    // Listen for user status updates
+    socket.on('users:update-status', ({ id, is_active }: { id: string, is_active: boolean }) => {
         setUsers((prevUsers) =>
             prevUsers.map((user) => (user.id === id ? { ...user, is_active } : user))
         );
-    };
-
-    socket.on('users:create', handleCreate);
-    socket.on('users:update', handleUpdate);
-    socket.on('users:delete', handleDelete);
-    // Listen for user status updates
-    socket.on('users:update-status', handleStatusUpdate);
+    });
 
     return () => {
-        socket.off('users:create', handleCreate);
-        socket.off('users:update', handleUpdate);
-        socket.off('users:delete', handleDelete);
-        socket.off('users:update-status', handleStatusUpdate);
+        socket.off('users:create');
+        socket.off('users:update');
+        socket.off('users:delete');
+        socket.off('users:update-status');
     };
   }, [socket]);
-
+  
   // Loading / Permission Check State
   if (authLoading || !user || user.role !== 'Admin') {
     return (
@@ -140,16 +132,19 @@ export default function UsersPage() {
       dataIndex: 'roles',
       key: 'roles',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      render: (role: any) => (
+      render: (role: unknown) => {
+        const r = role as { roles_name?: string; display_name?: string };
+        return (
         <Space direction="vertical" size={0}>
-          <Tag color={role?.roles_name === 'Admin' ? 'gold' : 'blue'} className="mr-0">
-             {role?.roles_name || 'N/A'}
+          <Tag color={r?.roles_name === 'Admin' ? 'gold' : 'blue'} className="mr-0">
+             {r?.roles_name || 'N/A'}
           </Tag>
           <Text type="secondary" className="text-xs ml-1">
-            {role?.display_name}
+            {r?.display_name}
           </Text>
         </Space>
-      ),
+        );
+      },
     },
     {
       title: 'วันที่สร้าง',

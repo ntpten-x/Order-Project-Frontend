@@ -61,9 +61,9 @@ export default function CartDrawer() {
       clearCart();
       setOpen(false);
       router.push("/items");
-    } catch (error: any) { // eslint-disable-line @typescript-eslint/no-explicit-any
+    } catch (error: unknown) {
       console.error("Order failed:", error);
-      message.error(error.message || "การสั่งซื้อล้มเหลว");
+      message.error((error as Error).message || "การสั่งซื้อล้มเหลว");
     } finally {
       setLoading(false);
     }

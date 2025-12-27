@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
         const cookie = request.headers.get("cookie") || "";
         const orders = await ordersService.getAllOrders(cookie);
         return NextResponse.json(orders);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("API Error:", error);
         return NextResponse.json({ error: (error as Error).message || "Internal Server Error" }, { status: 500 });
     }
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
         const cookie = request.headers.get("cookie") || "";
         const order = await ordersService.createOrder(body, cookie);
         return NextResponse.json(order);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("API Error:", error);
         return NextResponse.json({ error: (error as Error).message || "Internal Server Error" }, { status: 500 });
     }

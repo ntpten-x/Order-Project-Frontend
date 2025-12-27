@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Form, Input, Button, Card, Select, message, Typography, Spin, Popconfirm, Switch } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
@@ -21,15 +21,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   const userId = params.mode[1] || null;
   const isEdit = mode === 'edit' && !!userId;
 
-  useEffect(() => {
-    fetchRoles();
-    if (isEdit) {
-      fetchUser();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEdit, userId]);
-
-  const fetchRoles = async () => {
+  const fetchRoles = useCallback(async () => {
     try {
       const response = await fetch('/api/roles/getAll');
       if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลบทบาทได้');
@@ -42,9 +34,9 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
       console.error(error);
       message.error('ไม่สามารถดึงข้อมูลบทบาทได้');
     }
-  };
+  }, []);
 
-  const fetchUser = async () => {
+  const fetchUser = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/users/getById/${userId}`);
@@ -64,7 +56,14 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, form, router]);
+
+  useEffect(() => {
+    fetchRoles();
+    if (isEdit) {
+      fetchUser();
+    }
+  }, [isEdit, userId, fetchRoles, fetchUser]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onFinish = async (values: any) => {
@@ -134,9 +133,9 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
         message.success('สร้างผู้ใช้สำเร็จ');
       }
       router.push('/users');
-    } catch (error) {
+    } catch (error: unknown) {
       console.error(error);
-      message.error((error as Error).message || (isEdit ? 'ไม่สามารถอัปเดตผู้ใช้ได้' : 'ไม่สามารถสร้างผู้ใช้ได้'));
+      message.error((error as { message: string }).message || (isEdit ? 'ไม่สามารถอัปเดตผู้ใช้ได้' : 'ไม่สามารถสร้างผู้ใช้ได้'));
     } finally {
       setSubmitting(false);
     }

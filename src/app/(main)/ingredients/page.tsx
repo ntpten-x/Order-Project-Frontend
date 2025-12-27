@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Table, Tag, Space, Button, Card, Typography, message, Modal, Image } from 'antd';
 import { EditOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined, ExperimentOutlined } from '@ant-design/icons';
 import { Ingredients } from '@/types/api/ingredients';
@@ -25,7 +25,7 @@ export default function IngredientsPage() {
 
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
-  const fetchIngredients = async () => {
+  const fetchIngredients = useCallback(async () => {
     execute(async () => {
       const response = await fetch('/api/ingredients/getAll');
       if (!response.ok) {
@@ -35,7 +35,7 @@ export default function IngredientsPage() {
       const data = await response.json();
       setIngredients(data);
     }, 'กำลังโหลดข้อมูลวัตถุดิบ...');
-  };
+  }, [execute]);
 
   useEffect(() => {
     if (!authLoading) {
@@ -57,11 +57,11 @@ export default function IngredientsPage() {
           fetchIngredients();
       }
     }
-  }, [user, authLoading, router]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, authLoading, router, fetchIngredients]);
 
   useEffect(() => {
     fetchIngredients();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [fetchIngredients]);
 
   useEffect(() => {
     if (!socket) return;

@@ -8,7 +8,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         const cookie = request.headers.get("cookie") || "";
         const order = await ordersService.updateStatus(id, body.status, cookie);
         return NextResponse.json(order);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("API Error:", error);
         return NextResponse.json({ error: (error as Error).message || "Internal Server Error" }, { status: 500 });
     }

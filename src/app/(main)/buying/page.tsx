@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Card, Typography, List, Checkbox, InputNumber, Button, message, Modal, Avatar, Tag } from "antd";
 import { ShoppingCartOutlined, ArrowLeftOutlined, PlusOutlined, MinusOutlined } from "@ant-design/icons";
 import { Order } from "@/types/api/orders";
-// import { ordersService } from "@/services/orders.service";
 import { useAuth } from "@/contexts/AuthContext";
 import { useSocket } from "@/hooks/useSocket";
 
@@ -33,7 +32,7 @@ export default function BuyingPage() {
     const [confirmModalOpen, setConfirmModalOpen] = useState(false);
     const { socket } = useSocket();
 
-    const fetchOrder = React.useCallback(async () => {
+    const fetchOrder = useCallback(async () => {
         try {
             setLoading(true);
             // Use Proxy API
@@ -43,15 +42,26 @@ export default function BuyingPage() {
             
             setOrder(data);
             
-            const initialItems = data.ordersItems?.map((item: any) => ({ // eslint-disable-line @typescript-eslint/no-explicit-any
-                ingredient_id: item.ingredient_id,
-                actual_quantity: item.quantity_ordered,
-                ordered_quantity: item.quantity_ordered,
-                is_purchased: false,
-                display_name: item.ingredient?.display_name || 'Unknown',
-                unit_name: item.ingredient?.unit?.display_name || '-',
-                img_url: item.ingredient?.img_url
-            })) || [];
+            const initialItems = data.ordersItems?.map((item: unknown) => {
+                const i = item as {
+                    ingredient_id: string;
+                    quantity_ordered: number;
+                    ingredient?: {
+                        display_name?: string;
+                        unit?: { display_name?: string };
+                        img_url?: string;
+                    }
+                };
+                return {
+                    ingredient_id: i.ingredient_id,
+                    actual_quantity: i.quantity_ordered,
+                    ordered_quantity: i.quantity_ordered,
+                    is_purchased: false,
+                    display_name: i.ingredient?.display_name || 'Unknown',
+                    unit_name: i.ingredient?.unit?.display_name || '-',
+                    img_url: i.ingredient?.img_url
+                };
+            }) || [];
             setItems(initialItems);
         } catch {
             message.error("Failed to load order");
@@ -74,8 +84,6 @@ export default function BuyingPage() {
             fetchOrder();
         }
     }, [orderId, user, fetchOrder, router]);
-    // Actually, I'll exclude fetchOrder from dep array and disable rule or use useCallback. 
-    // Trying to be clean: define fetchOrder with useCallback.
 
     useEffect(() => {
         if (!socket || !orderId) return;

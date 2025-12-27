@@ -9,7 +9,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         const cookie = request.headers.get("cookie") || "";
         const order = await ordersService.confirmPurchase(id, items, purchased_by_id, cookie);
         return NextResponse.json(order);
-    } catch (error) {
+    } catch (error: unknown) {
         console.error("API Error:", error);
         return NextResponse.json({ error: (error as Error).message || "Internal Server Error" }, { status: 500 });
     }

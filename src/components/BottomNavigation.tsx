@@ -21,7 +21,7 @@ const BottomNavigation = () => {
         if (res.ok) {
             const data = await res.json();
             // Count all pending orders
-            const count = data.filter((o: any) => o.status === OrderStatus.PENDING).length; // eslint-disable-line @typescript-eslint/no-explicit-any
+            const count = data.filter((o: { status: string }) => o.status === OrderStatus.PENDING).length;
             setPendingCount(count);
         }
     } catch {

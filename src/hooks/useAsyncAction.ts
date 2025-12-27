@@ -27,13 +27,12 @@ export const useAsyncAction = () => {
                 // Or we can integrate message.success here if we import it
             }
             return result;
-        } catch (error) {
+        } catch (error: unknown) {
             console.error("Async action error:", error);
             Modal.error({
                 title: 'ข้อผิดพลาด',
                 content: (error as Error).message || errorMessage,
             });
-            // throw error; // Optionally re-throw if caller needs to handle it too
             return undefined;
         } finally {
             hideLoading();

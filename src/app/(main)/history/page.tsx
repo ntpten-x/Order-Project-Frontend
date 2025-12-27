@@ -29,8 +29,8 @@ export default function HistoryPage() {
       setOrders(data.filter((order: Order) => 
         order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED
       ));
-    } catch (error) {
-      console.error("Failed to fetch orders:", error);
+    } catch {
+      console.error("Failed to fetch orders");
       message.error("ไม่สามารถโหลดประวัติออเดอร์ได้");
     } finally {
         setLoading(false);
@@ -88,7 +88,12 @@ export default function HistoryPage() {
       title: 'รายการสินค้า',
       dataIndex: 'ordersItems',
       key: 'items',
-      render: (items: any[]) => ( // eslint-disable-line @typescript-eslint/no-explicit-any
+      render: (items: { 
+          id: string; 
+          quantity_ordered: number; 
+          ordersDetail?: { is_purchased: boolean; actual_quantity: number };
+          ingredient?: { display_name: string; unit?: { display_name: string } };
+      }[]) => (
         <Space direction="vertical">
           {(items || []).map((item) => (
             <div key={item.id}>
