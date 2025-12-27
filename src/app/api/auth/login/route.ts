@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
 
         return nextResponse;
 
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("Login Proxy Error:", error);
         return NextResponse.json({ message: "Internal Server Error" }, { status: 500 });
     }
