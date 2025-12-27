@@ -13,8 +13,8 @@ export async function PUT(request: NextRequest, { params }: { params: any }) {
             if (contentLength && parseInt(contentLength) > 0) {
                 body = await request.json();
             }
-        } catch (e) {
-            console.warn("Failed to parse request body:", e);
+        } catch {
+            console.warn("Failed to parse request body");
         }
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any

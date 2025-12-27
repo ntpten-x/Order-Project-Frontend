@@ -21,6 +21,18 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
   const id = params.mode[1] || null;
   const isEdit = mode === 'edit' && !!id;
 
+  const fetchUnits = async () => {
+    try {
+        const response = await fetch('/api/ingredientsUnit/getAll');
+        if (response.ok) {
+            const data = await response.json();
+            setUnits(data.filter((u: IngredientsUnit) => u.is_active)); // Only show active units
+        }
+    } catch (error) {
+        console.error("Failed to fetch units", error);
+    }
+  }
+
   const fetchIngredient = useCallback(async () => {
     setLoading(true);
     try {
@@ -51,21 +63,8 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
     }
   }, [isEdit, id, fetchIngredient]);
 
-  const fetchUnits = async () => {
-    try {
-        const response = await fetch('/api/ingredientsUnit/getAll');
-        if (response.ok) {
-            const data = await response.json();
-            setUnits(data.filter((u: IngredientsUnit) => u.is_active)); // Only show active units
-        }
-    } catch (error) {
-        console.error("Failed to fetch units", error);
-    }
-  }
-
-
-
-  const onFinish = async (values: unknown) => {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const onFinish = async (values: any) => {
     setSubmitting(true);
     try {
       if (isEdit) {

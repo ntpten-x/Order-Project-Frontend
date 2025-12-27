@@ -6,6 +6,7 @@ import { UserOutlined, LockOutlined } from "@ant-design/icons";
 import { useAuth } from "@/contexts/AuthContext";
 import { LoginCredentials } from "@/types/api/auth";
 
+
 const { Title, Text } = Typography;
 
 export default function LoginPage() {

@@ -3,7 +3,6 @@ import { Modal, InputNumber, Button, Select, Space, Typography, List, message } 
 import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
 import { Order, OrderStatus } from "@/types/api/orders";
 import { Ingredients } from "@/types/api/ingredients";
-
 import axios from "axios";
 import { useSocket } from "@/hooks/useSocket";
 
@@ -77,6 +76,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
             }
         };
         fetchIngredients();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [open]); // Re-fetch or re-apply when modal opens to ensure we have images
 
     // Initialize items when order changes

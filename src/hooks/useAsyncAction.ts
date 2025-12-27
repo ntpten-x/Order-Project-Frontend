@@ -33,7 +33,6 @@ export const useAsyncAction = () => {
                 title: 'ข้อผิดพลาด',
                 content: (error as Error).message || errorMessage,
             });
-            // throw error; // Optionally re-throw if caller needs to handle it too
             return undefined;
         } finally {
             hideLoading();

@@ -39,7 +39,6 @@ export default function UsersPage() {
     }
   }, [user, authLoading, router]);
 
-
   const fetchUsers = useCallback(async () => {
     execute(async () => {
       const response = await fetch('/api/users/getAll');
