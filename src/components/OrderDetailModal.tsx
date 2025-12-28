@@ -1,6 +1,6 @@
 import React from "react";
 import { Modal, Descriptions, Table, Tag, Typography, Avatar, Button } from "antd";
-import { Order, OrderStatus } from "@/types/api/orders";
+import { Order, OrderStatus } from "../types/api/orders";
 
 const { Text } = Typography;
 

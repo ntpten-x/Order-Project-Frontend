@@ -1,8 +1,8 @@
 import React, { useState } from "react";
 import { Drawer, Button, List, Space, Typography, Badge, Avatar, message, Modal } from "antd";
 import { ShoppingCartOutlined, MinusOutlined, PlusOutlined, DeleteOutlined } from "@ant-design/icons";
-import { useCart } from "@/contexts/CartContext";
-import { useAuth } from "@/contexts/AuthContext";
+import { useCart } from "../contexts/CartContext";
+import { useAuth } from "../contexts/AuthContext";
 import { useRouter } from "next/navigation";
 
 const { Text } = Typography;

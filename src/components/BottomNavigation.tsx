@@ -3,10 +3,10 @@
 import React from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { UserOutlined, FileTextOutlined, HistoryOutlined, HomeOutlined, InfoCircleOutlined, UnorderedListOutlined } from '@ant-design/icons';
-import { useAuth } from '@/contexts/AuthContext';
-import { useSocket } from "@/hooks/useSocket";
+import { useAuth } from '../contexts/AuthContext';
+import { useSocket } from "../hooks/useSocket";
 import { useState, useEffect } from 'react';
-import { OrderStatus } from '@/types/api/orders';
+import { OrderStatus } from '../types/api/orders';
 
 const BottomNavigation = () => {
   const router = useRouter();

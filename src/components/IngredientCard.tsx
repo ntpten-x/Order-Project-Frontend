@@ -1,8 +1,8 @@
 import React from 'react';
 import { Card, Typography, Button, message } from 'antd';
 import { ShoppingCartOutlined } from '@ant-design/icons';
-import { Ingredients } from '@/types/api/ingredients';
-import { useCart } from '@/contexts/CartContext';
+import { Ingredients } from '../types/api/ingredients';
+import { useCart } from '../contexts/CartContext';
 
 const { Title, Paragraph } = Typography;
 
