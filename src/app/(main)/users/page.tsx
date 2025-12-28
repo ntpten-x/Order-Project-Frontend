@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Table, Tag, Space, Button, Card, Typography, message, Modal } from 'antd';
 import { UserOutlined, EditOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined, TeamOutlined } from '@ant-design/icons';
 import { User } from '@/types/api/users';
@@ -39,24 +39,7 @@ export default function UsersPage() {
     }
   }, [user, authLoading, router]);
 
-  // Loading / Permission Check State
-  if (authLoading || !user || user.role !== 'Admin') {
-    return (
-        <div style={{ 
-            height: '100vh', 
-            display: 'flex', 
-            flexDirection: 'column',
-            justifyContent: 'center', 
-            alignItems: 'center',
-            backgroundColor: '#f5f5f5'
-        }}>
-            <Spin size="large" />
-            <Text style={{ marginTop: 16, color: '#8c8c8c' }}>กำลังตรวจสอบสิทธิ์การใช้งาน...</Text>
-        </div>
-    );
-  }
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     execute(async () => {
       const response = await fetch('/api/users/getAll');
       if (!response.ok) {
@@ -66,12 +49,12 @@ export default function UsersPage() {
       const data = await response.json();
       setUsers(data);
     }, 'กำลังโหลดข้อมูลผู้ใช้...');
-  };
+  }, [execute]);
 
   useEffect(() => {
     // We already checked role in the render guard/redirect effect
     fetchUsers();
-  }, []);
+  }, [fetchUsers]);
 
   useEffect(() => {
     if (!socket) return;
@@ -104,6 +87,23 @@ export default function UsersPage() {
     };
   }, [socket]);
   
+  // Loading / Permission Check State
+  if (authLoading || !user || user.role !== 'Admin') {
+    return (
+        <div style={{ 
+            height: '100vh', 
+            display: 'flex', 
+            flexDirection: 'column',
+            justifyContent: 'center', 
+            alignItems: 'center',
+            backgroundColor: '#f5f5f5'
+        }}>
+            <Spin size="large" />
+            <Text style={{ marginTop: 16, color: '#8c8c8c' }}>กำลังตรวจสอบสิทธิ์การใช้งาน...</Text>
+        </div>
+    );
+  }
+  
   // ... columns ...
 
 
@@ -132,16 +132,19 @@ export default function UsersPage() {
       dataIndex: 'roles',
       key: 'roles',
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      render: (role: any) => (
+      render: (role: unknown) => {
+        const r = role as { roles_name?: string; display_name?: string };
+        return (
         <Space direction="vertical" size={0}>
-          <Tag color={role?.roles_name === 'Admin' ? 'gold' : 'blue'} className="mr-0">
-             {role?.roles_name || 'N/A'}
+          <Tag color={r?.roles_name === 'Admin' ? 'gold' : 'blue'} className="mr-0">
+             {r?.roles_name || 'N/A'}
           </Tag>
           <Text type="secondary" className="text-xs ml-1">
-            {role?.display_name}
+            {r?.display_name}
           </Text>
         </Space>
-      ),
+        );
+      },
     },
     {
       title: 'วันที่สร้าง',
@@ -179,7 +182,7 @@ export default function UsersPage() {
       title: 'การจัดการ',
       key: 'actions',
       width: 150,
-      render: (_: any, record: User) => (
+      render: (_: unknown, record: User) => (
         <Space size="middle">
           <Button 
             type="text" 

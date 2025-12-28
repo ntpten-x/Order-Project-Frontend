@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
         const cookie = request.headers.get("cookie") || "";
         const ingredientsUnits = await ingredientsUnitService.findAll(cookie);
         return NextResponse.json(ingredientsUnits);
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }

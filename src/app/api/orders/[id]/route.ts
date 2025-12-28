@@ -7,9 +7,9 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         const cookie = request.headers.get("cookie") || "";
         const order = await ordersService.getOrderById(id, cookie);
         return NextResponse.json(order);
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("API Error:", error);
-        return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ error: (error as Error).message || "Internal Server Error" }, { status: 500 });
     }
 }
 
@@ -19,9 +19,9 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
         const cookie = request.headers.get("cookie") || "";
         await ordersService.deleteOrder(id, cookie);
         return NextResponse.json({ message: "Order deleted successfully" });
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("API Error:", error);
-        return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ error: (error as Error).message || "Internal Server Error" }, { status: 500 });
     }
 }
 
@@ -33,8 +33,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         // Assumes updateOrder takes items array in body.items
         const order = await ordersService.updateOrder(id, body.items, cookie);
         return NextResponse.json(order);
-    } catch (error: any) {
+    } catch (error: unknown) {
         console.error("API Error:", error);
-        return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ error: (error as Error).message || "Internal Server Error" }, { status: 500 });
     }
 }

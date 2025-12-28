@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { Form, Input, Button, Card, message, Typography, Spin, Popconfirm, Switch, Select } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
@@ -21,13 +21,6 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
   const id = params.mode[1] || null;
   const isEdit = mode === 'edit' && !!id;
 
-  useEffect(() => {
-    fetchUnits();
-    if (isEdit) {
-      fetchIngredient();
-    }
-  }, [isEdit, id]);
-
   const fetchUnits = async () => {
     try {
         const response = await fetch('/api/ingredientsUnit/getAll');
@@ -40,7 +33,7 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
     }
   }
 
-  const fetchIngredient = async () => {
+  const fetchIngredient = useCallback(async () => {
     setLoading(true);
     try {
       const response = await fetch(`/api/ingredients/getById/${id}`);
@@ -61,8 +54,16 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, form, router]);
 
+  useEffect(() => {
+    fetchUnits();
+    if (isEdit) {
+      fetchIngredient();
+    }
+  }, [isEdit, id, fetchIngredient]);
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onFinish = async (values: any) => {
     setSubmitting(true);
     try {
@@ -94,9 +95,9 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
         message.success('สร้างวัตถุดิบสำเร็จ');
       }
       router.push('/ingredients');
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error(error);
-      message.error(error.message || (isEdit ? 'ไม่สามารถอัปเดตวัตถุดิบได้' : 'ไม่สามารถสร้างวัตถุดิบได้'));
+      message.error((error as { message: string }).message || (isEdit ? 'ไม่สามารถอัปเดตวัตถุดิบได้' : 'ไม่สามารถสร้างวัตถุดิบได้'));
     } finally {
       setSubmitting(false);
     }

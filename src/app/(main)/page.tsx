@@ -37,7 +37,7 @@ export default function HomePage() {
         const activeIngredients = allIngredients.filter(item => item.is_active);
         setIngredients(activeIngredients);
         setError(null);
-      } catch (error: any) {
+      } catch (error: unknown) {
         console.error("Error fetching ingredients:", error);
         setError("Failed to load ingredients. Please try again later.");
       } finally {

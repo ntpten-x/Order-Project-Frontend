@@ -7,7 +7,7 @@ export async function GET(request: Request, { params }: { params: { id: string }
     try {
         const ingredientsUnit = await ingredientsUnitService.findOne(params.id);
         return NextResponse.json(ingredientsUnit);
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }

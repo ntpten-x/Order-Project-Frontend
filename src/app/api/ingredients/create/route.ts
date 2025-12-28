@@ -6,7 +6,7 @@ export async function POST(request: Request) {
         const body = await request.json();
         const newIngredient = await ingredientsService.create(body);
         return NextResponse.json(newIngredient, { status: 201 });
-    } catch (error) {
+    } catch {
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }

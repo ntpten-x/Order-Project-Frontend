@@ -5,7 +5,7 @@ import { getProxyUrl } from "../lib/proxy-utils";
 const BASE_PATH = "/orders";
 
 const getHeaders = (cookie?: string, contentType: string = "application/json"): HeadersInit => {
-    const headers: any = {};
+    const headers: Record<string, string> = {};
     if (contentType) headers["Content-Type"] = contentType;
     if (cookie) headers.Cookie = cookie;
     return headers;

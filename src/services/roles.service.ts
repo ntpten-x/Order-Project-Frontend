@@ -4,9 +4,12 @@ import { getProxyUrl } from "../lib/proxy-utils";
 const BASE_PATH = "/roles";
 
 export const roleService = {
-    getAllRoles: async (): Promise<Role[]> => {
+    getAllRoles: async (cookie?: string): Promise<Role[]> => {
         const url = getProxyUrl("GET", BASE_PATH);
-        const response = await fetch(url!, { cache: "no-store" });
+        const response = await fetch(url!, {
+            cache: "no-store",
+            headers: cookie ? { Cookie: cookie } : {},
+        });
         if (!response.ok) throw new Error("Failed to fetch roles");
         return response.json();
     },
