@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { ingredientsService } from "@/services/ingredients.service";
+import { ingredientsService } from "../../../../../services/ingredients.service";
 
 export async function PUT(request: Request, { params }: { params: { id: string } }) {
     try {

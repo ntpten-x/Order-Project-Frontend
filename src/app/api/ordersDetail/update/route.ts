@@ -1,4 +1,4 @@
-import { ordersService } from "@/services/orders.service";
+import { ordersService } from "../../../../services/orders.service";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest) {
