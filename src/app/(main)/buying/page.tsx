@@ -6,8 +6,8 @@ import { Card, Typography, List, Checkbox, InputNumber, Button, Space, Divider, 
 import { ShoppingCartOutlined, ArrowLeftOutlined, CheckOutlined, PlusOutlined, MinusOutlined } from "@ant-design/icons";
 import { Order } from "@/types/api/orders";
 import { ordersService } from "@/services/orders.service";
-import { useAuth } from "@/contexts/AuthContext";
-import { useSocket } from "@/hooks/useSocket";
+import { useAuth } from "../../../contexts/AuthContext";
+import { useSocket } from "../../../hooks/useSocket";
 
 const { Title, Text } = Typography;
 

@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { Form, Input, Button, Card, Typography, notification } from "antd";
 import { UserOutlined, LockOutlined } from "@ant-design/icons";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "../../../contexts/AuthContext";
 import { LoginCredentials } from "@/types/api/auth";
 
 const { Title, Text } = Typography;
