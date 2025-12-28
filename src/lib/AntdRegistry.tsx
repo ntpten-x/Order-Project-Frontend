@@ -6,7 +6,7 @@ import type Entity from '@ant-design/cssinjs/lib/Cache';
 import { useServerInsertedHTML } from 'next/navigation';
 
 import { ConfigProvider } from 'antd';
-import theme from '@/theme/themeConfig';
+import theme from '../theme/themeConfig';
 
 const AntdRegistry = ({ children }: React.PropsWithChildren) => {
   const cache = React.useMemo<Entity>(() => createCache(), []);
