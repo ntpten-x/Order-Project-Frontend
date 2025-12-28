@@ -4,9 +4,9 @@ import React, { useEffect, useState, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Card, Typography, List, Checkbox, InputNumber, Button, message, Modal, Avatar, Tag } from "antd";
 import { ShoppingCartOutlined, ArrowLeftOutlined, PlusOutlined, MinusOutlined } from "@ant-design/icons";
-import { Order } from "@/types/api/orders";
-import { useAuth } from "@/contexts/AuthContext";
-import { useSocket } from "@/hooks/useSocket";
+import { Order } from "../../../types/api/orders";
+import { useAuth } from "../../../contexts/AuthContext";
+import { useSocket } from "../../../hooks/useSocket";
 
 const { Title, Text } = Typography;
 
