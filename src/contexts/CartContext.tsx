@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import { Ingredients } from "@/types/api/ingredients";
+import { Ingredients } from "../types/api/ingredients";
 
 interface CartItem {
   ingredient: Ingredients;

@@ -1,7 +1,7 @@
 import React from "react";
-import BottomNavigation from "@/components/BottomNavigation";
+import BottomNavigation from "../../components/BottomNavigation";
 
-import { CartProvider } from "@/contexts/CartContext";
+import { CartProvider } from "../../contexts/CartContext";
 
 export default function MainLayout({
   children,

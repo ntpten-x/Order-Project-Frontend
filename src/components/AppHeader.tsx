@@ -3,7 +3,7 @@
 import React from "react";
 import { Layout, Avatar, Popover, Button, Typography } from "antd";
 import { UserOutlined, LogoutOutlined } from "@ant-design/icons";
-import { useAuth } from "@/contexts/AuthContext";
+import { useAuth } from "../contexts/AuthContext";
 
 const { Header } = Layout;
 const { Text, Title } = Typography;

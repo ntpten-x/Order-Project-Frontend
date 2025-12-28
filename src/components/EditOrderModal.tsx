@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { Modal, InputNumber, Button, Select, Space, Typography, List, message } from "antd";
 import { MinusCircleOutlined, PlusOutlined } from "@ant-design/icons";
-import { Order, OrderStatus } from "@/types/api/orders";
-import { Ingredients } from "@/types/api/ingredients";
+import { Order, OrderStatus } from "../types/api/orders";
+import { Ingredients } from "../types/api/ingredients";
 import axios from "axios";
-import { useSocket } from "@/hooks/useSocket";
+import { useSocket } from "../hooks/useSocket";
 
 const { Text } = Typography;
 

@@ -5,7 +5,7 @@ import { Form, Input, Button, Card, message, Typography, Spin, Popconfirm, Switc
 import { ArrowLeftOutlined, SaveOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import IngredientsManageStyle from './style';
-import { IngredientsUnit } from '@/types/api/ingredientsUnit';
+import { IngredientsUnit } from '../../../../../types/api/ingredientsUnit';
 
 const { Title } = Typography;
 const { TextArea } = Input;
