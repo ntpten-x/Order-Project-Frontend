@@ -11,10 +11,10 @@ import {
   theme as antTheme,
   message
 } from "antd";
-import IngredientCard from "@/components/IngredientCard";
-import CartDrawer from "@/components/CartDrawer";
-import { Ingredients } from "@/types/api/ingredients";
-import { useSocket } from "@/hooks/useSocket";
+import IngredientCard from "../../components/IngredientCard";
+import CartDrawer from "../../components/CartDrawer";
+import { Ingredients } from "../../types/api/ingredients";
+import { useSocket } from "../../hooks/useSocket";
 
 const { Content } = Layout;
 const { Title } = Typography;
