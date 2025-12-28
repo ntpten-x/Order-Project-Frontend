@@ -1,4 +1,4 @@
-import { userService } from "../../../../../../services/users.service";
+import { userService } from "../../../../../../../services/users.service";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(request: NextRequest, { params }: { params: { username: string; password: string; roleId: string } }) {
