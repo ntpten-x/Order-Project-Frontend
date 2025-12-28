@@ -1,4 +1,4 @@
-import { userService } from "@/services/users.service";
+import { userService } from "../../../../../services/users.service";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
