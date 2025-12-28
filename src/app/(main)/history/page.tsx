@@ -3,10 +3,10 @@
 import React, { useEffect, useState } from "react";
 import { Table, Tag, Typography, Card, Space, Button, message, Modal } from "antd";
 import { ReloadOutlined, EyeOutlined, DeleteOutlined } from "@ant-design/icons";
-import { Order, OrderStatus } from "@/types/api/orders";
-import OrderDetailModal from "@/components/OrderDetailModal";
-import { useSocket } from "@/hooks/useSocket";
-import { useAuth } from "@/contexts/AuthContext";
+import { Order, OrderStatus } from "../../../types/api/orders";
+import OrderDetailModal from "../../../components/OrderDetailModal";
+import { useSocket } from "../../../hooks/useSocket";
+import { useAuth } from "../../../contexts/AuthContext";
 
 const { Title, Text } = Typography;
 
