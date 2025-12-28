@@ -3,17 +3,16 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Table, Tag, Space, Button, Card, Typography, message, Modal } from 'antd';
 import { UserOutlined, EditOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined, TeamOutlined } from '@ant-design/icons';
-import { User } from '@/types/api/users';
-
+import { User } from "../../../types/api/users";
 import { useRouter } from 'next/navigation';
 import UserPageStyle from './style';
-import { useSocket } from '@/hooks/useSocket';
-import { useAsyncAction } from '@/hooks/useAsyncAction';
-import { useGlobalLoading } from '@/contexts/GlobalLoadingContext';
+import { useSocket } from "../../../hooks/useSocket";
+import { useAsyncAction } from "../../../hooks/useAsyncAction";
+import { useGlobalLoading } from "../../../contexts/GlobalLoadingContext";
 
 const { Title, Text } = Typography;
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from "../../../contexts/AuthContext";
 
 import { Spin } from 'antd';
 
