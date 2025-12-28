@@ -3,14 +3,14 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Table, Tag, Space, Button, Card, Typography, message, Modal } from 'antd';
 import { EditOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined, ExperimentOutlined } from '@ant-design/icons';
-import { IngredientsUnit } from '@/types/api/ingredientsUnit';
+import { IngredientsUnit } from "../../../types/api/ingredientsUnit";
 import { useRouter } from 'next/navigation';
 import IngredientsUnitPageStyle from './style';
-import { useGlobalLoading } from '@/contexts/GlobalLoadingContext';
-import { useAsyncAction } from '@/hooks/useAsyncAction';
-import { useSocket } from '@/hooks/useSocket';
+import { useGlobalLoading } from "../../../contexts/GlobalLoadingContext";
+import { useAsyncAction } from "../../../hooks/useAsyncAction";
+import { useSocket } from "../../../hooks/useSocket";
 
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from "../../../contexts/AuthContext";
 import { Spin } from 'antd';
 
 const { Title, Text } = Typography;
