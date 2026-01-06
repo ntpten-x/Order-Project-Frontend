@@ -4,12 +4,19 @@ import React from "react";
 import { Layout, Avatar, Popover, Button, Typography } from "antd";
 import { UserOutlined, LogoutOutlined } from "@ant-design/icons";
 import { useAuth } from "../contexts/AuthContext";
+import { usePathname } from "next/navigation";
 
 const { Header } = Layout;
 const { Text, Title } = Typography;
 
 const AppHeader: React.FC = () => {
   const { user, logout } = useAuth();
+  const pathname = usePathname();
+
+  // ซ่อน header ถ้ายังไม่ได้ login หรืออยู่หน้า login
+  if (!user || pathname === "/login") {
+    return null;
+  }
 
   const userPopoverContent = (
     <div style={{ minWidth: "200px" }}>

@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.1",
     "antd": "^6.1.2",
     "axios": "^1.13.2",
     "dayjs": "^1.11.19",

@@ -13,8 +13,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "T-DED STEAK ORDER",
-  description: "T-DED STEAK ORDER",
+  title: "ORDER",
+  description: "ORDER",
 };
 
 import AntdRegistry from "../lib/AntdRegistry";
@@ -22,6 +22,7 @@ import { SocketProvider } from "../contexts/SocketContext";
 import { AuthProvider } from "../contexts/AuthContext";
 import { GlobalLoadingProvider } from "../contexts/GlobalLoadingContext";
 import AppHeader from "../components/AppHeader";
+import ClientLayout from "../components/ClientLayout";
 
 export default function RootLayout({
   children,
@@ -38,9 +39,7 @@ export default function RootLayout({
             <AuthProvider>
               <SocketProvider>
                 <AppHeader />
-                <main style={{ paddingTop: "64px" }}>
-                  {children}
-                </main>
+                <ClientLayout>{children}</ClientLayout>
               </SocketProvider>
             </AuthProvider>
           </GlobalLoadingProvider>
