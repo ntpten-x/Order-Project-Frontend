@@ -1,13 +1,20 @@
 "use client";
 
 import React from "react";
-import { Layout, Avatar, Popover, Button, Typography } from "antd";
-import { UserOutlined, LogoutOutlined } from "@ant-design/icons";
+import { Layout, Avatar, Dropdown, Typography, Badge, Space } from "antd";
+import type { MenuProps } from 'antd';
+import { 
+  UserOutlined, 
+  LogoutOutlined, 
+  SettingOutlined,
+  ShoppingOutlined,
+  DownOutlined
+} from "@ant-design/icons";
 import { useAuth } from "../contexts/AuthContext";
 import { usePathname } from "next/navigation";
 
 const { Header } = Layout;
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 const AppHeader: React.FC = () => {
   const { user, logout } = useAuth();
@@ -18,70 +25,182 @@ const AppHeader: React.FC = () => {
     return null;
   }
 
-  const userPopoverContent = (
-    <div style={{ minWidth: "200px" }}>
-      <div className="flex flex-col items-center p-4 border-b mb-2">
-        <Avatar size={64} icon={<UserOutlined />} className="mb-2 bg-blue-500" />
-        <Text strong className="text-lg">
-          {user?.username || "Guest"}
-        </Text>
-        <Text type="secondary">{user?.display_name || "No Role"}</Text>
-      </div>
-      <Button
-        type="text"
-        danger
-        icon={<LogoutOutlined />}
-        block
-        onClick={logout}
-        className="text-left hover:bg-red-50"
-      >
-        ออกจากระบบ
-      </Button>
-    </div>
-  );
+  // Dropdown menu items
+  const menuItems: MenuProps['items'] = [
+    {
+      key: 'profile',
+      label: (
+        <div style={{ padding: '12px 8px', minWidth: '240px' }}>
+          <Space align="center" size={16}>
+            <Avatar 
+              size={56} 
+              icon={<UserOutlined />} 
+              style={{ 
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+              }} 
+            />
+            <div>
+              <Text strong style={{ fontSize: '16px', display: 'block', marginBottom: '2px' }}>
+                {user?.username || "Guest"}
+              </Text>
+              <Text type="secondary" style={{ fontSize: '13px' }}>
+                {user?.display_name || "No Role"}
+              </Text>
+            </div>
+          </Space>
+        </div>
+      ),
+      disabled: true,
+    },
+    {
+      type: 'divider',
+    },
+    {
+      key: 'settings',
+      icon: <SettingOutlined />,
+      label: 'ตั้งค่าบัญชี',
+      style: { padding: '10px 16px' },
+    },
+    {
+      type: 'divider',
+    },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: 'ออกจากระบบ',
+      danger: true,
+      style: { padding: '10px 16px' },
+      onClick: logout,
+    },
+  ];
 
   return (
     <Header
-      className="flex items-center justify-between px-6 bg-white border-b border-gray-100 shadow-sm fixed top-0 w-full z-50"
-      style={{ height: "64px", paddingInline: "24px", background: "#fff" }}
+      style={{
+        position: 'fixed',
+        top: 0,
+        width: '100%',
+        zIndex: 1000,
+        height: '64px',
+        padding: '0 16px',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.12)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+      }}
     >
       {/* Left Side: Logo & App Name */}
-      <div className="flex items-center gap-3">
-        <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-          <span className="text-white font-bold text-xl">O</span>
+      <Space size={12} align="center">
+        <div 
+          style={{
+            width: '40px',
+            height: '40px',
+            background: 'rgba(255, 255, 255, 0.25)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '12px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            border: '2px solid rgba(255, 255, 255, 0.3)',
+            boxShadow: '0 8px 16px rgba(0, 0, 0, 0.1)',
+            transition: 'all 0.3s ease',
+            cursor: 'pointer',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = 'translateY(-2px)';
+            e.currentTarget.style.boxShadow = '0 12px 24px rgba(0, 0, 0, 0.15)';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'translateY(0)';
+            e.currentTarget.style.boxShadow = '0 8px 16px rgba(0, 0, 0, 0.1)';
+          }}
+        >
+          <ShoppingOutlined style={{ fontSize: '20px', color: '#fff' }} />
         </div>
-        <Title level={4} style={{ margin: 0, color: "#1f2937" }}>
+        <Text 
+          strong 
+          className="app-title"
+          style={{ 
+            fontSize: '20px', 
+            color: '#fff',
+            margin: 0,
+            fontWeight: 700,
+            letterSpacing: '0.5px',
+            textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+          }}
+        >
           Order App
-        </Title>
-      </div>
+        </Text>
+      </Space>
 
       {/* Right Side: User Profile */}
-      <div>
-        {user && (
-          <Popover
-            content={userPopoverContent}
-            trigger="click"
-            placement="bottomRight"
-            arrow={false}
+      {user && (
+        <Dropdown 
+          menu={{ items: menuItems }} 
+          trigger={['click']}
+          placement="bottomRight"
+        >
+          <div 
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              cursor: 'pointer',
+              padding: '6px 12px',
+              borderRadius: '24px',
+              background: 'rgba(255, 255, 255, 0.18)',
+              backdropFilter: 'blur(10px)',
+              border: '2px solid rgba(255, 255, 255, 0.25)',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+              maxWidth: '180px',
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.28)';
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 8px 20px rgba(0, 0, 0, 0.15)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.18)';
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
+            }}
           >
-            <div className="flex items-center gap-3 cursor-pointer p-2 rounded-full hover:bg-gray-50 transition-colors">
-              <div className="hidden md:flex flex-col items-end leading-tight">
-                <Text strong className="text-sm">
-                  {user.username}
-                </Text>
-                <Text type="secondary" className="text-xs">
-                  {user.display_name}
-                </Text>
-              </div>
+            <Badge 
+              dot 
+              status="success"
+              offset={[-5, 38]}
+              styles={{
+                indicator: {
+                  width: '12px',
+                  height: '12px',
+                  boxShadow: '0 0 0 2px rgba(255, 255, 255, 0.5)',
+                }
+              }}
+            >
               <Avatar
-                size="large"
+                size={36}
                 icon={<UserOutlined />}
-                className="bg-blue-500 shadow-sm border-2 border-white cursor-pointer hover:scale-105 transition-transform"
+                style={{
+                  background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+                  border: '2px solid rgba(255, 255, 255, 0.9)',
+                  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.2)',
+                }}
               />
-            </div>
-          </Popover>
-        )}
-      </div>
+            </Badge>
+            <DownOutlined 
+              style={{ 
+                fontSize: '10px', 
+                color: '#fff',
+                transition: 'transform 0.3s ease',
+              }} 
+            />
+          </div>
+        </Dropdown>
+      )}
     </Header>
   );
 };

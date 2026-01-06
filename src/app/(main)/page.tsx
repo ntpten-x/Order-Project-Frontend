@@ -5,23 +5,24 @@ import axios from "axios";
 import { 
   Layout, 
   Typography, 
-  Spin, 
   Result,
   List,
-  theme as antTheme,
+  Badge,
+  Card,
+  Skeleton,
+  Space,
   message
 } from "antd";
+import { ShoppingOutlined, ReloadOutlined } from "@ant-design/icons";
 import IngredientCard from "../../components/IngredientCard";
 import CartDrawer from "../../components/CartDrawer";
 import { Ingredients } from "../../types/api/ingredients";
 import { useSocket } from "../../hooks/useSocket";
 
 const { Content } = Layout;
-const { Title } = Typography;
-const { useToken } = antTheme;
+const { Title, Text } = Typography;
 
 export default function HomePage() {
-  const { token } = useToken();
   const [ingredients, setIngredients] = useState<Ingredients[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -54,7 +55,7 @@ export default function HomePage() {
     const onIngredientCreate = (newItem: Ingredients) => {
       if (newItem.is_active) {
         setIngredients((prev) => [newItem, ...prev]);
-        message.info(`New ingredient added: ${newItem.display_name}`);
+        message.info(`🆕 มีวัตถุดิบใหม่: ${newItem.display_name}`);
       }
     };
 
@@ -92,41 +93,124 @@ export default function HomePage() {
     };
   }, [socket]);
 
+  // Skeleton loading component
+  const SkeletonCard = () => (
+    <Card 
+      style={{ 
+        borderRadius: 16, 
+        overflow: 'hidden',
+        boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+      }}
+    >
+      <Skeleton.Image active style={{ width: '100%', height: 180 }} />
+      <div style={{ padding: '16px 0' }}>
+        <Skeleton active paragraph={{ rows: 2 }} />
+      </div>
+    </Card>
+  );
+
   return (
-    <Layout style={{ minHeight: "100vh", background: token.colorBgContainer }}>
-      <Content style={{ padding: '24px', maxWidth: 1200, margin: '0 auto', width: '100%' }}>
-        <Title level={2} style={{ marginBottom: 24, textAlign: 'center' }}>
-          วัตถุดิบ
-        </Title>
-        
+    <Layout style={{ minHeight: "100vh", background: '#f8f9fc' }}>
+      {/* Simple Title Section */}
+      <Content 
+        style={{ 
+          padding: '24px 24px 120px', 
+          maxWidth: 1200, 
+          margin: '0 auto', 
+          width: '100%' 
+        }}
+      >
+        {/* Page Header */}
+        <div style={{ marginBottom: 24 }}>
+          <Space align="center" size={12}>
+            <Title 
+              level={3} 
+              style={{ 
+                margin: 0, 
+                color: '#1a1a2e',
+                fontWeight: 700,
+              }}
+            >
+              วัตถุดิบ
+            </Title>
+            <Badge 
+              count={loading ? '...' : ingredients.length}
+              style={{
+                backgroundColor: '#0d9488',
+                fontWeight: 600,
+              }}
+              showZero
+            />
+          </Space>
+          <Text type="secondary" style={{ fontSize: 14, display: 'block', marginTop: 4 }}>
+            เลือกวัตถุดิบที่ต้องการสั่งซื้อ
+          </Text>
+        </div>
+
         {loading ? (
-           <div style={{ textAlign: 'center', padding: 80 }}>
-             <Spin size="large" />
-           </div>
+          <List
+            grid={{
+              gutter: 24,
+              xs: 1,
+              sm: 1,
+              md: 2,
+              lg: 3,
+              xl: 3,
+              xxl: 3,
+            }}
+            dataSource={[1, 2, 3, 4, 5, 6]}
+            renderItem={() => (
+              <List.Item>
+                <SkeletonCard />
+              </List.Item>
+            )}
+          />
         ) : error ? (
           <Result
             status="error"
-            title="Overview Failed"
+            title="เกิดข้อผิดพลาด"
             subTitle={error}
+            extra={
+              <button 
+                onClick={() => window.location.reload()} 
+                style={{
+                  padding: '12px 24px',
+                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                  border: 'none',
+                  borderRadius: 8,
+                  color: '#fff',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                <ReloadOutlined style={{ marginRight: 8 }} />
+                ลองใหม่อีกครั้ง
+              </button>
+            }
+          />
+        ) : ingredients.length === 0 ? (
+          <Result
+            icon={<ShoppingOutlined style={{ color: '#667eea', fontSize: 64 }} />}
+            title="ยังไม่มีวัตถุดิบ"
+            subTitle="ยังไม่มีวัตถุดิบที่พร้อมให้สั่งซื้อในขณะนี้"
           />
         ) : (
           <List
             grid={{
               gutter: 24,
-              xs: 1,  // 1 column on mobile
+              xs: 1,
               sm: 1,
               md: 2,
-              lg: 3,  // 3 columns on desktop (large screens)
+              lg: 3,
               xl: 3,
               xxl: 3,
             }}
             dataSource={ingredients}
             renderItem={(item) => (
-              <List.Item>
+              <List.Item style={{ marginBottom: 8 }}>
                 <IngredientCard ingredient={item} />
               </List.Item>
             )}
-            locale={{ emptyText: "No active ingredients found" }}
           />
         )}
       </Content>
@@ -134,3 +218,4 @@ export default function HomePage() {
     </Layout>
   );
 }
+
