@@ -15,9 +15,9 @@ const BottomNavigation = () => {
   const [pendingCount, setPendingCount] = useState(0);
   const { socket } = useSocket();
 
-  const checkPendingOrders = async () => {
+  const checkPendingOrders = React.useCallback(async () => {
     try {
-        const res = await fetch('/api/orders', { cache: 'no-store' });
+        const res = await fetch(`/api/orders?t=${Date.now()}`, { cache: 'no-store' });
         if (res.ok) {
             const data = await res.json();
             // Count all pending orders
@@ -27,36 +27,44 @@ const BottomNavigation = () => {
     } catch {
         // Silent fail
     }
-  };
+  }, []);
 
   useEffect(() => {
     if (user) {
         checkPendingOrders();
     }
-  }, [user]);
+  }, [user, checkPendingOrders]);
 
   useEffect(() => {
       if (!socket) return;
-      socket.on('orders_updated', checkPendingOrders);
-      return () => { socket.off('orders_updated', checkPendingOrders); };
-  }, [socket]);
+      
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const handleUpdate = (payload: any) => {
+          // Optimistic update: Immediate feedback for ANY create action
+          if (payload?.action === 'create') {
+              setPendingCount(prev => prev + 1);
+              // Fetch immediately to confirm (in case status isn't ignored)
+              checkPendingOrders();
+          }
+          
+          // Delayed fetch to ensure consistency for all actions
+          setTimeout(checkPendingOrders, 1000);
+      };
 
-  // const [activeTab, setActiveTab] = useState('');
+      socket.on('orders_updated', handleUpdate);
+      
+      // Auto-refresh when window gains focus
+      const onFocus = () => checkPendingOrders();
+      window.addEventListener('focus', onFocus);
 
-  /*
-  useEffect(() => {
-    if (pathname.includes('/users')) {
-      setActiveTab('users');
-    } else if (pathname === '/') {
-      setActiveTab('orders'); // Assuming '/' is Orders or similar default
-    } else {
-      setActiveTab('');
-    }
-  }, [pathname]);
-  */
+      return () => { 
+          socket.off('orders_updated', handleUpdate);
+          window.removeEventListener('focus', onFocus);
+      };
+  }, [socket, checkPendingOrders]);
 
   const menuItems = [
-        {
+    {
       key: 'home',
       label: 'หน้าแรก',
       icon: <HomeOutlined className="text-2xl" />,
@@ -99,7 +107,6 @@ const BottomNavigation = () => {
 
   ];
 
-  // Custom Colors - Dark Theme
   const activeColor = '#FCD34D'; // Bright gold/yellow for dark background
   const inactiveColor = '#D1D5DB'; // Gray-300 for better visibility on dark
 
@@ -130,7 +137,7 @@ const BottomNavigation = () => {
                     >
                         {item.icon}
                         {item.key === 'items' && pendingCount > 0 && (
-                            <div className="absolute top-0 right-0 translate-x-1/3 -translate-y-1/3 w-3 h-3 bg-red-500 rounded-full border-2 border-[#171717]" />
+                            <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-[#171717] z-10 animate-pulse" />
                         )}
                     </div>
                   </div>
