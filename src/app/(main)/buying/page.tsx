@@ -2,13 +2,23 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Card, Typography, List, Checkbox, InputNumber, Button, message, Modal, Avatar, Tag } from "antd";
-import { ShoppingCartOutlined, ArrowLeftOutlined, PlusOutlined, MinusOutlined } from "@ant-design/icons";
+import { Typography, Button, message, Modal, Spin } from "antd";
+import { ShoppingCartOutlined, CloseOutlined } from "@ant-design/icons";
 import { Order } from "../../../types/api/orders";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useSocket } from "../../../hooks/useSocket";
+import { 
+    BuyingPageStyles,
+    pageStyles,
+    PageHeader,
+    StatsCard,
+    PurchaseItemCard,
+    ModalHeader,
+    ModalItemCard,
+    WarningBanner
+} from "./style";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 interface PurchaseItemState {
     ingredient_id: string;
@@ -16,6 +26,7 @@ interface PurchaseItemState {
     ordered_quantity: number;
     is_purchased: boolean;
     display_name: string;
+    description?: string;
     unit_name: string;
     img_url?: string;
 }
@@ -35,7 +46,6 @@ export default function BuyingPage() {
     const fetchOrder = useCallback(async () => {
         try {
             setLoading(true);
-            // Use Proxy API
             const response = await fetch(`/api/orders/${orderId}`, { cache: "no-store" });
             if (!response.ok) throw new Error("Failed to load order");
             const data = await response.json();
@@ -48,6 +58,7 @@ export default function BuyingPage() {
                     quantity_ordered: number;
                     ingredient?: {
                         display_name?: string;
+                        description?: string;
                         unit?: { display_name?: string };
                         img_url?: string;
                     }
@@ -58,6 +69,7 @@ export default function BuyingPage() {
                     ordered_quantity: i.quantity_ordered,
                     is_purchased: false,
                     display_name: i.ingredient?.display_name || 'Unknown',
+                    description: i.ingredient?.description || '',
                     unit_name: i.ingredient?.unit?.display_name || '-',
                     img_url: i.ingredient?.img_url
                 };
@@ -117,8 +129,6 @@ export default function BuyingPage() {
         };
     }, [socket, orderId, fetchOrder, router]);
 
-
-
     const handleCheck = (id: string, checked: boolean) => {
         setItems(items.map(i => i.ingredient_id === id ? { ...i, is_purchased: checked } : i));
     };
@@ -145,7 +155,6 @@ export default function BuyingPage() {
                 is_purchased: i.is_purchased
             }));
             
-            // Use Proxy API
             const response = await fetch(`/api/orders/${orderId}/purchase`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -165,218 +174,169 @@ export default function BuyingPage() {
         }
     };
 
-    if (!orderId) return <div style={{ padding: 24 }}>Select an order first.</div>;
+    const purchasedItems = items.filter(i => i.is_purchased);
+    const notPurchasedItems = items.filter(i => !i.is_purchased);
+    const hasSelectedItems = purchasedItems.length > 0;
+
+    if (!orderId) {
+        return (
+            <div style={{ 
+                padding: 24, 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                minHeight: '100vh',
+                flexDirection: 'column',
+                gap: 16
+            }}>
+                <ShoppingCartOutlined style={{ fontSize: 48, color: '#d9d9d9' }} />
+                <Text type="secondary">กรุณาเลือกออเดอร์ก่อน</Text>
+                <Button type="primary" onClick={() => router.push('/items')}>
+                    กลับหน้าหลัก
+                </Button>
+            </div>
+        );
+    }
+
+    if (loading && !order) {
+        return (
+            <div style={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                minHeight: '100vh'
+            }}>
+                <Spin size="large" />
+            </div>
+        );
+    }
 
     return (
-        <div style={{ paddingBottom: 160, backgroundColor: '#f0f2f5', minHeight: '100vh' }}>
-             {/* Header */}
-             <div style={{ 
-                 position: 'sticky', top: 0, zIndex: 100, 
-                 backgroundColor: 'white', padding: '12px 16px', 
-                 boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-                 display: 'flex', alignItems: 'center'
-            }}>
-                <Button 
-                    type="text" 
-                    icon={<ArrowLeftOutlined style={{ fontSize: '18px' }} />} 
-                    onClick={() => router.back()} 
-                    style={{ marginRight: 8 }}
-                />
-                <div>
-                   <Text type="secondary" style={{ fontSize: 12 }}>ทำการสั่งซื้อ</Text>
-                   <Title level={5} style={{ margin: 0 }}>ออเดอร์ #{order?.id?.substring(0, 8) || '...'}</Title>
-                </div>
-             </div>
+        <div className="buying-page" style={pageStyles.container}>
+            <BuyingPageStyles />
+            
+            {/* Header */}
+            <PageHeader orderId={order?.id} onBack={() => router.back()} />
+            
+            {/* Stats Card */}
+            <StatsCard 
+                totalItems={items.length}
+                purchasedItems={purchasedItems.length}
+                notPurchasedItems={notPurchasedItems.length}
+            />
 
-            <div style={{ padding: '16px 16px 0 16px' }}>
-                <List
-                    dataSource={items}
-                    renderItem={item => (
-                        <Card 
-                            style={{ 
-                                marginBottom: 12, 
-                                borderRadius: 16, 
-                                border: 'none',
-                                boxShadow: item.is_purchased ? '0 4px 12px rgba(82, 196, 26, 0.15)' : '0 2px 6px rgba(0,0,0,0.02)',
-                                opacity: item.is_purchased ? 1 : 0.9,
-                                overflow: 'hidden'
-                            }}
-                            bodyStyle={{ padding: 0 }}
-                            onClick={() => !item.is_purchased && handleCheck(item.ingredient_id, true)}
-                        >
-                            <div style={{ padding: 12, display: 'flex', alignItems: 'flex-start', backgroundColor: item.is_purchased ? '#f6ffed' : 'white' }}>
-                                <Checkbox 
-                                    checked={item.is_purchased} 
-                                    onChange={(e) => {
-                                        e.stopPropagation();
-                                        handleCheck(item.ingredient_id, e.target.checked);
-                                    }}
-                                    style={{ marginTop: 4, marginRight: 12, transform: 'scale(1.2)' }}
-                                />
-                                <Avatar 
-                                    src={item.img_url || 'https://placehold.co/40x40?text=No+Img'} 
-                                    shape="square" 
-                                    size={72} 
-                                    style={{ marginRight: 12, borderRadius: 8, flexShrink: 0, border: '1px solid #f0f0f0' }}
-                                />
-                                <div style={{ flex: 1 }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                        <Text strong style={{ fontSize: 16, marginBottom: 4, maxWidth: '140px' }} ellipsis>
-                                            {item.display_name}
-                                        </Text>
-                                        <Tag color="blue" style={{ marginRight: 0 }}>สั่ง {item.ordered_quantity} {item.unit_name}</Tag>
-                                    </div>
-                                    
-                                    {!item.is_purchased ? (
-                                        <div style={{ marginTop: 8 }}>
-                                            <Button 
-                                                size="middle" 
-                                                type="dashed" 
-                                                block
-                                                onClick={(e) => {
-                                                    e.stopPropagation();
-                                                    handleCheck(item.ingredient_id, true);
-                                                }}
-                                                style={{ color: '#8c8c8c' }}
-                                            >
-                                                แตะเพื่อเลือกซื้อ
-                                            </Button>
-                                        </div>
-                                    ) : (
-                                        <div 
-                                            style={{ marginTop: 8 }}
-                                            onClick={(e) => e.stopPropagation()}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 6 }}>
-                                                <Text style={{ fontSize: 12, color: '#8c8c8c' }}>จำนวนที่ซื้อจริง ({item.unit_name})</Text>
-                                                <Text 
-                                                    style={{ fontSize: 12, color: '#1890ff', cursor: 'pointer' }}
-                                                    onClick={() => handleSetFullAmount(item.ingredient_id)}
-                                                >
-                                                    เต็มจำนวน
-                                                </Text>
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                <Button 
-                                                    icon={<MinusOutlined />} 
-                                                    onClick={() => {
-                                                        const newVal = Math.max(0, item.actual_quantity - 1);
-                                                        handleQuantityChange(item.ingredient_id, newVal);
-                                                    }}
-                                                />
-                                                <InputNumber 
-                                                    min={0} 
-                                                    value={item.actual_quantity} 
-                                                    onChange={(v) => handleQuantityChange(item.ingredient_id, v)}
-                                                    style={{ flex: 1, textAlign: 'center' }}
-                                                    controls={false}
-                                                />
-                                                <Button 
-                                                    icon={<PlusOutlined />} 
-                                                    onClick={() => {
-                                                        const newVal = item.actual_quantity + 1;
-                                                        handleQuantityChange(item.ingredient_id, newVal);
-                                                    }}
-                                                />
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </Card>
-                    )}
-                />
+            {/* Items List */}
+            <div style={pageStyles.listContainer}>
+                <div style={pageStyles.sectionTitle}>
+                    <ShoppingCartOutlined style={{ fontSize: 18, color: '#52c41a' }} />
+                    <Text strong style={{ fontSize: 16, color: '#1a1a2e' }}>
+                        รายการสินค้า
+                    </Text>
+                    <div style={{
+                        background: 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)',
+                        color: 'white',
+                        padding: '4px 12px',
+                        borderRadius: 20,
+                        fontSize: 12,
+                        fontWeight: 600
+                    }}>
+                        {items.length} รายการ
+                    </div>
+                </div>
+
+                {items.map((item, index) => (
+                    <PurchaseItemCard
+                        key={item.ingredient_id}
+                        item={item}
+                        index={index}
+                        onCheck={handleCheck}
+                        onQuantityChange={handleQuantityChange}
+                        onSetFullAmount={handleSetFullAmount}
+                    />
+                ))}
             </div>
 
-            {/* Sticky Footer - Lifted up to avoid bottom nav overlap */}
-            <div style={{ 
-                position: 'fixed', bottom: 70, left: 16, right: 16, 
-                zIndex: 99
-            }}>
+            {/* Floating Footer */}
+            <div style={pageStyles.floatingFooter}>
                 <Button 
                     type="primary" 
                     size="large" 
                     block 
-                    icon={<ShoppingCartOutlined />} 
+                    icon={<ShoppingCartOutlined style={{ fontSize: 18 }} />} 
                     onClick={() => setConfirmModalOpen(true)}
-                    disabled={!items.some(i => i.is_purchased)}
-                    style={{ 
-                        height: 52, 
-                        borderRadius: 26, 
-                        fontWeight: 'bold',
-                        boxShadow: '0 4px 16px rgba(82, 196, 26, 0.4)',
-                        backgroundColor: !items.some(i => i.is_purchased) ? undefined : '#52c41a',
-                        border: !items.some(i => i.is_purchased) ? undefined : 'none'
-                    }}
+                    disabled={!hasSelectedItems}
+                    style={pageStyles.confirmButton(hasSelectedItems)}
                 >
-                    ยืนยันการสั่งซื้อ ({items.filter(i => i.is_purchased).length})
+                    ยืนยันการสั่งซื้อ ({purchasedItems.length} รายการ)
                 </Button>
             </div>
 
+            {/* Confirmation Modal */}
             <Modal
-                title={
-                    <div style={{ display: 'flex', alignItems: 'center' }}>
-                        <ShoppingCartOutlined style={{ marginRight: 8, color: '#52c41a' }} />
-                        สรุปรายการสั่งซื้อ
-                    </div>
-                }
                 open={confirmModalOpen}
                 onCancel={() => setConfirmModalOpen(false)}
-                onOk={confirmPurchase}
-                confirmLoading={loading}
-                width={600}
+                footer={null}
+                width={520}
                 centered
-                okText="ยืนยัน"
-                cancelText="กลับ"
-                okButtonProps={{ size: 'large', style: { backgroundColor: '#52c41a' } }}
-                cancelButtonProps={{ size: 'large' }}
+                className="buying-page-modal"
+                styles={pageStyles.modalStyles}
+                closeIcon={null}
             >
-                {/* Modal content remains same */}
-                <div style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-                    <List
-                        dataSource={items.filter(i => i.is_purchased)}
-                        renderItem={item => {
-                            const diff = item.actual_quantity - item.ordered_quantity;
-                            let diffText = '';
-                            let type: 'secondary' | 'success' | 'danger' = 'secondary';
-                            if (diff > 0) { diffText = `(+${diff})`; type = 'success'; }
-                            if (diff < 0) { diffText = `(-${Math.abs(diff)})`; type = 'danger'; }
+                {/* Modal Header */}
+                <ModalHeader />
 
-                            return (
-                                <List.Item>
-                                    <List.Item.Meta
-                                        avatar={
-                                            <Avatar 
-                                                src={item.img_url || 'https://placehold.co/40x40?text=No+Img'} 
-                                                shape="square" 
-                                                size={48} 
-                                            />
-                                        }
-                                        title={
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', width: '100%' }}>
-                                                <Text strong>{item.display_name}</Text>
-                                            </div>
-                                        }
-                                        description={
-                                            <div style={{ display: 'flex', alignItems: 'center', marginTop: 4 }}>
-                                                <Text>ซื้อ: <Text strong>{item.actual_quantity}</Text></Text>
-                                                <Text type="secondary" style={{ margin: '0 8px' }}>/</Text>
-                                                <Text type="secondary">สั่ง: {item.ordered_quantity}</Text>
-                                                {diffText && <Tag color={type === 'success' ? 'green' : 'red'} style={{ marginLeft: 8 }}>{diffText}</Tag>}
-                                            </div>
-                                        }
-                                    />
-                                </List.Item>
-                            );
-                        }}
-                    />
-                    {items.filter(i => !i.is_purchased).length > 0 && (
-                        <div style={{ marginTop: 16, padding: '12px', backgroundColor: '#fffbe6', borderRadius: 8, border: '1px solid #ffe58f' }}>
-                             <Text type="warning">
-                                 มี {items.filter(i => !i.is_purchased).length} รายการที่ <b>&quot;ไม่ได้เลือก&quot;</b> (จะถูกบันทึกว่าไม่ได้ซื้อ)
-                             </Text>
-                        </div>
+                {/* Modal Body */}
+                <div style={{ padding: '20px 24px 24px' }}>
+                    {/* Purchased Items List */}
+                    <div style={{ 
+                        maxHeight: 320, 
+                        overflowY: 'auto',
+                        paddingRight: 4,
+                        marginBottom: 16
+                    }}>
+                        {purchasedItems.map((item, index) => (
+                            <ModalItemCard key={item.ingredient_id} item={item} index={index} />
+                        ))}
+                    </div>
+
+                    {/* Warning for unchecked items */}
+                    {notPurchasedItems.length > 0 && (
+                        <WarningBanner count={notPurchasedItems.length} />
                     )}
+
+                    {/* Footer Actions */}
+                    <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
+                        <Button
+                            block
+                            size="large"
+                            onClick={() => setConfirmModalOpen(false)}
+                            icon={<CloseOutlined />}
+                            style={{
+                                height: 48,
+                                borderRadius: 12,
+                                fontWeight: 600
+                            }}
+                        >
+                            กลับ
+                        </Button>
+                        <Button
+                            type="primary"
+                            block
+                            size="large"
+                            onClick={confirmPurchase}
+                            loading={loading}
+                            style={{
+                                height: 48,
+                                borderRadius: 12,
+                                fontWeight: 600,
+                                background: 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)',
+                                border: 'none',
+                                boxShadow: '0 4px 16px rgba(82, 196, 26, 0.35)'
+                            }}
+                        >
+                            ยืนยันการสั่งซื้อ
+                        </Button>
+                    </div>
                 </div>
             </Modal>
         </div>
