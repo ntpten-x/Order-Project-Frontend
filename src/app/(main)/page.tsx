@@ -18,6 +18,7 @@ import IngredientCard from "../../components/IngredientCard";
 import CartDrawer from "../../components/CartDrawer";
 import { Ingredients } from "../../types/api/ingredients";
 import { useSocket } from "../../hooks/useSocket";
+import { DashboardStyles, pageStyles } from "./style";
 
 const { Content } = Layout;
 const { Title, Text } = Typography;
@@ -100,6 +101,7 @@ export default function HomePage() {
         borderRadius: 16, 
         overflow: 'hidden',
         boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
+        border: 'none',
       }}
     >
       <Skeleton.Image active style={{ width: '100%', height: 180 }} />
@@ -110,54 +112,52 @@ export default function HomePage() {
   );
 
   return (
-    <Layout style={{ minHeight: "100vh", background: '#f8f9fc' }}>
-      {/* Simple Title Section */}
-      <Content 
-        style={{ 
-          padding: '24px 24px 120px', 
-          maxWidth: 1200, 
-          margin: '0 auto', 
-          width: '100%' 
-        }}
-      >
-        {/* Page Header */}
-        <div style={{ marginBottom: 24 }}>
-          <Space align="center" size={12}>
-            <Title 
-              level={3} 
-              style={{ 
-                margin: 0, 
-                color: '#1a1a2e',
-                fontWeight: 700,
-              }}
-            >
-              วัตถุดิบ
+    <div style={pageStyles.container}>
+      <DashboardStyles />
+      
+      {/* Hero Section */}
+      <div style={pageStyles.heroParams}>
+        <div className="hero-pattern" />
+        <div className="decorative-circle circle-1" />
+        <div className="decorative-circle circle-2" />
+        
+        <div style={{ maxWidth: 1200, margin: '0 auto', position: 'relative', zIndex: 2 }}>
+          <Space align="center" size={16} style={{ marginBottom: 8 }}>
+            <ShoppingOutlined style={{ fontSize: 32, color: '#fff' }} />
+            <Title level={2} style={{ margin: 0, color: '#fff', fontWeight: 800 }}>
+              เลือกซื้อวัตถุดิบ
             </Title>
-            <Badge 
-              count={loading ? '...' : ingredients.length}
-              style={{
-                backgroundColor: '#0d9488',
-                fontWeight: 600,
-              }}
-              showZero
-            />
           </Space>
-          <Text type="secondary" style={{ fontSize: 14, display: 'block', marginTop: 4 }}>
-            เลือกวัตถุดิบที่ต้องการสั่งซื้อ
+          <Text style={{ display: 'block', color: 'rgba(255,255,255,0.9)', fontSize: 16, marginTop: 8, paddingLeft: 4 }}>
+            คัดสรรวัตถุดิบคุณภาพดีที่สุดเพื่อครัวของคุณ
           </Text>
+          
+          <div style={{ marginTop: 24, display: 'flex', gap: 12 }}>
+             <Badge 
+              count={loading ? 0 : ingredients.length} 
+              style={{ backgroundColor: '#fff', color: '#4f46e5', fontWeight: 'bold' }}
+              overflowCount={999}
+             >
+                <div style={{ 
+                  background: 'rgba(255,255,255,0.2)', 
+                  padding: '6px 16px', 
+                  borderRadius: 20, 
+                  color: 'white',
+                  backdropFilter: 'blur(4px)',
+                  fontWeight: 500
+                }}>
+                   รายการทั้งหมด
+                </div>
+             </Badge>
+          </div>
         </div>
+      </div>
 
+      {/* Content Section */}
+      <div style={pageStyles.contentWrapper}>
         {loading ? (
           <List
-            grid={{
-              gutter: 24,
-              xs: 1,
-              sm: 1,
-              md: 2,
-              lg: 3,
-              xl: 3,
-              xxl: 3,
-            }}
+            grid={pageStyles.gridConfig}
             dataSource={[1, 2, 3, 4, 5, 6]}
             renderItem={() => (
               <List.Item>
@@ -181,41 +181,54 @@ export default function HomePage() {
                   color: '#fff',
                   fontWeight: 600,
                   cursor: 'pointer',
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
                 }}
               >
                 <ReloadOutlined style={{ marginRight: 8 }} />
                 ลองใหม่อีกครั้ง
               </button>
             }
+            style={{ 
+              background: 'white', 
+              padding: 40, 
+              borderRadius: 24, 
+              marginTop: 24,
+              boxShadow: '0 4px 20px rgba(0,0,0,0.05)' 
+            }}
           />
         ) : ingredients.length === 0 ? (
-          <Result
-            icon={<ShoppingOutlined style={{ color: '#667eea', fontSize: 64 }} />}
-            title="ยังไม่มีวัตถุดิบ"
-            subTitle="ยังไม่มีวัตถุดิบที่พร้อมให้สั่งซื้อในขณะนี้"
-          />
+          <div style={{ 
+            background: 'white', 
+            padding: '60px 20px', 
+            borderRadius: 24, 
+            marginTop: 24,
+            textAlign: 'center',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.05)' 
+          }}>
+            <ShoppingOutlined style={{ color: '#d1d5db', fontSize: 80, marginBottom: 16 }} />
+            <Title level={3} style={{ color: '#374151', margin: 0 }}>ยังไม่มีวัตถุดิบ</Title>
+            <Text type="secondary" style={{ fontSize: 16 }}>ยังไม่มีวัตถุดิบที่พร้อมให้สั่งซื้อในขณะนี้ โปรดกลับมาใหม่ภายหลัง</Text>
+          </div>
         ) : (
           <List
-            grid={{
-              gutter: 24,
-              xs: 1,
-              sm: 1,
-              md: 2,
-              lg: 3,
-              xl: 3,
-              xxl: 3,
-            }}
+            grid={pageStyles.gridConfig}
             dataSource={ingredients}
-            renderItem={(item) => (
-              <List.Item style={{ marginBottom: 8 }}>
-                <IngredientCard ingredient={item} />
+            renderItem={(item, index) => (
+              <List.Item 
+                style={{ marginBottom: 24 }}
+                className="animate-card"
+                // Add staggered animation delay
+                // @ts-ignore
+                style={{ animationDelay: `${index * 50}ms`, marginBottom: 24 }}
+              >
+                <IngredientCard ingredient={item}/>
               </List.Item>
             )}
           />
         )}
-      </Content>
+      </div>
       <CartDrawer />
-    </Layout>
+    </div>
   );
 }
 
