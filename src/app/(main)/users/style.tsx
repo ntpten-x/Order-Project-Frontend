@@ -250,7 +250,9 @@ export const UserCard = ({ user, onEdit, onDelete }: UserCardProps) => {
                     style={{ 
                         backgroundColor: getAvatarColor(roleName),
                         fontSize: 24,
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                        border: user.is_active ? '3px solid #10b981' : '3px solid transparent', // Add green ring if active
+                        transition: 'all 0.3s ease'
                     }}
                     icon={<UserOutlined />}
                 />
@@ -264,9 +266,13 @@ export const UserCard = ({ user, onEdit, onDelete }: UserCardProps) => {
                         </div>
                         <Tooltip title={user.is_active ? "กำลังใช้งาน" : "ออฟไลน์"}>
                             {user.is_active ? (
-                                <CheckCircleFilled style={{ color: '#10b981', fontSize: 18 }} />
+                                <div style={{ 
+                                    width: 12, height: 12, borderRadius: '50%', 
+                                    background: '#10b981', 
+                                    boxShadow: '0 0 0 3px rgba(16, 185, 129, 0.2)' 
+                                }} />
                             ) : (
-                                <CloseCircleFilled style={{ color: '#d1d5db', fontSize: 18 }} />
+                                <div style={{ width: 12, height: 12, borderRadius: '50%', background: '#d1d5db' }} />
                             )}
                         </Tooltip>
                     </div>
@@ -274,9 +280,22 @@ export const UserCard = ({ user, onEdit, onDelete }: UserCardProps) => {
             </div>
 
             <div style={{ background: '#f9fafb', padding: 12, borderRadius: 12 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                    <Text type="secondary" style={{ fontSize: 12 }}>สถานะการใช้งาน</Text>
+                    {user.is_active ? (
+                        <Tag color="#10b981" style={{ margin: 0, borderRadius: 12, border: 'none', padding: '0 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
+                             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }} />
+                             <span style={{ fontWeight: 600 }}>กำลังใช้งาน</span>
+                        </Tag>
+                    ) : (
+                        <Tag style={{ margin: 0, borderRadius: 12, border: 'none', background: '#f3f4f6', color: '#9ca3af' }}>
+                            ออฟไลน์
+                        </Tag>
+                    )}
+                </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>สถานะ</Text>
-                    <Badge status={user.is_use ? "success" : "default"} text={<span style={{ fontSize: 12 }}>{user.is_use ? 'เปิดใช้งาน' : 'ระงับ'}</span>} />
+                    <Text type="secondary" style={{ fontSize: 12 }}>สถานะบัญชี</Text>
+                    <Badge status={user.is_use ? "success" : "error"} text={<span style={{ fontSize: 12 }}>{user.is_use ? 'เปิดใช้งาน' : 'ระงับ'}</span>} />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Text type="secondary" style={{ fontSize: 12 }}>เข้าสู่ระบบล่าสุด</Text>
