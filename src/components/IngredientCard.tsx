@@ -55,6 +55,9 @@ const IngredientCard: React.FC<IngredientCardProps> = ({ ingredient }) => {
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'scale(1)';
             }}
+            onError={(e) => {
+              e.currentTarget.src = 'https://placehold.co/600x400?text=No+Image';
+            }}
           />
           
           {/* Gradient Overlay */}

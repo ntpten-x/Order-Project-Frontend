@@ -6,7 +6,7 @@ export interface Ingredients {
     display_name: string;
     description: string;
     is_active: boolean;
-    img_url: string;
+    img_url: string | null;
     unit_id: string;
     create_date?: string;
     unit?: IngredientsUnit;

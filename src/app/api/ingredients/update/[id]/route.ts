@@ -1,12 +1,13 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { ingredientsService } from "../../../../../services/ingredients.service";
 
-export async function PUT(request: Request, { params }: { params: { id: string } }) {
+export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
     try {
         const body = await request.json();
-        const updatedIngredient = await ingredientsService.update(params.id, body);
+        const cookie = request.headers.get("cookie") || "";
+        const updatedIngredient = await ingredientsService.update(params.id, body, cookie);
         return NextResponse.json(updatedIngredient);
-    } catch {
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    } catch (error: any) {
+        return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
     }
 }
