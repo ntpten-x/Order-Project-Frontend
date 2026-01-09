@@ -1,200 +1,205 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Form, Input, Button, Card, message, Typography, Spin, Popconfirm, Switch } from 'antd';
-import { ArrowLeftOutlined, SaveOutlined, DeleteOutlined } from '@ant-design/icons';
+import { Form, Input, message, Spin, Switch, Modal } from 'antd';
 import { useRouter } from 'next/navigation';
-import IngredientsUnitManageStyle from './style';
-
-const { Title } = Typography;
+import {
+    ManagePageStyles,
+    pageStyles,
+    PageHeader,
+    ActionButtons
+} from './style';
 
 export default function IngredientsUnitManagePage({ params }: { params: { mode: string[] } }) {
-  const router = useRouter();
-  const [form] = Form.useForm();
-  const [loading, setLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
+    const router = useRouter();
+    const [form] = Form.useForm();
+    const [loading, setLoading] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
+    const [displayName, setDisplayName] = useState<string>('');
 
-  const mode = params.mode[0];
-  const id = params.mode[1] || null;
-  const isEdit = mode === 'edit' && !!id;
+    const mode = params.mode[0];
+    const id = params.mode[1] || null;
+    const isEdit = mode === 'edit' && !!id;
 
-  const fetchIngredientsUnit = useCallback(async () => {
-    setLoading(true);
-    try {
-      const response = await fetch(`/api/ingredientsUnit/getById/${id}`);
-      if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลหน่วยวัตถุดิบได้');
-      const data = await response.json();
-      form.setFieldsValue({
-        unit_name: data.unit_name,
-        display_name: data.display_name,
-        is_active: data.is_active,
-      });
-    } catch (error) {
-      console.error(error);
-      message.error('ไม่สามารถดึงข้อมูลหน่วยวัตถุดิบได้');
-      router.push('/ingredientsUnit');
-    } finally {
-      setLoading(false);
-    }
-  }, [id, form, router]);
-
-  useEffect(() => {
-    if (isEdit) {
-      fetchIngredientsUnit();
-    }
-  }, [isEdit, id, fetchIngredientsUnit]);
-
-
-
-  const onFinish = async (values: unknown) => {
-    setSubmitting(true);
-    try {
-      if (isEdit) {
-        const response = await fetch(`/api/ingredientsUnit/update/${id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(values),
-        });
-        
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || 'ไม่สามารถอัปเดตหน่วยวัตถุดิบได้');
+    const fetchIngredientsUnit = useCallback(async () => {
+        setLoading(true);
+        try {
+            const response = await fetch(`/api/ingredientsUnit/getById/${id}`);
+            if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลหน่วยวัตถุดิบได้');
+            const data = await response.json();
+            form.setFieldsValue({
+                unit_name: data.unit_name,
+                display_name: data.display_name,
+                is_active: data.is_active,
+            });
+            setDisplayName(data.display_name || '');
+        } catch (error) {
+            console.error(error);
+            message.error('ไม่สามารถดึงข้อมูลหน่วยวัตถุดิบได้');
+            router.push('/ingredientsUnit');
+        } finally {
+            setLoading(false);
         }
-        
-        message.success('อัปเดตหน่วยวัตถุดิบสำเร็จ');
-      } else {
-        const response = await fetch(`/api/ingredientsUnit/create`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(values),
-        });
+    }, [id, form, router]);
 
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || 'ไม่สามารถสร้างหน่วยวัตถุดิบได้');
+    useEffect(() => {
+        if (isEdit) {
+            fetchIngredientsUnit();
         }
-        
-        message.success('สร้างหน่วยวัตถุดิบสำเร็จ');
-      }
-      router.push('/ingredientsUnit');
-    } catch (error: unknown) {
-      console.error(error);
-      message.error((error as { message: string }).message || (isEdit ? 'ไม่สามารถอัปเดตหน่วยวัตถุดิบได้' : 'ไม่สามารถสร้างหน่วยวัตถุดิบได้'));
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    }, [isEdit, id, fetchIngredientsUnit]);
 
-  const handleDelete = async () => {
-    if (!id) return;
-    try {
-      const response = await fetch(`/api/ingredientsUnit/delete/${id}`, {
-        method: 'DELETE'
-      });
-      if (!response.ok) throw new Error('ไม่สามารถลบหน่วยวัตถุดิบได้');
-      message.success('ลบหน่วยวัตถุดิบสำเร็จ');
-      router.push('/ingredientsUnit');
-    } catch (error) {
-        console.error(error);
-        message.error('ไม่สามารถลบหน่วยวัตถุดิบได้');
-    }
-  };
+    const onFinish = async (values: unknown) => {
+        setSubmitting(true);
+        try {
+            if (isEdit) {
+                const response = await fetch(`/api/ingredientsUnit/update/${id}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(values),
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถอัปเดตหน่วยวัตถุดิบได้');
+                }
+                
+                message.success('อัปเดตหน่วยวัตถุดิบสำเร็จ');
+            } else {
+                const response = await fetch(`/api/ingredientsUnit/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(values),
+                });
 
-  return (
-    <div className="p-6 md:p-10 min-h-screen bg-gray-50">
-      <div className="max-w-2xl mx-auto">
-        <div className="mb-6">
-          <Button 
-            type="text" 
-            icon={<ArrowLeftOutlined />} 
-            onClick={() => router.push('/ingredientsUnit')}
-            className="mb-2 pl-0 hover:bg-transparent hover:text-blue-600"
-          >
-            กลับไปหน้าหน่วยวัตถุดิบ
-          </Button>
-          <div className="flex justify-between items-center">
-            <Title level={2} style={{ margin: 0 }}>
-                {isEdit ? 'แก้ไขหน่วยวัตถุดิบ' : 'เพิ่มหน่วยวัตถุดิบ'}
-            </Title>
-            {isEdit && (
-                <Popconfirm
-                    title="ลบหน่วยวัตถุดิบ"
-                    description="คุณต้องการลบหน่วยวัตถุดิบหรือไม่?"
-                    onConfirm={handleDelete}
-                    okText="ใช่"
-                    cancelText="ไม่"
-                    okButtonProps={{ danger: true }}
-                >
-                    <Button danger icon={<DeleteOutlined />}>ลบหน่วยวัตถุดิบ</Button>
-                </Popconfirm>
-            )}
-          </div>
-        </div>
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถสร้างหน่วยวัตถุดิบได้');
+                }
+                
+                message.success('สร้างหน่วยวัตถุดิบสำเร็จ');
+            }
+            router.push('/ingredientsUnit');
+        } catch (error: unknown) {
+            console.error(error);
+            message.error((error as { message: string }).message || (isEdit ? 'ไม่สามารถอัปเดตหน่วยวัตถุดิบได้' : 'ไม่สามารถสร้างหน่วยวัตถุดิบได้'));
+        } finally {
+            setSubmitting(false);
+        }
+    };
 
-        <Card className="shadow-sm rounded-2xl border-gray-100">
-          {loading ? (
-            <div className="flex justify-center py-10">
-              <Spin size="large" />
+    const handleDelete = () => {
+        if (!id) return;
+        Modal.confirm({
+            title: 'ยืนยันการลบหน่วยวัตถุดิบ',
+            content: `คุณต้องการลบหน่วยวัตถุดิบ "${displayName}" หรือไม่?`,
+            okText: 'ลบ',
+            okType: 'danger',
+            cancelText: 'ยกเลิก',
+            centered: true,
+            onOk: async () => {
+                try {
+                    const response = await fetch(`/api/ingredientsUnit/delete/${id}`, {
+                        method: 'DELETE'
+                    });
+                    if (!response.ok) throw new Error('ไม่สามารถลบหน่วยวัตถุดิบได้');
+                    message.success('ลบหน่วยวัตถุดิบสำเร็จ');
+                    router.push('/ingredientsUnit');
+                } catch (error) {
+                    console.error(error);
+                    message.error('ไม่สามารถลบหน่วยวัตถุดิบได้');
+                }
+            }
+        });
+    };
+
+    const handleBack = () => router.push('/ingredientsUnit');
+
+    return (
+        <div className="manage-page" style={pageStyles.container}>
+            <ManagePageStyles />
+            
+            {/* Header */}
+            <PageHeader 
+                isEdit={isEdit}
+                onBack={handleBack}
+                onDelete={isEdit ? handleDelete : undefined}
+            />
+            
+            {/* Form Card */}
+            <div className="manage-form-card" style={pageStyles.formCard}>
+                {loading ? (
+                    <div style={{ 
+                        display: 'flex', 
+                        justifyContent: 'center', 
+                        padding: '60px 0' 
+                    }}>
+                        <Spin size="large" />
+                    </div>
+                ) : (
+                    <Form
+                        form={form}
+                        layout="vertical"
+                        onFinish={onFinish}
+                        requiredMark={false}
+                        autoComplete="off"
+                        initialValues={{ is_active: true }}
+                        onValuesChange={(changedValues: any) => {
+                            if (changedValues.display_name !== undefined) {
+                                setDisplayName(changedValues.display_name);
+                            }
+                        }}
+                    >
+                        <Form.Item
+                            name="unit_name"
+                            label="ชื่อหน่วย (ภาษาอังกฤษ) *"
+                            rules={[
+                                { required: true, message: 'กรุณากรอกชื่อหน่วย' },
+                                { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'กรุณากรอกภาษาอังกฤษเท่านั้น' },
+                                { max: 50, message: 'ความยาวต้องไม่เกิน 50 ตัวอักษร' }
+                            ]}
+                        >
+                            <Input 
+                                size="large" 
+                                placeholder="เช่น kg, g, l, ml" 
+                                maxLength={50}
+                            />
+                        </Form.Item>
+
+                        <Form.Item
+                            name="display_name"
+                            label="ชื่อที่แสดง (ภาษาไทย) *"
+                            rules={[
+                                { required: true, message: 'กรุณากรอกชื่อที่แสดง' },
+                                { max: 50, message: 'ความยาวต้องไม่เกิน 50 ตัวอักษร' }
+                            ]}
+                        >
+                            <Input 
+                                size="large" 
+                                placeholder="เช่น กิโลกรัม, กรัม, ลิตร, มิลลิลิตร" 
+                                maxLength={50}
+                            />
+                        </Form.Item>
+
+                        <Form.Item
+                            name="is_active"
+                            label="สถานะการใช้งาน"
+                            valuePropName="checked"
+                        >
+                            <Switch 
+                                checkedChildren="ใช้งาน" 
+                                unCheckedChildren="ไม่ใช้งาน"
+                            />
+                        </Form.Item>
+
+                        {/* Action Buttons */}
+                        <ActionButtons 
+                            isEdit={isEdit}
+                            loading={submitting}
+                            onCancel={handleBack}
+                        />
+                    </Form>
+                )}
             </div>
-          ) : (
-            <Form
-              form={form}
-              layout="vertical"
-              onFinish={onFinish}
-              requiredMark="optional"
-              autoComplete="off"
-              initialValues={{ is_active: true }} 
-            >
-              <Form.Item
-                name="unit_name"
-                label="ชื่อหน่วย *ภาษาอังกฤษ"
-                rules={[
-                  { required: true, message: 'กรุณากรอกชื่อหน่วย' },
-                  { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'กรุณากรอกภาษาอังกฤษเท่านั้น' }
-                ]}
-              >
-                <Input size="large" placeholder="เช่น kg, g, l" />
-              </Form.Item>
-
-              <Form.Item
-                name="display_name"
-                label="ชื่อที่แสดง (ภาษาไทย)"
-                rules={[
-                  { required: true, message: 'กรุณากรอกชื่อที่แสดง' },
-                  { pattern: /^[ก-๙\s]*$/, message: 'กรุณากรอกภาษาไทยเท่านั้น' }
-                ]}
-              >
-                <Input size="large" placeholder="เช่น กิโลกรัม, กรัม, ลิตร" />
-              </Form.Item>
-
-              <Form.Item
-                name="is_active"
-                label="สถานะ (Active)"
-                valuePropName="checked"
-              >
-                <Switch />
-              </Form.Item>
-
-              <div className="flex justify-end gap-3 pt-4 border-t border-gray-50 mt-6">
-                <Button size="large" onClick={() => router.push('/ingredientsUnit')}>
-                  ยกเลิก
-                </Button>
-                <Button 
-                  type="primary" 
-                  htmlType="submit" 
-                  size="large" 
-                  loading={submitting}
-                  icon={<SaveOutlined />}
-                  className="bg-blue-600 hover:bg-blue-700"
-                >
-                  {isEdit ? 'อัปเดต' : 'บันทึก'}
-                </Button>
-              </div>
-            </Form>
-          )}
-        </Card>
-      </div>
-      <IngredientsUnitManageStyle />
-    </div>
-  );
+        </div>
+    );
 }
