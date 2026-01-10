@@ -25,8 +25,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const checkAuth = async () => {
         try {
-            const userData = await authService.getMe();
-            setUser(userData);
+            const response = await fetch("/api/auth/me");
+            if (response.ok) {
+                const userData = await response.json();
+                setUser(userData);
+            } else {
+                setUser(null);
+            }
         } catch {
             setUser(null);
         } finally {
@@ -49,10 +54,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const login = async (credentials: LoginCredentials) => {
         try {
             showLoading("กำลังเข้าสู่ระบบ...");
-            const userData = await authService.login(credentials);
-            setUser(userData);
+            
+            // Get CSRF Token first
+            const csrfToken = await authService.getCsrfToken();
+            
+            // Call Next.js API Route
+            const response = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: { 
+                    "Content-Type": "application/json",
+                    "X-CSRF-Token": csrfToken
+                },
+                body: JSON.stringify(credentials),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || "Login failed");
+            }
+
+            const data = await response.json();
+            setUser(data.user);
             router.push("/"); // Redirect to dashboard
-        } catch (error) {
+        } catch (error: any) {
             throw error;
         } finally {
             hideLoading();
@@ -62,7 +86,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const logout = async () => {
         try {
             showLoading("กำลังออกจากระบบ...");
-            await authService.logout();
+            // Call Next.js API Route
+            await fetch("/api/auth/logout", { method: "POST" });
             setUser(null);
             router.push("/login");
         } catch (error) {

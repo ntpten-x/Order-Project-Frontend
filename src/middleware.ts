@@ -16,7 +16,9 @@ export async function middleware(request: NextRequest) {
         '/_next',
         '/static',
         '/favicon.ico',
-        '/public'
+        '/public',
+        '/api/auth/login',
+        '/api/csrf'
     ]
 
     // Check if the current path is public

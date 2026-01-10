@@ -22,7 +22,21 @@ export async function GET() {
         }
 
         const data = await response.json();
-        return NextResponse.json(data);
+        const nextResponse = NextResponse.json(data);
+
+        // Forward Set-Cookie headers from Backend to Client
+        const setCookieHeader = response.headers.get("set-cookie");
+        if (setCookieHeader) {
+            // "set-cookie" header in fetch can be a comma-separated string or null
+            // Next.js might need parsing if multiple cookies, but simple forwarding might work for single cookie
+            // or use split if multiple.
+            // Note: node-fetch or native fetch joins multiple Set-Cookie headers with comma.
+            // This can be problematic if cookies have dates with commas.
+            // Using a simple header copy for now.
+            nextResponse.headers.set("Set-Cookie", setCookieHeader);
+        }
+
+        return nextResponse;
     } catch (error) {
         console.error("CSRF Token Error:", error);
         return NextResponse.json({ error: "Failed to fetch CSRF token" }, { status: 500 });

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { authService } from "@/services/auth.service";
 
 export const dynamic = 'force-dynamic';
 
@@ -10,30 +11,18 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
 
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:3000";
-
-        const response = await fetch(`${backendUrl}/auth/me`, {
-            method: "GET",
-            headers: {
-                "Cookie": `token=${token}`, // Pass the token to backend
-                "Content-Type": "application/json"
-            },
-        });
-
-        if (!response.ok) {
-            // If backend says unauthorized (e.g. token expired), we should probably clear our cookie
-            const nextResponse = NextResponse.json({ message: "Unauthorized" }, { status: response.status });
-            if (response.status === 401 || response.status === 403) {
-                nextResponse.cookies.delete("token");
-            }
+        try {
+            const user = await authService.getMe(token);
+            return NextResponse.json(user);
+        } catch (error) {
+            // If service fails (e.g. invalid token), clear cookie
+            const nextResponse = NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+            nextResponse.cookies.delete("token");
             return nextResponse;
         }
 
-        const data = await response.json();
-        return NextResponse.json(data);
-
     } catch (error) {
-        console.error("GetMe Proxy Error:", error);
+        console.error("GetMe Route Error:", error);
         return NextResponse.json({ message: "Internal Server Error" }, { status: 500 });
     }
 }
