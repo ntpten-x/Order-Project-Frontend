@@ -1,5 +1,5 @@
 import React from "react";
-import { Modal, Tag, Typography, Avatar, Button, Card, Space, Divider, Badge, Empty, Tooltip } from "antd";
+import { Modal, Tag, Typography, Avatar, Button, Card, Divider, Badge, Empty, Tooltip } from "antd";
 import { 
     ShoppingCartOutlined, 
     UserOutlined, 

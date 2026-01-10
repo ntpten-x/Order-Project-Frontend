@@ -4,7 +4,6 @@ import React from "react";
 import { Typography, Button } from "antd";
 import { 
     ArrowLeftOutlined,
-    ExperimentOutlined,
     SaveOutlined,
     DeleteOutlined,
     PlusCircleOutlined,

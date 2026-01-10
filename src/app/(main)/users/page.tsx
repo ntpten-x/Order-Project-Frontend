@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Table, Tag, Space, Button, Card, Typography, message, Modal } from 'antd';
-import { UserOutlined, EditOutlined, DeleteOutlined, PlusOutlined, ReloadOutlined, TeamOutlined } from '@ant-design/icons';
+import { Button, Typography, message, Modal } from 'antd';
+import { TeamOutlined } from '@ant-design/icons';
 import { User } from "../../../types/api/users";
 import { useRouter } from 'next/navigation';
 import { 
@@ -19,7 +19,6 @@ import { useGlobalLoading } from "../../../contexts/GlobalLoadingContext";
 const { Title, Text } = Typography;
 
 import { useAuth } from "../../../contexts/AuthContext";
-import { userService } from "../../../services/users.service";
 
 import { Spin } from 'antd';
 
@@ -173,7 +172,6 @@ export default function UsersPage() {
           {users.length > 0 ? (
              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 24 }}>
                 {users.map((user, index) => (
-                    // @ts-ignore
                     <div key={user.id} style={{ animation: `fadeInUp 0.6s ease-out forwards`, animationDelay: `${index * 50}ms`, opacity: 0 }}>
                         <UserCard 
                             user={user} 

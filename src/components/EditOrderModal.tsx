@@ -256,7 +256,12 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
             onSuccess();
             onClose();
         } catch (error: unknown) {
-             const errorMessage = (error as any)?.response?.data?.error || (error as any)?.response?.data?.message || (error as Error).message || "แก้ไขออเดอร์ล้มเหลว";
+             let errorMessage = "แก้ไขออเดอร์ล้มเหลว";
+             if (axios.isAxiosError(error)) {
+                errorMessage = error.response?.data?.error || error.response?.data?.message || errorMessage;
+             } else if (error instanceof Error) {
+                errorMessage = error.message;
+             }
              message.error(errorMessage);
         } finally {
             setLoading(false);

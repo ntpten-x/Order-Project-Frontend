@@ -8,7 +8,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         const cookie = request.headers.get("cookie") || "";
         const ingredient = await ingredientsService.findOne(params.id, cookie);
         return NextResponse.json(ingredient);
-    } catch (error: any) {
-        return NextResponse.json({ error: error.message || "Internal Server Error" }, { status: 500 });
+    } catch (error: unknown) {
+        return NextResponse.json({ error: (error instanceof Error ? error.message : "Internal Server Error") }, { status: 500 });
     }
 }

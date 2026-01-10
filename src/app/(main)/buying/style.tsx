@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Typography, Avatar, Tag, Badge, Button, Checkbox, InputNumber } from "antd";
+import { Typography, Avatar, Tag, Button, Checkbox, InputNumber } from "antd";
 import { 
     MinusOutlined, 
     PlusOutlined, 

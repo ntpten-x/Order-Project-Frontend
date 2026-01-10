@@ -9,8 +9,6 @@ import {
     ReloadOutlined, 
     EditOutlined, 
     DeleteOutlined, 
-    CheckCircleFilled, 
-    CloseCircleFilled 
 } from '@ant-design/icons';
 import { User } from "../../../types/api/users";
 import { CSSProperties } from 'react';

@@ -76,7 +76,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             const data = await response.json();
             setUser(data.user);
             router.push("/"); // Redirect to dashboard
-        } catch (error: any) {
+        } catch (error: unknown) {
             throw error;
         } finally {
             hideLoading();

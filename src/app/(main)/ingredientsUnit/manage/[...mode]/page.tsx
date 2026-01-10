@@ -163,8 +163,8 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
                         requiredMark={false}
                         autoComplete="off"
                         initialValues={{ is_active: true }}
-                        onValuesChange={(changedValues: any) => {
-                            if (changedValues.display_name !== undefined) {
+                        onValuesChange={(changedValues: Record<string, unknown>) => {
+                            if (typeof changedValues.display_name === 'string') {
                                 setDisplayName(changedValues.display_name);
                             }
                         }}

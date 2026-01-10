@@ -1,10 +1,9 @@
 "use client";
 
 import React from "react";
-import { Typography, Button, Avatar, Tag } from "antd";
+import { Typography, Button, Avatar } from "antd";
 import { 
     ArrowLeftOutlined,
-    ExperimentOutlined,
     SaveOutlined,
     DeleteOutlined,
     PlusCircleOutlined,

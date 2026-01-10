@@ -3,7 +3,6 @@
 import React, { useEffect, useState } from "react";
 import axios from "axios";
 import { 
-  Layout, 
   Typography, 
   Result,
   List,
@@ -20,7 +19,6 @@ import { Ingredients } from "../../types/api/ingredients";
 import { useSocket } from "../../hooks/useSocket";
 import { DashboardStyles, pageStyles } from "./style";
 
-const { Content } = Layout;
 const { Title, Text } = Typography;
 
 export default function HomePage() {
@@ -215,10 +213,8 @@ export default function HomePage() {
             dataSource={ingredients}
             renderItem={(item, index) => (
               <List.Item 
-                style={{ marginBottom: 24 }}
                 className="animate-card"
                 // Add staggered animation delay
-                // @ts-ignore
                 style={{ animationDelay: `${index * 50}ms`, marginBottom: 24 }}
               >
                 <IngredientCard ingredient={item}/>

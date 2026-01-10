@@ -17,7 +17,7 @@ export const userService = {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const detailedError = errorData.errors?.map((e: any) => e.message).join(", ");
+            const detailedError = errorData.errors?.map((e: { message: string }) => e.message).join(", ");
             throw new Error(detailedError || errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลผู้ใช้ได้");
         }
         return response.json();
@@ -36,7 +36,7 @@ export const userService = {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const detailedError = errorData.errors?.map((e: any) => e.message).join(", ");
+            const detailedError = errorData.errors?.map((e: { message: string }) => e.message).join(", ");
             throw new Error(detailedError || errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลผู้ใช้ได้");
         }
         return response.json();
@@ -44,11 +44,11 @@ export const userService = {
 
     createUser: async (data: Partial<User>, cookie?: string, csrfToken?: string): Promise<User> => {
         const url = getProxyUrl("POST", BASE_PATH);
-        const headers: HeadersInit = {
+        const headers: Record<string, string> = {
             "Content-Type": "application/json"
         };
-        if (cookie) (headers as any).Cookie = cookie;
-        if (csrfToken) (headers as any)["X-CSRF-Token"] = csrfToken;
+        if (cookie) headers.Cookie = cookie;
+        if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
         const response = await fetch(url!, {
             method: "POST",
@@ -59,7 +59,7 @@ export const userService = {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const detailedError = errorData.errors?.map((e: any) => e.message).join(", ");
+            const detailedError = errorData.errors?.map((e: { message: string }) => e.message).join(", ");
             throw new Error(detailedError || errorData.error || errorData.message || "ไม่สามารถสร้างผู้ใช้ได้");
         }
         return response.json();
@@ -67,11 +67,11 @@ export const userService = {
 
     updateUser: async (id: string, data: Partial<User>, cookie?: string, csrfToken?: string): Promise<User> => {
         const url = getProxyUrl("PUT", `${BASE_PATH}/${id}`);
-        const headers: HeadersInit = {
+        const headers: Record<string, string> = {
             "Content-Type": "application/json"
         };
-        if (cookie) (headers as any).Cookie = cookie;
-        if (csrfToken) (headers as any)["X-CSRF-Token"] = csrfToken;
+        if (cookie) headers.Cookie = cookie;
+        if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
         const response = await fetch(url!, {
             method: "PUT",
@@ -82,7 +82,7 @@ export const userService = {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const detailedError = errorData.errors?.map((e: any) => e.message).join(", ");
+            const detailedError = errorData.errors?.map((e: { message: string }) => e.message).join(", ");
             throw new Error(detailedError || errorData.error || errorData.message || "ไม่สามารถอัปเดตผู้ใช้ได้");
         }
         return response.json();
@@ -90,9 +90,9 @@ export const userService = {
 
     deleteUser: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
         const url = getProxyUrl("DELETE", `${BASE_PATH}/${id}`);
-        const headers: HeadersInit = {};
-        if (cookie) (headers as any).Cookie = cookie;
-        if (csrfToken) (headers as any)["X-CSRF-Token"] = csrfToken;
+        const headers: Record<string, string> = {};
+        if (cookie) headers.Cookie = cookie;
+        if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
         const response = await fetch(url!, {
             method: "DELETE",
@@ -102,7 +102,7 @@ export const userService = {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const detailedError = errorData.errors?.map((e: any) => e.message).join(", ");
+            const detailedError = errorData.errors?.map((e: { message: string }) => e.message).join(", ");
             throw new Error(detailedError || errorData.error || errorData.message || "ไม่สามารถลบผู้ใช้ได้");
         }
     },

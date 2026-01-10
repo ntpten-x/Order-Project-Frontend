@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
         try {
             const user = await authService.getMe(token);
             return NextResponse.json(user);
-        } catch (error) {
+        } catch {
             // If service fails (e.g. invalid token), clear cookie
             const nextResponse = NextResponse.json({ message: "Unauthorized" }, { status: 401 });
             nextResponse.cookies.delete("token");

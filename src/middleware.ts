@@ -46,7 +46,7 @@ export async function middleware(request: NextRequest) {
             // Extract role from payload
             // Adjust this based on your actual JWT structure. 
             // Previous backend controller showed: { id, username, role: user.roles.roles_name }
-            const role = (payload as any).role as string // e.g. "Admin", "Manager", "Employee"
+            const role = (payload as { role?: string }).role as string; // e.g. "Admin", "Manager", "Employee"
 
             // If user is logged in and tries to access /login, redirect to dashboard
             if (pathname === '/login') {
@@ -81,7 +81,7 @@ export async function middleware(request: NextRequest) {
             // /orders is generally accessible, but maybe specific sub-pages?
             // Leaving /orders open to all authenticated users for now.
 
-        } catch (error) {
+        } catch {
             // Token is invalid or expired
             // Redirect to login
             const response = NextResponse.redirect(new URL('/login', request.url))

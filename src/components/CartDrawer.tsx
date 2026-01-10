@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { 
   Drawer, 
   Button, 
-  List, 
   Space, 
   Typography, 
   Badge, 
@@ -12,8 +11,6 @@ import {
   message, 
   Modal,
   Card,
-  Divider,
-  ConfigProvider
 } from "antd";
 import { 
   ShoppingCartOutlined, 

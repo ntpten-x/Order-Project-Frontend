@@ -57,9 +57,9 @@ export const ingredientsUnitService = {
 
     create: async (data: Partial<IngredientsUnit>, cookie?: string, csrfToken?: string): Promise<IngredientsUnit> => {
         const url = getProxyUrl("POST", BASE_PATH);
-        const headers: HeadersInit = { "Content-Type": "application/json" };
-        if (cookie) (headers as any).Cookie = cookie;
-        if (csrfToken) (headers as any)["X-CSRF-Token"] = csrfToken;
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (cookie) headers.Cookie = cookie;
+        if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
         const response = await fetch(url!, {
             method: "POST",
@@ -76,9 +76,9 @@ export const ingredientsUnitService = {
 
     update: async (id: string, data: Partial<IngredientsUnit>, cookie?: string, csrfToken?: string): Promise<IngredientsUnit> => {
         const url = getProxyUrl("PUT", `${BASE_PATH}/${id}`);
-        const headers: HeadersInit = { "Content-Type": "application/json" };
-        if (cookie) (headers as any).Cookie = cookie;
-        if (csrfToken) (headers as any)["X-CSRF-Token"] = csrfToken;
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (cookie) headers.Cookie = cookie;
+        if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
         const response = await fetch(url!, {
             method: "PUT",
@@ -95,9 +95,9 @@ export const ingredientsUnitService = {
 
     delete: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
         const url = getProxyUrl("DELETE", `${BASE_PATH}/${id}`);
-        const headers: HeadersInit = {};
-        if (cookie) (headers as any).Cookie = cookie;
-        if (csrfToken) (headers as any)["X-CSRF-Token"] = csrfToken;
+        const headers: Record<string, string> = {};
+        if (cookie) headers.Cookie = cookie;
+        if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
         const response = await fetch(url!, {
             method: "DELETE",

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Card, Typography, Button, message, Badge, Tag } from 'antd';
+import { Card, Typography, Button, message, Tag } from 'antd';
 import { ShoppingCartOutlined, CheckOutlined } from '@ant-design/icons';
 import { Ingredients } from '../types/api/ingredients';
 import { useCart } from '../contexts/CartContext';
