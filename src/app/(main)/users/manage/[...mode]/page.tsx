@@ -10,26 +10,36 @@ import { Role } from '@/types/api/roles';
 const { Title } = Typography;
 const { Option } = Select;
 
+
+import { authService } from "../../../../../services/auth.service";
+
 export default function UserManagePage({ params }: { params: { mode: string[] } }) {
   const router = useRouter();
   const [form] = Form.useForm();
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [csrfToken, setCsrfToken] = useState<string>("");
 
   const mode = params.mode[0];
   const userId = params.mode[1] || null;
   const isEdit = mode === 'edit' && !!userId;
+
+  useEffect(() => {
+    const fetchCsrf = async () => {
+        const token = await authService.getCsrfToken();
+        setCsrfToken(token);
+    };
+    fetchCsrf();
+  }, []);
 
   const fetchRoles = useCallback(async () => {
     try {
       const response = await fetch('/api/roles/getAll');
       if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลบทบาทได้');
       const data: Role[] = await response.json();
-      // Filter out raw English role names if they are likely duplicates of Thai ones
-      // This assumes 'Admin', 'Manager', 'Employee' are the unwanted ones
       const filteredRoles = data.filter(role => !['Admin', 'Manager', 'Employee'].includes(role.display_name));
-      setRoles(filteredRoles.length > 0 ? filteredRoles : data); // Fallback to all if filter removes everything
+      setRoles(filteredRoles.length > 0 ? filteredRoles : data);
     } catch (error) {
       console.error(error);
       message.error('ไม่สามารถดึงข้อมูลบทบาทได้');
@@ -37,6 +47,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   }, []);
 
   const fetchUser = useCallback(async () => {
+    if (!userId) return;
     setLoading(true);
     try {
       const response = await fetch(`/api/users/getById/${userId}`);
@@ -44,7 +55,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
       const user = await response.json();
       form.setFieldsValue({
         username: user.username,
-        roles_id: user.roles?.id,
+        roles_id: user.roles?.id || user.roles_id,
         is_active: user.is_active,
         is_use: user.is_use
       });
@@ -69,67 +80,42 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   const onFinish = async (values: any) => {
     setSubmitting(true);
     try {
-      if (isEdit) {
-        // Use __KEEP_PASSWORD__ if password is not provided/changed
-        const passwordToSend = values.password || '__KEEP_PASSWORD__';
-        // Note: The API path style here is /update/[username]/[password]/[roleId]/[id] 
-        // which might not support body for other fields if strictly following current usage in onFinish.
-        // However, standard REST practices use body. 
-        // Assuming I should change implementation to use body properly or append to URL if that's how the backend is routed (highly unlikely to be scalable).
-        // Let's check backend implementation first? No, user only asked to change frontend behavior.
-        // Wait, the current frontend uses URL params for everything! 
-        // fetch(`/api/users/update/${values.username}/${passwordToSend}/${values.roles_id}/${userId}`)
-        // If I need to send is_active/is_use, I likely need to update the API route or send body.
-        
-        // Let's assume for now I will send them in the BODY as the backend *should* accept json body for these fields since URL params is getting ridiculous.
-        // BUT, looking at the existing code:
-        /*
-          const response = await fetch(`/api/users/update/${values.username}/${passwordToSend}/${values.roles_id}/${userId}`, {
-            method: 'PUT'
-          });
-        */
-        // I need to check how the API route is implemented.
-        // For this step I will try to pass them in body, hoping backend supports it.
-        // Or if the backend API was not updated to accept these in body, I might need to update that too.
-        // User asked: "is active and is use will send true automatically" (Add mode) and "can edit" (Edit mode).
-        
-        // I will assume the backend accepts a body for these extra fields, or I should have checked the backend route helper.
-        // Checking the backend route... I verified Users entity, but didn't verify the route handler yet.
-        // I should verify backend route first? 
-        // "Add automatically" implies I need to ensure they are set. 
-        // In Add mode: backend sets defaults to true? Yes, I added `@Column({ default: true })`. So Add mode is fine by default if I don't send anything.
-        // In Edit mode: I need to allow changing them.
-        
-        // I will optimistically update the call to include a body with these fields.
-        
-        const response = await fetch(`/api/users/update/${values.username}/${passwordToSend}/${values.roles_id}/${userId}`, {
+      if (isEdit && userId) {
+        // Edit Mode
+        const payload = { ...values };
+        if (!payload.password) delete payload.password;
+
+        const response = await fetch(`/api/users/update/${userId}`, {
           method: 'PUT',
           headers: {
-            'Content-Type': 'application/json',
+             'Content-Type': 'application/json',
+             'X-CSRF-Token': csrfToken
           },
-          body: JSON.stringify({
-            is_active: values.is_active,
-            is_use: values.is_use
-          })
-        });
-        
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || 'ไม่สามารถอัปเดตผู้ใช้ได้');
-        }
-        
-        message.success('อัปเดตผู้ใช้สำเร็จ');
-      } else {
-        // Create mode
-        const response = await fetch(`/api/users/add/${values.username}/${values.password}/${values.roles_id}`, {
-          method: 'POST'
+          body: JSON.stringify(payload)
         });
 
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || 'ไม่สามารถสร้างผู้ใช้ได้');
+             const error = await response.json();
+             throw new Error(error.message || error.error || 'ไม่สามารถอัปเดตผู้ใช้ได้');
         }
-        
+
+        message.success('อัปเดตผู้ใช้สำเร็จ');
+      } else {
+        // Create mode
+        const response = await fetch('/api/users/add', {
+           method: 'POST',
+           headers: {
+             'Content-Type': 'application/json',
+             'X-CSRF-Token': csrfToken
+           },
+           body: JSON.stringify(values)
+        });
+
+        if (!response.ok) {
+             const error = await response.json();
+             throw new Error(error.message || error.error || 'ไม่สามารถสร้างผู้ใช้ได้');
+        }
+
         message.success('สร้างผู้ใช้สำเร็จ');
       }
       router.push('/users');
@@ -145,9 +131,13 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
     if (!userId) return;
     try {
       const response = await fetch(`/api/users/delete/${userId}`, {
-        method: 'DELETE'
+          method: 'DELETE',
+          headers: {
+             'X-CSRF-Token': csrfToken
+          }
       });
       if (!response.ok) throw new Error('ไม่สามารถลบผู้ใช้ได้');
+      
       message.success('ลบผู้ใช้สำเร็จ');
       router.push('/users');
     } catch (error) {

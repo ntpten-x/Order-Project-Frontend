@@ -1,13 +1,6 @@
-import axios, { AxiosError } from "axios";
+import api from "../lib/axios";
+import { AxiosError } from "axios";
 import { LoginCredentials, LoginResponse, User } from "../types/api/auth";
-
-// Use local API routes for Auth (BFF Pattern)
-const api = axios.create({
-    baseURL: "/api", // Relative path to Next.js API
-    headers: {
-        "Content-Type": "application/json",
-    },
-});
 
 export const authService = {
     login: async (credentials: LoginCredentials): Promise<User> => {
@@ -34,6 +27,17 @@ export const authService = {
             return response.data;
         } catch (error) {
             throw error;
+        }
+    },
+    async getCsrfToken(): Promise<string> {
+        try {
+            const response = await fetch("/api/csrf");
+            if (!response.ok) return "";
+            const data = await response.json();
+            return data.csrfToken;
+        } catch (error) {
+            console.error("Failed to fetch CSRF token", error);
+            return "";
         }
     }
 };

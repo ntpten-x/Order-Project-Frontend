@@ -33,7 +33,7 @@ export default function HomePage() {
     const fetchIngredients = async () => {
       try {
         setLoading(true);
-        const response = await axios.get("/api/ingredients/getAll");
+        const response = await axios.get("/api/ingredients");
         const allIngredients: Ingredients[] = response.data;
         // Filter active ingredients
         const activeIngredients = allIngredients.filter(item => item.is_active);

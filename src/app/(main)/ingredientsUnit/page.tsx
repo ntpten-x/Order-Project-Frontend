@@ -20,6 +20,8 @@ import {
 
 const { Text } = Typography;
 
+import { authService } from "../../../services/auth.service";
+
 export default function IngredientsUnitPage() {
     const router = useRouter();
     const { user, loading: authLoading } = useAuth();
@@ -27,8 +29,17 @@ export default function IngredientsUnitPage() {
     const { execute } = useAsyncAction();
     const { showLoading, hideLoading } = useGlobalLoading();
     const { socket } = useSocket();
+    const [csrfToken, setCsrfToken] = useState<string>("");
 
     const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+
+    useEffect(() => {
+        const fetchCsrf = async () => {
+             const token = await authService.getCsrfToken();
+             setCsrfToken(token);
+        };
+        fetchCsrf();
+    }, []);
 
     const fetchIngredientsUnits = useCallback(async () => {
         execute(async () => {
@@ -109,6 +120,9 @@ export default function IngredientsUnitPage() {
                 await execute(async () => {
                     const response = await fetch(`/api/ingredientsUnit/delete/${unit.id}`, {
                         method: 'DELETE',
+                        headers: {
+                            'X-CSRF-Token': csrfToken
+                        }
                     });
                     if (!response.ok) {
                         throw new Error('ไม่สามารถลบหน่วยวัตถุดิบได้');

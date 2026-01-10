@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ingredientsService } from "../../../../services/ingredients.service";
+import { ingredientsService } from "../../../services/ingredients.service";
 
 export const dynamic = 'force-dynamic';
 

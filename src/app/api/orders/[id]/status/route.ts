@@ -6,7 +6,8 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         const { id } = params;
         const body = await request.json();
         const cookie = request.headers.get("cookie") || "";
-        const order = await ordersService.updateStatus(id, body.status, cookie);
+        const csrfToken = request.headers.get("X-CSRF-Token") || "";
+        const order = await ordersService.updateStatus(id, body.status, cookie, csrfToken);
         return NextResponse.json(order);
     } catch (error: unknown) {
         console.error("API Error:", error);

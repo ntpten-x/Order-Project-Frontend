@@ -17,9 +17,12 @@ export const ordersService = {
         ordered_by_id: string;
         items: { ingredient_id: string; quantity_ordered: number }[];
         remark?: string;
-    }, cookie?: string): Promise<Order> => {
+    }, cookie?: string, csrfToken?: string): Promise<Order> => {
         const url = getProxyUrl("POST", BASE_PATH);
-        const headers = getHeaders(cookie);
+        const headers = getHeaders(cookie) as Record<string, string>;
+        if (csrfToken) {
+            headers["X-CSRF-Token"] = csrfToken;
+        }
 
         const response = await fetch(url!, {
             method: "POST",
@@ -63,9 +66,12 @@ export const ordersService = {
         return response.json();
     },
 
-    updateStatus: async (id: string, status: OrderStatus, cookie?: string): Promise<Order> => {
+    updateStatus: async (id: string, status: OrderStatus, cookie?: string, csrfToken?: string): Promise<Order> => {
         const url = getProxyUrl("PUT", `${BASE_PATH}/${id}/status`);
         const headers = getHeaders(cookie);
+        if (csrfToken) {
+            (headers as Record<string, string>)["X-CSRF-Token"] = csrfToken;
+        }
 
         const response = await fetch(url!, {
             method: "PUT",
@@ -79,9 +85,12 @@ export const ordersService = {
         return response.json();
     },
 
-    updateOrder: async (id: string, items: { ingredient_id: string; quantity_ordered: number }[], cookie?: string): Promise<Order> => {
+    updateOrder: async (id: string, items: { ingredient_id: string; quantity_ordered: number }[], cookie?: string, csrfToken?: string): Promise<Order> => {
         const url = getProxyUrl("PUT", `${BASE_PATH}/${id}`);
-        const headers = getHeaders(cookie);
+        const headers = getHeaders(cookie) as Record<string, string>;
+        if (csrfToken) {
+            headers["X-CSRF-Token"] = csrfToken;
+        }
 
         const response = await fetch(url!, {
             method: "PUT",
@@ -96,9 +105,12 @@ export const ordersService = {
         return response.json();
     },
 
-    confirmPurchase: async (id: string, items: { ingredient_id: string; actual_quantity: number; is_purchased: boolean }[], purchased_by_id: string, cookie?: string): Promise<Order> => {
+    confirmPurchase: async (id: string, items: { ingredient_id: string; actual_quantity: number; is_purchased: boolean }[], purchased_by_id: string, cookie?: string, csrfToken?: string): Promise<Order> => {
         const url = getProxyUrl("POST", `${BASE_PATH}/${id}/purchase`);
-        const headers = getHeaders(cookie);
+        const headers = getHeaders(cookie) as Record<string, string>;
+        if (csrfToken) {
+            headers["X-CSRF-Token"] = csrfToken;
+        }
 
         const response = await fetch(url!, {
             method: "POST",
@@ -133,9 +145,12 @@ export const ordersService = {
         return response.json();
     },
 
-    deleteOrder: async (id: string, cookie?: string): Promise<void> => {
+    deleteOrder: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
         const url = getProxyUrl("DELETE", `${BASE_PATH}/${id}`);
         const headers = getHeaders(cookie, "");
+        if (csrfToken) {
+            (headers as Record<string, string>)["X-CSRF-Token"] = csrfToken;
+        }
 
         const response = await fetch(url!, {
             method: "DELETE",

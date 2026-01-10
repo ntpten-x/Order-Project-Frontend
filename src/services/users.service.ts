@@ -10,12 +10,15 @@ export const userService = {
         if (cookie) headers.Cookie = cookie;
 
         const response = await fetch(url!, {
-            cache: "no-store",
-            headers
+            headers,
+            credentials: 'include',
+            cache: 'no-store'
         });
+
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลผู้ใช้ได้");
+            const detailedError = errorData.errors?.map((e: any) => e.message).join(", ");
+            throw new Error(detailedError || errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลผู้ใช้ได้");
         }
         return response.json();
     },
@@ -26,62 +29,81 @@ export const userService = {
         if (cookie) headers.Cookie = cookie;
 
         const response = await fetch(url!, {
-            cache: "no-store",
-            headers
+            headers,
+            credentials: 'include',
+            cache: 'no-store'
         });
+
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลผู้ใช้ได้");
+            const detailedError = errorData.errors?.map((e: any) => e.message).join(", ");
+            throw new Error(detailedError || errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลผู้ใช้ได้");
         }
         return response.json();
     },
 
-    createUser: async (data: Partial<User>, cookie?: string): Promise<User> => {
+    createUser: async (data: Partial<User>, cookie?: string, csrfToken?: string): Promise<User> => {
         const url = getProxyUrl("POST", BASE_PATH);
-        const headers: HeadersInit = { "Content-Type": "application/json" };
-        if (cookie) headers.Cookie = cookie;
+        const headers: HeadersInit = {
+            "Content-Type": "application/json"
+        };
+        if (cookie) (headers as any).Cookie = cookie;
+        if (csrfToken) (headers as any)["X-CSRF-Token"] = csrfToken;
 
         const response = await fetch(url!, {
             method: "POST",
             headers,
             body: JSON.stringify(data),
+            credentials: 'include'
         });
+
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถสร้างผู้ใช้ได้");
+            const detailedError = errorData.errors?.map((e: any) => e.message).join(", ");
+            throw new Error(detailedError || errorData.error || errorData.message || "ไม่สามารถสร้างผู้ใช้ได้");
         }
         return response.json();
     },
 
-    updateUser: async (id: string, data: Partial<User>, cookie?: string): Promise<User> => {
+    updateUser: async (id: string, data: Partial<User>, cookie?: string, csrfToken?: string): Promise<User> => {
         const url = getProxyUrl("PUT", `${BASE_PATH}/${id}`);
-        const headers: HeadersInit = { "Content-Type": "application/json" };
-        if (cookie) headers.Cookie = cookie;
+        const headers: HeadersInit = {
+            "Content-Type": "application/json"
+        };
+        if (cookie) (headers as any).Cookie = cookie;
+        if (csrfToken) (headers as any)["X-CSRF-Token"] = csrfToken;
 
         const response = await fetch(url!, {
             method: "PUT",
             headers,
             body: JSON.stringify(data),
+            credentials: 'include'
         });
+
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถอัปเดตผู้ใช้ได้");
+            const detailedError = errorData.errors?.map((e: any) => e.message).join(", ");
+            throw new Error(detailedError || errorData.error || errorData.message || "ไม่สามารถอัปเดตผู้ใช้ได้");
         }
         return response.json();
     },
 
-    deleteUser: async (id: string, cookie?: string): Promise<void> => {
+    deleteUser: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
         const url = getProxyUrl("DELETE", `${BASE_PATH}/${id}`);
         const headers: HeadersInit = {};
-        if (cookie) headers.Cookie = cookie;
+        if (cookie) (headers as any).Cookie = cookie;
+        if (csrfToken) (headers as any)["X-CSRF-Token"] = csrfToken;
 
         const response = await fetch(url!, {
             method: "DELETE",
-            headers
+            headers,
+            credentials: 'include'
         });
+
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถลบผู้ใช้ได้");
+            const detailedError = errorData.errors?.map((e: any) => e.message).join(", ");
+            throw new Error(detailedError || errorData.error || errorData.message || "ไม่สามารถลบผู้ใช้ได้");
         }
     },
 };

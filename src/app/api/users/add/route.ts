@@ -1,15 +1,16 @@
+import { userService } from "../../../../services/users.service";
 import { NextRequest, NextResponse } from "next/server";
-import { ordersService } from "../../../../../services/orders.service";
 
-export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
+export async function POST(request: NextRequest) {
     try {
-        const { id } = params;
         const body = await request.json();
-        const { items, purchased_by_id } = body;
+        console.log("DEBUG: Posting User Body:", JSON.stringify(body, null, 2));
         const cookie = request.headers.get("cookie") || "";
         const csrfToken = request.headers.get("X-CSRF-Token") || "";
-        const order = await ordersService.confirmPurchase(id, items, purchased_by_id, cookie, csrfToken);
-        return NextResponse.json(order);
+
+        // Pass body directly to service
+        const user = await userService.createUser(body, cookie, csrfToken);
+        return NextResponse.json(user);
     } catch (error: unknown) {
         console.error("API Error:", error);
         return NextResponse.json({ error: (error as Error).message || "Internal Server Error" }, { status: 500 });

@@ -14,6 +14,8 @@ import {
 
 const { TextArea } = Input;
 
+import { authService } from '../../../../../services/auth.service';
+
 export default function IngredientsManagePage({ params }: { params: { mode: string[] } }) {
     const router = useRouter();
     const [form] = Form.useForm();
@@ -22,10 +24,19 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
     const [units, setUnits] = useState<IngredientsUnit[]>([]);
     const [imageUrl, setImageUrl] = useState<string>('');
     const [displayName, setDisplayName] = useState<string>('');
+    const [csrfToken, setCsrfToken] = useState<string>("");
 
     const mode = params.mode[0];
     const id = params.mode[1] || null;
     const isEdit = mode === 'edit' && !!id;
+
+    useEffect(() => {
+        const fetchCsrf = async () => {
+             const token = await authService.getCsrfToken();
+             setCsrfToken(token);
+        };
+        fetchCsrf();
+    }, []);
 
     const fetchUnits = async () => {
         try {
@@ -78,7 +89,10 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
             if (isEdit) {
                 const response = await fetch(`/api/ingredients/update/${id}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken
+                    },
                     body: JSON.stringify(values),
                 });
                 
@@ -91,7 +105,10 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
             } else {
                 const response = await fetch(`/api/ingredients/create`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken
+                    },
                     body: JSON.stringify(values),
                 });
 
@@ -123,7 +140,10 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
             onOk: async () => {
                 try {
                     const response = await fetch(`/api/ingredients/delete/${id}`, {
-                        method: 'DELETE'
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-Token': csrfToken
+                        }
                     });
                     if (!response.ok) throw new Error('ไม่สามารถลบวัตถุดิบได้');
                     message.success('ลบวัตถุดิบสำเร็จ');

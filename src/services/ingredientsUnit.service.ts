@@ -11,6 +11,7 @@ export const ingredientsUnitService = {
 
         const response = await fetch(url!, {
             cache: "no-store",
+            credentials: 'include',
             headers
         });
         if (!response.ok) {
@@ -27,6 +28,7 @@ export const ingredientsUnitService = {
 
         const response = await fetch(url!, {
             cache: "no-store",
+            credentials: 'include',
             headers
         });
         if (!response.ok) {
@@ -43,6 +45,7 @@ export const ingredientsUnitService = {
 
         const response = await fetch(url!, {
             cache: "no-store",
+            credentials: 'include',
             headers
         });
         if (!response.ok) {
@@ -52,15 +55,17 @@ export const ingredientsUnitService = {
         return response.json();
     },
 
-    create: async (data: Partial<IngredientsUnit>, cookie?: string): Promise<IngredientsUnit> => {
+    create: async (data: Partial<IngredientsUnit>, cookie?: string, csrfToken?: string): Promise<IngredientsUnit> => {
         const url = getProxyUrl("POST", BASE_PATH);
         const headers: HeadersInit = { "Content-Type": "application/json" };
-        if (cookie) headers.Cookie = cookie;
+        if (cookie) (headers as any).Cookie = cookie;
+        if (csrfToken) (headers as any)["X-CSRF-Token"] = csrfToken;
 
         const response = await fetch(url!, {
             method: "POST",
             headers,
             body: JSON.stringify(data),
+            credentials: 'include'
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
@@ -69,15 +74,17 @@ export const ingredientsUnitService = {
         return response.json();
     },
 
-    update: async (id: string, data: Partial<IngredientsUnit>, cookie?: string): Promise<IngredientsUnit> => {
+    update: async (id: string, data: Partial<IngredientsUnit>, cookie?: string, csrfToken?: string): Promise<IngredientsUnit> => {
         const url = getProxyUrl("PUT", `${BASE_PATH}/${id}`);
         const headers: HeadersInit = { "Content-Type": "application/json" };
-        if (cookie) headers.Cookie = cookie;
+        if (cookie) (headers as any).Cookie = cookie;
+        if (csrfToken) (headers as any)["X-CSRF-Token"] = csrfToken;
 
         const response = await fetch(url!, {
             method: "PUT",
             headers,
             body: JSON.stringify(data),
+            credentials: 'include'
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
@@ -86,14 +93,16 @@ export const ingredientsUnitService = {
         return response.json();
     },
 
-    delete: async (id: string, cookie?: string): Promise<void> => {
+    delete: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
         const url = getProxyUrl("DELETE", `${BASE_PATH}/${id}`);
         const headers: HeadersInit = {};
-        if (cookie) headers.Cookie = cookie;
+        if (cookie) (headers as any).Cookie = cookie;
+        if (csrfToken) (headers as any)["X-CSRF-Token"] = csrfToken;
 
         const response = await fetch(url!, {
             method: "DELETE",
-            headers
+            headers,
+            credentials: 'include'
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));

@@ -25,6 +25,7 @@ import {
 } from "@ant-design/icons";
 import { useCart } from "../contexts/CartContext";
 import { useAuth } from "../contexts/AuthContext";
+import { authService } from "../services/auth.service";
 import { useRouter } from "next/navigation";
 
 const { Text, Title } = Typography;
@@ -35,6 +36,15 @@ export default function CartDrawer() {
   const { user } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [csrfToken, setCsrfToken] = useState<string>("");
+
+  React.useEffect(() => {
+    const fetchCsrf = async () => {
+        const token = await authService.getCsrfToken();
+        setCsrfToken(token);
+    };
+    if (open) fetchCsrf();
+  }, [open]);
 
   const showDrawer = () => {
     setOpen(true);
@@ -65,7 +75,8 @@ export default function CartDrawer() {
       const response = await fetch("/api/orders", {
           method: "POST",
           headers: {
-              "Content-Type": "application/json"
+              "Content-Type": "application/json",
+              "X-CSRF-Token": csrfToken
           },
           body: JSON.stringify({
               ordered_by_id: user.id,

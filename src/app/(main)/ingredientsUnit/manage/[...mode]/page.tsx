@@ -10,16 +10,27 @@ import {
     ActionButtons
 } from './style';
 
+import { authService } from '../../../../../services/auth.service';
+
 export default function IngredientsUnitManagePage({ params }: { params: { mode: string[] } }) {
     const router = useRouter();
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [displayName, setDisplayName] = useState<string>('');
+    const [csrfToken, setCsrfToken] = useState<string>("");
 
     const mode = params.mode[0];
     const id = params.mode[1] || null;
     const isEdit = mode === 'edit' && !!id;
+
+    useEffect(() => {
+        const fetchCsrf = async () => {
+             const token = await authService.getCsrfToken();
+             setCsrfToken(token);
+        };
+        fetchCsrf();
+    }, []);
 
     const fetchIngredientsUnit = useCallback(async () => {
         setLoading(true);
@@ -54,7 +65,10 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
             if (isEdit) {
                 const response = await fetch(`/api/ingredientsUnit/update/${id}`, {
                     method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken
+                    },
                     body: JSON.stringify(values),
                 });
                 
@@ -67,7 +81,10 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
             } else {
                 const response = await fetch(`/api/ingredientsUnit/create`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRF-Token': csrfToken
+                    },
                     body: JSON.stringify(values),
                 });
 
@@ -99,7 +116,10 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
             onOk: async () => {
                 try {
                     const response = await fetch(`/api/ingredientsUnit/delete/${id}`, {
-                        method: 'DELETE'
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-Token': csrfToken
+                        }
                     });
                     if (!response.ok) throw new Error('ไม่สามารถลบหน่วยวัตถุดิบได้');
                     message.success('ลบหน่วยวัตถุดิบสำเร็จ');

@@ -19,8 +19,11 @@ import { useGlobalLoading } from "../../../contexts/GlobalLoadingContext";
 const { Title, Text } = Typography;
 
 import { useAuth } from "../../../contexts/AuthContext";
+import { userService } from "../../../services/users.service";
 
 import { Spin } from 'antd';
+
+import { authService } from "../../../services/auth.service";
 
 export default function UsersPage() {
   const router = useRouter();
@@ -28,7 +31,16 @@ export default function UsersPage() {
   const { socket } = useSocket();
   const { execute } = useAsyncAction();
   const { showLoading, hideLoading } = useGlobalLoading();
-  const { user, loading: authLoading } = useAuth(); // Get auth state
+  const { user, loading: authLoading } = useAuth();
+  const [csrfToken, setCsrfToken] = useState<string>("");
+
+  useEffect(() => {
+    const fetchCsrf = async () => {
+        const token = await authService.getCsrfToken();
+        setCsrfToken(token);
+    };
+    fetchCsrf();
+  }, []);
 
   // Protect Route
   useEffect(() => {
@@ -47,8 +59,7 @@ export default function UsersPage() {
     execute(async () => {
       const response = await fetch('/api/users/getAll');
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลผู้ใช้ได้');
+          throw new Error("ไม่สามารถดึงข้อมูลผู้ใช้ได้");
       }
       const data = await response.json();
       setUsers(data);
@@ -111,17 +122,16 @@ export default function UsersPage() {
             await execute(async () => {
                 const response = await fetch(`/api/users/delete/${user.id}`, {
                     method: 'DELETE',
+                    headers: {
+                        'X-CSRF-Token': csrfToken
+                    }
                 });
-                if (!response.ok) {
-                    throw new Error('Failed to delete user');
-                }
+                if (!response.ok) throw new Error('ไม่สามารถลบผู้ใช้ได้');
                 message.success(`ลบผู้ใช้ "${user.username}" สำเร็จ`);
             }, "กำลังลบผู้ใช้งาน...");
         },
     });
   };
-
-  // Loading / Permission Check State
   if (authLoading || !user || user.role !== 'Admin') {
     return (
         <div style={{ 

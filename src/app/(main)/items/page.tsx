@@ -35,6 +35,7 @@ import OrderDetailModal from "../../../components/OrderDetailModal";
 import { useSocket } from "../../../hooks/useSocket";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../contexts/AuthContext";
+import { authService } from "../../../services/auth.service";
 import ItemsPageStyle from "./style";
 
 const { Title, Text } = Typography;
@@ -118,7 +119,21 @@ export default function ItemsPage() {
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
 
-  const handleCancelOrder = (order: Order) => {
+    const [csrfToken, setCsrfToken] = useState<string>("");
+
+    useEffect(() => {
+        const fetchCsrf = async () => {
+             try {
+                const token = await authService.getCsrfToken();
+                setCsrfToken(token);
+             } catch (error) {
+                console.error("Failed to fetch CSRF token", error);
+             }
+        };
+        fetchCsrf();
+    }, []);
+
+    const handleCancelOrder = (order: Order) => {
     Modal.confirm({
       title: (
         <Space>
@@ -150,7 +165,10 @@ export default function ItemsPage() {
         try {
           const response = await fetch(`/api/orders/${order.id}/status`, {
             method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': csrfToken
+            },
             body: JSON.stringify({ status: OrderStatus.CANCELLED })
           });
 

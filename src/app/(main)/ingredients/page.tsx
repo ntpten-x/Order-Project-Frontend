@@ -20,6 +20,8 @@ import {
 
 const { Text } = Typography;
 
+import { authService } from "../../../services/auth.service";
+
 export default function IngredientsPage() {
     const router = useRouter();
     const { user, loading: authLoading } = useAuth();
@@ -27,12 +29,21 @@ export default function IngredientsPage() {
     const { execute } = useAsyncAction();
     const { showLoading, hideLoading } = useGlobalLoading();
     const { socket } = useSocket();
+    const [csrfToken, setCsrfToken] = useState<string>("");
 
     const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
+    useEffect(() => {
+        const fetchCsrf = async () => {
+             const token = await authService.getCsrfToken();
+             setCsrfToken(token);
+        };
+        fetchCsrf();
+    }, []);
+
     const fetchIngredients = useCallback(async () => {
         execute(async () => {
-            const response = await fetch('/api/ingredients/getAll');
+            const response = await fetch('/api/ingredients');
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลวัตถุดิบได้');
@@ -114,6 +125,9 @@ export default function IngredientsPage() {
                 await execute(async () => {
                     const response = await fetch(`/api/ingredients/delete/${ingredient.id}`, {
                         method: 'DELETE',
+                        headers: {
+                            'X-CSRF-Token': csrfToken
+                        }
                     });
                     if (!response.ok) {
                         throw new Error('ไม่สามารถลบวัตถุดิบได้');

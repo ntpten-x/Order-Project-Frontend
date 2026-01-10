@@ -7,6 +7,7 @@ import { Order, OrderStatus } from "../../../types/api/orders";
 import OrderDetailModal from "../../../components/OrderDetailModal";
 import { useSocket } from "../../../hooks/useSocket";
 import { useAuth } from "../../../contexts/AuthContext";
+import { authService } from "../../../services/auth.service";
 import {
     HistoryPageStyles,
     pageStyles,
@@ -22,6 +23,20 @@ export default function HistoryPage() {
     const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
     const { socket } = useSocket();
     const { user } = useAuth();
+
+    const [csrfToken, setCsrfToken] = useState<string>("");
+
+    useEffect(() => {
+        const fetchCsrf = async () => {
+             try {
+                const token = await authService.getCsrfToken();
+                setCsrfToken(token);
+             } catch (error) {
+                console.error("Failed to fetch CSRF token", error);
+             }
+        };
+        fetchCsrf();
+    }, []);
 
     const fetchOrders = async () => {
         try {
@@ -57,7 +72,12 @@ export default function HistoryPage() {
             centered: true,
             onOk: async () => {
                 try {
-                    const response = await fetch(`/api/orders/${order.id}`, { method: 'DELETE' });
+                    const response = await fetch(`/api/orders/${order.id}`, { 
+                        method: 'DELETE',
+                        headers: {
+                            'X-CSRF-Token': csrfToken
+                        }
+                    });
                     if (!response.ok) throw new Error("Failed to delete order");
                     
                     message.success("ลบประวัติออเดอร์สำเร็จ");

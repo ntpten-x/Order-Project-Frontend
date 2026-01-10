@@ -7,6 +7,7 @@ import { ShoppingCartOutlined, CloseOutlined } from "@ant-design/icons";
 import { Order } from "../../../types/api/orders";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useSocket } from "../../../hooks/useSocket";
+import { authService } from "../../../services/auth.service";
 import { 
     BuyingPageStyles,
     pageStyles,
@@ -142,6 +143,20 @@ export default function BuyingPage() {
         setItems(items.map(i => i.ingredient_id === id ? { ...i, actual_quantity: i.ordered_quantity, is_purchased: true } : i));
     };
 
+    const [csrfToken, setCsrfToken] = useState<string>("");
+
+    useEffect(() => {
+        const fetchCsrf = async () => {
+             try {
+                const token = await authService.getCsrfToken();
+                setCsrfToken(token);
+             } catch (error) {
+                console.error("Failed to fetch CSRF token", error);
+             }
+        };
+        fetchCsrf();
+    }, []);
+
     const confirmPurchase = async () => {
         if (!user) {
             message.error("User not found");
@@ -157,7 +172,10 @@ export default function BuyingPage() {
             
             const response = await fetch(`/api/orders/${orderId}/purchase`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
                 body: JSON.stringify({ items: payload, purchased_by_id: user.id })
             });
 

@@ -13,6 +13,7 @@ import { Order, OrderStatus } from "../types/api/orders";
 import { Ingredients } from "../types/api/ingredients";
 import axios from "axios";
 import { useSocket } from "../hooks/useSocket";
+import { authService } from "../services/auth.service";
 
 const { Text, Title } = Typography;
 
@@ -30,7 +31,7 @@ const EditableItemCard = ({
     onUpdateQuantity, 
     onRemove 
 }: { 
-    item: { ingredient_id: string; quantity_ordered: number; display_name: string; unit_name: string; img_url?: string };
+    item: { ingredient_id: string; quantity_ordered: number; display_name: string; unit_name: string; img_url?: string | null };
     index: number;
     onUpdateQuantity: (id: string, qty: number | null) => void;
     onRemove: (id: string) => void;
@@ -119,7 +120,7 @@ const EditableItemCard = ({
 export default function EditOrderModal({ order, open, onClose, onSuccess }: EditOrderModalProps) {
     const [loading, setLoading] = useState(false);
     const [ingredients, setIngredients] = useState<Ingredients[]>([]);
-    const [items, setItems] = useState<{ ingredient_id: string; quantity_ordered: number; display_name: string; unit_name: string; img_url?: string }[]>([]);
+    const [items, setItems] = useState<{ ingredient_id: string; quantity_ordered: number; display_name: string; unit_name: string; img_url?: string | null }[]>([]);
     const [selectedIngredient, setSelectedIngredient] = useState<string | null>(null);
     const { socket } = useSocket();
 
@@ -138,7 +139,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                     quantity_ordered: item.quantity_ordered,
                     display_name: item.ingredient?.display_name || 'Unknown',
                     unit_name: item.ingredient?.unit?.display_name || '-',
-                    img_url: item.ingredient?.img_url
+                    img_url: item.ingredient?.img_url || undefined
                 })) || [];
                 setItems(mappedItems);
             } else if (action === "update_status") {
@@ -159,7 +160,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
     useEffect(() => {
         const fetchIngredients = async () => {
             try {
-                const response = await axios.get("/api/ingredients/getAll");
+                const response = await axios.get("/api/ingredients");
                 const allIngredients = response.data.filter((i: Ingredients) => i.is_active);
                 setIngredients(allIngredients);
 
@@ -187,7 +188,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                 quantity_ordered: item.quantity_ordered,
                 display_name: item.ingredient?.display_name || 'Unknown',
                 unit_name: item.ingredient?.unit?.display_name || '-',
-                img_url: item.ingredient?.img_url
+                img_url: item.ingredient?.img_url || undefined
             })) || [];
             setItems(mappedItems);
         }
@@ -224,6 +225,16 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
         setItems(items.map(i => i.ingredient_id === ingredientId ? { ...i, quantity_ordered: quantity } : i));
     };
 
+    const [csrfToken, setCsrfToken] = useState<string>("");
+
+    useEffect(() => {
+        const fetchCsrf = async () => {
+             const token = await authService.getCsrfToken();
+             setCsrfToken(token);
+        };
+        fetchCsrf();
+    }, []);
+
     const handleSave = async () => {
         if (!order) return;
         if (items.length === 0) {
@@ -235,22 +246,18 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
         try {
             const payload = items.map(i => ({ ingredient_id: i.ingredient_id, quantity_ordered: i.quantity_ordered }));
             
-            const response = await fetch(`/api/orders/${order.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ items: payload })
+            await axios.put(`/api/orders/${order.id}`, { items: payload }, {
+                headers: {
+                    'X-CSRF-Token': csrfToken
+                }
             });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || "แก้ไขออเดอร์ล้มเหลว");
-            }
 
             message.success("แก้ไขออเดอร์สำเร็จ");
             onSuccess();
             onClose();
         } catch (error: unknown) {
-             message.error((error as Error).message || "แก้ไขออเดอร์ล้มเหลว");
+             const errorMessage = (error as any)?.response?.data?.error || (error as any)?.response?.data?.message || (error as Error).message || "แก้ไขออเดอร์ล้มเหลว";
+             message.error(errorMessage);
         } finally {
             setLoading(false);
         }

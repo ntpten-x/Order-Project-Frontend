@@ -18,7 +18,8 @@ export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
         const cookie = request.headers.get("cookie") || "";
-        const order = await ordersService.createOrder(body, cookie);
+        const csrfToken = request.headers.get("X-CSRF-Token") || "";
+        const order = await ordersService.createOrder(body, cookie, csrfToken);
         return NextResponse.json(order);
     } catch (error: unknown) {
         console.error("API Error:", error);
