@@ -16,7 +16,8 @@ import {
   Skeleton,
   Row,
   Col,
-  Statistic
+  Statistic,
+  Avatar
 } from "antd";
 import { 
   ReloadOutlined, 
@@ -229,10 +230,16 @@ export default function ItemsPage() {
       ),
       dataIndex: 'ordersItems',
       key: 'items',
-      render: (items: { id: string; quantity_ordered: number; ingredient?: { display_name: string; unit?: { display_name: string } } }[]) => (
+      render: (items: { id: string; quantity_ordered: number; ingredient?: { display_name: string; img_url?: string; unit?: { display_name: string } } }[]) => (
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
           {(items || []).slice(0, 3).map((item) => (
             <span key={item.id} className="order-item-badge">
+              <Avatar
+                  src={item.ingredient?.img_url || 'https://placehold.co/32x32/f5f5f5/999999?text=📦'}
+                  size={24}
+                  shape="square"
+                  style={{ borderRadius: 6, marginRight: 8 }}
+              />
               <Text strong style={{ color: '#5b6af8', fontSize: 13 }}>
                 {item.ingredient?.display_name}
               </Text>
