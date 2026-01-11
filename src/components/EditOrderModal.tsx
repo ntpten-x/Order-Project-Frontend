@@ -444,7 +444,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                                     </div>
                                 )
                             }))}
-                            // @ts-ignore - AntD type definition mismatch but runtime works, or strictly follow semantic
+                            // eslint-disable-next-line @typescript-eslint/no-explicit-any
                             styles={{ popup: { root: { borderRadius: 12 } } as any }}
                         />
                         <Button 

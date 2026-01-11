@@ -113,7 +113,7 @@ const IngredientCard: React.FC<IngredientCardProps> = ({ ingredient }) => {
                     filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.1))',
                   }}
                   onLoad={() => setImageLoaded(true)}
-                  onError={(e) => {
+                  onError={() => {
                     // Fallback handled by parent or custom loader if needed, 
                     // but next/image onError is limited. 
                     // For now, ensure valid URL or placeholder.
