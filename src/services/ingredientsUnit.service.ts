@@ -1,7 +1,7 @@
 import { IngredientsUnit } from "../types/api/ingredientsUnit";
 import { getProxyUrl } from "../lib/proxy-utils";
 
-const BASE_PATH = "/ingredientsUnit";
+const BASE_PATH = "/stock/ingredientsUnit";
 
 export const ingredientsUnitService = {
     findAll: async (cookie?: string, searchParams?: URLSearchParams): Promise<IngredientsUnit[]> => {

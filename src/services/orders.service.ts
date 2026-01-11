@@ -2,7 +2,7 @@ import { Order, OrderStatus } from "../types/api/orders";
 import { OrdersDetail } from "../types/api/ordersDetail";
 import { getProxyUrl } from "../lib/proxy-utils";
 
-const BASE_PATH = "/orders";
+const BASE_PATH = "/stock/orders";
 
 const getHeaders = (cookie?: string, contentType: string = "application/json"): HeadersInit => {
     const headers: Record<string, string> = {};
@@ -134,7 +134,7 @@ export const ordersService = {
         purchased_by_id: string;
         is_purchased?: boolean;
     }, cookie?: string): Promise<OrdersDetail> => {
-        const url = getProxyUrl("POST", "/ordersDetail/update");
+        const url = getProxyUrl("POST", "/stock/ordersDetail/update");
         const headers = getHeaders(cookie);
 
         const response = await fetch(url!, {
