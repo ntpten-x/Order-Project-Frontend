@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useState } from 'react';
-import { Card, Typography, Button, message, Tag } from 'antd';
-import { ShoppingCartOutlined, CheckOutlined } from '@ant-design/icons';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Card, Typography, Button, message, Tag, Modal } from 'antd';
+import { ShoppingCartOutlined, CheckOutlined, ZoomInOutlined, CloseOutlined } from '@ant-design/icons';
 import { Ingredients } from '../types/api/ingredients';
 import { useCart } from '../contexts/CartContext';
 
@@ -15,191 +15,421 @@ interface IngredientCardProps {
 const IngredientCard: React.FC<IngredientCardProps> = ({ ingredient }) => {
   const { addToCart } = useCart();
   const [isAdded, setIsAdded] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
 
-  const handleAddToCart = () => {
+  const handleAddToCart = (e: React.MouseEvent) => {
+    e.stopPropagation();
     addToCart(ingredient);
     setIsAdded(true);
     message.success(`เพิ่ม ${ingredient.display_name} ลงตะกร้าแล้ว`);
     setTimeout(() => setIsAdded(false), 1500);
   };
 
-  return (
-    <Card
-      hoverable
-      cover={
-        <div 
-          style={{ 
-            position: 'relative', 
-            paddingTop: '65%', 
-            overflow: 'hidden',
-            borderRadius: '12px 12px 0 0'
-          }}
-        >
-          {/* Image */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            alt={ingredient.display_name}
-            src={ingredient.img_url || 'https://placehold.co/600x400?text=No+Image'}
-            style={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              transition: 'transform 0.4s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'scale(1.05)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'scale(1)';
-            }}
-            onError={(e) => {
-              e.currentTarget.src = 'https://placehold.co/600x400?text=No+Image';
-            }}
-          />
-          
-          {/* Gradient Overlay */}
-          <div 
-            style={{
-              position: 'absolute',
-              bottom: 0,
-              left: 0,
-              right: 0,
-              height: '50%',
-              background: 'linear-gradient(to top, rgba(0,0,0,0.7) 0%, rgba(0,0,0,0) 100%)',
-              pointerEvents: 'none',
-            }}
-          />
-          
-          {/* Unit Badge */}
-          {ingredient.unit && (
-            <Tag 
-              style={{
-                position: 'absolute',
-                top: 12,
-                right: 12,
-                margin: 0,
-                padding: '6px 14px',
-                fontSize: '13px',
-                fontWeight: 600,
-                borderRadius: '20px',
-                background: 'rgba(0, 0, 0, 0.7)',
-                backdropFilter: 'blur(8px)',
-                color: '#fff',
-                border: '1px solid rgba(255, 255, 255, 0.2)',
-                boxShadow: '0 2px 10px rgba(0,0,0,0.3)',
-              }}
-            >
-              {ingredient.unit.display_name}
-            </Tag>
-          )}
-        </div>
+  const openImageModal = useCallback(() => {
+    setIsModalOpen(true);
+  }, []);
+
+  const closeImageModal = useCallback(() => {
+    setIsModalOpen(false);
+  }, []);
+
+  // Handle keyboard events for modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isModalOpen) {
+        closeImageModal();
       }
-      style={{ 
-        width: '100%', 
-        borderRadius: 16, 
-        overflow: 'hidden',
-        border: 'none',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-      }}
-      styles={{
-        body: { 
-          padding: '20px', 
-          display: 'flex', 
-          flexDirection: 'column', 
-          background: '#fff'
-        }
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.transform = 'translateY(-8px)';
-        e.currentTarget.style.boxShadow = '0 12px 40px rgba(102, 126, 234, 0.25)';
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.transform = 'translateY(0)';
-        e.currentTarget.style.boxShadow = '0 4px 20px rgba(0,0,0,0.08)';
-      }}
-    >
-      <div style={{ marginBottom: 16, flexGrow: 1 }}>
-        <Title 
-          level={4} 
-          style={{ 
-            margin: 0, 
-            marginBottom: 4,
-            lineHeight: 1.3,
-            fontSize: '18px',
-            color: '#1a1a2e'
-          }}
-        >
-          {ingredient.display_name}
-        </Title>
-        
-        {ingredient.ingredient_name && (
-          <Text 
-            type="secondary" 
+    };
+
+    if (isModalOpen) {
+      document.addEventListener('keydown', handleKeyDown);
+    }
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [isModalOpen, closeImageModal]);
+
+  const imageUrl = ingredient.img_url || 'https://placehold.co/600x400?text=No+Image';
+
+  return (
+    <>
+      <Card
+        hoverable
+        cover={
+          <div 
+            onClick={openImageModal}
             style={{ 
-              fontSize: '13px',
-              color: '#8b8b9a'
+              position: 'relative', 
+              overflow: 'hidden',
+              borderRadius: '16px 16px 0 0',
+              cursor: 'pointer',
+              background: 'linear-gradient(145deg, #f8fafc 0%, #e2e8f0 100%)',
             }}
           >
-            {ingredient.ingredient_name}
-          </Text>
-        )}
-      
-        <Paragraph 
-          ellipsis={{ rows: 2, expandable: false }} 
-          style={{ 
-            marginTop: 12, 
-            marginBottom: 0, 
-            minHeight: '44px', 
-            color: '#666',
-            fontSize: '14px',
-            lineHeight: 1.6
-          }}
-        >
-          {ingredient.description || 'ไม่มีคำอธิบาย'}
-        </Paragraph>
-      </div>
-
-      <Button 
-        type="primary"
-        icon={isAdded ? <CheckOutlined /> : <ShoppingCartOutlined />}
-        onClick={handleAddToCart}
-        block
-        size="large"
+            {/* Image Container with natural aspect ratio */}
+            <div style={{
+              position: 'relative',
+              width: '100%',
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              minHeight: 200,
+              maxHeight: 280,
+              padding: 16,
+            }}>
+              {/* Loading placeholder */}
+              {!imageLoaded && (
+                <div style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  background: 'linear-gradient(145deg, #f1f5f9 0%, #e2e8f0 100%)',
+                }}>
+                  <div style={{
+                    width: 40,
+                    height: 40,
+                    border: '3px solid #e2e8f0',
+                    borderTopColor: '#667eea',
+                    borderRadius: '50%',
+                    animation: 'spin 1s linear infinite',
+                  }} />
+                </div>
+              )}
+              
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                alt={ingredient.display_name}
+                src={imageUrl}
+                onLoad={() => setImageLoaded(true)}
+                style={{
+                  maxWidth: '100%',
+                  maxHeight: 250,
+                  width: 'auto',
+                  height: 'auto',
+                  objectFit: 'contain',
+                  transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), filter 0.3s ease',
+                  opacity: imageLoaded ? 1 : 0,
+                  borderRadius: 8,
+                  filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.1))',
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.transform = 'scale(1.08)';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.transform = 'scale(1)';
+                }}
+                onError={(e) => {
+                  e.currentTarget.src = 'https://placehold.co/600x400?text=No+Image';
+                  setImageLoaded(true);
+                }}
+              />
+            </div>
+            
+            {/* Zoom Icon Overlay */}
+            <div 
+              style={{
+                position: 'absolute',
+                bottom: 12,
+                left: 12,
+                padding: '8px 14px',
+                borderRadius: 20,
+                background: 'rgba(0, 0, 0, 0.6)',
+                backdropFilter: 'blur(8px)',
+                color: '#fff',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 6,
+                fontSize: 12,
+                fontWeight: 500,
+                opacity: 0.8,
+                transition: 'all 0.3s ease',
+                border: '1px solid rgba(255,255,255,0.1)',
+              }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.opacity = '1';
+                e.currentTarget.style.transform = 'scale(1.05)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.opacity = '0.8';
+                e.currentTarget.style.transform = 'scale(1)';
+              }}
+            >
+              <ZoomInOutlined style={{ fontSize: 14 }} />
+              <span>ดูรูปขยาย</span>
+            </div>
+            
+            {/* Unit Badge */}
+            {ingredient.unit && (
+              <Tag 
+                style={{
+                  position: 'absolute',
+                  top: 12,
+                  right: 12,
+                  margin: 0,
+                  padding: '8px 16px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  borderRadius: 24,
+                  background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.9) 0%, rgba(118, 75, 162, 0.9) 100%)',
+                  backdropFilter: 'blur(8px)',
+                  color: '#fff',
+                  border: 'none',
+                  boxShadow: '0 4px 15px rgba(102, 126, 234, 0.4)',
+                }}
+              >
+                {ingredient.unit.display_name}
+              </Tag>
+            )}
+          </div>
+        }
         style={{ 
-          height: 48,
-          borderRadius: 12,
-          fontSize: '15px',
-          fontWeight: 600,
-          background: isAdded 
-            ? 'linear-gradient(135deg, #52c41a 0%, #389e0d 100%)'
-            : 'linear-gradient(135deg, #0d9488 0%, #059669 100%)',
+          width: '100%', 
+          borderRadius: 20, 
+          overflow: 'hidden',
           border: 'none',
-          boxShadow: isAdded 
-            ? '0 4px 16px rgba(82, 196, 26, 0.4)'
-            : '0 4px 16px rgba(5, 150, 105, 0.4)',
-          transition: 'all 0.3s ease',
-          transform: isAdded ? 'scale(0.98)' : 'scale(1)',
+          boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
+          transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+          background: '#fff',
         }}
-        onMouseEnter={(e) => {
-          if (!isAdded) {
-            e.currentTarget.style.transform = 'translateY(-2px)';
-            e.currentTarget.style.boxShadow = '0 6px 20px rgba(5, 150, 105, 0.5)';
+        styles={{
+          body: { 
+            padding: '20px 24px 24px', 
+            display: 'flex', 
+            flexDirection: 'column', 
+            background: '#fff'
           }
         }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.transform = 'translateY(-10px)';
+          e.currentTarget.style.boxShadow = '0 20px 50px rgba(102, 126, 234, 0.2)';
+        }}
         onMouseLeave={(e) => {
-          e.currentTarget.style.transform = 'scale(1)';
-          e.currentTarget.style.boxShadow = isAdded 
-            ? '0 4px 16px rgba(82, 196, 26, 0.4)'
-            : '0 4px 16px rgba(5, 150, 105, 0.4)';
+          e.currentTarget.style.transform = 'translateY(0)';
+          e.currentTarget.style.boxShadow = '0 4px 24px rgba(0,0,0,0.06)';
         }}
       >
-        {isAdded ? 'เพิ่มแล้ว ✓' : 'เพิ่มลงตะกร้า'}
-      </Button>
-    </Card>
+        <div style={{ marginBottom: 16, flexGrow: 1 }}>
+          <Title 
+            level={4} 
+            style={{ 
+              margin: 0, 
+              marginBottom: 6,
+              lineHeight: 1.3,
+              fontSize: '20px',
+              fontWeight: 700,
+              color: '#1e293b',
+              letterSpacing: '-0.02em',
+            }}
+          >
+            {ingredient.display_name}
+          </Title>
+          
+          {ingredient.ingredient_name && (
+            <Text 
+              style={{ 
+                fontSize: '14px',
+                color: '#64748b',
+                fontWeight: 500,
+              }}
+            >
+              {ingredient.ingredient_name}
+            </Text>
+          )}
+        
+          <Paragraph 
+            ellipsis={{ rows: 2, expandable: false }} 
+            style={{ 
+              marginTop: 14, 
+              marginBottom: 0, 
+              minHeight: '48px', 
+              color: '#64748b',
+              fontSize: '14px',
+              lineHeight: 1.7
+            }}
+          >
+            {ingredient.description || 'ไม่มีคำอธิบาย'}
+          </Paragraph>
+        </div>
+
+        <Button 
+          type="primary"
+          icon={isAdded ? <CheckOutlined /> : <ShoppingCartOutlined />}
+          onClick={handleAddToCart}
+          block
+          size="large"
+          style={{ 
+            height: 52,
+            borderRadius: 14,
+            fontSize: '15px',
+            fontWeight: 600,
+            background: isAdded 
+              ? 'linear-gradient(135deg, #22c55e 0%, #16a34a 100%)'
+              : 'linear-gradient(135deg, #0d9488 0%, #059669 100%)',
+            border: 'none',
+            boxShadow: isAdded 
+              ? '0 4px 20px rgba(34, 197, 94, 0.4)'
+              : '0 4px 20px rgba(5, 150, 105, 0.35)',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            transform: isAdded ? 'scale(0.98)' : 'scale(1)',
+          }}
+          onMouseEnter={(e) => {
+            if (!isAdded) {
+              e.currentTarget.style.transform = 'translateY(-3px)';
+              e.currentTarget.style.boxShadow = '0 8px 28px rgba(5, 150, 105, 0.5)';
+            }
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = 'scale(1)';
+            e.currentTarget.style.boxShadow = isAdded 
+              ? '0 4px 20px rgba(34, 197, 94, 0.4)'
+              : '0 4px 20px rgba(5, 150, 105, 0.35)';
+          }}
+        >
+          {isAdded ? 'เพิ่มแล้ว ✓' : 'เพิ่มลงตะกร้า'}
+        </Button>
+      </Card>
+
+      {/* Image Preview Modal */}
+      <Modal
+        open={isModalOpen}
+        onCancel={closeImageModal}
+        footer={null}
+        centered
+        width="auto"
+        style={{ maxWidth: '95vw' }}
+        styles={{
+          mask: {
+            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+            backdropFilter: 'blur(8px)',
+          },
+          wrapper: {
+            background: 'transparent',
+          },
+          body: {
+            padding: 0,
+            background: 'transparent',
+          }
+        }}
+        closeIcon={
+          <div style={{
+            position: 'fixed',
+            top: 20,
+            right: 20,
+            width: 44,
+            height: 44,
+            borderRadius: '50%',
+            background: 'rgba(255,255,255,0.15)',
+            backdropFilter: 'blur(8px)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            transition: 'all 0.3s ease',
+            border: '1px solid rgba(255,255,255,0.2)',
+          }}>
+            <CloseOutlined style={{ color: '#fff', fontSize: 18 }} />
+          </div>
+        }
+      >
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: 20,
+          animation: 'modalFadeIn 0.3s ease-out',
+        }}>
+          {/* Image Container */}
+          <div style={{
+            background: 'rgba(255,255,255,0.08)',
+            borderRadius: 20,
+            padding: 20,
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(255,255,255,0.1)',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.5)',
+          }}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt={ingredient.display_name}
+              src={imageUrl}
+              style={{
+                maxWidth: '85vw',
+                maxHeight: '75vh',
+                width: 'auto',
+                height: 'auto',
+                objectFit: 'contain',
+                borderRadius: 12,
+                display: 'block',
+              }}
+              onError={(e) => {
+                e.currentTarget.src = 'https://placehold.co/600x400?text=No+Image';
+              }}
+            />
+          </div>
+          
+          {/* Image Info */}
+          <div style={{
+            textAlign: 'center',
+            color: '#fff',
+            maxWidth: '80vw',
+          }}>
+            <Title 
+              level={3} 
+              style={{ 
+                color: '#fff', 
+                margin: 0, 
+                marginBottom: 8,
+                fontWeight: 700,
+                textShadow: '0 2px 10px rgba(0,0,0,0.3)',
+              }}
+            >
+              {ingredient.display_name}
+            </Title>
+            {ingredient.ingredient_name && (
+              <Text style={{ 
+                color: 'rgba(255,255,255,0.7)', 
+                fontSize: 16,
+              }}>
+                {ingredient.ingredient_name}
+              </Text>
+            )}
+            {ingredient.unit && (
+              <Tag 
+                style={{
+                  marginLeft: 12,
+                  padding: '4px 14px',
+                  fontSize: '13px',
+                  fontWeight: 600,
+                  borderRadius: 16,
+                  background: 'linear-gradient(135deg, rgba(102, 126, 234, 0.9) 0%, rgba(118, 75, 162, 0.9) 100%)',
+                  color: '#fff',
+                  border: 'none',
+                }}
+              >
+                {ingredient.unit.display_name}
+              </Tag>
+            )}
+          </div>
+        </div>
+      </Modal>
+
+      {/* CSS Animation Keyframes */}
+      <style jsx global>{`
+        @keyframes spin {
+          to { transform: rotate(360deg); }
+        }
+        @keyframes modalFadeIn {
+          from {
+            opacity: 0;
+            transform: scale(0.95);
+          }
+          to {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+      `}</style>
+    </>
   );
 };
 
