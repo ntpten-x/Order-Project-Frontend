@@ -4,8 +4,12 @@ import { getProxyUrl } from "../lib/proxy-utils";
 const BASE_PATH = "/users";
 
 export const userService = {
-    getAllUsers: async (cookie?: string): Promise<User[]> => {
-        const url = getProxyUrl("GET", BASE_PATH);
+    getAllUsers: async (cookie?: string, searchParams?: URLSearchParams): Promise<User[]> => {
+        let url = getProxyUrl("GET", BASE_PATH);
+        if (searchParams) {
+            url += `?${searchParams.toString()}`;
+        }
+
         const headers: HeadersInit = {};
         if (cookie) headers.Cookie = cookie;
 

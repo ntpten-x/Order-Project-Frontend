@@ -6,10 +6,10 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
     try {
         const cookie = request.headers.get("cookie") || "";
-        const users = await userService.getAllUsers(cookie);
+        const searchParams = request.nextUrl.searchParams;
+        const users = await userService.getAllUsers(cookie, searchParams);
         return NextResponse.json(users);
     } catch (error: unknown) {
-        console.error("API Error:", error);
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        return NextResponse.json({ error: (error as Error).message || "Internal Server Error" }, { status: 500 });
     }
 }

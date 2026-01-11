@@ -6,7 +6,8 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
     try {
         const cookie = request.headers.get("cookie") || "";
-        const orders = await ordersService.getAllOrders(cookie);
+        const searchParams = request.nextUrl.searchParams;
+        const orders = await ordersService.getAllOrders(cookie, searchParams);
         return NextResponse.json(orders);
     } catch (error: unknown) {
         console.error("API Error:", error);

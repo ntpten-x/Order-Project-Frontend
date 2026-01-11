@@ -41,19 +41,14 @@ export default function HistoryPage() {
     const fetchOrders = async () => {
         try {
             setLoading(true);
-            const response = await fetch("/api/orders", { cache: "no-store" });
+            const response = await fetch("/api/orders?status=completed,cancelled", { cache: "no-store" });
             if (!response.ok) throw new Error("Failed to fetch orders");
             const data = await response.json();
             
-            // Show only Completed or Cancelled, sorted by date desc
-            const filteredOrders = data
-                .filter((order: Order) => 
-                    order.status === OrderStatus.COMPLETED || order.status === OrderStatus.CANCELLED
-                )
-                .sort((a: Order, b: Order) => 
-                    new Date(b.create_date).getTime() - new Date(a.create_date).getTime()
-                );
-            setOrders(filteredOrders);
+            // Backend already filters by status and sorts by date (though backend sort is by create_date DESC)
+            // We might want to ensure sort here just in case, or trust backend.
+            // Backend sorts by create_date DESC, which matches.
+            setOrders(data);
         } catch {
             console.error("Failed to fetch orders");
             message.error("ไม่สามารถโหลดประวัติออเดอร์ได้");

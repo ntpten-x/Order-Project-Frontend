@@ -36,8 +36,12 @@ export const ordersService = {
         return response.json();
     },
 
-    getAllOrders: async (cookie?: string): Promise<Order[]> => {
-        const url = getProxyUrl("GET", BASE_PATH);
+    getAllOrders: async (cookie?: string, searchParams?: URLSearchParams): Promise<Order[]> => {
+        let url = getProxyUrl("GET", BASE_PATH);
+        if (searchParams) {
+            url += `?${searchParams.toString()}`;
+        }
+
         const headers = getHeaders(cookie, "");
 
         const response = await fetch(url!, {

@@ -40,10 +40,10 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
 
     const fetchUnits = async () => {
         try {
-            const response = await fetch('/api/ingredientsUnit/getAll');
+            const response = await fetch('/api/ingredientsUnit/getAll?active=true');
             if (response.ok) {
                 const data = await response.json();
-                setUnits(data.filter((u: IngredientsUnit) => u.is_active));
+                setUnits(data);
             }
         } catch (error) {
             console.error("Failed to fetch units", error);

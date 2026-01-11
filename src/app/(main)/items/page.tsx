@@ -51,7 +51,7 @@ export default function ItemsPage() {
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch("/api/orders", { 
+      const response = await fetch("/api/orders?status=pending", { 
         cache: "no-store", 
         headers: { 'Content-Type': 'application/json' } 
       });
@@ -59,7 +59,7 @@ export default function ItemsPage() {
         throw new Error("Failed to fetch orders");
       }
       const data = await response.json();
-      setOrders(data.filter((order: Order) => order.status === OrderStatus.PENDING));
+      setOrders(data);
     } catch {
       console.error("Failed to fetch orders");
       message.error("ไม่สามารถโหลดรายการออเดอร์ได้");

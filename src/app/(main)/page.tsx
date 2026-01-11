@@ -31,11 +31,8 @@ export default function HomePage() {
     const fetchIngredients = async () => {
       try {
         setLoading(true);
-        const response = await axios.get("/api/ingredients");
-        const allIngredients: Ingredients[] = response.data;
-        // Filter active ingredients
-        const activeIngredients = allIngredients.filter(item => item.is_active);
-        setIngredients(activeIngredients);
+        const response = await axios.get("/api/ingredients?active=true");
+        setIngredients(response.data);
         setError(null);
       } catch (error: unknown) {
         console.error("Error fetching ingredients:", error);
