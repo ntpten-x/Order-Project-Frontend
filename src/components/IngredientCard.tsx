@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Typography, Button, message, Tag, Modal } from 'antd';
+import Image from 'next/image';
 import { ShoppingCartOutlined, CheckOutlined, ZoomInOutlined, CloseOutlined } from '@ant-design/icons';
 import { Ingredients } from '../types/api/ingredients';
 import { useCart } from '../contexts/CartContext';
@@ -97,33 +98,35 @@ const IngredientCard: React.FC<IngredientCardProps> = ({ ingredient }) => {
                 </div>
               )}
               
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                alt={ingredient.display_name}
-                src={imageUrl}
-                onLoad={() => setImageLoaded(true)}
-                style={{
-                  maxWidth: '100%',
-                  maxHeight: 250,
-                  width: 'auto',
-                  height: 'auto',
-                  objectFit: 'contain',
-                  transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), filter 0.3s ease',
-                  opacity: imageLoaded ? 1 : 0,
-                  borderRadius: 8,
-                  filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.1))',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.transform = 'scale(1.08)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.transform = 'scale(1)';
-                }}
-                onError={(e) => {
-                  e.currentTarget.src = 'https://placehold.co/600x400?text=No+Image';
-                  setImageLoaded(true);
-                }}
-              />
+              {/* Next.js Image Component */}
+              <div style={{ position: 'relative', width: '100%', height: '250px' }}>
+                <Image
+                  alt={ingredient.display_name}
+                  src={imageUrl}
+                  fill
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                  style={{
+                    objectFit: 'contain',
+                    transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1), filter 0.3s ease',
+                    opacity: imageLoaded ? 1 : 0,
+                    borderRadius: 8,
+                    filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.1))',
+                  }}
+                  onLoad={() => setImageLoaded(true)}
+                  onError={(e) => {
+                    // Fallback handled by parent or custom loader if needed, 
+                    // but next/image onError is limited. 
+                    // For now, ensure valid URL or placeholder.
+                    setImageLoaded(true);
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'scale(1.08)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'scale(1)';
+                  }}
+                />
+              </div>
             </div>
             
             {/* Zoom Icon Overlay */}
