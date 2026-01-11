@@ -178,7 +178,8 @@ export const StatsCard = ({ totalUsers, activeUsers, onlineUsers }: StatsCardPro
         maxWidth: 1200,
         marginLeft: 'auto',
         marginRight: 'auto',
-        padding: '0 24px'
+        padding: '0 24px',
+        justifyContent: 'center' // Center grid items on mobile
     }}>
         <Card variant="borderless" style={{ borderRadius: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}>
             <Statistic 

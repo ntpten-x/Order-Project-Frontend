@@ -26,6 +26,7 @@ export async function GET() {
 
         // Forward Set-Cookie headers from Backend to Client
         const setCookieHeader = response.headers.get("set-cookie");
+        console.log("CSRF Proxy: Received Set-Cookie:", setCookieHeader);
         if (setCookieHeader) {
             // "set-cookie" header in fetch can be a comma-separated string or null
             // Next.js might need parsing if multiple cookies, but simple forwarding might work for single cookie

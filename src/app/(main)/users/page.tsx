@@ -170,7 +170,7 @@ export default function UsersPage() {
       {/* Main Content */}
       <div style={pageStyles.listContainer}>
           {users.length > 0 ? (
-             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 24 }}>
+             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 24, justifyContent: 'center' }}>
                 {users.map((user, index) => (
                     <div key={user.id} style={{ animation: `fadeInUp 0.6s ease-out forwards`, animationDelay: `${index * 50}ms`, opacity: 0 }}>
                         <UserCard 

@@ -8,15 +8,13 @@ import {
     HomeOutlined, 
     InfoCircleOutlined, 
     UnorderedListOutlined,
-    UserOutlined,
-    AppstoreOutlined
+    ShoppingOutlined
 } from "@ant-design/icons";
-import { useAuth } from "../contexts/AuthContext";
-import { useSocket } from "../hooks/useSocket";
+import { useAuth } from "../../contexts/AuthContext";
+import { useSocket } from "../../hooks/useSocket";
 import { useState, useEffect } from "react";
-import { OrderStatus } from "../types/api/stock/orders";
 
-const BottomNavigation = () => {
+const StockBottomNavigation = () => {
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuth();
@@ -63,22 +61,33 @@ const BottomNavigation = () => {
       path: '/',
     },
     {
-        key: 'stock-home',
-        label: 'Stock',
-        icon: <AppstoreOutlined className="text-2xl" />,
-        path: '/stock',
+      key: 'shopping',
+      label: 'สั่งซื้อ',
+      icon: <ShoppingOutlined className="text-2xl" />,
+      path: '/stock',
     },
     {
-      key: 'items',
-      label: 'Orders',
+      key: 'orders',
+      label: 'รายการ',
       icon: <FileTextOutlined className="text-2xl" />,
       path: '/stock/items',
     },
+    {
+      key: 'history',
+      label: 'ประวัติ',
+      icon: <HistoryOutlined className="text-2xl" />,
+      path: '/stock/history',
+    },
     ...(user?.role === 'Admin' ? [{
-      key: 'manage',
-      label: 'Users',
-      icon: <UserOutlined className="text-2xl" />,
-      path: '/users', 
+      key: 'ingredients',
+      label: 'วัตถุดิบ',
+      icon: <UnorderedListOutlined className="text-2xl" />,
+      path: '/stock/ingredients', 
+    }, {
+      key: 'ingredientsUnit',
+      label: 'หน่วย',
+      icon: <InfoCircleOutlined className="text-2xl" />,
+      path: '/stock/ingredientsUnit', 
     }] : []),
   ];
 
@@ -86,13 +95,13 @@ const BottomNavigation = () => {
   const inactiveColor = '#D1D5DB'; // Gray-300 for better visibility on dark
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-lg z-50">
+    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-md z-50">
       <div 
         className="flex justify-around items-center h-[72px] px-6 py-2 bg-[#171717]/95 backdrop-blur-xl shadow-2xl border border-white/10 rounded-full"
         style={{ boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)' }}
       >
         {menuItems.map((item) => {
-            const isActive = pathname === item.path || (item.key === 'manage' && pathname.includes('/users'));
+            const isActive = pathname === item.path || pathname.startsWith(item.path + '/');
             
             return (
                 <button
@@ -109,7 +118,7 @@ const BottomNavigation = () => {
                         style={{ color: isActive ? activeColor : inactiveColor }}
                     >
                         {item.icon}
-                        {item.key === 'items' && pendingCount > 0 && (
+                        {item.key === 'orders' && pendingCount > 0 && (
                             <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-[#171717] z-10 animate-pulse" />
                         )}
                     </div>
@@ -137,4 +146,4 @@ const BottomNavigation = () => {
   );
 };
 
-export default BottomNavigation;
+export default StockBottomNavigation;

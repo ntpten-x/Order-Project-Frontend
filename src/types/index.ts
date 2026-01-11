@@ -1,7 +1,7 @@
 export * from './api/roles';
 export * from './api/users';
-export * from './api/ingredients';
-export * from './api/ingredientsUnit';
-export * from './api/orders';
-export * from './api/ordersDetail';
+export * from './api/stock/ingredients';
+export * from './api/stock/ingredientsUnit';
+export * from './api/stock/orders';
+export * from './api/stock/ordersDetail';
 

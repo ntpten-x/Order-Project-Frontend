@@ -1,0 +1,64 @@
+"use client";
+
+import React from "react";
+import { useRouter, usePathname } from "next/navigation";
+import { HomeOutlined } from "@ant-design/icons";
+
+const UsersBottomNavigation = () => {
+    const router = useRouter();
+    const pathname = usePathname();
+
+    const menuItems = [
+        {
+            key: 'home',
+            label: 'หน้าแรก',
+            icon: <HomeOutlined className="text-2xl" />,
+            path: '/',
+        },
+    ];
+
+    const activeColor = '#FCD34D'; // Bright gold/yellow for dark background
+    const inactiveColor = '#D1D5DB'; // Gray-300 for better visibility on dark
+
+    return (
+        <div className="fixed bottom-6 left-0 right-0 mx-auto w-fit z-50">
+            <div
+                className="flex justify-center items-center h-[72px] px-6 py-2 bg-[#171717]/95 backdrop-blur-xl shadow-2xl border border-white/10 rounded-full min-w-[120px]"
+                style={{ boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)' }}
+            >
+                {menuItems.map((item) => {
+                    const isActive = pathname === item.path;
+
+                    return (
+                        <button
+                            key={item.key}
+                            onClick={() => router.push(item.path)}
+                            className="relative flex flex-col items-center justify-center w-full h-full group"
+                        >
+                            <div className="relative flex items-center justify-center">
+                                {isActive && (
+                                    <div className="absolute inset-0 bg-yellow-400/20 blur-xl rounded-full" />
+                                )}
+                                <div
+                                    className={`text-2xl transition-all duration-300 ease-out transform ${isActive ? '-translate-y-1 scale-110' : 'group-hover:scale-105'}`}
+                                    style={{ color: isActive ? activeColor : inactiveColor }}
+                                >
+                                    {item.icon}
+                                </div>
+                            </div>
+
+                            <span
+                                className={`text-[11px] font-medium tracking-wide mt-1 transition-all duration-300 ${isActive ? 'opacity-100 translate-y-0' : 'opacity-70 translate-y-1'}`}
+                                style={{ color: isActive ? activeColor : inactiveColor }}
+                            >
+                                {item.label}
+                            </span>
+                        </button>
+                    );
+                })}
+            </div>
+        </div>
+    );
+};
+
+export default UsersBottomNavigation;

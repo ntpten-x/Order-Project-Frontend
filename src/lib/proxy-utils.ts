@@ -8,5 +8,5 @@ export function getProxyUrl(method: 'GET' | 'POST' | 'PUT' | 'DELETE', url: stri
 }
 
 export const PROXY_CONFIGS = {
-    API_BASE_URL: process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:3000",
+    API_BASE_URL: process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:4000",
 }
