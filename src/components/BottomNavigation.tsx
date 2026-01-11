@@ -4,17 +4,13 @@ import React from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { 
     FileTextOutlined, 
-    HistoryOutlined, 
     HomeOutlined, 
-    InfoCircleOutlined, 
-    UnorderedListOutlined,
     UserOutlined,
     AppstoreOutlined
 } from "@ant-design/icons";
 import { useAuth } from "../contexts/AuthContext";
 import { useSocket } from "../hooks/useSocket";
 import { useState, useEffect } from "react";
-import { OrderStatus } from "../types/api/stock/orders";
 
 const BottomNavigation = () => {
   const router = useRouter();
@@ -41,7 +37,7 @@ const BottomNavigation = () => {
 
   useEffect(() => {
       if (!socket) return;
-      const handleUpdate = (payload: any) => {
+      const handleUpdate = (payload: { action: string }) => {
           if (payload?.action === 'create' || payload?.action === 'update_status') {
               setTimeout(checkPendingOrders, 500);
           }

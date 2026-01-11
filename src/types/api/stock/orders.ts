@@ -1,4 +1,4 @@
-import { User } from "./users";
+import { User } from "../users";
 import { OrdersItem } from "./ordersDetail";
 
 export enum OrderStatus {

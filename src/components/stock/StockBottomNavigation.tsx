@@ -39,7 +39,7 @@ const StockBottomNavigation = () => {
 
   useEffect(() => {
       if (!socket) return;
-      const handleUpdate = (payload: any) => {
+      const handleUpdate = (payload: { action: string }) => {
           if (payload?.action === 'create' || payload?.action === 'update_status') {
               setTimeout(checkPendingOrders, 500);
           }
