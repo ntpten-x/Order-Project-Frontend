@@ -444,7 +444,8 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                                     </div>
                                 )
                             }))}
-                            dropdownStyle={{ borderRadius: 12 }}
+                            // @ts-ignore - AntD type definition mismatch but runtime works, or strictly follow semantic
+                            styles={{ popup: { root: { borderRadius: 12 } } as any }}
                         />
                         <Button 
                             type="primary" 

@@ -339,7 +339,7 @@ export default function OrderDetailModal({ order, open, onClose }: OrderDetailMo
                         boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
                         marginBottom: 20
                     }}
-                    bodyStyle={{ padding: '8px 16px' }}
+                    styles={{ body: { padding: '8px 16px' } }}
                 >
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 0 }}>
                         <InfoItem 

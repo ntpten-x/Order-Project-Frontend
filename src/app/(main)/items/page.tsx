@@ -534,11 +534,11 @@ export default function ItemsPage() {
                   title={<Text type="secondary" style={{ fontSize: 13 }}>ออเดอร์ทั้งหมด</Text>}
                   value={loading ? '-' : orders.length}
                   prefix={<Badge status="processing" />}
-                  valueStyle={{ 
+                  styles={{ content: { 
                     color: '#667eea', 
                     fontWeight: 700,
                     fontSize: 28
-                  }}
+                  }}}
                 />
               </Card>
             </Col>
@@ -552,11 +552,11 @@ export default function ItemsPage() {
                   title={<Text type="secondary" style={{ fontSize: 13 }}>รายการสินค้า</Text>}
                   value={loading ? '-' : totalItems}
                   prefix={<Badge status="success" />}
-                  valueStyle={{ 
+                  styles={{ content: { 
                     color: '#52c41a', 
                     fontWeight: 700,
                     fontSize: 28
-                  }}
+                  }}}
                 />
               </Card>
             </Col>

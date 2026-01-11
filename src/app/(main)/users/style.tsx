@@ -180,27 +180,27 @@ export const StatsCard = ({ totalUsers, activeUsers, onlineUsers }: StatsCardPro
         marginRight: 'auto',
         padding: '0 24px'
     }}>
-        <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}>
+        <Card variant="borderless" style={{ borderRadius: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}>
             <Statistic 
                 title={<Text type="secondary">ผู้ใช้ทั้งหมด</Text>}
                 value={totalUsers} 
                 prefix={<TeamOutlined style={{ color: '#3b82f6', background: '#eff6ff', padding: 8, borderRadius: '50%' }} />} 
-                valueStyle={{ fontWeight: 700 }}
+                styles={{ content: { fontWeight: 700 } }}
             />
         </Card>
-        <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}>
+        <Card variant="borderless" style={{ borderRadius: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}>
             <Statistic 
                 title={<Text type="secondary">ออนไลน์/ใช้งาน</Text>}
                 value={activeUsers} 
-                valueStyle={{ color: '#10b981', fontWeight: 700 }}
+                styles={{ content: { color: '#10b981', fontWeight: 700 } }}
                 prefix={<Badge status="processing" color="#10b981" />}
             />
         </Card>
-        <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}>
+        <Card variant="borderless" style={{ borderRadius: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}>
              <Statistic 
                 title={<Text type="secondary">ผู้ดูแลระบบ</Text>}
                 value={onlineUsers} 
-                valueStyle={{ color: '#f59e0b', fontWeight: 700 }}
+                styles={{ content: { color: '#f59e0b', fontWeight: 700 } }}
                 prefix={<UserOutlined style={{ color: '#f59e0b', background: '#fffbeb', padding: 8, borderRadius: '50%' }} />}
             />
         </Card>

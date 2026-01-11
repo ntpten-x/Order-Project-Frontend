@@ -31,8 +31,8 @@ const theme: ThemeConfig = {
       lineHeightHeading2: 1.3,
     },
     Layout: {
-      colorBgHeader: 'rgba(255, 255, 255, 0.8)',
-      colorBgBody: '#ffffff',
+      headerBg: 'rgba(255, 255, 255, 0.8)',
+      bodyBg: '#ffffff',
     }
   },
 };

@@ -171,8 +171,8 @@ export default function CartDrawer() {
         placement="right"
         onClose={onClose}
         open={open}
-        width={420}
         styles={{
+          wrapper: { width: 420 },
           header: {
             background: '#fafbff',
             borderBottom: '1px solid #f0f0f0',
