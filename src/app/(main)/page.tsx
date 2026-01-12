@@ -27,12 +27,12 @@ export default function LandingPage() {
         },
         {
             title: "ระบบขายหน้าร้าน (POS)",
-            description: "จัดการการขาย และชำระเงิน (Coming Soon)",
-            icon: <ShopOutlined style={{ fontSize: 48, color: '#bfbfbf' }} />,
+            description: "จัดการการขาย และชำระเงิน",
+            icon: <ShopOutlined style={{ fontSize: 48, color: '#fa541c' }} />,
             path: "/pos",
-            color: "linear-gradient(135deg, #f5f5f5 0%, #ffffff 100%)",
-            borderColor: "#d9d9d9",
-            enabled: false
+            color: "linear-gradient(135deg, #fff2e8 0%, #ffffff 100%)",
+            borderColor: "#ffbb96",
+            enabled: true
         },
         {
             title: "จัดการผู้ใช้งาน",
