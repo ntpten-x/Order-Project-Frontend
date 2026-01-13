@@ -47,7 +47,7 @@ export const ordersService = {
         return response.json();
     },
 
-    getAllOrders: async (cookie?: string, searchParams?: URLSearchParams): Promise<Order[]> => {
+    getAllOrders: async (cookie?: string, searchParams?: URLSearchParams): Promise<{ data: Order[], total: number, page: number, limit: number }> => {
         let url = getProxyUrl("GET", BASE_PATH);
         if (searchParams) {
             url += `?${searchParams.toString()}`;

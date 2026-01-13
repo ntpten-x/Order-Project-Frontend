@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { message, Modal, Spin } from "antd";
+import { message, Modal, Spin, Pagination } from "antd";
 import { HistoryOutlined } from "@ant-design/icons";
 import { Order, OrderStatus } from "../../../../types/api/stock/orders";
 import OrderDetailModal from "../../../../components/stock/OrderDetailModal";
@@ -23,6 +23,11 @@ export default function HistoryPage() {
     const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
     const { socket } = useSocket();
     const { user } = useAuth();
+    
+    // Pagination State
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(10);
+    const [total, setTotal] = useState(0);
 
     const [csrfToken, setCsrfToken] = useState<string>("");
 
@@ -38,17 +43,21 @@ export default function HistoryPage() {
         fetchCsrf();
     }, []);
 
-    const fetchOrders = async () => {
+    const fetchOrders = async (currentPage = 1, limit = 10) => {
         try {
             setLoading(true);
-            const response = await fetch("/api/stock/orders?status=completed,cancelled", { cache: "no-store" });
+            const response = await fetch(`/api/stock/orders?status=completed,cancelled&page=${currentPage}&limit=${limit}`, { cache: "no-store" });
             if (!response.ok) throw new Error("Failed to fetch orders");
-            const data = await response.json();
+            const result = await response.json();
             
-            // Backend already filters by status and sorts by date (though backend sort is by create_date DESC)
-            // We might want to ensure sort here just in case, or trust backend.
-            // Backend sorts by create_date DESC, which matches.
-            setOrders(data);
+            // Handle both legacy array response (if API not updated yet) and new paginated response
+            if (Array.isArray(result)) {
+                setOrders(result);
+                setTotal(result.length);
+            } else {
+                setOrders(result.data);
+                setTotal(result.total);
+            }
         } catch {
             console.error("Failed to fetch orders");
             message.error("ไม่สามารถโหลดประวัติออเดอร์ได้");
@@ -76,7 +85,8 @@ export default function HistoryPage() {
                     if (!response.ok) throw new Error("Failed to delete order");
                     
                     message.success("ลบประวัติออเดอร์สำเร็จ");
-                    setOrders(prev => prev.filter(o => o.id !== order.id));
+                    // Refresh current page
+                    fetchOrders(page, pageSize);
                 } catch {
                     message.error("ลบประวัติออเดอร์ล้มเหลว");
                 }
@@ -85,20 +95,21 @@ export default function HistoryPage() {
     };
 
     useEffect(() => {
-        fetchOrders();
-    }, []);
+        fetchOrders(page, pageSize);
+    }, [page, pageSize]);
 
+    // Listen for updates but only refresh if we are on the first page or it's a general update
     useEffect(() => {
         if (!socket) return;
         
         socket.on("orders_updated", () => {
-            fetchOrders();
+             fetchOrders(page, pageSize);
         });
 
         return () => {
             socket.off("orders_updated");
         };
-    }, [socket]);
+    }, [socket, page, pageSize]);
 
     const completedOrders = orders.filter(o => o.status === OrderStatus.COMPLETED);
     const cancelledOrders = orders.filter(o => o.status === OrderStatus.CANCELLED);
@@ -124,13 +135,13 @@ export default function HistoryPage() {
             <HistoryPageStyles />
             
             {/* Header */}
-            <PageHeader onRefresh={fetchOrders} loading={loading} />
+            <PageHeader onRefresh={() => fetchOrders(page, pageSize)} loading={loading} />
             
-            {/* Stats Card */}
+            {/* Stats Card (Might need separate API for true totals if pagination is on, but for now using current page stats or we can remove/update logic later) */}
             <StatsCard 
-                totalOrders={orders.length}
-                completedOrders={completedOrders.length}
-                cancelledOrders={cancelledOrders.length}
+                totalOrders={total}
+                completedOrders={completedOrders.length} // Note: This only counts current page! Ideally backend should return stats.
+                cancelledOrders={cancelledOrders.length} // Note: This only counts current page!
             />
 
             {/* Orders List */}
@@ -150,7 +161,7 @@ export default function HistoryPage() {
                                 fontSize: 12,
                                 fontWeight: 600
                             }}>
-                                {orders.length} รายการ
+                                {total} รายการ
                             </div>
                         </div>
 
@@ -164,6 +175,21 @@ export default function HistoryPage() {
                                 isAdmin={isAdmin}
                             />
                         ))}
+
+                        {/* Pagination */}
+                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+                            <Pagination
+                                current={page}
+                                pageSize={pageSize}
+                                total={total}
+                                onChange={(p, s) => {
+                                    setPage(p);
+                                    setPageSize(s);
+                                }}
+                                showSizeChanger
+                                showTotal={(total) => `ทั้งหมด ${total} รายการ`}
+                            />
+                        </div>
                     </>
                 ) : (
                     <EmptyState />
