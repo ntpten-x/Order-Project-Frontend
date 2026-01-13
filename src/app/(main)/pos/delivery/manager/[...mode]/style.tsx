@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import { Typography, Button } from "antd";
 import { 
     ArrowLeftOutlined,
@@ -277,12 +278,12 @@ export const DeliveryPreview = ({ name, logo }: DeliveryPreviewProps) => (
             justifyContent: 'center'
         }}>
             {logo ? (
-                <img 
+                <Image 
                     src={logo} 
-                    alt={name} 
+                    alt={name || 'Delivery Logo'}
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                     style={{ 
-                        width: '100%', 
-                        height: '100%', 
                         objectFit: 'contain',
                         background: 'white'
                     }} 

@@ -23,7 +23,7 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
     const [submitting, setSubmitting] = useState(false);
     const [displayName, setDisplayName] = useState<string>('');
     const [discountType, setDiscountType] = useState<DiscountType>(DiscountType.Fixed);
-    const [discountAmount, setDiscountAmount] = useState<number>(0);
+
     const [csrfToken, setCsrfToken] = useState<string>("");
 
     const mode = params.mode[0];
@@ -54,7 +54,7 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
             });
             setDisplayName(data.display_name || data.discount_name || '');
             setDiscountType(data.discount_type || DiscountType.Fixed);
-            setDiscountAmount(data.discount_amount || 0);
+
         } catch (error) {
             console.error(error);
             message.error('ไม่สามารถดึงข้อมูลส่วนลดได้');
@@ -186,9 +186,7 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
                             if (changedValues.discount_type !== undefined) {
                                 setDiscountType(changedValues.discount_type);
                             }
-                            if (changedValues.discount_amount !== undefined) {
-                                setDiscountAmount(changedValues.discount_amount || 0);
-                            }
+
                         }}
                     >
                         <Form.Item

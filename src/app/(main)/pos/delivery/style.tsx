@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Image from "next/image";
 import { Typography, Tag, Button, Empty } from "antd";
 import { 
     CarOutlined,
@@ -303,12 +304,12 @@ export const DeliveryCard = ({ delivery, index, onEdit, onDelete }: DeliveryCard
                     justifyContent: 'center'
                 }}>
                     {delivery.logo ? (
-                        <img 
+                        <Image 
                             src={delivery.logo} 
                             alt={delivery.delivery_name} 
+                            fill
+                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                             style={{ 
-                                width: '100%', 
-                                height: '100%', 
                                 objectFit: 'contain',
                                 background: 'white',
                                 opacity: delivery.is_active ? 1 : 0.6

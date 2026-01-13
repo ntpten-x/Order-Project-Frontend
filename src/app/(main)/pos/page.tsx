@@ -1,10 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Image from "next/image";
-import { Typography, Row, Col, Card, Tag, Button, Spin, Empty, Badge, Drawer, List, InputNumber, Divider, message, Pagination } from "antd";
+import { Typography, Row, Col, Card, Tag, Button, Spin, Empty, Badge, Drawer, List, InputNumber, message, Pagination } from "antd";
 import { ShoppingCartOutlined, DeleteOutlined, MinusOutlined, PlusOutlined, ShopOutlined } from "@ant-design/icons";
-import { productsService } from "../../../services/pos/products.service";
 import { Products } from "../../../types/api/pos/products";
 import { useCart } from "../../../contexts/pos/CartContext";
 import { useProducts } from "../../../hooks/pos/useProducts";
@@ -15,7 +14,7 @@ const { Title, Text, Paragraph } = Typography;
 export default function POSPage() {
     const [page, setPage] = useState(1);
     const LIMIT = 12;
-    const { products, isLoading, total, mutate } = useProducts(page, LIMIT);
+    const { products, isLoading, total } = useProducts(page, LIMIT);
     const [cartVisible, setCartVisible] = useState(false);
     const { cartItems, addToCart, removeFromCart, updateQuantity, clearCart, getTotalItems, getTotalPrice } = useCart();
 
