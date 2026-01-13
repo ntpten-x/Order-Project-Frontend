@@ -2,35 +2,22 @@
 
 import React, { useEffect, useState } from "react";
 import Image from "next/image";
-import { Typography, Row, Col, Card, Tag, Button, Spin, Empty, Badge, Drawer, List, InputNumber, Divider, message } from "antd";
+import { Typography, Row, Col, Card, Tag, Button, Spin, Empty, Badge, Drawer, List, InputNumber, Divider, message, Pagination } from "antd";
 import { ShoppingCartOutlined, DeleteOutlined, MinusOutlined, PlusOutlined, ShopOutlined } from "@ant-design/icons";
 import { productsService } from "../../../services/pos/products.service";
 import { Products } from "../../../types/api/pos/products";
 import { useCart } from "../../../contexts/pos/CartContext";
+import { useProducts } from "../../../hooks/pos/useProducts";
 import { pageStyles, POSStyles, colors } from "./style";
 
 const { Title, Text, Paragraph } = Typography;
 
 export default function POSPage() {
-    const [products, setProducts] = useState<Products[]>([]);
-    const [loading, setLoading] = useState(true);
+    const [page, setPage] = useState(1);
+    const LIMIT = 12;
+    const { products, isLoading, total, mutate } = useProducts(page, LIMIT);
     const [cartVisible, setCartVisible] = useState(false);
     const { cartItems, addToCart, removeFromCart, updateQuantity, clearCart, getTotalItems, getTotalPrice } = useCart();
-
-    useEffect(() => {
-        fetchProducts();
-    }, []);
-
-    const fetchProducts = async () => {
-        try {
-            const data = await productsService.findAll();
-            setProducts(data);
-        } catch (error) {
-            console.error("Failed to fetch products:", error);
-        } finally {
-            setLoading(false);
-        }
-    };
 
     const handleAddToCart = (product: Products) => {
         addToCart(product);
@@ -52,7 +39,7 @@ export default function POSPage() {
                         <ShopOutlined style={{ fontSize: 28 }} />
                         <div>
                             <Title level={3} style={{ margin: 0, color: '#fff' }}>ระบบขายหน้าร้าน (POS)</Title>
-                            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14 }}>เลือกสินค้าเพื่อทำรายการขาย</Text>
+                            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14 }}>เลือกสินค้าเพื่อทำรายการขาย (ทั้งหมด {total} รายการ)</Text>
                         </div>
                     </div>
                 </div>
@@ -60,7 +47,7 @@ export default function POSPage() {
 
             {/* Content */}
             <div style={pageStyles.contentWrapper}>
-                {loading ? (
+                {isLoading ? (
                     <div style={{ textAlign: "center", padding: "60px", background: '#fff', borderRadius: 12, boxShadow: '0 2px 8px rgba(0,0,0,0.04)' }}>
                         <Spin size="large" />
                         <div style={{ marginTop: 16 }}>
@@ -68,87 +55,99 @@ export default function POSPage() {
                         </div>
                     </div>
                 ) : products.length > 0 ? (
-                    <Row gutter={[pageStyles.gridConfig.gutter, pageStyles.gridConfig.gutter]}>
-                        {products.map((product, index) => (
-                            <Col 
-                                xs={24} 
-                                sm={12} 
-                                md={8} 
-                                lg={6} 
-                                xl={6}
-                                key={product.id}
-                            >
-                                <div 
-                                    className="animate-card product-card" 
-                                    style={{ 
-                                        ...pageStyles.productCard, 
-                                        animationDelay: `${index * 0.04}s` 
-                                    }}
+                    <>
+                        <Row gutter={[pageStyles.gridConfig.gutter, pageStyles.gridConfig.gutter]}>
+                            {products.map((product, index) => (
+                                <Col 
+                                    xs={24} 
+                                    sm={12} 
+                                    md={8} 
+                                    lg={6} 
+                                    xl={6}
+                                    key={product.id}
                                 >
-                                    <Card
-                                        hoverable
-                                        cover={
-                                            <div style={pageStyles.productImage}>
-                                                {product.img_url ? (
-                                                    <Image
-                                                        alt={product.product_name}
-                                                        src={product.img_url}
-                                                        fill
-                                                        style={{ objectFit: 'cover' }}
-                                                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
-                                                        priority={index < 8}
-                                                    />
-                                                ) : (
-                                                    <div style={{ 
-                                                        width: "100%", 
-                                                        height: "100%", 
-                                                        background: "linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%)",
-                                                        display: "flex",
-                                                        justifyContent: "center",
-                                                        alignItems: "center"
-                                                    }}>
-                                                        <ShopOutlined style={{ fontSize: 40, color: colors.primary, opacity: 0.35 }} />
-                                                    </div>
-                                                )}
-                                                <div style={pageStyles.priceBadge}>
-                                                    ฿{Number(product.price).toLocaleString()}
-                                                </div>
-                                            </div>
-                                        }
-                                        styles={{ body: { padding: 14 } }}
-                                        style={{ border: 'none', background: 'transparent' }}
+                                    <div 
+                                        className="animate-card product-card" 
+                                        style={{ 
+                                            ...pageStyles.productCard, 
+                                            animationDelay: `${index * 0.04}s` 
+                                        }}
                                     >
-                                        <div style={{ marginBottom: 8 }}>
-                                            <Text strong style={{ fontSize: 15, display: 'block', marginBottom: 2, color: colors.text }} ellipsis>
-                                                {product.display_name}
-                                            </Text>
-                                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                                {product.product_name}
-                                            </Text>
-                                        </div>
-                                        
-                                        <Paragraph ellipsis={{ rows: 2 }} style={{ margin: 0, fontSize: 12, color: colors.textSecondary, height: 36, marginBottom: 10 }}>
-                                            {product.description || "ไม่มีรายละเอียดสินค้า"}
-                                        </Paragraph>
-                                        
-                                        <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: 'wrap' }}>
-                                            <Tag color="blue" style={{ fontSize: 11 }}>{product.category?.display_name || "ไม่มีหมวดหมู่"}</Tag>
-                                            <Tag color="cyan" style={{ fontSize: 11 }}>{product.unit?.display_name || "ชิ้น"}</Tag>
-                                        </div>
-                                        
-                                        <Button 
-                                            type="primary" 
-                                            icon={<ShoppingCartOutlined />} 
-                                            onClick={() => handleAddToCart(product)}
-                                            style={pageStyles.cartButton}
+                                        <Card
+                                            hoverable
+                                            cover={
+                                                <div style={pageStyles.productImage}>
+                                                    {product.img_url ? (
+                                                        <Image
+                                                            alt={product.product_name}
+                                                            src={product.img_url}
+                                                            fill
+                                                            style={{ objectFit: 'cover' }}
+                                                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 25vw"
+                                                            priority={index < 8}
+                                                        />
+                                                    ) : (
+                                                        <div style={{ 
+                                                            width: "100%", 
+                                                            height: "100%", 
+                                                            background: "linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%)",
+                                                            display: "flex",
+                                                            justifyContent: "center",
+                                                            alignItems: "center"
+                                                        }}>
+                                                            <ShopOutlined style={{ fontSize: 40, color: colors.primary, opacity: 0.35 }} />
+                                                        </div>
+                                                    )}
+                                                    <div style={pageStyles.priceBadge}>
+                                                        ฿{Number(product.price).toLocaleString()}
+                                                    </div>
+                                                </div>
+                                            }
+                                            styles={{ body: { padding: 14 } }}
+                                            style={{ border: 'none', background: 'transparent' }}
                                         >
-                                            เพิ่มลงตะกร้า
-                                        </Button>
-                                    </Card>
-                                </div>
-                            </Col>
-                        ))}
-                    </Row>
+                                            <div style={{ marginBottom: 8 }}>
+                                                <Text strong style={{ fontSize: 15, display: 'block', marginBottom: 2, color: colors.text }} ellipsis>
+                                                    {product.display_name}
+                                                </Text>
+                                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                                    {product.product_name}
+                                                </Text>
+                                            </div>
+                                            
+                                            <Paragraph ellipsis={{ rows: 2 }} style={{ margin: 0, fontSize: 12, color: colors.textSecondary, height: 36, marginBottom: 10 }}>
+                                                {product.description || "ไม่มีรายละเอียดสินค้า"}
+                                            </Paragraph>
+                                            
+                                            <div style={{ display: "flex", gap: 4, marginBottom: 12, flexWrap: 'wrap' }}>
+                                                <Tag color="blue" style={{ fontSize: 11 }}>{product.category?.display_name || "ไม่มีหมวดหมู่"}</Tag>
+                                                <Tag color="cyan" style={{ fontSize: 11 }}>{product.unit?.display_name || "ชิ้น"}</Tag>
+                                            </div>
+                                            
+                                            <Button 
+                                                type="primary" 
+                                                icon={<ShoppingCartOutlined />} 
+                                                onClick={() => handleAddToCart(product)}
+                                                style={pageStyles.cartButton}
+                                            >
+                                                เพิ่มลงตะกร้า
+                                            </Button>
+                                        </Card>
+                                    </div>
+                                </Col>
+                            ))}
+                        </Row>
+                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24, padding: '20px 0' }}>
+                            <Pagination
+                                current={page}
+                                total={total}
+                                pageSize={LIMIT}
+                                onChange={(p) => setPage(p)}
+                                showSizeChanger={false}
+                                showTotal={(total) => `ทั้งหมด ${total} รายการ`}
+                            />
+                        </div>
+                    </>
                 ) : (
                     <div style={{ background: '#fff', borderRadius: 12, padding: 50, textAlign: 'center' }}>
                         <Empty description="ไม่พบสินค้า" />

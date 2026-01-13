@@ -4,11 +4,13 @@ import { getProxyUrl } from "../../lib/proxy-utils";
 const BASE_PATH = "/pos/products";
 
 export const productsService = {
-    findAll: async (cookie?: string, searchParams?: URLSearchParams): Promise<Products[]> => {
+    findAll: async (page: number = 1, limit: number = 50, cookie?: string, searchParams?: URLSearchParams): Promise<{ data: Products[], total: number, page: number, last_page: number }> => {
         let url = getProxyUrl("GET", BASE_PATH);
-        if (searchParams) {
-            url += `?${searchParams.toString()}`;
-        }
+        const params = new URLSearchParams(searchParams || "");
+        params.append("page", page.toString());
+        params.append("limit", limit.toString());
+
+        url += `?${params.toString()}`;
 
         const headers: HeadersInit = {};
         if (cookie) headers.Cookie = cookie;
