@@ -27,7 +27,7 @@ export const deliveryService = {
     },
 
     getById: async (id: string, cookie?: string): Promise<Delivery> => {
-        const url = getProxyUrl("GET", `${BASE_PATH}/getById/${id}`);
+        const url = getProxyUrl("GET", `${BASE_PATH}/${id}`);
         const headers = getHeaders(cookie, "");
 
         const response = await fetch(url!, {
@@ -57,7 +57,7 @@ export const deliveryService = {
     },
 
     create: async (data: Partial<Delivery>, cookie?: string, csrfToken?: string): Promise<Delivery> => {
-        const url = getProxyUrl("POST", `${BASE_PATH}/create`);
+        const url = getProxyUrl("POST", `${BASE_PATH}`);
         const headers = getHeaders(cookie) as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
@@ -74,7 +74,7 @@ export const deliveryService = {
     },
 
     update: async (id: string, data: Partial<Delivery>, cookie?: string, csrfToken?: string): Promise<Delivery> => {
-        const url = getProxyUrl("PUT", `${BASE_PATH}/update/${id}`);
+        const url = getProxyUrl("PUT", `${BASE_PATH}/${id}`);
         const headers = getHeaders(cookie) as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
@@ -91,7 +91,7 @@ export const deliveryService = {
     },
 
     delete: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
-        const url = getProxyUrl("DELETE", `${BASE_PATH}/delete/${id}`);
+        const url = getProxyUrl("DELETE", `${BASE_PATH}/${id}`);
         const headers = getHeaders(cookie, "");
         if (csrfToken) (headers as Record<string, string>)["X-CSRF-Token"] = csrfToken;
 
