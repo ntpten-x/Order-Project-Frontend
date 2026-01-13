@@ -9,6 +9,8 @@ import {
     TagsOutlined,
     UnorderedListOutlined,
     TableOutlined,
+    CarOutlined,
+    CalculatorOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -54,6 +56,18 @@ const POSBottomNavigation = () => {
         label: 'โต๊ะ',
         icon: <TableOutlined className="text-2xl" />,
         path: '/pos/tables', 
+      },
+      {
+        key: 'delivery',
+        label: 'บริการส่ง',
+        icon: <CarOutlined className="text-2xl" />,
+        path: '/pos/delivery', 
+      },
+      {
+        key: 'discounts',
+        label: 'ส่วนลด',
+        icon: <CalculatorOutlined className="text-2xl" />,
+        path: '/pos/discounts', 
       }
     ] : []),
   ];
