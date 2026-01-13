@@ -75,7 +75,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                 display_name: data.display_name,
                 description: data.description,
                 img_url: data.img_url,
-                price: data.price,
+                price: parseFloat(data.price),
                 category_id: data.category_id,
                 unit_id: data.unit_id,
                 is_active: data.is_active,

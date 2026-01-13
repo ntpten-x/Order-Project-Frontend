@@ -49,7 +49,7 @@ export default function ProductsPage() {
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลสินค้าได้');
             }
             const data = await response.json();
-            setProducts(data);
+            setProducts(data.data || []);
         }, 'กำลังโหลดข้อมูลสินค้า...');
     }, [execute]);
 
