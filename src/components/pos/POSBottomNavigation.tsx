@@ -11,6 +11,7 @@ import {
     TableOutlined,
     CarOutlined,
     CalculatorOutlined,
+    DollarOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -68,7 +69,13 @@ const POSBottomNavigation = () => {
         label: 'ส่วนลด',
         icon: <CalculatorOutlined className="text-2xl" />,
         path: '/pos/discounts', 
-      }
+      },
+      {
+        key: 'paymentMethod',
+        label: 'วิธีการชำระเงิน',
+        icon: <DollarOutlined className="text-2xl" />,
+        path: '/pos/paymentMethod', 
+      },
     ] : []),
   ];
 
