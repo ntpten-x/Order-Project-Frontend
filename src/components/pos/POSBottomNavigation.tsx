@@ -7,7 +7,8 @@ import {
     ShopOutlined,
     AppstoreOutlined,
     TagsOutlined,
-    UnorderedListOutlined
+    UnorderedListOutlined,
+    TableOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -47,6 +48,12 @@ const POSBottomNavigation = () => {
         label: 'หน่วย',
         icon: <UnorderedListOutlined className="text-2xl" />,
         path: '/pos/productsUnit', 
+      },
+      {
+        key: 'tables',
+        label: 'โต๊ะ',
+        icon: <TableOutlined className="text-2xl" />,
+        path: '/pos/tables', 
       }
     ] : []),
   ];
