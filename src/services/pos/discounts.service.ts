@@ -17,7 +17,8 @@ export const discountsService = {
 
         const response = await fetch(url!, {
             cache: "no-store",
-            headers
+            headers,
+            credentials: "include"
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
@@ -32,7 +33,8 @@ export const discountsService = {
 
         const response = await fetch(url!, {
             cache: "no-store",
-            headers
+            headers,
+            credentials: "include"
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
@@ -47,7 +49,8 @@ export const discountsService = {
 
         const response = await fetch(url!, {
             cache: "no-store",
-            headers
+            headers,
+            credentials: "include"
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
@@ -64,6 +67,7 @@ export const discountsService = {
         const response = await fetch(url!, {
             method: "POST",
             headers,
+            credentials: "include",
             body: JSON.stringify(data),
         });
         if (!response.ok) {

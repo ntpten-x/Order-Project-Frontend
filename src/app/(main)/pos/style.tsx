@@ -11,6 +11,7 @@ export const colors = {
   cardBg: '#ffffff',        // White cards
   text: '#262626',          // Dark text
   textSecondary: '#8c8c8c', // Gray secondary text
+  error: '#ff4d4f',         // Red for errors/important notes
 };
 
 export const pageStyles = {

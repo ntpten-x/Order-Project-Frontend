@@ -17,7 +17,8 @@ export const deliveryService = {
 
         const response = await fetch(url!, {
             cache: "no-store",
-            headers
+            headers,
+            credentials: "include"
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
@@ -32,7 +33,8 @@ export const deliveryService = {
 
         const response = await fetch(url!, {
             cache: "no-store",
-            headers
+            headers,
+            credentials: "include"
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
@@ -47,7 +49,8 @@ export const deliveryService = {
 
         const response = await fetch(url!, {
             cache: "no-store",
-            headers
+            headers,
+            credentials: "include"
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
@@ -64,6 +67,7 @@ export const deliveryService = {
         const response = await fetch(url!, {
             method: "POST",
             headers,
+            credentials: "include",
             body: JSON.stringify(data),
         });
         if (!response.ok) {
@@ -81,6 +85,7 @@ export const deliveryService = {
         const response = await fetch(url!, {
             method: "PUT",
             headers,
+            credentials: "include",
             body: JSON.stringify(data),
         });
         if (!response.ok) {
@@ -97,7 +102,8 @@ export const deliveryService = {
 
         const response = await fetch(url!, {
             method: "DELETE",
-            headers
+            headers,
+            credentials: "include"
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));

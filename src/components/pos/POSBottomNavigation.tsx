@@ -12,6 +12,7 @@ import {
     CarOutlined,
     CalculatorOutlined,
     DollarOutlined,
+    FileTextOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../../contexts/AuthContext";
 
@@ -34,6 +35,24 @@ const POSBottomNavigation = () => {
       path: '/pos',
     },
     ...(user?.role === 'Admin' ? [
+      {
+        key: 'orders',
+        label: 'ออเดอร์',
+        icon: <FileTextOutlined className="text-2xl" />,
+        path: '/pos/orders', 
+      },
+      {
+        key: 'items',
+        label: 'สินค้า',
+        icon: <AppstoreOutlined className="text-2xl" />,
+        path: '/pos/items', 
+      },
+      {
+        key: 'history',
+        label: 'ประวัติ',
+        icon: <AppstoreOutlined className="text-2xl" />,
+        path: '/pos/history', 
+      },
       {
         key: 'products',
         label: 'สินค้า',
@@ -75,7 +94,7 @@ const POSBottomNavigation = () => {
         label: 'วิธีการชำระเงิน',
         icon: <DollarOutlined className="text-2xl" />,
         path: '/pos/paymentMethod', 
-      },
+      }
     ] : []),
   ];
 

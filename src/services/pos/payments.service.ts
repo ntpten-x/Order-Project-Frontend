@@ -27,7 +27,7 @@ export const paymentsService = {
     },
 
     getById: async (id: string, cookie?: string): Promise<Payments> => {
-        const url = getProxyUrl("GET", `${BASE_PATH}/getById/${id}`);
+        const url = getProxyUrl("GET", `${BASE_PATH}/${id}`);
         const headers = getHeaders(cookie, "");
 
         const response = await fetch(url!, {
@@ -42,13 +42,14 @@ export const paymentsService = {
     },
 
     create: async (data: Partial<Payments>, cookie?: string, csrfToken?: string): Promise<Payments> => {
-        const url = getProxyUrl("POST", `${BASE_PATH}/create`);
+        const url = getProxyUrl("POST", `${BASE_PATH}`);
         const headers = getHeaders(cookie) as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
         const response = await fetch(url!, {
             method: "POST",
             headers,
+            credentials: "include",
             body: JSON.stringify(data),
         });
         if (!response.ok) {
@@ -59,13 +60,14 @@ export const paymentsService = {
     },
 
     update: async (id: string, data: Partial<Payments>, cookie?: string, csrfToken?: string): Promise<Payments> => {
-        const url = getProxyUrl("PUT", `${BASE_PATH}/update/${id}`);
+        const url = getProxyUrl("PUT", `${BASE_PATH}/${id}`);
         const headers = getHeaders(cookie) as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
         const response = await fetch(url!, {
             method: "PUT",
             headers,
+            credentials: "include",
             body: JSON.stringify(data),
         });
         if (!response.ok) {
@@ -76,13 +78,14 @@ export const paymentsService = {
     },
 
     delete: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
-        const url = getProxyUrl("DELETE", `${BASE_PATH}/delete/${id}`);
+        const url = getProxyUrl("DELETE", `${BASE_PATH}/${id}`);
         const headers = getHeaders(cookie, "");
         if (csrfToken) (headers as Record<string, string>)["X-CSRF-Token"] = csrfToken;
 
         const response = await fetch(url!, {
             method: "DELETE",
-            headers
+            headers,
+            credentials: "include"
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));

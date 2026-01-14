@@ -1,7 +1,7 @@
-import { Tables } from "../../types/api/pos/tables";
+import { PosHistory } from "../../types/api/pos/posHistory";
 import { getProxyUrl } from "../../lib/proxy-utils";
 
-const BASE_PATH = "/pos/tables";
+const BASE_PATH = "/pos/history";
 
 const getHeaders = (cookie?: string, contentType: string = "application/json"): HeadersInit => {
     const headers: Record<string, string> = {};
@@ -10,9 +10,10 @@ const getHeaders = (cookie?: string, contentType: string = "application/json"): 
     return headers;
 };
 
-export const tablesService = {
-    getAll: async (cookie?: string): Promise<Tables[]> => {
-        const url = getProxyUrl("GET", BASE_PATH);
+export const posHistoryService = {
+    getAll: async (cookie?: string, page: number = 1, limit: number = 50): Promise<{ data: PosHistory[], total: number, page: number, limit: number }> => {
+        const endpoint = `${BASE_PATH}?page=${page}&limit=${limit}`;
+        const url = getProxyUrl("GET", endpoint);
         const headers = getHeaders(cookie, "");
 
         const response = await fetch(url!, {
@@ -22,12 +23,12 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลโต๊ะได้");
+            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลประวัติได้");
         }
         return response.json();
     },
 
-    getById: async (id: string, cookie?: string): Promise<Tables> => {
+    getById: async (id: string, cookie?: string): Promise<PosHistory> => {
         const url = getProxyUrl("GET", `${BASE_PATH}/${id}`);
         const headers = getHeaders(cookie, "");
 
@@ -38,28 +39,12 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลโต๊ะได้");
+            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลประวัติได้");
         }
         return response.json();
     },
 
-    getByName: async (name: string, cookie?: string): Promise<Tables> => {
-        const url = getProxyUrl("GET", `${BASE_PATH}/getByName/${name}`);
-        const headers = getHeaders(cookie, "");
-
-        const response = await fetch(url!, {
-            cache: "no-store",
-            headers,
-            credentials: "include"
-        });
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลโต๊ะได้");
-        }
-        return response.json();
-    },
-
-    create: async (data: Partial<Tables>, cookie?: string, csrfToken?: string): Promise<Tables> => {
+    create: async (data: Partial<PosHistory>, cookie?: string, csrfToken?: string): Promise<PosHistory> => {
         const url = getProxyUrl("POST", `${BASE_PATH}`);
         const headers = getHeaders(cookie) as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
@@ -72,12 +57,12 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถสร้างโต๊ะได้");
+            throw new Error(errorData.error || errorData.message || "ไม่สามารถสร้างประวัติได้");
         }
         return response.json();
     },
 
-    update: async (id: string, data: Partial<Tables>, cookie?: string, csrfToken?: string): Promise<Tables> => {
+    update: async (id: string, data: Partial<PosHistory>, cookie?: string, csrfToken?: string): Promise<PosHistory> => {
         const url = getProxyUrl("PUT", `${BASE_PATH}/${id}`);
         const headers = getHeaders(cookie) as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
@@ -90,7 +75,7 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถแก้ไขโต๊ะได้");
+            throw new Error(errorData.error || errorData.message || "ไม่สามารถแก้ไขประวัติได้");
         }
         return response.json();
     },
@@ -107,7 +92,7 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถลบโต๊ะได้");
+            throw new Error(errorData.error || errorData.message || "ไม่สามารถลบประวัติได้");
         }
     }
 };
