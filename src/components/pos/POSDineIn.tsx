@@ -10,6 +10,8 @@ import { tablesService } from "../../services/pos/tables.service";
 import { authService } from "../../services/auth.service";
 import { useAuth } from "../../contexts/AuthContext";
 import POSPageLayout from "./shared/POSPageLayout";
+import { useNetwork } from "../../hooks/useNetwork";
+import { offlineQueueService } from "../../services/pos/offline.queue.service";
 
 interface POSDineInProps {
     tableId: string;
@@ -20,6 +22,7 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
     const [tableName, setTableName] = useState<string>("");
     const router = useRouter(); 
     const { user } = useAuth();
+    const isOnline = useNetwork();
 
     useEffect(() => {
         const init = async () => {
@@ -96,6 +99,17 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
                     notes: item.notes || ""
                 }))
             };
+
+            if (!isOnline) {
+                offlineQueueService.addToQueue('CREATE_ORDER', orderPayload);
+                message.warning("บันทึกออเดอร์แบบ Offline แล้ว (จะซิงค์เมื่อมีเน็ต)");
+                clearCart();
+                router.push('/pos/tables'); // Go back to tables or stay? Tables might need refresh. 
+                // Better to just clear cart and show specific message.
+                // But user expects navigation. Let's go to /pos/orders (it handles error gracefully usually)
+                // Or just /pos/tables
+                return;
+            }
             
             await ordersService.create(orderPayload as any, undefined, csrfToken);
             

@@ -14,6 +14,8 @@ import 'dayjs/locale/th';
 
 import { AddItemsModal } from "./AddItemsModal";
 import { Products } from "../../../../../types/api/pos/products";
+import { useNetwork } from "../../../../../hooks/useNetwork";
+import { offlineQueueService } from "../../../../../services/pos/offline.queue.service";
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -27,6 +29,7 @@ export default function POSOrderDetailsPage() {
     const [order, setOrder] = useState<Orders | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
+    const isOnline = useNetwork();
     
     // Selection State
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
@@ -197,6 +200,43 @@ export default function POSOrderDetailsPage() {
     };
 
     const handleAddItem = async (product: Products, quantity: number, notes: string) => {
+        const tempId = `temp-${Date.now()}`;
+        const tempItem: OrdersItem = {
+            id: tempId,
+            order_id: orderId as string,
+            product_id: product.id,
+            product: product,
+            quantity: quantity,
+            price: Number(product.price),
+            total_price: Number(product.price) * quantity,
+            discount_amount: 0,
+            notes: notes,
+            status: OrderStatus.Pending,
+            details: []
+        };
+
+        // Optimistic UI Update
+        setOrder(prev => {
+            if (!prev) return null;
+            return {
+                ...prev,
+                items: [...(prev.items || []), tempItem]
+            };
+        });
+
+        if (!isOnline) {
+            const itemData = {
+                product_id: product.id,
+                quantity: quantity,
+                price: product.price,
+                notes: notes,
+                discount_amount: 0
+            };
+            offlineQueueService.addToQueue('ADD_ITEM', { orderId: orderId as string, itemData });
+            message.warning("บันทึกข้อมูลแบบ Offline แล้ว (จะซิงค์เมื่อมีเน็ต)");
+            return;
+        }
+
         try {
             const csrfToken = await authService.getCsrfToken();
             const itemData = {
@@ -206,9 +246,18 @@ export default function POSOrderDetailsPage() {
                 notes: notes,
                 discount_amount: 0 // Optional logic
             };
-            await ordersService.addItem(orderId as string, itemData, undefined, csrfToken);
-            fetchOrder(orderId as string);
+            // API returns the updated Order
+            const updatedOrder = await ordersService.addItem(orderId as string, itemData, undefined, csrfToken);
+            setOrder(updatedOrder); 
         } catch (error) {
+            // Revert on failure
+             setOrder(prev => {
+                 if (!prev) return null;
+                 return {
+                     ...prev,
+                     items: prev.items ? prev.items.filter(item => item.id !== tempId) : []
+                 };
+            });
             message.error("เพิ่มสินค้าไม่สำเร็จ");
             throw error;
         }
