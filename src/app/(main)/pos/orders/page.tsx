@@ -56,6 +56,7 @@ import "dayjs/locale/th";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
+import { useOrders } from "@/hooks/pos/useOrders";
 dayjs.locale("th");
 
 export default function POSOrdersPage() {
@@ -65,19 +66,15 @@ export default function POSOrdersPage() {
   const [limit, setLimit] = useState(50);
   const [sortBy, setSortBy] = useState<'date' | 'quantity'>('date');
 
-  // Fetch active orders
+  // Fetch active orders using the new hook
   const activeStatuses = [OrderStatus.Pending, OrderStatus.Cooking, OrderStatus.Served].join(",");
 
-  const { data, isLoading } = useSWR(
-    `/pos/orders?page=${page}&limit=${limit}&status=${activeStatuses}`,
-    () => ordersService.getAll(undefined, page, limit, activeStatuses),
-    {
-      refreshInterval: 5000,
-      revalidateOnFocus: true,
-    }
-  );
+  const { orders, isLoading, total } = useOrders({
+    page,
+    limit,
+    status: activeStatuses
+  });
 
-  const orders = data?.data || [];
   const sortedOrders = sortBy === 'date' 
     ? sortOrdersByDate(orders, sortAscending)
     : sortOrdersByQuantity(orders, sortAscending);
@@ -324,7 +321,7 @@ export default function POSOrdersPage() {
             <Pagination
               current={page}
               pageSize={limit}
-              total={data?.total || 0}
+              total={total || 0}
               onChange={(p, ps) => {
                 setPage(p);
                 setLimit(ps);
