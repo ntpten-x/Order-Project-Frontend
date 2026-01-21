@@ -170,33 +170,37 @@ export default function DineInTableSelectionPage() {
                           {table.table_name}
                         </div>
 
-                        {/* Status Badge */}
-                        <div
-                          style={{
-                            ...dineInStyles.statusBadge,
-                            background: colors.primary,
-                            color: "#fff",
-                          }}
-                        >
-                          {isInactive
-                            ? "ปิดใช้งาน"
-                            : isAvailable
-                            ? "ว่าง"
-                            : "ไม่ว่าง"}
+                        {/* Status Badge - Container to ensure new line */}
+                        <div style={{ marginTop: 8 }}>
+                          <div
+                            style={{
+                              ...dineInStyles.statusBadge,
+                              background: colors.primary,
+                              color: "#fff",
+                            }}
+                          >
+                            {isInactive
+                              ? "ปิดใช้งาน"
+                              : isAvailable
+                              ? "ว่าง"
+                              : "ไม่ว่าง"}
+                          </div>
                         </div>
 
                         {/* Order Status Tag */}
                         {!isInactive &&
                           !isAvailable &&
                           table.active_order_status && (
-                            <div
-                              style={{
-                                ...dineInStyles.orderStatusTag,
-                                background: "rgba(0,0,0,0.05)",
-                                color: "#595959",
-                              }}
-                            >
-                              {formatOrderStatus(table.active_order_status)}
+                            <div style={{ marginTop: 8 }}>
+                              <div
+                                style={{
+                                  ...dineInStyles.orderStatusTag,
+                                  background: "rgba(0,0,0,0.05)",
+                                  color: "#595959",
+                                }}
+                              >
+                                {formatOrderStatus(table.active_order_status)}
+                              </div>
                             </div>
                           )}
                       </div>

@@ -1,19 +1,38 @@
-import { ordersService } from "../../../../services/pos/orders.service";
 import { NextRequest, NextResponse } from "next/server";
+import { ordersService } from "@/services/pos/orders.service";
 
-export const dynamic = 'force-dynamic';
-
+// GET: Fetch all orders
 export async function GET(request: NextRequest) {
     try {
-        const cookie = request.headers.get("cookie") || "";
         const searchParams = request.nextUrl.searchParams;
         const page = parseInt(searchParams.get("page") || "1");
         const limit = parseInt(searchParams.get("limit") || "50");
+        const status = searchParams.get("status") || undefined;
+        const cookie = request.headers.get("cookie") || "";
 
-        const orders = await ordersService.getAll(cookie, page, limit);
-        return NextResponse.json(orders);
-    } catch (error: unknown) {
-        console.error("API Error:", error);
-        return NextResponse.json({ error: (error as Error).message || "Internal Server Error" }, { status: 500 });
+        const data = await ordersService.getAll(cookie, page, limit, status);
+        return NextResponse.json(data);
+    } catch (error: any) {
+        return NextResponse.json(
+            { error: error.message || "Failed to fetch orders" },
+            { status: 500 }
+        );
+    }
+}
+
+// POST: Create a new order
+export async function POST(request: NextRequest) {
+    try {
+        const body = await request.json();
+        const cookie = request.headers.get("cookie") || "";
+        const csrfToken = request.headers.get("X-CSRF-Token") || "";
+
+        const newOrder = await ordersService.create(body, cookie, csrfToken);
+        return NextResponse.json(newOrder);
+    } catch (error: any) {
+        return NextResponse.json(
+            { error: error.message || "Failed to create order" },
+            { status: 500 }
+        );
     }
 }

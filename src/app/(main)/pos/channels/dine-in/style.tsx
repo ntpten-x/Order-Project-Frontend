@@ -154,19 +154,22 @@ export const dineInStyles = {
   },
 
   tableName: {
-    fontSize: 20,
-    fontWeight: 700,
-    marginBottom: 8,
-    color: '#262626',
+    fontSize: 42,
+    fontWeight: 800,
+    marginBottom: 0,
+    color: '#1f1f1f',
+    lineHeight: 1,
+    letterSpacing: '-1px',
+    display: 'block',
   } as CSSProperties,
 
   statusBadge: {
-    padding: '6px 12px',
+    padding: '4px 12px',
     borderRadius: 8,
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 600,
     display: 'inline-block',
-    marginTop: 4,
+    marginTop: 12,
   } as CSSProperties,
 
   orderStatusTag: {
@@ -314,7 +317,7 @@ export const DineInStyles = () => (
       }
 
       .dine-in-table-name-mobile {
-        font-size: 18px !important;
+        font-size: 32px !important;
       }
     }
 
