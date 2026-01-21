@@ -75,7 +75,19 @@ export default function POSDelivery({ providerId, deliveryCode }: POSDeliveryPro
                 }))
             };
             
-            await ordersService.create(orderPayload as any, undefined, csrfToken);
+            const response = await fetch('/api/pos/orders', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
+                body: JSON.stringify(orderPayload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.error || errorData.message || "Failed to create order");
+            }
             
             message.success("สร้างออเดอร์เรียบร้อยแล้ว");
             

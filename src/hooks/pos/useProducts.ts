@@ -1,22 +1,45 @@
 import useSWR from 'swr';
-import { productsService } from '../../services/pos/products.service';
+import { useContext, useEffect } from 'react';
+import { SocketContext } from '@/contexts/SocketContext';
 import { Products } from '../../types/api/pos/products';
 
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
 export function useProducts(page: number = 1, limit: number = 20, categoryId?: string) {
+    const { socket } = useContext(SocketContext);
+
     const { data, error, isLoading, mutate } = useSWR<{ data: Products[], total: number, page: number, last_page: number }>(
-        `/pos/products?page=${page}&limit=${limit}&category_id=${categoryId || ''}`,
-        () => {
-            const params = new URLSearchParams();
-            if (categoryId) params.append("category_id", categoryId);
-            return productsService.findAll(page, limit, undefined, params);
-        },
+        `/api/pos/products?page=${page}&limit=${limit}&category_id=${categoryId || ''}`,
+        fetcher,
         {
-            refreshInterval: 3000, // Poll every 3 seconds
             revalidateOnFocus: true,
             dedupingInterval: 2000,
-            keepPreviousData: true, // Keep data while fetching new page
+            keepPreviousData: true,
         }
     );
+
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleProductUpdate = () => {
+            mutate();
+        };
+
+        // Listen for product events
+        socket.on("products:create", handleProductUpdate);
+        socket.on("products:update", handleProductUpdate);
+        socket.on("products:delete", handleProductUpdate);
+
+        // Listen for stock updates if applicable (optional, depending on backend events)
+        socket.on("stock:update", handleProductUpdate);
+
+        return () => {
+            socket.off("products:create", handleProductUpdate);
+            socket.off("products:update", handleProductUpdate);
+            socket.off("products:delete", handleProductUpdate);
+            socket.off("stock:update", handleProductUpdate);
+        };
+    }, [socket, mutate]);
 
     return {
         products: data?.data || [],
