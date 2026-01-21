@@ -59,7 +59,8 @@ export default function ItemsPage() {
         throw new Error("Failed to fetch orders");
       }
       const data = await response.json();
-      setOrders(data);
+      // Handle paginated response format: { data: [...], total, page, limit }
+      setOrders(Array.isArray(data) ? data : (data.data || []));
     } catch {
       console.error("Failed to fetch orders");
       message.error("ไม่สามารถโหลดรายการออเดอร์ได้");

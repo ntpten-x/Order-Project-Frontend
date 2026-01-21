@@ -1,4 +1,3 @@
-
 export enum ShiftStatus {
     OPEN = "OPEN",
     CLOSED = "CLOSED"
@@ -7,6 +6,11 @@ export enum ShiftStatus {
 export interface Shift {
     id: string;
     user_id: string;
+    user?: {
+        id: string;
+        username: string;
+        display_name?: string;
+    };
     start_amount: number;
     end_amount?: number;
     expected_amount?: number;

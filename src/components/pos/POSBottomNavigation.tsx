@@ -48,16 +48,28 @@ const POSBottomNavigation = () => {
         path: '/pos/orders', 
       },
       {
+        key: 'dashboard',
+        label: 'Dashboard',
+        icon: <AppstoreOutlined className="text-2xl" />,
+        path: '/pos/dashboard', 
+      },
+      {
+        key: 'settings',
+        label: 'ตั้งค่า',
+        icon: <AppstoreOutlined className="text-2xl" />,
+        path: '/pos/settings', 
+      },
+      {
+        key: 'shift',
+        label: 'กะ',
+        icon: <AppstoreOutlined className="text-2xl" />,
+        path: '/pos/shift', 
+      },
+      {
         key: 'items',
         label: 'สินค้า',
         icon: <AppstoreOutlined className="text-2xl" />,
         path: '/pos/items', 
-      },
-      {
-        key: 'history',
-        label: 'ประวัติ',
-        icon: <AppstoreOutlined className="text-2xl" />,
-        path: '/pos/history', 
       },
       {
         key: 'products',

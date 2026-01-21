@@ -1,72 +1,64 @@
-
 import { Shift } from "../../types/api/pos/shifts";
-import { getProxyUrl } from "../../lib/proxy-utils";
-
-const BASE_PATH = "/pos/shifts";
-
-const getHeaders = (cookie?: string, contentType: string = "application/json"): HeadersInit => {
-    const headers: Record<string, string> = {};
-    if (contentType) headers["Content-Type"] = contentType;
-    if (cookie) headers.Cookie = cookie;
-    return headers;
-};
+import { authService } from "../auth.service";
 
 export const shiftsService = {
-    openShift: async (userId: string, startAmount: number, cookie?: string, csrfToken?: string): Promise<Shift> => {
-        const url = getProxyUrl("POST", `${BASE_PATH}/open`);
-        const headers = getHeaders(cookie) as Record<string, string>;
-        if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
-
-        const response = await fetch(url!, {
-            method: "POST",
-            headers,
-            credentials: "include",
-            body: JSON.stringify({ user_id: userId, start_amount: startAmount }),
-        });
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถเปิดกะได้");
-        }
-        return response.json();
-    },
-
-    closeShift: async (userId: string, endAmount: number, cookie?: string, csrfToken?: string): Promise<Shift> => {
-        const url = getProxyUrl("POST", `${BASE_PATH}/close`);
-        const headers = getHeaders(cookie) as Record<string, string>;
-        if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
-
-        const response = await fetch(url!, {
-            method: "POST",
-            headers,
-            credentials: "include",
-            body: JSON.stringify({ user_id: userId, end_amount: endAmount }),
-        });
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถปิดกะได้");
-        }
-        return response.json();
-    },
-
-    getCurrentShift: async (userId: string, cookie?: string): Promise<Shift | null> => {
-        const url = getProxyUrl("GET", `${BASE_PATH}/current?user_id=${userId}`);
-        const headers = getHeaders(cookie, "");
-
-        const response = await fetch(url!, {
-            cache: "no-store",
-            headers,
+    getCurrentShift: async (): Promise<Shift | null> => {
+        const response = await fetch("/api/pos/shifts/current", {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
             credentials: "include"
         });
 
-        // Handle 404/Null as null (No active shift)
-        if (response.status === 404) return null;
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถตรวจสอบสถานะกะได้");
+        if (response.status === 404) {
+            return null;
         }
 
-        const data = await response.json();
-        return data || null;
+        if (!response.ok) {
+            throw new Error("Failed to fetch current shift");
+        }
+
+        return response.json();
+    },
+
+    openShift: async (startAmount: number): Promise<Shift> => {
+        const csrfToken = await authService.getCsrfToken();
+
+        const response = await fetch("/api/pos/shifts/open", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-Token": csrfToken
+            },
+            credentials: "include",
+            body: JSON.stringify({ start_amount: startAmount })
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.message || "Failed to open shift");
+        }
+
+        return response.json();
+    },
+
+    closeShift: async (endAmount: number): Promise<Shift> => {
+        const csrfToken = await authService.getCsrfToken();
+
+        const response = await fetch("/api/pos/shifts/close", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-Token": csrfToken
+            },
+            credentials: "include",
+            body: JSON.stringify({ end_amount: endAmount })
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.message || "Failed to close shift");
+        }
+
+        return response.json();
     }
 };

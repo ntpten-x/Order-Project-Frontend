@@ -11,6 +11,7 @@ import { authService } from "../../services/auth.service";
 import { useAuth } from "../../contexts/AuthContext";
 import POSPageLayout from "./shared/POSPageLayout";
 import { useNetwork } from "../../hooks/useNetwork";
+import { CreateSalesOrderDTO, OrderType, OrderStatus } from "../../types/api/pos/salesOrder";
 import { offlineQueueService } from "../../services/pos/offline.queue.service";
 
 interface POSDineInProps {
@@ -70,9 +71,9 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
 
     const handleCreateOrder = async () => {
         try {
-            const orderPayload = {
+            const orderPayload: CreateSalesOrderDTO = {
                 order_no: `ORD-${Date.now()}`,
-                order_type: 'DineIn',
+                order_type: OrderType.DineIn,
                 sub_total: getSubtotal(),
                 discount_amount: getDiscountAmount(),
                 vat: 0,
@@ -80,7 +81,7 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
                 received_amount: 0, 
                 change_amount: 0,
                 
-                status: 'Pending',
+                status: OrderStatus.Pending,
                 
                 discount_id: selectedDiscount?.id || null,
                 
@@ -88,7 +89,7 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
                 table_id: tableId,
                 delivery_id: null,
                 delivery_code: null,
-                created_by_id: user?.id || null, // Add this line
+                created_by_id: user?.id || null,
                 
                 items: cartItems.map(item => ({
                     product_id: item.product.id,
@@ -111,7 +112,7 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
                 return;
             }
             
-            await ordersService.create(orderPayload as any, undefined, csrfToken);
+            await ordersService.create(orderPayload, undefined, csrfToken);
             
             message.success("สร้างออเดอร์เรียบร้อยแล้ว");
             

@@ -3,7 +3,8 @@
 import React, { useState } from "react";
 import Image from "next/image";
 import { Typography, Row, Col, Card, Tag, Button, Spin, Empty, Badge, Drawer, List, message, Pagination, Divider, Input, Modal } from "antd";
-import { ShoppingCartOutlined, DeleteOutlined, MinusOutlined, PlusOutlined, ShopOutlined, EditOutlined } from "@ant-design/icons";
+import { ShoppingCartOutlined, DeleteOutlined, MinusOutlined, PlusOutlined, ShopOutlined, EditOutlined, DashboardOutlined, SettingOutlined, FireOutlined, ClockCircleOutlined } from "@ant-design/icons";
+import { useRouter } from "next/navigation";
 import { useCart } from "../../../contexts/pos/CartContext";
 import { useProducts } from "../../../hooks/pos/useProducts";
 import { pageStyles, POSStyles, colors } from "../../../app/(main)/pos/style";
@@ -22,6 +23,7 @@ interface POSPageLayoutProps {
 }
 
 export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }: POSPageLayoutProps) {
+    const router = useRouter();
     const [page, setPage] = useState(1);
     const LIMIT = 12;
     
@@ -123,6 +125,36 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                                 {subtitle}
                             </Text>
                         </div>
+                    </div>
+                    
+                    {/* Top Right Actions */}
+                    <div style={{ position: 'absolute', top: 0, right: 0, display: 'flex', gap: 12 }}>
+                        <Button
+                            type="text"
+                            icon={<FireOutlined style={{ fontSize: 20, color: '#fff' }} />}
+                            onClick={() => router.push('/pos/kitchen')}
+                            style={{ background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.3)' }}
+                            title="จอครัว"
+                        />
+                        <Button
+                            type="text"
+                            icon={<ClockCircleOutlined style={{ fontSize: 20, color: '#fff' }} />}
+                            onClick={() => router.push('/pos/shift')}
+                            style={{ background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.3)' }}
+                            title="จัดการกะ"
+                        />
+                         <Button
+                            type="text"
+                            icon={<DashboardOutlined style={{ fontSize: 20, color: '#fff' }} />}
+                            onClick={() => router.push('/pos/dashboard')}
+                            style={{ background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.3)' }}
+                        />
+                        <Button
+                            type="text"
+                            icon={<SettingOutlined style={{ fontSize: 20, color: '#fff' }} />}
+                            onClick={() => router.push('/pos/settings')}
+                            style={{ background: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(4px)', border: '1px solid rgba(255,255,255,0.3)' }}
+                        />
                     </div>
                 </div>
             </div>

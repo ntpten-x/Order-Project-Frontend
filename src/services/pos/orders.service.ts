@@ -1,6 +1,6 @@
-import { Orders } from "../../types/api/pos/orders";
+import { SalesOrder, CreateSalesOrderDTO, CreateOrderItemDTO } from "../../types/api/pos/salesOrder";
 import { getProxyUrl } from "../../lib/proxy-utils";
-import { OrdersItem } from "../../types/api/pos/ordersItem";
+import { SalesOrderItem } from "../../types/api/pos/salesOrderItem";
 
 const BASE_PATH = "/pos/orders";
 
@@ -12,7 +12,7 @@ const getHeaders = (cookie?: string, contentType: string = "application/json"): 
 };
 
 export const ordersService = {
-    getAll: async (cookie?: string, page: number = 1, limit: number = 50, status?: string): Promise<{ data: Orders[], total: number, page: number, last_page: number }> => {
+    getAll: async (cookie?: string, page: number = 1, limit: number = 50, status?: string): Promise<{ data: SalesOrder[], total: number, page: number, last_page: number }> => {
         // Construct URL with query parameters manually or use URLSearchParams
         const endpoint = `${BASE_PATH}?page=${page}&limit=${limit}${status ? `&status=${status}` : ''}`;
         const url = getProxyUrl("GET", endpoint);
@@ -30,8 +30,24 @@ export const ordersService = {
         return response.json();
     },
 
+    getStats: async (cookie?: string): Promise<{ dineIn: number, takeaway: number, delivery: number, total: number }> => {
+        const url = getProxyUrl("GET", `${BASE_PATH}/stats`);
+        const headers = getHeaders(cookie, "");
 
-    getById: async (id: string, cookie?: string): Promise<Orders> => {
+        const response = await fetch(url!, {
+            cache: "no-store",
+            headers,
+            credentials: "include"
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลสถิติได้");
+        }
+        return response.json();
+    },
+
+
+    getById: async (id: string, cookie?: string): Promise<SalesOrder> => {
         const url = getProxyUrl("GET", `${BASE_PATH}/${id}`);
         const headers = getHeaders(cookie, "");
 
@@ -47,7 +63,7 @@ export const ordersService = {
         return response.json();
     },
 
-    create: async (data: Partial<Orders>, cookie?: string, csrfToken?: string): Promise<Orders> => {
+    create: async (data: CreateSalesOrderDTO, cookie?: string, csrfToken?: string): Promise<SalesOrder> => {
         const url = getProxyUrl("POST", `${BASE_PATH}`);
         const headers = getHeaders(cookie) as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
@@ -65,7 +81,7 @@ export const ordersService = {
         return response.json();
     },
 
-    update: async (id: string, data: Partial<Orders>, cookie?: string, csrfToken?: string): Promise<Orders> => {
+    update: async (id: string, data: Partial<SalesOrder>, cookie?: string, csrfToken?: string): Promise<SalesOrder> => {
         const url = getProxyUrl("PUT", `${BASE_PATH}/${id}`);
         const headers = getHeaders(cookie) as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
@@ -116,7 +132,7 @@ export const ordersService = {
         }
     },
 
-    getItems: async (status?: string, cookie?: string): Promise<OrdersItem[]> => {
+    getItems: async (status?: string, cookie?: string): Promise<SalesOrderItem[]> => {
         const query = status ? `?status=${status}` : '';
         const url = getProxyUrl("GET", `${BASE_PATH}/items${query}`);
         const headers = getHeaders(cookie, "");
@@ -133,7 +149,7 @@ export const ordersService = {
         return response.json();
     },
 
-    addItem: async (orderId: string, itemData: any, cookie?: string, csrfToken?: string): Promise<Orders> => {
+    addItem: async (orderId: string, itemData: CreateOrderItemDTO, cookie?: string, csrfToken?: string): Promise<SalesOrder> => {
         const url = getProxyUrl("POST", `${BASE_PATH}/${orderId}/items`);
         const headers = getHeaders(cookie) as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
@@ -151,7 +167,7 @@ export const ordersService = {
         return response.json();
     },
 
-    updateItem: async (itemId: string, data: { quantity?: number, notes?: string }, cookie?: string, csrfToken?: string): Promise<Orders> => {
+    updateItem: async (itemId: string, data: { quantity?: number, notes?: string }, cookie?: string, csrfToken?: string): Promise<SalesOrder> => {
         const url = getProxyUrl("PUT", `${BASE_PATH}/items/${itemId}`);
         const headers = getHeaders(cookie) as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
@@ -169,7 +185,7 @@ export const ordersService = {
         return response.json();
     },
 
-    deleteItem: async (itemId: string, cookie?: string, csrfToken?: string): Promise<Orders> => {
+    deleteItem: async (itemId: string, cookie?: string, csrfToken?: string): Promise<SalesOrder> => {
         const url = getProxyUrl("DELETE", `${BASE_PATH}/items/${itemId}`);
         const headers = getHeaders(cookie, "");
         if (csrfToken) (headers as Record<string, string>)["X-CSRF-Token"] = csrfToken;

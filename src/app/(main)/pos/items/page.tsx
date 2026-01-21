@@ -5,8 +5,8 @@ import { useRouter, useParams } from "next/navigation";
 import { Typography, Row, Col, Card, Tag, Button, Spin, Empty, Table, Divider, Statistic } from "antd";
 import { ArrowLeftOutlined, CheckCircleOutlined, ShopOutlined, ShoppingOutlined, RocketOutlined, UserOutlined } from "@ant-design/icons";
 import { ordersService } from "../../../../services/pos/orders.service";
-import { OrdersItem } from "../../../../types/api/pos/ordersItem";
-import { OrderStatus, Orders } from "../../../../types/api/pos/orders";
+import { SalesOrderItem } from "../../../../types/api/pos/salesOrderItem";
+import { OrderStatus, SalesOrder } from "../../../../types/api/pos/salesOrder";
 import { pageStyles, colors } from "../style";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
@@ -16,8 +16,8 @@ const { Title, Text } = Typography;
 dayjs.locale('th');
 
 interface OrderGroup {
-    order: Partial<Orders>; // Use Partial because connection might not fetch all fields, but we know structure
-    items: OrdersItem[];
+    order: Partial<SalesOrder>; // Use Partial because connection might not fetch all fields, but we know structure
+    items: SalesOrderItem[];
     totalAmount: number;
 }
 

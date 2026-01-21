@@ -2,97 +2,156 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { Typography, Row, Col, Card } from "antd";
-import { ShopOutlined, ShoppingOutlined, RocketOutlined } from "@ant-design/icons";
-import { pageStyles, colors } from "../style"; // Reusing styles from main POS
+import { Typography, Row, Col, Spin } from "antd";
+import { ShopOutlined, ShoppingOutlined, RocketOutlined, LoadingOutlined } from "@ant-design/icons";
+import { 
+  channelPageStyles, 
+  channelColors, 
+  ChannelStyles 
+} from "./style";
+import { 
+  useChannelStats,
+  formatOrderCount, 
+  ChannelStats 
+} from "@/utils/channels/channelStats.utils";
 
 const { Title, Text } = Typography;
 
 export default function ChannelSelectionPage() {
-    const router = useRouter();
+  const router = useRouter();
+  // Use the new hook for real-time stats (WebSocket driven)
+  const { stats, isLoading: loading } = useChannelStats();
 
-    const channels = [
-        {
-            id: 'dine-in',
-            title: 'ทานที่ร้าน',
-            subtitle: 'Dine In',
-            icon: <ShopOutlined style={{ fontSize: 64, color: '#1890ff' }} />,
-            color: '#e6f7ff',
-            borderColor: '#91d5ff',
-            path: '/pos/channels/dine-in'
-        },
-        {
-            id: 'takeaway',
-            title: 'สั่งกลับบ้าน',
-            subtitle: 'Take Away',
-            icon: <ShoppingOutlined style={{ fontSize: 64, color: '#52c41a' }} />,
-            color: '#f6ffed',
-            borderColor: '#b7eb8f',
-            path: '/pos/channels/takeaway'
-        },
-        {
-            id: 'delivery',
-            title: 'เดลิเวอรี่',
-            subtitle: 'Delivery',
-            icon: <RocketOutlined style={{ fontSize: 64, color: '#722ed1' }} />,
-            color: '#f9f0ff',
-            borderColor: '#d3adf7',
-            path: '/pos/channels/delivery'
-        }
-    ];
+  const channels = [
+    {
+      id: 'dine-in',
+      title: 'ทานที่ร้าน',
+      subtitle: 'Dine In',
+      icon: ShopOutlined,
+      colors: channelColors.dineIn,
+      path: '/pos/channels/dine-in',
+      count: stats?.dineIn ?? 0,
+    },
+    {
+      id: 'takeaway',
+      title: 'สั่งกลับบ้าน',
+      subtitle: 'Take Away',
+      icon: ShoppingOutlined,
+      colors: channelColors.takeaway,
+      path: '/pos/channels/takeaway',
+      count: stats?.takeaway ?? 0,
+    },
+    {
+      id: 'delivery',
+      title: 'เดลิเวอรี่',
+      subtitle: 'Delivery',
+      icon: RocketOutlined,
+      colors: channelColors.delivery,
+      path: '/pos/channels/delivery',
+      count: stats?.delivery ?? 0,
+    },
+  ];
 
-    return (
-        <div style={pageStyles.container}>
-            <div style={{ ...pageStyles.heroParams, paddingBottom: 100 }}>
-                 <div style={{ maxWidth: 1400, margin: '0 auto', position: 'relative', zIndex: 10 }}>
-                    <div style={pageStyles.sectionTitle}>
-                        <ShopOutlined style={{ fontSize: 28 }} />
-                        <div>
-                            <Title level={3} style={{ margin: 0, color: '#fff' }}>เลือกช่องทางการขาย</Title>
-                            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14 }}>Select Sales Channel</Text>
-                        </div>
-                    </div>
-                </div>
+  return (
+    <>
+      <ChannelStyles />
+      <div style={channelPageStyles.container}>
+        {/* Header Section */}
+        <div style={channelPageStyles.header}>
+          <div className="header-pattern"></div>
+          <div className="header-circle circle-1"></div>
+          <div className="header-circle circle-2"></div>
+          
+          <div style={channelPageStyles.headerContent}>
+            <div className="header-icon-animate">
+              <ShopOutlined style={channelPageStyles.headerIcon} />
             </div>
-
-            <div style={{ maxWidth: 1200, margin: '-60px auto 0', padding: '0 24px', position: 'relative', zIndex: 20 }}>
-                <Row gutter={[24, 24]} justify="center">
-                    {channels.map((channel) => (
-                        <Col xs={24} md={8} key={channel.id}>
-                            <Card
-                                hoverable
-                                onClick={() => router.push(channel.path)}
-                                style={{
-                                    height: '100%',
-                                    borderRadius: 16,
-                                    border: `1px solid ${channel.borderColor}`,
-                                    textAlign: 'center',
-                                    padding: '40px 20px',
-                                    background: '#fff',
-                                    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-                                    transition: 'all 0.3s'
-                                }}
-                                styles={{ body: { padding: 0 } }}
-                            >
-                                <div style={{ 
-                                    width: 120, 
-                                    height: 120, 
-                                    background: channel.color, 
-                                    borderRadius: '50%', 
-                                    margin: '0 auto 24px',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}>
-                                    {channel.icon}
-                                </div>
-                                <Title level={3} style={{ marginBottom: 4 }}>{channel.title}</Title>
-                                <Text type="secondary" style={{ fontSize: 18 }}>{channel.subtitle}</Text>
-                            </Card>
-                        </Col>
-                    ))}
-                </Row>
-            </div>
+            <Title level={1} style={channelPageStyles.headerTitle}>
+              เลือกช่องทางการขาย
+            </Title>
+            <Text style={channelPageStyles.headerSubtitle}>
+              Select Sales Channel
+            </Text>
+          </div>
         </div>
-    );
+
+        {/* Channel Cards */}
+        <div style={channelPageStyles.cardsContainer}>
+          <Row gutter={[32, 32]} justify="center">
+            {channels.map((channel, index) => {
+              const Icon = channel.icon;
+              const hasOrders = channel.count > 0;
+              
+              return (
+                <Col xs={24} sm={12} md={8} key={channel.id}>
+                  <div
+                    className={`channel-card-hover fade-in-up card-delay-${index + 1}`}
+                    style={channelPageStyles.channelCard}
+                    onClick={() => router.push(channel.path)}
+                  >
+                    <div style={channelPageStyles.cardInner}>
+                      <div 
+                        className="icon-wrapper"
+                        style={{
+                          ...channelPageStyles.iconWrapper,
+                          background: channel.colors.light,
+                          border: `2px solid ${channel.colors.border}`,
+                        }}
+                      >
+                        <div 
+                          className="decorative-glow"
+                          style={{
+                            ...channelPageStyles.decorativeGlow,
+                            background: channel.colors.gradient,
+                          }}
+                        />
+                        <Icon 
+                          style={{
+                            ...channelPageStyles.channelIcon,
+                            color: channel.colors.primary,
+                          }} 
+                        />
+                      </div>
+                      
+                      <Title level={2} style={channelPageStyles.cardTitle}>
+                        {channel.title}
+                      </Title>
+                      <Text style={channelPageStyles.cardSubtitle}>
+                        {channel.subtitle}
+                      </Text>
+
+                      {/* Statistics Badge */}
+                      {loading ? (
+                        <div style={channelPageStyles.loadingSkeleton} />
+                      ) : (
+                        <div
+                          style={{
+                            ...channelPageStyles.statsBadge,
+                            background: hasOrders ? channel.colors.light : '#fafafa',
+                            color: hasOrders ? channel.colors.primary : '#8c8c8c',
+                            border: `1px solid ${hasOrders ? channel.colors.border : '#f0f0f0'}`,
+                          }}
+                        >
+                          {hasOrders && (
+                            <span
+                              className="pulse-animation"
+                              style={{
+                                ...channelPageStyles.activeIndicator,
+                                background: channel.colors.primary,
+                              }}
+                            />
+                          )}
+                          <span>{formatOrderCount(channel.count)}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </Col>
+              );
+            })}
+          </Row>
+        </div>
+      </div>
+    </>
+  );
 }

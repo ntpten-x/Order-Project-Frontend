@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, List, Avatar, Button, Input, message, InputNumber, Row, Col, Typography, Card } from 'antd';
-import { SearchOutlined, PlusOutlined } from '@ant-design/icons';
+import { Modal, List, Avatar, Button, Input, message, InputNumber, Row, Col, Typography, Card, Space, Divider } from 'antd';
+import { SearchOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
 import { productsService } from '../../../../../services/pos/products.service';
 import { Products } from '../../../../../types/api/pos/products';
 
@@ -9,7 +9,7 @@ const { Text, Title } = Typography;
 interface AddItemsModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onAddItem: (product: Products, quantity: number, notes: string) => Promise<void>;
+    onAddItem: (product: Products, quantity: number, notes: string, details: any[]) => Promise<void>;
 }
 
 export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, onAddItem }) => {
@@ -22,6 +22,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
     const [selectedProduct, setSelectedProduct] = useState<Products | null>(null);
     const [quantity, setQuantity] = useState(1);
     const [notes, setNotes] = useState('');
+    const [details, setDetails] = useState<{ id: number, name: string, price: number }[]>([]);
     const [adding, setAdding] = useState(false);
 
     useEffect(() => {
@@ -29,6 +30,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
             fetchProducts();
             setQuantity(1);
             setNotes('');
+            setDetails([]);
             setSelectedProduct(null);
         }
     }, [isOpen]);
@@ -58,14 +60,32 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
     const handleSelectProduct = (product: Products) => {
         setSelectedProduct(product);
         setQuantity(1);
+        setQuantity(1);
         setNotes('');
+        setDetails([]);
+    };
+
+    const addDetail = () => {
+        setDetails([...details, { id: Date.now(), name: '', price: 0 }]);
+    };
+
+    const updateDetail = (id: number, field: 'name' | 'price', value: any) => {
+        setDetails(details.map(d => d.id === id ? { ...d, [field]: value } : d));
+    };
+
+    const removeDetail = (id: number) => {
+        setDetails(details.filter(d => d.id !== id));
     };
 
     const handleConfirmAdd = async () => {
         if (!selectedProduct) return;
         try {
             setAdding(true);
-            await onAddItem(selectedProduct, quantity, notes);
+            const formattedDetails = details.filter(d => d.name.trim() !== '').map(d => ({
+                detail_name: d.name,
+                extra_price: d.price
+            }));
+            await onAddItem(selectedProduct, quantity, notes, formattedDetails);
             message.success("เพิ่มรายการเรียบร้อย");
             setSelectedProduct(null); // Reset to list
             // Optionally close modal or keep open for more adds
@@ -139,6 +159,37 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                             <div style={{ marginTop: 24 }}>
                                 <Text style={{ display: 'block', marginBottom: 8 }}>จำนวน</Text>
                                 <InputNumber min={1} value={quantity} onChange={(v) => setQuantity(v || 1)} size="large" />
+                            </div>
+
+                            <div style={{ marginTop: 16 }}>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
+                                    <Text>เพิ่มเติม (Topping / Option)</Text>
+                                    <Button size="small" type="dashed" onClick={addDetail} icon={<PlusOutlined />}>เพิ่ม</Button>
+                                </div>
+                                {details.map((detail, index) => (
+                                    <Space key={detail.id} style={{ display: 'flex', marginBottom: 8 }} align="start">
+                                        <Input 
+                                            placeholder="ชื่อ (เช่น ไข่ดาว)" 
+                                            value={detail.name} 
+                                            onChange={e => updateDetail(detail.id, 'name', e.target.value)}
+                                            style={{ width: 140 }}
+                                        />
+                                        <InputNumber 
+                                            placeholder="ราคา" 
+                                            value={detail.price} 
+                                            onChange={v => updateDetail(detail.id, 'price', v)}
+                                            style={{ width: 80 }}
+                                            formatter={value => `฿ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                            parser={value => value?.replace(/\฿\s?|(,*)/g, '') as unknown as number}
+                                        />
+                                        <Button 
+                                            type="text" 
+                                            danger 
+                                            icon={<DeleteOutlined />} 
+                                            onClick={() => removeDetail(detail.id)}
+                                        />
+                                    </Space>
+                                ))}
                             </div>
 
                             <div style={{ marginTop: 16 }}>

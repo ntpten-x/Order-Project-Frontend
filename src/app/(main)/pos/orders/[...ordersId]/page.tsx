@@ -6,8 +6,8 @@ import { Typography, Row, Col, Card, Tag, Button, Spin, Empty, Divider, Table, C
 import { ArrowLeftOutlined, ClockCircleOutlined, ShopOutlined, RocketOutlined, ShoppingOutlined, UserOutlined, FileTextOutlined, CheckOutlined, FilterOutlined, PlusOutlined, DeleteOutlined, EditOutlined, SaveOutlined, CloseOutlined, CheckCircleOutlined } from "@ant-design/icons";
 import { ordersService } from "../../../../../services/pos/orders.service";
 import { authService } from "../../../../../services/auth.service";
-import { Orders, OrderStatus } from "../../../../../types/api/pos/orders";
-import { OrdersItem } from "../../../../../types/api/pos/ordersItem";
+import { SalesOrder, OrderStatus } from "../../../../../types/api/pos/salesOrder";
+import { SalesOrderItem } from "../../../../../types/api/pos/salesOrderItem";
 import { pageStyles, colors } from "../../style"; 
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
@@ -26,7 +26,7 @@ export default function POSOrderDetailsPage() {
     const params = useParams();
     const orderId = Array.isArray(params?.ordersId) ? params.ordersId[0] : params?.ordersId;
 
-    const [order, setOrder] = useState<Orders | null>(null);
+    const [order, setOrder] = useState<SalesOrder | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
     const isOnline = useNetwork();
@@ -191,7 +191,7 @@ export default function POSOrderDetailsPage() {
         }
     };
 
-    const handleEditClick = (record: OrdersItem) => {
+    const handleEditClick = (record: SalesOrderItem) => {
         setEditingItemId(record.id);
         editForm.setFieldsValue({
             quantity: record.quantity,
@@ -199,20 +199,21 @@ export default function POSOrderDetailsPage() {
         });
     };
 
-    const handleAddItem = async (product: Products, quantity: number, notes: string) => {
+    const handleAddItem = async (product: Products, quantity: number, notes: string, details: { detail_name: string; extra_price: number }[] = []) => {
         const tempId = `temp-${Date.now()}`;
-        const tempItem: OrdersItem = {
+        const totalPrice = (Number(product.price) + details.reduce((sum, d) => sum + d.extra_price, 0)) * quantity;
+        const tempItem: SalesOrderItem = {
             id: tempId,
             order_id: orderId as string,
             product_id: product.id,
             product: product,
             quantity: quantity,
             price: Number(product.price),
-            total_price: Number(product.price) * quantity,
+            total_price: totalPrice,
             discount_amount: 0,
             notes: notes,
             status: OrderStatus.Pending,
-            details: []
+            details: details as any // Cast for now match structure
         };
 
         // Optimistic UI Update
@@ -230,7 +231,9 @@ export default function POSOrderDetailsPage() {
                 quantity: quantity,
                 price: product.price,
                 notes: notes,
-                discount_amount: 0
+                discount_amount: 0,
+                total_price: totalPrice,
+                details: details
             };
             offlineQueueService.addToQueue('ADD_ITEM', { orderId: orderId as string, itemData });
             message.warning("บันทึกข้อมูลแบบ Offline แล้ว (จะซิงค์เมื่อมีเน็ต)");
@@ -244,7 +247,9 @@ export default function POSOrderDetailsPage() {
                 quantity: quantity,
                 price: product.price,
                 notes: notes,
-                discount_amount: 0 // Optional logic
+                discount_amount: 0,
+                total_price: totalPrice,
+                details: details
             };
             // API returns the updated Order
             const updatedOrder = await ordersService.addItem(orderId as string, itemData, undefined, csrfToken);
@@ -292,7 +297,7 @@ export default function POSOrderDetailsPage() {
     const rowSelection = {
         selectedRowKeys,
         onChange: onSelectChange,
-        getCheckboxProps: (record: OrdersItem) => ({
+        getCheckboxProps: (record: SalesOrderItem) => ({
             name: record.id,
         }),
     };
@@ -334,7 +339,7 @@ export default function POSOrderDetailsPage() {
             title: 'สินค้า',
             dataIndex: 'product',
             key: 'product',
-            render: (product: any, record: OrdersItem) => {
+            render: (product: any, record: SalesOrderItem) => {
                 const isEditing = record.id === editingItemId;
                 return (
                     <div>
@@ -357,7 +362,7 @@ export default function POSOrderDetailsPage() {
             key: 'quantity',
             width: 100,
             align: 'center' as const,
-            render: (qty: number, record: OrdersItem) => {
+            render: (qty: number, record: SalesOrderItem) => {
                 const isEditing = record.id === editingItemId;
                 if (isEditing) {
                     return (
@@ -376,7 +381,7 @@ export default function POSOrderDetailsPage() {
             key: 'actions',
             width: 100,
             align: 'right' as const,
-            render: (_: any, record: OrdersItem) => {
+            render: (_: any, record: SalesOrderItem) => {
                 const isEditing = record.id === editingItemId;
                 if (isEditing) {
                     return (
@@ -402,7 +407,7 @@ export default function POSOrderDetailsPage() {
             title: 'สินค้า',
             dataIndex: 'product',
             key: 'product',
-            render: (product: any, record: OrdersItem) => (
+            render: (product: any, record: SalesOrderItem) => (
                 <div>
                      <Text style={{ display: 'block', textDecoration: record.status === OrderStatus.Cancelled ? 'line-through' : 'none' }}>
                         {product?.display_name}
@@ -431,7 +436,7 @@ export default function POSOrderDetailsPage() {
             key: 'action',
             align: 'right' as const,
             width: 100,
-            render: (_: any, record: OrdersItem) => {
+            render: (_: any, record: SalesOrderItem) => {
                 if (record.status === OrderStatus.Served) {
                      return <Button size="small" danger onClick={() => handleUnserveItem(record.id)}>ยกเลิกเสิร์ฟ</Button>
                 }
