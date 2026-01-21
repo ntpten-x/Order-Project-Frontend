@@ -294,5 +294,82 @@ export const ChannelStyles = () => (
         background-position: 200% 0;
       }
     }
+
+    /* Mobile Responsive Styles */
+    @media (max-width: 768px) {
+      .channels-header-mobile {
+        padding: 40px 16px 60px !important;
+        border-bottom-left-radius: 24px !important;
+        border-bottom-right-radius: 24px !important;
+      }
+
+      .channels-header-icon-mobile {
+        font-size: 40px !important;
+      }
+
+      .channels-header-title-mobile {
+        font-size: 24px !important;
+      }
+
+      .channels-header-subtitle-mobile {
+        font-size: 14px !important;
+      }
+
+      .channels-cards-container-mobile {
+        margin-top: -40px !important;
+        padding: 0 16px 120px !important;
+      }
+
+      .channels-card-inner-mobile {
+        padding: 32px 20px !important;
+      }
+
+      .channels-icon-wrapper-mobile {
+        width: 100px !important;
+        height: 100px !important;
+        margin-bottom: 20px !important;
+      }
+
+      .channels-channel-icon-mobile {
+        font-size: 44px !important;
+      }
+
+      .channels-card-title-mobile {
+        font-size: 20px !important;
+      }
+
+      .channels-card-subtitle-mobile {
+        font-size: 13px !important;
+      }
+      
+      .channels-stats-badge-mobile {
+        padding: 6px 12px !important;
+        font-size: 13px !important;
+        margin-top: 16px !important;
+      }
+    }
+
+    @media (max-width: 480px) {
+      .channels-header-mobile {
+        padding: 32px 16px 50px !important;
+      }
+
+      .channels-header-title-mobile {
+        font-size: 22px !important;
+      }
+
+      .channels-card-inner-mobile {
+        padding: 24px 16px !important;
+      }
+
+      .channels-icon-wrapper-mobile {
+        width: 80px !important;
+        height: 80px !important;
+      }
+
+      .channels-channel-icon-mobile {
+        font-size: 36px !important;
+      }
+    }
   `}</style>
 );

@@ -57,27 +57,27 @@ export default function ChannelSelectionPage() {
       <ChannelStyles />
       <div style={channelPageStyles.container}>
         {/* Header Section */}
-        <div style={channelPageStyles.header}>
+        <div style={channelPageStyles.header} className="channels-header-mobile">
           <div className="header-pattern"></div>
           <div className="header-circle circle-1"></div>
           <div className="header-circle circle-2"></div>
           
           <div style={channelPageStyles.headerContent}>
             <div className="header-icon-animate">
-              <ShopOutlined style={channelPageStyles.headerIcon} />
+              <ShopOutlined style={channelPageStyles.headerIcon} className="channels-header-icon-mobile" />
             </div>
-            <Title level={1} style={channelPageStyles.headerTitle}>
+            <Title level={1} style={channelPageStyles.headerTitle} className="channels-header-title-mobile">
               เลือกช่องทางการขาย
             </Title>
-            <Text style={channelPageStyles.headerSubtitle}>
+            <Text style={channelPageStyles.headerSubtitle} className="channels-header-subtitle-mobile">
               Select Sales Channel
             </Text>
           </div>
         </div>
 
         {/* Channel Cards */}
-        <div style={channelPageStyles.cardsContainer}>
-          <Row gutter={[32, 32]} justify="center">
+        <div style={channelPageStyles.cardsContainer} className="channels-cards-container-mobile">
+          <Row gutter={[24, 24]} justify="center">
             {channels.map((channel, index) => {
               const Icon = channel.icon;
               const hasOrders = channel.count > 0;
@@ -89,9 +89,9 @@ export default function ChannelSelectionPage() {
                     style={channelPageStyles.channelCard}
                     onClick={() => router.push(channel.path)}
                   >
-                    <div style={channelPageStyles.cardInner}>
+                    <div style={channelPageStyles.cardInner} className="channels-card-inner-mobile">
                       <div 
-                        className="icon-wrapper"
+                        className="icon-wrapper channels-icon-wrapper-mobile"
                         style={{
                           ...channelPageStyles.iconWrapper,
                           background: channel.colors.light,
@@ -106,6 +106,7 @@ export default function ChannelSelectionPage() {
                           }}
                         />
                         <Icon 
+                          className="channels-channel-icon-mobile"
                           style={{
                             ...channelPageStyles.channelIcon,
                             color: channel.colors.primary,
@@ -113,10 +114,10 @@ export default function ChannelSelectionPage() {
                         />
                       </div>
                       
-                      <Title level={2} style={channelPageStyles.cardTitle}>
+                      <Title level={2} style={channelPageStyles.cardTitle} className="channels-card-title-mobile">
                         {channel.title}
                       </Title>
-                      <Text style={channelPageStyles.cardSubtitle}>
+                      <Text style={channelPageStyles.cardSubtitle} className="channels-card-subtitle-mobile">
                         {channel.subtitle}
                       </Text>
 
@@ -125,6 +126,7 @@ export default function ChannelSelectionPage() {
                         <div style={channelPageStyles.loadingSkeleton} />
                       ) : (
                         <div
+                          className="channels-stats-badge-mobile"
                           style={{
                             ...channelPageStyles.statsBadge,
                             background: hasOrders ? channel.colors.light : '#fafafa',
