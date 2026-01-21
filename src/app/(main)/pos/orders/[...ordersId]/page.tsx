@@ -508,7 +508,7 @@ export default function POSOrderDetailsPage() {
                         <Card 
                             style={{ borderRadius: 12 }} 
                             bodyStyle={{ background: '#fafafa' }}
-                            title={<Text type="secondary">รอเสิร์ฟ / ประวัติ ({servedItems.length})</Text>}
+                            title={<Text type="secondary">เสิร์ฟแล้ว ({servedItems.length})</Text>}
                         >
                             <Table 
                                 dataSource={servedItems} 
