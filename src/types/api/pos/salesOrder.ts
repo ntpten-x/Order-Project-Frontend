@@ -54,6 +54,7 @@ export interface CreateOrderItemDTO {
     total_price: number;
     discount_amount: number;
     notes?: string;
+    status?: OrderStatus;
     details?: {
         detail_name: string;
         extra_price: number;

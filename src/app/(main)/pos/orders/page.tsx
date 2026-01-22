@@ -49,7 +49,8 @@ import {
   getTotalItemsQuantity,
   groupItemsByCategory,
   sortOrdersByDate,
-  sortOrdersByQuantity
+  sortOrdersByQuantity,
+  calculateOrderTotal
 } from "@/utils/orders";
 import dayjs from "dayjs";
 import "dayjs/locale/th";
@@ -270,7 +271,7 @@ export default function POSOrdersPage() {
                       <div style={ordersStyles.totalSection}>
                         <Text style={ordersStyles.totalLabel}>ยอดรวม</Text>
                         <Text style={ordersStyles.totalAmount}>
-                          {formatCurrency(order.total_amount)}
+                          {formatCurrency(calculateOrderTotal(order.items || []))}
                         </Text>
                       </div>
 

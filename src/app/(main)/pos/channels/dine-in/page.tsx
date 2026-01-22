@@ -10,7 +10,7 @@ import {
   ArrowLeftOutlined,
   StopOutlined,
 } from "@ant-design/icons";
-import { useTables } from "@/hooks/pos/useTables";
+import { useTables } from "../../../../../hooks/pos/useTables";
 import {
   dineInStyles,
   tableColors,
@@ -22,7 +22,7 @@ import {
   getActiveTables,
   getTableColorScheme,
   formatOrderStatus,
-} from "@/utils/channels/tableUtils.utils";
+} from "../../../../../utils/channels/tableUtils.utils";
 
 const { Title, Text } = Typography;
 

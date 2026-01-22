@@ -101,21 +101,51 @@ export const getOrderReference = (order: any): string => {
 };
 
 /**
- * Calculate total items quantity from order items
+ * Get items that are not cancelled
  */
-export const getTotalItemsQuantity = (items: any[] = []): number => {
-    return items.reduce((sum, item) => sum + (item.quantity || 0), 0);
+export const getNonCancelledItems = (items: any[] = []): any[] => {
+    return items.filter(item => item.status !== OrderStatus.Cancelled);
 };
 
 /**
- * Group order items by category and calculate quantities
+ * Calculate total extra price from item details
+ */
+export const calculateItemExtras = (details: any[] = []): number => {
+    return details.reduce((sum, d) => sum + (Number(d.extra_price) || 0), 0);
+};
+
+/**
+ * Calculate total for a single item (price + extras) * quantity
+ */
+export const calculateItemTotal = (price: number | string, quantity: number, details: any[] = []): number => {
+    const basePrice = Number(price) || 0;
+    const extrasPrice = calculateItemExtras(details);
+    return (basePrice + extrasPrice) * quantity;
+};
+
+/**
+ * Calculate total items quantity from order items (excluding cancelled)
+ */
+export const getTotalItemsQuantity = (items: any[] = []): number => {
+    return getNonCancelledItems(items).reduce((sum, item) => sum + (item.quantity || 0), 0);
+};
+
+/**
+ * Group order items by category and calculate quantities (excluding cancelled)
  */
 export const groupItemsByCategory = (items: any[] = []): Record<string, number> => {
-    return items.reduce((acc, item) => {
+    return getNonCancelledItems(items).reduce((acc, item) => {
         const categoryName = item.product?.category?.display_name || 'อื่นๆ';
         acc[categoryName] = (acc[categoryName] || 0) + item.quantity;
         return acc;
     }, {} as Record<string, number>);
+};
+
+/**
+ * Calculate total order amount excluding cancelled items
+ */
+export const calculateOrderTotal = (items: any[] = []): number => {
+    return getNonCancelledItems(items).reduce((sum, item) => sum + Number(item.total_price || 0), 0);
 };
 
 /**

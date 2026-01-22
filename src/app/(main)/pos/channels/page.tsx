@@ -13,7 +13,7 @@ import {
   useChannelStats,
   formatOrderCount, 
   ChannelStats 
-} from "@/utils/channels/channelStats.utils";
+} from "../../../../utils/channels/channelStats.utils";
 
 const { Title, Text } = Typography;
 

@@ -1,8 +1,21 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, List, Avatar, Button, Input, message, InputNumber, Row, Col, Typography, Card, Space, Divider } from 'antd';
-import { SearchOutlined, PlusOutlined, DeleteOutlined } from '@ant-design/icons';
-import { productsService } from '../../../../../services/pos/products.service';
-import { Products } from '../../../../../types/api/pos/products';
+import { Modal, Button, Input, message, InputNumber, Row, Col, Typography, Card, Space, Spin, Divider, Badge, Empty } from 'antd';
+import { 
+    SearchOutlined, 
+    PlusOutlined, 
+    DeleteOutlined, 
+    ArrowLeftOutlined, 
+    ShoppingCartOutlined, 
+    CloseOutlined,
+    MinusOutlined,
+    InfoCircleOutlined
+} from '@ant-design/icons';
+import { categoryService } from '@/services/pos/category.service';
+import { productsService } from '@/services/pos/products.service';
+import { Category } from '@/types/api/pos/category';
+import { Products } from '@/types/api/pos/products';
+import { calculateItemTotal } from '@/utils/orders';
+import { addItemsModalStyles, orderDetailColors, modalStyles, orderDetailResponsiveStyles } from './style';
 
 const { Text, Title } = Typography;
 
@@ -15,10 +28,12 @@ interface AddItemsModalProps {
 export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, onAddItem }) => {
     const [products, setProducts] = useState<Products[]>([]);
     const [filteredProducts, setFilteredProducts] = useState<Products[]>([]);
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
     const [searchText, setSearchText] = useState('');
     const [loading, setLoading] = useState(false);
     
-    // Simple state for selected product to add details
+    // Selection State
     const [selectedProduct, setSelectedProduct] = useState<Products | null>(null);
     const [quantity, setQuantity] = useState(1);
     const [notes, setNotes] = useState('');
@@ -27,39 +42,65 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
 
     useEffect(() => {
         if (isOpen) {
-            fetchProducts();
-            setQuantity(1);
-            setNotes('');
-            setDetails([]);
-            setSelectedProduct(null);
+            fetchInitialData();
+            resetForm();
         }
     }, [isOpen]);
 
-    const fetchProducts = async () => {
+    const fetchInitialData = async () => {
         try {
             setLoading(true);
-            const res = await productsService.findAll(1, 100); // Fetch reasonable amount
-            setProducts(res.data);
-            setFilteredProducts(res.data);
+            const [productsRes, categoriesRes] = await Promise.all([
+                productsService.findAll(1, 100),
+                categoryService.findAll()
+            ]);
+            setProducts(productsRes.data);
+            setFilteredProducts(productsRes.data);
+            setCategories(categoriesRes);
         } catch (error) {
-            message.error("ไม่สามารถโหลดรายการสินค้าได้");
+            message.error("ไม่สามารถโหลดข้อมูลได้");
         } finally {
             setLoading(false);
         }
     };
 
+    const resetForm = () => {
+        setQuantity(1);
+        setNotes('');
+        setDetails([]);
+        setSelectedProduct(null);
+        setSearchText('');
+    };
+
     const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
         setSearchText(value);
-        const filtered = products.filter(p => 
-            p.display_name.toLowerCase().includes(value.toLowerCase())
-        );
+        applyFilters(value, selectedCategoryId);
+    };
+
+    const handleCategoryClick = (categoryId: string | null) => {
+        setSelectedCategoryId(categoryId);
+        applyFilters(searchText, categoryId);
+    };
+
+    const applyFilters = (search: string, categoryId: string | null) => {
+        let filtered = products;
+
+        if (categoryId) {
+            filtered = filtered.filter(p => p.category_id === categoryId);
+        }
+
+        if (search) {
+            filtered = filtered.filter(p => 
+                p.display_name.toLowerCase().includes(search.toLowerCase())
+            );
+        }
+
         setFilteredProducts(filtered);
     };
 
     const handleSelectProduct = (product: Products) => {
         setSelectedProduct(product);
-        setQuantity(1);
         setQuantity(1);
         setNotes('');
         setDetails([]);
@@ -87,122 +128,282 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
             }));
             await onAddItem(selectedProduct, quantity, notes, formattedDetails);
             message.success("เพิ่มรายการเรียบร้อย");
-            setSelectedProduct(null); // Reset to list
-            // Optionally close modal or keep open for more adds
+            onClose();
+            setSelectedProduct(null);
         } catch (error) {
-           // Error handled by parent mostly
+            // Error handled by parent
         } finally {
             setAdding(false);
         }
     };
 
+    const calculateTotalPrice = () => {
+        if (!selectedProduct) return 0;
+        const formattedDetails = details.map(d => ({
+            detail_name: d.name,
+            extra_price: d.price
+        }));
+        return calculateItemTotal(selectedProduct.price, quantity, formattedDetails);
+    };
+
     return (
         <Modal
-            title="เพิ่มรายการสินค้า"
+            className="mobile-fullscreen-modal"
+            title={null}
             open={isOpen}
             onCancel={onClose}
             footer={null}
-            width={700}
+            width={850}
             destroyOnClose
+            centered
         >
+            <style jsx global>{orderDetailResponsiveStyles}</style>
+            
+            {/* Modal Header */}
+            <div style={modalStyles.modalHeader}>
+                {selectedProduct ? (
+                    <Button 
+                        type="text" 
+                        icon={<ArrowLeftOutlined />} 
+                        onClick={() => setSelectedProduct(null)}
+                        style={{ height: 40, width: 40, borderRadius: '50%' }}
+                    />
+                ) : (
+                    <Button 
+                        type="text" 
+                        icon={<CloseOutlined />} 
+                        onClick={onClose}
+                        style={{ height: 40, width: 40, borderRadius: '50%' }}
+                    />
+                )}
+                <Text strong style={{ fontSize: 18, flex: 1 }}>
+                    {selectedProduct ? 'ระบุรายละเอียด' : 'เลือกสินค้า'}
+                </Text>
+            </div>
+
             {!selectedProduct ? (
                 <>
-                    <Input 
-                        placeholder="ค้นหาสินค้า (ชื่อ, รหัส)" 
-                        prefix={<SearchOutlined />} 
-                        onChange={handleSearch} 
-                        style={{ marginBottom: 16 }} 
-                    />
-                    <List
-                        loading={loading}
-                        grid={{ gutter: 16, column: 3 }}
-                        dataSource={filteredProducts}
-                        renderItem={item => (
-                            <List.Item>
-                                <Card 
-                                    hoverable 
-                                    size="small"
-                                    cover={
-                                        item.img_url ? (
-                                            <img alt={item.display_name} src={item.img_url} style={{ height: 100, objectFit: 'cover' }} />
-                                        ) : (
-                                            <div style={{ height: 100, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>No Image</div>
-                                        )
-                                    }
-                                    onClick={() => handleSelectProduct(item)}
+                    {/* Sticky Search & Filter Bar */}
+                    <div style={{...addItemsModalStyles.searchBar, paddingBottom: 8}}>
+                        <Input 
+                            placeholder="ค้นหาสินค้าหรือรหัส..." 
+                            prefix={<SearchOutlined style={{ color: orderDetailColors.textSecondary }} />} 
+                            value={searchText}
+                            onChange={handleSearch} 
+                            allowClear
+                            style={{...addItemsModalStyles.searchInput, marginBottom: 12}}
+                        />
+                        
+                        {/* Categories Scrollable Bar */}
+                        <div style={{ 
+                            display: 'flex', 
+                            overflowX: 'auto', 
+                            gap: 8, 
+                            paddingBottom: 4,
+                            scrollBehavior: 'smooth',
+                            scrollbarWidth: 'none', // For Firefox
+                            msOverflowStyle: 'none' // For IE/Edge
+                        }} className="hide-scrollbar">
+                            <Button 
+                                size="middle"
+                                type={selectedCategoryId === null ? 'primary' : 'default'}
+                                onClick={() => handleCategoryClick(null)}
+                                style={{ 
+                                    borderRadius: 20, 
+                                    minWidth: 70,
+                                    border: selectedCategoryId === null ? 'none' : `1px solid ${orderDetailColors.border}`
+                                }}
+                            >
+                                ทั้งหมด
+                            </Button>
+                            {categories.map(cat => (
+                                <Button 
+                                    key={cat.id}
+                                    size="middle"
+                                    type={selectedCategoryId === cat.id ? 'primary' : 'default'}
+                                    onClick={() => handleCategoryClick(cat.id)}
+                                    style={{ 
+                                        borderRadius: 20,
+                                        border: selectedCategoryId === cat.id ? 'none' : `1px solid ${orderDetailColors.border}`
+                                    }}
                                 >
-                                    <div style={{ height: 40, overflow: 'hidden' }}>
-                                        <Text strong style={{ fontSize: 13 }}>{item.display_name}</Text>
-                                    </div>
-                                    <Text type="secondary">฿{Number(item.price).toLocaleString()}</Text>
-                                </Card>
-                            </List.Item>
-                        )}
-                        style={{ maxHeight: 400, overflowY: 'auto' }}
-                    />
-                </>
-            ) : (
-                <div style={{ padding: 16 }}>
-                    <Button type="link" onClick={() => setSelectedProduct(null)} style={{ paddingLeft: 0, marginBottom: 16 }}>&lt; กลับไปเลือกสินค้า</Button>
-                    <Row gutter={24}>
-                        <Col span={8}>
-                             {selectedProduct.img_url ? (
-                                <img src={selectedProduct.img_url} style={{ width: '100%', borderRadius: 8 }} />
-                             ) : (
-                                <div style={{ width: '100%', height: 150, background: '#eee', borderRadius: 8 }} />
-                             )}
-                        </Col>
-                        <Col span={16}>
-                            <Title level={4}>{selectedProduct.display_name}</Title>
-                            <Text type="secondary" style={{ fontSize: 16 }}>ราคา: ฿{Number(selectedProduct.price).toLocaleString()}</Text>
-                            
-                            <div style={{ marginTop: 24 }}>
-                                <Text style={{ display: 'block', marginBottom: 8 }}>จำนวน</Text>
-                                <InputNumber min={1} value={quantity} onChange={(v) => setQuantity(v || 1)} size="large" />
-                            </div>
+                                    {cat.display_name || cat.category_name}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
 
-                            <div style={{ marginTop: 16 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                                    <Text>เพิ่มเติม (Topping / Option)</Text>
-                                    <Button size="small" type="dashed" onClick={addDetail} icon={<PlusOutlined />}>เพิ่ม</Button>
-                                </div>
-                                {details.map((detail, index) => (
-                                    <Space key={detail.id} style={{ display: 'flex', marginBottom: 8 }} align="start">
-                                        <Input 
-                                            placeholder="ชื่อ (เช่น ไข่ดาว)" 
-                                            value={detail.name} 
-                                            onChange={e => updateDetail(detail.id, 'name', e.target.value)}
-                                            style={{ width: 140 }}
-                                        />
-                                        <InputNumber 
-                                            placeholder="ราคา" 
-                                            value={detail.price} 
-                                            onChange={v => updateDetail(detail.id, 'price', v)}
-                                            style={{ width: 80 }}
-                                            formatter={value => `฿ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                                            parser={value => value?.replace(/\฿\s?|(,*)/g, '') as unknown as number}
-                                        />
-                                        <Button 
-                                            type="text" 
-                                            danger 
-                                            icon={<DeleteOutlined />} 
-                                            onClick={() => removeDetail(detail.id)}
-                                        />
-                                    </Space>
+                    {/* Product Grid */}
+                    <div className="order-detail-content" style={{ maxHeight: 'calc(100vh - 130px)', overflowY: 'auto' }}>
+                        {loading ? (
+                            <div style={{ textAlign: 'center', padding: 100 }}>
+                                <Spin size="large" />
+                            </div>
+                        ) : (
+                            <div className="product-grid" style={addItemsModalStyles.productGrid}>
+                                {filteredProducts.map(item => (
+                                    <div 
+                                        key={item.id}
+                                        className="product-card-hoverable scale-in"
+                                        style={addItemsModalStyles.productCard}
+                                        onClick={() => handleSelectProduct(item)}
+                                    >
+                                        <div style={{ position: 'relative' }}>
+                                            {item.img_url ? (
+                                                <img 
+                                                    alt={item.display_name} 
+                                                    src={item.img_url} 
+                                                    style={addItemsModalStyles.productImage} 
+                                                />
+                                            ) : (
+                                                <div style={addItemsModalStyles.productPlaceholder}>
+                                                    <ShoppingCartOutlined style={{ fontSize: 24, opacity: 0.3 }} />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div style={addItemsModalStyles.productInfo}>
+                                            <div style={addItemsModalStyles.productName}>
+                                                {item.display_name}
+                                            </div>
+                                            <Text style={addItemsModalStyles.productPrice}>
+                                                ฿{Number(item.price).toLocaleString()}
+                                            </Text>
+                                        </div>
+                                    </div>
                                 ))}
                             </div>
-
-                            <div style={{ marginTop: 16 }}>
-                                <Text style={{ display: 'block', marginBottom: 8 }}>หมายเหตุ</Text>
-                                <Input.TextArea rows={3} value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="เช่น ไม่ใส่ผัก, หวานน้อย" />
+                        )}
+                        
+                        {!loading && filteredProducts.length === 0 && (
+                            <Empty description="ไม่พบสินค้าที่คุณต้องการ" style={{ marginTop: 60 }} />
+                        )}
+                    </div>
+                </>
+            ) : (
+                <div style={addItemsModalStyles.detailSection}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                        {/* Product Large Info */}
+                        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                            {selectedProduct.img_url ? (
+                                <img 
+                                    src={selectedProduct.img_url} 
+                                    alt={selectedProduct.display_name}
+                                    style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 12, flexShrink: 0 }} 
+                                />
+                            ) : (
+                                <div style={{ width: 100, height: 100, background: orderDetailColors.backgroundSecondary, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                    <ShoppingCartOutlined style={{ fontSize: 32, opacity: 0.2 }} />
+                                </div>
+                            )}
+                            <div>
+                                <Title level={4} style={{ margin: '0 0 4px 0' }}>{selectedProduct.display_name}</Title>
+                                <Text style={{ fontSize: 18, fontWeight: 700, color: orderDetailColors.primary }}>
+                                    ฿{Number(selectedProduct.price).toLocaleString()}
+                                </Text>
                             </div>
+                        </div>
 
-                            <div style={{ marginTop: 24, textAlign: 'right' }}>
-                                <Button onClick={() => setSelectedProduct(null)} style={{ marginRight: 8 }}>ยกเลิก</Button>
-                                <Button type="primary" size="large" onClick={handleConfirmAdd} loading={adding} icon={<PlusOutlined />}>เพิ่มลงออเดอร์</Button>
+                        <Divider style={{ margin: '0' }} />
+
+                        {/* Quantity Control */}
+                        <div>
+                            <Text strong style={{ display: 'block', marginBottom: 12 }}>จำนวน</Text>
+                            <div style={modalStyles.quantityControl}>
+                                <Button
+                                    type="primary"
+                                    icon={<MinusOutlined />}
+                                    onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
+                                    disabled={quantity <= 1}
+                                    style={{...modalStyles.quantityButton, background: orderDetailColors.white, color: orderDetailColors.primary, border: `1px solid ${orderDetailColors.primary}`}}
+                                />
+                                <div style={modalStyles.quantityDisplay}>{quantity}</div>
+                                <Button
+                                    type="primary"
+                                    icon={<PlusOutlined />}
+                                    onClick={() => setQuantity(prev => prev + 1)}
+                                    style={modalStyles.quantityButton}
+                                />
                             </div>
-                        </Col>
-                    </Row>
+                        </div>
+
+                        {/* Extras Section */}
+                        <div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                                <Text strong>ตัวเลือกเพิ่มเติม (Optional)</Text>
+                                <Button 
+                                    size="small" 
+                                    type="dashed" 
+                                    onClick={addDetail} 
+                                    icon={<PlusOutlined />}
+                                >
+                                    เพิ่ม
+                                </Button>
+                            </div>
+                            {details.map((detail) => (
+                                <div key={detail.id} style={addItemsModalStyles.detailItemRow}>
+                                    <Input 
+                                        placeholder="ไข่ดาว, พิเศษ..." 
+                                        value={detail.name} 
+                                        onChange={e => updateDetail(detail.id, 'name', e.target.value)}
+                                        style={{ flex: 1, borderRadius: 8 }}
+                                    />
+                                    <InputNumber 
+                                        placeholder="0" 
+                                        value={detail.price} 
+                                        onChange={v => updateDetail(detail.id, 'price', v || 0)}
+                                        style={{ width: 80, borderRadius: 8 }}
+                                        prefix="฿"
+                                    />
+                                    <Button 
+                                        type="text" 
+                                        danger 
+                                        icon={<DeleteOutlined />} 
+                                        onClick={() => removeDetail(detail.id)}
+                                    />
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Notes */}
+                        <div>
+                            <Text strong style={{ display: 'block', marginBottom: 8 }}>หมายเหตุ</Text>
+                            <Input.TextArea 
+                                rows={2} 
+                                value={notes} 
+                                onChange={(e) => setNotes(e.target.value)} 
+                                placeholder="เช่น ไม่ใส่ผัก, เผ็ดน้อย..."
+                                style={{ borderRadius: 12 }}
+                            />
+                        </div>
+
+                        {/* Total & Action Bar */}
+                        <div style={{ marginTop: 20 }}>
+                            <div style={{...modalStyles.priceCard, marginBottom: 16}}>
+                                <Text strong>ยอดรวมรายการนี้</Text>
+                                <Text style={modalStyles.priceValue}>
+                                    ฿{calculateTotalPrice().toLocaleString()}
+                                </Text>
+                            </div>
+                            
+                            <div style={{ display: 'flex', gap: 12 }}>
+                                <Button
+                                    onClick={() => setSelectedProduct(null)}
+                                    style={modalStyles.secondaryButton}
+                                >
+                                    ย้อนกลับ
+                                </Button>
+                                <Button
+                                    type="primary"
+                                    onClick={handleConfirmAdd}
+                                    loading={adding}
+                                    icon={<PlusOutlined />}
+                                    style={modalStyles.primaryButton}
+                                >
+                                    เพิ่มลงออเดอร์
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             )}
         </Modal>
