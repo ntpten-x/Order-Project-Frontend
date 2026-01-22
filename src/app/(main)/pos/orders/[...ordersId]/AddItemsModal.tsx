@@ -176,7 +176,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                         style={{ height: 40, width: 40, borderRadius: '50%' }}
                     />
                 )}
-                <Text strong style={{ fontSize: 18, flex: 1 }}>
+                <Text strong style={{ fontSize: 20, flex: 1 }}>
                     {selectedProduct ? 'ระบุรายละเอียด' : 'เลือกสินค้า'}
                 </Text>
             </div>
@@ -262,10 +262,10 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                             )}
                                         </div>
                                         <div style={addItemsModalStyles.productInfo}>
-                                            <div style={addItemsModalStyles.productName}>
+                                            <div style={{...addItemsModalStyles.productName, fontSize: 18, lineHeight: 1.3 }}>
                                                 {item.display_name}
                                             </div>
-                                            <Text style={addItemsModalStyles.productPrice}>
+                                            <Text style={{...addItemsModalStyles.productPrice, fontSize: 16 }}>
                                                 ฿{Number(item.price).toLocaleString()}
                                             </Text>
                                         </div>
@@ -296,8 +296,8 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                 </div>
                             )}
                             <div>
-                                <Title level={4} style={{ margin: '0 0 4px 0' }}>{selectedProduct.display_name}</Title>
-                                <Text style={{ fontSize: 18, fontWeight: 700, color: orderDetailColors.primary }}>
+                                <Title level={4} style={{ margin: '0 0 4px 0', fontSize: 22 }}>{selectedProduct.display_name}</Title>
+                                <Text style={{ fontSize: 22, fontWeight: 700, color: orderDetailColors.primary }}>
                                     ฿{Number(selectedProduct.price).toLocaleString()}
                                 </Text>
                             </div>
@@ -307,7 +307,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
 
                         {/* Quantity Control */}
                         <div>
-                            <Text strong style={{ display: 'block', marginBottom: 12 }}>จำนวน</Text>
+                            <Text strong style={{ display: 'block', marginBottom: 12, fontSize: 16 }}>จำนวน</Text>
                             <div style={modalStyles.quantityControl}>
                                 <Button
                                     type="primary"
@@ -329,7 +329,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                         {/* Extras Section */}
                         <div>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                                <Text strong>ตัวเลือกเพิ่มเติม (Optional)</Text>
+                                <Text strong style={{ fontSize: 16 }}>ตัวเลือกเพิ่มเติม (Optional)</Text>
                                 <Button 
                                     size="small" 
                                     type="dashed" 
@@ -366,21 +366,21 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
 
                         {/* Notes */}
                         <div>
-                            <Text strong style={{ display: 'block', marginBottom: 8 }}>หมายเหตุ</Text>
+                            <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 16 }}>หมายเหตุ</Text>
                             <Input.TextArea 
                                 rows={2} 
                                 value={notes} 
                                 onChange={(e) => setNotes(e.target.value)} 
                                 placeholder="เช่น ไม่ใส่ผัก, เผ็ดน้อย..."
-                                style={{ borderRadius: 12 }}
+                                style={{ borderRadius: 12, fontSize: 16, padding: '10px' }}
                             />
                         </div>
 
                         {/* Total & Action Bar */}
                         <div style={{ marginTop: 20 }}>
-                            <div style={{...modalStyles.priceCard, marginBottom: 16}}>
-                                <Text strong>ยอดรวมรายการนี้</Text>
-                                <Text style={modalStyles.priceValue}>
+                            <div style={{...modalStyles.priceCard, marginBottom: 16, padding: '16px'}}>
+                                <Text strong style={{ fontSize: 16 }}>ยอดรวมรายการนี้</Text>
+                                <Text style={{...modalStyles.priceValue, fontSize: 24}}>
                                     ฿{calculateTotalPrice().toLocaleString()}
                                 </Text>
                             </div>

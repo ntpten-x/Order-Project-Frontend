@@ -18,7 +18,7 @@ import {
 } from "@ant-design/icons";
 import { ordersService } from "@/services/pos/orders.service";
 import { authService } from "@/services/auth.service";
-import { SalesOrder, OrderStatus } from "@/types/api/pos/salesOrder";
+import { SalesOrder, OrderStatus, OrderType } from "@/types/api/pos/salesOrder";
 import { SalesOrderItem } from "@/types/api/pos/salesOrderItem";
 import { orderDetailStyles, orderDetailColors, orderDetailResponsiveStyles, orderDetailTypography } from "./style"; 
 import {
@@ -310,11 +310,11 @@ export default function POSOrderDetailsPage() {
                 <Space direction="vertical" size={2} align="center">
                     <Text strong style={{ fontSize: 15, lineHeight: '1.2' }}>{record.product?.display_name}</Text>
                     {record.details && record.details.length > 0 && (
-                        <div style={{ fontSize: 12, color: orderDetailColors.success }}>
+                        <div style={{ fontSize: 13, color: orderDetailColors.success }}>
                             {record.details.map(d => `+ ${d.detail_name}`).join(', ')}
                         </div>
                     )}
-                    {record.notes && <Text style={{ fontSize: 12, color: orderDetailColors.danger }}><InfoCircleOutlined /> {record.notes}</Text>}
+                    {record.notes && <Text style={{ fontSize: 13, color: orderDetailColors.danger }}><InfoCircleOutlined /> {record.notes}</Text>}
                 </Space>
             )
         },
@@ -342,9 +342,9 @@ export default function POSOrderDetailsPage() {
                 const extrasPrice = calculateItemExtras(record.details);
                 return (
                     <Space direction="vertical" size={0} align="center">
-                        <Text style={orderDetailStyles.priceTag}>฿{Number(record.price).toLocaleString()}</Text>
+                        <Text style={{ ...orderDetailStyles.priceTag, fontSize: 18 }}>฿{Number(record.price).toLocaleString()}</Text>
                         {extrasPrice > 0 && (
-                            <Text style={{ fontSize: 11, color: orderDetailColors.priceTotal }}>
+                            <Text style={{ fontSize: 13, color: orderDetailColors.priceTotal }}>
                                 + ฿{extrasPrice.toLocaleString()}
                             </Text>
                         )}
@@ -546,10 +546,17 @@ export default function POSOrderDetailsPage() {
                         style={{ height: 40, width: 40, borderRadius: '50%' }}
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <Title level={4} style={{ margin: 0, fontSize: 16, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {order.order_no}
-                        </Title>
-                        <Text type="secondary" style={{ fontSize: 12 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                            <Title level={4} style={{ margin: 0, fontSize: 18, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                {order.order_no}
+                            </Title>
+                            {order.order_type === OrderType.DineIn && order.table && (
+                                <Tag style={orderDetailStyles.tableNameBadge}>
+                                    โต๊ะ {order.table.table_name}
+                                </Tag>
+                            )}
+                        </div>
+                        <Text type="secondary" style={{ fontSize: 14 }}>
                             {dayjs(order.create_date).format('HH:mm | D MMM YY')}
                         </Text>
                     </div>

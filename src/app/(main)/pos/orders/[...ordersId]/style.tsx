@@ -55,7 +55,7 @@ export const breakpoints = {
 // ============================================
 export const orderDetailTypography = {
   pageTitle: {
-    fontSize: 20,
+    fontSize: 24, // Was 20
     fontWeight: 700,
     lineHeight: 1.3,
     margin: 0,
@@ -63,26 +63,26 @@ export const orderDetailTypography = {
   } as CSSProperties,
   
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 20, // Was 16
     fontWeight: 600,
     lineHeight: 1.4,
     color: orderDetailColors.text,
   } as CSSProperties,
   
   cardTitle: {
-    fontSize: 15,
+    fontSize: 18, // Was 15
     fontWeight: 600,
     color: orderDetailColors.text,
   } as CSSProperties,
   
   label: {
-    fontSize: 13,
+    fontSize: 14, // Was 13
     fontWeight: 500,
     color: orderDetailColors.textSecondary,
   } as CSSProperties,
   
   body: {
-    fontSize: 14,
+    fontSize: 16, // Was 14
     lineHeight: 1.5,
     color: orderDetailColors.text,
   } as CSSProperties,
@@ -128,6 +128,22 @@ export const orderDetailStyles = {
   headerSubtitle: {
     fontSize: 12,
     color: orderDetailColors.textSecondary,
+  } as CSSProperties,
+
+  tableNameBadge: {
+    background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+    color: '#ffffff',
+    fontWeight: 800,
+    fontSize: 16,
+    padding: '4px 14px',
+    borderRadius: '10px',
+    boxShadow: '0 4px 10px rgba(124, 58, 237, 0.3)',
+    border: 'none',
+    display: 'inline-flex',
+    alignItems: 'center',
+    margin: 0,
+    height: 'fit-content',
+    textShadow: '0 1px 2px rgba(0,0,0,0.1)',
   } as CSSProperties,
 
   // Content Container
@@ -831,6 +847,35 @@ export const orderDetailResponsiveStyles = `
   }
   .row-cancelled:hover > td {
     background-color: #fff1f0 !important;
+  }
+
+  /* ===== Header Checkbox Styling v3 (High-Distinction) ===== */
+  /* Target only the checkbox inside the thead (header) with high specificity */
+  .order-items-table .ant-table-thead th.ant-table-selection-column .ant-checkbox-inner {
+    border-color: #000000 !important; /* Pure Black for maximum contrast */
+    border-width: 3px !important;    /* Heavy border */
+    width: 22px !important;          /* Larger size */
+    height: 22px !important;
+    background-color: #f1f5f9 !important; /* Slight tint to differentiate */
+    border-radius: 6px !important;
+  }
+  
+  /* Handle checked state */
+  .order-items-table .ant-table-thead th.ant-table-selection-column .ant-checkbox-checked .ant-checkbox-inner {
+    background-color: #000000 !important;
+    border-color: #000000 !important;
+  }
+
+  /* Handle indeterminate state (partial selection) */
+  .order-items-table .ant-table-thead th.ant-table-selection-column .ant-checkbox-indeterminate .ant-checkbox-inner::after {
+    background-color: #000000 !important;
+    height: 4px !important;
+  }
+  
+  /* Add a subtle highlight to the entire header cell for the checkbox */
+  .order-items-table .ant-table-thead th.ant-table-selection-column {
+    background-color: #f8fafc !important;
+    border-right: 1px solid #e2e8f0 !important;
   }
 
   /* ===== Custom Buttons ===== */

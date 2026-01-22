@@ -64,7 +64,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
         >
             {/* Custom Header */}
             <div style={{...modalStyles.modalHeader, padding: '12px 16px'}}>
-                <Text strong style={{ fontSize: 16, flex: 1 }}>แก้ไขรายการ</Text>
+                <Text strong style={{ fontSize: 18, flex: 1 }}>แก้ไขรายการ</Text>
                 <Button 
                     type="text" 
                     icon={<CloseOutlined />} 
@@ -93,15 +93,15 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                         )}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <Title level={5} style={{ margin: 0, fontSize: 16 }}>
+                        <Title level={5} style={{ margin: 0, fontSize: 18 }}>
                             {item.product?.display_name || 'ไม่ระบุ'}
                         </Title>
-                        <Text type="secondary" style={{ fontSize: 13 }}>
+                        <Text type="secondary" style={{ fontSize: 14 }}>
                             ฿{Number(item.price).toLocaleString()} ต่อชิ้น
                         </Text>
                         {item.details && item.details.length > 0 && (
                             <div style={{ marginTop: 4 }}>
-                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                <Text type="secondary" style={{ fontSize: 13 }}>
                                     {item.details.map(d => `+ ${d.detail_name}`).join(', ')}
                                 </Text>
                             </div>
@@ -111,7 +111,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
 
                 {/* Compact Quantity Adjustment */}
                 <div style={{ marginBottom: 20 }}>
-                    <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>
+                    <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 16 }}>
                         ปรับจำนวน
                     </Text>
                     <div style={{...modalStyles.quantityControl, padding: '10px', borderRadius: 12}}>
@@ -136,7 +136,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
 
                 {/* Compact Notes */}
                 <div style={{ marginBottom: 20 }}>
-                    <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>
+                    <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 16 }}>
                         หมายเหตุ / คำแนะนำพิเศษ
                     </Text>
                     <TextArea
@@ -144,14 +144,14 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                         onChange={(e) => setNotes(e.target.value)}
                         placeholder="เช่น หวานน้อย, ไม่ใส่น้ำตาล..."
                         rows={2}
-                        style={{ borderRadius: 10, padding: '8px 12px', fontSize: 14 }}
+                        style={{ borderRadius: 10, padding: '10px 14px', fontSize: 16 }}
                     />
                 </div>
 
                 {/* Compact Total Price Card */}
-                <div style={{...modalStyles.priceCard, padding: '12px 16px'}}>
-                    <Text strong style={{ fontSize: 14 }}>ยอดรวมรายการนี้</Text>
-                    <Text style={modalStyles.priceValue}>
+                <div style={{...modalStyles.priceCard, padding: '12px 16px', borderRadius: 12}}>
+                    <Text strong style={{ fontSize: 16 }}>ยอดรวมรายการนี้</Text>
+                    <Text style={{...modalStyles.priceValue, fontSize: 22}}>
                         ฿{calculateItemTotal(item.price, quantity, item.details).toLocaleString()}
                     </Text>
                 </div>
