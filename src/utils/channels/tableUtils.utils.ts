@@ -67,6 +67,11 @@ export function getTableColorScheme(table: Tables) {
     if (!table.is_active) {
         return 'inactive';
     }
+
+    if (table.active_order_status === 'WaitingForPayment') {
+        return 'waitingForPayment';
+    }
+
     return table.status === TableStatus.Available ? 'available' : 'occupied';
 }
 
@@ -77,11 +82,12 @@ export function formatOrderStatus(status?: string): string {
     if (!status) return '';
 
     const statusMap: Record<string, string> = {
-        'Pending': 'รอรับออเดอร์',
+        'Pending': 'กำลังดำเนินการ',
         'Cooking': 'กำลังปรุง',
         'Served': 'เสิร์ฟแล้ว',
+        'WaitingForOrder': 'รอรับออเดอร์',
         'WaitingForPayment': 'รอชำระเงิน',
-        'Paid': 'ชำระแล้ว',
+        'Paid': 'ชำระเงินแล้ว',
         'Cancelled': 'ยกเลิก',
     };
 

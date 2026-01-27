@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Typography, Row, Col, Card, Button, Spin, Empty, Divider,  Input, message, Radio, Space, InputNumber, Statistic as AntStatistic, Select, App } from "antd";
-import { ArrowLeftOutlined, ShopOutlined, ShoppingOutlined, RocketOutlined, DollarOutlined, CreditCardOutlined, QrcodeOutlined, CheckCircleOutlined, UserOutlined, UndoOutlined } from "@ant-design/icons";
+import { Typography, Row, Col, Card, Button, Spin, Empty, Divider, message, InputNumber, Select, Tag, Modal } from "antd";
+import { ArrowLeftOutlined, ShopOutlined, DollarOutlined, CreditCardOutlined, QrcodeOutlined, UndoOutlined, EditOutlined } from "@ant-design/icons";
 import { QRCodeSVG } from 'qrcode.react';
 import generatePayload from 'promptpay-qr';
 import { ordersService } from "../../../../../services/pos/orders.service";
@@ -16,12 +16,13 @@ import { shopProfileService, ShopProfile } from "../../../../../services/pos/sho
 
 import { SalesOrder, OrderStatus } from "../../../../../types/api/pos/salesOrder";
 import { PaymentMethod } from "../../../../../types/api/pos/paymentMethod";
-import { Tables, TableStatus } from "../../../../../types/api/pos/tables";
+import { TableStatus } from "../../../../../types/api/pos/tables";
 import { Discounts, DiscountType } from "../../../../../types/api/pos/discounts";
 import { PaymentStatus } from "../../../../../types/api/pos/payments";
 import { pageStyles, colors } from "../../style";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
+import { getOrderChannelText, getOrderReference, getOrderStatusColor, getOrderStatusText, getEditOrderNavigationPath, getCancelOrderNavigationPath } from "@/utils/orders";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -45,32 +46,41 @@ export default function POSPaymentPage() {
     const [appliedDiscount, setAppliedDiscount] = useState<Discounts | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
 
-    useEffect(() => {
-        if (paymentId) {
-            fetchInitialData();
-        }
-    }, [paymentId]);
-
-    const fetchInitialData = async () => {
+    const fetchInitialData = useCallback(async () => {
+        if (!paymentId) return;
         try {
+            console.log("Fetching payment data for ID:", paymentId);
             setIsLoading(true);
-            const [orderData, methodsRes, discountsRes, shopRes] = await Promise.all([
+
+            // Fetch shop profile separately to avoid breaking the page if it fails
+            const shopRes = await shopProfileService.getProfile().catch(err => {
+                console.warn("Failed to fetch shop profile:", err);
+                return null;
+            });
+
+            const [orderData, methodsRes, discountsRes] = await Promise.all([
                 ordersService.getById(paymentId),
                 paymentMethodService.getAll(),
-                discountsService.getAll(),
-                shopProfileService.getProfile()
+                discountsService.getAll()
             ]);
             
+            console.log("Order Data Received:", orderData);
+            console.log("Order Items:", orderData.items);
+
             if (orderData.status !== OrderStatus.WaitingForPayment) {
-                message.warning("ออเดอร์นี้ไม่ได้อยู่ในสถานะรอชำระเงิน");
-                router.push('/pos/items');
-                return;
+                 router.push('/pos/channels');
+                 return;
             }
 
             setOrder(orderData);
             setPaymentMethods(methodsRes);
             setDiscounts(discountsRes);
             setShopProfile(shopRes);
+            
+            // Sync initial discount
+            if (orderData.discount) {
+                setAppliedDiscount(orderData.discount);
+            }
 
             // Default received amount to total if exists
             if (orderData) {
@@ -79,31 +89,69 @@ export default function POSPaymentPage() {
 
         } catch (error) {
             console.error("Failed to fetch data:", error);
-            messageApi.error("ไม่สามารถโหลดข้อมูลการชำระเงินได้");
+            messageApi.error("ไม่สามารถโหลดข้อมูลการชำระเงินได้: " + (error instanceof Error ? error.message : "Unknown error"));
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [messageApi, paymentId, router]);
 
-    // Calculation Logic
-    const calculateTotals = () => {
-        if (!order) return { subtotal: 0, discount: 0, total: 0, change: 0 };
-
-        const subtotal = Number(order.total_amount); 
-        
-        let discountVal = 0;
-        if (appliedDiscount) {
-            if (appliedDiscount.discount_type === DiscountType.Percentage) {
-                discountVal = subtotal * (appliedDiscount.discount_amount / 100);
-            } else {
-                discountVal = appliedDiscount.discount_amount;
-            }
+    useEffect(() => {
+        if (paymentId) {
+            fetchInitialData();
         }
+    }, [fetchInitialData, paymentId]);
 
-        const total = Math.max(0, subtotal - discountVal);
+    // Calculation Logic - Now relies on Order state from Backend
+    const calculateTotals = () => {
+        if (!order) return { subtotal: 0, discount: 0, vat: 0, total: 0, change: 0 };
+
+        const subtotal = Number(order.sub_total || 0);
+        const discountVal = Number(order.discount_amount || 0);
+        const vat = Number(order.vat || 0);
+        const total = Number(order.total_amount || 0);
         const change = Math.max(0, receivedAmount - total);
 
-        return { subtotal, discount: discountVal, total, change };
+        return { subtotal, discount: discountVal, vat, total, change };
+    };
+
+    const handleDiscountChange = async (value: string | undefined) => {
+        if (!order) return;
+        
+        try {
+            setIsLoading(true);
+            const csrfToken = await authService.getCsrfToken();
+            
+            const updatedOrder = await ordersService.update(
+                order.id, 
+                { discount_id: value || null }, // Send null if cleared
+                undefined,
+                csrfToken
+            );
+
+            setOrder(updatedOrder);
+            
+            // Update applied discount state
+            if (value) {
+                const selected = discounts.find(d => d.id === value);
+                if (selected) {
+                    setAppliedDiscount(selected);
+                    messageApi.success(`ใช้ส่วนลด "${selected.display_name}" เรียบร้อย`);
+                }
+            } else {
+                setAppliedDiscount(null);
+                messageApi.info("ยกเลิกการใช้ส่วนลด");
+            }
+
+            // Reset received amount to new total to be helpful
+            setReceivedAmount(updatedOrder.total_amount);
+
+        } catch (error) {
+            console.error("Failed to update discount:", error);
+            messageApi.error("ไม่สามารถบันทึกส่วนลดได้");
+            // Revert selection if needed, but for now just show error
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     const handleConfirmPayment = async () => {
@@ -154,10 +202,92 @@ export default function POSPaymentPage() {
             setIsProcessing(false);
         }
     };
+    
+    const handleEditOrder = async () => {
+        if (!order) return;
+        
+        try {
+            setIsProcessing(true);
+            const csrfToken = await authService.getCsrfToken();
+            
+            // 1. Revert all non-cancelled items to 'Served' status
+            const activeItems = order.items?.filter(item => item.status !== OrderStatus.Cancelled) || [];
+            await Promise.all(
+                activeItems.map(item => 
+                    ordersService.updateItemStatus(item.id, OrderStatus.Served, undefined, csrfToken)
+                )
+            );
 
-    const { subtotal, discount, total, change } = calculateTotals();
+            // 2. Revert order status back to 'Pending'
+            await ordersService.updateStatus(order.id, OrderStatus.Pending, csrfToken);
 
-    if (isLoading) return <div style={{ textAlign: 'center', padding: 50 }}><Spin size="large" /></div>;
+            messageApi.success("ย้อนกลับไปแก้ไขออเดอร์เรียบร้อย");
+            router.push(getEditOrderNavigationPath(order.id));
+
+        } catch (error) {
+            console.error("Revert failed:", error);
+            messageApi.error("ไม่สามารถเปลี่ยนสถานะออเดอร์ได้");
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    const handleCancelOrder = () => {
+        if (!order) return;
+
+        Modal.confirm({
+            title: 'ยืนยันการยกเลิกออเดอร์?',
+            content: 'การดำเนินการนี้จะยกเลิกสินค้าทุกรายการและคืนสถานะโต๊ะ (หากมี) คุณแน่ใจหรือไม่?',
+            okText: 'ยืนยันการยกเลิก',
+            okType: 'danger',
+            cancelText: 'ยกเลิก',
+            onOk: async () => {
+                try {
+                    setIsProcessing(true);
+                    const csrfToken = await authService.getCsrfToken();
+
+                    // 1. Cancel all non-cancelled items
+                    const activeItems = order.items?.filter(item => item.status !== OrderStatus.Cancelled) || [];
+                    await Promise.all(
+                        activeItems.map(item => 
+                            ordersService.updateItemStatus(item.id, OrderStatus.Cancelled, undefined, csrfToken)
+                        )
+                    );
+
+                    // 2. Set Order status to Cancelled
+                    await ordersService.updateStatus(order.id, OrderStatus.Cancelled, csrfToken);
+
+                    // 3. Set Table to Available if Dine-In
+                    if (order.table_id) {
+                        await tablesService.update(order.table_id, { status: TableStatus.Available }, undefined, csrfToken);
+                    }
+
+                    messageApi.success("ยกเลิกออเดอร์เรียบร้อย");
+                    router.push(getCancelOrderNavigationPath(order.order_type));
+
+                } catch (error) {
+                    console.error("Cancel failed:", error);
+                    messageApi.error("ไม่สามารถยกเลิกออเดอร์ได้");
+                } finally {
+                    setIsProcessing(false);
+                }
+            }
+        });
+    };
+
+    const { subtotal, discount, vat, total, change } = calculateTotals();
+
+    if (isLoading) return (
+        <div style={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            alignItems: 'center', 
+            height: '100vh',
+            width: '100%' 
+        }}>
+            <Spin size="large" />
+        </div>
+    );
     if (!order) return <Empty description="ไม่พบข้อมูลออเดอร์" />;
 
     return (
@@ -165,12 +295,76 @@ export default function POSPaymentPage() {
             {contextHolder}
              <div style={{ ...pageStyles.heroParams, paddingBottom: 80 }}>
                 <div style={{ maxWidth: 1200, margin: '0 auto', position: 'relative', zIndex: 10 }}>
-                    <div style={pageStyles.sectionTitle}>
-                         <Button type="text" icon={<ArrowLeftOutlined />} style={{ color: '#fff', marginRight: 16 }} onClick={() => router.back()}>กลับ</Button>
-                         <div>
-                            <Title level={3} style={{ margin: 0, color: '#fff' }}>ชำระเงิน</Title>
-                            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14 }}>Payment #{order.order_no}</Text>
+                    <div style={{ ...pageStyles.sectionTitle, flexWrap: 'wrap', gap: '12px 16px' }}>
+                         <Button type="text" icon={<ArrowLeftOutlined />} style={{ color: '#fff', padding: '4px 8px' }} onClick={() => router.back()}>กลับ</Button>
+                         <div style={{ flex: 1, minWidth: 0 }}>
+                            <Title level={3} style={{ margin: 0, color: '#fff', fontSize: 'clamp(18px, 5vw, 24px)' }}>ชำระเงิน</Title>
+                            <div style={{ 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                gap: '8px 12px', 
+                                marginTop: 6, 
+                                flexWrap: 'wrap' 
+                            }}>
+                                <Tag color="blue" style={{ margin: 0, borderRadius: 4, fontWeight: 600, fontSize: 13, padding: '2px 8px' }}>
+                                    {order && getOrderChannelText(order.order_type)} {order && `(${getOrderReference(order)})`}
+                                </Tag>
+                                <Tag color={order ? getOrderStatusColor(order.status) : 'default'} style={{ margin: 0, borderRadius: 4, fontWeight: 600, fontSize: 13, padding: '2px 8px' }}>
+                                    {order && getOrderStatusText(order.status)}
+                                </Tag>
+                                <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13, whiteSpace: 'nowrap' }}>
+                                    เลขที่: {order.order_no}
+                                </Text>
+                            </div>
                         </div>
+                        <Button 
+                            icon={<EditOutlined />} 
+                            onClick={handleEditOrder}
+                            style={{ 
+                                background: 'rgba(255,255,255,0.15)', 
+                                border: '1px solid rgba(255,255,255,0.3)',
+                                color: '#fff',
+                                borderRadius: 8,
+                                fontWeight: 600
+                            }}
+                            className="hide-on-mobile"
+                        >
+                            แก้ไขออเดอร์
+                        </Button>
+                        <Button 
+                            icon={<EditOutlined />} 
+                            onClick={handleEditOrder}
+                            style={{ 
+                                background: 'rgba(255,255,255,0.15)', 
+                                border: '1px solid rgba(255,255,255,0.3)',
+                                color: '#fff',
+                                borderRadius: 8,
+                                display: 'none'
+                             }}
+                            className="show-on-mobile-inline"
+                            size="middle"
+                        />
+                        <Button 
+                            danger
+                            onClick={handleCancelOrder}
+                            style={{ 
+                                borderRadius: 8,
+                                fontWeight: 600
+                            }}
+                            className="hide-on-mobile"
+                        >
+                            ยกเลิกออเดอร์
+                        </Button>
+                        <Button 
+                            danger
+                            onClick={handleCancelOrder}
+                            style={{ 
+                                borderRadius: 8,
+                                display: 'none'
+                             }}
+                            className="show-on-mobile-inline"
+                            size="middle"
+                        >ยกเลิก</Button>
                     </div>
                 </div>
             </div>
@@ -185,17 +379,23 @@ export default function POSPaymentPage() {
                                     <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 16, borderBottom: '1px solid #f0f0f0' }}>
                                          <div style={{ display: 'flex', gap: 12 }}>
                                             {item.product?.img_url ? (
-                                                <img src={item.product.img_url} alt={item.product?.display_name} style={{ width: 50, height: 50, borderRadius: 8, objectFit: 'cover' }} />
+                                                <>
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img src={item.product.img_url} alt={item.product?.display_name} style={{ width: 50, height: 50, borderRadius: 8, objectFit: 'cover' }} />
+                                                </>
                                             ) : (
                                                 <div style={{ width: 50, height: 50, background: '#f5f5f5', borderRadius: 8, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><ShopOutlined style={{ color: '#ccc' }} /></div>
                                             )}
                                             <div>
                                                 <Text strong style={{ display: 'block' }}>{item.product?.display_name}</Text>
-                                                <Text type="secondary">x {item.quantity}</Text>
+                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                                    <Text type="secondary" style={{ fontSize: 13 }}>฿{Number(item.price).toLocaleString()}</Text>
+                                                    <Text type="secondary" style={{ fontSize: 12 }}>x {item.quantity}</Text>
+                                                </div>
                                                 {item.notes && <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>* {item.notes}</Text>}
                                             </div>
                                          </div>
-                                         <Text>฿{(item.total_price || (item.price * item.quantity)).toLocaleString()}</Text>
+                                         <Text strong>฿{(item.total_price || (item.price * item.quantity)).toLocaleString()}</Text>
                                     </div>
                                 ))}
                             </div>
@@ -205,10 +405,16 @@ export default function POSPaymentPage() {
                                     <Text type="secondary">ยอดรวม (Subtotal)</Text>
                                     <Text>฿{subtotal.toLocaleString()}</Text>
                                 </Row>
-                                {appliedDiscount && (
+                                {discount > 0 && (
                                     <Row justify="space-between" style={{ marginBottom: 8, color: colors.success }}>
-                                        <Text type="success">ส่วนลด ({appliedDiscount.display_name})</Text>
+                                        <Text type="success">ส่วนลด (Discount)</Text>
                                         <Text type="success">-฿{discount.toLocaleString()}</Text>
+                                    </Row>
+                                )}
+                                {vat > 0 && (
+                                    <Row justify="space-between" style={{ marginBottom: 8 }}>
+                                        <Text type="secondary">VAT (7%)</Text>
+                                        <Text>฿{vat.toLocaleString()}</Text>
                                     </Row>
                                 )}
                                 <Divider style={{ margin: '12px 0' }} />
@@ -230,18 +436,7 @@ export default function POSPaymentPage() {
                                     allowClear
                                     size="large"
                                     value={appliedDiscount ? appliedDiscount.id : undefined}
-                                    onChange={(value) => {
-                                        if (!value) {
-                                            setAppliedDiscount(null);
-                                            message.info("ยกเลิกการใช้ส่วนลด");
-                                        } else {
-                                            const selected = discounts.find(d => d.id === value);
-                                            if (selected) {
-                                                setAppliedDiscount(selected);
-                                                message.success(`ใช้ส่วนลด "${selected.display_name}" เรียบร้อย`);
-                                            }
-                                        }
-                                    }}
+                                    onChange={handleDiscountChange}
                                 >
                                     {discounts.filter(d => d.is_active).map(d => (
                                         <Select.Option key={d.id} value={d.id}>

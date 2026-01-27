@@ -1,13 +1,8 @@
-"use client";
+﻿"use client";
 
 import React from "react";
-import { Typography, Row, Col, Card,} from "antd";
-import { 
-    AppstoreOutlined, 
-    ShopOutlined, 
-    SettingOutlined,
-    ArrowRightOutlined
-} from "@ant-design/icons";
+import { Typography, Row, Col, Card } from "antd";
+import { AppstoreOutlined, ShopOutlined, SettingOutlined, ArrowRightOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 
 const { Title, Text } = Typography;
@@ -17,50 +12,52 @@ export default function LandingPage() {
 
     const modules = [
         {
-            title: "ระบบจัดการสต็อก",
-            description: "จัดการวัตถุดิบ การสั่งซื้อ และประวัติการซื้อ",
+            title: "จัดการสต๊อก/วัตถุดิบ",
+            description: "รับเข้า โอน ลดจ่าย ตรวจนับ และดูต้นทุนสต๊อกได้แบบเรียลไทม์",
             icon: <AppstoreOutlined style={{ fontSize: 48, color: '#1890ff' }} />,
             path: "/stock",
             color: "linear-gradient(135deg, #e6f7ff 0%, #ffffff 100%)",
             borderColor: "#91d5ff",
-            enabled: true
+            enabled: true,
         },
         {
-            title: "ระบบขายหน้าร้าน (POS)",
-            description: "จัดการการขาย และชำระเงิน",
+            title: "ขายหน้าร้าน (POS)",
+            description: "เปิดบิล คิดเงิน ออกใบเสร็จ รองรับ Dine-in / Takeaway / Delivery",
             icon: <ShopOutlined style={{ fontSize: 48, color: '#fa541c' }} />,
             path: "/pos",
             color: "linear-gradient(135deg, #fff2e8 0%, #ffffff 100%)",
             borderColor: "#ffbb96",
-            enabled: true
+            enabled: true,
         },
         {
-            title: "จัดการผู้ใช้งาน",
-            description: "จัดการสิทธิ์และผู้ใช้งานระบบ",
+            title: "ตั้งค่าและสิทธิ์ผู้ใช้",
+            description: "จัดการโปรไฟล์ร้าน สิทธิ์การเข้าถึง พนักงาน และการตั้งค่าอื่น ๆ",
             icon: <SettingOutlined style={{ fontSize: 48, color: '#52c41a' }} />,
-            path: "/users", // Assuming this path exists from previous context
+            path: "/users",
             color: "linear-gradient(135deg, #f6ffed 0%, #ffffff 100%)",
             borderColor: "#b7eb8f",
-            enabled: true
-        }
+            enabled: true,
+        },
     ];
 
     return (
-        <div style={{ 
-            minHeight: "100vh", 
-            background: "#f0f2f5", 
-            padding: "40px 24px",
-            display: "flex",
-            flexDirection: "column",
-            alignItems: "center"
-        }}>
+        <div
+            style={{
+                minHeight: "100vh",
+                background: "#f0f2f5",
+                padding: "40px 24px",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+            }}
+        >
             <div style={{ maxWidth: 1200, width: "100%" }}>
                 <div style={{ textAlign: "center", marginBottom: 60 }}>
                     <Title level={1} style={{ color: "#001529", marginBottom: 16 }}>
-                        ยินดีต้อนรับสู่ระบบจัดการร้าน
+                        แพลตฟอร์ม POS + สต๊อกครบวงจร
                     </Title>
                     <Text type="secondary" style={{ fontSize: 18 }}>
-                        กรุณาเลือกเมนูที่ต้องการใช้งาน
+                        บริหารงานขาย หน้าร้าน สต๊อก และทีมงาน ได้ในที่เดียวแบบเรียลไทม์
                     </Text>
                 </div>
 
@@ -69,14 +66,14 @@ export default function LandingPage() {
                         <Col xs={24} sm={12} md={8} key={index}>
                             <Card
                                 hoverable={module.enabled}
-                                style={{ 
-                                    height: "100%", 
+                                style={{
+                                    height: "100%",
                                     borderRadius: 16,
                                     border: `1px solid ${module.enabled ? module.borderColor : '#f0f0f0'}`,
                                     background: module.color,
                                     opacity: module.enabled ? 1 : 0.7,
                                     cursor: module.enabled ? "pointer" : "not-allowed",
-                                    transition: "all 0.3s ease"
+                                    transition: "all 0.3s ease",
                                 }}
                                 styles={{ body: { padding: 32 } }}
                                 onClick={() => {
@@ -85,39 +82,43 @@ export default function LandingPage() {
                                     }
                                 }}
                             >
-                                <div style={{ 
-                                    display: "flex", 
-                                    flexDirection: "column", 
-                                    alignItems: "center", 
-                                    textAlign: "center",
-                                    gap: 24
-                                }}>
-                                    <div style={{
-                                        padding: 24,
-                                        borderRadius: "50%",
-                                        background: "white",
-                                        boxShadow: "0 8px 16px rgba(0,0,0,0.05)"
-                                    }}>
+                                <div
+                                    style={{
+                                        display: "flex",
+                                        flexDirection: "column",
+                                        alignItems: "center",
+                                        textAlign: "center",
+                                        gap: 24,
+                                    }}
+                                >
+                                    <div
+                                        style={{
+                                            padding: 24,
+                                            borderRadius: "50%",
+                                            background: "white",
+                                            boxShadow: "0 8px 16px rgba(0,0,0,0.05)",
+                                        }}
+                                    >
                                         {module.icon}
                                     </div>
                                     <div>
                                         <Title level={4} style={{ marginBottom: 8 }}>
                                             {module.title}
                                         </Title>
-                                        <Text type="secondary">
-                                            {module.description}
-                                        </Text>
+                                        <Text type="secondary">{module.description}</Text>
                                     </div>
                                     {module.enabled && (
-                                        <div style={{ 
-                                            marginTop: 8, 
-                                            color: "#1890ff", 
-                                            fontWeight: 600,
-                                            display: "flex",
-                                            alignItems: "center",
-                                            gap: 8
-                                        }}>
-                                            เข้าสู่ระบบ <ArrowRightOutlined />
+                                        <div
+                                            style={{
+                                                marginTop: 8,
+                                                color: "#1890ff",
+                                                fontWeight: 600,
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: 8,
+                                            }}
+                                        >
+                                            เข้าใช้งาน <ArrowRightOutlined />
                                         </div>
                                     )}
                                 </div>

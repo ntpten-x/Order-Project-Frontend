@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { message } from "antd";
 import { ShoppingOutlined } from "@ant-design/icons";
 import { useCart } from "../../contexts/pos/CartContext";
-import { ordersService } from "../../services/pos/orders.service";
 import { authService } from "../../services/auth.service";
+import { ordersService } from "../../services/pos/orders.service";
 import POSPageLayout from "./shared/POSPageLayout";
 
 interface POSTakeAwayProps {
@@ -64,38 +64,34 @@ export default function POSTakeAway({ queueNumber }: POSTakeAwayProps) {
                 delivery_id: null,
                 delivery_code: null,
                 
-                items: cartItems.map(item => ({
-                    product_id: item.product.id,
-                    quantity: item.quantity,
-                    price: Number(item.product.price),
-                    total_price: Number(item.product.price) * item.quantity,
-                    discount_amount: 0, 
-                    notes: item.notes || ""
-                }))
+                items: cartItems.map(item => {
+                    const productPrice = Number(item.product.price);
+                    const detailsPrice = (item.details || []).reduce((sum, d) => sum + Number(d.extra_price), 0);
+                    const totalPrice = (productPrice + detailsPrice) * item.quantity;
+
+                    return {
+                        product_id: item.product.id,
+                        quantity: item.quantity,
+                        price: productPrice,
+                        total_price: totalPrice,
+                        discount_amount: 0, 
+                        notes: item.notes || "",
+                        details: item.details || []
+                    };
+                })
             };
             
-            const response = await fetch('/api/pos/orders', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken
-                },
-                body: JSON.stringify(orderPayload)
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || errorData.message || "Failed to create order");
-            }
             
+            await ordersService.create(orderPayload as any, undefined, csrfToken);
+
             message.success("สร้างออเดอร์เรียบร้อยแล้ว");
             
             clearCart();
             router.push('/pos/orders');
             
-        } catch (error: any) {
+        } catch (error) {
             console.error(error);
-            message.error(error.message || "ไม่สามารถทำรายการได้");
+            message.error(error instanceof Error ? error.message : "ไม่สามารถทำรายการได้");
             throw error;
         }
     };

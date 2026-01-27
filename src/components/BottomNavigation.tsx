@@ -10,6 +10,7 @@ import {
 } from "@ant-design/icons";
 import { useAuth } from "../contexts/AuthContext";
 import { useSocket } from "../hooks/useSocket";
+import { ordersService } from "../services/stock/orders.service";
 import { useState, useEffect } from "react";
 
 const BottomNavigation = () => {
@@ -21,11 +22,12 @@ const BottomNavigation = () => {
 
   const checkPendingOrders = React.useCallback(async () => {
     try {
-        const res = await fetch(`/api/stock/orders?status=pending&t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
-            const data = await res.json();
-            setPendingCount(data.length);
-        }
+        const searchParams = new URLSearchParams();
+        searchParams.append("status", "pending");
+        searchParams.append("t", Date.now().toString());
+
+        const response = await ordersService.getAllOrders(undefined, searchParams);
+        setPendingCount(response.total);
     } catch {
         // Silent fail
     }

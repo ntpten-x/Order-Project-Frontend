@@ -21,6 +21,7 @@ import AntdRegistry from "../lib/AntdRegistry";
 import { SocketProvider } from "../contexts/SocketContext";
 import { AuthProvider } from "../contexts/AuthContext";
 import { GlobalLoadingProvider } from "../contexts/GlobalLoadingContext";
+import QueryProvider from "../providers/QueryProvider";
 import AppHeader from "../components/AppHeader";
 import ClientLayout from "../components/ClientLayout";
 
@@ -36,12 +37,14 @@ export default function RootLayout({
       >
         <AntdRegistry>
           <GlobalLoadingProvider>
-            <AuthProvider>
-              <SocketProvider>
-                <AppHeader />
-                <ClientLayout>{children}</ClientLayout>
-              </SocketProvider>
-            </AuthProvider>
+            <QueryProvider>
+              <AuthProvider>
+                <SocketProvider>
+                  <AppHeader />
+                  <ClientLayout>{children}</ClientLayout>
+                </SocketProvider>
+              </AuthProvider>
+            </QueryProvider>
           </GlobalLoadingProvider>
         </AntdRegistry>
       </body>

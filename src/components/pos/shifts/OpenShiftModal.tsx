@@ -18,7 +18,7 @@ export default function OpenShiftModal() {
         setSubmitting(true);
         try {
             await openShift(values.startAmount);
-        } catch (error) {
+        } catch {
             // Error handled in context
         } finally {
             setSubmitting(false);

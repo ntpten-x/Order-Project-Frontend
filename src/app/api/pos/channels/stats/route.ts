@@ -6,9 +6,9 @@ export async function GET(request: NextRequest) {
         const cookie = request.headers.get("cookie") || "";
         const stats = await ordersService.getStats(cookie);
         return NextResponse.json(stats);
-    } catch (error: any) {
+    } catch (error) {
         return NextResponse.json(
-            { error: error.message || "Failed to fetch channel stats" },
+            { error: error instanceof Error ? error.message : "Failed to fetch channel stats" },
             { status: 500 }
         );
     }

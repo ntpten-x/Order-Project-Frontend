@@ -14,8 +14,9 @@ import { useTables } from "../../../../../hooks/pos/useTables";
 import {
   dineInStyles,
   tableColors,
-  DineInStyles,
+  DineInStyles
 } from "./style";
+import { getTableNavigationPath } from "@/utils/orders";
 import {
   getTableStats,
   sortTables,
@@ -124,7 +125,8 @@ export default function DineInTableSelectionPage() {
                       }}
                       onClick={() => {
                         if (!isInactive) {
-                          router.push(`/pos/channels/dine-in/${table.id}`);
+                          const link = getTableNavigationPath(table);
+                          router.push(link);
                         }
                       }}
                     >
@@ -136,74 +138,81 @@ export default function DineInTableSelectionPage() {
                         }}
                       />
 
-                      {/* Card Content */}
-                      <div style={dineInStyles.tableCardInner}>
-                        {/* Icon */}
-                        {isInactive ? (
-                          <StopOutlined
-                            className="dine-in-table-icon-mobile"
-                            style={{
-                              ...dineInStyles.tableIcon,
-                              color: colors.primary,
-                            }}
-                          />
-                        ) : isAvailable ? (
-                          <CheckCircleOutlined
-                            className="dine-in-table-icon-mobile"
-                            style={{
-                              ...dineInStyles.tableIcon,
-                              color: colors.primary,
-                            }}
-                          />
-                        ) : (
-                          <CloseCircleOutlined
-                            className="pulse-soft dine-in-table-icon-mobile"
-                            style={{
-                              ...dineInStyles.tableIcon,
-                              color: colors.primary,
-                            }}
-                          />
-                        )}
+                        {/* Card Content */}
+                        <div style={dineInStyles.tableCardInner}>
+                          {/* Icon logic based on specific status */}
+                          {isInactive ? (
+                            <StopOutlined
+                              className="dine-in-table-icon-mobile"
+                              style={{
+                                ...dineInStyles.tableIcon,
+                                color: colors.primary,
+                              }}
+                            />
+                          ) : isAvailable ? (
+                            <ShopOutlined
+                              className="dine-in-table-icon-mobile"
+                              style={{
+                                ...dineInStyles.tableIcon,
+                                color: colors.primary,
+                                opacity: 0.6
+                              }}
+                            />
+                          ) : (
+                            <CloseCircleOutlined
+                              className="pulse-soft dine-in-table-icon-mobile"
+                              style={{
+                                ...dineInStyles.tableIcon,
+                                color: colors.primary,
+                              }}
+                            />
+                          )}
 
-                        {/* Table Name */}
-                        <div style={dineInStyles.tableName} className="dine-in-table-name-mobile">
-                          {table.table_name}
-                        </div>
-
-                        {/* Status Badge - Container to ensure new line */}
-                        <div style={{ marginTop: 8 }}>
-                          <div
-                            style={{
-                              ...dineInStyles.statusBadge,
-                              background: colors.primary,
-                              color: "#fff",
-                            }}
-                          >
-                            {isInactive
-                              ? "ปิดใช้งาน"
-                              : isAvailable
-                              ? "ว่าง"
-                              : "ไม่ว่าง"}
+                          {/* Table Name */}
+                          <div style={dineInStyles.tableName} className="dine-in-table-name-mobile">
+                            {table.table_name}
                           </div>
-                        </div>
 
-                        {/* Order Status Tag */}
-                        {!isInactive &&
-                          !isAvailable &&
-                          table.active_order_status && (
-                            <div style={{ marginTop: 8 }}>
+                          {/* Two-Tier Status Display */}
+                          <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
+                            {/* Tier 1: Availability indicator */}
+                            {!isInactive && (
                               <div
                                 style={{
-                                  ...dineInStyles.orderStatusTag,
-                                  background: "rgba(0,0,0,0.05)",
-                                  color: "#595959",
+                                  fontSize: 12,
+                                  fontWeight: 700,
+                                  color: isAvailable ? "#52c41a" : "#ff4d4f",
+                                  textTransform: 'uppercase',
+                                  letterSpacing: '0.5px'
                                 }}
                               >
-                                {formatOrderStatus(table.active_order_status)}
+                                {isAvailable ? "ว่าง" : "ไม่ว่าง"}
                               </div>
+                            )}
+
+                            {/* Tier 2: Specific order status badge */}
+                            <div
+                              style={{
+                                ...dineInStyles.statusBadge,
+                                background: isInactive ? "#bfbfbf" : isAvailable ? "#f0f0f0" : colors.primary,
+                                color: isInactive ? "#fff" : isAvailable ? "#8c8c8c" : "#fff",
+                                border: isAvailable ? "1px solid #d9d9d9" : "none",
+                                fontSize: 11,
+                                padding: '2px 10px',
+                                height: 'auto',
+                                lineHeight: '1.4'
+                              }}
+                            >
+                              {isInactive
+                                ? "ปิดใช้งาน"
+                                : isAvailable
+                                ? "รอรับออเดอร์"
+                                : table.active_order_status 
+                                  ? formatOrderStatus(table.active_order_status)
+                                  : "ไม่ว่าง"}
                             </div>
-                          )}
-                      </div>
+                          </div>
+                        </div>
                     </div>
                   </Col>
                 );

@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { createContext, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { useAuth } from "../AuthContext";
 import { shiftsService } from "../../services/pos/shifts.service";
 import { Shift } from "../../types/api/pos/shifts";
@@ -23,7 +23,7 @@ export const ShiftProvider = ({ children }: { children: React.ReactNode }) => {
     const [currentShift, setCurrentShift] = useState<Shift | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
 
-    const refreshShift = async () => {
+    const refreshShift = useCallback(async () => {
         if (!user) return;
         try {
             const shift = await shiftsService.getCurrentShift(user.id);
@@ -34,11 +34,11 @@ export const ShiftProvider = ({ children }: { children: React.ReactNode }) => {
         } finally {
             setLoading(false);
         }
-    };
+    }, [user]);
 
     useEffect(() => {
         refreshShift();
-    }, [user]);
+    }, [refreshShift]);
 
     const openShift = async (startAmount: number) => {
         if (!user) return;
@@ -47,8 +47,8 @@ export const ShiftProvider = ({ children }: { children: React.ReactNode }) => {
             const newShift = await shiftsService.openShift(user.id, startAmount, undefined, csrfToken);
             setCurrentShift(newShift);
             message.success("เปิดกะเรียบร้อยแล้ว");
-        } catch (error: any) {
-            message.error(error.message || "เปิดกะไม่สำเร็จ");
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : "เปิดกะไม่สำเร็จ");
             throw error;
         }
     };
@@ -57,13 +57,13 @@ export const ShiftProvider = ({ children }: { children: React.ReactNode }) => {
         if (!user) return;
         try {
             const csrfToken = await authService.getCsrfToken();
-            const closedShift = await shiftsService.closeShift(user.id, endAmount, undefined, csrfToken);
+            await shiftsService.closeShift(user.id, endAmount, undefined, csrfToken);
             setCurrentShift(null); // Clear current shift or update to closed status?
             // If closed, we likely want to force user to open new shift or leave POS.
             // Setting null triggers OpenShiftModal again.
             message.success("ปิดกะเรียบร้อยแล้ว");
-        } catch (error: any) {
-            message.error(error.message || "ปิดกะไม่สำเร็จ");
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : "ปิดกะไม่สำเร็จ");
             throw error;
         }
     };

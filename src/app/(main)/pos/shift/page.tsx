@@ -1,11 +1,11 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Typography, Card, Button, Row, Col, InputNumber, Statistic, Tag, Modal, Spin, message, Divider, Timeline, Result } from "antd";
-import { ClockCircleOutlined, DollarCircleOutlined, CheckCircleOutlined, ExclamationCircleOutlined, PlayCircleOutlined, StopOutlined, ArrowLeftOutlined, WalletOutlined, RiseOutlined, FallOutlined } from "@ant-design/icons";
+import React, { useCallback, useEffect, useState } from "react";
+import { Typography, Card, Button, Row, Col, InputNumber, Statistic, Tag, Modal, Spin, message, Divider, Result } from "antd";
+import { ClockCircleOutlined, DollarCircleOutlined, CheckCircleOutlined, PlayCircleOutlined, StopOutlined, ArrowLeftOutlined, WalletOutlined, RiseOutlined, FallOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { shiftsService } from "../../../../services/pos/shifts.service";
-import { Shift, ShiftStatus } from "../../../../types/api/pos/shifts";
+import { Shift } from "../../../../types/api/pos/shifts";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import duration from 'dayjs/plugin/duration';
@@ -44,11 +44,7 @@ export default function ShiftPage() {
     const [closeModalVisible, setCloseModalVisible] = useState(false);
     const [processing, setProcessing] = useState(false);
 
-    useEffect(() => {
-        fetchCurrentShift();
-    }, []);
-
-    const fetchCurrentShift = async () => {
+    const fetchCurrentShift = useCallback(async () => {
         setIsLoading(true);
         try {
             const shift = await shiftsService.getCurrentShift();
@@ -58,7 +54,11 @@ export default function ShiftPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchCurrentShift();
+    }, [fetchCurrentShift]);
 
     const handleOpenShift = async () => {
         if (startAmount < 0) {
@@ -73,8 +73,9 @@ export default function ShiftPage() {
             setOpenModalVisible(false);
             setStartAmount(0);
             message.success("เปิดกะสำเร็จ!");
-        } catch (error: any) {
-            message.error(error.message || "ไม่สามารถเปิดกะได้");
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "ไม่สามารถเปิดกะได้";
+            message.error(errorMessage);
         } finally {
             setProcessing(false);
         }
@@ -126,8 +127,9 @@ export default function ShiftPage() {
                     </div>
                 ),
             });
-        } catch (error: any) {
-            message.error(error.message || "ไม่สามารถปิดกะได้");
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "ไม่สามารถปิดกะได้";
+            message.error(errorMessage);
         } finally {
             setProcessing(false);
         }

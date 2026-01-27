@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Modal, InputNumber, Button, Typography, Form, Descriptions } from 'antd';
 import { useShift } from '../../../contexts/pos/ShiftContext';
-import { DollarOutlined, CalculatorOutlined } from '@ant-design/icons';
+import { DollarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 
 const { Title, Text } = Typography;
@@ -23,7 +23,7 @@ export default function CloseShiftModal({ open, onCancel }: CloseShiftModalProps
             await closeShift(values.endAmount);
             onCancel();
             form.resetFields();
-        } catch (error) {
+        } catch {
             // Error handled in context
         } finally {
             setSubmitting(false);

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState, useContext, useMemo } from "react";
+import React, { useEffect, useState, useContext, useMemo, useCallback } from "react";
 import { Typography, Card, Button, Row, Col, Tag, Badge, Empty, Spin, Switch, message, Space, Tooltip } from "antd";
 import { CheckOutlined, ClockCircleOutlined, FireOutlined, SoundOutlined, ReloadOutlined, AppstoreOutlined } from "@ant-design/icons";
 import { SocketContext } from "../../../../contexts/SocketContext";
@@ -67,7 +67,7 @@ export default function KitchenDisplayPage() {
     const [filterStatus, setFilterStatus] = useState<ItemStatus | 'all'>('all');
 
     // Group items by order
-    const groupedOrders = useMemo((): GroupedOrder[] => {
+const groupedOrders = useMemo((): GroupedOrder[] => {
         const grouped: Record<string, GroupedOrder> = {};
         
         const filteredItems = filterStatus === 'all' 
@@ -95,7 +95,7 @@ export default function KitchenDisplayPage() {
         );
     }, [allItems, filterStatus]);
 
-    const fetchItems = async () => {
+    const fetchItems = useCallback(async () => {
         setIsLoading(true);
         try {
             // Fetch Pending and Cooking items
@@ -106,17 +106,17 @@ export default function KitchenDisplayPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchItems();
-    }, []);
+    }, [fetchItems]);
 
     // Socket listeners for real-time updates
     useEffect(() => {
         if (!socket) return;
 
-        const handleOrderUpdate = (data: any) => {
+        const handleOrderUpdate = (data: { action?: string }) => {
             console.log("Order update received:", data);
             fetchItems();
             if (soundEnabled && data.action === 'new_order') {
@@ -124,14 +124,15 @@ export default function KitchenDisplayPage() {
             }
         };
 
-        const handleItemUpdate = (data: any) => {
+        const handleItemUpdate = (data: { item?: SalesOrderItem }) => {
             console.log("Item update received:", data);
             if (data.item) {
+                const item = data.item; // Capture for type narrowing
                 setAllItems(prev => {
-                    const index = prev.findIndex(i => i.id === data.item.id);
+                    const index = prev.findIndex(i => i.id === item.id);
                     if (index >= 0) {
                         const updated = [...prev];
-                        updated[index] = data.item;
+                        updated[index] = item;
                         return updated;
                     }
                     return prev;
@@ -150,7 +151,7 @@ export default function KitchenDisplayPage() {
             socket.off('order:updated', handleOrderUpdate);
             socket.off('item:updated', handleItemUpdate);
         };
-    }, [socket, soundEnabled]);
+    }, [socket, soundEnabled, fetchItems]);
 
     const playNotificationSound = () => {
         try {
@@ -168,7 +169,7 @@ export default function KitchenDisplayPage() {
                 )
             );
             message.success("อัปเดตสถานะสำเร็จ");
-        } catch (error) {
+        } catch {
             message.error("ไม่สามารถอัปเดตสถานะได้");
         }
     };

@@ -1,15 +1,9 @@
-"use client";
+﻿"use client";
 
 import React from "react";
 import { Layout, Avatar, Dropdown, Typography, Badge, Space } from "antd";
 import type { MenuProps } from 'antd';
-import { 
-  UserOutlined, 
-  LogoutOutlined, 
-  SettingOutlined,
-  ShoppingOutlined,
-  DownOutlined
-} from "@ant-design/icons";
+import { UserOutlined, LogoutOutlined, SettingOutlined, ShoppingOutlined, DownOutlined } from "@ant-design/icons";
 import { useAuth } from "../contexts/AuthContext";
 import { usePathname } from "next/navigation";
 
@@ -20,32 +14,31 @@ const AppHeader: React.FC = () => {
   const { user, logout } = useAuth();
   const pathname = usePathname();
 
-  // ซ่อน header ถ้ายังไม่ได้ login หรืออยู่หน้า login
+  // ซ่อน header บนหน้า login
   if (!user || pathname === "/login") {
     return null;
   }
 
-  // Dropdown menu items
   const menuItems: MenuProps['items'] = [
     {
       key: 'profile',
       label: (
         <div style={{ padding: '12px 8px', minWidth: '240px' }}>
           <Space align="center" size={16}>
-            <Avatar 
-              size={56} 
-              icon={<UserOutlined />} 
-              style={{ 
+            <Avatar
+              size={56}
+              icon={<UserOutlined />}
+              style={{
                 background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                 boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
-              }} 
+              }}
             />
             <div>
               <Text strong style={{ fontSize: '16px', display: 'block', marginBottom: '2px' }}>
                 {user?.username || "Guest"}
               </Text>
               <Text type="secondary" style={{ fontSize: '13px' }}>
-                {user?.display_name || "No Role"}
+                {user?.display_name || "ไม่ได้กำหนดสิทธิ์"}
               </Text>
             </div>
           </Space>
@@ -59,7 +52,7 @@ const AppHeader: React.FC = () => {
     {
       key: 'settings',
       icon: <SettingOutlined />,
-      label: 'ตั้งค่าบัญชี',
+      label: 'การตั้งค่า',
       style: { padding: '10px 16px' },
     },
     {
@@ -92,9 +85,8 @@ const AppHeader: React.FC = () => {
         borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
       }}
     >
-      {/* Left Side: Logo & App Name */}
       <Space size={12} align="center">
-        <div 
+        <div
           style={{
             width: '40px',
             height: '40px',
@@ -120,11 +112,11 @@ const AppHeader: React.FC = () => {
         >
           <ShoppingOutlined style={{ fontSize: '20px', color: '#fff' }} />
         </div>
-        <Text 
-          strong 
+        <Text
+          strong
           className="app-title"
-          style={{ 
-            fontSize: '20px', 
+          style={{
+            fontSize: '20px',
             color: '#fff',
             margin: 0,
             fontWeight: 700,
@@ -136,14 +128,9 @@ const AppHeader: React.FC = () => {
         </Text>
       </Space>
 
-      {/* Right Side: User Profile */}
       {user && (
-        <Dropdown 
-          menu={{ items: menuItems }} 
-          trigger={['click']}
-          placement="bottomRight"
-        >
-          <div 
+        <Dropdown menu={{ items: menuItems }} trigger={['click']} placement="bottomRight">
+          <div
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -169,8 +156,8 @@ const AppHeader: React.FC = () => {
               e.currentTarget.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.1)';
             }}
           >
-            <Badge 
-              dot 
+            <Badge
+              dot
               status="success"
               offset={[-5, 38]}
               styles={{
@@ -178,7 +165,7 @@ const AppHeader: React.FC = () => {
                   width: '12px',
                   height: '12px',
                   boxShadow: '0 0 0 2px rgba(255, 255, 255, 0.5)',
-                }
+                },
               }}
             >
               <Avatar
@@ -191,12 +178,12 @@ const AppHeader: React.FC = () => {
                 }}
               />
             </Badge>
-            <DownOutlined 
-              style={{ 
-                fontSize: '10px', 
+            <DownOutlined
+              style={{
+                fontSize: '10px',
                 color: '#fff',
                 transition: 'transform 0.3s ease',
-              }} 
+              }}
             />
           </div>
         </Dropdown>

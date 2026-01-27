@@ -1,8 +1,10 @@
 import { SalesOrder, CreateSalesOrderDTO, CreateOrderItemDTO } from "../../types/api/pos/salesOrder";
 import { getProxyUrl } from "../../lib/proxy-utils";
 import { SalesOrderItem } from "../../types/api/pos/salesOrderItem";
+import { API_ROUTES } from "../../config/api";
+import { OrdersResponseSchema, SalesOrderSchema } from "../../schemas/api/pos/orders.schema";
 
-const BASE_PATH = "/pos/orders";
+const BASE_PATH = API_ROUTES.POS.ORDERS;
 
 const getHeaders = (cookie?: string, contentType: string = "application/json"): HeadersInit => {
     const headers: Record<string, string> = {};
@@ -27,11 +29,22 @@ export const ordersService = {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลออเดอร์ได้");
         }
-        return response.json();
+
+        const json = await response.json();
+        console.log("Raw Orders JSON:", JSON.stringify(json).substring(0, 500) + "...");
+        try {
+            return OrdersResponseSchema.parse(json) as unknown as { data: SalesOrder[], total: number, page: number, last_page: number };
+        } catch (error) {
+            console.error("Zod Validation Error in ordersService.getAll:", error);
+            if (error instanceof Error) {
+                console.error("Zod Issues:", (error as any).issues);
+            }
+            throw error;
+        }
     },
 
     getStats: async (cookie?: string): Promise<{ dineIn: number, takeaway: number, delivery: number, total: number }> => {
-        const url = getProxyUrl("GET", `${BASE_PATH}/stats`);
+        const url = getProxyUrl("GET", API_ROUTES.POS.CHANNELS.STATS);
         const headers = getHeaders(cookie, "");
 
         const response = await fetch(url!, {
@@ -40,10 +53,14 @@ export const ordersService = {
             credentials: "include"
         });
         if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
+            const errorText = await response.text();
+            console.error("Order Stats Backend Error:", errorText);
+            const errorData = await JSON.parse(errorText).catch(() => ({}));
             throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลสถิติได้");
         }
-        return response.json();
+        const json = await response.json();
+        console.log("Raw Stats JSON:", json);
+        return json;
     },
 
 
@@ -60,7 +77,18 @@ export const ordersService = {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลออเดอร์ได้");
         }
-        return response.json();
+
+        const json = await response.json();
+        console.log("Raw Order By ID JSON:", JSON.stringify(json).substring(0, 500) + "...");
+        try {
+            return SalesOrderSchema.parse(json) as unknown as SalesOrder;
+        } catch (error) {
+            console.error("Zod Validation Error in ordersService.getById:", error);
+            if (error instanceof Error) {
+                console.error("Zod Issues:", (error as any).issues);
+            }
+            throw error;
+        }
     },
 
     create: async (data: CreateSalesOrderDTO, cookie?: string, csrfToken?: string): Promise<SalesOrder> => {
@@ -167,7 +195,7 @@ export const ordersService = {
         return response.json();
     },
 
-    updateItem: async (itemId: string, data: { quantity?: number, notes?: string }, cookie?: string, csrfToken?: string): Promise<SalesOrder> => {
+    updateItem: async (itemId: string, data: { quantity?: number, notes?: string, details?: any[] }, cookie?: string, csrfToken?: string): Promise<SalesOrder> => {
         const url = getProxyUrl("PUT", `${BASE_PATH}/items/${itemId}`);
         const headers = getHeaders(cookie) as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;

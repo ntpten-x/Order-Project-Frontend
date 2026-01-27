@@ -13,9 +13,9 @@ export async function GET(request: NextRequest, { params }: Params) {
         const cookie = request.headers.get("cookie") || "";
         const table = await tablesService.getById(params.id, cookie);
         return NextResponse.json(table);
-    } catch (error: any) {
+    } catch (error) {
         return NextResponse.json(
-            { error: error.message || "Failed to fetch table" },
+            { error: error instanceof Error ? error.message : "Failed to fetch table" },
             { status: 500 }
         );
     }
@@ -30,9 +30,9 @@ export async function PUT(request: NextRequest, { params }: Params) {
 
         const updatedTable = await tablesService.update(params.id, body, cookie, csrfToken);
         return NextResponse.json(updatedTable);
-    } catch (error: any) {
+    } catch (error) {
         return NextResponse.json(
-            { error: error.message || "Failed to update table" },
+            { error: error instanceof Error ? error.message : "Failed to update table" },
             { status: 500 }
         );
     }
@@ -46,9 +46,9 @@ export async function DELETE(request: NextRequest, { params }: Params) {
 
         await tablesService.delete(params.id, cookie, csrfToken);
         return NextResponse.json({ success: true });
-    } catch (error: any) {
+    } catch (error) {
         return NextResponse.json(
-            { error: error.message || "Failed to delete table" },
+            { error: error instanceof Error ? error.message : "Failed to delete table" },
             { status: 500 }
         );
     }

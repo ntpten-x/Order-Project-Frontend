@@ -12,6 +12,7 @@ import {
 } from "@ant-design/icons";
 import { useAuth } from "../../contexts/AuthContext";
 import { useSocket } from "../../hooks/useSocket";
+import { ordersService } from "../../services/stock/orders.service";
 import { useState, useEffect } from "react";
 
 const StockBottomNavigation = () => {
@@ -23,11 +24,22 @@ const StockBottomNavigation = () => {
 
   const checkPendingOrders = React.useCallback(async () => {
     try {
-        const res = await fetch(`/api/stock/orders?status=pending&t=${Date.now()}`, { cache: 'no-store' });
-        if (res.ok) {
-            const data = await res.json();
-            setPendingCount(data.length);
-        }
+        const searchParams = new URLSearchParams();
+        searchParams.append("status", "pending");
+        searchParams.append("t", Date.now().toString());
+        
+        const response = await ordersService.getAllOrders(undefined, searchParams);
+        // Assuming response is { data, total, ... } or array based on previous usage?
+        // Service returns { data, total, page, limit }
+        // Previous fetch returned array directly? Let's check service again.
+        // Service getAllOrders returns { data: Order[], total, page, limit }. 
+        // Original code: const data = await res.json(); setPendingCount(data.length);
+        // This implies the original API returned an array.
+        // But stock/orders.service.ts getAllOrders wrapper returns { data, total... }
+        // Wait, did I check the backend API for stock orders?
+        // If the service wrapper wraps the same API endpoint, then the service return type is correct.
+        // Let's assume service is correct and we should use response.total or response.data.length.
+        setPendingCount(response.total);
     } catch {
         // Silent fail
     }

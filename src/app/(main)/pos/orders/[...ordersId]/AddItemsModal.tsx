@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { Modal, Button, Input, message, InputNumber, Row, Col, Typography, Card, Space, Spin, Divider, Badge, Empty } from 'antd';
+import React, { useCallback, useEffect, useState } from 'react';
+import { Modal, Button, Input, message, InputNumber, Typography, Spin, Divider, Empty } from 'antd';
 import { 
     SearchOutlined, 
     PlusOutlined, 
@@ -7,9 +7,9 @@ import {
     ArrowLeftOutlined, 
     ShoppingCartOutlined, 
     CloseOutlined,
-    MinusOutlined,
-    InfoCircleOutlined
+    MinusOutlined
 } from '@ant-design/icons';
+import Image from 'next/image';
 import { categoryService } from '@/services/pos/category.service';
 import { productsService } from '@/services/pos/products.service';
 import { Category } from '@/types/api/pos/category';
@@ -19,10 +19,21 @@ import { addItemsModalStyles, orderDetailColors, modalStyles, orderDetailRespons
 
 const { Text, Title } = Typography;
 
+type ItemDetailInput = {
+    detail_name: string;
+    extra_price: number;
+};
+
+type DetailFormItem = {
+    id: number;
+    name: string;
+    price: number;
+};
+
 interface AddItemsModalProps {
     isOpen: boolean;
     onClose: () => void;
-    onAddItem: (product: Products, quantity: number, notes: string, details: any[]) => Promise<void>;
+    onAddItem: (product: Products, quantity: number, notes: string, details: ItemDetailInput[]) => Promise<void>;
 }
 
 export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, onAddItem }) => {
@@ -37,17 +48,10 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
     const [selectedProduct, setSelectedProduct] = useState<Products | null>(null);
     const [quantity, setQuantity] = useState(1);
     const [notes, setNotes] = useState('');
-    const [details, setDetails] = useState<{ id: number, name: string, price: number }[]>([]);
+    const [details, setDetails] = useState<DetailFormItem[]>([]);
     const [adding, setAdding] = useState(false);
 
-    useEffect(() => {
-        if (isOpen) {
-            fetchInitialData();
-            resetForm();
-        }
-    }, [isOpen]);
-
-    const fetchInitialData = async () => {
+    const fetchInitialData = useCallback(async () => {
         try {
             setLoading(true);
             const [productsRes, categoriesRes] = await Promise.all([
@@ -57,20 +61,27 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
             setProducts(productsRes.data);
             setFilteredProducts(productsRes.data);
             setCategories(categoriesRes);
-        } catch (error) {
+        } catch {
             message.error("ไม่สามารถโหลดข้อมูลได้");
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
-    const resetForm = () => {
+    const resetForm = useCallback(() => {
         setQuantity(1);
         setNotes('');
         setDetails([]);
         setSelectedProduct(null);
         setSearchText('');
-    };
+    }, []);
+
+    useEffect(() => {
+        if (isOpen) {
+            fetchInitialData();
+            resetForm();
+        }
+    }, [fetchInitialData, isOpen, resetForm]);
 
     const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
         const value = e.target.value;
@@ -107,15 +118,22 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
     };
 
     const addDetail = () => {
-        setDetails([...details, { id: Date.now(), name: '', price: 0 }]);
+        setDetails(prev => [...prev, { id: Date.now(), name: '', price: 0 }]);
     };
 
-    const updateDetail = (id: number, field: 'name' | 'price', value: any) => {
-        setDetails(details.map(d => d.id === id ? { ...d, [field]: value } : d));
+    const updateDetail = (id: number, field: 'name' | 'price', value: string | number) => {
+        setDetails(prev => prev.map(d => {
+            if (d.id !== id) return d;
+            if (field === 'price') {
+                const price = typeof value === 'number' ? value : Number(value) || 0;
+                return { ...d, price };
+            }
+            return { ...d, name: String(value) };
+        }));
     };
 
     const removeDetail = (id: number) => {
-        setDetails(details.filter(d => d.id !== id));
+        setDetails(prev => prev.filter(d => d.id !== id));
     };
 
     const handleConfirmAdd = async () => {
@@ -130,7 +148,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
             message.success("เพิ่มรายการเรียบร้อย");
             onClose();
             setSelectedProduct(null);
-        } catch (error) {
+        } catch {
             // Error handled by parent
         } finally {
             setAdding(false);
@@ -248,13 +266,19 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                         style={addItemsModalStyles.productCard}
                                         onClick={() => handleSelectProduct(item)}
                                     >
-                                        <div style={{ position: 'relative' }}>
+                                        <div style={{ position: 'relative', width: '100%', height: 120 }}>
                                             {item.img_url ? (
-                                                <img 
-                                                    alt={item.display_name} 
-                                                    src={item.img_url} 
-                                                    style={addItemsModalStyles.productImage} 
-                                                />
+                                                <>
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <Image 
+                                                        alt={item.display_name} 
+                                                        src={item.img_url} 
+                                                        fill
+                                                        style={{ objectFit: 'cover', borderRadius: '12px 12px 0 0' }}
+                                                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                                    />
+                                                </>
                                             ) : (
                                                 <div style={addItemsModalStyles.productPlaceholder}>
                                                     <ShoppingCartOutlined style={{ fontSize: 24, opacity: 0.3 }} />
@@ -285,11 +309,17 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                         {/* Product Large Info */}
                         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
                             {selectedProduct.img_url ? (
-                                <img 
-                                    src={selectedProduct.img_url} 
-                                    alt={selectedProduct.display_name}
-                                    style={{ width: 100, height: 100, objectFit: 'cover', borderRadius: 12, flexShrink: 0 }} 
-                                />
+                                <>
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <Image 
+                                        src={selectedProduct.img_url} 
+                                        alt={selectedProduct.display_name}
+                                        width={100}
+                                        height={100}
+                                        style={{ objectFit: 'cover', borderRadius: 12 }} 
+                                    />
+                                </>
                             ) : (
                                 <div style={{ width: 100, height: 100, background: orderDetailColors.backgroundSecondary, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                                     <ShoppingCartOutlined style={{ fontSize: 32, opacity: 0.2 }} />

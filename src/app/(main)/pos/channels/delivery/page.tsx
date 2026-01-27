@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
@@ -6,7 +6,7 @@ import { Typography, Row, Col, Card, Empty, Spin, Modal, Input, message } from "
 import { RocketOutlined, CarOutlined } from "@ant-design/icons";
 import { useDelivery } from "../../../../../hooks/pos/useDelivery";
 import { Delivery } from "../../../../../types/api/pos/delivery";
-import { pageStyles, colors } from "../../style"; 
+import { pageStyles } from "../../style"; 
 
 const { Title, Text } = Typography;
 
@@ -25,7 +25,7 @@ export default function DeliverySelectionPage() {
 
     const handleConfirm = () => {
         if (!deliveryCode.trim()) {
-            message.error("กรุณากรอกรหัสออเดอร์ (Delivery Code)");
+            message.error("กรุณากรอกรหัสออเดอร์");
             return;
         }
         if (selectedProvider) {
@@ -40,7 +40,7 @@ export default function DeliverySelectionPage() {
                     <div style={pageStyles.sectionTitle}>
                         <RocketOutlined style={{ fontSize: 28 }} />
                         <div>
-                            <Title level={3} style={{ margin: 0, color: '#fff' }}>เลือกบริการส่งอาหาร (Delivery)</Title>
+                            <Title level={3} style={{ margin: 0, color: '#fff' }}>เดลิเวอรี่ (Delivery)</Title>
                             <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14 }}>Select Delivery Provider</Text>
                         </div>
                     </div>
@@ -83,13 +83,13 @@ export default function DeliverySelectionPage() {
                     </Row>
                 ) : (
                     <div style={{ background: '#fff', borderRadius: 12, padding: 50, textAlign: 'center' }}>
-                        <Empty description="ไม่พบข้อมูลบริการส่ง" />
+                        <Empty description="ไม่พบข้อมูลเดลิเวอรี่" />
                     </div>
                 )}
             </div>
 
             <Modal
-                title={`กรอกรหัสออเดอร์ ${selectedProvider?.delivery_name || ''}`}
+                title={`เดลิเวอรี่ ${selectedProvider?.delivery_name || ''}`}
                 open={isModalOpen}
                 onOk={handleConfirm}
                 onCancel={() => setIsModalOpen(false)}
@@ -99,7 +99,7 @@ export default function DeliverySelectionPage() {
                 <div style={{ paddingTop: 12 }}>
                     <Text strong style={{ display: 'block', marginBottom: 8 }}>Delivery Code / Order ID</Text>
                     <Input 
-                        placeholder="เช่น GRB-123456" 
+                        placeholder="กรอกรหัสออเดอร์" 
                         value={deliveryCode}
                         onChange={(e) => setDeliveryCode(e.target.value)}
                         size="large"

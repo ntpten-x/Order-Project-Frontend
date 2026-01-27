@@ -1,7 +1,8 @@
 import { Discounts } from "../../types/api/pos/discounts";
 import { getProxyUrl } from "../../lib/proxy-utils";
+import { API_ROUTES } from "../../config/api";
 
-const BASE_PATH = "/pos/discounts";
+const BASE_PATH = API_ROUTES.POS.DISCOUNTS;
 
 const getHeaders = (cookie?: string, contentType: string = "application/json"): HeadersInit => {
     const headers: Record<string, string> = {};

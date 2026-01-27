@@ -1,16 +1,15 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter, useParams } from "next/navigation";
-import { Typography, Row, Col, Card, Tag, Button, Spin, Empty, Table, Divider, Statistic } from "antd";
-import { ArrowLeftOutlined, CheckCircleOutlined, ShopOutlined, ShoppingOutlined, RocketOutlined, UserOutlined } from "@ant-design/icons";
+import { useRouter } from "next/navigation";
+import { Typography, Row, Col, Card, Tag, Button, Spin, Empty, Divider } from "antd";
+import { CheckCircleOutlined, ShopOutlined, ShoppingOutlined, RocketOutlined, UserOutlined } from "@ant-design/icons";
 import { ordersService } from "../../../../services/pos/orders.service";
 import { SalesOrderItem } from "../../../../types/api/pos/salesOrderItem";
-import { OrderStatus, SalesOrder } from "../../../../types/api/pos/salesOrder";
+import { OrderStatus, OrderType, SalesOrder } from "../../../../types/api/pos/salesOrder";
 import { pageStyles, colors } from "../style";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
-import _ from 'lodash';
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -23,7 +22,6 @@ interface OrderGroup {
 
 export default function POSItemsPage() {
     const router = useRouter(); // Use App Router
-    const routerParams = useParams(); // Ensure imports are correct
     const [orderGroups, setOrderGroups] = useState<OrderGroup[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -57,20 +55,20 @@ export default function POSItemsPage() {
         }
     };
 
-    const getOrderTypeUserFriendly = (type?: string, table?: any) => {
+    const getOrderTypeUserFriendly = (type?: OrderType, table?: SalesOrder["table"]) => {
         switch (type) {
-            case 'DineIn': return `โต๊ะ ${table?.table_name || 'N/A'}`;
-            case 'TakeAway': return 'สั่งกลับบ้าน';
-            case 'Delivery': return 'เดลิเวอรี่';
+            case OrderType.DineIn: return `โต๊ะ ${table?.table_name || 'N/A'}`;
+            case OrderType.TakeAway: return 'สั่งกลับบ้าน';
+            case OrderType.Delivery: return 'เดลิเวอรี่';
             default: return type || 'N/A';
         }
     };
 
-    const getOrderIcon = (type?: string) => {
+    const getOrderIcon = (type?: OrderType) => {
         switch (type) {
-            case 'DineIn': return <ShopOutlined />;
-            case 'TakeAway': return <ShoppingOutlined />;
-            case 'Delivery': return <RocketOutlined />;
+            case OrderType.DineIn: return <ShopOutlined />;
+            case OrderType.TakeAway: return <ShoppingOutlined />;
+            case OrderType.Delivery: return <RocketOutlined />;
             default: return <ShopOutlined />;
         }
     };
@@ -136,11 +134,14 @@ export default function POSItemsPage() {
                                             <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, alignItems: 'center' }}>
                                                 <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                                                     {item.product?.img_url ? (
-                                                        <img 
-                                                            src={item.product.img_url} 
-                                                            alt={item.product.display_name} 
-                                                            style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover' }} 
-                                                        />
+                                                        <>
+                                                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                            <img 
+                                                                src={item.product.img_url} 
+                                                                alt={item.product.display_name} 
+                                                                style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover' }} 
+                                                            />
+                                                        </>
                                                     ) : (
                                                         <div style={{ width: 40, height: 40, borderRadius: 6, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                                             <ShopOutlined style={{ color: '#ccc' }} />
@@ -152,6 +153,7 @@ export default function POSItemsPage() {
                                                             <Tag style={{ margin: 0, padding: '0 4px' }}>x{item.quantity}</Tag>
                                                             <Text strong style={{ fontSize: 14 }}>{item.product?.display_name}</Text>
                                                         </div>
+                                                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 2 }}>฿{Number(item.price).toLocaleString()}</Text>
                                                         {item.notes && <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>* {item.notes}</Text>}
                                                     </div>
                                                 </div>

@@ -23,6 +23,7 @@ import {
 import { useCart } from "../../contexts/stock/CartContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { authService } from "../../services/auth.service";
+import { ordersService } from "../../services/stock/orders.service";
 import { useRouter } from "next/navigation";
 
 const { Text, Title } = Typography;
@@ -69,23 +70,11 @@ export default function CartDrawer() {
         quantity_ordered: item.quantity
       }));
 
-      const response = await fetch("/api/stock/orders", {
-          method: "POST",
-          headers: {
-              "Content-Type": "application/json",
-              "X-CSRF-Token": csrfToken
-          },
-          body: JSON.stringify({
-              ordered_by_id: user.id,
-              items: orderItems,
-              remark: "สั่งซื้อผ่านเว็บ"
-          })
-      });
-
-      if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.error || errorData.message || "การสั่งซื้อล้มเหลว");
-      }
+      await ordersService.createOrder({
+          ordered_by_id: user.id,
+          items: orderItems,
+          remark: "สั่งซื้อผ่านเว็บ"
+      }, undefined, csrfToken);
 
       message.success("🎉 สั่งออเดอร์สำเร็จ!");
       clearCart();

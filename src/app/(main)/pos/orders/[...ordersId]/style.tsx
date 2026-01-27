@@ -184,6 +184,52 @@ export const orderDetailStyles = {
     padding: '8px 0',
   } as CSSProperties,
 
+  summaryList: {
+    background: '#f8fafc',
+    padding: '12px',
+    borderRadius: '12px',
+    marginBottom: '16px',
+    border: '1px solid #e2e8f0',
+  } as CSSProperties,
+
+  summaryMainRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '12px 0',
+    marginTop: '4px',
+  } as CSSProperties,
+
+  summaryItemRow: {
+    display: 'flex',
+    flexDirection: 'row' as const,
+    gap: 12,
+    padding: '12px 0',
+    borderBottom: '1px dashed #e2e8f0',
+  } as CSSProperties,
+
+  summaryItemImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    objectFit: 'cover' as const,
+    flexShrink: 0,
+    border: '1px solid #f1f5f9',
+  } as CSSProperties,
+
+  summaryItemContent: {
+    flex: 1,
+    minWidth: 0,
+  } as CSSProperties,
+
+  summaryDetailText: {
+    fontSize: 12,
+    color: orderDetailColors.success, // Already green based on earlier thought? Wait, let me check. 
+    // success: '#10b981' in style.tsx.
+    marginTop: 2,
+    paddingLeft: 0,
+  } as CSSProperties,
+
   // Empty State
   emptyState: {
     textAlign: 'center' as const,
@@ -194,8 +240,12 @@ export const orderDetailStyles = {
 
   // Loading State
   loadingState: {
-    textAlign: 'center' as const,
-    padding: 60,
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '80vh', // Occupy most of the screen
+    width: '100%',
   } as CSSProperties,
 
   // Complete State Card
@@ -229,14 +279,14 @@ export const orderDetailStyles = {
   // Action Bar (Floating)
   floatingActions: {
     position: 'fixed' as const,
-    bottom: 85, 
+    bottom: 120, 
     left: '50%',
     transform: 'translateX(-50%)',
-    background: 'rgba(255, 255, 255, 0.95)',
+    background: 'rgba(255, 255, 255, 0.98)',
     backdropFilter: 'blur(10px)',
-    padding: '8px 10px',
+    padding: '10px 16px',
     borderRadius: '50px',
-    boxShadow: '0 10px 30px rgba(0,0,0,0.15)',
+    boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
     zIndex: 1000,
     display: 'flex',
     gap: 8,
@@ -351,6 +401,20 @@ export const orderDetailStyles = {
     fontSize: 13,
     color: orderDetailColors.primary,
     fontWeight: 600
+  } as CSSProperties,
+
+  masterCheckboxWrapper: {
+    display: 'inline-flex',
+    padding: '6px',
+    background: orderDetailColors.primaryLight,
+    borderRadius: '8px',
+    border: `1px solid ${orderDetailColors.primary}40`,
+    boxShadow: '0 2px 4px rgba(59, 130, 246, 0.1)',
+    transition: 'all 0.2s ease',
+  } as CSSProperties,
+
+  masterCheckbox: {
+    transform: 'scale(1.2)',
   } as CSSProperties,
 };
 
@@ -508,6 +572,10 @@ export const addItemsModalStyles = {
 
   productInfo: {
     padding: '10px 12px',
+    textAlign: 'center',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
   } as CSSProperties,
 
   productName: {
@@ -728,13 +796,31 @@ export const orderDetailResponsiveStyles = `
     display: none !important;
   }
 
+  .show-on-mobile-inline {
+    display: inline-block !important;
+  }
+
+  .bulk-action-btn {
+    padding: 0 8px !important;
+    min-width: 44px !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+  }
+
   @media (min-width: 768px) {
     .hide-on-mobile {
       display: flex !important;
     }
     
-    .show-only-mobile {
+    .show-only-mobile,
+    .show-on-mobile-inline {
       display: none !important;
+    }
+
+    .bulk-action-btn {
+      padding: 0 12px !important;
+      min-width: auto !important;
     }
   }
 

@@ -1,6 +1,7 @@
-import useSWR from "swr";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useContext, useEffect } from "react";
 import { SocketContext } from "@/contexts/SocketContext";
+import { ordersService } from "../../services/pos/orders.service";
 
 /**
  * Statistics for each sales channel showing active order counts
@@ -12,31 +13,29 @@ export interface ChannelStats {
     total: number;
 }
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
-
 /**
  * Custom hook to fetch channel statistics with WebSocket updates
  */
 export function useChannelStats() {
     const { socket } = useContext(SocketContext);
+    const queryClient = useQueryClient();
 
     // Fetch initial data, disable auto-polling (rely on socket)
-    const { data, error, isLoading, mutate } = useSWR<ChannelStats>(
-        "/api/pos/channels/stats",
-        fetcher,
-        {
-            revalidateOnFocus: true,
-            dedupingInterval: 2000,
-            revalidateOnReconnect: true
-        }
-    );
+    const { data, error, isLoading, refetch } = useQuery<ChannelStats>({
+        queryKey: ['channelStats'],
+        queryFn: async () => {
+            return await ordersService.getStats();
+        },
+        staleTime: 2000,
+        refetchOnReconnect: true
+    });
 
     useEffect(() => {
         if (!socket) return;
 
         const handleOrderUpdate = () => {
             // Re-fetch stats when orders change
-            mutate();
+            queryClient.invalidateQueries({ queryKey: ['channelStats'] });
         };
 
         // Listen for relevant events
@@ -52,7 +51,7 @@ export function useChannelStats() {
             socket.off("orders:update", handleOrderUpdate);
             socket.off("orders:delete", handleOrderUpdate);
         };
-    }, [socket, mutate]);
+    }, [socket, queryClient]);
 
     return {
         stats: data,

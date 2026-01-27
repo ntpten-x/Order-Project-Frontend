@@ -11,7 +11,8 @@ import {
 } from "@ant-design/icons";
 import { Order, OrderStatus } from "../../types/api/stock/orders";
 import { Ingredients } from "../../types/api/stock/ingredients";
-import axios from "axios";
+import { ingredientsService } from "../../services/stock/ingredients.service";
+import { ordersService } from "../../services/stock/orders.service";
 import { useSocket } from "../../hooks/useSocket";
 import { authService } from "../../services/auth.service";
 
@@ -160,13 +161,14 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
     useEffect(() => {
         const fetchIngredients = async () => {
             try {
-                const response = await axios.get("/api/stock/ingredients");
-                const allIngredients = response.data.filter((i: Ingredients) => i.is_active);
-                setIngredients(allIngredients);
+                // Use ingredientsService
+                const allIngredients = await ingredientsService.findAll();
+                const activeIngredients = allIngredients.filter((i: Ingredients) => i.is_active);
+                setIngredients(activeIngredients);
 
                 // Fallback: Update existing items with images if they are missing
                 setItems(prevItems => prevItems.map(item => {
-                    const match = allIngredients.find((ing: Ingredients) => ing.id === item.ingredient_id);
+                    const match = activeIngredients.find((ing: Ingredients) => ing.id === item.ingredient_id);
                     return {
                         ...item,
                         img_url: item.img_url || match?.img_url
@@ -246,20 +248,15 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
         try {
             const payload = items.map(i => ({ ingredient_id: i.ingredient_id, quantity_ordered: i.quantity_ordered }));
             
-            await axios.put(`/api/stock/orders/${order.id}`, { items: payload }, {
-                headers: {
-                    'X-CSRF-Token': csrfToken
-                }
-            });
+            // Use ordersService.updateOrder
+            await ordersService.updateOrder(order.id, payload, undefined, csrfToken);
 
             message.success("แก้ไขออเดอร์สำเร็จ");
             onSuccess();
             onClose();
         } catch (error: unknown) {
              let errorMessage = "แก้ไขออเดอร์ล้มเหลว";
-             if (axios.isAxiosError(error)) {
-                errorMessage = error.response?.data?.error || error.response?.data?.message || errorMessage;
-             } else if (error instanceof Error) {
+             if (error instanceof Error) {
                 errorMessage = error.message;
              }
              message.error(errorMessage);

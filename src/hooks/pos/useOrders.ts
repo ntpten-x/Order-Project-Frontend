@@ -1,9 +1,15 @@
-import useSWR from 'swr';
+import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useContext, useEffect } from 'react';
 import { SocketContext } from '@/contexts/SocketContext';
 import { SalesOrder } from '../../types/api/pos/salesOrder';
+import { ordersService } from '../../services/pos/orders.service';
 
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+interface OrdersResponse {
+    data: SalesOrder[];
+    total: number;
+    page: number;
+    last_page: number;
+}
 
 interface UseOrdersParams {
     page?: number;
@@ -13,28 +19,26 @@ interface UseOrdersParams {
 
 export function useOrders({ page = 1, limit = 50, status }: UseOrdersParams) {
     const { socket } = useContext(SocketContext);
+    const queryClient = useQueryClient();
 
-    // Construct query string
-    const params = new URLSearchParams();
-    params.append('page', page.toString());
-    params.append('limit', limit.toString());
-    if (status) params.append('status', status);
+    // Construct query string for key
+    const queryKey = ['orders', page, limit, status || 'all'];
 
-    const { data, error, isLoading, mutate } = useSWR<{ data: SalesOrder[], total: number, page: number, last_page: number }>(
-        `/api/pos/orders?${params.toString()}`,
-        fetcher,
-        {
-            revalidateOnFocus: true,
-            dedupingInterval: 2000,
-            keepPreviousData: true,
-        }
-    );
+    const { data, error, isLoading, refetch } = useQuery<OrdersResponse>({
+        queryKey,
+        queryFn: async () => {
+            return await ordersService.getAll(undefined, page, limit, status);
+        },
+        placeholderData: keepPreviousData,
+        staleTime: 2000,
+    });
 
     useEffect(() => {
         if (!socket) return;
 
         const handleOrderUpdate = () => {
-            mutate();
+            // Invalidate all orders to be safe
+            queryClient.invalidateQueries({ queryKey: ['orders'] });
         };
 
         // Listen for order events
@@ -47,7 +51,7 @@ export function useOrders({ page = 1, limit = 50, status }: UseOrdersParams) {
             socket.off("orders:update", handleOrderUpdate);
             socket.off("orders:delete", handleOrderUpdate);
         };
-    }, [socket, mutate]);
+    }, [socket, queryClient]);
 
     return {
         orders: data?.data || [],
@@ -56,6 +60,6 @@ export function useOrders({ page = 1, limit = 50, status }: UseOrdersParams) {
         lastPage: data?.last_page || 1,
         isLoading,
         isError: error,
-        mutate,
+        mutate: refetch,
     };
 }

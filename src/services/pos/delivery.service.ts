@@ -1,7 +1,8 @@
 import { Delivery } from "../../types/api/pos/delivery";
 import { getProxyUrl } from "../../lib/proxy-utils";
+import { API_ROUTES } from "../../config/api";
 
-const BASE_PATH = "/pos/delivery";
+const BASE_PATH = API_ROUTES.POS.DELIVERY;
 
 const getHeaders = (cookie?: string, contentType: string = "application/json"): HeadersInit => {
     const headers: Record<string, string> = {};

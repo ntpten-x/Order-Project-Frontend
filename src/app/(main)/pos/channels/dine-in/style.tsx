@@ -22,6 +22,12 @@ export const tableColors = {
     border: '#d9d9d9',
     gradient: 'linear-gradient(135deg, #8c8c8c 0%, #bfbfbf 100%)',
   },
+  waitingForPayment: {
+    primary: '#1890ff',
+    light: '#e6f7ff',
+    border: '#91d5ff',
+    gradient: 'linear-gradient(135deg, #1890ff 0%, #40a9ff 100%)',
+  },
 };
 
 export const dineInStyles = {

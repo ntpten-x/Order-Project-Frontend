@@ -1,28 +1,27 @@
-import useSWR from "swr";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useContext, useEffect } from "react";
 import { SocketContext } from "@/contexts/SocketContext";
 import { Tables } from "../../types/api/pos/tables";
-
-const fetcher = (url: string) => fetch(url).then((res) => res.json());
+import { tablesService } from "../../services/pos/tables.service";
 
 export function useTables() {
     const { socket } = useContext(SocketContext);
+    const queryClient = useQueryClient();
 
-    const { data, error, isLoading, mutate } = useSWR<Tables[]>(
-        `/api/pos/tables`, // Use local API route
-        fetcher,
-        {
-            revalidateOnFocus: true,
-            dedupingInterval: 2000,
-            revalidateOnReconnect: true
-        }
-    );
+    const { data, error, isLoading, refetch } = useQuery<Tables[]>({
+        queryKey: ['tables'],
+        queryFn: async () => {
+            return await tablesService.getAll();
+        },
+        staleTime: 2000,
+        refetchOnReconnect: true
+    });
 
     useEffect(() => {
         if (!socket) return;
 
         const handleTableUpdate = () => {
-            mutate();
+            queryClient.invalidateQueries({ queryKey: ['tables'] });
         };
 
         // Listen for table events
@@ -43,12 +42,12 @@ export function useTables() {
             socket.off("orders:update", handleTableUpdate);
             socket.off("orders:delete", handleTableUpdate);
         };
-    }, [socket, mutate]);
+    }, [socket, queryClient]);
 
     return {
         tables: data || [],
         isLoading,
         isError: error,
-        mutate,
+        mutate: refetch, // Mapping refetch to mutate
     };
 }

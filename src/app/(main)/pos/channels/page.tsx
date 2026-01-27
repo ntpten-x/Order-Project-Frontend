@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { Typography, Row, Col, Spin } from "antd";
-import { ShopOutlined, ShoppingOutlined, RocketOutlined, LoadingOutlined } from "@ant-design/icons";
+import { Typography, Row, Col } from "antd";
+import { ShopOutlined, ShoppingOutlined, RocketOutlined } from "@ant-design/icons";
 import { 
   channelPageStyles, 
   channelColors, 
@@ -11,8 +11,7 @@ import {
 } from "./style";
 import { 
   useChannelStats,
-  formatOrderCount, 
-  ChannelStats 
+  formatOrderCount
 } from "../../../../utils/channels/channelStats.utils";
 
 const { Title, Text } = Typography;
@@ -25,7 +24,7 @@ export default function ChannelSelectionPage() {
   const channels = [
     {
       id: 'dine-in',
-      title: 'ทานที่ร้าน',
+      title: 'หน้าร้าน',
       subtitle: 'Dine In',
       icon: ShopOutlined,
       colors: channelColors.dineIn,
@@ -67,7 +66,7 @@ export default function ChannelSelectionPage() {
               <ShopOutlined style={channelPageStyles.headerIcon} className="channels-header-icon-mobile" />
             </div>
             <Title level={1} style={channelPageStyles.headerTitle} className="channels-header-title-mobile">
-              เลือกช่องทางการขาย
+              เลือกช่องทางขาย
             </Title>
             <Text style={channelPageStyles.headerSubtitle} className="channels-header-subtitle-mobile">
               Select Sales Channel

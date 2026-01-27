@@ -10,7 +10,7 @@ export async function POST(request: NextRequest) {
         // Use authService to talk to backend
         const { token, ...user } = await authService.login(body, csrfToken, cookieHeader);
 
-        const nextResponse = NextResponse.json({ message: "Login successful", user });
+        const nextResponse = NextResponse.json({ message: "Login successful", user, token });
 
         // Set the cookie on the response
         nextResponse.cookies.set("token", token, {

@@ -18,7 +18,7 @@ import { useAuth } from "./AuthContext";
 export const SocketProvider = ({ children }: { children: ReactNode }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const { user } = useAuth();
+    const { user } = useAuth();
 
   useEffect(() => {
     if (!user) {
@@ -31,10 +31,12 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
     }
 
     // connect to backend
-    const socketUrl = process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:3000";
+    const socketUrl = process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:4000";
+    const token = typeof window !== "undefined" ? localStorage.getItem("token_ws") : null;
     const socketInstance = io(socketUrl, {
         transports: ["websocket"], 
         withCredentials: true, // Important: Send cookies for auth
+        auth: token ? { token } : undefined,
     });
 
     socketInstance.on("connect", () => {

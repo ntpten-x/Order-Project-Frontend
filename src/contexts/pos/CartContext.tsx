@@ -5,11 +5,18 @@ import { Products } from "../../types/api/pos/products";
 import { Discounts } from "../../types/api/pos/discounts";
 import { PaymentMethod } from "../../types/api/pos/paymentMethod";
 
+export interface CartDetail {
+    detail_name: string;
+    extra_price: number;
+}
+
 export interface CartItem {
+    cart_item_id: string;
     product: Products;
     quantity: number;
     notes?: string;
     discount?: number;
+    details?: CartDetail[];
 }
 
 export type OrderMode = 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY';
@@ -17,10 +24,15 @@ export type OrderMode = 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY';
 interface CartContextType {
     cartItems: CartItem[];
     addToCart: (product: Products, quantity?: number, notes?: string) => void;
-    removeFromCart: (productId: string) => void;
-    updateQuantity: (productId: string, quantity: number) => void;
-    updateItemNote: (productId: string, notes: string) => void;
+    removeFromCart: (cartItemId: string) => void;
+    updateQuantity: (cartItemId: string, quantity: number) => void;
+    updateItemNote: (cartItemId: string, notes: string) => void;
     clearCart: () => void;
+    
+    // Detail/Topping Management
+    addDetailToItem: (cartItemId: string, detail: CartDetail) => void;
+    removeDetailFromItem: (cartItemId: string, detailIndex: number) => void;
+    updateItemDetails: (cartItemId: string, details: CartDetail[]) => void;
     
     // Order Metadata
     orderMode: OrderMode;
@@ -46,6 +58,7 @@ interface CartContextType {
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+    // Initialize state with empty values (hydration safe)
     const [cartItems, setCartItems] = useState<CartItem[]>([]);
     
     // Order State
@@ -55,42 +68,115 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const [selectedDiscount, setSelectedDiscount] = useState<Discounts | null>(null);
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod | null>(null);
 
+    const [isInitialized, setIsInitialized] = useState(false);
+
+    // Load from LocalStorage on mount
+    React.useEffect(() => {
+        const savedCart = localStorage.getItem('pos_cart_items');
+        const savedMode = localStorage.getItem('pos_order_mode');
+        const savedRefId = localStorage.getItem('pos_ref_id');
+        const savedRefCode = localStorage.getItem('pos_ref_code');
+        const savedDiscount = localStorage.getItem('pos_discount');
+        const savedPayment = localStorage.getItem('pos_payment');
+
+        if (savedCart) {
+            try {
+                const parsedCart: CartItem[] = JSON.parse(savedCart);
+                // Ensure all items have a unique ID (handling legacy items)
+                const validatedCart = parsedCart.map((item, index) => ({
+                    ...item,
+                    cart_item_id: item.cart_item_id || `item-${Date.now()}-${index}-${Math.random().toString(36).substr(2, 9)}`
+                }));
+                setCartItems(validatedCart);
+            } catch (e) {
+                console.error("Failed to parse cart:", e);
+                setCartItems([]);
+            }
+        }
+        if (savedMode) setOrderMode(savedMode as OrderMode);
+        if (savedRefId) setReferenceId(savedRefId);
+        if (savedRefCode) setReferenceCode(savedRefCode);
+        if (savedDiscount) setSelectedDiscount(JSON.parse(savedDiscount));
+        if (savedPayment) setSelectedPaymentMethod(JSON.parse(savedPayment));
+        
+        setIsInitialized(true);
+    }, []);
+
+    // Save to LocalStorage on changes
+    React.useEffect(() => {
+        if (!isInitialized) return; // Don't overwrite with empty initial state
+        localStorage.setItem('pos_cart_items', JSON.stringify(cartItems));
+        localStorage.setItem('pos_order_mode', orderMode);
+        if (referenceId) localStorage.setItem('pos_ref_id', referenceId); else localStorage.removeItem('pos_ref_id');
+        if (referenceCode) localStorage.setItem('pos_ref_code', referenceCode); else localStorage.removeItem('pos_ref_code');
+        if (selectedDiscount) localStorage.setItem('pos_discount', JSON.stringify(selectedDiscount)); else localStorage.removeItem('pos_discount');
+        if (selectedPaymentMethod) localStorage.setItem('pos_payment', JSON.stringify(selectedPaymentMethod)); else localStorage.removeItem('pos_payment');
+    }, [cartItems, orderMode, referenceId, referenceCode, selectedDiscount, selectedPaymentMethod, isInitialized]);
+
     const addToCart = (product: Products, quantity: number = 1, notes?: string) => {
         setCartItems((prevItems) => {
-            // Check if item with same ID AND same notes exists
-            // Ideally, we might want to separate by notes, but for now let's keep it simple by product ID
-            const existingItem = prevItems.find((item) => item.product.id === product.id);
-            if (existingItem) {
-                return prevItems.map((item) =>
-                    item.product.id === product.id
-                        ? { ...item, quantity: item.quantity + quantity, notes: notes || item.notes }
-                        : item
-                );
-            }
-            return [...prevItems, { product, quantity, notes }];
+            // Create new entry for every addition to ensure customization isolation
+            const newItem: CartItem = {
+                cart_item_id: `item-${Date.now()}-${prevItems.length}-${Math.random().toString(36).substr(2, 9)}`,
+                product,
+                quantity,
+                notes,
+                details: []
+            };
+            return [...prevItems, newItem];
         });
     };
 
-    const removeFromCart = (productId: string) => {
-        setCartItems((prevItems) => prevItems.filter((item) => item.product.id !== productId));
+    const removeFromCart = (cartItemId: string) => {
+        setCartItems((prevItems) => prevItems.filter((item) => item.cart_item_id !== cartItemId));
     };
 
-    const updateQuantity = (productId: string, quantity: number) => {
+    const updateQuantity = (cartItemId: string, quantity: number) => {
         if (quantity <= 0) {
-            removeFromCart(productId);
+            removeFromCart(cartItemId);
             return;
         }
         setCartItems((prevItems) =>
             prevItems.map((item) =>
-                item.product.id === productId ? { ...item, quantity } : item
+                item.cart_item_id === cartItemId ? { ...item, quantity } : item
             )
         );
     };
 
-    const updateItemNote = (productId: string, notes: string) => {
+    const updateItemNote = (cartItemId: string, notes: string) => {
         setCartItems((prevItems) =>
             prevItems.map((item) =>
-                item.product.id === productId ? { ...item, notes } : item
+                item.cart_item_id === cartItemId ? { ...item, notes } : item
+            )
+        );
+    };
+
+    const addDetailToItem = (cartItemId: string, detail: CartDetail) => {
+        setCartItems((prevItems) =>
+            prevItems.map((item) =>
+                item.cart_item_id === cartItemId 
+                    ? { ...item, details: [...(item.details || []), detail] }
+                    : item
+            )
+        );
+    };
+
+    const removeDetailFromItem = (cartItemId: string, detailIndex: number) => {
+        setCartItems((prevItems) =>
+            prevItems.map((item) =>
+                item.cart_item_id === cartItemId
+                    ? { ...item, details: (item.details || []).filter((_, idx) => idx !== detailIndex) }
+                    : item
+            )
+        );
+    };
+
+    const updateItemDetails = (cartItemId: string, details: CartDetail[]) => {
+        setCartItems((prevItems) =>
+            prevItems.map((item) =>
+                item.cart_item_id === cartItemId
+                    ? { ...item, details }
+                    : item
             )
         );
     };
@@ -101,6 +187,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setSelectedPaymentMethod(null);
         setReferenceId(null);
         setReferenceCode(null);
+        // LocalStorage will be updated by the effect
     };
 
     const getTotalItems = () => {
@@ -108,7 +195,11 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     };
 
     const getSubtotal = () => {
-        return cartItems.reduce((total, item) => total + item.product.price * item.quantity, 0);
+        return cartItems.reduce((total, item) => {
+            const productBasePrice = Number(item.product.price);
+            const detailsPrice = (item.details || []).reduce((sum, d) => sum + Number(d.extra_price), 0);
+            return total + (productBasePrice + detailsPrice) * item.quantity;
+        }, 0);
     };
 
     const getDiscountAmount = () => {
@@ -138,8 +229,12 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 addToCart,
                 removeFromCart,
                 updateQuantity,
-                updateItemNote, // Add this
+                updateItemNote,
                 clearCart,
+                
+                addDetailToItem,
+                removeDetailFromItem,
+                updateItemDetails,
                 
                 orderMode,
                 setOrderMode,

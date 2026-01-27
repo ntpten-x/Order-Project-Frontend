@@ -8,9 +8,9 @@ export async function GET(request: NextRequest) {
 
         const data = await categoryService.findAll(cookie, searchParams);
         return NextResponse.json(data);
-    } catch (error: any) {
+    } catch (error) {
         return NextResponse.json(
-            { error: error.message || "Failed to fetch categories" },
+            { error: error instanceof Error ? error.message : "Failed to fetch categories" },
             { status: 500 }
         );
     }

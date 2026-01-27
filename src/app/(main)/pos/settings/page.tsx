@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Typography, Card, Form, Input, Button, message, Spin, Divider, Row, Col } from "antd";
 import { SaveOutlined, ShopOutlined, SettingOutlined } from "@ant-design/icons";
 import { shopProfileService, ShopProfile } from "../../../../services/pos/shopProfile.service";
@@ -14,11 +14,7 @@ export default function POSSettingsPage() {
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
-    useEffect(() => {
-        fetchProfile();
-    }, []);
-
-    const fetchProfile = async () => {
+    const fetchProfile = useCallback(async () => {
         try {
             setLoading(true);
             const data = await shopProfileService.getProfile();
@@ -29,7 +25,11 @@ export default function POSSettingsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [form]);
+
+    useEffect(() => {
+        fetchProfile();
+    }, [fetchProfile]);
 
     const handleSave = async (values: Partial<ShopProfile>) => {
         try {
@@ -74,7 +74,7 @@ export default function POSSettingsPage() {
                         onFinish={handleSave}
                         initialValues={{}}
                     >
-                        <Divider orientation={"left" as any} plain><ShopOutlined /> ข้อมูลร้านค้า (General Info)</Divider>
+                        <Divider orientation="left" plain><ShopOutlined /> ข้อมูลร้านค้า (General Info)</Divider>
                         
                         <Row gutter={16}>
                             <Col xs={24} md={12}>
@@ -103,7 +103,7 @@ export default function POSSettingsPage() {
                             <Input.TextArea rows={3} placeholder="ระบุที่อยู่ร้าน" />
                         </Form.Item>
 
-                        <Divider orientation={"left" as any} plain>การชำระเงิน (Money & Payments)</Divider>
+                        <Divider orientation="left" plain>การชำระเงิน (Money & Payments)</Divider>
 
                         <Row gutter={16}>
                             <Col xs={24} md={12}>

@@ -1,7 +1,9 @@
 import axios from "axios";
 
 const api = axios.create({
-    baseURL: process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:3000",
+    baseURL: typeof window !== "undefined"
+        ? "/api"
+        : (process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:4000"),
     withCredentials: true, // Necessary for Cookies
     headers: {
         "Content-Type": "application/json",
@@ -13,8 +15,11 @@ let csrfToken: string | null = null;
 // Function to fetch CSRF token
 const getCsrfToken = async () => {
     try {
-        const response = await api.get("/csrf-token");
-        csrfToken = response.data.csrfToken;
+        // Use Next.js proxy to ensure cookies are scoped to frontend domain
+        const response = await fetch("/api/csrf", { credentials: "include" });
+        if (!response.ok) throw new Error("CSRF fetch failed");
+        const data = await response.json();
+        csrfToken = data.csrfToken;
         return csrfToken;
     } catch (error) {
         console.error("Failed to fetch CSRF token", error);

@@ -13,6 +13,7 @@ import {
 } from './style';
 
 import { authService } from '../../../../../../services/auth.service';
+import { tablesService } from '../../../../../../services/pos/tables.service';
 
 export default function TablesManagePage({ params }: { params: { mode: string[] } }) {
     const router = useRouter();
@@ -38,9 +39,8 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
     const fetchTable = useCallback(async () => {
         setLoading(true);
         try {
-            const response = await fetch(`/api/pos/tables/getById/${id}`);
-            if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลโต๊ะได้');
-            const data = await response.json();
+            if (!id) return;
+            const data = await tablesService.getById(id);
             form.setFieldsValue({
                 table_name: data.table_name,
                 status: data.status,
@@ -68,36 +68,11 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
         setSubmitting(true);
         try {
             if (isEdit) {
-                const response = await fetch(`/api/pos/tables/update/${id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': csrfToken
-                    },
-                    body: JSON.stringify(values),
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถอัปเดตโต๊ะได้');
-                }
-                
+                if (!id) throw new Error("ID not found");
+                await tablesService.update(id, values, undefined, csrfToken);
                 message.success('อัปเดตโต๊ะสำเร็จ');
             } else {
-                const response = await fetch(`/api/pos/tables/create`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': csrfToken
-                    },
-                    body: JSON.stringify(values),
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถสร้างโต๊ะได้');
-                }
-                
+                await tablesService.create(values, undefined, csrfToken);
                 message.success('สร้างโต๊ะสำเร็จ');
             }
             router.push('/pos/tables');
@@ -120,13 +95,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
             centered: true,
             onOk: async () => {
                 try {
-                    const response = await fetch(`/api/pos/tables/delete/${id}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'X-CSRF-Token': csrfToken
-                        }
-                    });
-                    if (!response.ok) throw new Error('ไม่สามารถลบโต๊ะได้');
+                    await tablesService.delete(id, undefined, csrfToken);
                     message.success('ลบโต๊ะสำเร็จ');
                     router.push('/pos/tables');
                 } catch (error) {

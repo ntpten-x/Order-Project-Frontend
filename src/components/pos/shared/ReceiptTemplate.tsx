@@ -1,12 +1,18 @@
 "use client";
 
 import React, { forwardRef } from "react";
-import { SalesOrder, OrderType, OrderStatus } from "../../../types/api/pos/salesOrder";
+import { SalesOrder, OrderType } from "../../../types/api/pos/salesOrder";
 import { SalesOrderItem } from "../../../types/api/pos/salesOrderItem";
+import { Payments } from "../../../types/api/pos/payments";
+import { PaymentMethod } from "../../../types/api/pos/paymentMethod";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 
 dayjs.locale('th');
+
+type PaymentWithMethod = Payments & {
+    payment_method?: PaymentMethod | null;
+};
 
 interface ReceiptProps {
     order: SalesOrder;
@@ -19,7 +25,7 @@ interface ReceiptProps {
 
 const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(({ order, shopName, shopAddress, shopPhone, shopTaxId, shopLogo }, ref) => {
     const items = order.items || [];
-    const payments = order.payments || [];
+    const payments = (order.payments || []) as PaymentWithMethod[];
     
     const orderTypeLabel = (type: OrderType) => {
         switch (type) {
@@ -61,7 +67,10 @@ const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(({ order, shopN
             {/* Header */}
             <div style={centerStyle}>
                 {shopLogo && (
-                    <img src={shopLogo} alt="Logo" style={{ width: 60, height: 60, objectFit: 'contain', marginBottom: 8 }} />
+                    <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img src={shopLogo} alt="Logo" style={{ width: 60, height: 60, objectFit: 'contain', marginBottom: 8 }} />
+                    </>
                 )}
                 <div style={{ fontWeight: 'bold', fontSize: '16px', marginBottom: 4 }}>{shopName || 'ร้านค้า POS'}</div>
                 {shopAddress && <div style={{ fontSize: '10px', marginBottom: 2 }}>{shopAddress}</div>}
@@ -152,16 +161,16 @@ const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(({ order, shopN
             {payments.length > 0 && (
                 <div>
                     <div style={{ fontWeight: 'bold', marginBottom: 8 }}>การชำระเงิน</div>
-                    {payments.map((p: any, index: number) => (
+                    {payments.map((p: PaymentWithMethod, index: number) => (
                         <div key={p.id || index} style={flexBetweenStyle}>
                             <span>{p.payment_method?.display_name || p.payment_method?.payment_method_name || 'ไม่ระบุ'}</span>
                             <span>฿{Number(p.amount).toLocaleString()}</span>
                         </div>
                     ))}
-                    {payments.some((p: any) => p.change_amount > 0) && (
+                    {payments.some((p: PaymentWithMethod) => p.change_amount > 0) && (
                         <div style={flexBetweenStyle}>
                             <span>เงินทอน:</span>
-                            <span>฿{payments.reduce((sum: number, p: any) => sum + Number(p.change_amount || 0), 0).toLocaleString()}</span>
+                            <span>฿{payments.reduce((sum: number, p: PaymentWithMethod) => sum + Number(p.change_amount || 0), 0).toLocaleString()}</span>
                         </div>
                     )}
                 </div>

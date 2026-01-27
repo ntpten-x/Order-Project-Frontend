@@ -1,11 +1,10 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Typography, Row, Col, Card, Tag, Button, Spin, Empty, Divider, Table, Checkbox, message, Modal, Tooltip, Space } from "antd";
 import { 
     ArrowLeftOutlined, 
-    ClockCircleOutlined, 
     ShopOutlined, 
     CheckCircleOutlined, 
     PlusOutlined, 
@@ -18,13 +17,18 @@ import {
 } from "@ant-design/icons";
 import { ordersService } from "@/services/pos/orders.service";
 import { authService } from "@/services/auth.service";
+import { tablesService } from "@/services/pos/tables.service";
 import { SalesOrder, OrderStatus, OrderType } from "@/types/api/pos/salesOrder";
 import { SalesOrderItem } from "@/types/api/pos/salesOrderItem";
+import { TableStatus } from "@/types/api/pos/tables";
 import { orderDetailStyles, orderDetailColors, orderDetailResponsiveStyles, orderDetailTypography } from "./style"; 
 import {
   calculateOrderTotal,
   getNonCancelledItems,
-  calculateItemExtras
+  calculateItemExtras,
+  groupItemsByCategory,
+  getPostConfirmServeNavigationPath,
+  getCancelOrderNavigationPath
 } from "@/utils/orders"; 
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
@@ -37,6 +41,11 @@ import { offlineQueueService } from "@/services/pos/offline.queue.service";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
+
+type ItemDetailInput = {
+    detail_name: string;
+    extra_price: number;
+};
 
 export default function POSOrderDetailsPage() {
     const router = useRouter();
@@ -55,16 +64,9 @@ export default function POSOrderDetailsPage() {
     const [editModalOpen, setEditModalOpen] = useState(false);
     const [itemToEdit, setItemToEdit] = useState<SalesOrderItem | null>(null);
 
-    const [isServeAllLoading, setIsServeAllLoading] = useState(false);
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
-    useEffect(() => {
-        if (orderId) {
-            fetchOrder(orderId);
-        }
-    }, [orderId]);
-
-    const fetchOrder = async (id: string) => {
+    const fetchOrder = useCallback(async (id: string) => {
         try {
             setIsLoading(true);
             const data = await ordersService.getById(id);
@@ -80,7 +82,13 @@ export default function POSOrderDetailsPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [router]);
+
+    useEffect(() => {
+        if (orderId) {
+            fetchOrder(orderId);
+        }
+    }, [orderId, fetchOrder]);
 
     const handleServeItem = async (itemId: string) => {
         try {
@@ -89,7 +97,7 @@ export default function POSOrderDetailsPage() {
             await ordersService.updateItemStatus(itemId, OrderStatus.Served, undefined, csrfToken);
             message.success("เสิร์ฟรายการเรียบร้อย");
             fetchOrder(orderId as string);
-        } catch (error) {
+        } catch {
             message.error("เกิดข้อผิดพลาดในการเสิร์ฟ");
         } finally {
             setIsUpdating(false);
@@ -107,7 +115,7 @@ export default function POSOrderDetailsPage() {
             message.success("เสิร์ฟรายการที่เลือกเรียบร้อย");
             setSelectedRowKeys([]);
             fetchOrder(orderId as string);
-        } catch (error) {
+        } catch {
             message.error("เกิดข้อผิดพลาดในการเสิร์ฟ");
         } finally {
             setIsUpdating(false);
@@ -132,7 +140,7 @@ export default function POSOrderDetailsPage() {
                     message.success("ยกเลิกรายการที่เลือกเรียบร้อย");
                     setSelectedRowKeys([]);
                     fetchOrder(orderId as string);
-                } catch (error) {
+                } catch {
                     message.error("เกิดข้อผิดพลาดในการยกเลิก");
                 } finally {
                     setIsUpdating(false);
@@ -148,11 +156,52 @@ export default function POSOrderDetailsPage() {
             await ordersService.updateItemStatus(itemId, OrderStatus.Cooking, undefined, csrfToken);
             message.success("ยกเลิกการเสิร์ฟ (กลับไปปรุง)");
             fetchOrder(orderId as string);
-        } catch (error) {
-            message.error("เกิดข้อผิดพลาด");
         } finally {
             setIsUpdating(false);
         }
+    };
+
+    const handleCancelOrder = () => {
+        if (!order) return;
+
+        Modal.confirm({
+            title: 'ยืนยันการยกเลิกออเดอร์?',
+            content: 'การดำเนินการนี้จะยกเลิกสินค้าทุกรายการและคืนสถานะโต๊ะ (หากมี) คุณแน่ใจหรือไม่?',
+            okText: 'ยืนยันการยกเลิก',
+            okType: 'danger',
+            cancelText: 'ยกเลิก',
+            onOk: async () => {
+                try {
+                    setIsUpdating(true);
+                    const csrfToken = await authService.getCsrfToken();
+
+                    // 1. Cancel all non-cancelled items
+                    const activeItems = order.items?.filter(item => item.status !== OrderStatus.Cancelled) || [];
+                    await Promise.all(
+                        activeItems.map(item => 
+                            ordersService.updateItemStatus(item.id, OrderStatus.Cancelled, undefined, csrfToken)
+                        )
+                    );
+
+                    // 2. Set Order status to Cancelled
+                    await ordersService.updateStatus(order.id, OrderStatus.Cancelled, csrfToken);
+
+                    // 3. Set Table to Available if Dine-In
+                    if (order.table_id) {
+                        await tablesService.update(order.table_id, { status: TableStatus.Available }, undefined, csrfToken);
+                    }
+
+                    message.success("ยกเลิกออเดอร์เรียบร้อย");
+                    router.push(getCancelOrderNavigationPath(order.order_type));
+
+                } catch (error) {
+                    console.error("Cancel failed:", error);
+                    message.error("ไม่สามารถยกเลิกออเดอร์ได้");
+                } finally {
+                    setIsUpdating(false);
+                }
+            }
+        });
     };
 
 
@@ -169,18 +218,18 @@ export default function POSOrderDetailsPage() {
                     await ordersService.deleteItem(itemId, undefined, csrfToken);
                     message.success("ลบรายการเรียบร้อย");
                     fetchOrder(orderId as string);
-                } catch (error) {
+                } catch {
                     message.error("ไม่สามารถลบรายการได้");
                 }
             }
         });
     };
 
-    const handleSaveEdit = async (itemId: string, quantity: number, notes: string) => {
+    const handleSaveEdit = async (itemId: string, quantity: number, notes: string, details: any[] = []) => {
         try {
             setIsUpdating(true);
             const csrfToken = await authService.getCsrfToken();
-            await ordersService.updateItem(itemId, { quantity, notes }, undefined, csrfToken);
+            await ordersService.updateItem(itemId, { quantity, notes, details }, undefined, csrfToken);
             message.success("แก้ไขรายการเรียบร้อย");
             fetchOrder(orderId as string);
         } catch (error) {
@@ -196,22 +245,8 @@ export default function POSOrderDetailsPage() {
         setEditModalOpen(true);
     };
 
-    const handleAddItem = async (product: Products, quantity: number, notes: string, details: { detail_name: string; extra_price: number }[] = []) => {
-        const tempId = `temp-${Date.now()}`;
+    const handleAddItem = async (product: Products, quantity: number, notes: string, details: ItemDetailInput[] = []) => {
         const totalPrice = (Number(product.price) + details.reduce((sum, d) => sum + d.extra_price, 0)) * quantity;
-        const tempItem: SalesOrderItem = {
-            id: tempId,
-            order_id: orderId as string,
-            product_id: product.id,
-            product: product,
-            quantity: quantity,
-            price: Number(product.price),
-            total_price: totalPrice,
-            discount_amount: 0,
-            notes: notes,
-            status: OrderStatus.Cooking,
-            details: details as any 
-        };
 
         if (!isOnline) {
             offlineQueueService.addToQueue('ADD_ITEM', { 
@@ -254,8 +289,14 @@ export default function POSOrderDetailsPage() {
                     const csrfToken = await authService.getCsrfToken();
                     await ordersService.updateStatus(orderId as string, OrderStatus.WaitingForPayment, csrfToken);
                     message.success("ยืนยันออเดอร์เรียบร้อย");
-                    router.push('/pos/items');
-                } catch (error) {
+                    
+                    if (order) {
+                        const nextPath = getPostConfirmServeNavigationPath(order);
+                        router.push(nextPath);
+                    } else {
+                        router.push('/pos/orders');
+                    }
+                } catch {
                     message.error("เกิดข้อผิดพลาดในการยืนยัน");
                 }
             }
@@ -278,7 +319,7 @@ export default function POSOrderDetailsPage() {
 
     const getStatusText = (status: string) => {
         switch (status) {
-            case OrderStatus.Pending: return "รอรับออเดอร์";
+            case OrderStatus.Pending: return "กำลังดำเนินการ";
             case OrderStatus.Cooking: return "กำลังปรุง";
             case OrderStatus.Served: return "เสิร์ฟแล้ว";
             case OrderStatus.WaitingForPayment: return "รอชำระเงิน";
@@ -294,9 +335,16 @@ export default function POSOrderDetailsPage() {
             key: 'image',
             width: 70,
             align: 'center' as const,
-            render: (_: any, record: SalesOrderItem) => (
+            render: (_value: unknown, record: SalesOrderItem) => (
                 record.product?.img_url ? (
-                    <img src={record.product.img_url} alt="" style={orderDetailStyles.productThumb} />
+                    <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src={record.product.img_url}
+                            alt={record.product?.display_name ?? "สินค้า"}
+                            style={orderDetailStyles.productThumb}
+                        />
+                    </>
                 ) : (
                     <div style={orderDetailStyles.productThumbPlaceholder}><ShopOutlined /></div>
                 )
@@ -306,12 +354,14 @@ export default function POSOrderDetailsPage() {
             title: 'รายการ',
             key: 'product',
             align: 'center' as const,
-            render: (_: any, record: SalesOrderItem) => (
+            render: (_value: unknown, record: SalesOrderItem) => (
                 <Space direction="vertical" size={2} align="center">
                     <Text strong style={{ fontSize: 15, lineHeight: '1.2' }}>{record.product?.display_name}</Text>
                     {record.details && record.details.length > 0 && (
-                        <div style={{ fontSize: 13, color: orderDetailColors.success }}>
-                            {record.details.map(d => `+ ${d.detail_name}`).join(', ')}
+                        <div style={{ fontSize: 13, color: orderDetailColors.success, textAlign: 'center' }}>
+                            {record.details.map((d, i) => (
+                                <div key={i} style={{ lineHeight: '1.4' }}>+ {d.detail_name}</div>
+                            ))}
                         </div>
                     )}
                     {record.notes && <Text style={{ fontSize: 13, color: orderDetailColors.danger }}><InfoCircleOutlined /> {record.notes}</Text>}
@@ -323,7 +373,7 @@ export default function POSOrderDetailsPage() {
             key: 'category',
             width: 120,
             align: 'center' as const,
-            render: (_: any, record: SalesOrderItem) => (
+            render: (_value: unknown, record: SalesOrderItem) => (
                 <Space direction="vertical" size={0} align="center">
                     {record.product?.category?.display_name ? (
                         <Tag color="cyan" style={orderDetailStyles.categoryTag}>
@@ -338,16 +388,16 @@ export default function POSOrderDetailsPage() {
             key: 'price',
             width: 110,
             align: 'center' as const,
-            render: (_: any, record: SalesOrderItem) => {
+            render: (_value: unknown, record: SalesOrderItem) => {
                 const extrasPrice = calculateItemExtras(record.details);
                 return (
                     <Space direction="vertical" size={0} align="center">
                         <Text style={{ ...orderDetailStyles.priceTag, fontSize: 18 }}>฿{Number(record.price).toLocaleString()}</Text>
-                        {extrasPrice > 0 && (
-                            <Text style={{ fontSize: 13, color: orderDetailColors.priceTotal }}>
-                                + ฿{extrasPrice.toLocaleString()}
+                        {record.details && record.details.length > 0 && record.details.map((d, i) => (
+                            <Text key={i} style={{ fontSize: 13, color: orderDetailColors.priceTotal, display: 'block', lineHeight: '1.4' }}>
+                                + ฿{Number(d.extra_price).toLocaleString()}
                             </Text>
-                        )}
+                        ))}
                     </Space>
                 );
             }
@@ -377,7 +427,7 @@ export default function POSOrderDetailsPage() {
             key: 'actions',
             width: 130,
             align: 'right' as const,
-            render: (_: any, record: SalesOrderItem) => (
+            render: (_value: unknown, record: SalesOrderItem) => (
                 <Space>
                     <Tooltip title="เสิร์ฟ"><Button type="primary" ghost icon={<CheckOutlined />} onClick={() => handleServeItem(record.id)} /></Tooltip>
                     <Tooltip title="แก้ไข"><Button type="text" icon={<EditOutlined />} onClick={() => handleEditClick(record)} /></Tooltip>
@@ -393,9 +443,16 @@ export default function POSOrderDetailsPage() {
             key: 'image',
             width: 70,
             align: 'center' as const,
-            render: (_: any, record: SalesOrderItem) => (
+            render: (_value: unknown, record: SalesOrderItem) => (
                 record.product?.img_url ? (
-                    <img src={record.product.img_url} alt="" style={{...orderDetailStyles.productThumb, opacity: 0.7}} />
+                    <>
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                            src={record.product.img_url}
+                            alt={record.product?.display_name ?? "สินค้า"}
+                            style={{...orderDetailStyles.productThumb, opacity: 0.7}}
+                        />
+                    </>
                 ) : (
                     <div style={orderDetailStyles.productThumbPlaceholder}><ShopOutlined /></div>
                 )
@@ -405,7 +462,7 @@ export default function POSOrderDetailsPage() {
             title: 'รายการ',
             key: 'product',
             align: 'center' as const,
-            render: (_: any, record: SalesOrderItem) => (
+            render: (_value: unknown, record: SalesOrderItem) => (
                 <Space direction="vertical" size={2} align="center">
                     <Text strong style={{ 
                         fontSize: 15, 
@@ -416,8 +473,10 @@ export default function POSOrderDetailsPage() {
                         {record.product?.display_name}
                     </Text>
                     {record.details && record.details.length > 0 && (
-                        <div style={{ fontSize: 12, color: orderDetailColors.success, opacity: 0.7 }}>
-                            {record.details.map(d => `+ ${d.detail_name}`).join(', ')}
+                        <div style={{ fontSize: 12, color: orderDetailColors.success, opacity: 0.7, textAlign: 'center' }}>
+                            {record.details.map((d, i) => (
+                                <div key={i} style={{ lineHeight: '1.4' }}>+ {d.detail_name}</div>
+                            ))}
                         </div>
                     )}
                     {record.notes && <Text style={{ fontSize: 12, opacity: 0.7, color: orderDetailColors.danger }}><InfoCircleOutlined /> {record.notes}</Text>}
@@ -429,7 +488,7 @@ export default function POSOrderDetailsPage() {
             key: 'category',
             width: 120,
             align: 'center' as const,
-            render: (_: any, record: SalesOrderItem) => (
+            render: (_value: unknown, record: SalesOrderItem) => (
                 <Space direction="vertical" size={0} align="center">
                     {record.product?.category?.display_name ? (
                         <Tag color="cyan" style={{...orderDetailStyles.categoryTag, opacity: 0.7}}>
@@ -444,16 +503,16 @@ export default function POSOrderDetailsPage() {
             key: 'price',
             width: 110,
             align: 'center' as const,
-            render: (_: any, record: SalesOrderItem) => {
+            render: (_value: unknown, record: SalesOrderItem) => {
                 const extrasPrice = calculateItemExtras(record.details);
                 return (
                     <Space direction="vertical" size={0} align="center">
                         <Text style={{...orderDetailStyles.priceTag, opacity: 0.7}}>฿{Number(record.price).toLocaleString()}</Text>
-                        {extrasPrice > 0 && (
-                            <Text style={{ fontSize: 11, opacity: 0.7, color: orderDetailColors.priceTotal }}>
-                                + ฿{extrasPrice.toLocaleString()}
+                        {record.details && record.details.length > 0 && record.details.map((d, i) => (
+                            <Text key={i} style={{ fontSize: 11, opacity: 0.7, color: orderDetailColors.priceTotal, display: 'block', lineHeight: '1.4' }}>
+                                + ฿{Number(d.extra_price).toLocaleString()}
                             </Text>
-                        )}
+                        ))}
                     </Space>
                 );
             }
@@ -463,7 +522,7 @@ export default function POSOrderDetailsPage() {
             key: 'total',
             width: 120,
             align: 'center' as const,
-            render: (_: any, record: SalesOrderItem) => (
+            render: (_value: unknown, record: SalesOrderItem) => (
                 <Text strong style={{ 
                     color: record.status === OrderStatus.Cancelled ? orderDetailColors.textLight : orderDetailColors.priceTotal, 
                     fontSize: 16,
@@ -498,7 +557,7 @@ export default function POSOrderDetailsPage() {
             key: 'actions',
             width: 130,
             align: 'right' as const,
-            render: (_: any, record: SalesOrderItem) => (
+            render: (_value: unknown, record: SalesOrderItem) => (
                 record.status === OrderStatus.Served ? (
                     <Button 
                         size="small" 
@@ -525,7 +584,7 @@ export default function POSOrderDetailsPage() {
         return 0;
     });
 
-    const nonCancelledItems = getNonCancelledItems(order?.items);
+    const nonCancelledItems = getNonCancelledItems(order?.items) as any[];
     const calculatedTotal = calculateOrderTotal(order?.items);
     const isOrderComplete = activeItems.length === 0 && (order?.items?.length || 0) > 0;
 
@@ -542,7 +601,13 @@ export default function POSOrderDetailsPage() {
                     <Button 
                         type="text" 
                         icon={<ArrowLeftOutlined />} 
-                        onClick={() => router.back()}
+                        onClick={() => {
+                            if (order?.order_type === OrderType.DineIn) {
+                                router.push('/pos/channels/dine-in');
+                            } else {
+                                router.back();
+                            }
+                        }}
                         style={{ height: 40, width: 40, borderRadius: '50%' }}
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -579,19 +644,37 @@ export default function POSOrderDetailsPage() {
                             style={orderDetailStyles.card}
                             title={
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Text strong style={orderDetailTypography.sectionTitle}>
-                                        กำลังรอ ({activeItems.length})
-                                    </Text>
+                                    <Space align="center" size={12}>
+                                        <div style={orderDetailStyles.masterCheckboxWrapper}>
+                                            <Checkbox 
+                                                indeterminate={selectedRowKeys.length > 0 && selectedRowKeys.length < activeItems.length}
+                                                checked={activeItems.length > 0 && selectedRowKeys.length === activeItems.length}
+                                                onChange={(e) => {
+                                                    if (e.target.checked) {
+                                                        setSelectedRowKeys(activeItems.map(i => i.id));
+                                                    } else {
+                                                        setSelectedRowKeys([]);
+                                                    }
+                                                }}
+                                                style={orderDetailStyles.masterCheckbox}
+                                            />
+                                        </div>
+                                        <Text strong style={orderDetailTypography.sectionTitle}>
+                                            กำลังรอ ({activeItems.length})
+                                        </Text>
+                                    </Space>
                                     <Space wrap>
                                         {selectedRowKeys.length > 0 && (
-                                            <Space className="hide-on-mobile" style={{ gap: 8 }}>
+                                            <Space style={{ gap: 8 }}>
                                                 <Button 
                                                     danger 
                                                     icon={<DeleteOutlined />} 
                                                     onClick={handleCancelSelected}
                                                     style={orderDetailStyles.bulkActionButtonDesktop}
+                                                    className="bulk-action-btn"
                                                 >
-                                                    ยกเลิก ({selectedRowKeys.length})
+                                                    <span className="hide-on-mobile">ยกเลิกรายการ ({selectedRowKeys.length})</span>
+                                                    <span className="show-on-mobile-inline">ยกเลิกรายการ ({selectedRowKeys.length})</span>
                                                 </Button>
                                                 <Button 
                                                     type="primary" 
@@ -599,8 +682,10 @@ export default function POSOrderDetailsPage() {
                                                     onClick={handleServeSelected} 
                                                     loading={isUpdating}
                                                     style={{ ...orderDetailStyles.bulkActionButtonDesktop, background: orderDetailColors.success, borderColor: orderDetailColors.success }}
+                                                    className="bulk-action-btn"
                                                 >
-                                                    เสิร์ฟ ({selectedRowKeys.length})
+                                                    <span className="hide-on-mobile">เสิร์ฟ ({selectedRowKeys.length})</span>
+                                                    <span className="show-on-mobile-inline">เสิร์ฟ ({selectedRowKeys.length})</span>
                                                 </Button>
                                             </Space>
                                         )}
@@ -651,7 +736,14 @@ export default function POSOrderDetailsPage() {
                                                     {/* Product Image */}
                                                     <div style={{ flexShrink: 0 }}>
                                                         {item.product?.img_url ? (
-                                                            <img src={item.product.img_url} alt="" style={{...orderDetailStyles.productThumb, width: 60, height: 60}} />
+                                                            <>
+                                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                <img
+                                                                    src={item.product.img_url}
+                                                                    alt={item.product?.display_name ?? "สินค้า"}
+                                                                    style={{...orderDetailStyles.productThumb, width: 60, height: 60}}
+                                                                />
+                                                            </>
                                                         ) : (
                                                             <div style={{...orderDetailStyles.productThumbPlaceholder, width: 60, height: 60}}><ShopOutlined /></div>
                                                         )}
@@ -685,7 +777,7 @@ export default function POSOrderDetailsPage() {
                                                         <div style={{ paddingLeft: 24, marginTop: 2 }}>
                                                             {item.details && item.details.length > 0 && (
                                                                 <div style={{ fontSize: 12, color: orderDetailColors.success, marginBottom: 4 }}>
-                                                                    {item.details.map(d => `+ ${d.detail_name}`).join(', ')}
+                                                                    {item.details.map((d: any) => `${d.detail_name} (+ ฿${Number(d.extra_price).toLocaleString()})`).join(', ')}
                                                                 </div>
                                                             )}
                                                             <Space direction="vertical" size={2}>
@@ -695,11 +787,6 @@ export default function POSOrderDetailsPage() {
                                                                         รวม ฿{Number(item.total_price).toLocaleString()}
                                                                     </Text>
                                                                 </div>
-                                                                {calculateItemExtras(item.details) > 0 && (
-                                                                    <Text style={{ fontSize: 11, paddingLeft: 4, color: orderDetailColors.priceTotal }}>
-                                                                        + ฿{calculateItemExtras(item.details).toLocaleString()} (เพิ่มเติม)
-                                                                    </Text>
-                                                                )}
                                                             </Space>
                                                             {item.notes && (
                                                                 <div style={{ marginTop: 4 }}>
@@ -761,23 +848,35 @@ export default function POSOrderDetailsPage() {
                                                     ...orderDetailStyles.itemCard, 
                                                     ...orderDetailStyles.itemCardServed, 
                                                     padding: 12,
-                                                    backgroundColor: item.status === OrderStatus.Cancelled ? '#fff1f0' : undefined,
-                                                    borderColor: item.status === OrderStatus.Cancelled ? '#ffa39e' : undefined
+                                                    backgroundColor: item.status === OrderStatus.Cancelled ? orderDetailColors.dangerLight : orderDetailColors.white,
+                                                    borderColor: item.status === OrderStatus.Cancelled ? orderDetailColors.danger + '30' : orderDetailColors.border,
+                                                    position: 'relative'
                                                 }}
                                             >
+                                                {/* Status Tag in Top Right */}
+                                                <div style={{ position: 'absolute', top: 8, right: 12 }}>
+                                                    <Tag color={getStatusColor(item.status)} style={{ margin: 0 }}>
+                                                        {getStatusText(item.status)}
+                                                    </Tag>
+                                                </div>
+
                                                 <div style={{ display: 'flex', gap: 12 }}>
                                                     {/* Product Image */}
                                                     <div style={{ flexShrink: 0 }}>
                                                         {item.product?.img_url ? (
-                                                            <img src={item.product.img_url} alt="" style={{...orderDetailStyles.productThumb, width: 50, height: 50, opacity: 0.7}} />
+                                                            <img
+                                                                src={item.product.img_url}
+                                                                alt={item.product?.display_name ?? "สินค้า"}
+                                                                style={{...orderDetailStyles.productThumb, width: 50, height: 50, opacity: 0.7}}
+                                                            />
                                                         ) : (
                                                             <div style={{...orderDetailStyles.productThumbPlaceholder, width: 50, height: 50}}><ShopOutlined /></div>
                                                         )}
                                                     </div>
 
-                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <div style={{ flex: 1, minWidth: 0, paddingRight: 60 }}>
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                            <div>
+                                                            <div style={{ flex: 1 }}>
                                                                 <Text strong style={{ 
                                                                     fontSize: 15, 
                                                                     textDecoration: item.status === OrderStatus.Cancelled ? 'line-through' : 'none',
@@ -791,27 +890,22 @@ export default function POSOrderDetailsPage() {
                                                                             {item.product.category.display_name}
                                                                         </Tag>
                                                                     )}
-                                                                    <Tag color={getStatusColor(item.status)} style={{ marginLeft: 4 }}>
-                                                                        {getStatusText(item.status)}
-                                                                    </Tag>
                                                                 </div>
                                                                 {item.details && item.details.length > 0 && (
                                                                     <div style={{ fontSize: 12, color: orderDetailColors.success, opacity: 0.7, marginBottom: 4 }}>
-                                                                        {item.details.map(d => `+ ${d.detail_name}`).join(', ')}
+                                                                        {item.details.map((d: any) => `${d.detail_name} (+ ฿${Number(d.extra_price).toLocaleString()})`).join(', ')}
                                                                     </div>
                                                                 )}
-                                                                <Space direction="vertical" size={2} style={{ marginTop: 4 }}>
-                                                                    <div>
-                                                                        <Text style={{...orderDetailStyles.priceTag, opacity: 0.7}}>฿{Number(item.price).toLocaleString()}</Text>
-                                                                        <Text strong style={{ marginLeft: 8, color: orderDetailColors.textSecondary, opacity: 0.7 }}>
-                                                                            รวม ฿{Number(item.total_price).toLocaleString()}
-                                                                        </Text>
+                                                                <Space direction="vertical" size={2} style={{ marginTop: 4, width: '100%' }}>
+                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                        <div>
+                                                                            <Text style={{...orderDetailStyles.priceTag, opacity: 0.7}}>฿{Number(item.price).toLocaleString()}</Text>
+                                                                            <Text strong style={{ marginLeft: 8, color: orderDetailColors.textSecondary, opacity: 0.7 }}>
+                                                                                รวม ฿{Number(item.total_price).toLocaleString()}
+                                                                            </Text>
+                                                                        </div>
+                                                                        <Text strong style={{ color: orderDetailColors.textSecondary }}>x{item.quantity}</Text>
                                                                     </div>
-                                                                    {calculateItemExtras(item.details) > 0 && (
-                                                                        <Text style={{ fontSize: 11, opacity: 0.7, paddingLeft: 4, color: orderDetailColors.priceTotal }}>
-                                                                            + ฿{calculateItemExtras(item.details).toLocaleString()} (เพิ่มเติม)
-                                                                        </Text>
-                                                                    )}
                                                                 </Space>
                                                                 {item.notes && (
                                                                     <div style={{ marginTop: 4 }}>
@@ -821,24 +915,23 @@ export default function POSOrderDetailsPage() {
                                                                     </div>
                                                                 )}
                                                             </div>
-                                                            <Text strong style={{ color: orderDetailColors.textSecondary }}>x{item.quantity}</Text>
                                                         </div>
-                                                        
-                                                        {item.status === OrderStatus.Served && (
-                                                            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
-                                                                <Button 
-                                                                    size="small" 
-                                                                    className="unserve-button"
-                                                                    style={orderDetailStyles.unserveButton}
-                                                                    icon={<CloseOutlined />}
-                                                                    onClick={() => handleUnserveItem(item.id)}
-                                                                >
-                                                                    ยกเลิกเสิร์ฟ
-                                                                </Button>
-                                                            </div>
-                                                        )}
                                                     </div>
                                                 </div>
+
+                                                {item.status === OrderStatus.Served && (
+                                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                                                        <Button 
+                                                            size="small" 
+                                                            className="unserve-button"
+                                                            style={orderDetailStyles.unserveButton}
+                                                            icon={<CloseOutlined />}
+                                                            onClick={() => handleUnserveItem(item.id)}
+                                                        >
+                                                            ยกเลิกเสิร์ฟ
+                                                        </Button>
+                                                    </div>
+                                                )}
                                             </div>
                                         ))}
                                     </div>
@@ -854,16 +947,80 @@ export default function POSOrderDetailsPage() {
                     <Col xs={24} lg={8}>
                         <Card className="order-detail-card" style={orderDetailStyles.summaryCard}>
                             <Title level={5} style={{ marginBottom: 16 }}>สรุปการสั่งซื้อ</Title>
-                            <div style={orderDetailStyles.summaryRow}>
-                                <Text type="secondary">จำนวนรายการ</Text>
-                                <Text strong>{nonCancelledItems.length} รายการ</Text>
-                            </div>
-                            <Divider style={{ margin: '8px 0' }} />
-                            <div style={orderDetailStyles.summaryRow}>
-                                <Text strong style={{ fontSize: 16 }}>ยอดรวมทั้งสิ้น</Text>
-                                <Text strong style={{ fontSize: 22, color: orderDetailColors.primary }}>
-                                    ฿{calculatedTotal.toLocaleString()}
+                            
+                            {/* Detailed Item List */}
+                            <div style={{ ...orderDetailStyles.summaryList, background: 'white' }}>
+                                <Text strong style={{ fontSize: 13, marginBottom: 8, display: 'block', color: orderDetailColors.textSecondary }}>
+                                    รายการสินค้า
                                 </Text>
+                                {nonCancelledItems.map((item, index) => (
+                                    <div key={item.id || index} style={orderDetailStyles.summaryItemRow}>
+                                        {/* Product Image */}
+                                        {item.product?.img_url ? (
+                                            <img 
+                                                src={item.product.img_url} 
+                                                alt={item.product.display_name} 
+                                                style={orderDetailStyles.summaryItemImage} 
+                                            />
+                                        ) : (
+                                            <div style={{ ...orderDetailStyles.summaryItemImage, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
+                                                <ShopOutlined style={{ fontSize: 16, color: '#bfbfbf' }} />
+                                            </div>
+                                        )}
+
+                                        <div style={orderDetailStyles.summaryItemContent}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                                                <Text strong style={{ fontSize: 13, flex: 1 }}>{index + 1}. {item.product?.display_name}</Text>
+                                                <Text strong style={{ fontSize: 13, color: orderDetailColors.primary }}>฿{Number(item.total_price).toLocaleString()}</Text>
+                                            </div>
+                                            
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
+                                                <Text type="secondary" style={{ fontSize: 11 }}>จำนวน: {item.quantity}</Text>
+                                                <Text type="secondary" style={{ fontSize: 11 }}>ราคาต่อชิ้น: {Number(item.price).toLocaleString()}</Text>
+                                            </div>
+
+                                            {item.details && item.details.length > 0 && (
+                                                <div style={orderDetailStyles.summaryDetailText}>
+                                                    <PlusOutlined style={{ fontSize: 10 }} /> {item.details.map((d: any) => d.detail_name).join(', ')}
+                                                </div>
+                                            )}
+                                            
+                                            {item.notes && (
+                                                <div style={{ ...orderDetailStyles.summaryDetailText, color: orderDetailColors.danger, fontStyle: 'italic' }}>
+                                                    โน้ต: {item.notes}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Category Summary */}
+                            <div style={orderDetailStyles.summaryList}>
+                                <Text strong style={{ fontSize: 13, marginBottom: 8, display: 'block', color: orderDetailColors.textSecondary }}>
+                                    แยกตามหมวดหมู่
+                                </Text>
+                                {Object.entries(groupItemsByCategory(order?.items || []) as Record<string, number>).map(([cat, qty]) => (
+                                    <div key={cat} style={orderDetailStyles.summaryRow}>
+                                        <Text type="secondary" style={{ fontSize: 13 }}>{cat}</Text>
+                                        <Text strong style={{ fontSize: 13 }}>{String(qty)} รายการ</Text>
+                                    </div>
+                                ))}
+                                <Divider style={{ margin: '8px 0' }} />
+                                <div style={orderDetailStyles.summaryRow}>
+                                    <Text type="secondary" style={{ fontSize: 13 }}>จำนวนรายการทั้งหมด</Text>
+                                    <Text strong style={{ fontSize: 13 }}>{nonCancelledItems.length} รายการ</Text>
+                                </div>
+                            </div>
+
+                            {/* Total Only */}
+                            <div style={{ padding: '0 4px' }}>
+                                <div style={orderDetailStyles.summaryMainRow}>
+                                    <Text strong style={{ fontSize: 18 }}>ยอดรวมทั้งสิ้น</Text>
+                                    <Text strong style={{ fontSize: 26, color: orderDetailColors.primary }}>
+                                        ฿{calculatedTotal.toLocaleString()}
+                                    </Text>
+                                </div>
                             </div>
                             
                             {isOrderComplete && (
@@ -877,33 +1034,23 @@ export default function POSOrderDetailsPage() {
                                     ยืนยันการเสิร์ฟพร้อมชำระเงิน
                                 </Button>
                             )}
+                            
+                            <Button 
+                                danger
+                                block 
+                                size="large" 
+                                onClick={handleCancelOrder}
+                                style={{ marginTop: 12, height: 45, borderRadius: 14, fontWeight: 600, fontSize: 15 }}
+                                disabled={isUpdating}
+                            >
+                                ยกเลิกออเดอร์
+                            </Button>
                         </Card>
                     </Col>
                 </Row>
             </main>
 
             {/* Floating Action Bar (Mobile Only) */}
-            {selectedRowKeys.length > 0 && (
-                <div className="floating-action-bar fade-in" style={orderDetailStyles.floatingActions}>
-                    <Button 
-                        danger 
-                        icon={<DeleteOutlined />} 
-                        onClick={handleCancelSelected}
-                        style={orderDetailStyles.floatingActionButton}
-                    >
-                        ยกเลิก ({selectedRowKeys.length})
-                    </Button>
-                    <Button 
-                        type="primary" 
-                        icon={<CheckOutlined />} 
-                        onClick={handleServeSelected}
-                        loading={isUpdating}
-                        style={{ ...orderDetailStyles.floatingActionButton, background: orderDetailColors.success, borderColor: orderDetailColors.success }}
-                    >
-                        เสิร์ฟ ({selectedRowKeys.length})
-                    </Button>
-                </div>
-            )}
             
             <AddItemsModal 
                 isOpen={isAddModalOpen} 

@@ -142,7 +142,6 @@ export default function UsersPage() {
             backgroundColor: '#f5f5f5'
         }}>
             <Spin size="large" />
-            <Text style={{ marginTop: 16, color: '#8c8c8c' }}>กำลังตรวจสอบสิทธิ์การใช้งาน...</Text>
         </div>
     );
   }

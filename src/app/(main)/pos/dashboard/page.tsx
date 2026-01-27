@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Typography, Card, Row, Col, Statistic, Table, DatePicker, Button, Spin, Avatar, Tag, Dropdown, message } from "antd";
-import { DollarCircleOutlined, ShoppingOutlined, RiseOutlined, CalendarOutlined, ReloadOutlined, EyeOutlined, DownloadOutlined, FilePdfOutlined, FileExcelOutlined } from "@ant-design/icons";
+import React, { useEffect, useState, useCallback } from "react";
+import { Typography, Card, Row, Col, Statistic, Table, DatePicker, Button, Avatar, Tag, Dropdown, message } from "antd";
+import { DollarCircleOutlined, ShoppingOutlined, RiseOutlined, ReloadOutlined, EyeOutlined, DownloadOutlined, FilePdfOutlined, FileExcelOutlined } from "@ant-design/icons";
 import { exportSalesReportPDF, exportSalesReportExcel } from "../../../../utils/export.utils";
 import { useRouter } from "next/navigation";
 import { pageStyles, colors } from "../style";
@@ -25,7 +25,7 @@ export default function DashboardPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([dayjs().startOf('month'), dayjs().endOf('month')]);
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         setIsLoading(true);
         try {
             const startDate = dateRange[0].format('YYYY-MM-DD');
@@ -46,11 +46,11 @@ export default function DashboardPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [dateRange]);
 
     useEffect(() => {
         fetchData();
-    }, [dateRange]);
+    }, [fetchData]);
 
     // Calculate aggregates
     const totalSales = salesData.reduce((acc, curr) => acc + Number(curr.total_sales), 0);
@@ -62,7 +62,7 @@ export default function DashboardPage() {
             title: '#',
             key: 'index',
             width: 60,
-            render: (_: any, __: any, index: number) => index + 1
+            render: (_: unknown, __: TopItem, index: number) => index + 1
         },
         {
             title: 'สินค้า',
@@ -278,7 +278,7 @@ export default function DashboardPage() {
                                         };
                                         return <Tag color={statusMap[status]?.color || 'default'}>{statusMap[status]?.label || status}</Tag>;
                                     }},
-                                    { title: '', key: 'action', width: 100, render: (_: any, record: SalesOrder) => (
+                                    { title: '', key: 'action', width: 100, render: (_value: unknown, record: SalesOrder) => (
                                         <Button 
                                             type="primary" 
                                             icon={<EyeOutlined />} 

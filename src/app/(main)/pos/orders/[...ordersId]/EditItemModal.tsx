@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Modal, Input, Button, Space, Typography, Divider } from 'antd';
-import { PlusOutlined, MinusOutlined, SaveOutlined, CloseOutlined, InfoCircleOutlined } from '@ant-design/icons';
+import { Modal, Input, Button, Typography, Space, Divider, InputNumber, Tag } from 'antd';
+import { PlusOutlined, MinusOutlined, SaveOutlined, CloseOutlined, InfoCircleOutlined, DeleteOutlined } from '@ant-design/icons';
 import { SalesOrderItem } from '@/types/api/pos/salesOrderItem';
+import { SalesOrderDetail } from '@/types/api/pos/salesOrderDetail';
 import { orderDetailColors, modalStyles } from './style';
 import { calculateItemTotal } from '@/utils/orders';
 
@@ -12,18 +13,20 @@ interface EditItemModalProps {
     item: SalesOrderItem | null;
     isOpen: boolean;
     onClose: () => void;
-    onSave: (itemId: string, quantity: number, notes: string) => Promise<void>;
+    onSave: (itemId: string, quantity: number, notes: string, details: any[]) => Promise<void>;
 }
 
 export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onClose, onSave }) => {
     const [quantity, setQuantity] = useState(1);
     const [notes, setNotes] = useState('');
+    const [details, setDetails] = useState<any[]>([]);
     const [saving, setSaving] = useState(false);
 
     useEffect(() => {
         if (item && isOpen) {
             setQuantity(item.quantity);
             setNotes(item.notes || '');
+            setDetails(item.details ? [...item.details.map(d => ({ ...d }))] : []);
         }
     }, [item, isOpen]);
 
@@ -31,9 +34,9 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
         if (!item) return;
         try {
             setSaving(true);
-            await onSave(item.id, quantity, notes);
+            await onSave(item.id, quantity, notes, details);
             onClose();
-        } catch (error) {
+        } catch {
             // Error handled by parent
         } finally {
             setSaving(false);
@@ -48,6 +51,20 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
         setQuantity(prev => Math.max(1, prev - 1));
     };
 
+    const handleAddDetail = () => {
+        setDetails([...details, { detail_name: '', extra_price: 0 }]);
+    };
+
+    const handleRemoveDetail = (index: number) => {
+        setDetails(details.filter((_, i) => i !== index));
+    };
+
+    const handleUpdateDetail = (index: number, field: string, value: any) => {
+        const newDetails = [...details];
+        newDetails[index] = { ...newDetails[index], [field]: value };
+        setDetails(newDetails);
+    };
+
     if (!item) return null;
 
     return (
@@ -57,7 +74,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
             open={isOpen}
             onCancel={onClose}
             footer={null}
-            width={450}
+            width={480}
             destroyOnClose
             centered
             closable={false}
@@ -75,17 +92,21 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        marginRight: -8 // Adjust to not overlap with potential scrollbar
+                        marginRight: -8
                     }}
                 />
             </div>
 
-            <div style={{ padding: '16px' }}>
+            <div style={{ padding: '16px', maxHeight: '70vh', overflowY: 'auto' }}>
                 {/* Product Section with Image */}
                 <div style={{ display: 'flex', gap: 16, marginBottom: 20, alignItems: 'center' }}>
                     <div style={{ flexShrink: 0 }}>
                         {item.product?.img_url ? (
-                            <img src={item.product.img_url} alt="" style={{ width: 80, height: 80, borderRadius: 12, objectFit: 'cover', border: `1px solid ${orderDetailColors.border}` }} />
+                            <img
+                                src={item.product.img_url}
+                                alt={item.product?.display_name ?? "สินค้า"}
+                                style={{ width: 80, height: 80, borderRadius: 12, objectFit: 'cover', border: `1px solid ${orderDetailColors.border}` }}
+                            />
                         ) : (
                             <div style={{ width: 80, height: 80, borderRadius: 12, background: orderDetailColors.backgroundSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                                 <InfoCircleOutlined style={{ fontSize: 24, color: orderDetailColors.textSecondary }} />
@@ -96,25 +117,91 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                         <Title level={5} style={{ margin: 0, fontSize: 18 }}>
                             {item.product?.display_name || 'ไม่ระบุ'}
                         </Title>
-                        <Text type="secondary" style={{ fontSize: 14 }}>
-                            ฿{Number(item.price).toLocaleString()} ต่อชิ้น
-                        </Text>
-                        {item.details && item.details.length > 0 && (
-                            <div style={{ marginTop: 4 }}>
-                                <Text type="secondary" style={{ fontSize: 13 }}>
-                                    {item.details.map(d => `+ ${d.detail_name}`).join(', ')}
-                                </Text>
-                            </div>
-                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                            {item.product?.category?.display_name && (
+                                <Tag color="cyan" style={{ fontSize: 10, margin: 0, borderRadius: 4 }}>
+                                    {item.product.category.display_name}
+                                </Tag>
+                            )}
+                            <Text type="secondary" style={{ fontSize: 14 }}>
+                                ฿{Number(item.price).toLocaleString()}
+                            </Text>
+                        </div>
                     </div>
                 </div>
 
+                <Divider style={{ margin: '16px 0' }} />
+
+                {/* Toppings / Details Section */}
+                <div style={{ marginBottom: 24 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                        <Text strong style={{ fontSize: 16 }}>รายการเพิ่มเติม (Topping)</Text>
+                        <Button 
+                            type="text" 
+                            icon={<PlusOutlined style={{ fontSize: 12 }} />} 
+                            onClick={handleAddDetail}
+                            style={{ 
+                                borderRadius: '30px',
+                                background: orderDetailColors.primaryLight,
+                                color: orderDetailColors.primary,
+                                fontWeight: 700,
+                                fontSize: '13px',
+                                height: '32px',
+                                padding: '0 16px',
+                                border: `1px solid ${orderDetailColors.primary}40`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                transition: 'all 0.3s ease'
+                            }}
+                            className="scale-hover"
+                        >
+                            เพิ่มรายการ
+                        </Button>
+                    </div>
+                    
+                    {details.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '12px', background: '#f9f9f9', borderRadius: 8 }}>
+                            <Text type="secondary" style={{ fontSize: 13 }}>ไม่มีรายการเพิ่มเติม</Text>
+                        </div>
+                    ) : (
+                        <Space direction="vertical" style={{ width: '100%' }} size={10}>
+                            {details.map((detail, index) => (
+                                <div key={index} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                                    <Input 
+                                        placeholder="รายการ" 
+                                        value={detail.detail_name}
+                                        onChange={(e) => handleUpdateDetail(index, 'detail_name', e.target.value)}
+                                        style={{ flex: 2, borderRadius: 8 }}
+                                    />
+                                    <InputNumber
+                                        placeholder="ราคา"
+                                        value={detail.extra_price}
+                                        onChange={(val) => handleUpdateDetail(index, 'extra_price', val || 0)}
+                                        formatter={value => `฿ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                        // parser={value => value!.replace(/฿\s?|(,*)/g, '')}
+                                        style={{ flex: 1, borderRadius: 8 }}
+                                        min={0}
+                                    />
+                                    <Button 
+                                        danger 
+                                        type="text" 
+                                        icon={<DeleteOutlined />} 
+                                        onClick={() => handleRemoveDetail(index)}
+                                        style={{ color: orderDetailColors.danger }}
+                                    />
+                                </div>
+                            ))}
+                        </Space>
+                    )}
+                </div>
+
                 {/* Compact Quantity Adjustment */}
-                <div style={{ marginBottom: 20 }}>
-                    <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 16 }}>
+                <div style={{ marginBottom: 24 }}>
+                    <Text strong style={{ display: 'block', marginBottom: 12, fontSize: 16 }}>
                         ปรับจำนวน
                     </Text>
-                    <div style={{...modalStyles.quantityControl, padding: '10px', borderRadius: 12}}>
+                    <div style={{...modalStyles.quantityControl, padding: '8px', borderRadius: 12}}>
                         <Button
                             type="primary"
                             icon={<MinusOutlined />}
@@ -135,7 +222,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                 </div>
 
                 {/* Compact Notes */}
-                <div style={{ marginBottom: 20 }}>
+                <div style={{ marginBottom: 24 }}>
                     <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 16 }}>
                         หมายเหตุ / คำแนะนำพิเศษ
                     </Text>
@@ -149,19 +236,19 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                 </div>
 
                 {/* Compact Total Price Card */}
-                <div style={{...modalStyles.priceCard, padding: '12px 16px', borderRadius: 12}}>
+                <div style={{...modalStyles.priceCard, padding: '12px 16px', borderRadius: 12, background: orderDetailColors.primaryLight}}>
                     <Text strong style={{ fontSize: 16 }}>ยอดรวมรายการนี้</Text>
-                    <Text style={{...modalStyles.priceValue, fontSize: 22}}>
-                        ฿{calculateItemTotal(item.price, quantity, item.details).toLocaleString()}
-                    </Text>
+                    <Title level={4} style={{ margin: 0, color: orderDetailColors.primary }}>
+                        ฿{calculateItemTotal(item.price, quantity, details).toLocaleString()}
+                    </Title>
                 </div>
             </div>
 
             {/* Footer Actions */}
-            <div style={{...modalStyles.actionButtons, padding: '12px 16px'}}>
+            <div style={{...modalStyles.actionButtons, padding: '16px', borderTop: `1px solid ${orderDetailColors.border}`}}>
                 <Button
                     onClick={onClose}
-                    style={modalStyles.secondaryButton}
+                    style={{...modalStyles.secondaryButton, flex: 1}}
                 >
                     ยกเลิก
                 </Button>
@@ -170,7 +257,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                     onClick={handleSave}
                     loading={saving}
                     icon={<SaveOutlined />}
-                    style={modalStyles.primaryButton}
+                    style={{...modalStyles.primaryButton, flex: 2}}
                 >
                     บันทึกแก้ไข
                 </Button>

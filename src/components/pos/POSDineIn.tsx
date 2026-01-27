@@ -2,17 +2,18 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { message } from "antd";
+import { message, Spin } from "antd";
 import { ShopOutlined } from "@ant-design/icons";
 import { useCart } from "../../contexts/pos/CartContext";
-import { ordersService } from "../../services/pos/orders.service";
 import { tablesService } from "../../services/pos/tables.service";
 import { authService } from "../../services/auth.service";
+import { ordersService } from "../../services/pos/orders.service";
 import { useAuth } from "../../contexts/AuthContext";
 import POSPageLayout from "./shared/POSPageLayout";
 import { useNetwork } from "../../hooks/useNetwork";
 import { CreateSalesOrderDTO, OrderType, OrderStatus } from "../../types/api/pos/salesOrder";
 import { offlineQueueService } from "../../services/pos/offline.queue.service";
+import { getPostCreateOrderNavigationPath } from "../../utils/orders";
 
 interface POSDineInProps {
     tableId: string;
@@ -21,32 +22,32 @@ interface POSDineInProps {
 export default function POSDineIn({ tableId }: POSDineInProps) {
     const [csrfToken, setCsrfToken] = useState<string>("");
     const [tableName, setTableName] = useState<string>("");
+    const [isLoading, setIsLoading] = useState<boolean>(true);
     const router = useRouter(); 
     const { user } = useAuth();
     const isOnline = useNetwork();
 
     useEffect(() => {
-        const init = async () => {
-             const token = await authService.getCsrfToken();
-             if (token) setCsrfToken(token);
-        };
-        
-        const fetchTableDetails = async () => {
+        const initData = async () => {
+            setIsLoading(true);
             try {
-                const table = await tablesService.getById(tableId);
-                if (table) {
-                    setTableName(table.table_name);
-                }
+                // Fetch CSRF and Table details in parallel
+                const [token, table] = await Promise.all([
+                    authService.getCsrfToken(),
+                    tableId ? tablesService.getById(tableId) : Promise.resolve(null)
+                ]);
+
+                if (token) setCsrfToken(token);
+                if (table) setTableName(table.table_name);
             } catch (error) {
-                console.error("Error fetching table details:", error);
-                // Fallback to ID if fetch fails, or keep empty/default
+                console.error("Initialization error:", error);
+                message.error("ไม่สามารถโหลดข้อมูลโต๊ะได้");
+            } finally {
+                setIsLoading(false);
             }
         };
-
-        init();
-        if (tableId) {
-            fetchTableDetails();
-        }
+        
+        initData();
     }, [tableId]);
 
     // Context State
@@ -81,7 +82,7 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
                 received_amount: 0, 
                 change_amount: 0,
                 
-                status: OrderStatus.Pending,
+                status: OrderStatus.Pending, // สถานะภาพรวม: กำลังดำเนินการ
                 
                 discount_id: selectedDiscount?.id || null,
                 
@@ -91,52 +92,60 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
                 delivery_code: null,
                 created_by_id: user?.id || null,
                 
-                items: cartItems.map(item => ({
-                    product_id: item.product.id,
-                    quantity: item.quantity,
-                    price: Number(item.product.price),
-                    total_price: Number(item.product.price) * item.quantity,
-                    discount_amount: 0, 
-                    notes: item.notes || ""
-                }))
+                items: cartItems.map(item => {
+                    const productPrice = Number(item.product.price);
+                    const detailsPrice = (item.details || []).reduce((sum, d) => sum + Number(d.extra_price), 0);
+                    const totalPrice = (productPrice + detailsPrice) * item.quantity;
+
+                    return {
+                        product_id: item.product.id,
+                        quantity: item.quantity,
+                        price: productPrice,
+                        total_price: totalPrice,
+                        discount_amount: 0, 
+                        notes: item.notes || "",
+                        status: OrderStatus.Cooking, // สถานะสินค้า: กำลังปรุง
+                        details: item.details || []
+                    };
+                })
             };
 
             if (!isOnline) {
                 offlineQueueService.addToQueue('CREATE_ORDER', orderPayload);
                 message.warning("บันทึกออเดอร์แบบ Offline แล้ว (จะซิงค์เมื่อมีเน็ต)");
                 clearCart();
-                router.push('/pos/tables'); // Go back to tables or stay? Tables might need refresh. 
-                // Better to just clear cart and show specific message.
-                // But user expects navigation. Let's go to /pos/orders (it handles error gracefully usually)
-                // Or just /pos/tables
+                router.push(getPostCreateOrderNavigationPath(OrderType.DineIn)); 
                 return;
             }
             
-            const response = await fetch('/api/pos/orders', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken
-                },
-                body: JSON.stringify(orderPayload)
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.error || errorData.message || "Failed to create order");
-            }
+            await ordersService.create(orderPayload, undefined, csrfToken);
             
             message.success("สร้างออเดอร์เรียบร้อยแล้ว");
             
             clearCart();
-            router.push('/pos/orders');
+            router.push(getPostCreateOrderNavigationPath(OrderType.DineIn));
             
-        } catch (error: any) {
+        } catch (error) {
             console.error(error);
-            message.error(error.message || "ไม่สามารถทำรายการได้");
-            throw error; // Re-throw to let Layout know it failed
+            message.error(error instanceof Error ? error.message : "ไม่สามารถทำรายการได้");
+            throw error; 
         }
     };
+
+    if (isLoading) {
+        return (
+            <div style={{ 
+                height: '100vh', 
+                display: 'flex', 
+                flexDirection: 'column',
+                justifyContent: 'center', 
+                alignItems: 'center',
+                background: '#f0f2f5'
+            }}>
+                <Spin size="large" />
+            </div>
+        );
+    }
 
     return (
         <POSPageLayout 

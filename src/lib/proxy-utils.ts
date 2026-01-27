@@ -9,5 +9,12 @@ export function getProxyUrl(method: 'GET' | 'POST' | 'PUT' | 'DELETE' | 'PATCH',
 }
 
 export const PROXY_CONFIGS = {
-    API_BASE_URL: process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:4000",
+    get API_BASE_URL() {
+        if (typeof window !== "undefined") {
+            // Client-side: call Next.js Proxy
+            return "/api";
+        }
+        // Server-side: call Backend directly
+        return process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:4000";
+    }
 }

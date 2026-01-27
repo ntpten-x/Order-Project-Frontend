@@ -1,7 +1,8 @@
 import { Tables } from "../../types/api/pos/tables";
 import { getProxyUrl } from "../../lib/proxy-utils";
+import { API_ROUTES } from "../../config/api";
 
-const BASE_PATH = "/pos/tables";
+const BASE_PATH = API_ROUTES.POS.TABLES;
 
 const getHeaders = (cookie?: string, contentType: string = "application/json"): HeadersInit => {
     const headers: Record<string, string> = {};

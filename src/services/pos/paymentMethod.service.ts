@@ -1,7 +1,8 @@
 import { PaymentMethod } from "../../types/api/pos/paymentMethod";
 import { getProxyUrl } from "../../lib/proxy-utils";
+import { API_ROUTES } from "../../config/api";
 
-const BASE_PATH = "/pos/paymentMethod";
+const BASE_PATH = API_ROUTES.POS.PAYMENT_METHODS;
 
 const getHeaders = (cookie?: string, contentType: string = "application/json"): HeadersInit => {
     const headers: Record<string, string> = {};

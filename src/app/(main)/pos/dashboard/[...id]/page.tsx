@@ -1,16 +1,21 @@
-"use client";
+﻿"use client";
 
-import React, { useEffect, useState, useRef } from "react";
-import { Typography, Card, Descriptions, Table, Tag, Button, Spin, Row, Col, Divider, message, Image, Avatar, Timeline, Statistic, Modal } from "antd";
-import { ArrowLeftOutlined, UserOutlined, ShopOutlined, ClockCircleOutlined, DollarCircleOutlined, CreditCardOutlined, TagOutlined, CheckCircleOutlined, CloseCircleOutlined, TableOutlined, CarOutlined, ShoppingOutlined, PrinterOutlined } from "@ant-design/icons";
+import React, { useCallback, useEffect, useRef, useState } from "react";
+import { Typography, Card, Table, Tag, Button, Spin, Row, Col, message, Image, Avatar, Timeline, Statistic, Modal, Empty } from "antd";
+import { ArrowLeftOutlined, UserOutlined, ShopOutlined, ClockCircleOutlined, DollarCircleOutlined, TableOutlined, CarOutlined, ShoppingOutlined, PrinterOutlined, TagOutlined, CheckCircleOutlined, CloseCircleOutlined, CreditCardOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { ordersService } from "../../../../../services/pos/orders.service";
-import { shopProfileService } from "../../../../../services/pos/shopProfile.service";
+import { shopProfileService, ShopProfile } from "../../../../../services/pos/shopProfile.service";
 import { SalesOrder, OrderStatus, OrderType } from "../../../../../types/api/pos/salesOrder";
+import { SalesOrderItem } from "../../../../../types/api/pos/salesOrderItem";
+import { Payments } from "../../../../../types/api/pos/payments";
+import { PaymentMethod } from "../../../../../types/api/pos/paymentMethod";
 import { pageStyles, colors } from "../../style";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import ReceiptTemplate from "../../../../../components/pos/shared/ReceiptTemplate";
+import { sortOrderItems, getItemRowStyle, getStatusTextStyle } from "../../../../../utils/dashboard/orderUtils";
+import { ItemStatus } from "../../../../../types/api/pos/salesOrderItem";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -21,47 +26,55 @@ interface Props {
     };
 }
 
+type ShopProfileExtended = ShopProfile & {
+    tax_id?: string;
+    logo_url?: string;
+};
+
+type PaymentWithMethod = Payments & {
+    payment_method?: PaymentMethod | null;
+};
+
 export default function DashboardOrderDetailPage({ params }: Props) {
     const router = useRouter();
     const orderId = params.id[0];
     
     const [order, setOrder] = useState<SalesOrder | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [shopProfile, setShopProfile] = useState<any>(null);
+    const [shopProfile, setShopProfile] = useState<ShopProfileExtended | null>(null);
     const [isPrintModalVisible, setIsPrintModalVisible] = useState(false);
     const receiptRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        if (orderId) {
-            fetchOrderDetail();
-        }
-    }, [orderId]);
-
-    const fetchOrderDetail = async () => {
+    const fetchOrderDetail = useCallback(async () => {
+        if (!orderId) return;
         setIsLoading(true);
         try {
             const data = await ordersService.getById(orderId);
             setOrder(data);
         } catch (error) {
             console.error("Fetch order detail error:", error);
-            message.error("ไม่สามารถโหลดข้อมูลออเดอร์ได้");
+            message.error("ไม่พบข้อมูลออเดอร์");
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [orderId]);
 
-    const fetchShopProfile = async () => {
+    useEffect(() => {
+        fetchOrderDetail();
+    }, [fetchOrderDetail]);
+
+    const fetchShopProfile = useCallback(async () => {
         try {
             const data = await shopProfileService.getProfile();
             setShopProfile(data);
         } catch (error) {
             console.warn("Could not fetch shop profile", error);
         }
-    };
+    }, []);
 
     useEffect(() => {
         fetchShopProfile();
-    }, []);
+    }, [fetchShopProfile]);
 
     const handlePrint = () => {
         setIsPrintModalVisible(true);
@@ -113,8 +126,8 @@ export default function DashboardOrderDetailPage({ params }: Props) {
         );
     }
 
-    const items = order.items || [];
-    const payments = order.payments || [];
+    const items = sortOrderItems(order.items || []);
+    const payments = (order.payments || []) as PaymentWithMethod[];
     
     // Derived Data
     const employeeName = order.created_by?.display_name || order.created_by?.username || 'ไม่ทราบ';
@@ -149,10 +162,10 @@ export default function DashboardOrderDetailPage({ params }: Props) {
             dataIndex: 'product',
             key: 'image',
             width: 80,
-            render: (product: any) => (
+            render: (product?: SalesOrderItem["product"]) => (
                 <div style={{ width: 60, height: 60, borderRadius: 8, overflow: 'hidden', border: '1px solid #f0f0f0' }}>
                      {product?.img_url ? (
-                        <Image src={product.img_url} width="100%" height="100%" style={{ objectFit: 'cover' }} preview={false} />
+                        <Image src={product.img_url} width="100%" height="100%" style={{ objectFit: 'cover' }} preview={false} alt="product" />
                      ) : (
                         <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f5' }}>
                             <ShopOutlined style={{ fontSize: 24, color: '#ccc' }} />
@@ -165,11 +178,28 @@ export default function DashboardOrderDetailPage({ params }: Props) {
             title: 'สินค้า',
             dataIndex: 'product',
             key: 'name',
-            render: (product: any, record: any) => (
+            render: (product: SalesOrderItem["product"], record: SalesOrderItem) => (
                 <div>
                     <Text strong style={{ fontSize: 16 }}>{product?.display_name || product?.product_name || 'สินค้า'}</Text>
+                    
+                    {/* Toppings Display */}
+                    {record.details && record.details.length > 0 && (
+                        <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                            {record.details.map((detail, dIdx) => (
+                                <Text key={dIdx} type="secondary" style={{ fontSize: 13, display: 'block', color: '#8c8c8c' }}>
+                                    + {detail.detail_name} {detail.extra_price > 0 && `(฿${Number(detail.extra_price).toLocaleString()})`}
+                                </Text>
+                            ))}
+                        </div>
+                    )}
+
+                    {record.status === ItemStatus.Cancelled && (
+                        <div style={{ marginTop: 6 }}>
+                            <Tag color="red" style={{ margin: 0 }}>ยกเลิกแล้ว</Tag>
+                        </div>
+                    )}
                     {record.notes && (
-                        <div style={{ marginTop: 4, background: '#fff7e6', padding: '2px 8px', borderRadius: 4, border: '1px dashed #fa8c16', display: 'inline-block' }}>
+                        <div style={{ marginTop: 6, background: '#fff7e6', padding: '2px 8px', borderRadius: 4, border: '1px dashed #fa8c16', display: 'inline-block' }}>
                             <Text type="warning" style={{ fontSize: 12 }}>หมายเหตุ: {record.notes}</Text>
                         </div>
                     )}
@@ -177,33 +207,28 @@ export default function DashboardOrderDetailPage({ params }: Props) {
             )
         },
         { title: 'จำนวน', dataIndex: 'quantity', key: 'quantity', align: 'center' as const, width: 80 },
-        { title: 'ราคา/หน่วย', dataIndex: 'price', key: 'price', align: 'right' as const, width: 120, render: (price: number) => `฿${Number(price).toLocaleString()}` },
-        { title: 'รวม', dataIndex: 'total_price', key: 'total', align: 'right' as const, width: 120, render: (total: number) => <Text strong>฿{Number(total).toLocaleString()}</Text> },
-    ];
-
-    const paymentColumns = [
         { 
-            title: 'ช่องทาง', 
-            dataIndex: 'payment_method', 
-            key: 'method', 
-            render: (pm: any) => (
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <CreditCardOutlined style={{ color: colors.primary }} />
-                    <Text>{pm?.display_name || pm?.payment_method_name || 'ไม่ระบุ'}</Text>
-                </div>
+            title: 'ราคา/หน่วย', 
+            dataIndex: 'price', 
+            key: 'price', 
+            align: 'right' as const, 
+            width: 120, 
+            render: (price: number, record: SalesOrderItem) => (
+                <Text style={getStatusTextStyle(record.status)}>฿{Number(price).toLocaleString()}</Text>
             )
         },
-        { title: 'ยอดชำระ', dataIndex: 'amount', key: 'amount', align: 'right' as const, render: (val: number) => `฿${Number(val).toLocaleString()}` },
-        { title: 'รับมา', dataIndex: 'amount_received', key: 'received', align: 'right' as const, render: (val: number) => `฿${Number(val).toLocaleString()}` },
-        { title: 'ทอน', dataIndex: 'change_amount', key: 'change', align: 'right' as const, render: (val: number) => val > 0 ? `฿${Number(val).toLocaleString()}` : '-' },
-        { title: 'เวลา', dataIndex: 'payment_date', key: 'time', render: (date: string) => dayjs(date).format('DD/MM/YYYY HH:mm') },
         { 
-            title: 'สถานะ', 
-            dataIndex: 'status', 
-            key: 'status', 
-            render: (status: string) => <Tag color={status === 'Success' ? 'green' : 'red'}>{status === 'Success' ? 'สำเร็จ' : status}</Tag>
+            title: 'รวม', 
+            dataIndex: 'total_price', 
+            key: 'total', 
+            align: 'right' as const, 
+            width: 120, 
+            render: (total: number, record: SalesOrderItem) => (
+                <Text strong style={getStatusTextStyle(record.status)}>฿{Number(total).toLocaleString()}</Text>
+            )
         },
     ];
+
 
     return (
         <div style={pageStyles.container}>
@@ -252,36 +277,31 @@ export default function DashboardOrderDetailPage({ params }: Props) {
             <div style={{ maxWidth: 1200, margin: '-40px auto 30px', padding: '0 24px', position: 'relative', zIndex: 20 }}>
                 {/* Summary Cards */}
                 <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
-                    <Col xs={24} sm={6}>
-                        <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                    <Col xs={24} sm={12} md={8} style={{ flex: 1 }}>
+                        <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%' }}>
                             <Statistic 
-                                title="ยอดสุทธิ" 
-                                value={order.total_amount} 
-                                precision={2}
-                                prefix={<DollarCircleOutlined style={{ color: colors.primary }} />} 
-                                suffix="฿"
-                                valueStyle={{ color: colors.primary, fontWeight: 'bold', fontSize: 28 }}
+                                title="โต๊ะ" 
+                                value={tableName}
+                                prefix={<TableOutlined style={{ color: '#1890ff' }} />} 
+                                valueStyle={{ fontWeight: 'bold', fontSize: 24 }}
                             />
                         </Card>
                     </Col>
-                    <Col xs={24} sm={6}>
-                        <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                    <Col xs={24} sm={12} md={8} style={{ flex: 1 }}>
+                        <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%' }}>
                             <Statistic 
                                 title="ประเภท" 
                                 valueRender={() => (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
                                         {orderTypeInfo.icon}
                                         <span style={{ color: orderTypeInfo.color, fontWeight: 'bold' }}>{orderTypeInfo.label}</span>
-                                        {order.order_type === OrderType.DineIn && tableName !== '-' && (
-                                            <Tag color="blue">{tableName}</Tag>
-                                        )}
                                     </div>
                                 )}
                             />
                         </Card>
                     </Col>
-                    <Col xs={24} sm={6}>
-                        <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                    <Col xs={24} sm={12} md={8} style={{ flex: 1 }}>
+                        <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%' }}>
                             <Statistic 
                                 title="ผู้สร้างออเดอร์"
                                 valueRender={() => (
@@ -293,8 +313,8 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                             />
                         </Card>
                     </Col>
-                    <Col xs={24} sm={6}>
-                        <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                    <Col xs={24} sm={12} md={8} style={{ flex: 1 }}>
+                        <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%' }}>
                             <Statistic 
                                 title="ส่วนลด"
                                 valueRender={() => (
@@ -314,6 +334,18 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                             />
                         </Card>
                     </Col>
+                    <Col xs={24} sm={12} md={8} style={{ flex: 1 }}>
+                        <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%' }}>
+                            <Statistic 
+                                title="ยอดสุทธิ" 
+                                value={order.total_amount} 
+                                precision={2}
+                                prefix={<DollarCircleOutlined style={{ color: colors.primary }} />} 
+                                suffix="฿"
+                                valueStyle={{ color: colors.primary, fontWeight: 'bold', fontSize: 24 }}
+                            />
+                        </Card>
+                    </Col>
                 </Row>
 
                 {/* Items & Payments */}
@@ -329,6 +361,9 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                                 columns={itemColumns} 
                                 rowKey="id"
                                 pagination={false}
+                                onRow={(record) => ({
+                                    style: getItemRowStyle(record.status)
+                                })}
                                 summary={() => (
                                     <Table.Summary fixed>
                                         <Table.Summary.Row>
@@ -368,24 +403,24 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                         >
                             {payments.length > 0 ? (
                                 <Timeline
-                                    items={payments.map((p: any) => ({
-                                        color: p.status === 'Success' ? 'green' : 'red',
+                                    items={payments.map((payment) => ({
+                                        color: payment.status === 'Success' ? 'green' : 'red',
                                         children: (
                                             <div>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <Text strong>{p.payment_method?.display_name || p.payment_method?.payment_method_name || 'ไม่ระบุ'}</Text>
-                                                    <Text strong style={{ color: colors.primary }}>฿{Number(p.amount).toLocaleString()}</Text>
+                                                    <Text strong>{payment.payment_method?.display_name || payment.payment_method?.payment_method_name || 'ไม่ระบุ'}</Text>
+                                                    <Text strong style={{ color: colors.primary }}>฿{Number(payment.amount).toLocaleString()}</Text>
                                                 </div>
                                                 <div>
                                                     <Text type="secondary" style={{ fontSize: 12 }}>
                                                         <ClockCircleOutlined style={{ marginRight: 4 }} />
-                                                        {dayjs(p.payment_date).format('DD/MM/YYYY HH:mm')}
+                                                        {dayjs(payment.payment_date).format('DD/MM/YYYY HH:mm')}
                                                     </Text>
                                                 </div>
-                                                {p.amount_received > 0 && (
+                                                {payment.amount_received > 0 && (
                                                     <div style={{ fontSize: 12, marginTop: 4 }}>
-                                                        <Text type="secondary">รับมา ฿{Number(p.amount_received).toLocaleString()}</Text>
-                                                        {p.change_amount > 0 && <Text type="secondary"> | ทอน ฿{Number(p.change_amount).toLocaleString()}</Text>}
+                                                        <Text type="secondary">รับมา ฿{Number(payment.amount_received).toLocaleString()}</Text>
+                                                        {payment.change_amount > 0 && <Text type="secondary"> | ทอน ฿{Number(payment.change_amount).toLocaleString()}</Text>}
                                                     </div>
                                                 )}
                                             </div>

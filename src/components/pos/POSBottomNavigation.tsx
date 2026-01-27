@@ -67,7 +67,7 @@ const POSBottomNavigation = () => {
       },
       {
         key: 'items',
-        label: 'สินค้า',
+        label: 'รอชำระเงิน',
         icon: <AppstoreOutlined className="text-2xl" />,
         path: '/pos/items', 
       },

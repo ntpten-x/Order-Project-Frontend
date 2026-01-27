@@ -15,6 +15,8 @@ export async function POST(request: NextRequest) {
 
     // Clear the token cookie
     nextResponse.cookies.delete("token");
+    // Clear websocket helper token
+    nextResponse.cookies.delete("token_ws");
 
     return nextResponse;
 }

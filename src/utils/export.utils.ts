@@ -8,6 +8,17 @@ import 'dayjs/locale/th';
 
 dayjs.locale('th');
 
+type AutoTableDocument = jsPDF & {
+    lastAutoTable?: {
+        finalY: number;
+    };
+};
+
+const getLastAutoTableY = (pdf: jsPDF): number => {
+    const table = (pdf as AutoTableDocument).lastAutoTable;
+    return table?.finalY ?? 0;
+};
+
 // Types
 export interface SalesSummaryExport {
     date: string;
@@ -91,7 +102,7 @@ export const exportSalesReportPDF = (
     });
 
     // Top Items Section
-    const finalY = (doc as any).lastAutoTable.finalY + 10;
+    const finalY = getLastAutoTableY(doc) + 10;
 
     doc.setFontSize(12);
     doc.text('สินค้าขายดี 5 อันดับ', 14, finalY);
@@ -212,7 +223,7 @@ export const exportShiftSummaryPDF = (
     });
 
     // Orders in this shift
-    const finalY = (doc as any).lastAutoTable.finalY + 10;
+    const finalY = getLastAutoTableY(doc) + 10;
 
     doc.setFontSize(12);
     doc.text(`รายการออเดอร์ (${orders.length} รายการ)`, 14, finalY);
@@ -232,7 +243,7 @@ export const exportShiftSummaryPDF = (
     });
 
     // Footer
-    const footerY = (doc as any).lastAutoTable.finalY + 15;
+    const footerY = getLastAutoTableY(doc) + 15;
     doc.setFontSize(9);
     doc.text(`พิมพ์เมื่อ: ${dayjs().format('DD/MM/YYYY HH:mm:ss')}`, pageWidth / 2, footerY, { align: 'center' });
 

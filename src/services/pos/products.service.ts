@@ -1,7 +1,9 @@
 import { Products } from "../../types/api/pos/products";
 import { getProxyUrl } from "../../lib/proxy-utils";
+import { API_ROUTES } from "../../config/api";
+import { ProductSchema, ProductsResponseSchema } from "../../schemas/api/pos/products.schema";
 
-const BASE_PATH = "/pos/products";
+const BASE_PATH = API_ROUTES.POS.PRODUCTS;
 
 export const productsService = {
     findAll: async (page: number = 1, limit: number = 50, cookie?: string, searchParams?: URLSearchParams): Promise<{ data: Products[], total: number, page: number, last_page: number }> => {
@@ -24,7 +26,10 @@ export const productsService = {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || errorData.message || "Failed to fetch products");
         }
-        return response.json();
+
+        const json = await response.json();
+        // Strict Validation: will throw if backend response doesn't match schema
+        return ProductsResponseSchema.parse(json) as unknown as { data: Products[], total: number, page: number, last_page: number };
     },
 
     findOne: async (id: string, cookie?: string): Promise<Products> => {
@@ -41,7 +46,9 @@ export const productsService = {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || errorData.message || "Failed to fetch product");
         }
-        return response.json();
+
+        const json = await response.json();
+        return ProductSchema.parse(json) as unknown as Products;
     },
 
     findOneByName: async (name: string, cookie?: string): Promise<Products> => {
@@ -58,7 +65,9 @@ export const productsService = {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || errorData.message || "Failed to fetch product by name");
         }
-        return response.json();
+
+        const json = await response.json();
+        return ProductSchema.parse(json) as unknown as Products;
     },
 
     create: async (data: Partial<Products>, cookie?: string, csrfToken?: string): Promise<Products> => {

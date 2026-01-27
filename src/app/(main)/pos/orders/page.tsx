@@ -1,339 +1,293 @@
-"use client";
+﻿"use client";
 
-import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import useSWR from "swr";
+import React, { useEffect, useState, useCallback } from "react";
+import { Typography, Card, Table, Tag, Button, Spin, Empty, Input, Space, Grid, List, Divider } from "antd";
 import { 
-  Typography, 
-  Row, 
-  Col, 
-  Card, 
-  Tag, 
-  Spin, 
-  Empty, 
-  Button, 
-  Divider,
-  Select,
-  Space,
-  Pagination,
-  Segmented,
-  ConfigProvider
-} from "antd";
-import { 
-  ClockCircleOutlined, 
-  ShopOutlined, 
-  RocketOutlined, 
   ShoppingOutlined, 
-  ArrowRightOutlined, 
-  UserOutlined,
-  AppstoreOutlined,
-  SortAscendingOutlined,
-  SortDescendingOutlined,
-  FilterOutlined
+  SearchOutlined, 
+  ReloadOutlined, 
+  EyeOutlined,
+  ArrowLeftOutlined,
+  ClockCircleOutlined,
+  ContainerOutlined
 } from "@ant-design/icons";
-import { ordersService } from "@/services/pos/orders.service";
-import { OrderStatus } from "@/types/api/pos/salesOrder";
-import { 
-  ordersStyles, 
-  ordersColors, 
-  ordersTypography,
-  ordersResponsiveStyles 
-} from "./style";
-import {
-  getOrderStatusColor,
-  getOrderStatusText,
-  getOrderChannelColor,
-  getOrderChannelText,
-  formatCurrency,
-  getOrderReference,
-  getTotalItemsQuantity,
-  groupItemsByCategory,
-  sortOrdersByDate,
-  sortOrdersByQuantity,
-  calculateOrderTotal
-} from "@/utils/orders";
+import { useRouter } from "next/navigation";
+import { ordersService } from "../../../../services/pos/orders.service";
+import { SalesOrder, OrderStatus, OrderType } from "../../../../types/api/pos/salesOrder";
 import dayjs from "dayjs";
-import "dayjs/locale/th";
+import 'dayjs/locale/th';
 
 const { Title, Text } = Typography;
-const { Option } = Select;
-import { useOrders } from "@/hooks/pos/useOrders";
-dayjs.locale("th");
+const { useBreakpoint } = Grid;
+dayjs.locale('th');
 
 export default function POSOrdersPage() {
-  const router = useRouter();
-  const [page, setPage] = useState(1);
-  const [sortAscending, setSortAscending] = useState(true); // true = oldest first (FIFO)
-  const [limit, setLimit] = useState(50);
-  const [sortBy, setSortBy] = useState<'date' | 'quantity'>('date');
+    const router = useRouter();
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
 
-  // Fetch active orders using the new hook
-  const activeStatuses = [OrderStatus.Pending, OrderStatus.Cooking, OrderStatus.Served].join(",");
+    const [orders, setOrders] = useState<SalesOrder[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [page, setPage] = useState(1);
+    const [total, setTotal] = useState(0);
+    const LIMIT = 10;
 
-  const { orders, isLoading, total } = useOrders({
-    page,
-    limit,
-    status: activeStatuses
-  });
+    const fetchOrders = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            // Filter only active statuses
+            const activeStatuses = 'Pending,Cooking,Served,WaitingForPayment';
+            const data = await ordersService.getAll(undefined, page, LIMIT, activeStatuses);
+            setOrders(data.data || []);
+            setTotal(data.total || 0);
+        } catch (error) {
+            console.error("Fetch orders error:", error);
+        } finally {
+            setIsLoading(false);
+        }
+    }, [page]);
 
-  const sortedOrders = sortBy === 'date' 
-    ? sortOrdersByDate(orders, sortAscending)
-    : sortOrdersByQuantity(orders, sortAscending);
+    useEffect(() => {
+        fetchOrders();
+    }, [fetchOrders]);
 
-  // Get icon for order type
-  const getChannelIcon = (type: string) => {
-    switch (type) {
-      case "DineIn":
-        return <ShopOutlined />;
-      case "TakeAway":
-        return <ShoppingOutlined />;
-      case "Delivery":
-        return <RocketOutlined />;
-      default:
-        return <AppstoreOutlined />;
-    }
-  };
+    const getStatusColor = (status: OrderStatus) => {
+        switch (status) {
+            case OrderStatus.Paid: return 'green';
+            case OrderStatus.Cancelled: return 'red';
+            case OrderStatus.Pending: return 'orange';
+            case OrderStatus.Cooking: return 'blue';
+            case OrderStatus.WaitingForPayment: return 'purple';
+            case OrderStatus.Served: return 'success';
+            default: return 'default';
+        }
+    };
 
-  return (
-    <div className="pos-orders-container" style={ordersStyles.container}>
-      {/* Responsive Styles */}
-      <style jsx global>{ordersResponsiveStyles}</style>
+    const getStatusText = (status: OrderStatus) => {
+        switch (status) {
+            case OrderStatus.Paid: return 'ชำระเงินแล้ว';
+            case OrderStatus.Cancelled: return 'ยกเลิก';
+            case OrderStatus.Pending: return 'กำลังดำเนินการ';
+            case OrderStatus.Cooking: return 'กำลังปรุง';
+            case OrderStatus.Served: return 'เสิร์ฟแล้ว';
+            case OrderStatus.WaitingForPayment: return 'รอชำระเงิน';
+            default: return status;
+        }
+    };
 
-      {/* Header */}
-      <div className="orders-header" style={ordersStyles.header}>
-        <div style={ordersStyles.headerContent}>
-          <div className="orders-header-icon" style={ordersStyles.headerIcon}>
-            <ClockCircleOutlined style={{ fontSize: 32, color: '#fff' }} />
-          </div>
-          <div style={ordersStyles.headerTextContainer}>
-            <Title 
-              level={2} 
-              className="orders-page-title"
-              style={ordersStyles.headerTitle}
-            >
-              รายการออเดอร์
-            </Title>
-            <Text 
-              className="orders-page-subtitle"
-              style={ordersStyles.headerSubtitle}
-            >
-              จัดการและติดตามออเดอร์ที่กำลังดำเนินการ
-            </Text>
-          </div>
-        </div>
-      </div>
+    const columns = [
+        {
+            title: 'เลขที่ออเดอร์',
+            dataIndex: 'order_no',
+            key: 'order_no',
+            align: 'center' as const,
+            render: (text: string) => <Text strong style={{ whiteSpace: 'nowrap' }}>{text}</Text>
+        },
+        {
+            title: 'วันเวลา',
+            dataIndex: 'create_date',
+            key: 'date',
+            align: 'center' as const,
+            render: (date: string) => (
+                <div style={{ whiteSpace: 'nowrap' }}>
+                    <Text>{dayjs(date).format('DD MMM YYYY')}</Text>
+                    <br />
+                    <Text type="secondary" style={{ fontSize: 12 }}>{dayjs(date).format('HH:mm')}</Text>
+                </div>
+            )
+        },
+        {
+            title: 'ประเภท',
+            dataIndex: 'order_type',
+            key: 'type',
+            align: 'center' as const,
+            render: (type: OrderType) => {
+                const colors = { [OrderType.DineIn]: 'blue', [OrderType.TakeAway]: 'green', [OrderType.Delivery]: 'orange' };
+                const labels = { [OrderType.DineIn]: 'ทานที่ร้าน', [OrderType.TakeAway]: 'กลับบ้าน', [OrderType.Delivery]: 'เดลิเวอรี่' };
+                return <Tag color={colors[type]} style={{ margin: 0 }}>{labels[type]}</Tag>
+            }
+        },
+        {
+            title: 'โต๊ะ / รหัสอ้างอิง',
+            key: 'reference',
+            align: 'center' as const,
+            render: (_: any, record: SalesOrder) => {
+                if (record.order_type === OrderType.DineIn) {
+                    return <Tag color="cyan" style={{ margin: 0 }}>{record.table?.table_name || '-'}</Tag>;
+                }
+                if (record.order_type === OrderType.Delivery) {
+                    return <Tag color="orange" style={{ margin: 0 }}>{record.delivery_code || '-'}</Tag>;
+                }
+                return <Text type="secondary">-</Text>;
+            }
+        },
+        {
+            title: 'รายละเอียดรายการ',
+            key: 'items_summary',
+            width: 200,
+            align: 'center' as const,
+            render: (_: any, record: SalesOrder) => {
+                const items = record.items || [];
+                const summary: { [key: string]: number } = {};
+                let totalQty = 0;
 
-      {/* Content */}
-      <div className="orders-content-wrapper" style={ordersStyles.contentWrapper}>
-        {/* Filter Controls */}
-        <div className="orders-filter-section" style={ordersStyles.filterSection}>
-          <div style={ordersStyles.filterLeft}>
-            <FilterOutlined style={{ fontSize: 16, color: ordersColors.primary }} />
-            <Text style={ordersStyles.statsText}>
-              แสดง <Text strong style={{ color: ordersColors.text }}>{sortedOrders.length}</Text> ออเดอร์
-            </Text>
-          </div>
-          <div className="filter-controls-group" style={ordersStyles.filterRight}>
-            <ConfigProvider
-              theme={{
-                components: {
-                  Segmented: {
-                    itemSelectedBg: ordersColors.primary,
-                    itemSelectedColor: '#fff',
-                    trackBg: '#e2e8f0',
-                  },
-                },
-              }}
-            >
-              <Segmented
-                value={sortBy}
-                onChange={(value) => setSortBy(value as 'date' | 'quantity')}
-                options={[
-                  { label: 'เวลา', value: 'date', icon: <ClockCircleOutlined /> },
-                  { label: 'จำนวนรายการ', value: 'quantity', icon: <AppstoreOutlined /> },
-                ]}
-                style={{ borderRadius: 10, padding: 2 }}
-              />
-            </ConfigProvider>
-            
-            <Button
-              type="primary"
-              ghost
-              icon={sortAscending ? <SortAscendingOutlined /> : <SortDescendingOutlined />}
-              onClick={() => setSortAscending(!sortAscending)}
-              style={{ 
-                borderRadius: 10, 
-                height: 32,
-                display: 'flex',
-                alignItems: 'center',
-                fontWeight: 600,
-                borderWidth: 2,
-              }}
-            >
-              {sortBy === 'date' 
-                ? (sortAscending ? "เก่าก่อน" : "ใหม่ก่อน")
-                : (sortAscending ? "น้อยสุด" : "มากสุด")
-              }
-            </Button>
-          </div>
-        </div>
+                items.forEach(item => {
+                    if (item.status === 'Cancelled' && record.status !== OrderStatus.Cancelled) return;
+                    const catName = item.product?.category?.display_name || item.product?.category?.category_name || 'อื่นๆ';
+                    summary[catName] = (summary[catName] || 0) + Number(item.quantity);
+                    totalQty += Number(item.quantity);
+                });
 
-        {isLoading ? (
-          <div style={ordersStyles.loadingState}>
-            <Spin size="large" tip="กำลังโหลดข้อมูล..." />
-          </div>
-        ) : sortedOrders.length > 0 ? (
-          <Row gutter={[16, 16]}>
-            {sortedOrders.map((order: any) => {
-              const itemsSummary = groupItemsByCategory(order.items || []);
-              const totalItems = getTotalItemsQuantity(order.items || []);
-              const orderRef = getOrderReference(order);
+                if (totalQty === 0) return <Text type="secondary">-</Text>;
 
-              return (
-                <Col xs={24} sm={12} lg={8} key={order.id}>
-                  <Card
-                    hoverable
-                    className="orders-card"
-                    style={ordersStyles.orderCard}
-                    styles={{ body: { padding: 0 } }}
-                  >
-                    {/* Card Header */}
-                    <div className="orders-card-header" style={ordersStyles.cardHeader}>
-                      <div style={ordersStyles.cardHeaderLeft}>
-                        <Tag
-                          icon={getChannelIcon(order.order_type)}
-                          color={getOrderChannelColor(order.order_type)}
-                          style={{ 
-                            margin: 0, 
-                            padding: "4px 10px", 
-                            borderRadius: 6,
-                            fontSize: 13,
-                            fontWeight: 600
-                          }}
-                        >
-                          {getOrderChannelText(order.order_type)}
-                        </Tag>
-                        <Text strong style={{ fontSize: 14 }}>
-                          {dayjs(order.create_date).format("HH:mm")}
-                        </Text>
-                      </div>
-                      <Tag
-                        color={getOrderStatusColor(order.status)}
-                        style={{ 
-                          margin: 0, 
-                          fontWeight: 600,
-                          borderRadius: 6,
-                          padding: "4px 10px"
-                        }}
-                      >
-                        {getOrderStatusText(order.status)}
-                      </Tag>
-                    </div>
-
-                    {/* Card Body */}
-                    <div className="orders-card-body" style={ordersStyles.cardBody}>
-                      {/* Reference Section */}
-                      <div style={ordersStyles.refSection}>
-                        <Text style={ordersStyles.refLabel}>
-                          {order.order_type === "DineIn" && "โต๊ะ"}
-                          {order.order_type === "Delivery" && "เดลิเวอรี่"}
-                          {order.order_type === "TakeAway" && "หมายเลข"}
-                        </Text>
-                        <div className="orders-ref-value" style={ordersStyles.refValue}>
-                          <AppstoreOutlined style={{ fontSize: 18, color: ordersColors.primary }} />
-                          <span>{orderRef}</span>
-                        </div>
-                      </div>
-
-                      {/* Items Summary */}
-                      <div style={ordersStyles.itemsSummary}>
-                        {Object.keys(itemsSummary).length > 0 ? (
-                          <>
-                            {Object.entries(itemsSummary).map(([category, qty]) => (
-                              <div key={category} style={ordersStyles.summaryRow}>
-                                <Text type="secondary">{category}</Text>
+                return (
+                    <div style={{ fontSize: 13, lineHeight: '1.6', textAlign: 'left', display: 'inline-block', minWidth: 140 }}>
+                        {Object.entries(summary).map(([cat, qty]) => (
+                            <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
+                                <Text type="secondary">{cat}</Text>
                                 <Text strong>{qty} รายการ</Text>
-                              </div>
-                            ))}
-                            <div style={ordersStyles.summaryRowBold}>
-                              <Text>รวมทั้งหมด</Text>
-                              <Text>{totalItems} รายการ</Text>
                             </div>
-                          </>
-                        ) : (
-                          <Text type="secondary" style={{ fontSize: 13 }}>
-                            ไม่มีรายการสินค้า
-                          </Text>
-                        )}
-                      </div>
-
-                      {/* Total Amount */}
-                      <div style={ordersStyles.totalSection}>
-                        <Text style={ordersStyles.totalLabel}>ยอดรวม</Text>
-                        <Text style={ordersStyles.totalAmount}>
-                          {formatCurrency(calculateOrderTotal(order.items || []))}
-                        </Text>
-                      </div>
-
-                      {/* Creator Info */}
-                      <div style={ordersStyles.metaSection}>
-                        <UserOutlined />
-                        <Text type="secondary">
-                          {order.created_by?.username || order.created_by_id || "System"}
-                        </Text>
-                      </div>
-
-                      {/* Action Button */}
-                      <Button
-                        type="primary"
-                        block
-                        icon={<ArrowRightOutlined />}
-                        style={ordersStyles.actionButton}
-                        onClick={() => router.push(`/pos/orders/${order.id}`)}
-                      >
-                        ดูรายละเอียด
-                      </Button>
+                        ))}
+                        <Divider style={{ margin: '4px 0' }} />
+                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                            <Text strong>รวม</Text>
+                            <Text strong style={{ color: '#1890ff' }}>{totalQty} รายการ</Text>
+                        </div>
                     </div>
-                  </Card>
-                </Col>
-              );
-            })}
-          </Row>
-        ) : (
-          <div style={ordersStyles.emptyState}>
-            <Empty 
-              description="ไม่พบรายการออเดอร์"
-              image={Empty.PRESENTED_IMAGE_SIMPLE}
-            />
-          </div>
-        )}
+                );
+            }
+        },
+        {
+            title: 'ยอดรวม',
+            dataIndex: 'total_amount',
+            key: 'total',
+            align: 'center' as const,
+            render: (amount: number) => <Text strong style={{ whiteSpace: 'nowrap' }}>฿{Number(amount).toLocaleString()}</Text>
+        },
+        {
+            title: 'สถานะ',
+            dataIndex: 'status',
+            key: 'status',
+            align: 'center' as const,
+            render: (status: OrderStatus) => <Tag color={getStatusColor(status)} style={{ margin: 0 }}>{getStatusText(status)}</Tag>
+        },
+        {
+            title: 'จัดการ',
+            key: 'action',
+            align: 'center' as const,
+            render: (_: any, record: SalesOrder) => (
+                <Button 
+                    type="primary" 
+                    icon={<EyeOutlined />} 
+                    onClick={() => router.push(`/pos/orders/${record.id}`)}
+                    style={{ whiteSpace: 'nowrap' }}
+                >
+                    ดูรายละเอียด
+                </Button>
+            )
+        }
+    ];
 
-        {/* Pagination Section */}
-        {!isLoading && orders.length > 0 && (
-          <div style={{ 
-            marginTop: 32, 
-            display: 'flex', 
-            justifyContent: 'center',
-            background: '#fff',
-            padding: '16px',
-            borderRadius: 12,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
-          }}>
-            <Pagination
-              current={page}
-              pageSize={limit}
-              total={total || 0}
-              onChange={(p, ps) => {
-                setPage(p);
-                setLimit(ps);
-              }}
-              showSizeChanger
-              pageSizeOptions={['10', '20', '50', '100']}
-              locale={{ items_per_page: '/ หน้า' }}
-            />
-          </div>
-        )}
-      </div>
-    </div>
-  );
+    return (
+        <div style={{ padding: isMobile ? '12px' : '24px', maxWidth: 1200, margin: '0 auto' }}>
+            <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }} bodyStyle={{ padding: isMobile ? '12px' : '24px' }}>
+                <div style={{ display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24, gap: 16 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: isMobile ? 12 : 16 }}>
+                        <Button 
+                            icon={<ArrowLeftOutlined />} 
+                            onClick={() => router.push('/pos')}
+                            shape="circle"
+                        />
+                        <div>
+                            <Title level={isMobile ? 4 : 2} style={{ margin: 0 }}>รายการออเดอร์ปัจจุบัน</Title>
+                            <Text type="secondary" style={{ fontSize: isMobile ? 12 : 14 }}>จัดการและติดตามสถานะออเดอร์ที่กำลังดำเนินการ</Text>
+                        </div>
+                    </div>
+                    <Button icon={<ReloadOutlined />} onClick={fetchOrders} size={isMobile ? 'middle' : 'large'}>รีเฟรช</Button>
+                </div>
+
+                {!isMobile ? (
+                    <Table
+                        columns={columns}
+                        dataSource={orders}
+                        loading={isLoading}
+                        rowKey="id"
+                        pagination={{
+                            current: page,
+                            pageSize: LIMIT,
+                            total: total,
+                            onChange: (p) => setPage(p),
+                            showTotal: (total) => `ทั้งหมด ${total} รายการ`
+                        }}
+                        locale={{ emptyText: <Empty description="ไม่พบรายการออเดอร์" /> }}
+                    />
+                ) : (
+                    <List
+                        loading={isLoading}
+                        dataSource={orders}
+                        renderItem={(order) => {
+                            const items = order.items || [];
+                            const totalQty = items.reduce((acc, item) => acc + (item.status !== 'Cancelled' || order.status === OrderStatus.Cancelled ? Number(item.quantity) : 0), 0);
+                            
+                            return (
+                                <Card 
+                                    style={{ marginBottom: 16, borderRadius: 12, border: '1px solid #f0f0f0' }}
+                                    bodyStyle={{ padding: 16 }}
+                                    onClick={() => router.push(`/pos/orders/${order.id}`)}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+                                        <Text strong style={{ fontSize: 16 }}>#{order.order_no}</Text>
+                                        <Tag color={getStatusColor(order.status)} style={{ margin: 0 }}>{getStatusText(order.status)}</Tag>
+                                    </div>
+                                    
+                                    <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+                                        <Tag color={order.order_type === OrderType.DineIn ? 'blue' : order.order_type === OrderType.TakeAway ? 'green' : 'orange'}>
+                                            {order.order_type === OrderType.DineIn ? 'ทานที่ร้าน' : order.order_type === OrderType.TakeAway ? 'กลับบ้าน' : 'เดลิเวอรี่'}
+                                        </Tag>
+                                        {order.order_type === OrderType.DineIn && order.table && (
+                                            <Tag color="cyan">โต๊ะ {order.table.table_name}</Tag>
+                                        )}
+                                        {order.order_type === OrderType.Delivery && order.delivery_code && (
+                                            <Tag color="orange">Ref: {order.delivery_code}</Tag>
+                                        )}
+                                    </div>
+
+                                    <div style={{ background: '#f9f9f9', padding: 12, borderRadius: 8, marginBottom: 12 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                                            <ContainerOutlined style={{ color: '#8c8c8c' }} />
+                                            <Text type="secondary">รายละเอียด: </Text>
+                                            <Text strong>{totalQty} รายการ</Text>
+                                        </div>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <ClockCircleOutlined style={{ color: '#8c8c8c' }} />
+                                            <Text type="secondary">เวลา: </Text>
+                                            <Text>{dayjs(order.create_date).format('HH:mm น.')}</Text>
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div>
+                                            <Text type="secondary" style={{ fontSize: 12 }}>ยอดรวมทั้งหมด</Text>
+                                            <div style={{ fontSize: 20, fontWeight: 'bold', color: '#1890ff' }}>
+                                                ฿{Number(order.total_amount).toLocaleString()}
+                                            </div>
+                                        </div>
+                                        <Button type="primary" ghost icon={<EyeOutlined />}>รายละเอียด</Button>
+                                    </div>
+                                </Card>
+                            );
+                        }}
+                        pagination={{
+                            current: page,
+                            pageSize: LIMIT,
+                            total: total,
+                            onChange: (p) => setPage(p),
+                            size: 'small',
+                            style: { textAlign: 'center', marginTop: 16 }
+                        }}
+                    />
+                )}
+            </Card>
+        </div>
+    );
 }
