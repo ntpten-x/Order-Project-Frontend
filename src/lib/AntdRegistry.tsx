@@ -5,7 +5,7 @@ import { createCache, extractStyle, StyleProvider } from '@ant-design/cssinjs';
 import type Entity from '@ant-design/cssinjs/lib/Cache';
 import { useServerInsertedHTML } from 'next/navigation';
 
-import { ConfigProvider } from 'antd';
+import { ConfigProvider, App } from 'antd';
 import theme from '../theme/themeConfig';
 
 const AntdRegistry = ({ children }: React.PropsWithChildren) => {
@@ -24,7 +24,9 @@ const AntdRegistry = ({ children }: React.PropsWithChildren) => {
   return (
     <StyleProvider cache={cache}>
       <ConfigProvider theme={theme}>
-        {children}
+        <App>
+          {children}
+        </App>
       </ConfigProvider>
     </StyleProvider>
   );

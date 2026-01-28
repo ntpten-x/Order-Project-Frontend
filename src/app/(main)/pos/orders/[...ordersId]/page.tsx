@@ -429,7 +429,27 @@ export default function POSOrderDetailsPage() {
             align: 'right' as const,
             render: (_value: unknown, record: SalesOrderItem) => (
                 <Space>
-                    <Tooltip title="เสิร์ฟ"><Button type="primary" ghost icon={<CheckOutlined />} onClick={() => handleServeItem(record.id)} /></Tooltip>
+                    <Tooltip title="เสิร์ฟ">
+                        <Button 
+                            type="primary" 
+                            onClick={() => handleServeItem(record.id)} 
+                            style={{ 
+                                background: orderDetailColors.success, 
+                                borderColor: orderDetailColors.success,
+                                height: 'auto',
+                                padding: '4px 8px',
+                                display: 'flex',
+                                flexDirection: 'column',
+                                alignItems: 'center',
+                                gap: 2,
+                                minWidth: 60,
+                                borderRadius: 10
+                            }}
+                        >
+                            <CheckOutlined style={{ fontSize: 16 }} />
+                            <span style={{ fontSize: 10, fontWeight: 700 }}>เสิร์ฟ</span>
+                        </Button>
+                    </Tooltip>
                     <Tooltip title="แก้ไข"><Button type="text" icon={<EditOutlined />} onClick={() => handleEditClick(record)} /></Tooltip>
                     <Tooltip title="ลบ"><Button type="text" danger icon={<DeleteOutlined />} onClick={() => handleDeleteItem(record.id)} /></Tooltip>
                 </Space>
@@ -660,7 +680,7 @@ export default function POSOrderDetailsPage() {
                                             />
                                         </div>
                                         <Text strong style={orderDetailTypography.sectionTitle}>
-                                            กำลังรอ ({activeItems.length})
+                                            กำลังทำอาหาร ({activeItems.length})
                                         </Text>
                                     </Space>
                                     <Space wrap>
@@ -720,6 +740,7 @@ export default function POSOrderDetailsPage() {
                                             rowSelection={{
                                                 selectedRowKeys,
                                                 onChange: onSelectChange,
+                                                hideSelectAll: true,
                                             }}
                                         />
                                     </div>
@@ -801,7 +822,25 @@ export default function POSOrderDetailsPage() {
                                                 <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: `1px solid ${orderDetailColors.borderLight}`, paddingTop: 8, gap: 8 }}>
                                                     <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={() => handleDeleteItem(item.id)}>ลบ</Button>
                                                     <Button size="small" type="text" icon={<EditOutlined />} onClick={() => handleEditClick(item)}>แก้ไข</Button>
-                                                    <Button size="small" type="primary" ghost icon={<CheckOutlined />} onClick={() => handleServeItem(item.id)}>เสิร์ฟ</Button>
+                                                    <Button 
+                                                        size="small" 
+                                                        type="primary" 
+                                                        onClick={() => handleServeItem(item.id)}
+                                                        style={{ 
+                                                            background: orderDetailColors.success, 
+                                                            borderColor: orderDetailColors.success,
+                                                            height: 'auto',
+                                                            padding: '4px 10px',
+                                                            display: 'flex',
+                                                            flexDirection: 'column',
+                                                            alignItems: 'center',
+                                                            gap: 2,
+                                                            borderRadius: 10
+                                                        }}
+                                                    >
+                                                        <CheckOutlined style={{ fontSize: 16 }} />
+                                                        <span style={{ fontSize: 10, fontWeight: 700 }}>เสิร์ฟ</span>
+                                                    </Button>
                                                 </div>
                                             </div>
                                         ))}
@@ -820,7 +859,7 @@ export default function POSOrderDetailsPage() {
                             style={orderDetailStyles.card}
                             title={
                                 <Text strong style={{...orderDetailTypography.sectionTitle, color: orderDetailColors.textSecondary}}>
-                                    ดำเนินการแล้ว ({servedItems.length})
+                                    เสิร์ฟอาหารแล้ว ({servedItems.length})
                                 </Text>
                             }
                         >
@@ -970,18 +1009,18 @@ export default function POSOrderDetailsPage() {
 
                                         <div style={orderDetailStyles.summaryItemContent}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                <Text strong style={{ fontSize: 13, flex: 1 }}>{index + 1}. {item.product?.display_name}</Text>
+                                                <Text strong style={{ fontSize: 13, flex: 1 }}>{item.product?.display_name}</Text>
                                                 <Text strong style={{ fontSize: 13, color: orderDetailColors.primary }}>฿{Number(item.total_price).toLocaleString()}</Text>
                                             </div>
                                             
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
-                                                <Text type="secondary" style={{ fontSize: 11 }}>จำนวน: {item.quantity}</Text>
-                                                <Text type="secondary" style={{ fontSize: 11 }}>ราคาต่อชิ้น: {Number(item.price).toLocaleString()}</Text>
+                                                <Text type="secondary" style={{ fontSize: 11 }}>จำนวน : {item.quantity}</Text>
+                                                <Text type="secondary" style={{ fontSize: 11 }}>ราคา : {Number(item.price).toLocaleString()}</Text>
                                             </div>
 
                                             {item.details && item.details.length > 0 && (
                                                 <div style={orderDetailStyles.summaryDetailText}>
-                                                    <PlusOutlined style={{ fontSize: 10 }} /> {item.details.map((d: any) => d.detail_name).join(', ')}
+                                                    <PlusOutlined style={{ fontSize: 10 }} /> {item.details.map((d: any) => `${d.detail_name} (+${Number(d.extra_price).toLocaleString()})`).join(', ')}
                                                 </div>
                                             )}
                                             

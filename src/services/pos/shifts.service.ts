@@ -60,5 +60,33 @@ export const shiftsService = {
         }
 
         return response.json();
+    },
+
+    getCurrentSummary: async (): Promise<any> => {
+        const response = await fetch("/api/pos/shifts/current/summary", {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include"
+        });
+
+        if (!response.ok) {
+            throw new Error("Failed to fetch shift summary");
+        }
+
+        return response.json();
+    },
+
+    getSummary: async (id: string): Promise<any> => {
+        const response = await fetch(`/api/pos/shifts/summary/${id}`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include"
+        });
+
+        if (!response.ok) {
+            throw new Error("Failed to fetch shift summary");
+        }
+
+        return response.json();
     }
 };

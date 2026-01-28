@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { Modal, InputNumber, Button, Typography, Form } from 'antd';
 import { useShift } from '../../../contexts/pos/ShiftContext';
 import { DollarOutlined } from '@ant-design/icons';
+import { usePathname } from 'next/navigation';
 
 const { Title, Text } = Typography;
 
@@ -10,9 +11,11 @@ export default function OpenShiftModal() {
     const { currentShift, loading, openShift } = useShift();
     const [submitting, setSubmitting] = useState(false);
     const [form] = Form.useForm();
+    const pathname = usePathname();
 
     // Show modal if not loading and no active shift
-    const isVisible = !loading && !currentShift;
+    // But don't show on the shift management page itself as it has its own UI
+    const isVisible = !loading && !currentShift && pathname !== '/pos/shift';
 
     const handleOpenShift = async (values: { startAmount: number }) => {
         setSubmitting(true);

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Typography, Card, Form, Input, Button, message, Spin, Divider, Row, Col } from "antd";
+import { Typography, Card, Form, Input, Button, Spin, Divider, Row, Col, App } from "antd";
 import { SaveOutlined, ShopOutlined, SettingOutlined } from "@ant-design/icons";
 import { shopProfileService, ShopProfile } from "../../../../services/pos/shopProfile.service";
 import { authService } from "../../../../services/auth.service";
@@ -10,6 +10,7 @@ import { pageStyles, colors } from "../style";
 const { Title, Text } = Typography;
 
 export default function POSSettingsPage() {
+    const { message } = App.useApp();
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -25,7 +26,7 @@ export default function POSSettingsPage() {
         } finally {
             setLoading(false);
         }
-    }, [form]);
+    }, [form, message]);
 
     useEffect(() => {
         fetchProfile();
@@ -47,7 +48,11 @@ export default function POSSettingsPage() {
     };
 
     if (loading) {
-        return <div style={{ textAlign: "center", padding: 50 }}><Spin size="large" /></div>;
+        return (
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f5f5f5' }}>
+                <Spin size="large" tip="กำลังโหลด..." />
+            </div>
+        );
     }
 
     return (
@@ -67,16 +72,19 @@ export default function POSSettingsPage() {
 
             {/* Content */}
             <div style={{ maxWidth: 800, margin: '-40px auto 30px', padding: '0 24px', position: 'relative', zIndex: 20 }}>
-                <Card style={{ borderRadius: 12 }}>
+                <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
                     <Form
                         form={form}
                         layout="vertical"
                         onFinish={handleSave}
                         initialValues={{}}
+                        requiredMark="optional"
                     >
-                        <Divider orientation="left" plain><ShopOutlined /> ข้อมูลร้านค้า (General Info)</Divider>
+                        <Divider titlePlacement="left" plain style={{ fontSize: 16, fontWeight: 600 }}>
+                            <ShopOutlined style={{ marginRight: 8 }} /> ข้อมูลร้านค้า (General Info)
+                        </Divider>
                         
-                        <Row gutter={16}>
+                        <Row gutter={24}>
                             <Col xs={24} md={12}>
                                 <Form.Item
                                     name="shop_name"
@@ -97,19 +105,21 @@ export default function POSSettingsPage() {
                         </Row>
 
                         <Form.Item
-                            name="address"
-                            label="ที่อยู่ (Address)"
+                                name="address"
+                                label="ที่อยู่ (Address)"
                         >
-                            <Input.TextArea rows={3} placeholder="ระบุที่อยู่ร้าน" />
+                            <Input.TextArea rows={3} placeholder="ระบุที่อยู่ร้าน" style={{ borderRadius: 8 }} />
                         </Form.Item>
 
-                        <Divider orientation="left" plain>การชำระเงิน (Money & Payments)</Divider>
+                        <Divider titlePlacement="left" plain style={{ fontSize: 16, fontWeight: 600, marginTop: 32 }}>
+                            การชำระเงิน (Money & Payments)
+                        </Divider>
 
-                        <Row gutter={16}>
+                        <Row gutter={24}>
                             <Col xs={24} md={12}>
                                 <Form.Item
                                     name="promptpay_number"
-                                    label="เบอร์ PromptPay / เลขบัตรประชาชน (สำหรับ QR Code)"
+                                    label="เบอร์ PromptPay / เลขบัตรประชาชน"
                                     extra="ระบบจะนำเลขนี้ไปสร้าง QR Code รับเงินอัตโนมัติ"
                                 >
                                     <Input placeholder="081XXXXXXX หรือ 1XXXXXXXXXXXX" size="large" />
@@ -126,7 +136,7 @@ export default function POSSettingsPage() {
                             </Col>
                         </Row>
 
-                        <Divider />
+                        <Divider style={{ margin: '32px 0 24px' }} />
                         
                         <div style={{ textAlign: "right" }}>
                             <Button 
@@ -135,7 +145,14 @@ export default function POSSettingsPage() {
                                 icon={<SaveOutlined />} 
                                 size="large" 
                                 loading={saving}
-                                style={{ background: colors.primary, minWidth: 150 }}
+                                style={{ 
+                                    background: colors.primary, 
+                                    borderColor: colors.primary,
+                                    minWidth: 160,
+                                    height: 48,
+                                    borderRadius: 12,
+                                    fontWeight: 600
+                                }}
                             >
                                 บันทึก (Save)
                             </Button>
