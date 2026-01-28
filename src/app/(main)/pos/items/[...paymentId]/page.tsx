@@ -14,7 +14,7 @@ import { tablesService } from "../../../../../services/pos/tables.service";
 import { authService } from "../../../../../services/auth.service";
 import { shopProfileService, ShopProfile } from "../../../../../services/pos/shopProfile.service";
 
-import { SalesOrder, OrderStatus } from "../../../../../types/api/pos/salesOrder";
+import { SalesOrder, OrderStatus, OrderType } from "../../../../../types/api/pos/salesOrder";
 import { PaymentMethod } from "../../../../../types/api/pos/paymentMethod";
 import { TableStatus } from "../../../../../types/api/pos/tables";
 import { Discounts, DiscountType } from "../../../../../types/api/pos/discounts";
@@ -348,7 +348,20 @@ export default function POSPaymentPage() {
              <div style={{ ...pageStyles.heroParams, paddingBottom: 80 }}>
                 <div style={{ maxWidth: 1200, margin: '0 auto', position: 'relative', zIndex: 10 }}>
                     <div style={{ ...pageStyles.sectionTitle, flexWrap: 'wrap', gap: '12px 16px' }}>
-                         <Button type="text" icon={<ArrowLeftOutlined />} style={{ color: '#fff', padding: '4px 8px' }} onClick={() => router.back()}>กลับ</Button>
+                         <Button 
+                            type="text" 
+                            icon={<ArrowLeftOutlined />} 
+                            style={{ color: '#fff', padding: '4px 8px' }} 
+                            onClick={() => {
+                                if (order?.order_type === OrderType.DineIn) {
+                                    router.push('/pos/channels/dine-in');
+                                } else {
+                                    router.back();
+                                }
+                            }}
+                          >
+                            กลับ
+                          </Button>
                          <div style={{ flex: 1, minWidth: 0 }}>
                             <Title level={3} style={{ margin: 0, color: '#fff', fontSize: 'clamp(18px, 5vw, 24px)' }}>ชำระเงิน</Title>
                             <div style={{ 
