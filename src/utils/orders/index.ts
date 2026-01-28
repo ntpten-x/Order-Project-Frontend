@@ -1,5 +1,19 @@
+import React from 'react';
 import { OrderStatus, SalesOrder } from '../../types/api/pos/salesOrder';
 import { Tables, TableStatus } from '../../types/api/pos/tables';
+import { DialogType } from '../../components/dialog/ConfirmationDialog';
+
+export interface ConfirmationConfig {
+    open: boolean;
+    type: DialogType;
+    title: string;
+    content: string | React.ReactNode;
+    okText?: string;
+    cancelText?: string;
+    onOk: () => void;
+    onCancel?: () => void;
+    loading?: boolean;
+}
 
 /**
  * Get the navigation path for a table based on its status and active order status.

@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Typography, Row, Col, Card, Button, Spin, Empty, Divider, message, InputNumber, Select, Tag, Modal } from "antd";
+import { Typography, Row, Col, Card, Button, Spin, Empty, Divider, message, InputNumber, Select, Tag } from "antd";
 import { ArrowLeftOutlined, ShopOutlined, DollarOutlined, CreditCardOutlined, QrcodeOutlined, UndoOutlined, EditOutlined } from "@ant-design/icons";
 import { QRCodeSVG } from 'qrcode.react';
 import generatePayload from 'promptpay-qr';
@@ -22,7 +22,9 @@ import { PaymentStatus } from "../../../../../types/api/pos/payments";
 import { pageStyles, colors } from "../../style";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
-import { getOrderChannelText, getOrderReference, getOrderStatusColor, getOrderStatusText, getEditOrderNavigationPath, getCancelOrderNavigationPath } from "@/utils/orders";
+import { getOrderChannelText, getOrderReference, getOrderStatusColor, getOrderStatusText, getEditOrderNavigationPath, getCancelOrderNavigationPath, ConfirmationConfig } from "@/utils/orders";
+import ConfirmationDialog from "@/components/dialog/ConfirmationDialog";
+import { useGlobalLoading } from "@/contexts/GlobalLoadingContext";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -45,12 +47,25 @@ export default function POSPaymentPage() {
     const [receivedAmount, setReceivedAmount] = useState<number>(0);
     const [appliedDiscount, setAppliedDiscount] = useState<Discounts | null>(null);
     const [isProcessing, setIsProcessing] = useState(false);
+    const { showLoading, hideLoading } = useGlobalLoading();
+
+    // Confirmation Dialog State
+    const [confirmConfig, setConfirmConfig] = useState<ConfirmationConfig>({
+        open: false,
+        type: 'confirm',
+        title: '',
+        content: '',
+        onOk: () => {},
+    });
+
+    const closeConfirm = () => setConfirmConfig(prev => ({ ...prev, open: false }));
 
     const fetchInitialData = useCallback(async () => {
         if (!paymentId) return;
         try {
             console.log("Fetching payment data for ID:", paymentId);
             setIsLoading(true);
+            showLoading("กำลังโหลดข้อมูลการชำระเงิน...");
 
             // Fetch shop profile separately to avoid breaking the page if it fails
             const shopRes = await shopProfileService.getProfile().catch(err => {
@@ -92,8 +107,9 @@ export default function POSPaymentPage() {
             messageApi.error("ไม่สามารถโหลดข้อมูลการชำระเงินได้: " + (error instanceof Error ? error.message : "Unknown error"));
         } finally {
             setIsLoading(false);
+            hideLoading();
         }
-    }, [messageApi, paymentId, router]);
+    }, [messageApi, paymentId, router, showLoading, hideLoading]);
 
     useEffect(() => {
         if (paymentId) {
@@ -167,83 +183,128 @@ export default function POSPaymentPage() {
             return;
         }
 
-        try {
-            setIsProcessing(true);
-            const csrfToken = await authService.getCsrfToken();
-            
-            // 1. Create Payment Record
-            const paymentData = {
-                order_id: order!.id,
-                payment_method_id: selectedPaymentMethod,
-                amount: totals.total,
-                amount_received: receivedAmount,
-                change_amount: totals.change,
-                status: PaymentStatus.Success
-            };
+        const method = paymentMethods.find(m => m.id === selectedPaymentMethod);
+        const methodName = method?.display_name || 'ไม่ระบุ';
 
-            await paymentsService.create(paymentData, undefined, csrfToken);
+        setConfirmConfig({
+            open: true,
+            type: 'success',
+            title: 'ยืนยันการชำระเงิน',
+            content: (
+                <div style={{ textAlign: 'center' }}>
+                    <div style={{ fontSize: 16, marginBottom: 8 }}>
+                        วิธีการชำระเงิน: <Text strong>{methodName}</Text>
+                    </div>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: colors.primary }}>
+                        ยอดสุทธิ ฿{totals.total.toLocaleString()}
+                    </div>
+                    {totals.change > 0 && (
+                        <div style={{ color: colors.success, fontSize: 18, marginTop: 4 }}>
+                            เงินทอน ฿{totals.change.toLocaleString()}
+                        </div>
+                    )}
+                </div>
+            ),
+            okText: 'ยืนยัน',
+            cancelText: 'ยกเลิก',
+            onOk: async () => {
+                try {
+                    setIsProcessing(true);
+                    showLoading("กำลังดำเนินการชำระเงิน...");
+                    closeConfirm();
+                    const csrfToken = await authService.getCsrfToken();
+                    
+                    // 1. Create Payment Record
+                    const paymentData = {
+                        order_id: order!.id,
+                        payment_method_id: selectedPaymentMethod,
+                        amount: totals.total,
+                        amount_received: receivedAmount,
+                        change_amount: totals.change,
+                        status: PaymentStatus.Success
+                    };
 
-            // 2. Update Order Status to Paid
-            await ordersService.updateStatus(order!.id, OrderStatus.Paid, csrfToken);
+                    await paymentsService.create(paymentData, undefined, csrfToken);
 
+                    // 2. Update Order Status to Paid
+                    await ordersService.updateStatus(order!.id, OrderStatus.Paid, csrfToken);
 
-            // 3. Update Table Status if DineIn
-            if (order!.table_id) {
-                 await tablesService.update(order!.table_id, { status: TableStatus.Available }, undefined, csrfToken);
+                    // 3. Update Table Status if DineIn
+                    if (order!.table_id) {
+                         await tablesService.update(order!.table_id, { status: TableStatus.Available }, undefined, csrfToken);
+                    }
+
+                    messageApi.success("ชำระเงินเรียบร้อย");
+                    router.push(`/pos/dashboard/${order!.id}`); // Go to order detail
+
+                } catch (error) {
+                    console.error("Payment failed:", error);
+                    messageApi.error("การชำระเงินล้มเหลว");
+                } finally {
+                    setIsProcessing(false);
+                    hideLoading();
+                }
             }
-
-            messageApi.success("ชำระเงินเรียบร้อย");
-            router.push(`/pos/dashboard/${order!.id}`); // Go to order detail
-
-        } catch (error) {
-            console.error("Payment failed:", error);
-            messageApi.error("การชำระเงินล้มเหลว");
-        } finally {
-            setIsProcessing(false);
-        }
+        });
     };
     
     const handleEditOrder = async () => {
         if (!order) return;
         
-        try {
-            setIsProcessing(true);
-            const csrfToken = await authService.getCsrfToken();
-            
-            // 1. Revert all non-cancelled items to 'Served' status
-            const activeItems = order.items?.filter(item => item.status !== OrderStatus.Cancelled) || [];
-            await Promise.all(
-                activeItems.map(item => 
-                    ordersService.updateItemStatus(item.id, OrderStatus.Served, undefined, csrfToken)
-                )
-            );
+        setConfirmConfig({
+            open: true,
+            type: 'warning',
+            title: 'ย้อนกลับไปแก้ไขออเดอร์?',
+            content: 'สถานะออเดอร์จะถูกเปลี่ยนกลับเป็น "กำลังดำเนินการ" เพื่อให้คุณสามารถแก้ไขรายการอาหารได้ คุณแน่ใจหรือไม่?',
+            okText: 'ตกลง',
+            cancelText: 'ยกเลิก',
+            onOk: async () => {
+                try {
+                    setIsProcessing(true);
+                    showLoading("กำลังดำเนินการ...");
+                    closeConfirm();
+                    const csrfToken = await authService.getCsrfToken();
+                    
+                    // 1. Revert all non-cancelled items to 'Served' status
+                    const activeItems = order.items?.filter(item => item.status !== OrderStatus.Cancelled) || [];
+                    await Promise.all(
+                        activeItems.map(item => 
+                            ordersService.updateItemStatus(item.id, OrderStatus.Served, undefined, csrfToken)
+                        )
+                    );
 
-            // 2. Revert order status back to 'Pending'
-            await ordersService.updateStatus(order.id, OrderStatus.Pending, csrfToken);
+                    // 2. Revert order status back to 'Pending'
+                    await ordersService.updateStatus(order.id, OrderStatus.Pending, csrfToken);
 
-            messageApi.success("ย้อนกลับไปแก้ไขออเดอร์เรียบร้อย");
-            router.push(getEditOrderNavigationPath(order.id));
+                    messageApi.success("ย้อนกลับไปแก้ไขออเดอร์เรียบร้อย");
+                    router.push(getEditOrderNavigationPath(order.id));
 
-        } catch (error) {
-            console.error("Revert failed:", error);
-            messageApi.error("ไม่สามารถเปลี่ยนสถานะออเดอร์ได้");
-        } finally {
-            setIsProcessing(false);
-        }
+                } catch (error) {
+                    console.error("Revert failed:", error);
+                    messageApi.error("ไม่สามารถเปลี่ยนสถานะออเดอร์ได้");
+                } finally {
+                    setIsProcessing(false);
+                    hideLoading();
+                }
+            }
+        });
     };
 
     const handleCancelOrder = () => {
         if (!order) return;
 
-        Modal.confirm({
+        setConfirmConfig({
+            open: true,
+            type: 'danger',
             title: 'ยืนยันการยกเลิกออเดอร์?',
             content: 'การดำเนินการนี้จะยกเลิกสินค้าทุกรายการและคืนสถานะโต๊ะ (หากมี) คุณแน่ใจหรือไม่?',
             okText: 'ยืนยันการยกเลิก',
-            okType: 'danger',
             cancelText: 'ยกเลิก',
             onOk: async () => {
                 try {
                     setIsProcessing(true);
+                    showLoading("กำลังดำเนินการยกเลิก...");
+                    closeConfirm();
                     const csrfToken = await authService.getCsrfToken();
 
                     // 1. Cancel all non-cancelled items
@@ -270,6 +331,7 @@ export default function POSPaymentPage() {
                     messageApi.error("ไม่สามารถยกเลิกออเดอร์ได้");
                 } finally {
                     setIsProcessing(false);
+                    hideLoading();
                 }
             }
         });
@@ -277,17 +339,7 @@ export default function POSPaymentPage() {
 
     const { subtotal, discount, vat, total, change } = calculateTotals();
 
-    if (isLoading) return (
-        <div style={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            alignItems: 'center', 
-            height: '100vh',
-            width: '100%' 
-        }}>
-            <Spin size="large" />
-        </div>
-    );
+    if (isLoading && !order) return null;
     if (!order) return <Empty description="ไม่พบข้อมูลออเดอร์" />;
 
     return (
@@ -580,6 +632,18 @@ export default function POSPaymentPage() {
                     </Col>
                 </Row>
             </div>
+
+            <ConfirmationDialog
+                open={confirmConfig.open}
+                type={confirmConfig.type}
+                title={confirmConfig.title}
+                content={confirmConfig.content}
+                okText={confirmConfig.okText}
+                cancelText={confirmConfig.cancelText}
+                onOk={confirmConfig.onOk}
+                onCancel={closeConfirm}
+                loading={isProcessing}
+            />
         </div>
     );
 }

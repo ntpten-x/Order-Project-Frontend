@@ -26,7 +26,7 @@ export const GlobalLoadingProvider = ({ children }: { children: ReactNode }) => 
         <GlobalLoadingContext.Provider value={{ showLoading, hideLoading, isLoading }}>
             {children}
             {isLoading && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white">
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-auto">
                     <Spin size="large" />
                 </div>
             )}

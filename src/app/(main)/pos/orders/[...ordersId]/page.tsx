@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Typography, Row, Col, Card, Tag, Button, Spin, Empty, Divider, Table, Checkbox, message, Modal, Tooltip, Space } from "antd";
+import { Typography, Row, Col, Card, Tag, Button, Spin, Empty, Divider, Table, Checkbox, message, Tooltip, Space } from "antd";
 import { 
     ArrowLeftOutlined, 
     ShopOutlined, 
@@ -28,13 +28,16 @@ import {
   calculateItemExtras,
   groupItemsByCategory,
   getPostConfirmServeNavigationPath,
-  getCancelOrderNavigationPath
+  getCancelOrderNavigationPath,
+  ConfirmationConfig
 } from "@/utils/orders"; 
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 
 import { AddItemsModal } from "./AddItemsModal";
 import { EditItemModal } from "./EditItemModal";
+import ConfirmationDialog from "@/components/dialog/ConfirmationDialog";
+import { useGlobalLoading } from "@/contexts/GlobalLoadingContext";
 import { Products } from "@/types/api/pos/products";
 import { useNetwork } from "@/hooks/useNetwork";
 import { offlineQueueService } from "@/services/pos/offline.queue.service";
@@ -55,6 +58,7 @@ export default function POSOrderDetailsPage() {
     const [order, setOrder] = useState<SalesOrder | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
+    const { showLoading, hideLoading } = useGlobalLoading();
     const isOnline = useNetwork();
     
     // Selection State
@@ -66,9 +70,21 @@ export default function POSOrderDetailsPage() {
 
     const [isAddModalOpen, setIsAddModalOpen] = useState(false);
 
+    // Confirmation Dialog State
+    const [confirmConfig, setConfirmConfig] = useState<ConfirmationConfig>({
+        open: false,
+        type: 'confirm',
+        title: '',
+        content: '',
+        onOk: () => {},
+    });
+
+    const closeConfirm = () => setConfirmConfig(prev => ({ ...prev, open: false }));
+
     const fetchOrder = useCallback(async (id: string) => {
         try {
             setIsLoading(true);
+            showLoading("กำลังโหลดข้อมูลออเดอร์...");
             const data = await ordersService.getById(id);
             if ([OrderStatus.Paid, OrderStatus.Cancelled, OrderStatus.WaitingForPayment].includes(data.status)) {
                 message.warning("ออเดอร์นี้ไม่อยู่ในสถานะที่ดำเนินการได้");
@@ -81,8 +97,9 @@ export default function POSOrderDetailsPage() {
             message.error("ไม่สามารถโหลดข้อมูลออเดอร์ได้");
         } finally {
             setIsLoading(false);
+            hideLoading();
         }
-    }, [router]);
+    }, [router, showLoading, hideLoading]);
 
     useEffect(() => {
         if (orderId) {
@@ -93,6 +110,7 @@ export default function POSOrderDetailsPage() {
     const handleServeItem = async (itemId: string) => {
         try {
             setIsUpdating(true);
+            showLoading("กำลังดำเนินการเสิร์ฟ...");
             const csrfToken = await authService.getCsrfToken();
             await ordersService.updateItemStatus(itemId, OrderStatus.Served, undefined, csrfToken);
             message.success("เสิร์ฟรายการเรียบร้อย");
@@ -101,6 +119,7 @@ export default function POSOrderDetailsPage() {
             message.error("เกิดข้อผิดพลาดในการเสิร์ฟ");
         } finally {
             setIsUpdating(false);
+            hideLoading();
         }
     };
 
@@ -108,6 +127,7 @@ export default function POSOrderDetailsPage() {
         if (selectedRowKeys.length === 0) return;
         try {
             setIsUpdating(true);
+            showLoading(`กำลังดำเนินการเสิร์ฟ ${selectedRowKeys.length} รายการ...`);
             const csrfToken = await authService.getCsrfToken();
             await Promise.all(selectedRowKeys.map(key => 
                 ordersService.updateItemStatus(key.toString(), OrderStatus.Served, undefined, csrfToken)
@@ -119,20 +139,25 @@ export default function POSOrderDetailsPage() {
             message.error("เกิดข้อผิดพลาดในการเสิร์ฟ");
         } finally {
             setIsUpdating(false);
+            hideLoading();
         }
     };
 
     const handleCancelSelected = async () => {
         if (selectedRowKeys.length === 0) return;
-        Modal.confirm({
+        
+        setConfirmConfig({
+            open: true,
+            type: 'danger',
             title: 'ยืนยันการยกเลิก',
             content: `คุณต้องการยกเลิก ${selectedRowKeys.length} รายการที่เลือกใช่หรือไม่?`,
             okText: 'ยืนยันยกเลิก',
-            okType: 'danger',
             cancelText: 'ไม่ยกเลิก',
             onOk: async () => {
                 try {
                     setIsUpdating(true);
+                    showLoading("กำลังดำเนินการยกเลิก...");
+                    closeConfirm();
                     const csrfToken = await authService.getCsrfToken();
                     await Promise.all(selectedRowKeys.map(key => 
                         ordersService.updateItemStatus(key.toString(), OrderStatus.Cancelled, undefined, csrfToken)
@@ -144,6 +169,7 @@ export default function POSOrderDetailsPage() {
                     message.error("เกิดข้อผิดพลาดในการยกเลิก");
                 } finally {
                     setIsUpdating(false);
+                    hideLoading();
                 }
             }
         });
@@ -152,27 +178,32 @@ export default function POSOrderDetailsPage() {
     const handleUnserveItem = async (itemId: string) => {
         try {
             setIsUpdating(true);
+            showLoading("กำลังย้อนกลับสถานะ...");
             const csrfToken = await authService.getCsrfToken();
             await ordersService.updateItemStatus(itemId, OrderStatus.Cooking, undefined, csrfToken);
             message.success("ยกเลิกการเสิร์ฟ (กลับไปปรุง)");
             fetchOrder(orderId as string);
         } finally {
             setIsUpdating(false);
+            hideLoading();
         }
     };
 
     const handleCancelOrder = () => {
         if (!order) return;
 
-        Modal.confirm({
+        setConfirmConfig({
+            open: true,
+            type: 'danger',
             title: 'ยืนยันการยกเลิกออเดอร์?',
             content: 'การดำเนินการนี้จะยกเลิกสินค้าทุกรายการและคืนสถานะโต๊ะ (หากมี) คุณแน่ใจหรือไม่?',
             okText: 'ยืนยันการยกเลิก',
-            okType: 'danger',
             cancelText: 'ยกเลิก',
             onOk: async () => {
                 try {
                     setIsUpdating(true);
+                    showLoading("กำลังดำเนินการยกเลิก...");
+                    closeConfirm();
                     const csrfToken = await authService.getCsrfToken();
 
                     // 1. Cancel all non-cancelled items
@@ -199,6 +230,7 @@ export default function POSOrderDetailsPage() {
                     message.error("ไม่สามารถยกเลิกออเดอร์ได้");
                 } finally {
                     setIsUpdating(false);
+                    hideLoading();
                 }
             }
         });
@@ -206,20 +238,27 @@ export default function POSOrderDetailsPage() {
 
 
     const handleDeleteItem = async (itemId: string) => {
-        Modal.confirm({
+        setConfirmConfig({
+            open: true,
+            type: 'danger',
             title: 'ยืนยันการลบ',
             content: 'คุณต้องการลบรายการสินค้านี้ใช่หรือไม่?',
             okText: 'ลบ',
-            okType: 'danger',
             cancelText: 'ยกเลิก',
             onOk: async () => {
                 try {
+                    setIsUpdating(true);
+                    showLoading("กำลังลบรายการ...");
+                    closeConfirm();
                     const csrfToken = await authService.getCsrfToken();
                     await ordersService.deleteItem(itemId, undefined, csrfToken);
                     message.success("ลบรายการเรียบร้อย");
                     fetchOrder(orderId as string);
                 } catch {
                     message.error("ไม่สามารถลบรายการได้");
+                } finally {
+                    setIsUpdating(false);
+                    hideLoading();
                 }
             }
         });
@@ -228,6 +267,7 @@ export default function POSOrderDetailsPage() {
     const handleSaveEdit = async (itemId: string, quantity: number, notes: string, details: any[] = []) => {
         try {
             setIsUpdating(true);
+            showLoading("กำลังบันทึกข้อมูล...");
             const csrfToken = await authService.getCsrfToken();
             await ordersService.updateItem(itemId, { quantity, notes, details }, undefined, csrfToken);
             message.success("แก้ไขรายการเรียบร้อย");
@@ -237,6 +277,7 @@ export default function POSOrderDetailsPage() {
             throw error;
         } finally {
             setIsUpdating(false);
+            hideLoading();
         }
     };
 
@@ -259,6 +300,8 @@ export default function POSOrderDetailsPage() {
         }
 
         try {
+            setIsUpdating(true);
+            showLoading("กำลังเพิ่มสินค้า...");
             const csrfToken = await authService.getCsrfToken();
             await ordersService.addItem(orderId as string, {
                 product_id: product.id,
@@ -275,17 +318,25 @@ export default function POSOrderDetailsPage() {
         } catch (error) {
             message.error("เพิ่มสินค้าไม่สำเร็จ");
             throw error;
+        } finally {
+            setIsUpdating(false);
+            hideLoading();
         }
     };
 
     const handleConfirmServe = async () => {
-        Modal.confirm({
+        setConfirmConfig({
+            open: true,
+            type: 'success',
             title: 'ยืนยันการเสิร์ฟทั้งหมด',
             content: 'รายการทั้งหมดเสร็จสิ้นแล้ว ต้องการเข้าสู่ขั้นตอนการชำระเงินหรือไม่?',
             okText: 'ยืนยัน',
             cancelText: 'ยกเลิก',
             onOk: async () => {
                 try {
+                    setIsUpdating(true);
+                    showLoading("กำลังยืนยันรายการ...");
+                    closeConfirm();
                     const csrfToken = await authService.getCsrfToken();
                     await ordersService.updateStatus(orderId as string, OrderStatus.WaitingForPayment, csrfToken);
                     message.success("ยืนยันออเดอร์เรียบร้อย");
@@ -298,6 +349,9 @@ export default function POSOrderDetailsPage() {
                     }
                 } catch {
                     message.error("เกิดข้อผิดพลาดในการยืนยัน");
+                } finally {
+                    setIsUpdating(false);
+                    hideLoading();
                 }
             }
         });
@@ -608,7 +662,7 @@ export default function POSOrderDetailsPage() {
     const calculatedTotal = calculateOrderTotal(order?.items);
     const isOrderComplete = activeItems.length === 0 && (order?.items?.length || 0) > 0;
 
-    if (isLoading) return <div style={orderDetailStyles.loadingState}><Spin size="large" tip="กำลังโหลด..." /></div>;
+    if (isLoading && !order) return null;
     if (!order) return <Empty description="ไม่พบข้อมูล" />;
 
     return (
@@ -998,7 +1052,7 @@ export default function POSOrderDetailsPage() {
                                         {item.product?.img_url ? (
                                             <img 
                                                 src={item.product.img_url} 
-                                                alt={item.product.display_name} 
+                                                alt={item.product?.display_name || 'สินค้า'} 
                                                 style={orderDetailStyles.summaryItemImage} 
                                             />
                                         ) : (
@@ -1105,6 +1159,18 @@ export default function POSOrderDetailsPage() {
                     setItemToEdit(null);
                 }}
                 onSave={handleSaveEdit}
+            />
+
+            <ConfirmationDialog
+                open={confirmConfig.open}
+                type={confirmConfig.type}
+                title={confirmConfig.title}
+                content={confirmConfig.content}
+                okText={confirmConfig.okText}
+                cancelText={confirmConfig.cancelText}
+                onOk={confirmConfig.onOk}
+                onCancel={closeConfirm}
+                loading={isUpdating}
             />
         </div>
     );
