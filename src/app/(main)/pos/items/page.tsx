@@ -1,13 +1,15 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Typography, Row, Col, Card, Tag, Button, Spin, Empty, Divider } from "antd";
+import { Typography, Row, Col, Card, Tag, Button, Spin, Empty, Divider, Avatar, Space } from "antd";
 import { CheckCircleOutlined, ShopOutlined, ShoppingOutlined, RocketOutlined, UserOutlined } from "@ant-design/icons";
-import { ordersService } from "../../../../services/pos/orders.service";
-import { SalesOrderItem } from "../../../../types/api/pos/salesOrderItem";
-import { OrderStatus, OrderType, SalesOrder } from "../../../../types/api/pos/salesOrder";
-import { pageStyles, colors } from "../style";
+import { ordersService } from "@/services/pos/orders.service";
+import { SalesOrderItem } from "@/types/api/pos/salesOrderItem";
+import { OrderStatus, OrderType, SalesOrder } from "@/types/api/pos/salesOrder";
+import { paymentPageStyles, paymentColors } from "@/theme/pos/payments.theme";
+import { formatCurrency } from "@/utils/orders";
+import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 
@@ -15,22 +17,18 @@ const { Title, Text } = Typography;
 dayjs.locale('th');
 
 interface OrderGroup {
-    order: Partial<SalesOrder>; // Use Partial because connection might not fetch all fields, but we know structure
+    order: Partial<SalesOrder>;
     items: SalesOrderItem[];
     totalAmount: number;
 }
 
 export default function POSItemsPage() {
-    const router = useRouter(); // Use App Router
+    const router = useRouter();
     const [orderGroups, setOrderGroups] = useState<OrderGroup[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const { showLoading, hideLoading } = useGlobalLoading();
 
-    useEffect(() => {
-        fetchServedItems();
-        // Optional: Polling or Socket
-    }, []);
-
-    const fetchServedItems = async () => {
+    const fetchServedItems = useCallback(async () => {
         try {
             setIsLoading(true);
             const activeStatuses = [OrderStatus.WaitingForPayment].join(',');
@@ -44,16 +42,21 @@ export default function POSItemsPage() {
                 totalAmount: order.total_amount
             }));
             
-            // Sort by order creation date
+            // Sort by order creation date (newest first)
             groups.sort((a, b) => dayjs(b.order.create_date).unix() - dayjs(a.order.create_date).unix());
 
             setOrderGroups(groups);
         } catch (error) {
-            console.error(error);
+            // Silently handle error or show notification if critical
         } finally {
             setIsLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        fetchServedItems();
+        // Optional: Polling could be added here
+    }, [fetchServedItems]);
 
     const getOrderTypeUserFriendly = (type?: OrderType, table?: SalesOrder["table"]) => {
         switch (type) {
@@ -73,25 +76,33 @@ export default function POSItemsPage() {
         }
     };
 
+    const handlePaymentClick = (orderId?: string) => {
+        if (!orderId) return;
+        showLoading("กำลังไปหน้าชำระเงิน...");
+        router.push(`/pos/items/${orderId}`);
+        // Timeout to hide loading in case navigation takes time, though next page usually handles its own loading.
+        // We rely on next page to switch state.
+    };
+
     return (
-        <div style={pageStyles.container}>
-             <div style={{ ...pageStyles.heroParams, paddingBottom: 80 }}>
-                <div style={{ maxWidth: 1200, margin: '0 auto', position: 'relative', zIndex: 10 }}>
-                    <div style={pageStyles.sectionTitle}>
-                        <CheckCircleOutlined style={{ fontSize: 28 }} />
+        <div style={paymentPageStyles.container}>
+             <div style={paymentPageStyles.heroSection}>
+                <div style={paymentPageStyles.contentWrapper}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
+                        <CheckCircleOutlined style={{ fontSize: 28, color: '#fff' }} />
                         <div>
-                            <Title level={3} style={{ margin: 0, color: '#fff' }}>รายการรอชำระเงิน</Title>
-                            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14 }}>Waiting For Payment Orders</Text>
+                            <Title level={3} style={paymentPageStyles.pageTitle}>รายการรอชำระเงิน</Title>
+                            <Text style={paymentPageStyles.pageSubtitle}>Waiting For Payment Orders</Text>
                         </div>
                     </div>
                 </div>
             </div>
 
-             <div style={{ maxWidth: 1200, margin: '-40px auto 0', padding: '0 24px', position: 'relative', zIndex: 20 }}>
+             <div style={{ ...paymentPageStyles.contentWrapper, marginTop: -40, padding: '0 24px' }}>
                 {isLoading ? (
                     <div style={{ textAlign: 'center', padding: 40 }}><Spin size="large" /></div>
                 ) : orderGroups.length === 0 ? (
-                    <Card style={{ borderRadius: 12 }}>
+                    <Card style={{ borderRadius: 12, border: 'none', boxShadow: paymentColors.cardShadow }}>
                         <Empty description="ไม่มีรายการรอชำระเงิน" />
                     </Card>
                 ) : (
@@ -100,64 +111,70 @@ export default function POSItemsPage() {
                             <Col xs={24} sm={12} lg={8} key={group.order.id}>
                                 <Card 
                                     hoverable 
-                                    style={{ borderRadius: 12, overflow: 'hidden', height: '100%', display: 'flex', flexDirection: 'column' }}
+                                    style={paymentPageStyles.card}
                                     bodyStyle={{ flex: 1, display: 'flex', flexDirection: 'column' }}
                                 >
+                                    {/* Card Header */}
                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                                         <div>
-                                            <Tag color="geekblue" style={{ fontSize: 13, padding: '4px 8px', marginBottom: 6 }}>
+                                            <Tag color="geekblue" style={{ fontSize: 13, padding: '4px 8px', marginBottom: 6, borderRadius: 6 }}>
                                                 {dayjs(group.order.create_date).format('HH:mm')}
                                             </Tag>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                 {getOrderIcon(group.order.order_type)}
                                                 <Text strong style={{ fontSize: 16 }}>
                                                     {getOrderTypeUserFriendly(group.order.order_type, group.order.table)}
                                                 </Text>
                                             </div>
-                                            <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>#{group.order.order_no}</Text>
-                                            {group.order.created_by_id && (
-                                                <Text type="secondary" style={{ fontSize: 11 }}>
-                                                    <UserOutlined style={{ marginRight: 4 }} />
-                                                    {group.order.created_by_id}
-                                                </Text>
-                                            )}
+                                            <Space size={4} direction="vertical" style={{ marginTop: 4 }}>
+                                                <Text type="secondary" style={{ fontSize: 12 }}>#{group.order.order_no}</Text>
+                                                {group.order.created_by_id && (
+                                                    <Text type="secondary" style={{ fontSize: 11 }}>
+                                                        <UserOutlined style={{ marginRight: 4 }} />
+                                                        {group.order.created_by_id}
+                                                    </Text>
+                                                )}
+                                            </Space>
                                         </div>
-                                        <Text strong style={{ fontSize: 18, color: colors.primary }}>
-                                            ฿{group.totalAmount.toLocaleString()}
+                                        <Text strong style={{ fontSize: 20, color: paymentColors.primary }}>
+                                            {formatCurrency(group.totalAmount)}
                                         </Text>
                                     </div>
                                     
                                     <Divider style={{ margin: '12px 0' }} />
                                     
+                                    {/* Items List */}
                                     <div style={{ flex: 1 }}>
                                         {group.items.map((item, idx) => (
                                             <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, alignItems: 'center' }}>
-                                                <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                                                <div style={{ display: 'flex', gap: 12, alignItems: 'center', flex: 1, minWidth: 0 }}>
                                                     {item.product?.img_url ? (
-                                                        <>
-                                                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                            <img 
-                                                                src={item.product.img_url} 
-                                                                alt={item.product.display_name} 
-                                                                style={{ width: 40, height: 40, borderRadius: 6, objectFit: 'cover' }} 
-                                                            />
-                                                        </>
+                                                        <Avatar 
+                                                            shape="square" 
+                                                            size={40} 
+                                                            src={item.product.img_url} 
+                                                            style={{ borderRadius: 8, border: `1px solid ${paymentColors.borderLight}` }}
+                                                        />
                                                     ) : (
-                                                        <div style={{ width: 40, height: 40, borderRadius: 6, background: '#f0f0f0', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <ShopOutlined style={{ color: '#ccc' }} />
+                                                        <div style={{ width: 40, height: 40, borderRadius: 8, background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${paymentColors.borderLight}` }}>
+                                                            <ShopOutlined style={{ color: paymentColors.textLight }} />
                                                         </div>
                                                     )}
                                                     
-                                                    <div>
+                                                    <div style={{ minWidth: 0, flex: 1 }}>
                                                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                            <Tag style={{ margin: 0, padding: '0 4px' }}>x{item.quantity}</Tag>
-                                                            <Text strong style={{ fontSize: 14 }}>{item.product?.display_name}</Text>
+                                                            <Tag style={{ margin: 0, padding: '0 4px', fontSize: 11 }}>x{item.quantity}</Tag>
+                                                            <Text strong style={{ fontSize: 14 }} ellipsis>{item.product?.display_name}</Text>
                                                         </div>
-                                                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 2 }}>฿{Number(item.price).toLocaleString()}</Text>
-                                                        {item.notes && <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>* {item.notes}</Text>}
+                                                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 1 }}>
+                                                            {formatCurrency(item.price)}
+                                                        </Text>
+                                                        {item.notes && <Text type="secondary" style={{ fontSize: 11, display: 'block', fontStyle: 'italic' }}>* {item.notes}</Text>}
                                                     </div>
                                                 </div>
-                                                <Text strong>฿{Number(item.total_price || (Number(item.price) * item.quantity)).toLocaleString()}</Text>
+                                                <Text strong style={{ marginLeft: 8 }}>
+                                                    {formatCurrency(Number(item.total_price || (Number(item.price) * item.quantity)))}
+                                                </Text>
                                             </div>
                                         ))}
                                     </div>
@@ -167,8 +184,9 @@ export default function POSItemsPage() {
                                     <Button 
                                         type="primary" 
                                         block 
-                                        style={{ background: colors.success, borderColor: colors.success }}
-                                        onClick={() => router.push(`/pos/items/${group.order.id}`)}
+                                        size="large"
+                                        style={{ background: paymentColors.success, borderColor: paymentColors.success, borderRadius: 8, height: 44, fontWeight: 600 }}
+                                        onClick={() => handlePaymentClick(group.order.id)}
                                     >
                                         ชำระเงิน
                                     </Button>
@@ -181,3 +199,4 @@ export default function POSItemsPage() {
         </div>
     );
 }
+
