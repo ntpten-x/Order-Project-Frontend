@@ -37,7 +37,7 @@ import 'dayjs/locale/th';
 import { AddItemsModal } from "./AddItemsModal";
 import { EditItemModal } from "./EditItemModal";
 import ConfirmationDialog from "@/components/dialog/ConfirmationDialog";
-import { useGlobalLoading } from "@/contexts/GlobalLoadingContext";
+import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 import { Products } from "@/types/api/pos/products";
 import { useNetwork } from "@/hooks/useNetwork";
 import { offlineQueueService } from "@/services/pos/offline.queue.service";

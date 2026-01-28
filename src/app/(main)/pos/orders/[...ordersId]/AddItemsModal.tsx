@@ -16,6 +16,7 @@ import { Category } from '@/types/api/pos/category';
 import { Products } from '@/types/api/pos/products';
 import { calculateItemTotal } from '@/utils/orders';
 import { addItemsModalStyles, orderDetailColors, modalStyles, orderDetailResponsiveStyles } from './style';
+import { useGlobalLoading } from '@/contexts/pos/GlobalLoadingContext';
 
 const { Text, Title } = Typography;
 
@@ -42,18 +43,17 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
     const [categories, setCategories] = useState<Category[]>([]);
     const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
     const [searchText, setSearchText] = useState('');
-    const [loading, setLoading] = useState(false);
+    const { showLoading, hideLoading } = useGlobalLoading();
     
     // Selection State
     const [selectedProduct, setSelectedProduct] = useState<Products | null>(null);
     const [quantity, setQuantity] = useState(1);
     const [notes, setNotes] = useState('');
     const [details, setDetails] = useState<DetailFormItem[]>([]);
-    const [adding, setAdding] = useState(false);
 
     const fetchInitialData = useCallback(async () => {
         try {
-            setLoading(true);
+            showLoading("กำลังโหลดข้อมูลสินค้า...");
             const [productsRes, categoriesRes] = await Promise.all([
                 productsService.findAll(1, 100),
                 categoryService.findAll()
@@ -64,9 +64,9 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
         } catch {
             message.error("ไม่สามารถโหลดข้อมูลได้");
         } finally {
-            setLoading(false);
+            hideLoading();
         }
-    }, []);
+    }, [showLoading, hideLoading]);
 
     const resetForm = useCallback(() => {
         setQuantity(1);
@@ -139,7 +139,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
     const handleConfirmAdd = async () => {
         if (!selectedProduct) return;
         try {
-            setAdding(true);
+            showLoading("กำลังเพิ่มรายการ...");
             const formattedDetails = details.filter(d => d.name.trim() !== '').map(d => ({
                 detail_name: d.name,
                 extra_price: d.price
@@ -151,7 +151,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
         } catch {
             // Error handled by parent
         } finally {
-            setAdding(false);
+            hideLoading();
         }
     };
 
@@ -253,12 +253,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
 
                     {/* Product Grid */}
                     <div className="order-detail-content" style={{ maxHeight: 'calc(100vh - 130px)', overflowY: 'auto' }}>
-                        {loading ? (
-                            <div style={{ textAlign: 'center', padding: 100 }}>
-                                <Spin size="large" />
-                            </div>
-                        ) : (
-                            <div className="product-grid" style={addItemsModalStyles.productGrid}>
+                        <div className="product-grid" style={addItemsModalStyles.productGrid}>
                                 {filteredProducts.map(item => (
                                     <div 
                                         key={item.id}
@@ -296,9 +291,8 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                     </div>
                                 ))}
                             </div>
-                        )}
                         
-                        {!loading && filteredProducts.length === 0 && (
+                        {filteredProducts.length === 0 && (
                             <Empty description="ไม่พบสินค้าที่คุณต้องการ" style={{ marginTop: 60 }} />
                         )}
                     </div>
@@ -425,7 +419,6 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                 <Button
                                     type="primary"
                                     onClick={handleConfirmAdd}
-                                    loading={adding}
                                     icon={<PlusOutlined />}
                                     style={modalStyles.primaryButton}
                                 >

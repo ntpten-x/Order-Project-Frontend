@@ -20,7 +20,7 @@ export const metadata: Metadata = {
 import AntdRegistry from "../lib/AntdRegistry";
 import { SocketProvider } from "../contexts/SocketContext";
 import { AuthProvider } from "../contexts/AuthContext";
-import { GlobalLoadingProvider } from "../contexts/GlobalLoadingContext";
+import { GlobalLoadingProvider } from "../contexts/pos/GlobalLoadingContext";
 import QueryProvider from "../providers/QueryProvider";
 import AppHeader from "../components/AppHeader";
 import ClientLayout from "../components/ClientLayout";

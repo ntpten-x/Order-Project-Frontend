@@ -5,6 +5,7 @@ import { SalesOrderItem } from '@/types/api/pos/salesOrderItem';
 import { SalesOrderDetail } from '@/types/api/pos/salesOrderDetail';
 import { orderDetailColors, modalStyles } from './style';
 import { calculateItemTotal } from '@/utils/orders';
+import { useGlobalLoading } from '@/contexts/pos/GlobalLoadingContext';
 
 const { Text, Title } = Typography;
 const { TextArea } = Input;
@@ -20,7 +21,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
     const [quantity, setQuantity] = useState(1);
     const [notes, setNotes] = useState('');
     const [details, setDetails] = useState<any[]>([]);
-    const [saving, setSaving] = useState(false);
+    const { showLoading, hideLoading } = useGlobalLoading();
 
     useEffect(() => {
         if (item && isOpen) {
@@ -33,13 +34,13 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
     const handleSave = async () => {
         if (!item) return;
         try {
-            setSaving(true);
+            showLoading("กำลังบันทึกแก้ไข...");
             await onSave(item.id, quantity, notes, details);
             onClose();
         } catch {
             // Error handled by parent
         } finally {
-            setSaving(false);
+            hideLoading();
         }
     };
 
@@ -255,7 +256,6 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                 <Button
                     type="primary"
                     onClick={handleSave}
-                    loading={saving}
                     icon={<SaveOutlined />}
                     style={{...modalStyles.primaryButton, flex: 2}}
                 >

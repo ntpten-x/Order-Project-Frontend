@@ -5,7 +5,7 @@ import { useRouter, usePathname } from "next/navigation";
 import { authService } from "../services/auth.service";
 import { User, LoginCredentials } from "../types/api/auth";
 import { Spin } from "antd";
-import { useGlobalLoading } from "./GlobalLoadingContext";
+import { useGlobalLoading } from "./pos/GlobalLoadingContext";
 
 interface AuthContextType {
     user: User | null;

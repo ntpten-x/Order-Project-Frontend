@@ -5,7 +5,7 @@ import { message, Modal, Spin, Typography } from 'antd';
 import { UnorderedListOutlined } from '@ant-design/icons';
 import { ProductsUnit } from "../../../../types/api/pos/productsUnit";
 import { useRouter } from 'next/navigation';
-import { useGlobalLoading } from "../../../../contexts/GlobalLoadingContext";
+import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
 import { useAsyncAction } from "../../../../hooks/useAsyncAction";
 import { useSocket } from "../../../../hooks/useSocket";
 import { useAuth } from "../../../../contexts/AuthContext";

@@ -14,7 +14,7 @@ import {
 } from './style';
 import { useSocket } from "../../../hooks/useSocket";
 import { useAsyncAction } from "../../../hooks/useAsyncAction";
-import { useGlobalLoading } from "../../../contexts/GlobalLoadingContext";
+import { useGlobalLoading } from "../../../contexts/pos/GlobalLoadingContext";
 
 const { Title, Text } = Typography;
 

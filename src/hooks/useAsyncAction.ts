@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import { useGlobalLoading } from "../contexts/GlobalLoadingContext";
+import { useGlobalLoading } from "../contexts/pos/GlobalLoadingContext";
 import { Modal } from "antd";
 
 /**

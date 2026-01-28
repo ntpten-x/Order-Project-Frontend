@@ -5,7 +5,7 @@ import { message, Modal, Spin, Typography } from 'antd';
 import { CarOutlined } from '@ant-design/icons';
 import { Delivery } from "../../../../types/api/pos/delivery";
 import { useRouter } from 'next/navigation';
-import { useGlobalLoading } from "../../../../contexts/GlobalLoadingContext";
+import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
 import { useAsyncAction } from "../../../../hooks/useAsyncAction";
 import { useSocket } from "../../../../hooks/useSocket";
 import { useAuth } from "../../../../contexts/AuthContext";

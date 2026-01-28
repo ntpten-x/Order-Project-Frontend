@@ -5,7 +5,7 @@ import { message, Modal, Spin, Typography } from 'antd';
 import { PercentageOutlined } from '@ant-design/icons';
 import { Discounts, DiscountType } from "../../../../types/api/pos/discounts";
 import { useRouter } from 'next/navigation';
-import { useGlobalLoading } from "../../../../contexts/GlobalLoadingContext";
+import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
 import { useAsyncAction } from "../../../../hooks/useAsyncAction";
 import { useSocket } from "../../../../hooks/useSocket";
 import { useAuth } from "../../../../contexts/AuthContext";

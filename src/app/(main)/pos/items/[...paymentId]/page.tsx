@@ -24,7 +24,7 @@ import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import { getOrderChannelText, getOrderReference, getOrderStatusColor, getOrderStatusText, getEditOrderNavigationPath, getCancelOrderNavigationPath, ConfirmationConfig } from "@/utils/orders";
 import ConfirmationDialog from "@/components/dialog/ConfirmationDialog";
-import { useGlobalLoading } from "@/contexts/GlobalLoadingContext";
+import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
