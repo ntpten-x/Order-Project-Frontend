@@ -4,16 +4,16 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { message, Spin } from "antd";
 import { ShopOutlined } from "@ant-design/icons";
-import { useCart } from "../../contexts/pos/CartContext";
-import { tablesService } from "../../services/pos/tables.service";
-import { authService } from "../../services/auth.service";
-import { ordersService } from "../../services/pos/orders.service";
-import { useAuth } from "../../contexts/AuthContext";
+import { useCart } from "@/contexts/pos/CartContext";
+import { tablesService } from "@/services/pos/tables.service";
+import { authService } from "@/services/auth.service";
+import { ordersService } from "@/services/pos/orders.service";
+import { useAuth } from "@/contexts/AuthContext";
 import POSPageLayout from "./shared/POSPageLayout";
-import { useNetwork } from "../../hooks/useNetwork";
-import { CreateSalesOrderDTO, OrderType, OrderStatus } from "../../types/api/pos/salesOrder";
-import { offlineQueueService } from "../../services/pos/offline.queue.service";
-import { getPostCreateOrderNavigationPath } from "../../utils/orders";
+import { useNetwork } from "@/hooks/useNetwork";
+import { CreateSalesOrderDTO, OrderType, OrderStatus } from "@/types/api/pos/salesOrder";
+import { offlineQueueService } from "@/services/pos/offline.queue.service";
+import { getPostCreateOrderNavigationPath } from "@/utils/orders";
 
 interface POSDineInProps {
     tableId: string;
@@ -40,7 +40,6 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
                 if (token) setCsrfToken(token);
                 if (table) setTableName(table.table_name);
             } catch (error) {
-                console.error("Initialization error:", error);
                 message.error("ไม่สามารถโหลดข้อมูลโต๊ะได้");
             } finally {
                 setIsLoading(false);
@@ -126,7 +125,6 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
             router.push(getPostCreateOrderNavigationPath(OrderType.DineIn));
             
         } catch (error) {
-            console.error(error);
             message.error(error instanceof Error ? error.message : "ไม่สามารถทำรายการได้");
             throw error; 
         }
