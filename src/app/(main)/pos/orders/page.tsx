@@ -1,10 +1,8 @@
 ﻿"use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { Typography, Card, Table, Tag, Button, Spin, Empty, Input, Space, Grid, List, Divider } from "antd";
+import { Typography, Card, Table, Tag, Button, Spin, Empty, Divider, Space, Grid, List } from "antd";
 import { 
-  ShoppingOutlined, 
-  SearchOutlined, 
   ReloadOutlined, 
   EyeOutlined,
   ArrowLeftOutlined,
@@ -12,8 +10,19 @@ import {
   ContainerOutlined
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
-import { ordersService } from "../../../../services/pos/orders.service";
-import { SalesOrder, OrderStatus, OrderType } from "../../../../types/api/pos/salesOrder";
+import { ordersService } from "@/services/pos/orders.service";
+import { SalesOrder, OrderStatus, OrderType } from "@/types/api/pos/salesOrder";
+import { 
+  getOrderStatusColor, 
+  getOrderStatusText, 
+  getOrderChannelColor, 
+  getOrderChannelText,
+  getOrderReference,
+  getTotalItemsQuantity,
+  groupItemsByCategory,
+  formatCurrency
+} from "@/utils/orders";
+import { orderColors } from "@/theme/pos/orders.theme";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 
@@ -41,7 +50,7 @@ export default function POSOrdersPage() {
             setOrders(data.data || []);
             setTotal(data.total || 0);
         } catch (error) {
-            console.error("Fetch orders error:", error);
+            // Error handled by service/interceptor
         } finally {
             setIsLoading(false);
         }
@@ -50,30 +59,6 @@ export default function POSOrdersPage() {
     useEffect(() => {
         fetchOrders();
     }, [fetchOrders]);
-
-    const getStatusColor = (status: OrderStatus) => {
-        switch (status) {
-            case OrderStatus.Paid: return 'green';
-            case OrderStatus.Cancelled: return 'red';
-            case OrderStatus.Pending: return 'orange';
-            case OrderStatus.Cooking: return 'blue';
-            case OrderStatus.WaitingForPayment: return 'purple';
-            case OrderStatus.Served: return 'success';
-            default: return 'default';
-        }
-    };
-
-    const getStatusText = (status: OrderStatus) => {
-        switch (status) {
-            case OrderStatus.Paid: return 'ชำระเงินแล้ว';
-            case OrderStatus.Cancelled: return 'ยกเลิก';
-            case OrderStatus.Pending: return 'กำลังดำเนินการ';
-            case OrderStatus.Cooking: return 'กำลังปรุง';
-            case OrderStatus.Served: return 'เสิร์ฟแล้ว';
-            case OrderStatus.WaitingForPayment: return 'รอชำระเงิน';
-            default: return status;
-        }
-    };
 
     const columns = [
         {
@@ -101,24 +86,22 @@ export default function POSOrdersPage() {
             dataIndex: 'order_type',
             key: 'type',
             align: 'center' as const,
-            render: (type: OrderType) => {
-                const colors = { [OrderType.DineIn]: 'blue', [OrderType.TakeAway]: 'green', [OrderType.Delivery]: 'orange' };
-                const labels = { [OrderType.DineIn]: 'ทานที่ร้าน', [OrderType.TakeAway]: 'กลับบ้าน', [OrderType.Delivery]: 'เดลิเวอรี่' };
-                return <Tag color={colors[type]} style={{ margin: 0 }}>{labels[type]}</Tag>
-            }
+            render: (type: OrderType) => (
+                <Tag color={getOrderChannelColor(type)} style={{ margin: 0 }}>
+                    {getOrderChannelText(type)}
+                </Tag>
+            )
         },
         {
             title: 'โต๊ะ / รหัสอ้างอิง',
             key: 'reference',
             align: 'center' as const,
             render: (_: any, record: SalesOrder) => {
-                if (record.order_type === OrderType.DineIn) {
-                    return <Tag color="cyan" style={{ margin: 0 }}>{record.table?.table_name || '-'}</Tag>;
-                }
-                if (record.order_type === OrderType.Delivery) {
-                    return <Tag color="orange" style={{ margin: 0 }}>{record.delivery_code || '-'}</Tag>;
-                }
-                return <Text type="secondary">-</Text>;
+                const ref = getOrderReference(record);
+                let color = 'default';
+                if (record.order_type === OrderType.DineIn) color = 'cyan';
+                if (record.order_type === OrderType.Delivery) color = 'orange';
+                return <Tag color={color} style={{ margin: 0 }}>{ref}</Tag>;
             }
         },
         {
@@ -127,16 +110,8 @@ export default function POSOrdersPage() {
             width: 200,
             align: 'center' as const,
             render: (_: any, record: SalesOrder) => {
-                const items = record.items || [];
-                const summary: { [key: string]: number } = {};
-                let totalQty = 0;
-
-                items.forEach(item => {
-                    if (item.status === 'Cancelled' && record.status !== OrderStatus.Cancelled) return;
-                    const catName = item.product?.category?.display_name || item.product?.category?.category_name || 'อื่นๆ';
-                    summary[catName] = (summary[catName] || 0) + Number(item.quantity);
-                    totalQty += Number(item.quantity);
-                });
+                const summary = groupItemsByCategory(record.items);
+                const totalQty = getTotalItemsQuantity(record.items);
 
                 if (totalQty === 0) return <Text type="secondary">-</Text>;
 
@@ -151,7 +126,7 @@ export default function POSOrdersPage() {
                         <Divider style={{ margin: '4px 0' }} />
                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                             <Text strong>รวม</Text>
-                            <Text strong style={{ color: '#1890ff' }}>{totalQty} รายการ</Text>
+                            <Text strong style={{ color: orderColors.primary }}>{totalQty} รายการ</Text>
                         </div>
                     </div>
                 );
@@ -162,14 +137,18 @@ export default function POSOrdersPage() {
             dataIndex: 'total_amount',
             key: 'total',
             align: 'center' as const,
-            render: (amount: number) => <Text strong style={{ whiteSpace: 'nowrap' }}>฿{Number(amount).toLocaleString()}</Text>
+            render: (amount: number) => <Text strong style={{ whiteSpace: 'nowrap' }}>{formatCurrency(amount)}</Text>
         },
         {
             title: 'สถานะ',
             dataIndex: 'status',
             key: 'status',
             align: 'center' as const,
-            render: (status: OrderStatus) => <Tag color={getStatusColor(status)} style={{ margin: 0 }}>{getStatusText(status)}</Tag>
+            render: (status: OrderStatus) => (
+                <Tag color={getOrderStatusColor(status)} style={{ margin: 0 }}>
+                    {getOrderStatusText(status)}
+                </Tag>
+            )
         },
         {
             title: 'จัดการ',
@@ -237,7 +216,7 @@ export default function POSOrdersPage() {
                                 >
                                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
                                         <Text strong style={{ fontSize: 16 }}>#{order.order_no}</Text>
-                                        <Tag color={getStatusColor(order.status)} style={{ margin: 0 }}>{getStatusText(order.status)}</Tag>
+                                        <Tag color={getOrderStatusColor(order.status)} style={{ margin: 0 }}>{getOrderStatusText(order.status)}</Tag>
                                     </div>
                                     
                                     <div style={{ display: 'flex', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>

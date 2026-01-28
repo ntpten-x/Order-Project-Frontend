@@ -2,18 +2,18 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Typography, Row, Col, Card, Tag, Button, Spin, Empty, Divider, Table, Checkbox, message, Tooltip, Space } from "antd";
+import { Typography, Row, Col, Card, Tag, Button, Empty, Table, Checkbox, message, Tooltip, Space, Divider } from "antd";
 import { 
     ArrowLeftOutlined, 
     ShopOutlined, 
-    CheckCircleOutlined, 
     PlusOutlined, 
     DeleteOutlined, 
     EditOutlined, 
     CheckOutlined,
     CloseOutlined,
     InfoCircleOutlined,
-    ReloadOutlined
+    ReloadOutlined,
+    CheckCircleOutlined
 } from "@ant-design/icons";
 import { ordersService } from "@/services/pos/orders.service";
 import { authService } from "@/services/auth.service";
@@ -26,10 +26,12 @@ import {
   calculateOrderTotal,
   getNonCancelledItems,
   calculateItemExtras,
-  groupItemsByCategory,
   getPostConfirmServeNavigationPath,
   getCancelOrderNavigationPath,
-  ConfirmationConfig
+  ConfirmationConfig,
+  getOrderStatusColor,
+  getOrderStatusText,
+  groupItemsByCategory
 } from "@/utils/orders"; 
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
@@ -361,27 +363,6 @@ export default function POSOrderDetailsPage() {
         setSelectedRowKeys(newSelectedRowKeys);
     };
 
-    const getStatusColor = (status: string) => {
-        switch (status) {
-            case OrderStatus.Pending: return orderDetailColors.pending;
-            case OrderStatus.Cooking: return orderDetailColors.primary;
-            case OrderStatus.Served: return orderDetailColors.success;
-            case OrderStatus.Cancelled: return orderDetailColors.danger;
-            default: return orderDetailColors.textSecondary;
-        }
-    };
-
-    const getStatusText = (status: string) => {
-        switch (status) {
-            case OrderStatus.Pending: return "กำลังดำเนินการ";
-            case OrderStatus.Cooking: return "กำลังปรุง";
-            case OrderStatus.Served: return "เสิร์ฟแล้ว";
-            case OrderStatus.WaitingForPayment: return "รอชำระเงิน";
-            case OrderStatus.Paid: return "ชำระเงินแล้ว";
-            case OrderStatus.Cancelled: return "ยกเลิก";
-            default: return status;
-        }
-    };
 
     const desktopColumns = [
         {
@@ -412,13 +393,13 @@ export default function POSOrderDetailsPage() {
                 <Space direction="vertical" size={2} align="center">
                     <Text strong style={{ fontSize: 15, lineHeight: '1.2' }}>{record.product?.display_name}</Text>
                     {record.details && record.details.length > 0 && (
-                        <div style={{ fontSize: 13, color: orderDetailColors.success, textAlign: 'center' }}>
+                        <div style={{ fontSize: 13, color: orderDetailColors.served, textAlign: 'center' }}>
                             {record.details.map((d, i) => (
                                 <div key={i} style={{ lineHeight: '1.4' }}>+ {d.detail_name}</div>
                             ))}
                         </div>
                     )}
-                    {record.notes && <Text style={{ fontSize: 13, color: orderDetailColors.danger }}><InfoCircleOutlined /> {record.notes}</Text>}
+                    {record.notes && <Text style={{ fontSize: 13, color: orderDetailColors.cancelled }}><InfoCircleOutlined /> {record.notes}</Text>}
                 </Space>
             )
         },
@@ -464,7 +445,7 @@ export default function POSOrderDetailsPage() {
             align: 'center' as const,
             render: (status: string) => (
                 <Tag color={status === OrderStatus.Pending ? 'orange' : status === OrderStatus.Cooking ? 'blue' : 'green'}>
-                    {getStatusText(status)}
+                    {getOrderStatusText(status)}
                 </Tag>
             )
         },
@@ -488,8 +469,8 @@ export default function POSOrderDetailsPage() {
                             type="primary" 
                             onClick={() => handleServeItem(record.id)} 
                             style={{ 
-                                background: orderDetailColors.success, 
-                                borderColor: orderDetailColors.success,
+                                background: orderDetailColors.served, 
+                                borderColor: orderDetailColors.served,
                                 height: 'auto',
                                 padding: '4px 8px',
                                 display: 'flex',
@@ -547,13 +528,13 @@ export default function POSOrderDetailsPage() {
                         {record.product?.display_name}
                     </Text>
                     {record.details && record.details.length > 0 && (
-                        <div style={{ fontSize: 12, color: orderDetailColors.success, opacity: 0.7, textAlign: 'center' }}>
+                        <div style={{ fontSize: 12, color: orderDetailColors.served, opacity: 0.7, textAlign: 'center' }}>
                             {record.details.map((d, i) => (
                                 <div key={i} style={{ lineHeight: '1.4' }}>+ {d.detail_name}</div>
                             ))}
                         </div>
                     )}
-                    {record.notes && <Text style={{ fontSize: 12, opacity: 0.7, color: orderDetailColors.danger }}><InfoCircleOutlined /> {record.notes}</Text>}
+                    {record.notes && <Text style={{ fontSize: 12, opacity: 0.7, color: orderDetailColors.cancelled }}><InfoCircleOutlined /> {record.notes}</Text>}
                 </Space>
             )
         },
@@ -613,8 +594,8 @@ export default function POSOrderDetailsPage() {
             width: 120,
             align: 'center' as const,
             render: (status: string) => (
-                <Tag color={getStatusColor(status)}>
-                    {getStatusText(status)}
+                <Tag color={getOrderStatusColor(status)}>
+                    {getOrderStatusText(status)}
                 </Tag>
             )
         },
@@ -700,11 +681,11 @@ export default function POSOrderDetailsPage() {
                         </Text>
                     </div>
                     <Tag 
-                        color={getStatusColor(order.status)} 
+                        color={getOrderStatusColor(order.status)} 
                         className="status-badge"
                         style={{ margin: 0, fontSize: 12 }}
                     >
-                        {getStatusText(order.status)}
+                        {getOrderStatusText(order.status)}
                     </Tag>
                 </div>
             </header>
@@ -755,7 +736,7 @@ export default function POSOrderDetailsPage() {
                                                     icon={<CheckOutlined />} 
                                                     onClick={handleServeSelected} 
                                                     loading={isUpdating}
-                                                    style={{ ...orderDetailStyles.bulkActionButtonDesktop, background: orderDetailColors.success, borderColor: orderDetailColors.success }}
+                                                    style={{ ...orderDetailStyles.bulkActionButtonDesktop, background: orderDetailColors.served, borderColor: orderDetailColors.served }}
                                                     className="bulk-action-btn"
                                                 >
                                                     <span className="hide-on-mobile">เสิร์ฟ ({selectedRowKeys.length})</span>
@@ -851,7 +832,7 @@ export default function POSOrderDetailsPage() {
                                                         </div>
                                                         <div style={{ paddingLeft: 24, marginTop: 2 }}>
                                                             {item.details && item.details.length > 0 && (
-                                                                <div style={{ fontSize: 12, color: orderDetailColors.success, marginBottom: 4 }}>
+                                                                <div style={{ fontSize: 12, color: orderDetailColors.served, marginBottom: 4 }}>
                                                                     {item.details.map((d: any) => `${d.detail_name} (+ ฿${Number(d.extra_price).toLocaleString()})`).join(', ')}
                                                                 </div>
                                                             )}
@@ -865,7 +846,7 @@ export default function POSOrderDetailsPage() {
                                                             </Space>
                                                             {item.notes && (
                                                                 <div style={{ marginTop: 4 }}>
-                                                                    <Text style={{ fontSize: 12, color: orderDetailColors.danger }}>
+                                                                    <Text style={{ fontSize: 12, color: orderDetailColors.cancelled }}>
                                                                         <InfoCircleOutlined /> {item.notes}
                                                                     </Text>
                                                                 </div>
@@ -881,8 +862,8 @@ export default function POSOrderDetailsPage() {
                                                         type="primary" 
                                                         onClick={() => handleServeItem(item.id)}
                                                         style={{ 
-                                                            background: orderDetailColors.success, 
-                                                            borderColor: orderDetailColors.success,
+                                                            background: orderDetailColors.served, 
+                                                            borderColor: orderDetailColors.served,
                                                             height: 'auto',
                                                             padding: '4px 10px',
                                                             display: 'flex',
@@ -941,15 +922,15 @@ export default function POSOrderDetailsPage() {
                                                     ...orderDetailStyles.itemCard, 
                                                     ...orderDetailStyles.itemCardServed, 
                                                     padding: 12,
-                                                    backgroundColor: item.status === OrderStatus.Cancelled ? orderDetailColors.dangerLight : orderDetailColors.white,
-                                                    borderColor: item.status === OrderStatus.Cancelled ? orderDetailColors.danger + '30' : orderDetailColors.border,
+                                                    backgroundColor: item.status === OrderStatus.Cancelled ? orderDetailColors.cancelledLight : orderDetailColors.white,
+                                                    borderColor: item.status === OrderStatus.Cancelled ? orderDetailColors.cancelled + '30' : orderDetailColors.border,
                                                     position: 'relative'
                                                 }}
                                             >
                                                 {/* Status Tag in Top Right */}
                                                 <div style={{ position: 'absolute', top: 8, right: 12 }}>
-                                                    <Tag color={getStatusColor(item.status)} style={{ margin: 0 }}>
-                                                        {getStatusText(item.status)}
+                                                    <Tag color={getOrderStatusColor(item.status)} style={{ margin: 0 }}>
+                                                        {getOrderStatusText(item.status)}
                                                     </Tag>
                                                 </div>
 
@@ -985,7 +966,7 @@ export default function POSOrderDetailsPage() {
                                                                     )}
                                                                 </div>
                                                                 {item.details && item.details.length > 0 && (
-                                                                    <div style={{ fontSize: 12, color: orderDetailColors.success, opacity: 0.7, marginBottom: 4 }}>
+                                                                    <div style={{ fontSize: 12, color: orderDetailColors.served, opacity: 0.7, marginBottom: 4 }}>
                                                                         {item.details.map((d: any) => `${d.detail_name} (+ ฿${Number(d.extra_price).toLocaleString()})`).join(', ')}
                                                                     </div>
                                                                 )}
@@ -1002,7 +983,7 @@ export default function POSOrderDetailsPage() {
                                                                 </Space>
                                                                 {item.notes && (
                                                                     <div style={{ marginTop: 4 }}>
-                                                                        <Text style={{ fontSize: 12, opacity: 0.7, color: orderDetailColors.danger }}>
+                                                                        <Text style={{ fontSize: 12, opacity: 0.7, color: orderDetailColors.cancelled }}>
                                                                             <InfoCircleOutlined /> {item.notes}
                                                                         </Text>
                                                                     </div>
@@ -1079,7 +1060,7 @@ export default function POSOrderDetailsPage() {
                                             )}
                                             
                                             {item.notes && (
-                                                <div style={{ ...orderDetailStyles.summaryDetailText, color: orderDetailColors.danger, fontStyle: 'italic' }}>
+                                                <div style={{ ...orderDetailStyles.summaryDetailText, color: orderDetailColors.cancelled, fontStyle: 'italic' }}>
                                                     โน้ต: {item.notes}
                                                 </div>
                                             )}

@@ -1,92 +1,23 @@
 import { CSSProperties } from 'react';
+import { orderColors, orderTypography, orderBreakpoints } from '@/theme/pos/orders.theme';
+
+export { orderColors, orderTypography, orderBreakpoints };
 
 // ============================================
 // Modern Color Palette - Order Detail Page
 // ============================================
-export const orderDetailColors = {
-  // Primary - Modern Blue
-  primary: '#3b82f6',
-  primaryLight: '#eff6ff',
-  primaryDark: '#1d4ed8',
-  primaryGradient: 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)',
-  
-  // Status Colors
-  pending: '#f59e0b',
-  pendingLight: '#fef3c7',
-  cooking: '#3b82f6',
-  cookingLight: '#dbeafe',
-  served: '#10b981',
-  servedLight: '#d1fae5',
-  success: '#10b981',
-  priceTotal: '#065f46',
-  
-  // Action Colors
-  danger: '#ef4444',
-  dangerLight: '#fee2e2',
-  warning: '#f59e0b',
-  
-  // Base Colors
-  text: '#1f2937',
-  textSecondary: '#6b7280',
-  textLight: '#9ca3af',
-  background: '#f8fafc',
-  backgroundSecondary: '#f1f5f9',
-  white: '#ffffff',
-  border: '#e2e8f0',
-  borderLight: '#f1f5f9',
-  
-  // Card Shadow
-  cardShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)',
-  cardShadowHover: '0 10px 25px rgba(0,0,0,0.1), 0 4px 10px rgba(0,0,0,0.05)',
-};
+// Alias for backward compatibility if needed, or better to use exported orderColors
+export const orderDetailColors = orderColors;
 
 // ============================================
 // Responsive Breakpoints
 // ============================================
-export const breakpoints = {
-  mobile: 480,
-  tablet: 768,
-  desktop: 1024,
-  wide: 1200,
-};
+export const breakpoints = orderBreakpoints;
 
 // ============================================
 // Typography System
 // ============================================
-export const orderDetailTypography = {
-  pageTitle: {
-    fontSize: 24, // Was 20
-    fontWeight: 700,
-    lineHeight: 1.3,
-    margin: 0,
-    color: orderDetailColors.text,
-  } as CSSProperties,
-  
-  sectionTitle: {
-    fontSize: 20, // Was 16
-    fontWeight: 600,
-    lineHeight: 1.4,
-    color: orderDetailColors.text,
-  } as CSSProperties,
-  
-  cardTitle: {
-    fontSize: 18, // Was 15
-    fontWeight: 600,
-    color: orderDetailColors.text,
-  } as CSSProperties,
-  
-  label: {
-    fontSize: 14, // Was 13
-    fontWeight: 500,
-    color: orderDetailColors.textSecondary,
-  } as CSSProperties,
-  
-  body: {
-    fontSize: 16, // Was 14
-    lineHeight: 1.5,
-    color: orderDetailColors.text,
-  } as CSSProperties,
-};
+export const orderDetailTypography = orderTypography;
 
 // ============================================
 // Main Page Styles

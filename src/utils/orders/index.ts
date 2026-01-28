@@ -99,13 +99,13 @@ export const getOrderStatusText = (status: OrderStatus | string): string => {
         case OrderStatus.Pending:
             return 'กำลังดำเนินการ';
         case OrderStatus.Cooking:
-            return 'กำลังปรุงอาหาร';
+            return 'กำลังปรุง';
         case OrderStatus.Served:
             return 'เสิร์ฟแล้ว';
         case OrderStatus.Paid:
             return 'ชำระเงินแล้ว';
         case OrderStatus.Completed:
-            return 'ออเดอร์สำเร็จ';
+            return 'สำเร็จ';
         case OrderStatus.Cancelled:
             return 'ยกเลิก';
         case OrderStatus.WaitingForPayment:
@@ -143,7 +143,7 @@ export const getOrderChannelText = (type: string): string => {
 
 export const formatCurrency = (amount: number | string): string => {
     const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-    return `฿${numAmount.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    return `฿${Number(numAmount).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 };
 
 export const getOrderReference = (order: OrderLike): string => {

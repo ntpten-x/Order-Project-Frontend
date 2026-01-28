@@ -1,86 +1,20 @@
 import { CSSProperties } from 'react';
+import { orderColors, orderTypography } from '@/theme/pos/orders.theme';
 
-// Color Palette for Orders Page
-export const ordersColors = {
-  // Primary - Blue/Indigo theme for orders
-  primary: '#1890ff',
-  primaryLight: '#e6f7ff',
-  primaryDark: '#096dd9',
-  primaryGradient: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)',
-  
-  // Status Colors
-  pending: '#faad14',
-  pendingLight: '#fff7e6',
-  cooking: '#1890ff',
-  cookingLight: '#e6f7ff',
-  served: '#52c41a',
-  servedLight: '#f6ffed',
-  paid: '#13c2c2',
-  paidLight: '#e6fffb',
-  cancelled: '#ff4d4f',
-  cancelledLight: '#fff1f0',
-  
-  // Channel Colors
-  dineIn: '#722ed1',
-  takeAway: '#fa8c16',
-  delivery: '#eb2f96',
-  
-  // Base Colors
-  text: '#262626',
-  textSecondary: '#8c8c8c',
-  textLight: '#bfbfbf',
-  background: '#f0f2f5',
-  white: '#ffffff',
-  border: '#d9d9d9',
-  borderLight: '#f0f0f0',
-};
-
-// Typography
-export const ordersTypography = {
-  pageTitle: {
-    fontSize: 28,
-    fontWeight: 700,
-    lineHeight: 1.2,
-    margin: 0,
-  } as CSSProperties,
-  
-  pageSubtitle: {
-    fontSize: 14,
-    fontWeight: 400,
-    opacity: 0.9,
-  } as CSSProperties,
-  
-  cardTitle: {
-    fontSize: 16,
-    fontWeight: 600,
-    lineHeight: 1.3,
-  } as CSSProperties,
-  
-  cardRef: {
-    fontSize: 18,
-    fontWeight: 700,
-    lineHeight: 1.2,
-  } as CSSProperties,
-  
-  label: {
-    fontSize: 13,
-    fontWeight: 500,
-    color: ordersColors.textSecondary,
-  } as CSSProperties,
-};
+export { orderColors, orderTypography };
 
 // Main Container Styles
 export const ordersStyles = {
   // Page Container
   container: {
     minHeight: '100vh',
-    background: ordersColors.background,
+    background: orderColors.background,
     paddingBottom: 40,
   } as CSSProperties,
 
   // Hero Header
   header: {
-    background: ordersColors.primaryGradient,
+    background: orderColors.primaryGradient,
     padding: '32px 24px',
     marginBottom: 32,
     boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
@@ -164,7 +98,7 @@ export const ordersStyles = {
 
   statsText: {
     fontSize: 13,
-    color: ordersColors.textSecondary,
+    color: orderColors.textSecondary,
     fontWeight: 500,
   } as CSSProperties,
 
@@ -186,7 +120,7 @@ export const ordersStyles = {
   // Card Header
   cardHeader: {
     padding: '14px 16px',
-    borderBottom: `1px solid ${ordersColors.borderLight}`,
+    borderBottom: `1px solid ${orderColors.borderLight}`,
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -210,18 +144,18 @@ export const ordersStyles = {
   refSection: {
     marginBottom: 14,
     paddingBottom: 12,
-    borderBottom: `1px solid ${ordersColors.borderLight}`,
+    borderBottom: `1px solid ${orderColors.borderLight}`,
   } as CSSProperties,
 
   refLabel: {
-    ...ordersTypography.label,
+    ...orderTypography.label,
     marginBottom: 4,
     display: 'block',
   } as CSSProperties,
 
   refValue: {
-    ...ordersTypography.cardRef,
-    color: ordersColors.text,
+    ...orderTypography.cardRef,
+    color: orderColors.text,
     display: 'flex',
     alignItems: 'center',
     gap: 6,
@@ -229,11 +163,11 @@ export const ordersStyles = {
 
   // Items Summary
   itemsSummary: {
-    background: ordersColors.primaryLight,
+    background: orderColors.primaryLight,
     padding: 12,
     borderRadius: 8,
     marginBottom: 14,
-    border: `1px solid ${ordersColors.primaryDark}20`,
+    border: `1px solid ${orderColors.primaryDark}20`,
   } as CSSProperties,
 
   summaryRow: {
@@ -250,7 +184,7 @@ export const ordersStyles = {
     alignItems: 'center',
     marginTop: 8,
     paddingTop: 8,
-    borderTop: `1px solid ${ordersColors.primary}30`,
+    borderTop: `1px solid ${orderColors.primary}30`,
     fontWeight: 600,
     fontSize: 14,
   } as CSSProperties,
@@ -264,13 +198,13 @@ export const ordersStyles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    border: `1px solid ${ordersColors.served}30`,
+    border: `1px solid ${orderColors.served}30`,
   } as CSSProperties,
 
   totalLabel: {
     fontSize: 14,
     fontWeight: 500,
-    color: ordersColors.textSecondary,
+    color: orderColors.textSecondary,
   } as CSSProperties,
 
   totalAmount: {
@@ -284,7 +218,7 @@ export const ordersStyles = {
     display: 'flex',
     alignItems: 'center',
     gap: 6,
-    color: ordersColors.textSecondary,
+    color: orderColors.textSecondary,
     fontSize: 12,
     marginBottom: 14,
   } as CSSProperties,

@@ -1,24 +1,26 @@
-import React, { useCallback, useEffect, useState } from 'react';
-import { Modal, Button, Input, message, InputNumber, Typography, Spin, Divider, Empty } from 'antd';
+import React, { useState, useEffect, useCallback } from 'react';
+import Image from 'next/image';
+import { Modal, Input, Button, List, Typography, Space, Tag, Empty, Grid, Divider, message, InputNumber } from 'antd';
 import { 
     SearchOutlined, 
     PlusOutlined, 
-    DeleteOutlined, 
-    ArrowLeftOutlined, 
-    ShoppingCartOutlined, 
+    MinusOutlined, 
+    ShoppingCartOutlined,
+    ArrowLeftOutlined,
+    CheckOutlined,
     CloseOutlined,
-    MinusOutlined
+    DeleteOutlined
 } from '@ant-design/icons';
-import Image from 'next/image';
 import { categoryService } from '@/services/pos/category.service';
 import { productsService } from '@/services/pos/products.service';
 import { Category } from '@/types/api/pos/category';
 import { Products } from '@/types/api/pos/products';
-import { calculateItemTotal } from '@/utils/orders';
-import { addItemsModalStyles, orderDetailColors, modalStyles, orderDetailResponsiveStyles } from './style';
-import { useGlobalLoading } from '@/contexts/pos/GlobalLoadingContext';
+import { orderDetailStyles, orderDetailColors, modalStyles, addItemsModalStyles, orderDetailResponsiveStyles } from './style';
+import { formatCurrency, calculateItemTotal } from "@/utils/orders";
+import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 
 const { Text, Title } = Typography;
+const { useBreakpoint } = Grid;
 
 type ItemDetailInput = {
     detail_name: string;
@@ -264,8 +266,6 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                         <div style={{ position: 'relative', width: '100%', height: 120 }}>
                                             {item.img_url ? (
                                                 <>
-                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
                                                     <Image 
                                                         alt={item.display_name} 
                                                         src={item.img_url} 
@@ -285,7 +285,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                                 {item.display_name}
                                             </div>
                                             <Text style={{...addItemsModalStyles.productPrice, fontSize: 16 }}>
-                                                ฿{Number(item.price).toLocaleString()}
+                                                {formatCurrency(item.price)}
                                             </Text>
                                         </div>
                                     </div>
@@ -304,8 +304,6 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                         <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
                             {selectedProduct.img_url ? (
                                 <>
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
                                     <Image 
                                         src={selectedProduct.img_url} 
                                         alt={selectedProduct.display_name}
@@ -405,7 +403,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                             <div style={{...modalStyles.priceCard, marginBottom: 16, padding: '16px'}}>
                                 <Text strong style={{ fontSize: 16 }}>ยอดรวมรายการนี้</Text>
                                 <Text style={{...modalStyles.priceValue, fontSize: 24}}>
-                                    ฿{calculateTotalPrice().toLocaleString()}
+                                    {formatCurrency(calculateTotalPrice())}
                                 </Text>
                             </div>
                             

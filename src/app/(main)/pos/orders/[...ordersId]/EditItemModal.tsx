@@ -3,8 +3,8 @@ import { Modal, Input, Button, Typography, Space, Divider, InputNumber, Tag } fr
 import { PlusOutlined, MinusOutlined, SaveOutlined, CloseOutlined, InfoCircleOutlined, DeleteOutlined } from '@ant-design/icons';
 import { SalesOrderItem } from '@/types/api/pos/salesOrderItem';
 import { SalesOrderDetail } from '@/types/api/pos/salesOrderDetail';
-import { orderDetailColors, modalStyles } from './style';
-import { calculateItemTotal } from '@/utils/orders';
+import { orderDetailStyles, orderDetailColors, modalStyles } from './style';
+import { calculateItemTotal, formatCurrency } from '@/utils/orders';
 import { useGlobalLoading } from '@/contexts/pos/GlobalLoadingContext';
 
 const { Text, Title } = Typography;
@@ -125,7 +125,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                                 </Tag>
                             )}
                             <Text type="secondary" style={{ fontSize: 14 }}>
-                                ฿{Number(item.price).toLocaleString()}
+                                {formatCurrency(item.price)}
                             </Text>
                         </div>
                     </div>
@@ -240,7 +240,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                 <div style={{...modalStyles.priceCard, padding: '12px 16px', borderRadius: 12, background: orderDetailColors.primaryLight}}>
                     <Text strong style={{ fontSize: 16 }}>ยอดรวมรายการนี้</Text>
                     <Title level={4} style={{ margin: 0, color: orderDetailColors.primary }}>
-                        ฿{calculateItemTotal(item.price, quantity, details).toLocaleString()}
+                        ฿{calculateItemTotal(Number(item.price), quantity, details).toLocaleString()}
                     </Title>
                 </div>
             </div>
