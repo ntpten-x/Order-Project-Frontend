@@ -5,7 +5,8 @@ import { Typography, Card, Form, Input, Button, Spin, Divider, Row, Col, App } f
 import { SaveOutlined, ShopOutlined, SettingOutlined } from "@ant-design/icons";
 import { shopProfileService, ShopProfile } from "../../../../services/pos/shopProfile.service";
 import { authService } from "../../../../services/auth.service";
-import { pageStyles, colors } from "../style";
+import { posPageStyles, posColors } from "@/theme/pos";
+import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 
 const { Title, Text } = Typography;
 
@@ -13,7 +14,7 @@ export default function POSSettingsPage() {
     const { message } = App.useApp();
     const [form] = Form.useForm();
     const [loading, setLoading] = useState(true);
-    const [saving, setSaving] = useState(false);
+    const { showLoading, hideLoading } = useGlobalLoading();
 
     const fetchProfile = useCallback(async () => {
         try {
@@ -21,7 +22,6 @@ export default function POSSettingsPage() {
             const data = await shopProfileService.getProfile();
             form.setFieldsValue(data);
         } catch (error) {
-            console.error(error);
             message.error("ไม่สามารถดึงข้อมูลร้านค้าได้");
         } finally {
             setLoading(false);
@@ -34,33 +34,32 @@ export default function POSSettingsPage() {
 
     const handleSave = async (values: Partial<ShopProfile>) => {
         try {
-            setSaving(true);
+            showLoading("กำลังบันทึกการตั้งค่า...");
             const csrfToken = await authService.getCsrfToken();
             await shopProfileService.updateProfile(values, undefined, csrfToken);
             message.success("บันทึกการตั้งค่าเรียบร้อย");
-            fetchProfile(); // Refresh
+            await fetchProfile(); // Refresh
         } catch (error) {
-            console.error(error);
             message.error("บันทึกไม่สำเร็จ");
         } finally {
-            setSaving(false);
+            hideLoading();
         }
     };
 
     if (loading) {
         return (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: '#f5f5f5' }}>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: posPageStyles.container.background as string }}>
                 <Spin size="large" tip="กำลังโหลด..." />
             </div>
         );
     }
 
     return (
-        <div style={pageStyles.container}>
+        <div style={posPageStyles.container}>
             {/* Header */}
-            <div style={{ ...pageStyles.heroParams, paddingBottom: 60 }}>
+            <div style={{ ...posPageStyles.heroParams, paddingBottom: 60 }}>
                 <div style={{ maxWidth: 1000, margin: '0 auto', position: 'relative', zIndex: 10 }}>
-                    <div style={pageStyles.sectionTitle}>
+                    <div style={posPageStyles.sectionTitle}>
                         <SettingOutlined style={{ fontSize: 28 }} />
                         <div>
                             <Title level={3} style={{ margin: 0, color: '#fff' }}>ตั้งค่าระบบ (Settings)</Title>
@@ -144,10 +143,9 @@ export default function POSSettingsPage() {
                                 htmlType="submit" 
                                 icon={<SaveOutlined />} 
                                 size="large" 
-                                loading={saving}
                                 style={{ 
-                                    background: colors.primary, 
-                                    borderColor: colors.primary,
+                                    background: posColors.primary, 
+                                    borderColor: posColors.primary,
                                     minWidth: 160,
                                     height: 48,
                                     borderRadius: 12,

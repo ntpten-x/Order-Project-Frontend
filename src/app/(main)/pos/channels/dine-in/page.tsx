@@ -12,10 +12,10 @@ import {
 } from "@ant-design/icons";
 import { useTables } from "@/hooks/pos/useTables";
 import {
-  dineInStyles,
+  dineInPageStyles,
   tableColors,
-  DineInStyles
-} from "./style";
+} from "@/theme/pos/dine-in.theme";
+import { POSGlobalStyles } from "@/theme/pos/GlobalStyles";
 import { getTableNavigationPath } from "@/utils/orders";
 import {
     getTableStats,
@@ -38,17 +38,17 @@ export default function DineInTableSelectionPage() {
 
   return (
     <>
-      <DineInStyles />
-      <div style={dineInStyles.container}>
+      <POSGlobalStyles />
+      <div style={dineInPageStyles.container}>
         {/* Header Section */}
-        <div style={dineInStyles.header} className="dine-in-header-mobile">
+        <div style={dineInPageStyles.header} className="dine-in-header-mobile">
           <div className="header-pattern"></div>
 
-          <div style={dineInStyles.headerContent} className="dine-in-header-content-mobile">
+          <div style={dineInPageStyles.headerContent} className="dine-in-header-content-mobile">
             {/* Back Button */}
             <div
               className="back-button-hover dine-in-back-button-mobile"
-              style={dineInStyles.backButton}
+              style={dineInPageStyles.backButton}
               onClick={() => router.push("/pos/channels")}
             >
               <ArrowLeftOutlined />
@@ -56,37 +56,37 @@ export default function DineInTableSelectionPage() {
             </div>
 
             {/* Title Section */}
-            <div style={dineInStyles.titleSection} className="dine-in-title-section-mobile">
-              <ShopOutlined style={dineInStyles.headerIcon} className="dine-in-header-icon-mobile" />
+            <div style={dineInPageStyles.titleSection} className="dine-in-title-section-mobile">
+              <ShopOutlined style={dineInPageStyles.headerIcon} className="dine-in-header-icon-mobile" />
               <div>
-                <Title level={3} style={dineInStyles.headerTitle} className="dine-in-header-title-mobile">
+                <Title level={3} style={dineInPageStyles.headerTitle} className="dine-in-header-title-mobile">
                   เลือกโต๊ะ
                 </Title>
-                <Text style={dineInStyles.headerSubtitle}>Dine In</Text>
+                <Text style={dineInPageStyles.headerSubtitle}>Dine In</Text>
               </div>
             </div>
 
             {/* Statistics Bar */}
-            <div style={dineInStyles.statsBar} className="dine-in-stats-bar-mobile">
-              <div style={dineInStyles.statItem}>
+            <div style={dineInPageStyles.statsBar} className="dine-in-stats-bar-mobile">
+              <div style={dineInPageStyles.statItem}>
                 <span
                   style={{
-                    ...dineInStyles.statDot,
+                    ...dineInPageStyles.statDot,
                     background: tableColors.available.primary,
                   }}
                 />
-                <Text style={dineInStyles.statText}>
+                <Text style={dineInPageStyles.statText}>
                   ว่าง {stats.available}
                 </Text>
               </div>
-              <div style={dineInStyles.statItem}>
+              <div style={dineInPageStyles.statItem}>
                 <span
                   style={{
-                    ...dineInStyles.statDot,
+                    ...dineInPageStyles.statDot,
                     background: tableColors.occupied.primary,
                   }}
                 />
-                <Text style={dineInStyles.statText}>
+                <Text style={dineInPageStyles.statText}>
                   ไม่ว่าง {stats.occupied}
                 </Text>
               </div>
@@ -95,9 +95,9 @@ export default function DineInTableSelectionPage() {
         </div>
 
         {/* Content Section */}
-        <div style={dineInStyles.contentContainer} className="dine-in-content-mobile">
+        <div style={dineInPageStyles.contentContainer} className="dine-in-content-mobile">
           {isLoading ? (
-            <div style={dineInStyles.loadingContainer}>
+            <div style={dineInPageStyles.loadingContainer}>
               <Spin size="large" />
               <div style={{ marginTop: 16 }}>
                 <Text type="secondary">กำลังโหลดข้อมูลโต๊ะ...</Text>
@@ -118,7 +118,7 @@ export default function DineInTableSelectionPage() {
                         (index % 6) + 1
                       }`}
                       style={{
-                        ...dineInStyles.tableCard,
+                        ...dineInPageStyles.tableCard,
                         background: colors.light,
                         border: `2px solid ${colors.border}`,
                         opacity: isInactive ? 0.6 : 1,
@@ -133,19 +133,19 @@ export default function DineInTableSelectionPage() {
                       {/* Gradient Overlay */}
                       <div
                         style={{
-                          ...dineInStyles.cardGradientOverlay,
+                          ...dineInPageStyles.cardGradientOverlay,
                           background: colors.gradient,
                         }}
                       />
 
                         {/* Card Content */}
-                        <div style={dineInStyles.tableCardInner}>
+                        <div style={dineInPageStyles.tableCardInner}>
                           {/* Icon logic based on specific status */}
                           {isInactive ? (
                             <StopOutlined
                               className="dine-in-table-icon-mobile"
                               style={{
-                                ...dineInStyles.tableIcon,
+                                ...dineInPageStyles.tableIcon,
                                 color: colors.primary,
                               }}
                             />
@@ -153,7 +153,7 @@ export default function DineInTableSelectionPage() {
                             <ShopOutlined
                               className="dine-in-table-icon-mobile"
                               style={{
-                                ...dineInStyles.tableIcon,
+                                ...dineInPageStyles.tableIcon,
                                 color: colors.primary,
                                 opacity: 0.6
                               }}
@@ -162,14 +162,14 @@ export default function DineInTableSelectionPage() {
                             <CloseCircleOutlined
                               className="pulse-soft dine-in-table-icon-mobile"
                               style={{
-                                ...dineInStyles.tableIcon,
+                                ...dineInPageStyles.tableIcon,
                                 color: colors.primary,
                               }}
                             />
                           )}
 
                           {/* Table Name */}
-                          <div style={dineInStyles.tableName} className="dine-in-table-name-mobile">
+                          <div style={dineInPageStyles.tableName} className="dine-in-table-name-mobile">
                             {table.table_name}
                           </div>
 
@@ -193,7 +193,7 @@ export default function DineInTableSelectionPage() {
                             {/* Tier 2: Specific order status badge */}
                             <div
                               style={{
-                                ...dineInStyles.statusBadge,
+                                ...dineInPageStyles.statusBadge,
                                 background: isInactive ? "#bfbfbf" : isAvailable ? "#f0f0f0" : colors.primary,
                                 color: isInactive ? "#fff" : isAvailable ? "#8c8c8c" : "#fff",
                                 border: isAvailable ? "1px solid #d9d9d9" : "none",
@@ -219,7 +219,7 @@ export default function DineInTableSelectionPage() {
               })}
             </Row>
           ) : (
-            <div style={dineInStyles.emptyState}>
+            <div style={dineInPageStyles.emptyState}>
               <Empty description="ไม่พบข้อมูลโต๊ะ" />
             </div>
           )}

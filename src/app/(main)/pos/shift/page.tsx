@@ -1,13 +1,14 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
-import { Typography, Card, Button, Row, Col, InputNumber, Statistic, Tag, Modal, Spin, Divider, Result, App } from "antd";
+import React, { useCallback, useEffect, useState, useContext } from "react";
+import { Typography, Card, Button, Row, Col, InputNumber, Statistic, Tag, Modal, Spin, Divider, Result, App, Space } from "antd";
 import { ClockCircleOutlined, DollarCircleOutlined, CheckCircleOutlined, PlayCircleOutlined, StopOutlined, ArrowLeftOutlined, WalletOutlined, RiseOutlined, FallOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
-import { useContext } from "react";
 import { SocketContext } from "../../../../contexts/SocketContext";
 import { shiftsService } from "../../../../services/pos/shifts.service";
 import { Shift } from "../../../../types/api/pos/shifts";
+import { posPageStyles } from "@/theme/pos";
+import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import duration from 'dayjs/plugin/duration';
@@ -17,36 +18,17 @@ dayjs.locale('th');
 
 const { Title, Text } = Typography;
 
-// Styles
-const pageStyles = {
-    container: {
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #1e3a5f 0%, #2d5a87 50%, #1e3a5f 100%)',
-        padding: 24,
-    },
-    header: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 24,
-    },
-    card: {
-        borderRadius: 16,
-        boxShadow: '0 8px 32px rgba(0,0,0,0.15)',
-    },
-};
-
 export default function ShiftPage() {
     const router = useRouter();
     const { message } = App.useApp();
+    const { showLoading, hideLoading } = useGlobalLoading();
     const [currentShift, setCurrentShift] = useState<Shift | null>(null);
-    const [summary, setSummary] = useState<any>(null);
+    const [summary, setSummary] = useState<any>(null); // Ideally should be typed
     const [isLoading, setIsLoading] = useState(true);
     const [startAmount, setStartAmount] = useState<number>(0);
     const [endAmount, setEndAmount] = useState<number>(0);
     const [openModalVisible, setOpenModalVisible] = useState(false);
     const [closeModalVisible, setCloseModalVisible] = useState(false);
-    const [processing, setProcessing] = useState(false);
     const { socket } = useContext(SocketContext);
 
     const fetchCurrentShift = useCallback(async () => {
@@ -61,7 +43,7 @@ export default function ShiftPage() {
                 setSummary(null);
             }
         } catch (error) {
-            console.error("Fetch shift error:", error);
+            // Error handled silently for background fetch
         } finally {
             setIsLoading(false);
         }
@@ -75,13 +57,14 @@ export default function ShiftPage() {
     useEffect(() => {
         if (!socket) return;
         
-        socket.on("shifts:update", (data) => {
-            console.log("Real-time shift update:", data);
-            fetchCurrentShift();
-        });
+        const handleUpdate = () => {
+             fetchCurrentShift();
+        };
+
+        socket.on("shifts:update", handleUpdate);
         
         return () => {
-            socket.off("shifts:update");
+            socket.off("shifts:update", handleUpdate);
         };
     }, [socket, fetchCurrentShift]);
 
@@ -91,19 +74,19 @@ export default function ShiftPage() {
             return;
         }
 
-        setProcessing(true);
         try {
+            showLoading("กำลังเปิดกะ...");
+            setOpenModalVisible(false);
             const shift = await shiftsService.openShift(startAmount);
             setCurrentShift(shift);
             await fetchCurrentShift(); // Reload with summary
-            setOpenModalVisible(false);
             setStartAmount(0);
             message.success("เปิดกะสำเร็จ!");
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "ไม่สามารถเปิดกะได้";
             message.error(errorMessage);
         } finally {
-            setProcessing(false);
+            hideLoading();
         }
     };
 
@@ -113,14 +96,14 @@ export default function ShiftPage() {
             return;
         }
 
-        setProcessing(true);
         try {
+            showLoading("กำลังปิดกะและคำนวณยอด...");
+            setCloseModalVisible(false);
             const shift = await shiftsService.closeShift(endAmount);
             const summaryData = await shiftsService.getSummary(shift.id);
             
             setCurrentShift(null);
             setSummary(null);
-            setCloseModalVisible(false);
             setEndAmount(0);
             message.success("ปิดกะสำเร็จ!");
             
@@ -189,7 +172,7 @@ export default function ShiftPage() {
             const errorMessage = error instanceof Error ? error.message : "ไม่สามารถปิดกะได้";
             message.error(errorMessage);
         } finally {
-            setProcessing(false);
+            hideLoading();
         }
     };
 
@@ -203,29 +186,29 @@ export default function ShiftPage() {
 
     if (isLoading) {
         return (
-            <div style={{ ...pageStyles.container, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <div style={{ ...posPageStyles.container, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
                 <Spin size="large" tip="กำลังโหลดข้อมูล..." />
             </div>
         );
     }
 
     return (
-        <div style={pageStyles.container}>
+        <div style={posPageStyles.container}>
             {/* Header */}
-            <div style={pageStyles.header}>
+            <div style={posPageStyles.shiftHeader}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                     <Button 
                         type="text" 
-                        icon={<ArrowLeftOutlined style={{ fontSize: 20, color: '#fff' }} />} 
+                        icon={<ArrowLeftOutlined style={{ fontSize: 20, color: '#262626' }} />} 
                         onClick={() => router.back()}
-                        style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)' }}
+                        style={{ background: 'rgba(0,0,0,0.05)', border: 'none' }}
                     />
                     <div>
-                        <Title level={2} style={{ margin: 0, color: '#fff' }}>
+                        <Title level={2} style={{ margin: 0, color: '#262626' }}>
                             <ClockCircleOutlined style={{ marginRight: 12 }} />
                             จัดการกะ (Shift)
                         </Title>
-                        <Text style={{ color: 'rgba(255,255,255,0.7)' }}>เปิด/ปิดกะการทำงาน และสรุปยอดขาย</Text>
+                        <Text type="secondary">เปิด/ปิดกะการทำงาน และสรุปยอดขาย</Text>
                     </div>
                 </div>
                 <Tag color={currentShift ? 'green' : 'orange'} style={{ fontSize: 16, padding: '8px 16px' }}>
@@ -239,7 +222,7 @@ export default function ShiftPage() {
                     <>
                         {/* Left Side: Shift Status */}
                         <Col xs={24} lg={8}>
-                            <Card style={{ ...pageStyles.card, background: 'linear-gradient(135deg, #52c41a 0%, #389e0d 100%)', border: 'none', height: '100%' }}>
+                            <Card style={{ ...posPageStyles.card, background: 'linear-gradient(135deg, #52c41a 0%, #389e0d 100%)', border: 'none', height: '100%' }}>
                                 <div style={{ textAlign: 'center', color: '#fff', padding: '24px 0' }}>
                                     <CheckCircleOutlined style={{ fontSize: 64, marginBottom: 16 }} />
                                     <Title level={3} style={{ color: '#fff', margin: 0 }}>กะกำลังทำงาน</Title>
@@ -270,7 +253,7 @@ export default function ShiftPage() {
 
                         {/* Right Side: Shift Live Summary */}
                         <Col xs={24} lg={16}>
-                            <Card style={pageStyles.card} title={<><RiseOutlined style={{ marginRight: 8 }} />สรุปยอดขายปัจจุบัน (Live Summary)</>}>
+                            <Card style={posPageStyles.card} title={<><RiseOutlined style={{ marginRight: 8 }} />สรุปยอดขายปัจจุบัน (Live Summary)</>}>
                                 {summary ? (
                                     <Row gutter={[24, 24]}>
                                         <Col xs={24} sm={12}>
@@ -360,7 +343,7 @@ export default function ShiftPage() {
                 ) : (
                     /* No Active Shift */
                     <Col xs={24}>
-                        <Card style={pageStyles.card}>
+                        <Card style={posPageStyles.card}>
                             <Result
                                 icon={<ClockCircleOutlined style={{ color: '#faad14' }} />}
                                 title="ยังไม่มีกะที่เปิด"
@@ -390,7 +373,6 @@ export default function ShiftPage() {
                 onOk={handleOpenShift}
                 okText="เปิดกะ (Open)"
                 cancelText="ยกเลิก"
-                confirmLoading={processing}
                 okButtonProps={{ style: { background: '#52c41a', borderColor: '#52c41a' } }}
             >
                 <div style={{ padding: '16px 0' }}>
@@ -419,7 +401,6 @@ export default function ShiftPage() {
                 okText="ปิดกะและพิมพ์สรุป"
                 okButtonProps={{ danger: true }}
                 cancelText="ยกเลิก"
-                confirmLoading={processing}
             >
                 <div style={{ padding: '16px 0' }}>
                     <Text strong style={{ fontSize: 16 }}>กรุณาระบุจำนวนเงินสดทั้งหมดที่นับได้จริงในลิ้นชัก:</Text>

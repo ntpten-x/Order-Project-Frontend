@@ -10,7 +10,7 @@ import { SalesOrder, OrderStatus, OrderType } from "../../../../../types/api/pos
 import { SalesOrderItem } from "../../../../../types/api/pos/salesOrderItem";
 import { Payments } from "../../../../../types/api/pos/payments";
 import { PaymentMethod } from "../../../../../types/api/pos/paymentMethod";
-import { pageStyles, colors } from "../../style";
+import { posPageStyles, posColors } from "@/theme/pos";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import ReceiptTemplate from "../../../../../components/pos/shared/ReceiptTemplate";
@@ -109,7 +109,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
 
     if (isLoading) {
         return (
-            <div style={{ ...pageStyles.container, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+            <div style={{ ...posPageStyles.container, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
                 <Spin size="large" />
             </div>
         );
@@ -117,7 +117,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
 
     if (!order) {
         return (
-             <div style={pageStyles.container}>
+             <div style={posPageStyles.container}>
                 <div style={{ padding: 24, textAlign: 'center' }}>
                     <Title level={4}>ไม่พบข้อมูลออเดอร์</Title>
                     <Button onClick={() => router.back()}>ย้อนกลับ</Button>
@@ -231,9 +231,9 @@ export default function DashboardOrderDetailPage({ params }: Props) {
 
 
     return (
-        <div style={pageStyles.container}>
+        <div style={posPageStyles.container}>
             {/* Hero Header */}
-            <div style={{ ...pageStyles.heroParams, paddingBottom: 60 }}>
+            <div style={{ ...posPageStyles.heroParams, paddingBottom: 60 }}>
                 <div style={{ maxWidth: 1200, margin: '0 auto', position: 'relative', zIndex: 10 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
@@ -306,7 +306,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                                 title="ผู้สร้างออเดอร์"
                                 valueRender={() => (
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                                        <Avatar size="small" icon={<UserOutlined />} style={{ background: colors.primary }} />
+                                        <Avatar size="small" icon={<UserOutlined />} style={{ background: posColors.primary }} />
                                         <span style={{ fontWeight: 500, fontSize: 18 }}>{employeeName}</span>
                                     </div>
                                 )}
@@ -340,9 +340,9 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                                 title="ยอดสุทธิ" 
                                 value={order.total_amount} 
                                 precision={2}
-                                prefix={<DollarCircleOutlined style={{ color: colors.primary }} />} 
+                                prefix={<DollarCircleOutlined style={{ color: posColors.primary }} />} 
                                 suffix="฿"
-                                valueStyle={{ color: colors.primary, fontWeight: 'bold', fontSize: 24 }}
+                                valueStyle={{ color: posColors.primary, fontWeight: 'bold', fontSize: 24 }}
                             />
                         </Card>
                     </Col>
@@ -352,7 +352,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                 <Row gutter={[24, 24]}>
                     <Col xs={24} lg={16}>
                         <Card 
-                            title={<><ShopOutlined style={{ marginRight: 8, color: colors.primary }} />รายการสินค้า ({items.length} รายการ)</>} 
+                            title={<><ShopOutlined style={{ marginRight: 8, color: posColors.primary }} />รายการสินค้า ({items.length} รายการ)</>} 
                             bordered={false} 
                             style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
                         >
@@ -388,7 +388,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                                         <Table.Summary.Row style={{ background: '#fafafa' }}>
                                             <Table.Summary.Cell index={0} colSpan={3}></Table.Summary.Cell>
                                             <Table.Summary.Cell index={1} align="right"><Text strong style={{ fontSize: 16 }}>ยอดสุทธิ</Text></Table.Summary.Cell>
-                                            <Table.Summary.Cell index={2} align="right"><Text strong style={{ fontSize: 18, color: colors.primary }}>฿{Number(order.total_amount).toLocaleString()}</Text></Table.Summary.Cell>
+                                            <Table.Summary.Cell index={2} align="right"><Text strong style={{ fontSize: 18, color: posColors.primary }}>฿{Number(order.total_amount).toLocaleString()}</Text></Table.Summary.Cell>
                                         </Table.Summary.Row>
                                     </Table.Summary>
                                 )}
@@ -409,7 +409,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                                             <div>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                     <Text strong>{payment.payment_method?.display_name || payment.payment_method?.payment_method_name || 'ไม่ระบุ'}</Text>
-                                                    <Text strong style={{ color: colors.primary }}>฿{Number(payment.amount).toLocaleString()}</Text>
+                                                    <Text strong style={{ color: posColors.primary }}>฿{Number(payment.amount).toLocaleString()}</Text>
                                                 </div>
                                                 <div>
                                                     <Text type="secondary" style={{ fontSize: 12 }}>

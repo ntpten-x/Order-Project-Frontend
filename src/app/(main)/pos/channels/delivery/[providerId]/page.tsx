@@ -1,17 +1,22 @@
 "use client";
 
 import React from "react";
-import { useParams, useSearchParams } from "next/navigation";
 import POSDelivery from "../../../../../../components/pos/POSDelivery";
 
-export default function DeliveryPOSPage() {
-    const params = useParams();
-    const searchParams = useSearchParams();
-    
-    const providerId = params.providerId as string;
-    const deliveryCode = searchParams.get('code') || "";
+interface Props {
+  params: {
+    providerId: string;
+  };
+  searchParams: {
+    code: string;
+  };
+}
 
+export default function DeliveryBuyingPage({ params, searchParams }: Props) {
     return (
-        <POSDelivery providerId={providerId} deliveryCode={deliveryCode} />
+        <POSDelivery 
+            providerId={params.providerId} 
+            deliveryCode={searchParams.code} 
+        />
     );
 }

@@ -14,9 +14,15 @@ const getHeaders = (cookie?: string, contentType: string = "application/json"): 
 };
 
 export const ordersService = {
-    getAll: async (cookie?: string, page: number = 1, limit: number = 50, status?: string): Promise<{ data: SalesOrder[], total: number, page: number, last_page: number }> => {
+    getAll: async (cookie?: string, page: number = 1, limit: number = 50, status?: string, type?: string): Promise<{ data: SalesOrder[], total: number, page: number, last_page: number }> => {
         // Construct URL with query parameters manually or use URLSearchParams
-        const endpoint = `${BASE_PATH}?page=${page}&limit=${limit}${status ? `&status=${status}` : ''}`;
+        const queryParams = new URLSearchParams({
+            page: page.toString(),
+            limit: limit.toString(),
+            ...(status && { status }),
+            ...(type && { type })
+        });
+        const endpoint = `${BASE_PATH}?${queryParams.toString()}`;
         const url = getProxyUrl("GET", endpoint);
         const headers = getHeaders(cookie, "");
 
@@ -31,7 +37,6 @@ export const ordersService = {
         }
 
         const json = await response.json();
-        console.log("Raw Orders JSON:", JSON.stringify(json).substring(0, 500) + "...");
         try {
             return OrdersResponseSchema.parse(json) as unknown as { data: SalesOrder[], total: number, page: number, last_page: number };
         } catch (error) {
@@ -59,7 +64,6 @@ export const ordersService = {
             throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลสถิติได้");
         }
         const json = await response.json();
-        console.log("Raw Stats JSON:", json);
         return json;
     },
 
@@ -79,7 +83,6 @@ export const ordersService = {
         }
 
         const json = await response.json();
-        console.log("Raw Order By ID JSON:", JSON.stringify(json).substring(0, 500) + "...");
         try {
             return SalesOrderSchema.parse(json) as unknown as SalesOrder;
         } catch (error) {

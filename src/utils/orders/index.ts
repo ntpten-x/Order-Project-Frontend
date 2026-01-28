@@ -1,5 +1,5 @@
 import React from 'react';
-import { OrderStatus, SalesOrder } from '../../types/api/pos/salesOrder';
+import { OrderStatus, OrderType, SalesOrder } from '../../types/api/pos/salesOrder';
 import { Tables, TableStatus } from '../../types/api/pos/tables';
 import { DialogType } from '../../components/dialog/ConfirmationDialog';
 
@@ -252,5 +252,52 @@ export const getCancelOrderNavigationPath = (orderType: string): string => {
         return '/pos/channels/dine-in';
     }
     return '/pos/orders';
+};
+
+export const createOrderPayload = (
+    cartItems: any[],
+    orderType: OrderType,
+    totals: { subTotal: number; discountAmount: number; totalAmount: number },
+    options: {
+        discountId?: string | null;
+        tableId?: string | null;
+        deliveryId?: string | null;
+        deliveryCode?: string | null;
+        orderNo?: string;
+        queueNumber?: string;
+    }
+) => {
+    return {
+        order_no: options.orderNo || `ORD-${Date.now()}`,
+        order_type: orderType,
+        sub_total: totals.subTotal,
+        discount_amount: totals.discountAmount,
+        vat: 0,
+        total_amount: totals.totalAmount,
+        received_amount: 0,
+        change_amount: 0,
+        status: OrderStatus.Pending, // Default Order Status
+        discount_id: options.discountId || null,
+        payment_method_id: null,
+        table_id: options.tableId || null,
+        delivery_id: options.deliveryId || null,
+        delivery_code: options.deliveryCode || null,
+        items: cartItems.map(item => {
+            const productPrice = Number(item.product.price);
+            const detailsPrice = (item.details || []).reduce((sum: number, d: any) => sum + Number(d.extra_price), 0);
+            const totalPrice = (productPrice + detailsPrice) * item.quantity;
+
+            return {
+                product_id: item.product.id,
+                quantity: item.quantity,
+                price: productPrice,
+                total_price: totalPrice,
+                discount_amount: 0,
+                notes: item.notes || "",
+                status: OrderStatus.Cooking, // Default Item Status: Cooking
+                details: item.details || []
+            };
+        })
+    };
 };
 

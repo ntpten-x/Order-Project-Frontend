@@ -6,6 +6,8 @@ import { CheckOutlined, ClockCircleOutlined, FireOutlined, SoundOutlined, Reload
 import { SocketContext } from "../../../../contexts/SocketContext";
 import { ordersService } from "../../../../services/pos/orders.service";
 import { SalesOrderItem, ItemStatus } from "../../../../types/api/pos/salesOrderItem";
+import { posPageStyles, posColors } from "@/theme/pos";
+import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -14,33 +16,6 @@ dayjs.extend(relativeTime);
 dayjs.locale('th');
 
 const { Title, Text } = Typography;
-
-// Styles
-const pageStyles = {
-    container: {
-        minHeight: '100vh',
-        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-        padding: 24,
-    },
-    header: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 24,
-        flexWrap: 'wrap' as const,
-        gap: 16,
-    },
-    card: {
-        borderRadius: 16,
-        overflow: 'hidden',
-        boxShadow: '0 8px 32px rgba(0,0,0,0.3)',
-    },
-    itemCard: {
-        marginBottom: 8,
-        borderRadius: 8,
-        transition: 'all 0.3s ease',
-    },
-};
 
 // Timer color helper
 const getTimerColor = (createdAt: string): { color: string; urgency: 'low' | 'medium' | 'high' } => {
@@ -61,13 +36,14 @@ interface GroupedOrder {
 
 export default function KitchenDisplayPage() {
     const { socket, isConnected } = useContext(SocketContext);
+    const { showLoading, hideLoading } = useGlobalLoading();
     const [allItems, setAllItems] = useState<SalesOrderItem[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [soundEnabled, setSoundEnabled] = useState(true);
     const [filterStatus, setFilterStatus] = useState<ItemStatus | 'all'>('all');
 
     // Group items by order
-const groupedOrders = useMemo((): GroupedOrder[] => {
+    const groupedOrders = useMemo((): GroupedOrder[] => {
         const grouped: Record<string, GroupedOrder> = {};
         
         const filteredItems = filterStatus === 'all' 
@@ -102,7 +78,7 @@ const groupedOrders = useMemo((): GroupedOrder[] => {
             const items = await ordersService.getItems();
             setAllItems(items.filter((item: SalesOrderItem) => item.status !== ItemStatus.Served));
         } catch (error) {
-            console.error("Fetch kitchen items error:", error);
+            // Silent failure for background fetch
         } finally {
             setIsLoading(false);
         }
@@ -117,7 +93,6 @@ const groupedOrders = useMemo((): GroupedOrder[] => {
         if (!socket) return;
 
         const handleOrderUpdate = (data: { action?: string }) => {
-            console.log("Order update received:", data);
             fetchItems();
             if (soundEnabled && data.action === 'new_order') {
                 playNotificationSound();
@@ -125,9 +100,8 @@ const groupedOrders = useMemo((): GroupedOrder[] => {
         };
 
         const handleItemUpdate = (data: { item?: SalesOrderItem }) => {
-            console.log("Item update received:", data);
             if (data.item) {
-                const item = data.item; // Capture for type narrowing
+                const item = data.item;
                 setAllItems(prev => {
                     const index = prev.findIndex(i => i.id === item.id);
                     if (index >= 0) {
@@ -162,6 +136,7 @@ const groupedOrders = useMemo((): GroupedOrder[] => {
 
     const updateItemStatus = async (itemId: string, newStatus: ItemStatus) => {
         try {
+            showLoading("กำลังอัปเดต...");
             await ordersService.updateItemStatus(itemId, newStatus);
             setAllItems(prev => 
                 prev.map(item => 
@@ -171,6 +146,8 @@ const groupedOrders = useMemo((): GroupedOrder[] => {
             message.success("อัปเดตสถานะสำเร็จ");
         } catch {
             message.error("ไม่สามารถอัปเดตสถานะได้");
+        } finally {
+            hideLoading();
         }
     };
 
@@ -196,9 +173,9 @@ const groupedOrders = useMemo((): GroupedOrder[] => {
     const cookingCount = allItems.filter(i => i.status === ItemStatus.Cooking).length;
 
     return (
-        <div style={pageStyles.container}>
+        <div style={posPageStyles.kitchenContainer}>
             {/* Header */}
-            <div style={pageStyles.header}>
+            <div style={posPageStyles.kitchenHeader}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                     <FireOutlined style={{ fontSize: 36, color: '#ff6b35' }} />
                     <div>
@@ -266,7 +243,7 @@ const groupedOrders = useMemo((): GroupedOrder[] => {
                             <Col xs={24} sm={12} lg={8} xl={6} key={order.order_id}>
                                 <Card
                                     style={{
-                                        ...pageStyles.card,
+                                        ...posPageStyles.card,
                                         borderTop: `4px solid ${timerInfo.color}`,
                                         background: timerInfo.urgency === 'high' ? 'rgba(255,77,79,0.1)' : '#fff',
                                     }}
@@ -289,7 +266,7 @@ const groupedOrders = useMemo((): GroupedOrder[] => {
                                         <div 
                                             key={item.id} 
                                             style={{
-                                                ...pageStyles.itemCard,
+                                                ...posPageStyles.itemCard,
                                                 padding: 12,
                                                 background: (item.status as ItemStatus) === ItemStatus.Cooking ? '#e6f7ff' : '#fafafa',
                                                 border: `1px solid ${(item.status as ItemStatus) === ItemStatus.Cooking ? '#91d5ff' : '#f0f0f0'}`,

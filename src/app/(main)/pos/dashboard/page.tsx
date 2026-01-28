@@ -1,17 +1,18 @@
 "use client";
 
 import React, { useEffect, useState, useCallback } from "react";
-import { Typography, Card, Row, Col, Statistic, Table, DatePicker, Button, Avatar, Tag, Dropdown, message } from "antd";
+import { Typography, Card, Row, Col, Statistic, Table, DatePicker, Button, Avatar, Tag, Dropdown, message, Spin } from "antd";
 import { DollarCircleOutlined, ShoppingOutlined, RiseOutlined, ReloadOutlined, EyeOutlined, DownloadOutlined, FilePdfOutlined, FileExcelOutlined } from "@ant-design/icons";
 import { exportSalesReportPDF, exportSalesReportExcel } from "../../../../utils/export.utils";
 import { useRouter } from "next/navigation";
-import { pageStyles, colors } from "../style";
+import { posPageStyles, posColors } from "@/theme/pos";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import { dashboardService } from "../../../../services/pos/dashboard.service";
 import { ordersService } from "../../../../services/pos/orders.service";
 import { SalesSummary, TopItem } from "../../../../types/api/pos/dashboard";
 import { SalesOrder, OrderStatus, OrderType } from "../../../../types/api/pos/salesOrder";
+import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -19,6 +20,7 @@ dayjs.locale('th');
 
 export default function DashboardPage() {
     const router = useRouter();
+    const { showLoading, hideLoading } = useGlobalLoading(); // Note: Dashboard often loads on mount, so global loading might cover the whole page or just use local loading for regions
     const [salesData, setSalesData] = useState<SalesSummary[]>([]);
     const [topItems, setTopItems] = useState<TopItem[]>([]);
     const [recentOrders, setRecentOrders] = useState<SalesOrder[]>([]);
@@ -42,7 +44,7 @@ export default function DashboardPage() {
             setTopItems(itemsRes);
             setRecentOrders(ordersRes.data || []);
         } catch (error) {
-            console.error("Fetch dashboard error:", error);
+            // Silent failure for dashboard data
         } finally {
             setIsLoading(false);
         }
@@ -51,6 +53,38 @@ export default function DashboardPage() {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    const handleExportPDF = () => {
+        try {
+            showLoading("กำลังสร้าง PDF...");
+            exportSalesReportPDF(
+                salesData,
+                topItems,
+                [dateRange[0].format('YYYY-MM-DD'), dateRange[1].format('YYYY-MM-DD')]
+            );
+            message.success('ส่งออก PDF สำเร็จ');
+        } catch {
+            message.error('เกิดข้อผิดพลาดในการส่งออก PDF');
+        } finally {
+            hideLoading();
+        }
+    };
+
+    const handleExportExcel = () => {
+        try {
+            showLoading("กำลังสร้าง Excel...");
+            exportSalesReportExcel(
+                salesData,
+                topItems,
+                [dateRange[0].format('YYYY-MM-DD'), dateRange[1].format('YYYY-MM-DD')]
+            );
+            message.success('ส่งออก Excel สำเร็จ');
+        } catch {
+            message.error('เกิดข้อผิดพลาดในการส่งออก Excel');
+        } finally {
+            hideLoading();
+        }
+    };
 
     // Calculate aggregates
     const totalSales = salesData.reduce((acc, curr) => acc + Number(curr.total_sales), 0);
@@ -90,11 +124,19 @@ export default function DashboardPage() {
         }
     ];
 
+    if (isLoading) {
+        return (
+            <div style={{ ...posPageStyles.container, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                <Spin size="large" tip="กำลังโหลดข้อมูล..." />
+            </div>
+        );
+    }
+
     return (
-        <div style={pageStyles.container}>
-            <div style={{ ...pageStyles.heroParams, paddingBottom: 60 }}>
+        <div style={posPageStyles.container}>
+            <div style={{ ...posPageStyles.heroParams, paddingBottom: 60 }}>
                 <div style={{ maxWidth: 1200, margin: '0 auto', position: 'relative', zIndex: 10 }}>
-                    <div style={pageStyles.sectionTitle}>
+                    <div style={posPageStyles.sectionTitle}>
                          <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
                             <RiseOutlined style={{ fontSize: 32, color: '#fff' }} />
                             <div>
@@ -126,35 +168,13 @@ export default function DashboardPage() {
                                             key: 'pdf',
                                             icon: <FilePdfOutlined />,
                                             label: 'ส่งออก PDF',
-                                            onClick: () => {
-                                                try {
-                                                    exportSalesReportPDF(
-                                                        salesData,
-                                                        topItems,
-                                                        [dateRange[0].format('YYYY-MM-DD'), dateRange[1].format('YYYY-MM-DD')]
-                                                    );
-                                                    message.success('ส่งออก PDF สำเร็จ');
-                                                } catch {
-                                                    message.error('เกิดข้อผิดพลาดในการส่งออก PDF');
-                                                }
-                                            }
+                                            onClick: handleExportPDF
                                         },
                                         {
                                             key: 'excel',
                                             icon: <FileExcelOutlined />,
                                             label: 'ส่งออก Excel',
-                                            onClick: () => {
-                                                try {
-                                                    exportSalesReportExcel(
-                                                        salesData,
-                                                        topItems,
-                                                        [dateRange[0].format('YYYY-MM-DD'), dateRange[1].format('YYYY-MM-DD')]
-                                                    );
-                                                    message.success('ส่งออก Excel สำเร็จ');
-                                                } catch {
-                                                    message.error('เกิดข้อผิดพลาดในการส่งออก Excel');
-                                                }
-                                            }
+                                            onClick: handleExportExcel
                                         }
                                     ]
                                 }}
@@ -183,9 +203,9 @@ export default function DashboardPage() {
                                 title="ยอดขายรวม" 
                                 value={totalSales} 
                                 precision={2}
-                                prefix={<DollarCircleOutlined style={{ color: colors.primary }} />} 
+                                prefix={<DollarCircleOutlined style={{ color: posColors.primary }} />} 
                                 suffix="฿"
-                                valueStyle={{ color: colors.primary, fontWeight: 'bold' }}
+                                valueStyle={{ color: posColors.primary, fontWeight: 'bold' }}
                             />
                         </Card>
                     </Col>

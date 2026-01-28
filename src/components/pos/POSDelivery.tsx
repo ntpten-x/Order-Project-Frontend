@@ -7,6 +7,8 @@ import { RocketOutlined } from "@ant-design/icons";
 import { useCart } from "../../contexts/pos/CartContext";
 import { authService } from "../../services/auth.service";
 import { ordersService } from "../../services/pos/orders.service";
+import { createOrderPayload } from "../../utils/orders";
+import { OrderType } from "../../types/api/pos/salesOrder";
 import POSPageLayout from "./shared/POSPageLayout";
 
 interface POSDeliveryProps {
@@ -46,41 +48,20 @@ export default function POSDelivery({ providerId, deliveryCode }: POSDeliveryPro
 
     const handleCreateOrder = async () => {
         try {
-            const orderPayload = {
-                order_no: `ORD-${Date.now()}`,
-                order_type: 'Delivery',
-                sub_total: getSubtotal(),
-                discount_amount: getDiscountAmount(),
-                vat: 0,
-                total_amount: getFinalPrice(),
-                received_amount: 0, 
-                change_amount: 0,
-                
-                status: 'Pending',
-                
-                discount_id: selectedDiscount?.id || null,
-                
-                payment_method_id: null,
-                table_id: null,
-                delivery_id: providerId,
-                delivery_code: deliveryCode,
-                
-                items: cartItems.map(item => {
-                    const productPrice = Number(item.product.price);
-                    const detailsPrice = (item.details || []).reduce((sum, d) => sum + Number(d.extra_price), 0);
-                    const totalPrice = (productPrice + detailsPrice) * item.quantity;
-
-                    return {
-                        product_id: item.product.id,
-                        quantity: item.quantity,
-                        price: productPrice,
-                        total_price: totalPrice,
-                        discount_amount: 0, 
-                        notes: item.notes || "",
-                        details: item.details || []
-                    };
-                })
-            };
+            const orderPayload = createOrderPayload(
+                cartItems,
+                OrderType.Delivery,
+                {
+                    subTotal: getSubtotal(),
+                    discountAmount: getDiscountAmount(),
+                    totalAmount: getFinalPrice()
+                },
+                {
+                    discountId: selectedDiscount?.id,
+                    deliveryId: providerId,
+                    deliveryCode: deliveryCode
+                }
+            );
             
             
             await ordersService.create(orderPayload as any, undefined, csrfToken);
@@ -91,7 +72,6 @@ export default function POSDelivery({ providerId, deliveryCode }: POSDeliveryPro
             router.push('/pos/orders');
             
         } catch (error) {
-            console.error(error);
             message.error(error instanceof Error ? error.message : "ไม่สามารถทำรายการได้");
             throw error;
         }
