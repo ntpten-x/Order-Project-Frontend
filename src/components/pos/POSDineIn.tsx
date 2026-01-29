@@ -13,7 +13,7 @@ import POSPageLayout from "./shared/POSPageLayout";
 import { useNetwork } from "@/hooks/useNetwork";
 import { CreateSalesOrderDTO, OrderType, OrderStatus } from "@/types/api/pos/salesOrder";
 import { offlineQueueService } from "@/services/pos/offline.queue.service";
-import { getPostCreateOrderNavigationPath } from "@/utils/orders";
+import { getPostCreateOrderNavigationPath } from "@/utils/channels";
 
 interface POSDineInProps {
     tableId: string;

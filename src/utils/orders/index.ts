@@ -94,13 +94,16 @@ export const getOrderStatusColor = (status: OrderStatus | string): string => {
     }
 };
 
-export const getOrderStatusText = (status: OrderStatus | string): string => {
+export const getOrderStatusText = (status: OrderStatus | string, orderType?: string): string => {
     switch (status) {
         case OrderStatus.Pending:
             return 'กำลังดำเนินการ';
         case OrderStatus.Cooking:
             return 'กำลังปรุง';
         case OrderStatus.Served:
+            if (orderType === 'TakeAway' || orderType === 'Delivery') {
+                return 'ทำแล้ว';
+            }
             return 'เสิร์ฟแล้ว';
         case OrderStatus.Paid:
             return 'ชำระเงินแล้ว';
@@ -139,6 +142,16 @@ export const getOrderChannelText = (type: string): string => {
         default:
             return type;
     }
+};
+
+export const getServeActionText = (type?: string): string => {
+    if (type === 'DineIn') return 'เสิร์ฟ';
+    return 'ทำแล้ว';
+};
+
+export const getServedStatusText = (type?: string): string => {
+    if (type === 'DineIn') return 'เสิร์ฟอาหารแล้ว';
+    return 'ปรุงเสร็จแล้ว';
 };
 
 export const formatCurrency = (amount: number | string): string => {
@@ -226,13 +239,6 @@ export const getPostConfirmServeNavigationPath = (order: OrderLike | SalesOrder)
  * @param orderType - The type of order created
  * @returns The target navigation path
  */
-export const getPostCreateOrderNavigationPath = (orderType: string): string => {
-    if (orderType === 'DineIn') {
-        return '/pos/channels/dine-in';
-    }
-    return '/pos/orders';
-};
-
 /**
  * Get navigation path for editing an order (Order Detail page)
  * @param orderId - The ID of the order to edit

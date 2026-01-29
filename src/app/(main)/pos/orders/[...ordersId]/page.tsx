@@ -13,7 +13,9 @@ import {
     CloseOutlined,
     InfoCircleOutlined,
     ReloadOutlined,
-    CheckCircleOutlined
+    CheckCircleOutlined,
+    ShoppingOutlined,
+    RocketOutlined
 } from "@ant-design/icons";
 import { ordersService } from "@/services/pos/orders.service";
 import { authService } from "@/services/auth.service";
@@ -31,7 +33,11 @@ import {
   ConfirmationConfig,
   getOrderStatusColor,
   getOrderStatusText,
-  groupItemsByCategory
+  groupItemsByCategory,
+  getOrderChannelColor,
+  getOrderChannelText,
+  getServeActionText,
+  getServedStatusText
 } from "@/utils/orders"; 
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
@@ -330,7 +336,7 @@ export default function POSOrderDetailsPage() {
         setConfirmConfig({
             open: true,
             type: 'success',
-            title: 'ยืนยันการเสิร์ฟทั้งหมด',
+            title: `ยืนยันการ${getServeActionText(order?.order_type)}ทั้งหมด`,
             content: 'รายการทั้งหมดเสร็จสิ้นแล้ว ต้องการเข้าสู่ขั้นตอนการชำระเงินหรือไม่?',
             okText: 'ยืนยัน',
             cancelText: 'ยกเลิก',
@@ -363,6 +369,10 @@ export default function POSOrderDetailsPage() {
         setSelectedRowKeys(newSelectedRowKeys);
     };
 
+
+
+    if (isLoading && !order) return null;
+    if (!order) return <Empty description="ไม่พบข้อมูล" />;
 
     const desktopColumns = [
         {
@@ -445,7 +455,7 @@ export default function POSOrderDetailsPage() {
             align: 'center' as const,
             render: (status: string) => (
                 <Tag color={status === OrderStatus.Pending ? 'orange' : status === OrderStatus.Cooking ? 'blue' : 'green'}>
-                    {getOrderStatusText(status)}
+                    {getOrderStatusText(status, order.order_type)}
                 </Tag>
             )
         },
@@ -464,7 +474,7 @@ export default function POSOrderDetailsPage() {
             align: 'right' as const,
             render: (_value: unknown, record: SalesOrderItem) => (
                 <Space>
-                    <Tooltip title="เสิร์ฟ">
+                    <Tooltip title={getServeActionText(order.order_type)}>
                         <Button 
                             type="primary" 
                             onClick={() => handleServeItem(record.id)} 
@@ -482,7 +492,7 @@ export default function POSOrderDetailsPage() {
                             }}
                         >
                             <CheckOutlined style={{ fontSize: 16 }} />
-                            <span style={{ fontSize: 10, fontWeight: 700 }}>เสิร์ฟ</span>
+                            <span style={{ fontSize: 10, fontWeight: 700 }}>{getServeActionText(order.order_type)}</span>
                         </Button>
                     </Tooltip>
                     <Tooltip title="แก้ไข"><Button type="text" icon={<EditOutlined />} onClick={() => handleEditClick(record)} /></Tooltip>
@@ -595,7 +605,7 @@ export default function POSOrderDetailsPage() {
             align: 'center' as const,
             render: (status: string) => (
                 <Tag color={getOrderStatusColor(status)}>
-                    {getOrderStatusText(status)}
+                    {getOrderStatusText(status, order.order_type)}
                 </Tag>
             )
         },
@@ -621,15 +631,15 @@ export default function POSOrderDetailsPage() {
                         icon={<CloseOutlined />}
                         onClick={() => handleUnserveItem(record.id)}
                     >
-                        ยกเลิกเสิร์ฟ
+                        {order.order_type === OrderType.DineIn ? 'ยกเลิกเสิร์ฟ' : 'ยกเลิกปรุงเสร็จ'}
                     </Button>
                 ) : null
             )
         }
     ];
 
-    const activeItems = order?.items?.filter(i => i.status === OrderStatus.Pending || i.status === OrderStatus.Cooking) || [];
-    const servedItems = (order?.items?.filter(i => 
+    const activeItems = order.items?.filter(i => i.status === OrderStatus.Pending || i.status === OrderStatus.Cooking) || [];
+    const servedItems = (order.items?.filter(i => 
         i.status === OrderStatus.Served || 
         i.status === OrderStatus.Cancelled || 
         i.status === OrderStatus.WaitingForPayment
@@ -639,12 +649,9 @@ export default function POSOrderDetailsPage() {
         return 0;
     });
 
-    const nonCancelledItems = getNonCancelledItems(order?.items) as any[];
-    const calculatedTotal = calculateOrderTotal(order?.items);
-    const isOrderComplete = activeItems.length === 0 && (order?.items?.length || 0) > 0;
-
-    if (isLoading && !order) return null;
-    if (!order) return <Empty description="ไม่พบข้อมูล" />;
+    const nonCancelledItems = getNonCancelledItems(order.items) as any[];
+    const calculatedTotal = calculateOrderTotal(order.items);
+    const isOrderComplete = activeItems.length === 0 && (order.items?.length || 0) > 0;
 
     return (
         <div className="order-detail-page" style={orderDetailStyles.container}>
@@ -676,16 +683,33 @@ export default function POSOrderDetailsPage() {
                                 </Tag>
                             )}
                         </div>
-                        <Text type="secondary" style={{ fontSize: 14 }}>
-                            {dayjs(order.create_date).format('HH:mm | D MMM YY')}
-                        </Text>
+                        <div style={orderDetailStyles.headerMetaRow}>
+                            <Tag 
+                                icon={
+                                    order.order_type === OrderType.DineIn ? <ShopOutlined /> :
+                                    order.order_type === OrderType.TakeAway ? <ShoppingOutlined /> :
+                                    <RocketOutlined />
+                                }
+                                style={{
+                                    ...orderDetailStyles.channelBadge,
+                                    background: getOrderChannelColor(order.order_type) + '15',
+                                    color: getOrderChannelColor(order.order_type),
+                                }}
+                            >
+                                {getOrderChannelText(order.order_type)}
+                            </Tag>
+                            <div style={orderDetailStyles.headerMetaSeparator} />
+                            <Text type="secondary" style={{ fontSize: 13 }}>
+                                {dayjs(order.create_date).format('HH:mm | D MMM YY')}
+                            </Text>
+                        </div>
                     </div>
                     <Tag 
                         color={getOrderStatusColor(order.status)} 
                         className="status-badge"
                         style={{ margin: 0, fontSize: 12 }}
                     >
-                        {getOrderStatusText(order.status)}
+                        {getOrderStatusText(order.status, order.order_type)}
                     </Tag>
                 </div>
             </header>
@@ -739,8 +763,8 @@ export default function POSOrderDetailsPage() {
                                                     style={{ ...orderDetailStyles.bulkActionButtonDesktop, background: orderDetailColors.served, borderColor: orderDetailColors.served }}
                                                     className="bulk-action-btn"
                                                 >
-                                                    <span className="hide-on-mobile">เสิร์ฟ ({selectedRowKeys.length})</span>
-                                                    <span className="show-on-mobile-inline">เสิร์ฟ ({selectedRowKeys.length})</span>
+                                                    <span className="hide-on-mobile">{getServeActionText(order.order_type)} ({selectedRowKeys.length})</span>
+                                                    <span className="show-on-mobile-inline">{getServeActionText(order.order_type)} ({selectedRowKeys.length})</span>
                                                 </Button>
                                             </Space>
                                         )}
@@ -874,7 +898,7 @@ export default function POSOrderDetailsPage() {
                                                         }}
                                                     >
                                                         <CheckOutlined style={{ fontSize: 16 }} />
-                                                        <span style={{ fontSize: 10, fontWeight: 700 }}>เสิร์ฟ</span>
+                                                        <span style={{ fontSize: 10, fontWeight: 700 }}>{getServeActionText(order.order_type)}</span>
                                                     </Button>
                                                 </div>
                                             </div>
@@ -894,7 +918,7 @@ export default function POSOrderDetailsPage() {
                             style={orderDetailStyles.card}
                             title={
                                 <Text strong style={{...orderDetailTypography.sectionTitle, color: orderDetailColors.textSecondary}}>
-                                    เสิร์ฟอาหารแล้ว ({servedItems.length})
+                                    {getServedStatusText(order.order_type)} ({servedItems.length})
                                 </Text>
                             }
                         >
@@ -930,7 +954,7 @@ export default function POSOrderDetailsPage() {
                                                 {/* Status Tag in Top Right */}
                                                 <div style={{ position: 'absolute', top: 8, right: 12 }}>
                                                     <Tag color={getOrderStatusColor(item.status)} style={{ margin: 0 }}>
-                                                        {getOrderStatusText(item.status)}
+                                                        {getOrderStatusText(item.status, order.order_type)}
                                                     </Tag>
                                                 </div>
 
@@ -1002,7 +1026,7 @@ export default function POSOrderDetailsPage() {
                                                             icon={<CloseOutlined />}
                                                             onClick={() => handleUnserveItem(item.id)}
                                                         >
-                                                            ยกเลิกเสิร์ฟ
+                                                            {order?.order_type === OrderType.DineIn ? 'ยกเลิกเสิร์ฟ' : 'ยกเลิกปรุงเสร็จ'}
                                                         </Button>
                                                     </div>
                                                 )}
@@ -1105,7 +1129,7 @@ export default function POSOrderDetailsPage() {
                                     onClick={handleConfirmServe}
                                     style={{ marginTop: 24, height: 52, borderRadius: 14, fontWeight: 700, fontSize: 16 }}
                                 >
-                                    ยืนยันการเสิร์ฟพร้อมชำระเงิน
+                                    ยืนยัน{getServeActionText(order.order_type)}พร้อมชำระเงิน
                                 </Button>
                             )}
                             

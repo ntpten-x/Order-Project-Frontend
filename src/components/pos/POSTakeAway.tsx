@@ -8,6 +8,7 @@ import { useCart } from "../../contexts/pos/CartContext";
 import { authService } from "../../services/auth.service";
 import { ordersService } from "../../services/pos/orders.service";
 import { createOrderPayload } from "../../utils/orders";
+import { getPostCreateOrderNavigationPath } from "../../utils/channels";
 import { OrderType } from "../../types/api/pos/salesOrder";
 import POSPageLayout from "./shared/POSPageLayout";
 
@@ -67,7 +68,7 @@ export default function POSTakeAway({ queueNumber }: POSTakeAwayProps) {
             message.success("สร้างออเดอร์เรียบร้อยแล้ว");
             
             clearCart();
-            router.push('/pos/orders');
+            router.push(getPostCreateOrderNavigationPath(OrderType.TakeAway));
             
         } catch (error) {
             message.error(error instanceof Error ? error.message : "ไม่สามารถทำรายการได้");

@@ -77,6 +77,34 @@ export const orderDetailStyles = {
     textShadow: '0 1px 2px rgba(0,0,0,0.1)',
   } as CSSProperties,
 
+  channelBadge: {
+    fontWeight: 700,
+    fontSize: 12,
+    borderRadius: 8,
+    padding: '2px 10px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    height: 28,
+    border: 'none',
+    boxShadow: '0 2px 5px rgba(0,0,0,0.05)',
+    transition: 'all 0.3s ease',
+  } as CSSProperties,
+
+  headerMetaRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 6,
+  } as CSSProperties,
+
+  headerMetaSeparator: {
+    height: 14,
+    width: 1,
+    background: '#e2e8f0',
+    margin: '0 2px',
+  } as CSSProperties,
+
   // Content Container
   contentWrapper: {
     maxWidth: 1200,
