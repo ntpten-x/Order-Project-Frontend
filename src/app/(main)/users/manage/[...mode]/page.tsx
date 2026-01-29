@@ -55,6 +55,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
       const user = await response.json();
       form.setFieldsValue({
         username: user.username,
+        name: user.name,
         roles_id: user.roles?.id || user.roles_id,
         is_active: user.is_active,
         is_use: user.is_use
@@ -199,6 +200,14 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
                 ]}
               >
                 <Input size="large" placeholder="กรุณากรอกชื่อผู้ใช้" autoComplete="off" />
+              </Form.Item>
+
+              <Form.Item
+                name="name"
+                label="ชื่อ-นามสกุล / ชื่อเล่น"
+                rules={[{ required: true, message: 'กรุณากรอกชื่อ-นามสกุล หรือ ชื่อเล่น' }]}
+              >
+                <Input size="large" placeholder="ระบุชื่อ (เช่น สมชาย หรือ น้องบี)" autoComplete="off" />
               </Form.Item>
 
               <Form.Item

@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Typography, Row, Col, Card, Button, Spin, Empty, Divider, message, Tag, Avatar, Space } from "antd";
+import { Typography, Row, Col, Card, Button, Spin, Empty, Divider, message, Tag, Avatar, Space, Alert } from "antd";
 import { ArrowLeftOutlined, ShopOutlined, RocketOutlined, CheckCircleOutlined, UserOutlined, EditOutlined, InfoCircleOutlined } from "@ant-design/icons";
 import { ordersService } from "@/services/pos/orders.service";
 import { paymentMethodService } from "@/services/pos/paymentMethod.service";
@@ -29,6 +29,7 @@ export default function POSDeliverySummaryPage() {
 
     const [order, setOrder] = useState<SalesOrder | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [hasDeliveryMethod, setHasDeliveryMethod] = useState(true);
     const { showLoading, hideLoading } = useGlobalLoading();
 
     // Confirmation Dialog State
@@ -48,14 +49,24 @@ export default function POSDeliverySummaryPage() {
             setIsLoading(true);
             showLoading("กำลังโหลดข้อมูลออเดอร์...");
 
-            const orderData = await ordersService.getById(deliveryId);
+            const [orderData, deliveryMethod] = await Promise.all([
+                ordersService.getById(deliveryId),
+                paymentMethodService.getByName('Delivery').catch(() => null)
+            ]);
             
             if (orderData.status !== OrderStatus.WaitingForPayment) {
                  router.push('/pos/channels');
                  return;
             }
 
+            if (orderData.order_type !== OrderType.Delivery) {
+                messageApi.warning("รายการนี้ไม่ใช่ Order Delivery");
+                router.push('/pos/channels');
+                return;
+            }
+
             setOrder(orderData);
+            setHasDeliveryMethod(!!deliveryMethod);
         } catch (error) {
             messageApi.error("ไม่สามารถโหลดข้อมูลออเดอร์ได้");
         } finally {
@@ -348,19 +359,30 @@ export default function POSDeliverySummaryPage() {
                                 </Space>
                             </Card>
 
+                            {!hasDeliveryMethod && (
+                                <Alert
+                                    message="ไม่พบวิธีการชำระเงิน 'Delivery'"
+                                    description="กรุณาเพิ่มวิธีการชำระเงินชื่อ 'Delivery' ในเมนูตั้งค่า เพื่อให้สามารถส่งมอบสินค้าได้"
+                                    type="error"
+                                    showIcon
+                                    style={{ marginBottom: 16, textAlign: 'left' }}
+                                />
+                            )}
+
                             <Button 
                                 type="primary" 
                                 size="large" 
                                 block 
                                 icon={<CheckCircleOutlined />}
+                                disabled={!hasDeliveryMethod}
                                 style={{ 
                                     height: 64, 
                                     fontSize: 18, 
                                     borderRadius: 16, 
-                                    background: '#eb2f96', 
-                                    borderColor: '#eb2f96', 
+                                    background: hasDeliveryMethod ? '#eb2f96' : undefined, 
+                                    borderColor: hasDeliveryMethod ? '#eb2f96' : undefined, 
                                     fontWeight: 700,
-                                    boxShadow: '0 8px 16px rgba(235, 47, 150, 0.25)' 
+                                    boxShadow: hasDeliveryMethod ? '0 8px 16px rgba(235, 47, 150, 0.25)' : 'none'
                                 }}
                                 onClick={handleHandoverToRider}
                             >

@@ -349,6 +349,18 @@ export const DeliveryCard = ({ delivery, index, onEdit, onDelete }: DeliveryCard
                         >
                             {delivery.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
                         </Tag>
+                        {delivery.delivery_prefix && (
+                            <Tag 
+                                color="purple"
+                                style={{ 
+                                    borderRadius: 8, 
+                                    margin: 0,
+                                    fontSize: 11 
+                                }}
+                            >
+                                Prefix: {delivery.delivery_prefix}
+                            </Tag>
+                        )}
                     </div>
                 </div>
 

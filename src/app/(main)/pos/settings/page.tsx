@@ -1,50 +1,65 @@
 "use client";
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Typography, Card, Form, Input, Button, Spin, Divider, Row, Col, App } from "antd";
-import { SaveOutlined, ShopOutlined, SettingOutlined } from "@ant-design/icons";
-import { shopProfileService, ShopProfile } from "../../../../services/pos/shopProfile.service";
+import { Typography, Card, Button, Spin, Divider, Row, Col, App, Tag, Select, Space } from "antd";
+import { SettingOutlined, BankOutlined, CheckCircleOutlined, PlusOutlined, QrcodeOutlined } from "@ant-design/icons";
 import { authService } from "../../../../services/auth.service";
+import { paymentAccountService } from "../../../../services/pos/paymentAccount.service";
+import { ShopPaymentAccount } from "../../../../types/api/pos/shopPaymentAccount";
 import { posPageStyles, posColors } from "@/theme/pos";
 import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
+import { ShopProfile } from "@/services/pos/shopProfile.service";
 
 const { Title, Text } = Typography;
+const { Option } = Select;
 
 export default function POSSettingsPage() {
     const { message } = App.useApp();
-    const [form] = Form.useForm();
     const [loading, setLoading] = useState(true);
+    const [accounts, setAccounts] = useState<ShopPaymentAccount[]>([]);
+    const [activeAccount, setActiveAccount] = useState<ShopPaymentAccount | null>(null);
     const { showLoading, hideLoading } = useGlobalLoading();
 
-    const fetchProfile = useCallback(async () => {
+    const fetchData = useCallback(async (silent = false) => {
         try {
-            setLoading(true);
-            const data = await shopProfileService.getProfile();
-            form.setFieldsValue(data);
+            if (!silent) setLoading(true);
+            const accountsList = await paymentAccountService.getByShopId();
+            setAccounts(accountsList);
+            const active = accountsList.find(acc => acc.is_active);
+            setActiveAccount(active || null);
         } catch (error) {
-            message.error("ไม่สามารถดึงข้อมูลร้านค้าได้");
+            message.error("ไม่สามารถดึงข้อมูลบัญชีได้");
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
-    }, [form, message]);
+    }, [message]);
 
     useEffect(() => {
-        fetchProfile();
-    }, [fetchProfile]);
+        fetchData();
+    }, [fetchData]);
 
-    const handleSave = async (values: Partial<ShopProfile>) => {
+    const handleActivate = async (id: string) => {
         try {
-            showLoading("กำลังบันทึกการตั้งค่า...");
+            showLoading("กำลังเปลี่ยนบัญชีรับเงิน...");
+            
+            // Optimistic update for UI feel (optional but good)
+            const targetAcc = accounts.find(a => a.id === id);
+            if (targetAcc) {
+                setActiveAccount(targetAcc);
+            }
+
             const csrfToken = await authService.getCsrfToken();
-            await shopProfileService.updateProfile(values, undefined, csrfToken);
-            message.success("บันทึกการตั้งค่าเรียบร้อย");
-            await fetchProfile(); // Refresh
+            await paymentAccountService.activate(id, undefined, undefined, csrfToken);
+            message.success("เปลี่ยนบัญชีรับเงินหลักสำเร็จ");
+            await fetchData(true); // Silent refresh to sync all state
         } catch (error) {
-            message.error("บันทึกไม่สำเร็จ");
+            message.error("ไม่สามารถเปลี่ยนบัญชีได้");
+            await fetchData(true); // Rollback on error
         } finally {
             hideLoading();
         }
     };
+
 
     if (loading) {
         return (
@@ -62,100 +77,107 @@ export default function POSSettingsPage() {
                     <div style={posPageStyles.sectionTitle}>
                         <SettingOutlined style={{ fontSize: 28 }} />
                         <div>
-                            <Title level={3} style={{ margin: 0, color: '#fff' }}>ตั้งค่าระบบ (Settings)</Title>
-                            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14 }}>Manage Shop Configuration</Text>
+                            <Title level={3} style={{ margin: 0, color: '#fff' }}>ตั้งค่าบัญชีรับเงิน (Payment Settings)</Title>
+                            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14 }}>Manage your active payment account</Text>
                         </div>
                     </div>
                 </div>
             </div>
 
             {/* Content */}
-            <div style={{ maxWidth: 800, margin: '-40px auto 30px', padding: '0 24px', position: 'relative', zIndex: 20 }}>
-                <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
-                    <Form
-                        form={form}
-                        layout="vertical"
-                        onFinish={handleSave}
-                        initialValues={{}}
-                        requiredMark="optional"
-                    >
+            <div style={{ maxWidth: 700, margin: '-40px auto 30px', padding: '0 24px', position: 'relative', zIndex: 20 }}>
+                <Card variant="borderless" style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                    <div style={{ marginBottom: 32 }}>
                         <Divider titlePlacement="left" plain style={{ fontSize: 16, fontWeight: 600 }}>
-                            <ShopOutlined style={{ marginRight: 8 }} /> ข้อมูลร้านค้า (General Info)
-                        </Divider>
-                        
-                        <Row gutter={24}>
-                            <Col xs={24} md={12}>
-                                <Form.Item
-                                    name="shop_name"
-                                    label="ชื่อร้าน (Shop Name)"
-                                    rules={[{ required: true, message: 'กรุณาระบุชื่อร้าน' }]}
-                                >
-                                    <Input placeholder="ระบุชื่อร้าน" size="large" />
-                                </Form.Item>
-                            </Col>
-                            <Col xs={24} md={12}>
-                                <Form.Item
-                                    name="phone"
-                                    label="เบอร์โทรศัพท์ (Phone)"
-                                >
-                                    <Input placeholder="ระบุเบอร์โทรศัพท์" size="large" />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-
-                        <Form.Item
-                                name="address"
-                                label="ที่อยู่ (Address)"
-                        >
-                            <Input.TextArea rows={3} placeholder="ระบุที่อยู่ร้าน" style={{ borderRadius: 8 }} />
-                        </Form.Item>
-
-                        <Divider titlePlacement="left" plain style={{ fontSize: 16, fontWeight: 600, marginTop: 32 }}>
-                            การชำระเงิน (Money & Payments)
+                            บัญชีรับเงินที่ใช้งาน (Primary Payment Account)
                         </Divider>
 
-                        <Row gutter={24}>
-                            <Col xs={24} md={12}>
-                                <Form.Item
-                                    name="promptpay_number"
-                                    label="เบอร์ PromptPay / เลขบัตรประชาชน"
-                                    extra="ระบบจะนำเลขนี้ไปสร้าง QR Code รับเงินอัตโนมัติ"
-                                >
-                                    <Input placeholder="081XXXXXXX หรือ 1XXXXXXXXXXXX" size="large" />
-                                </Form.Item>
-                            </Col>
-                            <Col xs={24} md={12}>
-                                <Form.Item
-                                    name="promptpay_name"
-                                    label="ชื่อบัญชี (Account Name)"
-                                    extra="แสดงให้ลูกค้าเห็นเมื่อสแกน (Optional)"
-                                >
-                                    <Input placeholder="ระบุชื่อบัญชี" size="large" />
-                                </Form.Item>
-                            </Col>
-                        </Row>
-
-                        <Divider style={{ margin: '32px 0 24px' }} />
-                        
-                        <div style={{ textAlign: "right" }}>
-                            <Button 
-                                type="primary" 
-                                htmlType="submit" 
-                                icon={<SaveOutlined />} 
+                        <div style={{ marginBottom: 24 }}>
+                            <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
+                                เลือกบัญชีที่จะให้ลูกค้าโอนเงินเข้า (ใช้สร้าง QR Code อัตโนมัติ)
+                            </Text>
+                            <Select 
                                 size="large" 
-                                style={{ 
-                                    background: posColors.primary, 
-                                    borderColor: posColors.primary,
-                                    minWidth: 160,
-                                    height: 48,
-                                    borderRadius: 12,
-                                    fontWeight: 600
-                                }}
+                                style={{ width: '100%' }}
+                                placeholder="-- เลือกบัญชีรับเงิน --"
+                                value={activeAccount?.id}
+                                onChange={handleActivate}
+                                dropdownRender={(menu) => (
+                                    <>
+                                        {menu}
+                                        <Divider style={{ margin: '8px 0' }} />
+                                        <div style={{ padding: '0 8px 4px' }}>
+                                            <Button 
+                                                type="link" 
+                                                block 
+                                                icon={<PlusOutlined />} 
+                                                onClick={() => window.location.href = '/pos/settings/payment-accounts/manage'}
+                                            >
+                                                จัดการบัญชีเพิ่มเติม
+                                            </Button>
+                                        </div>
+                                    </>
+                                )}
                             >
-                                บันทึก (Save)
-                            </Button>
+                                {accounts.map(acc => (
+                                    <Option key={acc.id} value={acc.id}>
+                                        <Space>
+                                            {acc.account_type === 'PromptPay' ? <QrcodeOutlined style={{ color: '#eb2f96' }} /> : <BankOutlined style={{ color: '#1890ff' }} />}
+                                            <Text strong>{acc.account_name}</Text>
+                                            <Text type="secondary" style={{ fontSize: 12 }}>({acc.account_number})</Text>
+                                            {acc.is_active && <Tag color="success" style={{ marginLeft: 8 }}>ใช้งานอยู่</Tag>}
+                                        </Space>
+                                    </Option>
+                                ))}
+                            </Select>
                         </div>
-                    </Form>
+
+                        {activeAccount && (
+                             <div style={{ 
+                                background: '#f0f5ff', 
+                                border: '1px solid #adc6ff', 
+                                borderRadius: 12, 
+                                padding: '20px',
+                                marginBottom: 32
+                            }}>
+                                <Row align="middle" gutter={16}>
+                                    <Col>
+                                        <CheckCircleOutlined style={{ fontSize: 24, color: '#52c41a' }} />
+                                    </Col>
+                                    <Col flex="1">
+                                        <div style={{ marginBottom: 4 }}>
+                                            <Text type="secondary" style={{ fontSize: 12 }}>กำลังใช้งานอยู่ในปัจจุบัน:</Text>
+                                        </div>
+                                        <Space direction="vertical" size={0}>
+                                            <Text strong style={{ fontSize: 18 }}>{activeAccount.account_name}</Text>
+                                            <Space>
+                                                <Text type="secondary">{activeAccount.account_type === 'PromptPay' ? 'พร้อมเพย์' : (activeAccount.bank_name || 'ธนาคาร')}: </Text>
+                                                <Text strong>{activeAccount.account_number}</Text>
+                                            </Space>
+                                        </Space>
+                                    </Col>
+                                </Row>
+                            </div>
+                        )}
+
+                        <Button 
+                            block 
+                            size="large" 
+                            icon={<PlusOutlined />}
+                            onClick={() => window.location.href = '/pos/settings/payment-accounts/manage'}
+                            style={{ 
+                                borderRadius: 12, 
+                                height: 52, 
+                                fontSize: 16,
+                                fontWeight: 600,
+                                background: '#fff',
+                                border: `1px dashed ${posColors.primary}`,
+                                color: posColors.primary
+                            }}
+                        >
+                            เพิ่มแหรือแก้ไขบัญชี (Manage Accounts)
+                        </Button>
+                    </div>
                 </Card>
             </div>
         </div>

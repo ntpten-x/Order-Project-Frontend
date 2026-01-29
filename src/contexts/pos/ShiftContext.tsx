@@ -26,7 +26,7 @@ export const ShiftProvider = ({ children }: { children: React.ReactNode }) => {
     const refreshShift = useCallback(async () => {
         if (!user) return;
         try {
-            const shift = await shiftsService.getCurrentShift(user.id);
+            const shift = await shiftsService.getCurrentShift();
             setCurrentShift(shift);
         } catch (error) {
             console.error("Error fetching shift:", error);
@@ -43,8 +43,7 @@ export const ShiftProvider = ({ children }: { children: React.ReactNode }) => {
     const openShift = async (startAmount: number) => {
         if (!user) return;
         try {
-            const csrfToken = await authService.getCsrfToken();
-            const newShift = await shiftsService.openShift(user.id, startAmount, undefined, csrfToken);
+            const newShift = await shiftsService.openShift(startAmount);
             setCurrentShift(newShift);
             message.success("เปิดกะเรียบร้อยแล้ว");
         } catch (error) {
@@ -56,8 +55,7 @@ export const ShiftProvider = ({ children }: { children: React.ReactNode }) => {
     const closeShift = async (endAmount: number) => {
         if (!user) return;
         try {
-            const csrfToken = await authService.getCsrfToken();
-            await shiftsService.closeShift(user.id, endAmount, undefined, csrfToken);
+            await shiftsService.closeShift(endAmount);
             setCurrentShift(null); // Clear current shift or update to closed status?
             // If closed, we likely want to force user to open new shift or leave POS.
             // Setting null triggers OpenShiftModal again.

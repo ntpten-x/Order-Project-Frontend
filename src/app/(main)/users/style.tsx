@@ -258,7 +258,9 @@ export const UserCard = ({ user, onEdit, onDelete }: UserCardProps) => {
                 <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
-                            <Title level={4} style={{ margin: 0, marginBottom: 4, color: '#1f2937' }}>{user.username}</Title>
+                            <Title level={4} style={{ margin: 0, marginBottom: 4, color: '#1f2937' }}>
+                                {user.name ? `${user.name} (${user.username})` : user.username}
+                            </Title>
                             <Tag color={getRoleColor(roleName)} style={{ borderRadius: 12, border: 'none', padding: '0 10px' }}>
                                 {user.roles?.display_name || user.roles?.roles_name || 'N/A'}
                             </Tag>

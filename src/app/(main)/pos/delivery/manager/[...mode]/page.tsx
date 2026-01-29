@@ -41,6 +41,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
             const data = await response.json();
             form.setFieldsValue({
                 delivery_name: data.delivery_name,
+                delivery_prefix: data.delivery_prefix,
                 logo: data.logo,
                 is_active: data.is_active,
             });
@@ -183,6 +184,22 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                 size="large" 
                                 placeholder="เช่น Grab, Lineman, Food Panda" 
                                 maxLength={100}
+                            />
+                        </Form.Item>
+
+                        <Form.Item
+                            name="delivery_prefix"
+                            label="รหัสย่อ (Prefix)"
+                            rules={[
+                                { max: 10, message: 'ความยาวต้องไม่เกิน 10 ตัวอักษร' }
+                            ]}
+                            normalize={(value) => (value || '').toUpperCase()}
+                        >
+                            <Input 
+                                size="large" 
+                                placeholder="เช่น GF, LM (สำหรับสร้างรหัสออเดอร์อัตโนมัติ)" 
+                                maxLength={10}
+                                style={{ textTransform: 'uppercase' }}
                             />
                         </Form.Item>
 

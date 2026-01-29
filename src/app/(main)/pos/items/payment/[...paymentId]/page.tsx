@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Typography, Row, Col, Card, Button, Spin, Empty, Divider, message, InputNumber, Select, Tag, Avatar } from "antd";
+import { Typography, Row, Col, Card, Button, Spin, Empty, Divider, message, InputNumber, Select, Tag, Avatar, Alert } from "antd";
 import { ArrowLeftOutlined, ShopOutlined, DollarOutlined, CreditCardOutlined, QrcodeOutlined, UndoOutlined, EditOutlined, UserOutlined } from "@ant-design/icons";
 import { QRCodeSVG } from 'qrcode.react';
 import generatePayload from 'promptpay-qr';
@@ -81,7 +81,23 @@ export default function POSPaymentPage() {
             }
 
             setOrder(orderData);
-            setPaymentMethods(methodsRes);
+            
+            // Filter Payment Methods
+            const filteredMethods = methodsRes.filter(m => {
+                // If not delivery order, hide 'Delivery' method
+                if (orderData.order_type !== OrderType.Delivery && m.payment_method_name === 'Delivery') {
+                    return false;
+                }
+                // If delivery order, maybe ONLY show 'Delivery'? Or show all?
+                // User said "Only in delivery mode", implies visibility constraint.
+                // Let's assume Delivery order can use multiple methods?
+                // User request: "Payment with Delivery method should be doable and shown ONLY in delivery mode"
+                // This means: Delivery Method -> Visibility = Delivery Mode Only.
+                // It does NOT say: Delivery Mode -> Methods = Delivery Method Only.
+                return true;
+            });
+
+            setPaymentMethods(filteredMethods);
             setDiscounts(discountsRes);
             setShopProfile(shopRes);
             
@@ -463,38 +479,48 @@ export default function POSPaymentPage() {
                           <Card style={paymentPageStyles.card}>
                              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                                 <Text strong style={{ fontSize: 16 }}>วิธีการชำระเงิน (Payment Method)</Text>
-                                <Row gutter={[12, 12]}>
-                                    {paymentMethods.map(method => {
-                                        const isSelected = selectedPaymentMethod === method.id;
-                                        return (
-                                            <Col span={12} key={method.id}>
-                                                <div 
-                                                    onClick={() => {
-                                                        setSelectedPaymentMethod(method.id);
-                                                        // Auto-fill amount for digital payments
-                                                        if (isPromptPayMethod(method.payment_method_name, method.display_name)) {
-                                                            setReceivedAmount(total);
-                                                        } else if (isCashMethod(method.payment_method_name, method.display_name)) {
-                                                            setReceivedAmount(0);
-                                                        } else {
-                                                             setReceivedAmount(total); // Default for credit card etc
-                                                        }
-                                                    }}
-                                                    style={{ 
-                                                        ...paymentPageStyles.methodCard,
-                                                        ...(isSelected ? paymentPageStyles.methodCardSelected : {})
-                                                    }}
-                                                >   
-                                                    <div style={{ fontSize: 24, marginBottom: 8, color: isSelected ? paymentColors.primary : '#595959' }}>
-                                                        {isCashMethod(method.payment_method_name, method.display_name) ? <DollarOutlined /> : 
-                                                         isPromptPayMethod(method.payment_method_name, method.display_name) ? <QrcodeOutlined /> : <CreditCardOutlined />}
+                                {paymentMethods.length === 0 ? (
+                                    <Alert
+                                        message="ยังไม่มีวิธีการชำระเงิน"
+                                        description="กรุณาเพิ่มวิธีการชำระเงินในเมนูตั้งค่าก่อนทำรายการ"
+                                        type="warning"
+                                        showIcon
+                                        style={{ marginTop: 16 }}
+                                    />
+                                ) : (
+                                    <Row gutter={[12, 12]}>
+                                        {paymentMethods.map(method => {
+                                            const isSelected = selectedPaymentMethod === method.id;
+                                            return (
+                                                <Col span={12} key={method.id}>
+                                                    <div 
+                                                        onClick={() => {
+                                                            setSelectedPaymentMethod(method.id);
+                                                            // Auto-fill amount for digital payments
+                                                            if (isPromptPayMethod(method.payment_method_name, method.display_name)) {
+                                                                setReceivedAmount(total);
+                                                            } else if (isCashMethod(method.payment_method_name, method.display_name)) {
+                                                                setReceivedAmount(0);
+                                                            } else {
+                                                                 setReceivedAmount(total); // Default for credit card etc
+                                                            }
+                                                        }}
+                                                        style={{ 
+                                                            ...paymentPageStyles.methodCard,
+                                                            ...(isSelected ? paymentPageStyles.methodCardSelected : {})
+                                                        }}
+                                                    >   
+                                                        <div style={{ fontSize: 24, marginBottom: 8, color: isSelected ? paymentColors.primary : '#595959' }}>
+                                                            {isCashMethod(method.payment_method_name, method.display_name) ? <DollarOutlined /> : 
+                                                             isPromptPayMethod(method.payment_method_name, method.display_name) ? <QrcodeOutlined /> : <CreditCardOutlined />}
+                                                        </div>
+                                                        <Text strong style={{ color: isSelected ? paymentColors.primary : undefined }}>{method.display_name}</Text>
                                                     </div>
-                                                    <Text strong style={{ color: isSelected ? paymentColors.primary : undefined }}>{method.display_name}</Text>
-                                                </div>
-                                            </Col>
-                                        );
-                                    })}
-                                </Row>
+                                                </Col>
+                                            );
+                                        })}
+                                    </Row>
+                                )}
 
                                 {selectedPaymentMethod && (
                                     <div style={{ animation: 'fadeIn 0.5s' }}>

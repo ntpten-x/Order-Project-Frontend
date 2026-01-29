@@ -86,8 +86,8 @@ export default function POSDelivery({ providerId, deliveryCode }: POSDeliveryPro
 
     return (
         <POSPageLayout 
-            title="ระบบขายหน้าร้าน (Delivery)"
-            subtitle={`เดลิเวอรี่ - ${deliveryCode}`}
+            title="เดริเวอรี่ (Delivery)"
+            subtitle={`เดลิเวอรี่ ${deliveryCode}`}
             icon={<RocketOutlined style={{ fontSize: 28 }} />}
             onConfirmOrder={handleCreateOrder}
         />

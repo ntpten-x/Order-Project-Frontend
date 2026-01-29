@@ -32,6 +32,9 @@ export default function DeliverySelectionPage() {
     // New Order Modal State
     const [deliveryCode, setDeliveryCode] = useState("");
     const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
+    const selectedProvider = useMemo(() => 
+        deliveryProviders.find(p => p.id === selectedProviderId),
+    [deliveryProviders, selectedProviderId]);
 
     const fetchOrders = useCallback(async (isInitial = false) => {
         if (isInitial) showLoading();
@@ -83,8 +86,14 @@ export default function DeliverySelectionPage() {
         }
         
         showLoading("กำลังเข้าสู่หน้าออเดอร์...");
+        
+        let finalCode = deliveryCode.trim();
+        if (selectedProvider?.delivery_prefix) {
+            finalCode = `${selectedProvider.delivery_prefix}-${finalCode}`;
+        }
+
         // Navigate to buying page with params
-        router.push(`/pos/channels/delivery/${selectedProviderId}?code=${encodeURIComponent(deliveryCode)}`);
+        router.push(`/pos/channels/delivery/${selectedProviderId}?code=${encodeURIComponent(finalCode)}`);
     };
 
     return (
@@ -282,7 +291,8 @@ export default function DeliverySelectionPage() {
                     <div>
                         <Text strong style={{ display: 'block', marginBottom: 8 }}>รหัสเดลิเวอรี่ / Order Code</Text>
                         <Input 
-                            placeholder="ระบุรหัสออเดอร์ (เช่น #A001)" 
+                            placeholder="ระบุรหัสออเดอร์ (เช่น 123)" 
+                            addonBefore={selectedProvider?.delivery_prefix ? `${selectedProvider.delivery_prefix}-` : undefined}
                             value={deliveryCode}
                             onChange={(e) => setDeliveryCode(e.target.value)}
                             size="large"
