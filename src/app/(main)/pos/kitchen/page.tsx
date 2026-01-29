@@ -1,8 +1,18 @@
 "use client";
 
 import React, { useEffect, useState, useContext, useMemo, useCallback } from "react";
-import { Typography, Card, Button, Row, Col, Tag, Badge, Empty, Spin, Switch, message, Space, Tooltip } from "antd";
-import { CheckOutlined, ClockCircleOutlined, FireOutlined, SoundOutlined, ReloadOutlined, AppstoreOutlined } from "@ant-design/icons";
+import { Typography, Card, Button, Row, Col, Tag, Badge, Empty, Spin, Switch, message, Space, Tooltip, Divider } from "antd";
+import { 
+    CheckOutlined, 
+    ClockCircleOutlined, 
+    FireOutlined, 
+    SoundOutlined, 
+    ReloadOutlined, 
+    AppstoreOutlined,
+    NotificationOutlined,
+    ThunderboltOutlined,
+    DoubleRightOutlined
+} from "@ant-design/icons";
 import { SocketContext } from "../../../../contexts/SocketContext";
 import { ordersService } from "../../../../services/pos/orders.service";
 import { SalesOrderItem, ItemStatus } from "../../../../types/api/pos/salesOrderItem";
@@ -17,12 +27,32 @@ dayjs.locale('th');
 
 const { Title, Text } = Typography;
 
-// Timer color helper
-const getTimerColor = (createdAt: string): { color: string; urgency: 'low' | 'medium' | 'high' } => {
+// Timer color helper with glow/gradient intent
+const getUrgencyConfig = (createdAt: string): { 
+    color: string; 
+    bgColor: string; 
+    urgency: 'low' | 'medium' | 'high';
+    label: string 
+} => {
     const minutes = dayjs().diff(dayjs(createdAt), 'minute');
-    if (minutes < 5) return { color: '#52c41a', urgency: 'low' };
-    if (minutes < 10) return { color: '#faad14', urgency: 'medium' };
-    return { color: '#ff4d4f', urgency: 'high' };
+    if (minutes < 5) return { 
+        color: '#52c41a', 
+        bgColor: 'rgba(82, 196, 26, 0.1)', 
+        urgency: 'low',
+        label: 'ปกติ'
+    };
+    if (minutes < 15) return { 
+        color: '#faad14', 
+        bgColor: 'rgba(250, 173, 20, 0.1)', 
+        urgency: 'medium',
+        label: 'ล่าช้า'
+    };
+    return { 
+        color: '#ff4d4f', 
+        bgColor: 'rgba(255, 77, 79, 0.15)', 
+        urgency: 'high',
+        label: 'ด่วนมาก'
+    };
 };
 
 interface GroupedOrder {
@@ -47,40 +77,44 @@ export default function KitchenDisplayPage() {
         const grouped: Record<string, GroupedOrder> = {};
         
         const filteredItems = filterStatus === 'all' 
-            ? allItems.filter(item => item.status !== ItemStatus.Served)
+            ? allItems.filter(item => item.status !== ItemStatus.Served && item.status !== ItemStatus.Cancelled)
             : allItems.filter(item => item.status === filterStatus);
 
         filteredItems.forEach(item => {
             const orderId = item.order_id;
             if (!grouped[orderId]) {
+                const orderDate = item.order?.create_date || new Date().toISOString();
                 grouped[orderId] = {
                     order_id: orderId,
                     order_no: item.order?.order_no || 'N/A',
                     table_name: item.order?.table?.table_name || null,
                     order_type: item.order?.order_type || 'Unknown',
-                    created_at: item.order?.create_date || new Date().toISOString(),
+                    created_at: orderDate,
                     items: [],
                 };
             }
             grouped[orderId].items.push(item);
         });
 
-        // Sort by oldest first
+        // Sort by oldest first (those waiting longest)
         return Object.values(grouped).sort((a, b) => 
             dayjs(a.created_at).valueOf() - dayjs(b.created_at).valueOf()
         );
     }, [allItems, filterStatus]);
 
-    const fetchItems = useCallback(async () => {
-        setIsLoading(true);
+    const fetchItems = useCallback(async (silent = false) => {
+        if (!silent) setIsLoading(true);
         try {
-            // Fetch Pending and Cooking items
             const items = await ordersService.getItems();
-            setAllItems(items.filter((item: SalesOrderItem) => item.status !== ItemStatus.Served));
+            // Filter out served and cancelled items for the KDS
+            setAllItems(items.filter((item: SalesOrderItem) => 
+                item.status !== ItemStatus.Served && 
+                item.status !== ItemStatus.Cancelled
+            ));
         } catch (error) {
-            // Silent failure for background fetch
+            console.error("KDS Fetch Error:", error);
         } finally {
-            setIsLoading(false);
+            if (!silent) setIsLoading(false);
         }
     }, []);
 
@@ -92,44 +126,32 @@ export default function KitchenDisplayPage() {
     useEffect(() => {
         if (!socket) return;
 
-        const handleOrderUpdate = (data: { action?: string }) => {
-            fetchItems();
-            if (soundEnabled && data.action === 'new_order') {
+        const handleOrderCreate = (newOrder: any) => {
+            fetchItems(true);
+            if (soundEnabled) {
                 playNotificationSound();
+                message.info(`ออเดอร์ใหม่: #${newOrder.order_no}`);
             }
         };
 
-        const handleItemUpdate = (data: { item?: SalesOrderItem }) => {
-            if (data.item) {
-                const item = data.item;
-                setAllItems(prev => {
-                    const index = prev.findIndex(i => i.id === item.id);
-                    if (index >= 0) {
-                        const updated = [...prev];
-                        updated[index] = item;
-                        return updated;
-                    }
-                    return prev;
-                });
-            } else {
-                fetchItems();
-            }
+        const handleOrderUpdate = () => {
+            fetchItems(true);
         };
 
-        socket.on('order:created', handleOrderUpdate);
-        socket.on('order:updated', handleOrderUpdate);
-        socket.on('item:updated', handleItemUpdate);
+        socket.on('orders:create', handleOrderCreate);
+        socket.on('orders:update', handleOrderUpdate);
 
         return () => {
-            socket.off('order:created', handleOrderUpdate);
-            socket.off('order:updated', handleOrderUpdate);
-            socket.off('item:updated', handleItemUpdate);
+            socket.off('orders:create', handleOrderCreate);
+            socket.off('orders:update', handleOrderUpdate);
         };
     }, [socket, soundEnabled, fetchItems]);
 
     const playNotificationSound = () => {
         try {
-            const audio = new Audio('/sounds/notification.mp3');
+            // Using a system beep or data URI if .mp3 not found
+            const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
+            audio.volume = 0.5;
             audio.play().catch(() => {});
         } catch {}
     };
@@ -141,7 +163,7 @@ export default function KitchenDisplayPage() {
             setAllItems(prev => 
                 prev.map(item => 
                     item.id === itemId ? { ...item, status: newStatus } : item
-                )
+                ).filter(item => item.status !== ItemStatus.Served)
             );
             message.success("อัปเดตสถานะสำเร็จ");
         } catch {
@@ -151,12 +173,34 @@ export default function KitchenDisplayPage() {
         }
     };
 
+    const serveAllItems = async (orderId: string) => {
+        try {
+            showLoading("กำลังเสิร์ฟทั้งหมด...");
+            const order = groupedOrders.find(o => o.order_id === orderId);
+            if (!order) return;
+
+            const updatePromises = order.items.map(item => 
+                ordersService.updateItemStatus(item.id, ItemStatus.Served)
+            );
+
+            await Promise.all(updatePromises);
+            
+            setAllItems(prev => prev.filter(item => item.order_id !== orderId || item.status === ItemStatus.Served));
+            message.success(`เสิร์ฟออเดอร์ #${order.order_no} ทั้งหมดแล้ว`);
+            fetchItems(true);
+        } catch {
+            message.error("เกิดข้อผิดพลาดในการเสิร์ฟทั้งหมด");
+        } finally {
+            hideLoading();
+        }
+    };
+
     const getStatusColor = (status: ItemStatus) => {
         switch (status) {
-            case ItemStatus.Pending: return 'orange';
-            case ItemStatus.Cooking: return 'processing';
-            case ItemStatus.Served: return 'green';
-            default: return 'default';
+            case ItemStatus.Pending: return '#faad14';
+            case ItemStatus.Cooking: return '#1890ff';
+            case ItemStatus.Served: return '#52c41a';
+            default: return '#8c8c8c';
         }
     };
 
@@ -177,147 +221,311 @@ export default function KitchenDisplayPage() {
             {/* Header */}
             <div style={posPageStyles.kitchenHeader}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                    <FireOutlined style={{ fontSize: 36, color: '#ff6b35' }} />
-                    <div>
-                        <Title level={2} style={{ margin: 0, color: '#fff' }}>Kitchen Display</Title>
-                        <Text style={{ color: 'rgba(255,255,255,0.7)' }}>จอครัว - แสดงออเดอร์ที่รอทำ</Text>
+                    <div style={{ 
+                        width: 50, 
+                        height: 50, 
+                        borderRadius: 12, 
+                        background: 'linear-gradient(135deg, #ff6b35 0%, #ff9f1c 100%)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        boxShadow: '0 4px 12px rgba(255, 107, 53, 0.4)'
+                    }}>
+                        <FireOutlined style={{ fontSize: 28, color: '#fff' }} />
                     </div>
-                    <Badge status={isConnected ? 'success' : 'error'} text={<Text style={{ color: '#fff' }}>{isConnected ? 'เชื่อมต่อแล้ว' : 'ไม่ได้เชื่อมต่อ'}</Text>} />
+                    <div>
+                        <Title level={2} style={{ margin: 0, color: '#fff', fontSize: 24 }}>Kitchen Display</Title>
+                        <Space split={<Divider type="vertical" style={{ borderColor: 'rgba(255,255,255,0.2)' }} />}>
+                            <Text style={{ color: 'rgba(255,255,255,0.7)' }}>จอครัวอัจฉริยะ</Text>
+                            <Badge status={isConnected ? 'success' : 'error'} text={
+                                <Text style={{ color: isConnected ? '#52c41a' : '#ff4d4f', fontSize: 12 }}>
+                                    {isConnected ? 'LIVE' : 'OFFLINE'}
+                                </Text>
+                            } />
+                        </Space>
+                    </div>
                 </div>
 
                 <Space wrap>
-                    <Badge count={pendingCount} style={{ backgroundColor: '#faad14' }}>
+                    <div style={{ 
+                        background: 'rgba(255,255,255,0.05)', 
+                        padding: '4px 8px', 
+                        borderRadius: 12, 
+                        border: '1px solid rgba(255,255,255,0.1)',
+                        display: 'flex',
+                        gap: 8
+                    }}>
                         <Button 
-                            type={filterStatus === ItemStatus.Pending ? 'primary' : 'default'}
-                            onClick={() => setFilterStatus(filterStatus === ItemStatus.Pending ? 'all' : ItemStatus.Pending)}
-                            style={{ background: filterStatus === ItemStatus.Pending ? '#faad14' : 'rgba(255,255,255,0.1)', borderColor: '#faad14', color: '#fff' }}
+                            type="text"
+                            onClick={() => setFilterStatus('all')}
+                            style={{ 
+                                color: filterStatus === 'all' ? '#fff' : 'rgba(255,255,255,0.5)',
+                                background: filterStatus === 'all' ? 'rgba(255,255,255,0.1)' : 'transparent',
+                                borderRadius: 8
+                            }}
                         >
-                            รอทำ
+                            ทั้งหมด ({allItems.length})
                         </Button>
-                    </Badge>
-                    <Badge count={cookingCount} style={{ backgroundColor: '#1890ff' }}>
                         <Button 
-                            type={filterStatus === ItemStatus.Cooking ? 'primary' : 'default'}
-                            onClick={() => setFilterStatus(filterStatus === ItemStatus.Cooking ? 'all' : ItemStatus.Cooking)}
-                            style={{ background: filterStatus === ItemStatus.Cooking ? '#1890ff' : 'rgba(255,255,255,0.1)', borderColor: '#1890ff', color: '#fff' }}
+                            type="text"
+                            onClick={() => setFilterStatus(ItemStatus.Pending)}
+                            style={{ 
+                                color: filterStatus === ItemStatus.Pending ? '#faad14' : 'rgba(255,255,255,0.5)',
+                                background: filterStatus === ItemStatus.Pending ? 'rgba(250, 173, 20, 0.1)' : 'transparent',
+                                borderRadius: 8
+                            }}
                         >
-                            กำลังทำ
+                            รอทำ ({pendingCount})
                         </Button>
-                    </Badge>
-                    <Button 
-                        icon={<AppstoreOutlined />}
-                        onClick={() => setFilterStatus('all')}
-                        type={filterStatus === 'all' ? 'primary' : 'default'}
-                        style={{ background: filterStatus === 'all' ? '#52c41a' : 'rgba(255,255,255,0.1)', borderColor: '#52c41a', color: '#fff' }}
-                    >
-                        ทั้งหมด
-                    </Button>
-                    <Tooltip title="เปิด/ปิดเสียงแจ้งเตือน">
-                        <Switch 
-                            checked={soundEnabled} 
-                            onChange={setSoundEnabled}
-                            checkedChildren={<SoundOutlined />}
-                            unCheckedChildren={<SoundOutlined />}
-                        />
-                    </Tooltip>
-                    <Button icon={<ReloadOutlined />} onClick={fetchItems} loading={isLoading} style={{ background: 'rgba(255,255,255,0.1)', borderColor: 'rgba(255,255,255,0.3)', color: '#fff' }}>
-                        รีเฟรช
-                    </Button>
+                        <Button 
+                            type="text"
+                            onClick={() => setFilterStatus(ItemStatus.Cooking)}
+                            style={{ 
+                                color: filterStatus === ItemStatus.Cooking ? '#1890ff' : 'rgba(255,255,255,0.5)',
+                                background: filterStatus === ItemStatus.Cooking ? 'rgba(24, 144, 255, 0.1)' : 'transparent',
+                                borderRadius: 8
+                            }}
+                        >
+                            กำลังปรุง ({cookingCount})
+                        </Button>
+                    </div>
+
+                    <Space size={12}>
+                        <Tooltip title="เปิด/ปิดเสียงแจ้งเตือน">
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'rgba(255,255,255,0.7)' }}>
+                                <SoundOutlined />
+                                <Switch 
+                                    size="small"
+                                    checked={soundEnabled} 
+                                    onChange={setSoundEnabled}
+                                />
+                            </div>
+                        </Tooltip>
+                        <Button 
+                            icon={<ReloadOutlined />} 
+                            onClick={() => fetchItems()} 
+                            loading={isLoading}
+                            style={{ 
+                                background: 'rgba(255,255,255,0.1)', 
+                                borderColor: 'transparent', 
+                                color: '#fff',
+                                borderRadius: 10
+                            }}
+                        >
+                            รีเฟรช
+                        </Button>
+                    </Space>
                 </Space>
             </div>
 
             {/* Orders Grid */}
             {isLoading ? (
                 <div style={{ textAlign: 'center', padding: 100 }}>
-                    <Spin size="large" />
+                    <Spin size="large" tip="กำลังโหลดออเดอร์..." />
                 </div>
             ) : groupedOrders.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: 100 }}>
-                    <Empty description={<Text style={{ color: 'rgba(255,255,255,0.7)' }}>ไม่มีออเดอร์ที่รอทำ</Text>} />
+                <div style={{ 
+                    textAlign: 'center', 
+                    padding: 100,
+                    background: 'rgba(255,255,255,0.02)',
+                    borderRadius: 24,
+                    border: '2px dashed rgba(255,255,255,0.05)'
+                }}>
+                    <Empty 
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        description={<Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 18 }}>ไม่มีออเดอร์ค้างในครัว</Text>} 
+                    />
                 </div>
             ) : (
-                <Row gutter={[16, 16]}>
+                <Row gutter={[20, 20]}>
                     {groupedOrders.map((order) => {
-                        const timerInfo = getTimerColor(order.created_at);
+                        const urgency = getUrgencyConfig(order.created_at);
                         return (
                             <Col xs={24} sm={12} lg={8} xl={6} key={order.order_id}>
-                                <Card
-                                    style={{
-                                        ...posPageStyles.card,
-                                        borderTop: `4px solid ${timerInfo.color}`,
-                                        background: timerInfo.urgency === 'high' ? 'rgba(255,77,79,0.1)' : '#fff',
-                                    }}
-                                    title={
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                <div style={{
+                                    ...posPageStyles.kitchenGlassCard,
+                                    height: '100%',
+                                    display: 'flex',
+                                    flexDirection: 'column',
+                                    borderTop: `4px solid ${urgency.color}`,
+                                    boxShadow: urgency.urgency === 'high' ? `0 0 20px ${urgency.bgColor}` : posPageStyles.kitchenGlassCard.boxShadow
+                                }}>
+                                    {/* Order Header */}
+                                    <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
                                             <div>
-                                                <Text strong style={{ fontSize: 18 }}>#{order.order_no}</Text>
-                                                {order.table_name && <Tag color="blue" style={{ marginLeft: 8 }}>{order.table_name}</Tag>}
+                                                <Title level={4} style={{ margin: 0, color: '#fff', fontSize: 20 }}>#{order.order_no}</Title>
+                                                <Space style={{ marginTop: 4 }}>
+                                                    {order.table_name ? (
+                                                        <Tag color="blue" style={{ borderRadius: 4, margin: 0 }}>โต๊ะ: {order.table_name}</Tag>
+                                                    ) : (
+                                                        <Tag color="purple" style={{ borderRadius: 4, margin: 0 }}>{order.order_type}</Tag>
+                                                    )}
+                                                </Space>
                                             </div>
-                                            <Tooltip title={dayjs(order.created_at).format('HH:mm:ss')}>
-                                                <Tag icon={<ClockCircleOutlined />} color={timerInfo.color} style={{ fontSize: 14 }}>
-                                                    {dayjs(order.created_at).fromNow()}
+                                            <div style={{ textAlign: 'right' }}>
+                                                <Tag 
+                                                    icon={<ClockCircleOutlined />} 
+                                                    style={{ 
+                                                        background: urgency.bgColor, 
+                                                        color: urgency.color, 
+                                                        border: 'none',
+                                                        borderRadius: 6,
+                                                        fontWeight: 600,
+                                                        margin: 0
+                                                    }}
+                                                >
+                                                    {dayjs(order.created_at).fromNow(true)}
                                                 </Tag>
-                                            </Tooltip>
+                                            </div>
                                         </div>
-                                    }
-                                    size="small"
-                                >
-                                    {order.items.map((item) => (
-                                        <div 
-                                            key={item.id} 
-                                            style={{
-                                                ...posPageStyles.itemCard,
-                                                padding: 12,
-                                                background: (item.status as ItemStatus) === ItemStatus.Cooking ? '#e6f7ff' : '#fafafa',
-                                                border: `1px solid ${(item.status as ItemStatus) === ItemStatus.Cooking ? '#91d5ff' : '#f0f0f0'}`,
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
+                                    </div>
+
+                                    {/* Items List */}
+                                    <div style={{ flex: 1, padding: 12, maxHeight: 400, overflowY: 'auto' }}>
+                                        {order.items.map((item) => (
+                                            <div 
+                                                key={item.id} 
+                                                style={{
+                                                    background: 'rgba(255,255,255,0.03)',
+                                                    borderRadius: 12,
+                                                    padding: 12,
+                                                    marginBottom: 10,
+                                                    border: `1px solid ${item.status === ItemStatus.Cooking ? 'rgba(24, 144, 255, 0.3)' : 'rgba(255,255,255,0.05)'}`,
+                                                    position: 'relative'
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                                    <div style={{ flex: 1 }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                            <div style={{ 
+                                                                fontSize: 18, 
+                                                                fontWeight: 800, 
+                                                                color: item.status === ItemStatus.Cooking ? '#1890ff' : '#fff',
+                                                                minWidth: 35
+                                                            }}>
+                                                                {item.quantity}x
+                                                            </div>
+                                                            <Text style={{ fontSize: 15, color: '#f1f5f9', fontWeight: 500 }}>
+                                                                {item.product?.display_name || 'สินค้า'}
+                                                            </Text>
+                                                        </div>
+                                                        
+                                                        {item.notes && (
+                                                            <div style={{ 
+                                                                marginTop: 6, 
+                                                                padding: '4px 8px', 
+                                                                background: 'rgba(250, 173, 20, 0.1)', 
+                                                                borderRadius: 6,
+                                                                borderLeft: '3px solid #faad14'
+                                                            }}>
+                                                                <Text style={{ color: '#faad14', fontSize: 13 }}>{item.notes}</Text>
+                                                            </div>
+                                                        )}
+
+                                                        <div style={{ marginTop: 8 }}>
+                                                            <Badge 
+                                                                status={item.status === ItemStatus.Cooking ? 'processing' : 'default'} 
+                                                                text={
+                                                                    <Text style={{ 
+                                                                        color: getStatusColor(item.status as ItemStatus), 
+                                                                        fontSize: 12,
+                                                                        fontWeight: 600
+                                                                    }}>
+                                                                        {getStatusLabel(item.status as ItemStatus).toUpperCase()}
+                                                                    </Text>
+                                                                } 
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    <div style={{ marginLeft: 12, display: 'flex', alignItems: 'center' }}>
+                                                        {item.status === ItemStatus.Pending && (
+                                                            <Button 
+                                                                type="primary"
+                                                                shape="circle"
+                                                                icon={<ThunderboltOutlined />}
+                                                                onClick={() => updateItemStatus(item.id, ItemStatus.Cooking)}
+                                                                style={{ background: '#1890ff', boxShadow: '0 4px 10px rgba(24, 144, 255, 0.3)' }}
+                                                            />
+                                                        )}
+                                                        {item.status === ItemStatus.Cooking && (
+                                                            <Button 
+                                                                type="primary"
+                                                                shape="circle"
+                                                                icon={<CheckOutlined />}
+                                                                onClick={() => updateItemStatus(item.id, ItemStatus.Served)}
+                                                                style={{ background: '#52c41a', borderColor: '#52c41a', boxShadow: '0 4px 10px rgba(82, 196, 26, 0.3)' }}
+                                                            />
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    {/* Order Footer */}
+                                    <div style={{ padding: 12, background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                        <Button 
+                                            block 
+                                            type="primary" 
+                                            icon={<DoubleRightOutlined />}
+                                            onClick={() => serveAllItems(order.order_id)}
+                                            style={{ 
+                                                background: 'rgba(82, 196, 26, 0.15)', 
+                                                color: '#52c41a', 
+                                                borderColor: 'rgba(82, 196, 26, 0.3)',
+                                                height: 40,
+                                                borderRadius: 10,
+                                                fontWeight: 600
                                             }}
                                         >
-                                            <div style={{ flex: 1 }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                    <Text strong style={{ fontSize: 16 }}>{item.quantity}x</Text>
-                                                    <Text style={{ fontSize: 14 }}>{item.product?.display_name || 'สินค้า'}</Text>
-                                                </div>
-                                                {item.notes && (
-                                                    <Text type="warning" style={{ fontSize: 12, display: 'block' }}>📝 {item.notes}</Text>
-                                                )}
-                                                <Tag color={getStatusColor(item.status as ItemStatus)} style={{ marginTop: 4 }}>
-                                                    {getStatusLabel(item.status as ItemStatus)}
-                                                </Tag>
-                                            </div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-                                                {(item.status as ItemStatus) === ItemStatus.Pending && (
-                                                    <Button 
-                                                        type="primary" 
-                                                        size="small"
-                                                        style={{ background: '#1890ff' }}
-                                                        onClick={() => updateItemStatus(item.id, ItemStatus.Cooking)}
-                                                    >
-                                                        เริ่มทำ
-                                                    </Button>
-                                                )}
-                                                {(item.status as ItemStatus) === ItemStatus.Cooking && (
-                                                    <Button 
-                                                        type="primary" 
-                                                        size="small"
-                                                        icon={<CheckOutlined />}
-                                                        style={{ background: '#52c41a', borderColor: '#52c41a' }}
-                                                        onClick={() => updateItemStatus(item.id, ItemStatus.Served)}
-                                                    >
-                                                        เสร็จ
-                                                    </Button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </Card>
+                                            เสิร์ฟทั้งหมด
+                                        </Button>
+                                    </div>
+                                </div>
                             </Col>
                         );
                     })}
                 </Row>
             )}
+
+            {/* Float Stats Bar */}
+            <div style={{
+                position: 'fixed',
+                bottom: 24,
+                left: '50%',
+                transform: 'translateX(-50%)',
+                zIndex: 1000,
+                background: 'rgba(15, 23, 42, 0.8)',
+                backdropFilter: 'blur(20px)',
+                padding: '12px 24px',
+                borderRadius: 50,
+                border: '1px solid rgba(255,255,255,0.1)',
+                display: 'flex',
+                gap: 24,
+                alignItems: 'center',
+                boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#faad14' }} />
+                    <Text style={{ color: '#fff' }}>รอทำ: <span style={{ fontWeight: 800, fontSize: 18 }}>{pendingCount}</span></Text>
+                </div>
+                <div style={{ height: 20, width: 1, background: 'rgba(255,255,255,0.1)' }} />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#1890ff', boxShadow: '0 0 10px #1890ff' }} />
+                    <Text style={{ color: '#fff' }}>กำลังทำ: <span style={{ fontWeight: 800, fontSize: 18 }}>{cookingCount}</span></Text>
+                </div>
+                <div style={{ height: 20, width: 1, background: 'rgba(255,255,255,0.1)' }} />
+                <Button 
+                    type="text" 
+                    icon={<ReloadOutlined style={{ color: '#fff' }} />} 
+                    onClick={() => fetchItems()}
+                    style={{ color: '#fff' }}
+                >
+                    REFRESH
+                </Button>
+            </div>
         </div>
     );
 }

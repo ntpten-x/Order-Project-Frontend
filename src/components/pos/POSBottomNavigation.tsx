@@ -39,6 +39,11 @@ const POSBottomNavigation = () => {
       label: 'ขายสินค้า',
       icon: <ShopOutlined className="text-2xl" />,
       path: '/pos',
+    }, {
+      key: 'kitchen',
+      label: 'ครัว',
+      icon: <ShopOutlined className="text-2xl" />,
+      path: '/pos/kitchen',
     },
     ...(user?.role === 'Admin' ? [
       {

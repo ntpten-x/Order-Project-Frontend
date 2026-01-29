@@ -21,6 +21,9 @@ export const posColors = {
     id_delivery: '#722ed1',
     kitchen: '#ff6b35',
     shift: '#10b981', // Greenish for money/shift
+    kitchenBg: '#0f172a',
+    kitchenCard: 'rgba(30, 41, 59, 0.7)',
+    kitchenBorder: 'rgba(255, 255, 255, 0.1)',
 };
 
 export const channelColors = {
@@ -70,8 +73,19 @@ export const posPageStyles = {
     // Kitchen has a distinct dark look
     kitchenContainer: {
         minHeight: '100vh',
-        background: 'linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%)',
-        padding: 24,
+        background: '#0f172a',
+        padding: '24px 24px 100px',
+        color: '#f8fafc',
+        fontFamily: "'Inter', 'Sarabun', sans-serif",
+    } as CSSProperties,
+
+    kitchenGlassCard: {
+        background: 'rgba(30, 41, 59, 0.7)',
+        backdropFilter: 'blur(12px)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        borderRadius: 20,
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+        overflow: 'hidden',
     } as CSSProperties,
 
     kitchenHeader: {
