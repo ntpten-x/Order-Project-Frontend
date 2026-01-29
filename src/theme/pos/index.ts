@@ -350,6 +350,25 @@ export const posPageStyles = {
         flexShrink: 0,
     } as CSSProperties,
 
+    statItem: {
+        display: 'flex',
+        alignItems: 'center',
+        gap: 6,
+    } as CSSProperties,
+
+    statDot: {
+        width: 8,
+        height: 8,
+        borderRadius: '50%',
+    } as CSSProperties,
+
+    statText: {
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: 500,
+        whiteSpace: 'nowrap' as CSSProperties['whiteSpace'],
+    } as CSSProperties,
+
     channelPageCard: {
         borderRadius: 16,
         border: 'none',

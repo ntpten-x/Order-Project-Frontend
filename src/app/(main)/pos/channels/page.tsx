@@ -10,13 +10,23 @@ import {
   useChannelStats,
   formatOrderCount
 } from "../../../../utils/channels/channelStats.utils";
+import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 
 const { Title, Text } = Typography;
 
 export default function ChannelSelectionPage() {
   const router = useRouter();
+  const { showLoading, hideLoading, isLoading } = useGlobalLoading();
   // Use the new hook for real-time stats (WebSocket driven)
-  const { stats, isLoading: loading } = useChannelStats();
+  const { stats, isLoading: statsLoading } = useChannelStats();
+
+  React.useEffect(() => {
+    if (statsLoading) {
+      showLoading();
+    } else {
+      hideLoading();
+    }
+  }, [statsLoading, showLoading, hideLoading]);
 
   const channels = [
     {
@@ -118,30 +128,26 @@ export default function ChannelSelectionPage() {
                       </Text>
 
                       {/* Statistics Badge */}
-                      {loading ? (
-                        <div style={posPageStyles.channelLoadingSkeleton} />
-                      ) : (
-                        <div
-                          className="channels-stats-badge-mobile"
-                          style={{
-                            ...posPageStyles.channelStatsBadge,
-                            background: hasOrders ? channel.colors.light : '#fafafa',
-                            color: hasOrders ? channel.colors.primary : '#8c8c8c',
-                            border: `1px solid ${hasOrders ? channel.colors.border : '#f0f0f0'}`,
-                          }}
-                        >
-                          {hasOrders && (
-                            <span
-                              className="pulse-animation"
-                              style={{
-                                ...posPageStyles.channelActiveIndicator,
-                                background: channel.colors.primary,
-                              }}
-                            />
-                          )}
-                          <span>{formatOrderCount(channel.count)}</span>
-                        </div>
-                      )}
+                      <div
+                        className="channels-stats-badge-mobile"
+                        style={{
+                          ...posPageStyles.channelStatsBadge,
+                          background: hasOrders ? channel.colors.light : '#fafafa',
+                          color: hasOrders ? channel.colors.primary : '#8c8c8c',
+                          border: `1px solid ${hasOrders ? channel.colors.border : '#f0f0f0'}`,
+                        }}
+                      >
+                        {hasOrders && (
+                          <span
+                            className="pulse-animation"
+                            style={{
+                              ...posPageStyles.channelActiveIndicator,
+                              background: channel.colors.primary,
+                            }}
+                          />
+                        )}
+                        <span>{formatOrderCount(channel.count)}</span>
+                      </div>
                     </div>
                   </div>
                 </Col>

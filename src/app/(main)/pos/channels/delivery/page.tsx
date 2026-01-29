@@ -8,10 +8,10 @@ import { useDelivery } from "../../../../../hooks/pos/useDelivery";
 import { ordersService } from "../../../../../services/pos/orders.service";
 import { SalesOrder, OrderStatus, OrderType } from "../../../../../types/api/pos/salesOrder";
 import { posPageStyles, channelColors, posColors, tableColors } from "@/theme/pos";
-import { dineInPageStyles } from "@/theme/pos/dine-in.theme";
 import { POSGlobalStyles } from "@/theme/pos/GlobalStyles";
 import { getOrderChannelStats, getOrderColorScheme, formatOrderStatus } from "@/utils/channels";
 import { getOrderNavigationPath } from "@/utils/orders";
+import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import 'dayjs/locale/th';
@@ -22,9 +22,9 @@ dayjs.locale('th');
 
 export default function DeliverySelectionPage() {
     const router = useRouter();
+    const { showLoading, hideLoading } = useGlobalLoading();
     const { deliveryProviders, isLoading: isLoadingProviders } = useDelivery();
     const [orders, setOrders] = useState<SalesOrder[]>([]);
-    const [isLoadingOrders, setIsLoadingOrders] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     
     const stats = useMemo(() => getOrderChannelStats(orders), [orders]);
@@ -33,22 +33,23 @@ export default function DeliverySelectionPage() {
     const [deliveryCode, setDeliveryCode] = useState("");
     const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
 
-    const fetchOrders = useCallback(async () => {
-        setIsLoadingOrders(true);
+    const fetchOrders = useCallback(async (isInitial = false) => {
+        if (isInitial) showLoading();
         try {
             const res = await ordersService.getAll(undefined, 1, 100, undefined, OrderType.Delivery);
             const activeOrders = res.data.filter(o => 
                 o.order_type === OrderType.Delivery &&
                 o.status !== OrderStatus.Paid && 
+                o.status !== OrderStatus.Completed &&
                 o.status !== OrderStatus.Cancelled
             );
             setOrders(activeOrders);
         } catch (error) {
             // Silent error
         } finally {
-            setIsLoadingOrders(false);
+            if (isInitial) hideLoading();
         }
-    }, []);
+    }, [showLoading, hideLoading]);
 
     const handleBack = () => {
         router.push('/pos/channels');
@@ -60,8 +61,8 @@ export default function DeliverySelectionPage() {
     };
 
     useEffect(() => {
-        fetchOrders();
-        const interval = setInterval(fetchOrders, 15000);
+        fetchOrders(true);
+        const interval = setInterval(() => fetchOrders(false), 15000);
         return () => clearInterval(interval);
     }, [fetchOrders]);
 
@@ -81,6 +82,7 @@ export default function DeliverySelectionPage() {
             return;
         }
         
+        showLoading("กำลังเข้าสู่หน้าออเดอร์...");
         // Navigate to buying page with params
         router.push(`/pos/channels/delivery/${selectedProviderId}?code=${encodeURIComponent(deliveryCode)}`);
     };
@@ -117,13 +119,13 @@ export default function DeliverySelectionPage() {
 
                         {/* Statistics Bar */}
                         <div style={posPageStyles.channelStatsBar} className="delivery-stats-bar-mobile">
-                            <div style={dineInPageStyles.statItem}>
-                                <span style={{ ...dineInPageStyles.statDot, background: '#fff' }} />
-                                <Text style={dineInPageStyles.statText}>ทั้งหมด {stats.total}</Text>
+                            <div style={posPageStyles.statItem}>
+                                <span style={{ ...posPageStyles.statDot, background: '#fff' }} />
+                                <Text style={posPageStyles.statText}>ทั้งหมด {stats.total}</Text>
                             </div>
-                            <div style={dineInPageStyles.statItem}>
-                                <span style={{ ...dineInPageStyles.statDot, background: tableColors.occupied.primary }} />
-                                <Text style={dineInPageStyles.statText}>กำลังปรุง {stats.cooking}</Text>
+                            <div style={posPageStyles.statItem}>
+                                <span style={{ ...posPageStyles.statDot, background: tableColors.occupied.primary }} />
+                                <Text style={posPageStyles.statText}>กำลังปรุง {stats.cooking}</Text>
                             </div>
                         </div>
                     </div>
@@ -151,12 +153,7 @@ export default function DeliverySelectionPage() {
                         </Button>
                     </div>
 
-                {isLoadingOrders && orders.length === 0 ? (
-                    <div style={{ textAlign: "center", padding: "80px", background: '#fff', borderRadius: 24, boxShadow: '0 4px 24px rgba(0,0,0,0.06)' }}>
-                        <Spin size="large" />
-                        <div style={{ marginTop: 16, color: '#8c8c8c' }}>กำลังดึงข้อมูลออเดอร์...</div>
-                    </div>
-                ) : orders.length > 0 ? (
+                {orders.length > 0 ? (
                     <Row gutter={[20, 20]}>
                         {orders.map((order, index) => {
                             const colorScheme = getOrderColorScheme(order);

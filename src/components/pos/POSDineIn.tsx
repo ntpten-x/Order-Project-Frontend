@@ -14,22 +14,23 @@ import { useNetwork } from "@/hooks/useNetwork";
 import { CreateSalesOrderDTO, OrderType, OrderStatus } from "@/types/api/pos/salesOrder";
 import { offlineQueueService } from "@/services/pos/offline.queue.service";
 import { getPostCreateOrderNavigationPath } from "@/utils/channels";
+import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 
 interface POSDineInProps {
     tableId: string;
 }
 
 export default function POSDineIn({ tableId }: POSDineInProps) {
+    const { showLoading, hideLoading } = useGlobalLoading();
     const [csrfToken, setCsrfToken] = useState<string>("");
     const [tableName, setTableName] = useState<string>("");
-    const [isLoading, setIsLoading] = useState<boolean>(true);
     const router = useRouter(); 
     const { user } = useAuth();
     const isOnline = useNetwork();
 
     useEffect(() => {
         const initData = async () => {
-            setIsLoading(true);
+            showLoading();
             try {
                 // Fetch CSRF and Table details in parallel
                 const [token, table] = await Promise.all([
@@ -42,7 +43,7 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
             } catch (error) {
                 message.error("ไม่สามารถโหลดข้อมูลโต๊ะได้");
             } finally {
-                setIsLoading(false);
+                hideLoading();
             }
         };
         
@@ -70,6 +71,7 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
     }, [tableId, setOrderMode, setReferenceId, setReferenceCode]);
 
     const handleCreateOrder = async () => {
+        showLoading();
         try {
             const orderPayload: CreateSalesOrderDTO = {
                 order_no: `ORD-${Date.now()}`,
@@ -126,24 +128,11 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
             
         } catch (error) {
             message.error(error instanceof Error ? error.message : "ไม่สามารถทำรายการได้");
-            throw error; 
+        } finally {
+            hideLoading();
         }
     };
 
-    if (isLoading) {
-        return (
-            <div style={{ 
-                height: '100vh', 
-                display: 'flex', 
-                flexDirection: 'column',
-                justifyContent: 'center', 
-                alignItems: 'center',
-                background: '#f0f2f5'
-            }}>
-                <Spin size="large" />
-            </div>
-        );
-    }
 
     return (
         <POSPageLayout 

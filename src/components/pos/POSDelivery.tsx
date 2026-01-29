@@ -10,6 +10,7 @@ import { ordersService } from "../../services/pos/orders.service";
 import { createOrderPayload } from "../../utils/orders";
 import { getPostCreateOrderNavigationPath } from "../../utils/channels";
 import { OrderType } from "../../types/api/pos/salesOrder";
+import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 import POSPageLayout from "./shared/POSPageLayout";
 
 interface POSDeliveryProps {
@@ -18,13 +19,16 @@ interface POSDeliveryProps {
 }
 
 export default function POSDelivery({ providerId, deliveryCode }: POSDeliveryProps) {
+    const { showLoading, hideLoading } = useGlobalLoading();
     const [csrfToken, setCsrfToken] = useState<string>("");
     const router = useRouter(); 
 
     useEffect(() => {
         const init = async () => {
+             showLoading();
              const token = await authService.getCsrfToken();
              if (token) setCsrfToken(token);
+             hideLoading();
         };
         init();
     }, []);
@@ -48,6 +52,7 @@ export default function POSDelivery({ providerId, deliveryCode }: POSDeliveryPro
     }, [providerId, deliveryCode, setOrderMode, setReferenceId, setReferenceCode]);
 
     const handleCreateOrder = async () => {
+        showLoading();
         try {
             const orderPayload = createOrderPayload(
                 cartItems,
@@ -74,7 +79,8 @@ export default function POSDelivery({ providerId, deliveryCode }: POSDeliveryPro
             
         } catch (error) {
             message.error(error instanceof Error ? error.message : "ไม่สามารถทำรายการได้");
-            throw error;
+        } finally {
+            hideLoading();
         }
     };
 

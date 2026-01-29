@@ -89,6 +89,7 @@ export function formatOrderStatus(status?: string): string {
         'WaitingForOrder': 'รอรับออเดอร์',
         'WaitingForPayment': 'รอชำระเงิน',
         'Paid': 'ชำระเงินแล้ว',
+        'Completed': 'เสร็จสมบูรณ์',
         'Cancelled': 'ยกเลิก',
     };
 

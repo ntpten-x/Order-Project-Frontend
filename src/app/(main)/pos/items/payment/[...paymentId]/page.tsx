@@ -308,6 +308,10 @@ export default function POSPaymentPage() {
     const handleBack = () => {
         if (order?.order_type === OrderType.DineIn) {
             router.push('/pos/channels/dine-in');
+        } else if (order?.order_type === OrderType.TakeAway) {
+            router.push('/pos/channels/takeaway');
+        } else if (order?.order_type === OrderType.Delivery) {
+            router.push('/pos/channels/delivery');
         } else {
             router.back();
         }

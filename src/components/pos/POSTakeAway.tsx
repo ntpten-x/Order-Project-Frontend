@@ -10,6 +10,7 @@ import { ordersService } from "../../services/pos/orders.service";
 import { createOrderPayload } from "../../utils/orders";
 import { getPostCreateOrderNavigationPath } from "../../utils/channels";
 import { OrderType } from "../../types/api/pos/salesOrder";
+import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 import POSPageLayout from "./shared/POSPageLayout";
 
 interface POSTakeAwayProps {
@@ -17,13 +18,16 @@ interface POSTakeAwayProps {
 }
 
 export default function POSTakeAway({ queueNumber }: POSTakeAwayProps) {
+    const { showLoading, hideLoading } = useGlobalLoading();
     const [csrfToken, setCsrfToken] = useState<string>("");
     const router = useRouter(); 
 
     useEffect(() => {
         const init = async () => {
+             showLoading();
              const token = await authService.getCsrfToken();
              if (token) setCsrfToken(token);
+             hideLoading();
         };
         init();
     }, []);
@@ -47,6 +51,7 @@ export default function POSTakeAway({ queueNumber }: POSTakeAwayProps) {
     }, [queueNumber, setOrderMode, setReferenceId, setReferenceCode]);
 
     const handleCreateOrder = async () => {
+        showLoading();
         try {
             const orderPayload = createOrderPayload(
                 cartItems,
@@ -72,7 +77,8 @@ export default function POSTakeAway({ queueNumber }: POSTakeAwayProps) {
             
         } catch (error) {
             message.error(error instanceof Error ? error.message : "ไม่สามารถทำรายการได้");
-            throw error;
+        } finally {
+            hideLoading();
         }
     };
 

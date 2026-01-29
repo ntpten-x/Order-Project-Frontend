@@ -11,12 +11,10 @@ import {
   StopOutlined,
 } from "@ant-design/icons";
 import { useTables } from "@/hooks/pos/useTables";
-import {
-  dineInPageStyles,
-} from "@/theme/pos/dine-in.theme";
 import { posPageStyles, tableColors, channelColors } from "@/theme/pos";
 import { POSGlobalStyles } from "@/theme/pos/GlobalStyles";
 import { getTableNavigationPath } from "@/utils/orders";
+import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 import {
     getTableStats,
     sortTables,
@@ -29,7 +27,17 @@ const { Title, Text } = Typography;
 
 export default function DineInTableSelectionPage() {
   const router = useRouter();
+  const { showLoading, hideLoading } = useGlobalLoading();
   const { tables, isLoading } = useTables();
+  
+  // Use global loading for initial tables fetch
+  React.useEffect(() => {
+    if (isLoading) {
+      showLoading();
+    } else {
+      hideLoading();
+    }
+  }, [isLoading, showLoading, hideLoading]);
 
   // Calculate statistics and sort tables
   const stats = useMemo(() => getTableStats(tables), [tables]);
@@ -39,16 +47,16 @@ export default function DineInTableSelectionPage() {
   return (
     <>
       <POSGlobalStyles />
-      <div style={dineInPageStyles.container}>
+      <div style={posPageStyles.container}>
         {/* Header Section */}
-        <div style={dineInPageStyles.header} className="dine-in-header-mobile">
+        <div style={{ ...posPageStyles.channelHeader, background: channelColors.dineIn.gradient }} className="dine-in-header-mobile">
           <div className="header-pattern"></div>
 
-          <div style={dineInPageStyles.headerContent} className="dine-in-header-content-mobile">
+          <div style={posPageStyles.channelHeaderContent} className="dine-in-header-content-mobile">
             {/* Back Button */}
             <div
               className="back-button-hover dine-in-back-button-mobile"
-              style={dineInPageStyles.backButton}
+              style={posPageStyles.channelBackButton}
               onClick={() => router.push("/pos/channels")}
             >
               <ArrowLeftOutlined />
@@ -56,37 +64,37 @@ export default function DineInTableSelectionPage() {
             </div>
 
             {/* Title Section */}
-            <div style={dineInPageStyles.titleSection} className="dine-in-title-section-mobile">
-              <ShopOutlined style={dineInPageStyles.headerIcon} className="dine-in-header-icon-mobile" />
+            <div style={posPageStyles.channelTitleSection} className="dine-in-title-section-mobile">
+              <ShopOutlined style={posPageStyles.channelHeaderIcon} className="dine-in-header-icon-mobile" />
               <div>
-                <Title level={3} style={dineInPageStyles.headerTitle} className="dine-in-header-title-mobile">
+                <Title level={3} style={posPageStyles.channelHeaderTitle} className="dine-in-header-title-mobile">
                   เลือกโต๊ะ
                 </Title>
-                <Text style={dineInPageStyles.headerSubtitle}>Dine In</Text>
+                <Text style={posPageStyles.channelHeaderSubtitle}>Dine In</Text>
               </div>
             </div>
 
             {/* Statistics Bar */}
-            <div style={dineInPageStyles.statsBar} className="dine-in-stats-bar-mobile">
-              <div style={dineInPageStyles.statItem}>
+            <div style={posPageStyles.channelStatsBar} className="dine-in-stats-bar-mobile">
+              <div style={posPageStyles.statItem}>
                 <span
                   style={{
-                    ...dineInPageStyles.statDot,
+                    ...posPageStyles.statDot,
                     background: tableColors.available.primary,
                   }}
                 />
-                <Text style={dineInPageStyles.statText}>
+                <Text style={posPageStyles.statText}>
                   ว่าง {stats.available}
                 </Text>
               </div>
-              <div style={dineInPageStyles.statItem}>
+              <div style={posPageStyles.statItem}>
                 <span
                   style={{
-                    ...dineInPageStyles.statDot,
+                    ...posPageStyles.statDot,
                     background: tableColors.occupied.primary,
                   }}
                 />
-                <Text style={dineInPageStyles.statText}>
+                <Text style={posPageStyles.statText}>
                   ไม่ว่าง {stats.occupied}
                 </Text>
               </div>
@@ -95,15 +103,8 @@ export default function DineInTableSelectionPage() {
         </div>
 
         {/* Content Section */}
-        <div style={dineInPageStyles.contentContainer} className="dine-in-content-mobile">
-          {isLoading ? (
-            <div style={dineInPageStyles.loadingContainer}>
-              <Spin size="large" />
-              <div style={{ marginTop: 16 }}>
-                <Text type="secondary">กำลังโหลดข้อมูลโต๊ะ...</Text>
-              </div>
-            </div>
-          ) : sortedTables.length > 0 ? (
+        <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 16px 24px' }} className="dine-in-content-mobile">
+          {tables.length > 0 ? (
             <Row gutter={[20, 20]}>
               {sortedTables.map((table, index) => {
                 const colorScheme = getTableColorScheme(table);
@@ -118,7 +119,7 @@ export default function DineInTableSelectionPage() {
                         (index % 6) + 1
                       }`}
                       style={{
-                        ...dineInPageStyles.tableCard,
+                        ...posPageStyles.channelPageCard,
                         background: colors.light,
                         border: `2px solid ${colors.border}`,
                         opacity: isInactive ? 0.6 : 1,
@@ -133,19 +134,19 @@ export default function DineInTableSelectionPage() {
                       {/* Gradient Overlay */}
                       <div
                         style={{
-                          ...dineInPageStyles.cardGradientOverlay,
+                          ...posPageStyles.channelPageCardGradientOverlay,
                           background: colors.gradient,
                         }}
                       />
 
                         {/* Card Content */}
-                        <div style={dineInPageStyles.tableCardInner}>
+                        <div style={posPageStyles.channelPageCardInner}>
                           {/* Icon logic based on specific status */}
                           {isInactive ? (
                             <StopOutlined
                               className="dine-in-table-icon-mobile"
                               style={{
-                                ...dineInPageStyles.tableIcon,
+                                ...posPageStyles.channelPageCardIcon,
                                 color: colors.primary,
                               }}
                             />
@@ -153,7 +154,7 @@ export default function DineInTableSelectionPage() {
                             <ShopOutlined
                               className="dine-in-table-icon-mobile"
                               style={{
-                                ...dineInPageStyles.tableIcon,
+                                ...posPageStyles.channelPageCardIcon,
                                 color: colors.primary,
                                 opacity: 0.6
                               }}
@@ -162,14 +163,14 @@ export default function DineInTableSelectionPage() {
                             <CloseCircleOutlined
                               className="pulse-soft dine-in-table-icon-mobile"
                               style={{
-                                ...dineInPageStyles.tableIcon,
+                                ...posPageStyles.channelPageCardIcon,
                                 color: colors.primary,
                               }}
                             />
                           )}
 
                           {/* Table Name */}
-                          <div style={dineInPageStyles.tableName} className="dine-in-table-name-mobile">
+                          <div style={posPageStyles.channelPageCardMainText} className="dine-in-table-name-mobile">
                             {table.table_name}
                           </div>
 
@@ -193,7 +194,7 @@ export default function DineInTableSelectionPage() {
                             {/* Tier 2: Specific order status badge */}
                             <div
                               style={{
-                                ...dineInPageStyles.statusBadge,
+                                ...posPageStyles.channelPageCardStatusBadge,
                                 background: isInactive ? "#bfbfbf" : isAvailable ? "#f0f0f0" : colors.primary,
                                 color: isInactive ? "#fff" : isAvailable ? "#8c8c8c" : "#fff",
                                 border: isAvailable ? "1px solid #d9d9d9" : "none",
@@ -219,7 +220,13 @@ export default function DineInTableSelectionPage() {
               })}
             </Row>
           ) : (
-            <div style={dineInPageStyles.emptyState}>
+            <div style={{ 
+                background: '#fff', 
+                borderRadius: 24, 
+                padding: '80px 24px', 
+                textAlign: 'center',
+                boxShadow: '0 4px 24px rgba(0,0,0,0.06)' 
+            }}>
               <Empty description="ไม่พบข้อมูลโต๊ะ" />
             </div>
           )}
