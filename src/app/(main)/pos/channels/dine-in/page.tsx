@@ -13,8 +13,8 @@ import {
 import { useTables } from "@/hooks/pos/useTables";
 import {
   dineInPageStyles,
-  tableColors,
 } from "@/theme/pos/dine-in.theme";
+import { posPageStyles, tableColors, channelColors } from "@/theme/pos";
 import { POSGlobalStyles } from "@/theme/pos/GlobalStyles";
 import { getTableNavigationPath } from "@/utils/orders";
 import {

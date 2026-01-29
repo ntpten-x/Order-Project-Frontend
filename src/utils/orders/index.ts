@@ -249,6 +249,18 @@ export const getEditOrderNavigationPath = (orderId: string): string => {
 };
 
 /**
+ * Get navigation path for an order based on its status.
+ * @param order - The order object
+ * @returns The target navigation path
+ */
+export const getOrderNavigationPath = (order: SalesOrder): string => {
+    if (order.status === OrderStatus.WaitingForPayment) {
+        return `/pos/items/${order.id}`;
+    }
+    return `/pos/orders/${order.id}`;
+};
+
+/**
  * Get navigation path after an order is cancelled
  * @param orderType - The type of order that was cancelled
  * @returns The target navigation path

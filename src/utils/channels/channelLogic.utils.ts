@@ -1,4 +1,5 @@
 import { Tables, TableStatus } from "@/types/api/pos/tables";
+import { SalesOrder, OrderStatus } from "@/types/api/pos/salesOrder";
 
 /**
  * Table statistics and grouping
@@ -92,4 +93,45 @@ export function formatOrderStatus(status?: string): string {
     };
 
     return statusMap[status] || status;
+}
+
+/**
+ * Order statistics for non-dine-in channels
+ */
+export interface OrderChannelStats {
+    total: number;
+    pending: number;
+    cooking: number;
+    served: number;
+}
+
+/**
+ * Get statistics from order list
+ */
+export function getOrderChannelStats(orders: SalesOrder[]): OrderChannelStats {
+    return orders.reduce((acc, order) => {
+        acc.total++;
+        if (order.status === OrderStatus.Pending) acc.pending++;
+        if (order.status === OrderStatus.Cooking) acc.cooking++;
+        if (order.status === OrderStatus.Served) acc.served++;
+        return acc;
+    }, { total: 0, pending: 0, cooking: 0, served: 0 });
+}
+
+/**
+ * Get order color scheme based on status
+ */
+export function getOrderColorScheme(order: SalesOrder) {
+    switch (order.status) {
+        case OrderStatus.Pending:
+            return 'occupied'; // Orange/Active
+        case OrderStatus.Cooking:
+            return 'occupied'; // Keep it active
+        case OrderStatus.Served:
+            return 'waitingForPayment'; // Blue/Ready
+        case OrderStatus.Paid:
+            return 'available'; // Green/Done
+        default:
+            return 'inactive';
+    }
 }
