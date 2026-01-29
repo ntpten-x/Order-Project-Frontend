@@ -37,6 +37,7 @@ import {
   getOrderChannelColor,
   getOrderChannelText,
   getServeActionText,
+  getConfirmServeActionText,
   getServedStatusText
 } from "@/utils/orders"; 
 import dayjs from "dayjs";
@@ -333,11 +334,12 @@ export default function POSOrderDetailsPage() {
     };
 
     const handleConfirmServe = async () => {
+        const isDelivery = order?.order_type === OrderType.Delivery;
         setConfirmConfig({
             open: true,
             type: 'success',
-            title: `ยืนยันการ${getServeActionText(order?.order_type)}ทั้งหมด`,
-            content: 'รายการทั้งหมดเสร็จสิ้นแล้ว ต้องการเข้าสู่ขั้นตอนการชำระเงินหรือไม่?',
+            title: isDelivery ? 'ยืนยันจัดออเดอร์เสร็จสิ้น' : `ยืนยันการ${getServeActionText(order?.order_type)}ทั้งหมด`,
+            content: isDelivery ? 'จัดเตรียมอาหารเรียบร้อยแล้ว ต้องการส่งมอบให้ไรเดอร์หรือไม่?' : 'รายการทั้งหมดเสร็จสิ้นแล้ว ต้องการเข้าสู่ขั้นตอนการชำระเงินหรือไม่?',
             okText: 'ยืนยัน',
             cancelText: 'ยกเลิก',
             onOk: async () => {
@@ -680,6 +682,11 @@ export default function POSOrderDetailsPage() {
                             {order.order_type === OrderType.DineIn && order.table && (
                                 <Tag style={orderDetailStyles.tableNameBadge}>
                                     โต๊ะ {order.table.table_name}
+                                </Tag>
+                            )}
+                            {order.order_type === OrderType.Delivery && order.delivery_code && (
+                                <Tag style={orderDetailStyles.tableNameBadge}>
+                                    รหัสออเดอร์ : {order.delivery_code}
                                 </Tag>
                             )}
                         </div>
@@ -1129,7 +1136,7 @@ export default function POSOrderDetailsPage() {
                                     onClick={handleConfirmServe}
                                     style={{ marginTop: 24, height: 52, borderRadius: 14, fontWeight: 700, fontSize: 16 }}
                                 >
-                                    ยืนยัน{getServeActionText(order.order_type)}พร้อมชำระเงิน
+                                    {getConfirmServeActionText(order.order_type)}
                                 </Button>
                             )}
                             

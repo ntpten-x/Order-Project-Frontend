@@ -5,6 +5,9 @@ export interface SalesSummary {
     total_discount: number;
     cash_sales: number;
     qr_sales: number;
+    dine_in_sales: number;
+    takeaway_sales: number;
+    delivery_sales: number;
 }
 
 export interface TopItem {

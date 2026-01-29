@@ -33,7 +33,7 @@ export const getTableNavigationPath = (table: Tables): string => {
     if (activeOrderId) {
         // If Waiting For Payment -> Go to Payment Page
         if (activeOrderStatus === OrderStatus.WaitingForPayment) {
-            return `/pos/items/${activeOrderId}`;
+            return `/pos/items/payment/${activeOrderId}`;
         }
 
         // Other statuses (Pending, Cooking, Served) -> Go to Order Detail Page
@@ -149,6 +149,12 @@ export const getServeActionText = (type?: string): string => {
     return 'ทำแล้ว';
 };
 
+export const getConfirmServeActionText = (type?: string): string => {
+    if (type === 'Delivery') return 'จัดออเดอร์เสร็จแล้วพร้อมส่งให้ไรเดอร์';
+    if (type === 'DineIn') return 'ยืนยันเสิร์ฟพร้อมชำระเงิน';
+    return 'ยืนยันทำแล้วพร้อมชำระเงิน';
+};
+
 export const getServedStatusText = (type?: string): string => {
     if (type === 'DineIn') return 'เสิร์ฟอาหารแล้ว';
     return 'ปรุงเสร็จแล้ว';
@@ -224,10 +230,12 @@ export const sortOrdersByQuantity = <T extends { items?: OrderItemLike[] }>(orde
  * @returns The target navigation path
  */
 export const getPostConfirmServeNavigationPath = (order: OrderLike | SalesOrder): string => {
-    // Both DineIn and Others -> Go to Payment page for that specific order
     const orderId = (order as any).id;
     if (orderId) {
-        return `/pos/items/${orderId}`;
+        if (order.order_type === 'Delivery') {
+            return `/pos/items/delivery/${orderId}`;
+        }
+        return `/pos/items/payment/${orderId}`;
     }
 
     // Fallback to orders list
@@ -255,7 +263,10 @@ export const getEditOrderNavigationPath = (orderId: string): string => {
  */
 export const getOrderNavigationPath = (order: SalesOrder): string => {
     if (order.status === OrderStatus.WaitingForPayment) {
-        return `/pos/items/${order.id}`;
+        if (order.order_type === OrderType.Delivery) {
+            return `/pos/items/delivery/${order.id}`;
+        }
+        return `/pos/items/payment/${order.id}`;
     }
     return `/pos/orders/${order.id}`;
 };

@@ -90,6 +90,9 @@ export default function DashboardPage() {
     const totalSales = salesData.reduce((acc, curr) => acc + Number(curr.total_sales), 0);
     const totalOrders = salesData.reduce((acc, curr) => acc + Number(curr.total_orders), 0);
     const totalDiscount = salesData.reduce((acc, curr) => acc + Number(curr.total_discount), 0);
+    const totalDeliverySales = salesData.reduce((acc, curr) => acc + Number(curr.delivery_sales || 0), 0);
+    const totalDineInSales = salesData.reduce((acc, curr) => acc + Number(curr.dine_in_sales || 0), 0);
+    const totalTakeAwaySales = salesData.reduce((acc, curr) => acc + Number(curr.takeaway_sales || 0), 0);
 
     const topItemsColumns = [
         {
@@ -234,6 +237,46 @@ export default function DashboardPage() {
                     </Col>
                 </Row>
 
+                {/* Channel Specific Stats */}
+                <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
+                    <Col xs={24} sm={8}>
+                        <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                            <Statistic 
+                                title="ยอดขายทานที่ร้าน" 
+                                value={totalDineInSales} 
+                                precision={2}
+                                prefix={<DollarCircleOutlined style={{ color: '#1890ff' }} />} 
+                                suffix="฿"
+                                valueStyle={{ color: '#1890ff', fontWeight: 'bold' }}
+                            />
+                        </Card>
+                    </Col>
+                    <Col xs={24} sm={8}>
+                        <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                             <Statistic 
+                                title="ยอดขายกลับบ้าน" 
+                                value={totalTakeAwaySales} 
+                                precision={2}
+                                prefix={<ShoppingOutlined style={{ color: '#52c41a' }} />} 
+                                suffix="฿"
+                                valueStyle={{ color: '#52c41a', fontWeight: 'bold' }}
+                            />
+                        </Card>
+                    </Col>
+                    <Col xs={24} sm={8}>
+                        <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+                             <Statistic 
+                                title="ยอดขายเดลิเวอรี่" 
+                                value={totalDeliverySales} 
+                                precision={2}
+                                prefix={<RiseOutlined style={{ color: '#eb2f96' }} />} 
+                                suffix="฿"
+                                valueStyle={{ color: '#eb2f96', fontWeight: 'bold' }}
+                            />
+                        </Card>
+                    </Col>
+                </Row>
+
                 <Row gutter={[24, 24]}>
                     <Col xs={24} lg={16}>
                         <Card title="รายการยอดขายรายวัน" bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
@@ -245,9 +288,9 @@ export default function DashboardPage() {
                                 columns={[
                                     { title: 'วันที่', dataIndex: 'date', render: (date) => dayjs(date).format('DD MMM YYYY') },
                                     { title: 'ออเดอร์', dataIndex: 'total_orders', align: 'center' },
-                                    { title: 'ยอดขาย', dataIndex: 'total_sales', align: 'right', render: val => `฿${Number(val).toLocaleString()}` },
+                                    { title: 'ยอดขาย', dataIndex: 'total_sales', align: 'right', render: val => <strong>฿{Number(val).toLocaleString()}</strong> },
                                     { title: 'เงินสด', dataIndex: 'cash_sales', align: 'right', render: val => `฿${Number(val).toLocaleString()}` },
-                                    { title: 'QR', dataIndex: 'qr_sales', align: 'right', render: val => `฿${Number(val).toLocaleString()}` },
+                                    { title: 'เดลิเวอรี่', dataIndex: 'delivery_sales', align: 'right', render: val => <span style={{ color: '#eb2f96' }}>฿{Number(val || 0).toLocaleString()}</span> },
                                 ]}
                             />
                         </Card>

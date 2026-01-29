@@ -26,6 +26,9 @@ export interface SalesSummaryExport {
     total_sales: number;
     cash_sales: number;
     qr_sales: number;
+    dine_in_sales: number;
+    takeaway_sales: number;
+    delivery_sales: number;
     total_discount: number;
 }
 
@@ -75,6 +78,7 @@ export const exportSalesReportPDF = (
     const totalSales = salesData.reduce((acc, curr) => acc + Number(curr.total_sales), 0);
     const totalOrders = salesData.reduce((acc, curr) => acc + Number(curr.total_orders), 0);
     const totalDiscount = salesData.reduce((acc, curr) => acc + Number(curr.total_discount), 0);
+    const totalDeliverySales = salesData.reduce((acc, curr) => acc + Number(curr.delivery_sales || 0), 0);
 
     doc.setFontSize(12);
     doc.text('สรุปยอดรวม', 14, 55);
@@ -82,18 +86,19 @@ export const exportSalesReportPDF = (
     doc.setFontSize(10);
     doc.text(`ยอดขายรวม: ${totalSales.toLocaleString()} บาท`, 14, 63);
     doc.text(`จำนวนออเดอร์: ${totalOrders.toLocaleString()} รายการ`, 14, 70);
-    doc.text(`ส่วนลดรวม: ${totalDiscount.toLocaleString()} บาท`, 14, 77);
+    doc.text(`ยอดขายเดลิเวอรี่: ${totalDeliverySales.toLocaleString()} บาท`, 14, 77);
+    doc.text(`ส่วนลดรวม: ${totalDiscount.toLocaleString()} บาท`, 14, 84);
 
     // Sales Table
     autoTable(doc, {
-        startY: 85,
-        head: [['วันที่', 'ออเดอร์', 'ยอดขาย', 'เงินสด', 'QR', 'ส่วนลด']],
+        startY: 92,
+        head: [['วันที่', 'ออเดอร์', 'ยอดขาย', 'เงินสด', 'เดลิเวอรี่', 'ส่วนลด']],
         body: salesData.map(row => [
             dayjs(row.date).format('DD/MM/YYYY'),
             row.total_orders.toString(),
             `${Number(row.total_sales).toLocaleString()}`,
             `${Number(row.cash_sales).toLocaleString()}`,
-            `${Number(row.qr_sales).toLocaleString()}`,
+            `${Number(row.delivery_sales || 0).toLocaleString()}`,
             `${Number(row.total_discount).toLocaleString()}`
         ]),
         theme: 'grid',
@@ -134,13 +139,14 @@ export const exportSalesReportExcel = (
     const workbook = XLSX.utils.book_new();
 
     // Sales Summary Sheet
-    const salesHeader = ['วันที่', 'จำนวนออเดอร์', 'ยอดขายรวม', 'เงินสด', 'QR', 'ส่วนลด'];
+    const salesHeader = ['วันที่', 'จำนวนออเดอร์', 'ยอดขายรวม', 'เงินสด', 'QR', 'เดลิเวอรี่', 'ส่วนลด'];
     const salesRows = salesData.map(row => [
         dayjs(row.date).format('DD/MM/YYYY'),
         row.total_orders,
         Number(row.total_sales),
         Number(row.cash_sales),
         Number(row.qr_sales),
+        Number(row.delivery_sales || 0),
         Number(row.total_discount)
     ]);
 
@@ -164,6 +170,8 @@ export const exportSalesReportExcel = (
     const totalOrders = salesData.reduce((acc, curr) => acc + Number(curr.total_orders), 0);
     const totalDiscount = salesData.reduce((acc, curr) => acc + Number(curr.total_discount), 0);
 
+    const totalDelivery = salesData.reduce((acc, curr) => acc + Number(curr.delivery_sales || 0), 0);
+
     const summaryData = [
         ['รายงานยอดขาย'],
         [`ช่วงวันที่: ${dateRange[0]} - ${dateRange[1]}`],
@@ -171,6 +179,7 @@ export const exportSalesReportExcel = (
         ['รายการ', 'ยอดรวม'],
         ['ยอดขายรวม', totalSales],
         ['จำนวนออเดอร์', totalOrders],
+        ['ยอดขายเดลิเวอรี่', totalDelivery],
         ['ส่วนลดรวม', totalDiscount]
     ];
 

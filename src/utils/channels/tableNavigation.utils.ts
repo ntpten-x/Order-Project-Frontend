@@ -16,7 +16,7 @@ export const getTableLink = (table: Tables): string => {
 
     // 1. Waiting for Payment
     if (table.active_order_status === 'WaitingForPayment' && table.active_order_id) {
-        return `/pos/items/${table.active_order_id}`;
+        return `/pos/items/payment/${table.active_order_id}`;
     }
 
     // 2. Active Order (Pending, Cooking, Served) AND Table is not Available

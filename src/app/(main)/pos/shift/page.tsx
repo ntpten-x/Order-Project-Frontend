@@ -124,7 +124,7 @@ export default function ShiftPage() {
                                 <Statistic title="กำไรสุทธิ" value={Number(summaryData.summary.net_profit)} prefix="฿" valueStyle={{ color: '#52c41a' }} />
                             </Col>
                             <Col span={12}>
-                                <Statistic title="เงินที่ควรมี" value={Number(summaryData.shift_info.expected_amount)} prefix="฿" />
+                                <Statistic title="เงินที่ควรมี (ทั้งหมดในเซฟ)" value={Number(summaryData.shift_info.start_amount) + Number(summaryData.summary.payment_methods?.['เงินสด'] || 0)} prefix="฿" valueStyle={{ color: '#1890ff' }} />
                             </Col>
                             <Col span={12}>
                                 <Statistic 
@@ -144,6 +144,42 @@ export default function ShiftPage() {
                                     }
                                 />
                             </Col>
+                            
+                            <Col span={24}>
+                                <Divider style={{ margin: '8px 0' }} />
+                                <Text strong style={{ display: 'block', marginBottom: 8 }}>ยอดขายแยกตามวิธีชำระเงิน</Text>
+                                <Row gutter={16}>
+                                    {Object.entries(summaryData.summary.payment_methods || {}).map(([method, amount]: [string, any]) => (
+                                        <Col span={8} key={method}>
+                                            <Statistic 
+                                                title={method} 
+                                                value={Number(amount)} 
+                                                prefix="฿" 
+                                                valueStyle={{ 
+                                                    fontSize: 16,
+                                                    color: method === 'เงินสด' ? '#1890ff' : (method === 'พร้อมเพย์' ? '#722ed1' : '#eb2f96')
+                                                }} 
+                                            />
+                                        </Col>
+                                    ))}
+                                </Row>
+
+                                <Divider style={{ margin: '8px 0' }} />
+                                <Text strong style={{ display: 'block', marginBottom: 8 }}>ยอดขายแยกตามช่องทาง</Text>
+                                <Row gutter={16}>
+                                    <Col span={8}>
+                                        <Statistic title="ทานที่ร้าน" value={Number(summaryData.summary.order_types?.DineIn || 0)} prefix="฿" valueStyle={{ fontSize: 16 }} />
+                                    </Col>
+                                    <Col span={8}>
+                                        <Statistic title="กลับบ้าน" value={Number(summaryData.summary.order_types?.TakeAway || 0)} prefix="฿" valueStyle={{ fontSize: 16 }} />
+                                    </Col>
+                                    <Col span={8}>
+                                        <Statistic title="เดลิเวอรี่" value={Number(summaryData.summary.order_types?.Delivery || 0)} prefix="฿" valueStyle={{ fontSize: 16, color: '#eb2f96' }} />
+                                    </Col>
+                                </Row>
+                                <Divider style={{ margin: '8px 0' }} />
+                            </Col>
+
                             <Col span={24}>
                                 <Divider />
                                 <Statistic 
@@ -293,19 +329,69 @@ export default function ShiftPage() {
                                             />
                                         </Col>
 
+                                        <Col xs={24} sm={12} md={8}>
+                                            <Statistic 
+                                                title="เงินสดที่ต้องมีในเซฟ" 
+                                                value={Number(summary.shift_info.start_amount) + Number(summary.summary.payment_methods?.['เงินสด'] || 0)} 
+                                                prefix={<CheckCircleOutlined style={{ color: '#1890ff' }} />}
+                                                suffix="฿"
+                                                precision={2}
+                                                valueStyle={{ color: '#439d0bff' }}
+                                            />
+                                        </Col>
+
                                         {/* Payment Methods at Top */}
-                                        {Object.entries(summary.summary.payment_methods || {}).map(([method, amount]: [string, any]) => (
-                                            <Col xs={24} sm={12} md={8} key={method}>
-                                                <Statistic 
-                                                    title={`ยอดขาย (${method})`}
-                                                    value={Number(amount)} 
-                                                    precision={2} 
-                                                    prefix="฿" 
-                                                    valueStyle={{ color: method === 'เงินสด' ? '#1890ff' : '#eb2f96' }}
-                                                />
-                                            </Col>
-                                        ))}
+                                        {Object.entries(summary.summary.payment_methods || {}).map(([method, amount]: [string, any]) => {
+                                            const getMethodColor = (name: string) => {
+                                                if (name === 'เงินสด') return '#1890ff';
+                                                if (name === 'พร้อมเพย์') return '#722ed1';
+                                                if (name === 'เดลิเวอรี่') return '#eb2f96';
+                                                return '#eb2f96';
+                                            };
+                                            
+                                            return (
+                                                <Col xs={24} sm={12} md={8} key={method}>
+                                                    <Statistic 
+                                                        title={`ยอดขาย (${method})`}
+                                                        value={Number(amount)} 
+                                                        precision={2} 
+                                                        prefix="฿" 
+                                                        valueStyle={{ color: getMethodColor(method) }}
+                                                    />
+                                                </Col>
+                                            );
+                                        })}
                                         
+                                        <Col span={24}>
+                                            <Divider plain titlePlacement="left">ยอดขายตามช่องทาง (Sales by Channel)</Divider>
+                                            <Row gutter={[16, 16]}>
+                                                <Col xs={8}>
+                                                    <Statistic 
+                                                        title="ทานที่ร้าน" 
+                                                        value={Number(summary.summary.order_types?.DineIn || 0)} 
+                                                        precision={2} 
+                                                        prefix="฿" 
+                                                    />
+                                                </Col>
+                                                <Col xs={8}>
+                                                    <Statistic 
+                                                        title="กลับบ้าน" 
+                                                        value={Number(summary.summary.order_types?.TakeAway || 0)} 
+                                                        precision={2} 
+                                                        prefix="฿" 
+                                                    />
+                                                </Col>
+                                                <Col xs={8}>
+                                                    <Statistic 
+                                                        title="เดลิเวอรี่" 
+                                                        value={Number(summary.summary.order_types?.Delivery || 0)} 
+                                                        precision={2} 
+                                                        prefix="฿" 
+                                                        valueStyle={{ color: '#eb2f96' }}
+                                                    />
+                                                </Col>
+                                            </Row>
+                                        </Col>
                                         
                                         <Col span={24}>
                                             <Divider plain titlePlacement="left">สินค้าขายดี 5 อันดับแรก (Top 5 Items)</Divider>
@@ -435,6 +521,21 @@ export default function ShiftPage() {
                                     <Text strong>฿{Number(amount).toLocaleString()}</Text>
                                 </div>
                             ))}
+
+                            <Divider style={{ margin: '8px 0' }} />
+                            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 8 }}>รายละเอียดตามช่องทาง:</Text>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                <Text>ทานที่ร้าน:</Text>
+                                <Text strong>฿{Number(summary.summary.order_types?.DineIn || 0).toLocaleString()}</Text>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                <Text>กลับบ้าน:</Text>
+                                <Text strong>฿{Number(summary.summary.order_types?.TakeAway || 0).toLocaleString()}</Text>
+                            </div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                                <Text>เดลิเวอรี่:</Text>
+                                <Text strong style={{ color: '#eb2f96' }}>฿{Number(summary.summary.order_types?.Delivery || 0).toLocaleString()}</Text>
+                            </div>
 
                             <Divider style={{ margin: '12px 0' }} />
                             <div style={{ display: 'flex', justifyContent: 'space-between' }}>

@@ -76,12 +76,13 @@ export default function POSItemsPage() {
         }
     };
 
-    const handlePaymentClick = (orderId?: string) => {
+    const handlePaymentClick = (orderId?: string, orderType?: OrderType) => {
         if (!orderId) return;
         showLoading("กำลังไปหน้าชำระเงิน...");
-        router.push(`/pos/items/${orderId}`);
-        // Timeout to hide loading in case navigation takes time, though next page usually handles its own loading.
-        // We rely on next page to switch state.
+        const path = orderType === OrderType.Delivery 
+            ? `/pos/items/delivery/${orderId}` 
+            : `/pos/items/payment/${orderId}`;
+        router.push(path);
     };
 
     return (
@@ -186,7 +187,7 @@ export default function POSItemsPage() {
                                         block 
                                         size="large"
                                         style={{ background: paymentColors.success, borderColor: paymentColors.success, borderRadius: 8, height: 44, fontWeight: 600 }}
-                                        onClick={() => handlePaymentClick(group.order.id)}
+                                        onClick={() => handlePaymentClick(group.order.id, group.order.order_type as OrderType)}
                                     >
                                         ชำระเงิน
                                     </Button>
