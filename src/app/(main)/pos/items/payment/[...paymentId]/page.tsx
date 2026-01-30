@@ -467,8 +467,8 @@ export default function POSPaymentPage() {
                     
                     {/* Right: Payment Actions */}
                     <Col xs={24} lg={10}>
-                         <Card style={{ ...paymentPageStyles.card, marginBottom: 24 }} bodyStyle={{ padding: 20 }}>
-                            <Text strong style={{ display: 'block', marginBottom: 12 }}>ส่วนลด (Discount)</Text>
+                         <Card style={{ ...paymentPageStyles.card, marginBottom: 12 }} bodyStyle={{ padding: '12px 16px' }}>
+                            <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 13 }}>ส่วนลด (Discount)</Text>
                             <Select
                                 placeholder="เลือกส่วนลด (Select Discount)"
                                 style={{ width: '100%' }}
@@ -580,15 +580,24 @@ export default function POSPaymentPage() {
                                                 return (
                                                     <div style={paymentPageStyles.inputArea}>
                                                         <Text style={{ display: 'block', marginBottom: 8 }}>รับเงินมา (Received)</Text>
-                                                        <InputNumber 
+                                                         <InputNumber 
                                                             style={{ width: '100%', fontSize: 24, padding: 8, borderRadius: 8, marginBottom: 12 }} 
                                                             size="large"
                                                             min={0}
                                                             value={receivedAmount}
                                                             onChange={(val) => setReceivedAmount(val || 0)}
                                                             formatter={value => `฿ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                                            parser={value => Number(value!.replace(/฿\s?|(,*)/g, ''))}
                                                             onFocus={(e) => e.target.select()}
                                                             autoFocus
+                                                            controls={false}
+                                                            inputMode="decimal"
+                                                            onKeyDown={(e) => {
+                                                                const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Escape', '.', ',', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+                                                                if (!allowedKeys.includes(e.key) && !e.ctrlKey && !e.metaKey) {
+                                                                    e.preventDefault();
+                                                                }
+                                                            }}
                                                         />
                                                         
                                                         {/* Quick Buttons */}
@@ -622,11 +631,20 @@ export default function POSPaymentPage() {
                                                 <div style={{ textAlign: 'center', padding: 20 }}>
                                                     <Text type="secondary">ตรวจสอบยอดเงินและชำระผ่านช่องทางที่เลือก</Text>
                                                     <div style={{ marginTop: 16 }}>
-                                                        <InputNumber 
+                                                         <InputNumber 
                                                             style={{ width: '100%', fontSize: 24 }} 
                                                             value={receivedAmount} 
                                                             onChange={val => setReceivedAmount(val || 0)} 
                                                             formatter={value => `฿ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                                            parser={value => Number(value!.replace(/฿\s?|(,*)/g, ''))}
+                                                            controls={false}
+                                                            inputMode="decimal"
+                                                            onKeyDown={(e) => {
+                                                                const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Escape', '.', ',', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+                                                                if (!allowedKeys.includes(e.key) && !e.ctrlKey && !e.metaKey) {
+                                                                    e.preventDefault();
+                                                                }
+                                                            }}
                                                         />
                                                     </div>
                                                 </div>

@@ -69,15 +69,13 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
         try {
             const values = await form.validateFields();
             
-            // Validation for number
-            if (!/^\d+$/.test(values.account_number)) {
-                return message.error("เบอร์โทร/เลขบัญชี ต้องเป็นตัวเลขเท่านั้น");
+            // Validation for number (Strict 10 digits as requested)
+            if (!/^\d{10}$/.test(values.account_number)) {
+                return message.error("เบอร์พร้อมเพย์ต้องเป็นตัวเลข 10 หลักเท่านั้น");
             }
-            if (values.account_type === 'PromptPay' && values.account_number.length !== 10 && values.account_number.length !== 13) {
-                return message.error("เบอร์พร้อมเพย์ต้องเป็น 10 หรือ 13 หลัก (เบอร์โทร/เลขบัตรประชาชน)");
-            }
-            if (values.account_type === 'BankAccount' && values.account_number.length < 10) {
-                return message.error("เลขบัญชีต้องมีความยาวอย่างน้อย 10 หลัก");
+            
+            if (values.phone && !/^\d{10}$/.test(values.phone)) {
+                return message.error("เบอร์โทรศัพท์ร้านต้องเป็นตัวเลข 10 หลักเท่านั้น");
             }
 
             const csrfToken = await getCsrfTokenCached();
@@ -262,21 +260,23 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
 
                         <Form.Item 
                             name="account_number" 
-                            label={<Text strong>เบอร์พร้อมเพย์ / เลขบัตรประชาชน</Text>}
+                            label={<Text strong>เบอร์พร้อมเพย์</Text>}
                             rules={[
                                 { required: true, message: 'กรุณาระบุเลขพร้อมเพย์' },
-                                { pattern: /^\d+$/, message: 'ต้องเป็นตัวเลขเท่านั้น' },
-                                { validator: (_, value) => {
-                                    if (!value) return Promise.resolve();
-                                    if (value.length !== 10 && value.length !== 13) {
-                                        return Promise.reject('ต้องเป็น 10 หรือ 13 หลัก');
-                                    }
-                                    return Promise.resolve();
-                                }}
+                                { pattern: /^\d{10}$/, message: 'ต้องเป็นตัวเลข 10 หลักเท่านั้น' }
                             ]}
-                            extra="กรอกเบอร์โทรศัพท์ (10 หลัก) หรือ เลขบัตรประชาชน (13 หลัก)"
+                            extra="กรอกเบอร์โทรศัพท์พร้อมเพย์ (10 หลัก)"
                         >
-                            <Input size="large" placeholder="08xxxxxxxx หรือ 123xxxxxxxxxx" style={{ borderRadius: 8 }} />
+                            <Input 
+                                size="large" 
+                                placeholder="08xxxxxxxx" 
+                                style={{ borderRadius: 8 }} 
+                                maxLength={10}
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                    form.setFieldValue('account_number', val);
+                                }}
+                            />
                         </Form.Item>
 
                         <Divider plain style={{ fontSize: 13, color: '#999' }}>ข้อมูลติดต่อเพิ่มเติม (ถ้ามี)</Divider>
@@ -284,8 +284,20 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                         <Form.Item 
                             name="phone" 
                             label={<Text strong>เบอร์โทรศัพท์ร้าน</Text>}
+                            rules={[
+                                { pattern: /^\d{10}$/, message: 'ต้องเป็นตัวเลข 10 หลักเท่านั้น' }
+                            ]}
                         >
-                            <Input size="large" placeholder="ระบุเบอร์โทรศัพท์สำหรับบัญชีนี้" style={{ borderRadius: 8 }} />
+                            <Input 
+                                size="large" 
+                                placeholder="08xxxxxxxx" 
+                                style={{ borderRadius: 8 }} 
+                                maxLength={10}
+                                onChange={(e) => {
+                                    const val = e.target.value.replace(/\D/g, '').slice(0, 10);
+                                    form.setFieldValue('phone', val);
+                                }}
+                            />
                         </Form.Item>
 
                         <Form.Item 
