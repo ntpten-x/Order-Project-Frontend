@@ -9,6 +9,7 @@ import {
   ArrowLeftOutlined,
   StopOutlined,
 } from "@ant-design/icons";
+import { Tables } from "@/types/api/pos/tables";
 import { useTables } from "@/hooks/pos/useTables";
 import { posPageStyles, tableColors, channelColors } from "@/theme/pos";
 import { channelPageStyles } from "@/theme/pos/channels/style";
@@ -40,9 +41,9 @@ export default function DineInTableSelectionPage() {
   }, [isLoading, showLoading, hideLoading]);
 
   // Calculate statistics and sort tables
-  const stats = useMemo(() => getTableStats(tables), [tables]);
-  const activeTables = useMemo(() => getActiveTables(tables), [tables]);
-  const sortedTables = useMemo(() => sortTables(activeTables), [activeTables]);
+  const stats = useMemo(() => getTableStats(tables as Tables[]), [tables]);
+  const activeTables = useMemo(() => getActiveTables(tables as Tables[]), [tables]);
+  const sortedTables = useMemo(() => sortTables(activeTables as Tables[]), [activeTables]);
 
   return (
     <>
@@ -104,9 +105,9 @@ export default function DineInTableSelectionPage() {
 
         {/* Content Section */}
         <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 16px 24px' }} className="dine-in-content-mobile">
-          {tables.length > 0 ? (
+          {(tables as Tables[]).length > 0 ? (
             <Row gutter={[20, 20]}>
-              {sortedTables.map((table, index) => {
+              {(sortedTables as Tables[]).map((table: Tables, index: number) => {
                 const colorScheme = getTableColorScheme(table);
                 const colors = tableColors[colorScheme];
                 const isAvailable = table.status === "Available";

@@ -10,7 +10,7 @@ import {
   ContainerOutlined
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
-import { SalesOrderSummary, OrderStatus, OrderType } from "@/types/api/pos/salesOrder";
+import { SalesOrder, SalesOrderSummary, OrderStatus, OrderType } from "@/types/api/pos/salesOrder";
 import { 
   getOrderStatusColor, 
   getOrderStatusText, 
@@ -101,7 +101,7 @@ export default function POSOrdersPage() {
             title: 'โต๊ะ / รหัสอ้างอิง',
             key: 'reference',
             align: 'center' as const,
-            render: (_: any, record: SalesOrder) => {
+            render: (_: any, record: SalesOrderSummary) => {
                 const ref = getOrderReference(record);
                 let color = 'default';
                 if (record.order_type === OrderType.DineIn) color = 'cyan';
@@ -232,8 +232,7 @@ export default function POSOrdersPage() {
                             loading={isLoading}
                             dataSource={orders}
                             renderItem={(order) => {
-                                const items = order.items || [];
-                                const totalQty = items.reduce((acc, item) => acc + (item.status !== 'Cancelled' || order.status === OrderStatus.Cancelled ? Number(item.quantity) : 0), 0);
+                                const totalQty = order.items_count || 0;
                                 
                                 return (
                                     <div 

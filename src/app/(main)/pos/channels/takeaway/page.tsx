@@ -4,7 +4,7 @@ import React, { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Typography, Row, Col, Empty, Button } from "antd";
 import { ShoppingOutlined, ArrowLeftOutlined, PlusOutlined } from "@ant-design/icons";
-import { OrderType } from "../../../../../types/api/pos/salesOrder";
+import { OrderType, SalesOrderSummary } from "../../../../../types/api/pos/salesOrder";
 import { posPageStyles, channelColors, tableColors } from "@/theme/pos";
 import { channelPageStyles } from "@/theme/pos/channels/style";
 import { POSGlobalStyles } from "@/theme/pos/GlobalStyles";
@@ -43,7 +43,7 @@ export default function TakeawayPage() {
         router.push('/pos/channels');
     };
 
-    const handleOrderClick = (order: SalesOrder) => {
+    const handleOrderClick = (order: SalesOrderSummary) => {
         const path = getOrderNavigationPath(order);
         router.push(path);
     };
@@ -115,7 +115,7 @@ export default function TakeawayPage() {
                     </div>
                 {orders.length > 0 ? (
                     <Row gutter={[20, 20]}>
-                        {orders.map((order, index) => {
+                        {orders.map((order: SalesOrderSummary, index) => {
                             const colorScheme = getOrderColorScheme(order);
                             const colors = tableColors[colorScheme];
                             const orderNum = order.order_no.split('-').pop();

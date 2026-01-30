@@ -71,7 +71,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
         setLoading(true);
         try {
             const response = await fetch(`/api/pos/products/getById/${id}`);
-            if (!response.ok) throw new Error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธชเธดเธเธเนเธฒเนเธ”เน');
+            if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลสินค้าได้');
             const data = await response.json();
             form.setFieldsValue({
                 product_name: data.product_name,
@@ -87,7 +87,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
             setDisplayName(data.display_name || '');
         } catch (error) {
             console.error(error);
-            message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธชเธดเธเธเนเธฒเนเธ”เน');
+            message.error('ไม่สามารถดึงข้อมูลสินค้าได้');
             router.push('/pos/products');
         } finally {
             setLoading(false);
@@ -118,10 +118,10 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเน€เธ”เธ•เธชเธดเธเธเนเธฒเนเธ”เน');
+                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถอัปเดตสินค้าได้');
                 }
                 
-                message.success('เธญเธฑเธเน€เธ”เธ•เธชเธดเธเธเนเธฒเธชเธณเน€เธฃเนเธ');
+                message.success('อัปเดตสินค้าสำเร็จ');
             } else {
                 const response = await fetch(`/api/pos/products/create`, {
                     method: 'POST',
@@ -134,15 +134,15 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธเธชเธดเธเธเนเธฒเนเธ”เน');
+                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถสร้างสินค้าได้');
                 }
                 
-                message.success('เธชเธฃเนเธฒเธเธชเธดเธเธเนเธฒเธชเธณเน€เธฃเนเธ');
+                message.success('สร้างสินค้าสำเร็จ');
             }
             router.push('/pos/products');
         } catch (error: unknown) {
             console.error(error);
-            message.error((error as { message: string }).message || (isEdit ? 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเน€เธ”เธ•เธชเธดเธเธเนเธฒเนเธ”เน' : 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธเธชเธดเธเธเนเธฒเนเธ”เน'));
+            message.error((error as { message: string }).message || (isEdit ? 'ไม่สามารถอัปเดตสินค้าได้' : 'ไม่สามารถสร้างสินค้าได้'));
         } finally {
             setSubmitting(false);
         }
@@ -151,11 +151,11 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     const handleDelete = () => {
         if (!id) return;
         Modal.confirm({
-            title: 'เธขเธทเธเธขเธฑเธเธเธฒเธฃเธฅเธเธชเธดเธเธเนเธฒ',
-            content: `เธเธธเธ“เธ•เนเธญเธเธเธฒเธฃเธฅเธเธชเธดเธเธเนเธฒ "${displayName}" เธซเธฃเธทเธญเนเธกเน?`,
-            okText: 'เธฅเธ',
+            title: 'ยืนยันการลบสินค้า',
+            content: `คุณต้องการลบสินค้า "${displayName}" หรือไม่?`,
+            okText: 'ลบ',
             okType: 'danger',
-            cancelText: 'เธขเธเน€เธฅเธดเธ',
+            cancelText: 'ยกเลิก',
             centered: true,
             onOk: async () => {
                 try {
@@ -165,12 +165,12 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                             'X-CSRF-Token': csrfToken
                         }
                     });
-                    if (!response.ok) throw new Error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเธชเธดเธเธเนเธฒเนเธ”เน');
-                    message.success('เธฅเธเธชเธดเธเธเนเธฒเธชเธณเน€เธฃเนเธ');
+                    if (!response.ok) throw new Error('ไม่สามารถลบสินค้าได้');
+                    message.success('ลบสินค้าสำเร็จ');
                     router.push('/pos/products');
                 } catch (error) {
                     console.error(error);
-                    message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเธชเธดเธเธเนเธฒเนเธ”เน');
+                    message.error('ไม่สามารถลบสินค้าได้');
                 }
             }
         });
@@ -225,41 +225,41 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                     >
                         <Form.Item
                             name="product_name"
-                            label="เธเธทเนเธญเธชเธดเธเธเนเธฒ (เธ เธฒเธฉเธฒเธญเธฑเธเธเธคเธฉ) *"
+                            label="ชื่อสินค้า (ภาษาอังกฤษ) *"
                             rules={[
-                                { required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเธชเธดเธเธเนเธฒ' },
-                                { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธ เธฒเธฉเธฒเธญเธฑเธเธเธคเธฉเน€เธ—เนเธฒเธเธฑเนเธ' },
-                                { max: 100, message: 'เธเธงเธฒเธกเธขเธฒเธงเธ•เนเธญเธเนเธกเนเน€เธเธดเธ 100 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ' }
+                                { required: true, message: 'กรุณากรอกชื่อสินค้า' },
+                                { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'กรุณากรอกภาษาอังกฤษเท่านั้น' },
+                                { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
                             ]}
                         >
                             <Input 
                                 size="large" 
-                                placeholder="เน€เธเนเธ Water, Coffee, Tea" 
+                                placeholder="เช่น Water, Coffee, Tea" 
                                 maxLength={100}
                             />
                         </Form.Item>
 
                         <Form.Item
                             name="display_name"
-                            label="เธเธทเนเธญเธ—เธตเนเนเธชเธ”เธ (เธ เธฒเธฉเธฒเนเธ—เธข) *"
+                            label="ชื่อที่แสดง (ภาษาไทย) *"
                             rules={[
-                                { required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเธ—เธตเนเนเธชเธ”เธ' },
-                                { max: 100, message: 'เธเธงเธฒเธกเธขเธฒเธงเธ•เนเธญเธเนเธกเนเน€เธเธดเธ 100 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ' }
+                                { required: true, message: 'กรุณากรอกชื่อที่แสดง' },
+                                { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
                             ]}
                         >
                             <Input 
                                 size="large" 
-                                placeholder="เน€เธเนเธ เธเนเธณเน€เธเธฅเนเธฒ, เธเธฒเนเธ, เธเธฒ" 
+                                placeholder="เช่น น้ำเปล่า, กาแฟ, ชา" 
                                 maxLength={100}
                             />
                         </Form.Item>
 
                         <Form.Item
                             name="price"
-                            label="เธฃเธฒเธเธฒ (เธเธฒเธ—) *"
+                            label="ราคา (บาท) *"
                             rules={[
-                                { required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธฃเธฒเธเธฒ' },
-                                { type: 'number', min: 0, message: 'เธฃเธฒเธเธฒเธ•เนเธญเธเนเธกเนเธ•เธดเธ”เธฅเธ' }
+                                { required: true, message: 'กรุณากรอกราคา' },
+                                { type: 'number', min: 0, message: 'ราคาต้องไม่ติดลบ' }
                             ]}
                         >
                             <InputNumber 
@@ -274,12 +274,12 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
 
                         <Form.Item
                             name="category_id"
-                            label="เธซเธกเธงเธ”เธซเธกเธนเน *"
-                            rules={[{ required: true, message: 'เธเธฃเธธเธ“เธฒเน€เธฅเธทเธญเธเธซเธกเธงเธ”เธซเธกเธนเน' }]}
+                            label="หมวดหมู่ *"
+                            rules={[{ required: true, message: 'กรุณาเลือกหมวดหมู่' }]}
                         >
                             <Select 
                                 size="large" 
-                                placeholder="เน€เธฅเธทเธญเธเธซเธกเธงเธ”เธซเธกเธนเน"
+                                placeholder="เลือกหมวดหมู่"
                                 showSearch
                                 optionFilterProp="children"
                             >
@@ -293,12 +293,12 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
 
                         <Form.Item
                             name="unit_id"
-                            label="เธซเธเนเธงเธขเธชเธดเธเธเนเธฒ *"
-                            rules={[{ required: true, message: 'เธเธฃเธธเธ“เธฒเน€เธฅเธทเธญเธเธซเธเนเธงเธขเธชเธดเธเธเนเธฒ' }]}
+                            label="หน่วยสินค้า *"
+                            rules={[{ required: true, message: 'กรุณาเลือกหน่วยสินค้า' }]}
                         >
                             <Select 
                                 size="large" 
-                                placeholder="เน€เธฅเธทเธญเธเธซเธเนเธงเธข"
+                                placeholder="เลือกหน่วย"
                                 showSearch
                                 optionFilterProp="children"
                             >
@@ -312,7 +312,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
 
                         <Form.Item
                             name="img_url"
-                            label="เธฃเธนเธเธ เธฒเธ URL"
+                            label="รูปภาพ URL"
                         >
                             <Input 
                                 size="large" 
@@ -325,24 +325,24 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
 
                         <Form.Item
                             name="description"
-                            label="เธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”"
+                            label="รายละเอียด"
                             style={{ marginTop: 20 }}
                         >
                             <TextArea 
                                 rows={4} 
-                                placeholder="เธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”เน€เธเธดเนเธกเน€เธ•เธดเธก..." 
+                                placeholder="รายละเอียดเพิ่มเติม..." 
                                 style={{ borderRadius: 12 }}
                             />
                         </Form.Item>
 
                         <Form.Item
                             name="is_active"
-                            label="เธชเธ–เธฒเธเธฐเธเธฒเธฃเนเธเนเธเธฒเธ"
+                            label="สถานะการใช้งาน"
                             valuePropName="checked"
                         >
                             <Switch 
-                                checkedChildren="เนเธเนเธเธฒเธ" 
-                                unCheckedChildren="เนเธกเนเนเธเนเธเธฒเธ"
+                                checkedChildren="ใช้งาน" 
+                                unCheckedChildren="ไม่ใช้งาน"
                             />
                         </Form.Item>
 

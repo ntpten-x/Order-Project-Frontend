@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { Typography, Row, Col, Empty, Modal, Input, message, Button, Select, Space } from "antd";
 import { RocketOutlined, PlusOutlined, ArrowLeftOutlined } from "@ant-design/icons";
 import { useDelivery } from "../../../../../hooks/pos/useDelivery";
-import { OrderType } from "../../../../../types/api/pos/salesOrder";
+import { OrderType, SalesOrderSummary } from "../../../../../types/api/pos/salesOrder";
+import { Delivery } from "../../../../../types/api/pos/delivery";
 import { posPageStyles, channelColors, tableColors } from "@/theme/pos";
 import { channelPageStyles } from "@/theme/pos/channels/style";
 import { POSGlobalStyles } from "@/theme/pos/GlobalStyles";
@@ -34,7 +35,7 @@ export default function DeliverySelectionPage() {
     const [deliveryCode, setDeliveryCode] = useState("");
     const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
     const selectedProvider = useMemo(() => 
-        deliveryProviders.find(p => p.id === selectedProviderId),
+        (deliveryProviders as Delivery[]).find((p: Delivery) => p.id === selectedProviderId),
     [deliveryProviders, selectedProviderId]);
 
     useEffect(() => {
@@ -149,10 +150,10 @@ export default function DeliverySelectionPage() {
 
                 {orders.length > 0 ? (
                     <Row gutter={[20, 20]}>
-                        {orders.map((order, index) => {
+                        {orders.map((order: SalesOrderSummary, index) => {
                             const colorScheme = getOrderColorScheme(order);
                             const colors = tableColors[colorScheme];
-                            const provider = deliveryProviders.find(d => d.id === order.delivery_id);
+                            const provider = (deliveryProviders as Delivery[]).find((d: Delivery) => d.id === order.delivery_id);
                             const orderNum = order.delivery_code || order.order_no.split('-').pop();
 
                             return (
@@ -269,7 +270,7 @@ export default function DeliverySelectionPage() {
                             size="large"
                             value={selectedProviderId}
                             onChange={setSelectedProviderId}
-                            options={deliveryProviders.map(p => ({ label: p.delivery_name, value: p.id }))}
+                            options={(deliveryProviders as Delivery[]).map((p: Delivery) => ({ label: p.delivery_name, value: p.id }))}
                             loading={isLoadingProviders}
                         />
                     </div>

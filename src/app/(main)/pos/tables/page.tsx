@@ -52,7 +52,7 @@ const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange }: HeaderPro
                         fontSize: 13,
                         display: 'block'
                     }}>
-                        ????????????????????????????????????
+                        จัดการและติดตามสถานะโต๊ะทั้งหมดของคุณ
                     </Text>
                     <Title level={4} style={{ 
                         color: 'white', 
@@ -60,14 +60,14 @@ const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange }: HeaderPro
                         fontWeight: 700,
                         letterSpacing: '0.5px'
                     }}>
-                        ????????????
+                        รายการโต๊ะ
                     </Title>
                 </div>
             </div>
             <div style={pageStyles.headerActions}>
                 <Input
                     allowClear
-                    placeholder="?????????"
+                    placeholder="ค้นหาโต๊ะ..."
                     value={searchValue}
                     onChange={(e) => onSearchChange(e.target.value)}
                     style={{ width: 220, borderRadius: 10 }}
@@ -97,7 +97,7 @@ const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange }: HeaderPro
                         boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                     }}
                 >
-                    ???????????????????????????
+                    เพิ่มโต๊ะใหม่
                 </Button>
             </div>
         </div>
@@ -360,7 +360,7 @@ export default function TablesPage() {
             if (!debouncedSearch && page === 1) {
                 writeCache(TABLES_CACHE_KEY, result);
             }
-        }, '???????????????????...');
+        }, 'กำลังโหลดข้อมูลโต๊ะ...');
     }, [debouncedSearch, execute, page]);
 
     useEffect(() => {

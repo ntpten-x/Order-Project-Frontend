@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Typography } from "antd";
+import { Typography, Tag } from "antd";
 import { TableOutlined } from "@ant-design/icons";
 import {
     createManagePageStyles,
@@ -42,40 +42,53 @@ export const PageHeader = ({ isEdit, onBack, onDelete }: HeaderProps) => (
 
 interface TablePreviewProps {
     name?: string;
+    status?: string | number;
 }
 
-export const TablePreview = ({ name }: TablePreviewProps) => (
-    <div style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 14,
-        padding: 16,
-        background: "#fafafa",
-        borderRadius: 16,
-        marginTop: 12,
-    }}>
+export const TablePreview = ({ name, status }: TablePreviewProps) => {
+    const isAvailable = String(status) === 'Available';
+    
+    return (
         <div style={{
-            width: 60,
-            height: 60,
-            borderRadius: 14,
-            background: "linear-gradient(135deg, #f9f0ff 0%, #efdbff 100%)",
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
+            gap: 14,
+            padding: 16,
+            background: "#fafafa",
+            borderRadius: 16,
+            marginTop: 12,
         }}>
-            <TableOutlined style={{ fontSize: 24, color: "#722ed1" }} />
+            <div style={{
+                width: 60,
+                height: 60,
+                borderRadius: 14,
+                background: isAvailable 
+                    ? "linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%)"
+                    : "linear-gradient(135deg, #fff7e6 0%, #ffe7ba 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+                border: '1px solid #f0f0f0'
+            }}>
+                <TableOutlined style={{ fontSize: 24, color: isAvailable ? "#52c41a" : "#fa8c16" }} />
+            </div>
+            <div>
+                <Text strong style={{ display: "block", marginBottom: 2 }}>
+                    {name || "ตัวอย่างโต๊ะ"}
+                </Text>
+                <div style={{ display: 'flex', gap: 6 }}>
+                    <Tag 
+                        color={isAvailable ? 'success' : 'warning'}
+                        style={{ borderRadius: 6, margin: 0, fontSize: 10 }}
+                    >
+                        {isAvailable ? 'ว่าง' : 'ไม่ว่าง'}
+                    </Tag>
+                </div>
+            </div>
         </div>
-        <div>
-            <Text strong style={{ display: "block", marginBottom: 4 }}>
-                {name || "ตัวอย่างโต๊ะ"}
-            </Text>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-                โต๊ะที่ใช้งานในหน้าร้าน
-            </Text>
-        </div>
-    </div>
-);
+    );
+};
 
 // ============ ACTION BUTTONS COMPONENT ============
 

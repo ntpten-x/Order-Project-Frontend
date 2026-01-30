@@ -1,5 +1,5 @@
 import React from 'react';
-import { OrderStatus, OrderType, SalesOrder } from '../../types/api/pos/salesOrder';
+import { OrderStatus, OrderType, SalesOrder, SalesOrderSummary } from '../../types/api/pos/salesOrder';
 import { Tables, TableStatus } from '../../types/api/pos/tables';
 import { DialogType } from '../../components/dialog/ConfirmationDialog';
 
@@ -67,7 +67,7 @@ type OrderItemLike = {
 
 type OrderLike = {
     order_type?: string;
-    table?: { table_name?: string } | null;
+    table?: { table_name?: string | null } | null;
     delivery_code?: string | null;
     delivery?: { delivery_name?: string | null } | null;
     order_no?: string;
@@ -261,7 +261,7 @@ export const getEditOrderNavigationPath = (orderId: string): string => {
  * @param order - The order object
  * @returns The target navigation path
  */
-export const getOrderNavigationPath = (order: SalesOrder): string => {
+export const getOrderNavigationPath = (order: SalesOrder | SalesOrderSummary): string => {
     if (order.status === OrderStatus.WaitingForPayment) {
         if (order.order_type === OrderType.Delivery) {
             return `/pos/items/delivery/${order.id}`;

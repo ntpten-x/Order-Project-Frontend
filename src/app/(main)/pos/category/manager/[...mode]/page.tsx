@@ -41,7 +41,7 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
         setLoading(true);
         try {
             const response = await fetch(`/api/pos/category/getById/${id}`);
-            if (!response.ok) throw new Error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธซเธกเธงเธ”เธซเธกเธนเนเนเธ”เน');
+            if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลหมวดหมู่ได้');
             const data = await response.json();
             form.setFieldsValue({
                 category_name: data.category_name,
@@ -52,7 +52,7 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
             setCategoryName(data.category_name || '');
         } catch (error) {
             console.error(error);
-            message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธซเธกเธงเธ”เธซเธกเธนเนเนเธ”เน');
+            message.error('ไม่สามารถดึงข้อมูลหมวดหมู่ได้');
             router.push('/pos/category');
         } finally {
             setLoading(false);
@@ -81,10 +81,10 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
                 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเน€เธ”เธ•เธซเธกเธงเธ”เธซเธกเธนเนเนเธ”เน');
+                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถอัปเดตหมวดหมู่ได้');
                 }
                 
-                message.success('เธญเธฑเธเน€เธ”เธ•เธซเธกเธงเธ”เธซเธกเธนเนเธชเธณเน€เธฃเนเธ');
+                message.success('อัปเดตหมวดหมู่สำเร็จ');
             } else {
                 const response = await fetch(`/api/pos/category/create`, {
                     method: 'POST',
@@ -97,15 +97,15 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธเธซเธกเธงเธ”เธซเธกเธนเนเนเธ”เน');
+                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถสร้างหมวดหมู่ได้');
                 }
                 
-                message.success('เธชเธฃเนเธฒเธเธซเธกเธงเธ”เธซเธกเธนเนเธชเธณเน€เธฃเนเธ');
+                message.success('สร้างหมวดหมู่สำเร็จ');
             }
             router.push('/pos/category');
         } catch (error: unknown) {
             console.error(error);
-            message.error((error as { message: string }).message || (isEdit ? 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเน€เธ”เธ•เธซเธกเธงเธ”เธซเธกเธนเนเนเธ”เน' : 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธเธซเธกเธงเธ”เธซเธกเธนเนเนเธ”เน'));
+            message.error((error as { message: string }).message || (isEdit ? 'ไม่สามารถอัปเดตหมวดหมู่ได้' : 'ไม่สามารถสร้างหมวดหมู่ได้'));
         } finally {
             setSubmitting(false);
         }
@@ -114,11 +114,11 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
     const handleDelete = () => {
         if (!id) return;
         Modal.confirm({
-            title: 'เธขเธทเธเธขเธฑเธเธเธฒเธฃเธฅเธเธซเธกเธงเธ”เธซเธกเธนเน',
-            content: `เธเธธเธ“เธ•เนเธญเธเธเธฒเธฃเธฅเธเธซเธกเธงเธ”เธซเธกเธนเน "${displayName}" เธซเธฃเธทเธญเนเธกเน?`,
-            okText: 'เธฅเธ',
+            title: 'ยืนยันการลบหมวดหมู่',
+            content: `คุณต้องการลบหมวดหมู่ "${displayName}" หรือไม่?`,
+            okText: 'ลบ',
             okType: 'danger',
-            cancelText: 'เธขเธเน€เธฅเธดเธ',
+            cancelText: 'ยกเลิก',
             centered: true,
             onOk: async () => {
                 try {
@@ -128,12 +128,12 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
                             'X-CSRF-Token': csrfToken
                         }
                     });
-                    if (!response.ok) throw new Error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเธซเธกเธงเธ”เธซเธกเธนเนเนเธ”เน');
-                    message.success('เธฅเธเธซเธกเธงเธ”เธซเธกเธนเนเธชเธณเน€เธฃเนเธ');
+                    if (!response.ok) throw new Error('ไม่สามารถลบหมวดหมู่ได้');
+                    message.success('ลบหมวดหมู่สำเร็จ');
                     router.push('/pos/category');
                 } catch (error) {
                     console.error(error);
-                    message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเธซเธกเธงเธ”เธซเธกเธนเนเนเธ”เน');
+                    message.error('ไม่สามารถลบหมวดหมู่ได้');
                 }
             }
         });
@@ -188,31 +188,31 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
                     >
                         <Form.Item
                             name="category_name"
-                            label="เธเธทเนเธญเธซเธกเธงเธ”เธซเธกเธนเน (เธ เธฒเธฉเธฒเธญเธฑเธเธเธคเธฉ) *"
+                            label="ชื่อหมวดหมู่ (ภาษาอังกฤษ) *"
                             rules={[
-                                { required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเธซเธกเธงเธ”เธซเธกเธนเน' },
-                                { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธ เธฒเธฉเธฒเธญเธฑเธเธเธคเธฉเน€เธ—เนเธฒเธเธฑเนเธ' },
-                                { max: 100, message: 'เธเธงเธฒเธกเธขเธฒเธงเธ•เนเธญเธเนเธกเนเน€เธเธดเธ 100 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ' }
+                                { required: true, message: 'กรุณากรอกชื่อหมวดหมู่' },
+                                { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'กรุณากรอกภาษาอังกฤษเท่านั้น' },
+                                { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
                             ]}
                         >
                             <Input 
                                 size="large" 
-                                placeholder="เน€เธเนเธ Beverage, Food, Snack" 
+                                placeholder="เช่น Beverage, Food, Snack" 
                                 maxLength={100}
                             />
                         </Form.Item>
 
                         <Form.Item
                             name="display_name"
-                            label="เธเธทเนเธญเธ—เธตเนเนเธชเธ”เธ (เธ เธฒเธฉเธฒเนเธ—เธข) *"
+                            label="ชื่อที่แสดง (ภาษาไทย) *"
                             rules={[
-                                { required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเธ—เธตเนเนเธชเธ”เธ' },
-                                { max: 100, message: 'เธเธงเธฒเธกเธขเธฒเธงเธ•เนเธญเธเนเธกเนเน€เธเธดเธ 100 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ' }
+                                { required: true, message: 'กรุณากรอกชื่อที่แสดง' },
+                                { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
                             ]}
                         >
                             <Input 
                                 size="large" 
-                                placeholder="เน€เธเนเธ เน€เธเธฃเธทเนเธญเธเธ”เธทเนเธก, เธญเธฒเธซเธฒเธฃ, เธเธเธก" 
+                                placeholder="เช่น เครื่องดื่ม, อาหาร, ขนม" 
                                 maxLength={100}
                             />
                         </Form.Item>
@@ -225,13 +225,13 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
 
                         <Form.Item
                             name="is_active"
-                            label="เธชเธ–เธฒเธเธฐเธเธฒเธฃเนเธเนเธเธฒเธ"
+                            label="สถานะการใช้งาน"
                             valuePropName="checked"
                             style={{ marginTop: 20 }}
                         >
                             <Switch 
-                                checkedChildren="เนเธเนเธเธฒเธ" 
-                                unCheckedChildren="เนเธกเนเนเธเนเธเธฒเธ"
+                                checkedChildren="ใช้งาน" 
+                                unCheckedChildren="ไม่ใช้งาน"
                             />
                         </Form.Item>
 

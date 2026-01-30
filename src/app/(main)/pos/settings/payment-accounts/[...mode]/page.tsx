@@ -32,7 +32,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
             const data = await paymentAccountService.getByShopId();
             setAccounts(data);
         } catch (error) {
-            message.error("เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เนเธซเธฅเธ”เธเนเธญเธกเธนเธฅเธเธฑเธเธเธตเนเธ”เน");
+            message.error("ไม่สามารถโหลดข้อมูลบัญชีได้");
         } finally {
             setLoading(false);
         }
@@ -58,10 +58,10 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
         try {
             const csrfToken = await getCsrfTokenCached();
             await paymentAccountService.delete(id, undefined, undefined, csrfToken);
-            message.success("เธฅเธเธเธฑเธเธเธตเธชเธณเน€เธฃเนเธ");
+            message.success("ลบบัญชีสำเร็จ");
             fetchAccounts();
         } catch (error: any) {
-            message.error(error.message || "เธฅเธเนเธกเนเธชเธณเน€เธฃเนเธ (เธเธฑเธเธเธตเธ—เธตเนเนเธเนเธเธฒเธเธญเธขเธนเนเธญเธฒเธเธฅเธเนเธกเนเนเธ”เน)");
+            message.error(error.message || "ลบไม่สำเร็จ (บัญชีที่ใช้งานอยู่อาจลบไม่ได้)");
         }
     };
 
@@ -71,29 +71,29 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
             
             // Validation for number
             if (!/^\d+$/.test(values.account_number)) {
-                return message.error("เน€เธเธญเธฃเนเนเธ—เธฃ/เน€เธฅเธเธเธฑเธเธเธต เธ•เนเธญเธเน€เธเนเธเธ•เธฑเธงเน€เธฅเธเน€เธ—เนเธฒเธเธฑเนเธ");
+                return message.error("เบอร์โทร/เลขบัญชี ต้องเป็นตัวเลขเท่านั้น");
             }
             if (values.account_type === 'PromptPay' && values.account_number.length !== 10 && values.account_number.length !== 13) {
-                return message.error("เน€เธเธญเธฃเนเธเธฃเนเธญเธกเน€เธเธขเนเธ•เนเธญเธเน€เธเนเธ 10 เธซเธฃเธทเธญ 13 เธซเธฅเธฑเธ (เน€เธเธญเธฃเนเนเธ—เธฃ/เน€เธฅเธเธเธฑเธ•เธฃเธเธฃเธฐเธเธฒเธเธ)");
+                return message.error("เบอร์พร้อมเพย์ต้องเป็น 10 หรือ 13 หลัก (เบอร์โทร/เลขบัตรประชาชน)");
             }
             if (values.account_type === 'BankAccount' && values.account_number.length < 10) {
-                return message.error("เน€เธฅเธเธเธฑเธเธเธตเธ•เนเธญเธเธกเธตเธเธงเธฒเธกเธขเธฒเธงเธญเธขเนเธฒเธเธเนเธญเธข 10 เธซเธฅเธฑเธ");
+                return message.error("เลขบัญชีต้องมีความยาวอย่างน้อย 10 หลัก");
             }
 
             const csrfToken = await getCsrfTokenCached();
 
             if (editingId) {
                 await paymentAccountService.update(editingId, values, undefined, undefined, csrfToken);
-                message.success("เนเธเนเนเธเธเธฑเธเธเธตเธชเธณเน€เธฃเนเธ");
+                message.success("แก้ไขบัญชีสำเร็จ");
             } else {
                 await paymentAccountService.create(values, undefined, undefined, csrfToken);
-                message.success("เน€เธเธดเนเธกเธเธฑเธเธเธตเธชเธณเน€เธฃเนเธ");
+                message.success("เพิ่มบัญชีสำเร็จ");
             }
             setIsModalVisible(false);
             fetchAccounts();
         } catch (error: any) {
             if (error?.errorFields) return; // Form validation error
-            message.error(error.message || "เธเธฑเธเธ—เธถเธเนเธกเนเธชเธณเน€เธฃเนเธ");
+            message.error(error.message || "บันทึกไม่สำเร็จ");
         }
     };
 
@@ -118,8 +118,8 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                             style={{ width: 48, height: 48, border: 'none', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
                         />
                         <div>
-                            <Title level={2} style={{ margin: 0, fontWeight: 700, color: '#1e293b' }}>เธเธฑเธ”เธเธฒเธฃเธเธฃเนเธญเธกเน€เธเธขเน (PromptPay)</Title>
-                            <Text type="secondary" style={{ fontSize: 16 }}>เธ•เธฑเนเธเธเนเธฒเนเธฅเธฐเธเธฑเธ”เธเธฒเธฃเธฃเธฒเธขเธเธฒเธฃเธเธฃเนเธญเธกเน€เธเธขเนเธ—เธฑเนเธเธซเธกเธ”เธเธญเธเธเธธเธ“</Text>
+                            <Title level={2} style={{ margin: 0, fontWeight: 700, color: '#1e293b' }}>จัดการพร้อมเพย์ (PromptPay)</Title>
+                            <Text type="secondary" style={{ fontSize: 16 }}>ตั้งค่าและจัดการรายการพร้อมเพย์ทั้งหมดของคุณ</Text>
                         </div>
                     </div>
                     <Button 
@@ -136,7 +136,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                             boxShadow: `0 4px 12px ${posColors.primary}40`
                         }}
                     >
-                        เน€เธเธดเนเธกเธเธฃเนเธญเธกเน€เธเธขเนเนเธซเธกเน
+                        เพิ่มพร้อมเพย์ใหม่
                     </Button>
                 </div>
 
@@ -175,14 +175,14 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                         </div>
                                         {acc.is_active && (
                                             <Tag color="green" style={{ borderRadius: 8, margin: 0, padding: '4px 12px', fontWeight: 600, fontSize: 13, border: 'none' }}>
-                                                <CheckCircleOutlined style={{ marginRight: 4 }} /> เธเธณเธฅเธฑเธเนเธเนเธเธฒเธ
+                                                <CheckCircleOutlined style={{ marginRight: 4 }} /> กำลังใช้งาน
                                             </Tag>
                                         )}
                                     </div>
 
                                     <div style={{ marginBottom: 20 }}>
                                         <Title level={4} style={{ margin: '0 0 4px 0', fontSize: 18, color: '#1e293b' }}>{acc.account_name}</Title>
-                                        <Text type="secondary" style={{ fontSize: 14 }}>เธเธฃเนเธญเธกเน€เธเธขเน (PromptPay)</Text>
+                                        <Text type="secondary" style={{ fontSize: 14 }}>พร้อมเพย์ (PromptPay)</Text>
                                     </div>
 
                                     <div style={{ 
@@ -201,15 +201,15 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                             onClick={() => handleEdit(acc)}
                                             style={{ borderRadius: 10, border: '1px solid #e2e8f0' }}
                                         >
-                                            เธเธฑเธ”เธเธฒเธฃ
+                                            จัดการ
                                         </Button>
                                         {!acc.is_active && (
                                             <Popconfirm 
-                                                title="เธขเธทเธเธขเธฑเธเธเธฒเธฃเธฅเธ?" 
-                                                description="เธเธธเธ“เนเธเนเนเธเธซเธฃเธทเธญเนเธกเนเธงเนเธฒเธ•เนเธญเธเธเธฒเธฃเธฅเธเธเธฑเธเธเธตเธเธตเน?"
+                                                title="ยืนยันการลบ?" 
+                                                description="คุณแน่ใจหรือไม่ว่าต้องการลบบัญชีนี้?"
                                                 onConfirm={() => handleDelete(acc.id)}
-                                                okText="เธฅเธเธ—เธดเนเธ"
-                                                cancelText="เธขเธเน€เธฅเธดเธ"
+                                                okText="ลบทิ้ง"
+                                                cancelText="ยกเลิก"
                                                 okButtonProps={{ danger: true }}
                                             >
                                                 <Button danger icon={<DeleteOutlined />} style={{ borderRadius: 10 }} />
@@ -223,11 +223,11 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                 ) : (
                     <Card style={{ borderRadius: 24, padding: '80px 0', textAlign: 'center' }}>
                         <Empty 
-                            description={<Text type="secondary" style={{ fontSize: 16 }}>เธขเธฑเธเนเธกเนเธกเธตเธเนเธญเธกเธนเธฅเธเธฑเธเธเธตเธฃเธฑเธเน€เธเธดเธเนเธเธฃเธฐเธเธ</Text>}
+                            description={<Text type="secondary" style={{ fontSize: 16 }}>ยังไม่มีข้อมูลบัญชีรับเงินในระบบ</Text>}
                             image={Empty.PRESENTED_IMAGE_SIMPLE}
                         >
                             <Button type="primary" size="large" onClick={handleAdd} icon={<PlusOutlined />} style={{ borderRadius: 10, height: 48, marginTop: 16 }}>
-                                เน€เธฃเธดเนเธกเธ•เนเธเน€เธเธดเนเธกเธเธฑเธเธเธตเนเธฃเธ
+                                เริ่มต้นเพิ่มบัญชีแรก
                             </Button>
                         </Empty>
                     </Card>
@@ -235,12 +235,12 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
             </div>
 
             <Modal
-                title={editingId ? "เนเธเนเนเธเธเนเธญเธกเธนเธฅเธเธฃเนเธญเธกเน€เธเธขเน" : "เน€เธเธดเนเธกเธเธฃเนเธญเธกเน€เธเธขเนเนเธซเธกเน"}
+                title={editingId ? "แก้ไขข้อมูลพร้อมเพย์" : "เพิ่มพร้อมเพย์ใหม่"}
                 open={isModalVisible}
                 onOk={handleSubmit}
                 onCancel={() => setIsModalVisible(false)}
-                okText="เธเธฑเธเธ—เธถเธเธเนเธญเธกเธนเธฅ"
-                cancelText="เธขเธเน€เธฅเธดเธ"
+                okText="บันทึกข้อมูล"
+                cancelText="ยกเลิก"
                 okButtonProps={{ size: 'large', style: { borderRadius: 8, background: posColors.primary } }}
                 cancelButtonProps={{ size: 'large', style: { borderRadius: 8 } }}
                 width={500}
@@ -254,45 +254,45 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
 
                         <Form.Item 
                             name="account_name" 
-                            label={<Text strong>เธเธทเนเธญเธเธฑเธเธเธต / เน€เธเนเธฒเธเธญเธเธเธฃเนเธญเธกเน€เธเธขเน</Text>}
-                            rules={[{ required: true, message: 'เธเธฃเธธเธ“เธฒเธฃเธฐเธเธธเธเธทเนเธญ' }]}
+                            label={<Text strong>ชื่อบัญชี / เจ้าของพร้อมเพย์</Text>}
+                            rules={[{ required: true, message: 'กรุณาระบุชื่อ' }]}
                         >
-                            <Input size="large" placeholder="เน€เธเนเธ เธเธฒเธขเธชเธกเนเธ เธ”เธตเธกเธฒเธ" style={{ borderRadius: 8 }} />
+                            <Input size="large" placeholder="เช่น นายสมใจ ดีมาก" style={{ borderRadius: 8 }} />
                         </Form.Item>
 
                         <Form.Item 
                             name="account_number" 
-                            label={<Text strong>เน€เธเธญเธฃเนเธเธฃเนเธญเธกเน€เธเธขเน / เน€เธฅเธเธเธฑเธ•เธฃเธเธฃเธฐเธเธฒเธเธ</Text>}
+                            label={<Text strong>เบอร์พร้อมเพย์ / เลขบัตรประชาชน</Text>}
                             rules={[
-                                { required: true, message: 'เธเธฃเธธเธ“เธฒเธฃเธฐเธเธธเน€เธฅเธเธเธฃเนเธญเธกเน€เธเธขเน' },
-                                { pattern: /^\d+$/, message: 'เธ•เนเธญเธเน€เธเนเธเธ•เธฑเธงเน€เธฅเธเน€เธ—เนเธฒเธเธฑเนเธ' },
+                                { required: true, message: 'กรุณาระบุเลขพร้อมเพย์' },
+                                { pattern: /^\d+$/, message: 'ต้องเป็นตัวเลขเท่านั้น' },
                                 { validator: (_, value) => {
                                     if (!value) return Promise.resolve();
                                     if (value.length !== 10 && value.length !== 13) {
-                                        return Promise.reject('เธ•เนเธญเธเน€เธเนเธ 10 เธซเธฃเธทเธญ 13 เธซเธฅเธฑเธ');
+                                        return Promise.reject('ต้องเป็น 10 หรือ 13 หลัก');
                                     }
                                     return Promise.resolve();
                                 }}
                             ]}
-                            extra="เธเธฃเธญเธเน€เธเธญเธฃเนเนเธ—เธฃเธจเธฑเธเธ—เน (10 เธซเธฅเธฑเธ) เธซเธฃเธทเธญ เน€เธฅเธเธเธฑเธ•เธฃเธเธฃเธฐเธเธฒเธเธ (13 เธซเธฅเธฑเธ)"
+                            extra="กรอกเบอร์โทรศัพท์ (10 หลัก) หรือ เลขบัตรประชาชน (13 หลัก)"
                         >
-                            <Input size="large" placeholder="08xxxxxxxx เธซเธฃเธทเธญ 123xxxxxxxxxx" style={{ borderRadius: 8 }} />
+                            <Input size="large" placeholder="08xxxxxxxx หรือ 123xxxxxxxxxx" style={{ borderRadius: 8 }} />
                         </Form.Item>
 
-                        <Divider plain style={{ fontSize: 13, color: '#999' }}>เธเนเธญเธกเธนเธฅเธ•เธดเธ”เธ•เนเธญเน€เธเธดเนเธกเน€เธ•เธดเธก (เธ–เนเธฒเธกเธต)</Divider>
+                        <Divider plain style={{ fontSize: 13, color: '#999' }}>ข้อมูลติดต่อเพิ่มเติม (ถ้ามี)</Divider>
 
                         <Form.Item 
                             name="phone" 
-                            label={<Text strong>เน€เธเธญเธฃเนเนเธ—เธฃเธจเธฑเธเธ—เนเธฃเนเธฒเธ</Text>}
+                            label={<Text strong>เบอร์โทรศัพท์ร้าน</Text>}
                         >
-                            <Input size="large" placeholder="เธฃเธฐเธเธธเน€เธเธญเธฃเนเนเธ—เธฃเธจเธฑเธเธ—เนเธชเธณเธซเธฃเธฑเธเธเธฑเธเธเธตเธเธตเน" style={{ borderRadius: 8 }} />
+                            <Input size="large" placeholder="ระบุเบอร์โทรศัพท์สำหรับบัญชีนี้" style={{ borderRadius: 8 }} />
                         </Form.Item>
 
                         <Form.Item 
                             name="address" 
-                            label={<Text strong>เธ—เธตเนเธญเธขเธนเนเธฃเนเธฒเธ</Text>}
+                            label={<Text strong>ที่อยู่ร้าน</Text>}
                         >
-                            <Input.TextArea rows={2} placeholder="เธฃเธฐเธเธธเธ—เธตเนเธญเธขเธนเนเธชเธณเธซเธฃเธฑเธเธเธฑเธเธเธตเธเธตเน" style={{ borderRadius: 8 }} />
+                            <Input.TextArea rows={2} placeholder="ระบุที่อยู่สำหรับบัญชีนี้" style={{ borderRadius: 8 }} />
                         </Form.Item>
                     </Form>
                 </div>

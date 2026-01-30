@@ -79,24 +79,18 @@ export default function POSPaymentPage() {
             ]);
             
             if (orderData.status !== OrderStatus.WaitingForPayment) {
-                 router.push('/pos/channels');
-                 return;
+                router.push('/pos/channels');
+                return;
             }
 
             setOrder(orderData);
             
             // Filter Payment Methods
-            const filteredMethods = methodsRes.filter(m => {
+            const filteredMethods = (methodsRes.data || []).filter(m => {
                 // If not delivery order, hide 'Delivery' method
                 if (orderData.order_type !== OrderType.Delivery && m.payment_method_name === 'Delivery') {
                     return false;
                 }
-                // If delivery order, maybe ONLY show 'Delivery'? Or show all?
-                // User said "Only in delivery mode", implies visibility constraint.
-                // Let's assume Delivery order can use multiple methods?
-                // User request: "Payment with Delivery method should be doable and shown ONLY in delivery mode"
-                // This means: Delivery Method -> Visibility = Delivery Mode Only.
-                // It does NOT say: Delivery Mode -> Methods = Delivery Method Only.
                 return true;
             });
 

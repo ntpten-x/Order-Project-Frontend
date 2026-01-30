@@ -300,7 +300,7 @@ export default function KitchenDisplayPage() {
                         </Tooltip>
                         <Button 
                             icon={<ReloadOutlined />} 
-                            onClick={() => fetchItems()} 
+                            onClick={() => refetch()} 
                             loading={isLoading}
                             style={{ 
                                 background: 'rgba(255,255,255,0.1)', 
@@ -517,7 +517,7 @@ export default function KitchenDisplayPage() {
                 <Button 
                     type="text" 
                     icon={<ReloadOutlined style={{ color: '#fff' }} />} 
-                    onClick={() => fetchItems()}
+                    onClick={() => refetch()}
                     style={{ color: '#fff' }}
                 >
                     REFRESH

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { message, Modal, Spin, Typography, Tag, Button, Empty, Input, Pagination } from 'antd';
 import Image from "next/image";
 import { 
@@ -26,16 +26,42 @@ import { pageStyles, globalStyles } from '../../../../theme/pos/delivery/style';
 
 const { Text, Title } = Typography;
 
-// ============ HEADER COMPONENT ============
+const DELIVERY_LIMIT = 50;
+const DELIVERY_CACHE_KEY = "pos:delivery-providers";
+const DELIVERY_CACHE_TTL = 5 * 60 * 1000;
+
+// ============ TYPES ============
 
 interface HeaderProps {
     onRefresh: () => void;
     onAdd: () => void;
     searchValue: string;
     onSearchChange: (value: string) => void;
+    page: number;
+    total: number;
+    lastPage: number;
+    setPage: (page: number) => void;
 }
 
-const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange }: HeaderProps) => (
+type DeliveryCacheResult = {
+    data: Delivery[];
+    total: number;
+    page: number;
+    last_page: number;
+};
+
+// ============ HEADER COMPONENT ============
+
+const PageHeader = ({ 
+    onRefresh, 
+    onAdd, 
+    searchValue, 
+    onSearchChange,
+    page,
+    total,
+    lastPage,
+    setPage
+}: HeaderProps) => (
     <div style={pageStyles.header}>
         <div style={pageStyles.headerDecoCircle1} />
         <div style={pageStyles.headerDecoCircle2} />
@@ -51,7 +77,7 @@ const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange }: HeaderPro
                         fontSize: 13,
                         display: 'block'
                     }}>
-                        ????????????????????????????????????
+                        จัดการผู้ให้บริการเดลิเวอรี่
                     </Text>
                     <Title level={4} style={{ 
                         color: 'white', 
@@ -59,14 +85,14 @@ const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange }: HeaderPro
                         fontWeight: 700,
                         letterSpacing: '0.5px'
                     }}>
-                        ???????????????????????????
+                        บริการเดลิเวอรี่
                     </Title>
                 </div>
             </div>
             <div style={pageStyles.headerActions}>
                 <Input
                     allowClear
-                    placeholder="???????????????"
+                    placeholder="ค้นหาบริการส่ง..."
                     value={searchValue}
                     onChange={(e) => onSearchChange(e.target.value)}
                     style={{ width: 220, borderRadius: 10 }}
@@ -96,7 +122,7 @@ const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange }: HeaderPro
                         boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                     }}
                 >
-                    ??????????????????????????????????????????
+                    เพิ่มบริการส่งใหม่
                 </Button>
             </div>
             {lastPage > 1 && (
@@ -112,18 +138,7 @@ const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange }: HeaderPro
             )}
         </div>
     </div>
-)
-
-type DeliveryCacheResult = {
-    data: Delivery[];
-    total: number;
-    page: number;
-    last_page: number;
-};
-
-const DELIVERY_LIMIT = 50;
-const DELIVERY_CACHE_KEY = "pos:delivery-providers";
-const DELIVERY_CACHE_TTL = 5 * 60 * 1000;
+);
 
 // ============ STATS CARD COMPONENT ============
 
@@ -320,6 +335,8 @@ const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
     </Empty>
 );
 
+// ============ MAIN PAGE ============
+
 export default function DeliveryPage() {
     const router = useRouter();
     const [deliveries, setDeliveries] = useState<Delivery[]>([]);
@@ -332,7 +349,6 @@ export default function DeliveryPage() {
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
     const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
-
 
     useEffect(() => {
         getCsrfTokenCached();
@@ -371,7 +387,7 @@ export default function DeliveryPage() {
             if (!debouncedSearch && page === 1) {
                 writeCache(DELIVERY_CACHE_KEY, result);
             }
-        }, '????????????????????????...');
+        }, 'กำลังโหลดข้อมูล...');
     }, [debouncedSearch, execute, page]);
 
     useEffect(() => {
@@ -469,6 +485,10 @@ export default function DeliveryPage() {
                 onAdd={handleAdd}
                 searchValue={searchValue}
                 onSearchChange={setSearchValue}
+                page={page}
+                total={total}
+                lastPage={lastPage}
+                setPage={setPage}
             />
             
             {/* Stats Card */}

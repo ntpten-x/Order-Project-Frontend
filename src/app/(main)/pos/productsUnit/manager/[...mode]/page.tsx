@@ -41,7 +41,7 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
         setLoading(true);
         try {
             const response = await fetch(`/api/pos/productsUnit/getById/${id}`);
-            if (!response.ok) throw new Error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธซเธเนเธงเธขเธชเธดเธเธเนเธฒเนเธ”เน');
+            if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลหน่วยสินค้าได้');
             const data = await response.json();
             form.setFieldsValue({
                 unit_name: data.unit_name,
@@ -52,7 +52,7 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
             setUnitName(data.unit_name || '');
         } catch (error) {
             console.error(error);
-            message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธซเธเนเธงเธขเธชเธดเธเธเนเธฒเนเธ”เน');
+            message.error('ไม่สามารถดึงข้อมูลหน่วยสินค้าได้');
             router.push('/pos/productsUnit');
         } finally {
             setLoading(false);
@@ -81,10 +81,10 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
                 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเน€เธ”เธ•เธซเธเนเธงเธขเธชเธดเธเธเนเธฒเนเธ”เน');
+                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถอัปเดตหน่วยสินค้าได้');
                 }
                 
-                message.success('เธญเธฑเธเน€เธ”เธ•เธซเธเนเธงเธขเธชเธดเธเธเนเธฒเธชเธณเน€เธฃเนเธ');
+                message.success('อัปเดตหน่วยสินค้าสำเร็จ');
             } else {
                 const response = await fetch(`/api/pos/productsUnit/create`, {
                     method: 'POST',
@@ -97,15 +97,15 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธเธซเธเนเธงเธขเธชเธดเธเธเนเธฒเนเธ”เน');
+                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถสร้างหน่วยสินค้าได้');
                 }
                 
-                message.success('เธชเธฃเนเธฒเธเธซเธเนเธงเธขเธชเธดเธเธเนเธฒเธชเธณเน€เธฃเนเธ');
+                message.success('สร้างหน่วยสินค้าสำเร็จ');
             }
             router.push('/pos/productsUnit');
         } catch (error: unknown) {
             console.error(error);
-            message.error((error as { message: string }).message || (isEdit ? 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเน€เธ”เธ•เธซเธเนเธงเธขเธชเธดเธเธเนเธฒเนเธ”เน' : 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธเธซเธเนเธงเธขเธชเธดเธเธเนเธฒเนเธ”เน'));
+            message.error((error as { message: string }).message || (isEdit ? 'ไม่สามารถอัปเดตหน่วยสินค้าได้' : 'ไม่สามารถสร้างหน่วยสินค้าได้'));
         } finally {
             setSubmitting(false);
         }
@@ -114,11 +114,11 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
     const handleDelete = () => {
         if (!id) return;
         Modal.confirm({
-            title: 'เธขเธทเธเธขเธฑเธเธเธฒเธฃเธฅเธเธซเธเนเธงเธขเธชเธดเธเธเนเธฒ',
-            content: `เธเธธเธ“เธ•เนเธญเธเธเธฒเธฃเธฅเธเธซเธเนเธงเธข "${displayName}" เธซเธฃเธทเธญเนเธกเน?`,
-            okText: 'เธฅเธ',
+            title: 'ยืนยันการลบหน่วยสินค้า',
+            content: `คุณต้องการลบหน่วย "${displayName}" หรือไม่?`,
+            okText: 'ลบ',
             okType: 'danger',
-            cancelText: 'เธขเธเน€เธฅเธดเธ',
+            cancelText: 'ยกเลิก',
             centered: true,
             onOk: async () => {
                 try {
@@ -128,12 +128,12 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
                             'X-CSRF-Token': csrfToken
                         }
                     });
-                    if (!response.ok) throw new Error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเธซเธเนเธงเธขเธชเธดเธเธเนเธฒเนเธ”เน');
-                    message.success('เธฅเธเธซเธเนเธงเธขเธชเธดเธเธเนเธฒเธชเธณเน€เธฃเนเธ');
+                    if (!response.ok) throw new Error('ไม่สามารถลบหน่วยสินค้าได้');
+                    message.success('ลบหน่วยสินค้าสำเร็จ');
                     router.push('/pos/productsUnit');
                 } catch (error) {
                     console.error(error);
-                    message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเธซเธเนเธงเธขเธชเธดเธเธเนเธฒเนเธ”เน');
+                    message.error('ไม่สามารถลบหน่วยสินค้าได้');
                 }
             }
         });
@@ -188,31 +188,31 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
                     >
                         <Form.Item
                             name="unit_name"
-                            label="เธเธทเนเธญเธซเธเนเธงเธข (เธ เธฒเธฉเธฒเธญเธฑเธเธเธคเธฉ) *"
+                            label="ชื่อหน่วย (ภาษาอังกฤษ) *"
                             rules={[
-                                { required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเธซเธเนเธงเธข' },
-                                { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธ เธฒเธฉเธฒเธญเธฑเธเธเธคเธฉเน€เธ—เนเธฒเธเธฑเนเธ' },
-                                { max: 100, message: 'เธเธงเธฒเธกเธขเธฒเธงเธ•เนเธญเธเนเธกเนเน€เธเธดเธ 100 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ' }
+                                { required: true, message: 'กรุณากรอกชื่อหน่วย' },
+                                { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'กรุณากรอกภาษาอังกฤษเท่านั้น' },
+                                { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
                             ]}
                         >
                             <Input 
                                 size="large" 
-                                placeholder="เน€เธเนเธ Piece, Bottle, Cup" 
+                                placeholder="เช่น Piece, Bottle, Cup" 
                                 maxLength={100}
                             />
                         </Form.Item>
 
                         <Form.Item
                             name="display_name"
-                            label="เธเธทเนเธญเธ—เธตเนเนเธชเธ”เธ (เธ เธฒเธฉเธฒเนเธ—เธข) *"
+                            label="ชื่อที่แสดง (ภาษาไทย) *"
                             rules={[
-                                { required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเธ—เธตเนเนเธชเธ”เธ' },
-                                { max: 100, message: 'เธเธงเธฒเธกเธขเธฒเธงเธ•เนเธญเธเนเธกเนเน€เธเธดเธ 100 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ' }
+                                { required: true, message: 'กรุณากรอกชื่อที่แสดง' },
+                                { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
                             ]}
                         >
                             <Input 
                                 size="large" 
-                                placeholder="เน€เธเนเธ เธเธดเนเธ, เธเธงเธ”, เนเธเนเธง" 
+                                placeholder="เช่น ชิ้น, ขวด, แก้ว" 
                                 maxLength={100}
                             />
                         </Form.Item>
@@ -225,13 +225,13 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
 
                         <Form.Item
                             name="is_active"
-                            label="เธชเธ–เธฒเธเธฐเธเธฒเธฃเนเธเนเธเธฒเธ"
+                            label="สถานะการใช้งาน"
                             valuePropName="checked"
                             style={{ marginTop: 20 }}
                         >
                             <Switch 
-                                checkedChildren="เนเธเนเธเธฒเธ" 
-                                unCheckedChildren="เนเธกเนเนเธเนเธเธฒเธ"
+                                checkedChildren="ใช้งาน" 
+                                unCheckedChildren="ไม่ใช้งาน"
                             />
                         </Form.Item>
 

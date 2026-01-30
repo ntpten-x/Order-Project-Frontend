@@ -53,7 +53,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
             setTableStatus(data.status || '');
         } catch (error) {
             console.error(error);
-            message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเนเธ•เนเธฐเนเธ”เน');
+            message.error('ไม่สามารถดึงข้อมูลโต๊ะได้');
             router.push('/pos/tables');
         } finally {
             setLoading(false);
@@ -73,15 +73,15 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
             if (isEdit) {
                 if (!id) throw new Error("ID not found");
                 await tablesService.update(id, values, undefined, csrfToken);
-                message.success('เธญเธฑเธเน€เธ”เธ•เนเธ•เนเธฐเธชเธณเน€เธฃเนเธ');
+                message.success('อัปเดตโต๊ะสำเร็จ');
             } else {
                 await tablesService.create(values, undefined, csrfToken);
-                message.success('เธชเธฃเนเธฒเธเนเธ•เนเธฐเธชเธณเน€เธฃเนเธ');
+                message.success('สร้างโต๊ะสำเร็จ');
             }
             router.push('/pos/tables');
         } catch (error: unknown) {
             console.error(error);
-            message.error((error as { message: string }).message || (isEdit ? 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเน€เธ”เธ•เนเธ•เนเธฐเนเธ”เน' : 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธเนเธ•เนเธฐเนเธ”เน'));
+            message.error((error as { message: string }).message || (isEdit ? 'ไม่สามารถอัปเดตโต๊ะได้' : 'ไม่สามารถสร้างโต๊ะได้'));
         } finally {
             setSubmitting(false);
         }
@@ -90,20 +90,20 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
     const handleDelete = () => {
         if (!id) return;
         Modal.confirm({
-            title: 'เธขเธทเธเธขเธฑเธเธเธฒเธฃเธฅเธเนเธ•เนเธฐ',
-            content: `เธเธธเธ“เธ•เนเธญเธเธเธฒเธฃเธฅเธเนเธ•เนเธฐ "${tableName}" เธซเธฃเธทเธญเนเธกเน?`,
-            okText: 'เธฅเธ',
+            title: 'ยืนยันการลบโต๊ะ',
+            content: `คุณต้องการลบโต๊ะ "${tableName}" หรือไม่?`,
+            okText: 'ลบ',
             okType: 'danger',
-            cancelText: 'เธขเธเน€เธฅเธดเธ',
+            cancelText: 'ยกเลิก',
             centered: true,
             onOk: async () => {
                 try {
                     await tablesService.delete(id, undefined, csrfToken);
-                    message.success('เธฅเธเนเธ•เนเธฐเธชเธณเน€เธฃเนเธ');
+                    message.success('ลบโต๊ะสำเร็จ');
                     router.push('/pos/tables');
                 } catch (error) {
                     console.error(error);
-                    message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเนเธ•เนเธฐเนเธ”เน');
+                    message.error('ไม่สามารถลบโต๊ะได้');
                 }
             }
         });
@@ -158,33 +158,33 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                     >
                         <Form.Item
                             name="table_name"
-                            label="เธเธทเนเธญเนเธ•เนเธฐ *"
+                            label="ชื่อโต๊ะ *"
                             rules={[
-                                { required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเนเธ•เนเธฐ' },
-                                { max: 50, message: 'เธเธงเธฒเธกเธขเธฒเธงเธ•เนเธญเธเนเธกเนเน€เธเธดเธ 50 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ' }
+                                { required: true, message: 'กรุณากรอกชื่อโต๊ะ' },
+                                { max: 50, message: 'ความยาวต้องไม่เกิน 50 ตัวอักษร' }
                             ]}
                         >
                             <Input 
                                 size="large" 
-                                placeholder="เน€เธเนเธ T1, A10, VIP1" 
+                                placeholder="เช่น T1, A10, VIP1" 
                                 maxLength={50}
                             />
                         </Form.Item>
 
                         <Form.Item
                             name="status"
-                            label="เธชเธ–เธฒเธเธฐเนเธ•เนเธฐ *"
-                            rules={[{ required: true, message: 'เธเธฃเธธเธ“เธฒเน€เธฅเธทเธญเธเธชเธ–เธฒเธเธฐเนเธ•เนเธฐ' }]}
+                            label="สถานะโต๊ะ *"
+                            rules={[{ required: true, message: 'กรุณาเลือกสถานะโต๊ะ' }]}
                         >
                             <Select 
                                 size="large" 
-                                placeholder="เน€เธฅเธทเธญเธเธชเธ–เธฒเธเธฐ"
+                                placeholder="เลือกสถานะ"
                             >
                                 <Select.Option value={TableStatus.Available}>
-                                    เธงเนเธฒเธ (Available)
+                                    ว่าง (Available)
                                 </Select.Option>
                                 <Select.Option value={TableStatus.Unavailable}>
-                                    เนเธกเนเธงเนเธฒเธ (Unavailable)
+                                    ไม่ว่าง (Unavailable)
                                 </Select.Option>
                             </Select>
                         </Form.Item>
@@ -194,13 +194,13 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
 
                         <Form.Item
                             name="is_active"
-                            label="เธชเธ–เธฒเธเธฐเธเธฒเธฃเนเธเนเธเธฒเธ"
+                            label="สถานะการใช้งาน"
                             valuePropName="checked"
                             style={{ marginTop: 20 }}
                         >
                             <Switch 
-                                checkedChildren="เน€เธเธดเธ”เนเธเนเธเธฒเธ" 
-                                unCheckedChildren="เธเธดเธ”เนเธเนเธเธฒเธ"
+                                checkedChildren="เปิดใช้งาน" 
+                                unCheckedChildren="ปิดใช้งาน"
                             />
                         </Form.Item>
 

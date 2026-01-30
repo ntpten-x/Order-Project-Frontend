@@ -41,7 +41,7 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
         setLoading(true);
         try {
             const response = await fetch(`/api/pos/paymentMethod/getById/${id}`);
-            if (!response.ok) throw new Error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเนเธ”เน');
+            if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลวิธีการชำระเงินได้');
             const data = await response.json();
             form.setFieldsValue({
                 payment_method_name: data.payment_method_name,
@@ -52,7 +52,7 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
             setDisplayName(data.display_name || '');
         } catch (error) {
             console.error(error);
-            message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเนเธ”เน');
+            message.error('ไม่สามารถดึงข้อมูลวิธีการชำระเงินได้');
             router.push('/pos/paymentMethod');
         } finally {
             setLoading(false);
@@ -81,10 +81,10 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเน€เธ”เธ•เธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเนเธ”เน');
+                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถอัปเดตวิธีการชำระเงินได้');
                 }
                 
-                message.success('เธญเธฑเธเน€เธ”เธ•เธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเธชเธณเน€เธฃเนเธ');
+                message.success('อัปเดตวิธีการชำระเงินสำเร็จ');
             } else {
                 const response = await fetch(`/api/pos/paymentMethod/create`, {
                     method: 'POST',
@@ -97,15 +97,15 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเนเธ”เน');
+                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถสร้างวิธีการชำระเงินได้');
                 }
                 
-                message.success('เธชเธฃเนเธฒเธเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเธชเธณเน€เธฃเนเธ');
+                message.success('สร้างวิธีการชำระเงินสำเร็จ');
             }
             router.push('/pos/paymentMethod');
         } catch (error: unknown) {
             console.error(error);
-            message.error((error as { message: string }).message || (isEdit ? 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเน€เธ”เธ•เธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเนเธ”เน' : 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเนเธ”เน'));
+            message.error((error as { message: string }).message || (isEdit ? 'ไม่สามารถอัปเดตวิธีการชำระเงินได้' : 'ไม่สามารถสร้างวิธีการชำระเงินได้'));
         } finally {
             setSubmitting(false);
         }
@@ -114,11 +114,11 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
     const handleDelete = () => {
         if (!id) return;
         Modal.confirm({
-            title: 'เธขเธทเธเธขเธฑเธเธเธฒเธฃเธฅเธเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธ',
-            content: `เธเธธเธ“เธ•เนเธญเธเธเธฒเธฃเธฅเธเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธ "${displayName || paymentMethodName}" เธซเธฃเธทเธญเนเธกเน?`,
-            okText: 'เธฅเธ',
+            title: 'ยืนยันการลบวิธีการชำระเงิน',
+            content: `คุณต้องการลบวิธีการชำระเงิน "${displayName || paymentMethodName}" หรือไม่?`,
+            okText: 'ลบ',
             okType: 'danger',
-            cancelText: 'เธขเธเน€เธฅเธดเธ',
+            cancelText: 'ยกเลิก',
             centered: true,
             onOk: async () => {
                 try {
@@ -128,12 +128,12 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                             'X-CSRF-Token': csrfToken
                         }
                     });
-                    if (!response.ok) throw new Error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเนเธ”เน');
-                    message.success('เธฅเธเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเธชเธณเน€เธฃเนเธ');
+                    if (!response.ok) throw new Error('ไม่สามารถลบวิธีการชำระเงินได้');
+                    message.success('ลบวิธีการชำระเงินสำเร็จ');
                     router.push('/pos/paymentMethod');
                 } catch (error) {
                     console.error(error);
-                    message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเนเธ”เน');
+                    message.error('ไม่สามารถลบวิธีการชำระเงินได้');
                 }
             }
         });
@@ -188,30 +188,30 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                     >
                         <Form.Item
                             name="payment_method_name"
-                            label="เธฃเธซเธฑเธชเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธ *"
+                            label="รหัสวิธีการชำระเงิน *"
                             rules={[
-                                { required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธฃเธซเธฑเธชเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธ' },
-                                { max: 100, message: 'เธเธงเธฒเธกเธขเธฒเธงเธ•เนเธญเธเนเธกเนเน€เธเธดเธ 100 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ' }
+                                { required: true, message: 'กรุณากรอกรหัสวิธีการชำระเงิน' },
+                                { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
                             ]}
                         >
                             <Input 
                                 size="large" 
-                                placeholder="เน€เธเนเธ Cash, CreditCard, PromptPay" 
+                                placeholder="เช่น Cash, CreditCard, PromptPay" 
                                 maxLength={100}
                             />
                         </Form.Item>
 
                         <Form.Item
                             name="display_name"
-                            label="เธเธทเนเธญเธ—เธตเนเนเธชเธ”เธ *"
+                            label="ชื่อที่แสดง *"
                             rules={[
-                                { required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเธ—เธตเนเนเธชเธ”เธ' },
-                                { max: 100, message: 'เธเธงเธฒเธกเธขเธฒเธงเธ•เนเธญเธเนเธกเนเน€เธเธดเธ 100 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ' }
+                                { required: true, message: 'กรุณากรอกชื่อที่แสดง' },
+                                { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
                             ]}
                         >
                             <Input 
                                 size="large" 
-                                placeholder="เน€เธเนเธ เน€เธเธดเธเธชเธ”, เธเธฑเธ•เธฃเน€เธเธฃเธ”เธดเธ•, เธเธฃเนเธญเธกเน€เธเธขเน" 
+                                placeholder="เช่น เงินสด, บัตรเครดิต, พร้อมเพย์" 
                                 maxLength={100}
                             />
                         </Form.Item>
@@ -228,13 +228,13 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
 
                         <Form.Item
                             name="is_active"
-                            label="เธชเธ–เธฒเธเธฐเธเธฒเธฃเนเธเนเธเธฒเธ"
+                            label="สถานะการใช้งาน"
                             valuePropName="checked"
                             style={{ marginTop: 20 }}
                         >
                             <Switch 
-                                checkedChildren="เน€เธเธดเธ”เนเธเนเธเธฒเธ" 
-                                unCheckedChildren="เธเธดเธ”เนเธเนเธเธฒเธ"
+                                checkedChildren="เปิดใช้งาน" 
+                                unCheckedChildren="ปิดใช้งาน"
                             />
                         </Form.Item>
 
