@@ -9,11 +9,12 @@ import { SalesOrderItem } from "@/types/api/pos/salesOrderItem";
 import { OrderStatus, OrderType, SalesOrder } from "@/types/api/pos/salesOrder";
 import { paymentPageStyles, paymentColors } from "@/theme/pos/payments.theme";
 import { formatCurrency } from "@/utils/orders";
-import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
+import { useGlobalLoadingDispatch } from "@/contexts/pos/GlobalLoadingContext";
 import { useSocket } from "@/hooks/useSocket";
 import { useRealtimeRefresh } from "@/utils/pos/realtime";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
+import { isEqual } from "lodash";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -28,13 +29,16 @@ export default function POSItemsPage() {
     const router = useRouter();
     const [orderGroups, setOrderGroups] = useState<OrderGroup[]>([]);
     const [isLoading, setIsLoading] = useState(true);
-    const { showLoading, hideLoading } = useGlobalLoading();
+    const { showLoading, hideLoading } = useGlobalLoadingDispatch();
     const { socket } = useSocket();
 
     const fetchServedItems = useCallback(async (initial = false) => {
         try {
-            if (initial) showLoading("กำลังโหลดรายการรอชำระเงิน...");
-            setIsLoading(true);
+            if (initial) {
+                showLoading("กำลังโหลดรายการรอชำระเงิน...");
+                setIsLoading(true);
+            }
+            
             const activeStatuses = [OrderStatus.WaitingForPayment].join(',');
             
             const response = await ordersService.getAll(undefined, 1, 100, activeStatuses);
@@ -49,12 +53,17 @@ export default function POSItemsPage() {
             // Sort by order creation date (newest first)
             groups.sort((a, b) => dayjs(b.order.create_date).unix() - dayjs(a.order.create_date).unix());
 
-            setOrderGroups(groups);
+            setOrderGroups(prev => {
+                if (isEqual(prev, groups)) return prev;
+                return groups;
+            });
         } catch (error) {
             // Silently handle error or show notification if critical
         } finally {
-            setIsLoading(false);
-            if (initial) hideLoading();
+            if (initial) {
+                setIsLoading(false);
+                hideLoading();
+            }
         }
     }, [showLoading, hideLoading]);
 

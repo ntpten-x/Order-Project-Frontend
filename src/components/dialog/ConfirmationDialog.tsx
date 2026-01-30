@@ -128,8 +128,8 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
                             borderRadius: 12, 
                             height: 48, 
                             fontWeight: 600,
-                            backgroundColor: themeColor,
-                            borderColor: themeColor,
+                            background: themeColor,
+                            border: `1px solid ${themeColor}`,
                             boxShadow: `0 4px 12px ${themeColor}40`
                         }}
                     >

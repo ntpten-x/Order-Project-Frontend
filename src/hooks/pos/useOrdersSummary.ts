@@ -34,7 +34,8 @@ export function useOrdersSummary({ page = 1, limit = 50, status, type, query }: 
         total: data?.total || 0,
         currentPage: data?.page || page,
         lastPage: data?.last_page || 1,
-        isLoading: isLoading || isFetching,
+        isLoading,
+        isFetching,
         isError: error,
         refetch,
     };

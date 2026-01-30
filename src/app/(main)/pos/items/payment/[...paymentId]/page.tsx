@@ -63,11 +63,13 @@ export default function POSPaymentPage() {
 
     const closeConfirm = () => setConfirmConfig(prev => ({ ...prev, open: false }));
 
-    const fetchInitialData = useCallback(async () => {
+    const fetchInitialData = useCallback(async (silent = false) => {
         if (!paymentId) return;
         try {
-            setIsLoading(true);
-            showLoading("กำลังโหลดข้อมูลการชำระเงิน...");
+            if (!silent) {
+                setIsLoading(true);
+                showLoading("กำลังโหลดข้อมูลการชำระเงิน...");
+            }
 
             // Fetch shop profile separately
             const shopRes = await shopProfileService.getProfile().catch(() => null);
@@ -109,16 +111,18 @@ export default function POSPaymentPage() {
             }
 
         } catch (error) {
-            messageApi.error("ไม่สามารถโหลดข้อมูลการชำระเงินได้");
+            if (!silent) messageApi.error("ไม่สามารถโหลดข้อมูลการชำระเงินได้");
         } finally {
-            setIsLoading(false);
-            hideLoading();
+            if (!silent) {
+                setIsLoading(false);
+                hideLoading();
+            }
         }
     }, [messageApi, paymentId, router, showLoading, hideLoading]);
 
     useEffect(() => {
         if (paymentId) {
-            fetchInitialData();
+            fetchInitialData(false);
         }
     }, [fetchInitialData, paymentId]);
 
@@ -127,7 +131,7 @@ export default function POSPaymentPage() {
         events: ["orders:update", "orders:delete", "payments:create", "payments:update"],
         onRefresh: () => {
             if (paymentId) {
-                fetchInitialData();
+                fetchInitialData(true);
             }
         },
         intervalMs: 15000,
@@ -657,7 +661,7 @@ export default function POSPaymentPage() {
                                     type="primary" 
                                     size="large" 
                                     block 
-                                    style={{ height: 56, fontSize: 18, marginTop: 8, background: paymentColors.success, borderColor: paymentColors.success, fontWeight: 700 }}
+                                    style={{ height: 56, fontSize: 18, marginTop: 8, background: paymentColors.success, border: `1px solid ${paymentColors.success}`, fontWeight: 700 }}
                                     onClick={handleConfirmPayment}
                                     disabled={
                                         !selectedPaymentMethod || 

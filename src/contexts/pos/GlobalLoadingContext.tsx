@@ -1,17 +1,23 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode, useCallback } from "react";
+import React, { createContext, useContext, useState, ReactNode, useCallback, useMemo } from "react";
 import { Spin } from "antd";
 
-interface GlobalLoadingContextType {
-    showLoading: (message?: string, key?: string) => void;
-    hideLoading: (key?: string) => void;
-    resetLoading: () => void;
+interface GlobalLoadingState {
     isLoading: boolean;
     loadingMessage?: string;
 }
 
-const GlobalLoadingContext = createContext<GlobalLoadingContextType | undefined>(undefined);
+interface GlobalLoadingActions {
+    showLoading: (message?: string, key?: string) => void;
+    hideLoading: (key?: string) => void;
+    resetLoading: () => void;
+}
+
+type GlobalLoadingContextType = GlobalLoadingState & GlobalLoadingActions;
+
+const GlobalLoadingStateContext = createContext<GlobalLoadingState | undefined>(undefined);
+const GlobalLoadingDispatchContext = createContext<GlobalLoadingActions | undefined>(undefined);
 
 export const GlobalLoadingProvider = ({ children }: { children: ReactNode }) => {
     const [loadingKeys, setLoadingKeys] = useState<Record<string, number>>({});
@@ -46,27 +52,55 @@ export const GlobalLoadingProvider = ({ children }: { children: ReactNode }) => 
 
     const isLoading = Object.keys(loadingKeys).length > 0;
 
+    const stateValue = useMemo(() => ({
+        isLoading,
+        loadingMessage
+    }), [isLoading, loadingMessage]);
+
+    const dispatchValue = useMemo(() => ({
+        showLoading,
+        hideLoading,
+        resetLoading
+    }), [showLoading, hideLoading, resetLoading]);
+
     return (
-        <GlobalLoadingContext.Provider value={{ showLoading, hideLoading, resetLoading, isLoading, loadingMessage }}>
-            {children}
-            {isLoading && (
-                <div className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-auto">
-                    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10 }}>
-                        <Spin size="large" />
-                        {loadingMessage && (
-                            <div style={{ fontSize: 13, color: "#5f6368" }}>{loadingMessage}</div>
-                        )}
+        <GlobalLoadingDispatchContext.Provider value={dispatchValue}>
+            <GlobalLoadingStateContext.Provider value={stateValue}>
+                {children}
+                {isLoading && (
+                    <div className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-auto bg-black/10 backdrop-blur-[1px]">
+                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, background: "rgba(255, 255, 255, 0.9)", padding: "20px 40px", borderRadius: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
+                            <Spin size="large" />
+                            {loadingMessage && (
+                                <div style={{ fontSize: 14, color: "#1f1f1f", fontWeight: 500 }}>{loadingMessage}</div>
+                            )}
+                        </div>
                     </div>
-                </div>
-            )}
-        </GlobalLoadingContext.Provider>
+                )}
+            </GlobalLoadingStateContext.Provider>
+        </GlobalLoadingDispatchContext.Provider>
     );
 };
 
 export function useGlobalLoading(): GlobalLoadingContextType {
-    const context = useContext(GlobalLoadingContext);
-    if (!context) {
+    const state = useContext(GlobalLoadingStateContext);
+    const dispatch = useContext(GlobalLoadingDispatchContext);
+    
+    if (!state || !dispatch) {
         throw new Error("useGlobalLoading must be used within a GlobalLoadingProvider");
     }
-    return context;
+    
+    // Merge for backward compatibility
+    return useMemo(() => ({
+        ...state,
+        ...dispatch
+    }), [state, dispatch]);
+}
+
+export function useGlobalLoadingDispatch(): GlobalLoadingActions {
+    const dispatch = useContext(GlobalLoadingDispatchContext);
+    if (!dispatch) {
+        throw new Error("useGlobalLoadingDispatch must be used within a GlobalLoadingProvider");
+    }
+    return dispatch;
 }

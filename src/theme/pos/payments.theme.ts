@@ -66,7 +66,9 @@ export const paymentPageStyles = {
 
     // Payment Methods
     methodCard: {
-        border: `2px solid #f0f0f0`,
+        borderWidth: 2,
+        borderStyle: 'solid',
+        borderColor: '#f0f0f0',
         borderRadius: 12,
         padding: 16,
         textAlign: 'center' as const,

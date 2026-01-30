@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Typography, Row, Col, Empty, Button } from "antd";
+import { Typography, Row, Col, Empty, Button, Card, Tag, Divider } from "antd";
 import { ShoppingOutlined, ArrowLeftOutlined, PlusOutlined } from "@ant-design/icons";
 import { OrderType, SalesOrderSummary } from "../../../../../types/api/pos/salesOrder";
 import { posPageStyles, channelColors, tableColors } from "@/theme/pos";
@@ -121,51 +121,72 @@ export default function TakeawayPage() {
                             const orderNum = order.order_no.split('-').pop();
 
                             return (
-                                <Col xs={12} sm={8} md={6} lg={4} key={order.id}>
-                                    <div
+                                <Col xs={24} sm={12} md={12} lg={8} xl={6} key={order.id}>
+                                    <Card
+                                        hoverable
                                         className={`takeaway-order-card table-card-animate table-card-delay-${(index % 6) + 1}`}
                                         style={{
-                                            ...channelPageStyles.channelPageCard,
-                                            background: colors.light,
-                                            border: `2px solid ${colors.border}`,
+                                            borderRadius: 16,
+                                            overflow: 'hidden',
+                                            border: `1px solid ${colors.border}`,
+                                            background: '#fff',
+                                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                            boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
                                         }}
+                                        bodyStyle={{ padding: 0 }}
                                         onClick={() => handleOrderClick(order)}
                                     >
-                                        <div
-                                            style={{
-                                                ...channelPageStyles.channelPageCardGradientOverlay,
-                                                background: colors.gradient,
-                                            }}
-                                        />
-
-                                        <div style={channelPageStyles.channelPageCardInner}>
-                                            <ShoppingOutlined
-                                                style={{
-                                                    ...channelPageStyles.channelPageCardIcon,
-                                                    color: colors.primary,
-                                                }}
-                                            />
-
-                                            <div style={channelPageStyles.channelPageCardMainText}>
-                                                {orderNum}
+                                        {/* Card Header */}
+                                        <div style={{ 
+                                            padding: '12px 16px', 
+                                            background: colors.light, 
+                                            display: 'flex', 
+                                            justifyContent: 'space-between', 
+                                            alignItems: 'center',
+                                            borderBottom: `1px solid ${colors.border}40`
+                                        }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                <ShoppingOutlined style={{ color: colors.primary, fontSize: 18 }} />
+                                                <Text strong style={{ fontSize: 16 }}>#{orderNum}</Text>
                                             </div>
+                                            <Tag 
+                                                color={colorScheme === 'available' ? 'success' : colorScheme === 'occupied' ? 'orange' : colorScheme === 'waitingForPayment' ? 'blue' : 'default'} 
+                                                style={{ borderRadius: 6, margin: 0, fontWeight: 600, border: 'none' }}
+                                            >
+                                                {formatOrderStatus(order.status)}
+                                            </Tag>
+                                        </div>
 
-                                            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 4, alignItems: 'center' }}>
-                                                <div style={{ fontSize: 12, fontWeight: 700, color: colors.primary, textTransform: 'uppercase' }}>
-                                                    {dayjs(order.create_date).fromNow()}
+                                        {/* Card Content */}
+                                        <div style={{ padding: 16 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
+                                                <div>
+                                                    <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>รายการสินค้า</Text>
+                                                    <Text strong style={{ fontSize: 15 }}>{order.items_count || 0} รายการ</Text>
                                                 </div>
-                                                <div
-                                                    style={{
-                                                        ...channelPageStyles.channelPageCardStatusBadge,
+                                                <div style={{ textAlign: 'right' }}>
+                                                    <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>ยอดรวม</Text>
+                                                    <Text strong style={{ fontSize: 18, color: colors.primary }}>฿{order.total_amount?.toLocaleString()}</Text>
+                                                </div>
+                                            </div>
+                                            
+                                            <Divider style={{ margin: '12px 0' }} />
+                                            
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                    <div style={{ 
+                                                        width: 8, 
+                                                        height: 8, 
+                                                        borderRadius: '50%', 
                                                         background: colors.primary,
-                                                        color: '#fff',
-                                                    }}
-                                                >
-                                                    {formatOrderStatus(order.status)}
+                                                        boxShadow: `0 0 8px ${colors.primary}60`
+                                                    }} />
+                                                    <Text type="secondary" style={{ fontSize: 12 }}>{dayjs(order.create_date).fromNow()}</Text>
                                                 </div>
+                                                <Text type="secondary" style={{ fontSize: 12 }}>Take Away</Text>
                                             </div>
                                         </div>
-                                    </div>
+                                    </Card>
                                 </Col>
                             );
                         })}

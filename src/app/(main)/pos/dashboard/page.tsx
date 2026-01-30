@@ -30,8 +30,8 @@ export default function DashboardPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([dayjs().startOf('month'), dayjs().endOf('month')]);
 
-    const fetchData = useCallback(async () => {
-        setIsLoading(true);
+    const fetchData = useCallback(async (silent = false) => {
+        if (!silent) setIsLoading(true);
         try {
             const startDate = dateRange[0].format('YYYY-MM-DD');
             const endDate = dateRange[1].format('YYYY-MM-DD');
@@ -49,18 +49,18 @@ export default function DashboardPage() {
         } catch (error) {
             // Silent failure for dashboard data
         } finally {
-            setIsLoading(false);
+            if (!silent) setIsLoading(false);
         }
     }, [dateRange]);
 
     useEffect(() => {
-        fetchData();
+        fetchData(false);
     }, [fetchData]);
 
     useRealtimeRefresh({
         socket,
         events: ["orders:update", "orders:create", "orders:delete", "payments:create"],
-        onRefresh: () => fetchData(),
+        onRefresh: () => fetchData(true),
         intervalMs: 20000,
         debounceMs: 1000,
     });
@@ -171,7 +171,7 @@ export default function DashboardPage() {
                              />
                         </Col>
                         <Col>
-                            <Button icon={<ReloadOutlined />} onClick={fetchData} type="default" style={{ borderRadius: 8, background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff' }}>
+                            <Button icon={<ReloadOutlined />} onClick={() => fetchData(false)} type="default" style={{ borderRadius: 8, background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff' }}>
                                 รีเฟรช
                             </Button>
                         </Col>

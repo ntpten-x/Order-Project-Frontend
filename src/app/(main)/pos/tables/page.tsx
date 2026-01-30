@@ -345,8 +345,8 @@ export default function TablesPage() {
         }
     }, [debouncedSearch, page]);
 
-    const fetchTables = useCallback(async () => {
-        execute(async () => {
+    const fetchTables = useCallback(async (silent = false) => {
+        const action = async () => {
             const params = new URLSearchParams();
             params.set("page", page.toString());
             params.set("limit", TABLES_LIMIT.toString());
@@ -360,19 +360,29 @@ export default function TablesPage() {
             if (!debouncedSearch && page === 1) {
                 writeCache(TABLES_CACHE_KEY, result);
             }
-        }, 'กำลังโหลดข้อมูลโต๊ะ...');
+        };
+
+        if (silent) {
+            try {
+                await action();
+            } catch (error) {
+                console.error("Silent refresh failed:", error);
+            }
+        } else {
+            execute(action, 'กำลังโหลดข้อมูลโต๊ะ...');
+        }
     }, [debouncedSearch, execute, page]);
 
     useEffect(() => {
         if (isAuthorized) {
-            fetchTables();
+            fetchTables(false);
         }
     }, [isAuthorized, fetchTables]);
 
     useRealtimeRefresh({
         socket,
         events: ["tables:create", "tables:update", "tables:delete"],
-        onRefresh: () => fetchTables(),
+        onRefresh: () => fetchTables(true),
         intervalMs: 20000,
         debounceMs: 1000,
     });

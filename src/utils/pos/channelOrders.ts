@@ -3,6 +3,7 @@ import { ordersService } from "@/services/pos/orders.service";
 import { OrderStatus, OrderType, SalesOrderSummary } from "@/types/api/pos/salesOrder";
 import { useSocket } from "@/hooks/useSocket";
 import { useRealtimeRefresh } from "@/utils/pos/realtime";
+import { isEqual } from "lodash";
 
 const EXCLUDED_STATUSES = new Set<OrderStatus>([
     OrderStatus.Paid,
@@ -67,7 +68,11 @@ export function useChannelOrders({
                     statusFilter,
                     orderType
                 );
-                setOrders(filterActiveOrders(res.data || [], orderType));
+                const activeOrders = filterActiveOrders(res.data || [], orderType);
+                setOrders(prev => {
+                    if (isEqual(prev, activeOrders)) return prev;
+                    return activeOrders;
+                });
             } catch {
                 // Silent error for background refresh
             } finally {
