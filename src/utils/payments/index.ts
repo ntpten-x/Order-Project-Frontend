@@ -47,6 +47,21 @@ export const isPromptPayMethod = (methodName: string = '', displayName: string =
     return lowerName.includes('qr') || lowerName.includes('prompt') || lowerDisplay.includes('qr') || lowerDisplay.includes('พร้อมเพย์');
 };
 
+/**
+ * Check if a payment method is properly configured (e.g., PromptPay needs a number)
+ */
+export const isPaymentMethodConfigured = (
+    methodName: string = '',
+    displayName: string = '',
+    config: { promptpay_number?: string } | null = null
+): boolean => {
+    if (isPromptPayMethod(methodName, displayName)) {
+        return !!config?.promptpay_number;
+    }
+    // Add other method-specific checks here if needed
+    return true;
+};
+
 export const quickCashAmounts = [20, 50, 100, 500, 1000];
 
 /**

@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Typography, Row, Col, Card, Button, Spin, Empty, Divider, message, InputNumber, Select, Tag, Avatar, Alert } from "antd";
-import { ArrowLeftOutlined, ShopOutlined, DollarOutlined, CreditCardOutlined, QrcodeOutlined, UndoOutlined, EditOutlined, UserOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined, ShopOutlined, DollarOutlined, CreditCardOutlined, QrcodeOutlined, UndoOutlined, EditOutlined, UserOutlined, SettingOutlined } from "@ant-design/icons";
 import { QRCodeSVG } from 'qrcode.react';
 import generatePayload from 'promptpay-qr';
 import { ordersService } from "@/services/pos/orders.service";
@@ -20,7 +20,7 @@ import { TableStatus } from "@/types/api/pos/tables";
 import { Discounts, DiscountType } from "@/types/api/pos/discounts";
 import { PaymentStatus } from "@/types/api/pos/payments";
 import { paymentPageStyles, paymentColors } from "@/theme/pos/payments.theme";
-import { calculatePaymentTotals, isCashMethod, isPromptPayMethod, quickCashAmounts, getPostCancelPaymentRedirect, getEditOrderRedirect } from "@/utils/payments";
+import { calculatePaymentTotals, isCashMethod, isPromptPayMethod, quickCashAmounts, getPostCancelPaymentRedirect, getEditOrderRedirect, isPaymentMethodConfigured } from "@/utils/payments";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import { getOrderChannelText, getOrderReference, getOrderStatusColor, getOrderStatusText, getEditOrderNavigationPath, getCancelOrderNavigationPath, ConfirmationConfig, formatCurrency } from "@/utils/orders";
@@ -539,9 +539,24 @@ export default function POSPaymentPage() {
                                             const isCash = isCashMethod(method?.payment_method_name, method?.display_name);
                                             const isPromptPay = isPromptPayMethod(method?.payment_method_name, method?.display_name);
 
-                                            if (isPromptPay) {
+                                             if (isPromptPay) {
                                                 if (!shopProfile?.promptpay_number) {
-                                                     return <div style={{textAlign: 'center', color: 'red'}}>กรุณาตั้งค่าเบอร์ PromptPay ในระบบก่อน (Shop Profile)</div>
+                                                     return (
+                                                        <div style={{textAlign: 'center', padding: '16px 0'}}>
+                                                            <div style={{color: '#ff4d4f', marginBottom: 12, fontWeight: 500}}>
+                                                                กรุณาตั้งค่าเบอร์ PromptPay ในระบบก่อน (Shop Profile)
+                                                            </div>
+                                                            <Button 
+                                                                type="primary" 
+                                                                danger 
+                                                                ghost 
+                                                                icon={<SettingOutlined />}
+                                                                onClick={() => router.push('/pos/settings')}
+                                                            >
+                                                                ไปตั้งค่าที่ Shop Profile
+                                                            </Button>
+                                                        </div>
+                                                     );
                                                 }
                                                 const payload = generatePayload(shopProfile.promptpay_number, { amount: total });
                                                 return (
@@ -620,13 +635,21 @@ export default function POSPaymentPage() {
                                     </div>
                                 )}
 
-                                <Button 
+                                 <Button 
                                     type="primary" 
                                     size="large" 
                                     block 
                                     style={{ height: 56, fontSize: 18, marginTop: 8, background: paymentColors.success, borderColor: paymentColors.success, fontWeight: 700 }}
                                     onClick={handleConfirmPayment}
-                                    disabled={!selectedPaymentMethod || (receivedAmount < total)}
+                                    disabled={
+                                        !selectedPaymentMethod || 
+                                        (receivedAmount < total) || 
+                                        !isPaymentMethodConfigured(
+                                            paymentMethods.find(m => m.id === selectedPaymentMethod)?.payment_method_name,
+                                            paymentMethods.find(m => m.id === selectedPaymentMethod)?.display_name,
+                                            shopProfile
+                                        )
+                                    }
                                 >
                                     ยืนยันการชำระเงิน
                                     {receivedAmount >= total && ` (${formatCurrency(total)})`}
