@@ -14,15 +14,16 @@ interface UseOrdersSummaryParams {
     limit?: number;
     status?: string;
     type?: string;
+    query?: string;
 }
 
-export function useOrdersSummary({ page = 1, limit = 50, status, type }: UseOrdersSummaryParams) {
-    const queryKey = ["ordersSummary", page, limit, status || "all", type || "all"];
+export function useOrdersSummary({ page = 1, limit = 50, status, type, query }: UseOrdersSummaryParams) {
+    const queryKey = ["ordersSummary", page, limit, status || "all", type || "all", query || ""];
 
     const { data, error, isLoading, isFetching, refetch } = useQuery<OrdersSummaryResponse>({
         queryKey,
         queryFn: async () => {
-            return await ordersService.getAllSummary(undefined, page, limit, status, type);
+            return await ordersService.getAllSummary(undefined, page, limit, status, type, query);
         },
         placeholderData: keepPreviousData,
         staleTime: 3000,

@@ -138,6 +138,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
 
     const items = sortOrderItems(order.items || []);
     const payments = (order.payments || []) as PaymentWithMethod[];
+    const shouldVirtualizeItems = items.length > 12;
     
     // Derived Data
     const employeeName = order.created_by?.display_name || order.created_by?.username || 'ไม่ทราบ';
@@ -370,6 +371,8 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                                 dataSource={items} 
                                 columns={itemColumns} 
                                 rowKey="id"
+                                virtual={shouldVirtualizeItems}
+                                scroll={shouldVirtualizeItems ? { y: 420 } : undefined}
                                 pagination={false}
                                 onRow={(record) => ({
                                     style: getItemRowStyle(record.status)

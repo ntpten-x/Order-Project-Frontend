@@ -669,6 +669,8 @@ export default function POSOrderDetailsPage() {
     const nonCancelledItems = getNonCancelledItems(order.items) as any[];
     const calculatedTotal = calculateOrderTotal(order.items);
     const isOrderComplete = activeItems.length === 0 && (order.items?.length || 0) > 0;
+    const shouldVirtualizeActive = activeItems.length > 12;
+    const shouldVirtualizeServed = servedItems.length > 12;
 
     return (
         <div className="order-detail-page" style={orderDetailStyles.container}>
@@ -815,6 +817,8 @@ export default function POSOrderDetailsPage() {
                                             dataSource={activeItems} 
                                             columns={desktopColumns} 
                                             rowKey="id" 
+                                            virtual={shouldVirtualizeActive}
+                                            scroll={shouldVirtualizeActive ? { y: 420 } : undefined}
                                             pagination={false} 
                                             size="middle"
                                             className="order-items-table"
@@ -952,6 +956,8 @@ export default function POSOrderDetailsPage() {
                                             dataSource={servedItems} 
                                             columns={desktopServedColumns} 
                                             rowKey="id" 
+                                            virtual={shouldVirtualizeServed}
+                                            scroll={shouldVirtualizeServed ? { y: 360 } : undefined}
                                             pagination={false} 
                                             size="small"
                                             className="order-items-table"

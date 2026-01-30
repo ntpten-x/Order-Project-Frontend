@@ -1,7 +1,7 @@
 ﻿"use client";
 
-import React, { useState } from "react";
-import { Typography, Card, Table, Tag, Button, Empty, Divider, Grid, List } from "antd";
+import React, { useEffect, useState } from "react";
+import { Typography, Card, Table, Tag, Button, Empty, Divider, Grid, List, Input } from "antd";
 import { 
   ReloadOutlined, 
   EyeOutlined,
@@ -37,9 +37,25 @@ export default function POSOrdersPage() {
     const { socket } = useSocket();
 
     const [page, setPage] = useState(1);
+    const [searchValue, setSearchValue] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const LIMIT = 10;
     const activeStatuses = 'Pending,Cooking,Served,WaitingForPayment';
-    const { orders, total, isLoading, refetch } = useOrdersSummary({ page, limit: LIMIT, status: activeStatuses });
+
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(searchValue.trim());
+            setPage(1);
+        }, 400);
+        return () => clearTimeout(handler);
+    }, [searchValue]);
+
+    const { orders, total, isLoading, refetch } = useOrdersSummary({
+        page,
+        limit: LIMIT,
+        status: activeStatuses,
+        query: debouncedSearch || undefined
+    });
 
     useRealtimeRefresh({
         socket,
@@ -180,6 +196,14 @@ export default function POSOrdersPage() {
                         <Title level={2} style={ordersStyles.headerTitle} className="orders-page-title">รายการออเดอร์ปัจจุบัน</Title>
                         <Text style={ordersStyles.headerSubtitle} className="orders-page-subtitle">จัดการและติดตามสถานะออเดอร์ที่กำลังดำเนินการ</Text>
                     </div>
+                    <Input
+                        allowClear
+                        placeholder="ค้นหาเลขที่ออเดอร์/โต๊ะ/เดลิเวอรี่"
+                        value={searchValue}
+                        onChange={(e) => setSearchValue(e.target.value)}
+                        size={isMobile ? "middle" : "large"}
+                        style={{ width: isMobile ? 200 : 280 }}
+                    />
                     <Button icon={<ReloadOutlined />} onClick={() => refetch()} size={isMobile ? 'middle' : 'large'} ghost>รีเฟรช</Button>
                 </div>
             </div>
@@ -192,6 +216,8 @@ export default function POSOrdersPage() {
                             dataSource={orders}
                             loading={isLoading}
                             rowKey="id"
+                            virtual
+                            scroll={{ y: 600 }}
                             pagination={{
                                 current: page,
                                 pageSize: LIMIT,

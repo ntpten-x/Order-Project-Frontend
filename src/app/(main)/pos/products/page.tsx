@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Spin, Typography, Tag, Button, Empty } from 'antd';
+import { message, Modal, Spin, Typography, Tag, Button, Empty, Input } from 'antd';
 import Image from "next/image";
 import { 
     ShopOutlined,
@@ -20,6 +20,7 @@ import { useSocket } from "../../../../hooks/useSocket";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { useRoleGuard } from "../../../../utils/pos/accessControl";
 import { useRealtimeList } from "../../../../utils/pos/realtime";
+import { readCache, writeCache } from "../../../../utils/pos/cache";
 import { pageStyles, globalStyles } from '../../../../theme/pos/products/style';
 
 const { Text, Title } = Typography;
@@ -29,9 +30,11 @@ const { Text, Title } = Typography;
 interface HeaderProps {
     onRefresh: () => void;
     onAdd: () => void;
+    searchValue: string;
+    onSearchChange: (value: string) => void;
 }
 
-const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
+const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange }: HeaderProps) => (
     <div style={pageStyles.header}>
         <div style={pageStyles.headerDecoCircle1} />
         <div style={pageStyles.headerDecoCircle2} />
@@ -58,11 +61,18 @@ const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
                         สินค้า
                     </Title>
                 </div>
-            </div>
-            <div style={pageStyles.headerActions}>
-                <Button
-                    type="text"
-                    icon={<ReloadOutlined style={{ color: 'white' }} />}
+        </div>
+        <div style={pageStyles.headerActions}>
+            <Input
+                allowClear
+                placeholder="ค้นหาสินค้า..."
+                value={searchValue}
+                onChange={(e) => onSearchChange(e.target.value)}
+                style={{ width: 240, borderRadius: 10 }}
+            />
+            <Button
+                type="text"
+                icon={<ReloadOutlined style={{ color: 'white' }} />}
                     onClick={onRefresh}
                     style={{
                         background: 'rgba(255,255,255,0.2)',
@@ -294,6 +304,8 @@ const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
 export default function ProductsPage() {
     const router = useRouter();
     const [products, setProducts] = useState<Products[]>([]);
+    const [searchValue, setSearchValue] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
@@ -304,9 +316,28 @@ export default function ProductsPage() {
         getCsrfTokenCached();
     }, []);
 
-    const fetchProducts = useCallback(async () => {
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(searchValue.trim());
+        }, 400);
+        return () => clearTimeout(handler);
+    }, [searchValue]);
+
+    useEffect(() => {
+        if (debouncedSearch) return;
+        const cached = readCache<Products[]>("pos:products", 5 * 60 * 1000);
+        if (cached && cached.length > 0) {
+            setProducts(cached);
+        }
+    }, [debouncedSearch]);
+
+    const fetchProducts = useCallback(async (query?: string) => {
         execute(async () => {
-            const response = await fetch('/api/pos/products');
+            const params = new URLSearchParams();
+            params.set("page", "1");
+            params.set("limit", "200");
+            if (query) params.set("q", query);
+            const response = await fetch(`/api/pos/products?${params.toString()}`);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลสินค้าได้');
@@ -318,15 +349,30 @@ export default function ProductsPage() {
 
     useEffect(() => {
         if (isAuthorized) {
-            fetchProducts();
+            fetchProducts(debouncedSearch || undefined);
         }
-    }, [isAuthorized, fetchProducts]);
+    }, [isAuthorized, fetchProducts, debouncedSearch]);
+
+    const normalizedQuery = debouncedSearch.trim().toLowerCase();
+    const shouldIncludeProduct = useCallback((item: Products) => {
+        if (!normalizedQuery) return true;
+        const haystack = `${item.display_name || ""} ${item.product_name || ""} ${item.description || ""}`.toLowerCase();
+        return haystack.includes(normalizedQuery);
+    }, [normalizedQuery]);
 
     useRealtimeList(
         socket,
         { create: "products:create", update: "products:update", delete: "products:delete" },
-        setProducts
+        setProducts,
+        (item) => item.id,
+        shouldIncludeProduct
     );
+
+    useEffect(() => {
+        if (!debouncedSearch && products.length > 0) {
+            writeCache("pos:products", products);
+        }
+    }, [products, debouncedSearch]);
 
     const handleAdd = () => {
         showLoading("กำลังเปิดหน้าจัดการสินค้า...");
@@ -405,8 +451,10 @@ export default function ProductsPage() {
             
             {/* Header */}
             <PageHeader 
-                onRefresh={fetchProducts}
+                onRefresh={() => fetchProducts(debouncedSearch || undefined)}
                 onAdd={handleAdd}
+                searchValue={searchValue}
+                onSearchChange={setSearchValue}
             />
             
             {/* Stats Card */}

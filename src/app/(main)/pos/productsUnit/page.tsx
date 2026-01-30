@@ -19,6 +19,7 @@ import { useSocket } from "../../../../hooks/useSocket";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { useRoleGuard } from "../../../../utils/pos/accessControl";
 import { useRealtimeList } from "../../../../utils/pos/realtime";
+import { readCache, writeCache } from "../../../../utils/pos/cache";
 import { pageStyles, globalStyles } from '../../../../theme/pos/productsUnit/style';
 
 const { Text, Title } = Typography;
@@ -252,6 +253,13 @@ export default function ProductsUnitPage() {
         getCsrfTokenCached();
     }, []);
 
+    useEffect(() => {
+        const cached = readCache<ProductsUnit[]>("pos:products-units", 10 * 60 * 1000);
+        if (cached && cached.length > 0) {
+            setUnits(cached);
+        }
+    }, []);
+
     const fetchUnits = useCallback(async () => {
         execute(async () => {
             const response = await fetch('/api/pos/productsUnit');
@@ -275,6 +283,12 @@ export default function ProductsUnitPage() {
         { create: "productsUnit:create", update: "productsUnit:update", delete: "productsUnit:delete" },
         setUnits
     );
+
+    useEffect(() => {
+        if (units.length > 0) {
+            writeCache("pos:products-units", units);
+        }
+    }, [units]);
 
     const handleAdd = () => {
         showLoading("กำลังเปิดหน้าจัดการหน่วยสินค้า...");

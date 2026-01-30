@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React from "react";
+import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Typography, Row, Col } from "antd";
 import { ShopOutlined, ShoppingOutlined, RocketOutlined } from "@ant-design/icons";
@@ -20,6 +20,12 @@ export default function ChannelSelectionPage() {
   const { showLoading, hideLoading } = useGlobalLoading();
   // Use the new hook for real-time stats (WebSocket driven)
   const { stats, isLoading: statsLoading } = useChannelStats();
+
+  useEffect(() => {
+    router.prefetch("/pos/channels/dine-in");
+    router.prefetch("/pos/channels/takeaway");
+    router.prefetch("/pos/channels/delivery");
+  }, [router]);
 
   React.useEffect(() => {
     if (statsLoading) {

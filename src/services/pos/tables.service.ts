@@ -12,8 +12,15 @@ const getHeaders = (cookie?: string, contentType: string = "application/json"): 
 };
 
 export const tablesService = {
-    getAll: async (cookie?: string): Promise<Tables[]> => {
-        const url = getProxyUrl("GET", BASE_PATH);
+    getAll: async (cookie?: string, searchParams?: URLSearchParams): Promise<{ data: Tables[], total: number, page: number, last_page: number }> => {
+        let url = getProxyUrl("GET", BASE_PATH);
+        const params = new URLSearchParams(searchParams || "");
+        if (!params.has("page")) params.set("page", "1");
+        if (!params.has("limit")) params.set("limit", "200");
+        const query = params.toString();
+        if (query) {
+            url += `?${query}`;
+        }
         const headers = getHeaders(cookie, "");
 
         const response = await fetch(url!, {
@@ -23,7 +30,7 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลโต๊ะได้");
+            throw new Error(errorData.error || errorData.message || "Failed to fetch tables");
         }
         return response.json();
     },
@@ -39,7 +46,7 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลโต๊ะได้");
+            throw new Error(errorData.error || errorData.message || "Failed to fetch tables");
         }
         return response.json();
     },
@@ -55,7 +62,7 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลโต๊ะได้");
+            throw new Error(errorData.error || errorData.message || "Failed to fetch tables");
         }
         return response.json();
     },
@@ -73,7 +80,7 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถสร้างโต๊ะได้");
+            throw new Error(errorData.error || errorData.message || "Failed to create table");
         }
         return response.json();
     },
@@ -91,7 +98,7 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถแก้ไขโต๊ะได้");
+            throw new Error(errorData.error || errorData.message || "Failed to update table");
         }
         return response.json();
     },
@@ -108,7 +115,7 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถลบโต๊ะได้");
+            throw new Error(errorData.error || errorData.message || "Failed to delete table");
         }
     }
 };

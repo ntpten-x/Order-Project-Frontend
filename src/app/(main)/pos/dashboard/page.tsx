@@ -104,6 +104,7 @@ export default function DashboardPage() {
     const totalDeliverySales = salesData.reduce((acc, curr) => acc + Number(curr.delivery_sales || 0), 0);
     const totalDineInSales = salesData.reduce((acc, curr) => acc + Number(curr.dine_in_sales || 0), 0);
     const totalTakeAwaySales = salesData.reduce((acc, curr) => acc + Number(curr.takeaway_sales || 0), 0);
+    const shouldVirtualizeRecentOrders = recentOrders.length > 10;
 
     const topItemsColumns = [
         {
@@ -332,6 +333,8 @@ export default function DashboardPage() {
                                 dataSource={recentOrders}
                                 loading={isLoading}
                                 rowKey="id"
+                                virtual={shouldVirtualizeRecentOrders}
+                                scroll={shouldVirtualizeRecentOrders ? { y: 360 } : undefined}
                                 pagination={false}
                                 columns={[
                                     { title: 'เลขที่', dataIndex: 'order_no', key: 'order_no', render: (val: string) => <Tag color="blue">#{val}</Tag> },

@@ -4,7 +4,8 @@ import { tablesService } from "@/services/pos/tables.service";
 export async function GET(request: NextRequest) {
     try {
         const cookie = request.headers.get("cookie") || "";
-        const tables = await tablesService.getAll(cookie);
+        const searchParams = new URLSearchParams(request.nextUrl.searchParams);
+        const tables = await tablesService.getAll(cookie, searchParams);
         return NextResponse.json(tables);
     } catch (error) {
         return NextResponse.json(

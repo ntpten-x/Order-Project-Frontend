@@ -12,8 +12,12 @@ const getHeaders = (cookie?: string, contentType: string = "application/json"): 
 };
 
 export const discountsService = {
-    getAll: async (cookie?: string): Promise<Discounts[]> => {
-        const url = getProxyUrl("GET", BASE_PATH);
+    getAll: async (cookie?: string, searchParams?: URLSearchParams): Promise<Discounts[]> => {
+        let url = getProxyUrl("GET", BASE_PATH);
+        const params = new URLSearchParams(searchParams || "");
+        if (params.toString()) {
+            url += `?${params.toString()}`;
+        }
         const headers = getHeaders(cookie, "");
 
         const response = await fetch(url!, {

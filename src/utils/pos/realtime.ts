@@ -22,12 +22,14 @@ export function useRealtimeList<T>(
     socket: Socket | null,
     events: ListEvents,
     setItems: React.Dispatch<React.SetStateAction<T[]>>,
-    getId: (item: T) => string = (item: T) => (item as { id: string }).id
+    getId: (item: T) => string = (item: T) => (item as { id: string }).id,
+    shouldInclude: (item: T) => boolean = () => true
 ) {
     useEffect(() => {
         if (!socket) return;
 
         const handleCreate = (newItem: T) => {
+            if (!shouldInclude(newItem)) return;
             const newId = getId(newItem);
             setItems((prev) => (prev.some((item) => getId(item) === newId) ? prev : [...prev, newItem]));
         };
@@ -35,6 +37,9 @@ export function useRealtimeList<T>(
         const handleUpdate = (updatedItem: T) => {
             const updatedId = getId(updatedItem);
             setItems((prev) => {
+                if (!shouldInclude(updatedItem)) {
+                    return prev.filter((item) => getId(item) !== updatedId);
+                }
                 const found = prev.some((item) => getId(item) === updatedId);
                 if (!found) return [...prev, updatedItem];
                 return prev.map((item) => (getId(item) === updatedId ? updatedItem : item));
@@ -56,7 +61,7 @@ export function useRealtimeList<T>(
             socket.off(events.update, handleUpdate);
             socket.off(events.delete, handleDelete);
         };
-    }, [socket, events.create, events.update, events.delete, getId, setItems]);
+    }, [socket, events.create, events.update, events.delete, getId, setItems, shouldInclude]);
 }
 
 type RefreshOptions = {

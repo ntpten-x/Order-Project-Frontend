@@ -1,5 +1,5 @@
 import { Tables, TableStatus } from "@/types/api/pos/tables";
-import { SalesOrder, OrderStatus } from "@/types/api/pos/salesOrder";
+import { SalesOrder, SalesOrderSummary, OrderStatus } from "@/types/api/pos/salesOrder";
 
 /**
  * Table statistics and grouping
@@ -109,7 +109,9 @@ export interface OrderChannelStats {
 /**
  * Get statistics from order list
  */
-export function getOrderChannelStats(orders: SalesOrder[]): OrderChannelStats {
+type OrderLike = Pick<SalesOrder, "status"> | Pick<SalesOrderSummary, "status">;
+
+export function getOrderChannelStats(orders: OrderLike[]): OrderChannelStats {
     return orders.reduce((acc, order) => {
         acc.total++;
         if (order.status === OrderStatus.Pending) acc.pending++;
@@ -122,7 +124,7 @@ export function getOrderChannelStats(orders: SalesOrder[]): OrderChannelStats {
 /**
  * Get order color scheme based on status
  */
-export function getOrderColorScheme(order: SalesOrder) {
+export function getOrderColorScheme(order: Pick<SalesOrder, "status"> | Pick<SalesOrderSummary, "status">) {
     switch (order.status) {
         case OrderStatus.Pending:
             return 'occupied'; // Orange/Active

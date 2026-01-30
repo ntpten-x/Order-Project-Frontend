@@ -19,6 +19,7 @@ import { useSocket } from "../../../../hooks/useSocket";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { useRoleGuard } from "../../../../utils/pos/accessControl";
 import { useRealtimeList } from "../../../../utils/pos/realtime";
+import { readCache, writeCache } from "../../../../utils/pos/cache";
 import { pageStyles, globalStyles } from '../../../../theme/pos/category/style';
 
 const { Text, Title } = Typography;
@@ -252,6 +253,13 @@ export default function CategoryPage() {
         getCsrfTokenCached();
     }, []);
 
+    useEffect(() => {
+        const cached = readCache<Category[]>("pos:categories", 5 * 60 * 1000);
+        if (cached && cached.length > 0) {
+            setCategories(cached);
+        }
+    }, []);
+
     const fetchCategories = useCallback(async () => {
         execute(async () => {
             const response = await fetch('/api/pos/category');
@@ -275,6 +283,12 @@ export default function CategoryPage() {
         { create: "category:create", update: "category:update", delete: "category:delete" },
         setCategories
     );
+
+    useEffect(() => {
+        if (categories.length > 0) {
+            writeCache("pos:categories", categories);
+        }
+    }, [categories]);
 
     const handleAdd = () => {
         showLoading("กำลังเปิดหน้าจัดการหมวดหมู่...");

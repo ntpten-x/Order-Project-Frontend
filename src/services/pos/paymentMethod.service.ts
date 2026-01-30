@@ -2,7 +2,7 @@ import { PaymentMethod } from "../../types/api/pos/paymentMethod";
 import { getProxyUrl } from "../../lib/proxy-utils";
 import { API_ROUTES } from "../../config/api";
 
-const BASE_PATH = API_ROUTES.POS.PAYMENT_METHODS;
+const BASE_PATH = API_ROUTES.POS.PAYMENT_METHOD;
 
 const getHeaders = (cookie?: string, contentType: string = "application/json"): HeadersInit => {
     const headers: Record<string, string> = {};
@@ -12,8 +12,15 @@ const getHeaders = (cookie?: string, contentType: string = "application/json"): 
 };
 
 export const paymentMethodService = {
-    getAll: async (cookie?: string): Promise<PaymentMethod[]> => {
-        const url = getProxyUrl("GET", BASE_PATH);
+    getAll: async (cookie?: string, searchParams?: URLSearchParams): Promise<{ data: PaymentMethod[], total: number, page: number, last_page: number }> => {
+        let url = getProxyUrl("GET", BASE_PATH);
+        const params = new URLSearchParams(searchParams || "");
+        if (!params.has("page")) params.set("page", "1");
+        if (!params.has("limit")) params.set("limit", "200");
+        const query = params.toString();
+        if (query) {
+            url += `?${query}`;
+        }
         const headers = getHeaders(cookie, "");
 
         const response = await fetch(url!, {
@@ -23,7 +30,7 @@ export const paymentMethodService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลวิธีการชำระเงินได้");
+            throw new Error(errorData.error || errorData.message || "Failed to fetch payment methods");
         }
         return response.json();
     },
@@ -39,7 +46,7 @@ export const paymentMethodService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลวิธีการชำระเงินได้");
+            throw new Error(errorData.error || errorData.message || "Failed to fetch payment method");
         }
         return response.json();
     },
@@ -55,7 +62,7 @@ export const paymentMethodService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลวิธีการชำระเงินได้");
+            throw new Error(errorData.error || errorData.message || "Failed to fetch payment method");
         }
         return response.json();
     },
@@ -73,7 +80,7 @@ export const paymentMethodService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถสร้างวิธีการชำระเงินได้");
+            throw new Error(errorData.error || errorData.message || "Failed to create payment method");
         }
         return response.json();
     },
@@ -86,11 +93,12 @@ export const paymentMethodService = {
         const response = await fetch(url!, {
             method: "PUT",
             headers,
+            credentials: "include",
             body: JSON.stringify(data),
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถแก้ไขวิธีการชำระเงินได้");
+            throw new Error(errorData.error || errorData.message || "Failed to update payment method");
         }
         return response.json();
     },
@@ -102,11 +110,12 @@ export const paymentMethodService = {
 
         const response = await fetch(url!, {
             method: "DELETE",
-            headers
+            headers,
+            credentials: "include"
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถลบวิธีการชำระเงินได้");
+            throw new Error(errorData.error || errorData.message || "Failed to delete payment method");
         }
     }
 };

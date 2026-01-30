@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Typography, Row, Col, Card, Tag, Button, Spin, Empty, Divider, Avatar, Space } from "antd";
+import { Typography, Row, Col, Card, Tag, Button, Spin, Empty, Divider, Avatar, Space, Skeleton } from "antd";
 import { CheckCircleOutlined, ShopOutlined, ShoppingOutlined, RocketOutlined, UserOutlined } from "@ant-design/icons";
 import { ordersService } from "@/services/pos/orders.service";
 import { SalesOrderItem } from "@/types/api/pos/salesOrderItem";
@@ -113,7 +113,15 @@ export default function POSItemsPage() {
 
              <div style={{ ...paymentPageStyles.contentWrapper, marginTop: -40, padding: '0 24px' }}>
                 {isLoading ? (
-                    <div style={{ textAlign: 'center', padding: 40 }}><Spin size="large" /></div>
+                    <Row gutter={[16, 16]}>
+                        {Array.from({ length: 6 }).map((_, index) => (
+                            <Col xs={24} sm={12} lg={8} key={`skeleton-${index}`}>
+                                <Card style={paymentPageStyles.card}>
+                                    <Skeleton active paragraph={{ rows: 3 }} />
+                                </Card>
+                            </Col>
+                        ))}
+                    </Row>
                 ) : orderGroups.length === 0 ? (
                     <Card style={{ borderRadius: 12, border: 'none', boxShadow: paymentColors.cardShadow }}>
                         <Empty description="ไม่มีรายการรอชำระเงิน" />

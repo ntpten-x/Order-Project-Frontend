@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Spin, Typography, Tag, Button, Empty } from 'antd';
+import { message, Modal, Spin, Typography, Tag, Button, Empty, Input, Pagination } from 'antd';
 import Image from "next/image";
 import { 
     CarOutlined,
@@ -19,7 +19,9 @@ import { useAsyncAction } from "../../../../hooks/useAsyncAction";
 import { useSocket } from "../../../../hooks/useSocket";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { useRoleGuard } from "../../../../utils/pos/accessControl";
-import { useRealtimeList } from "../../../../utils/pos/realtime";
+import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
+import { readCache, writeCache } from "../../../../utils/pos/cache";
+import { deliveryService } from "../../../../services/pos/delivery.service";
 import { pageStyles, globalStyles } from '../../../../theme/pos/delivery/style';
 
 const { Text, Title } = Typography;
@@ -29,9 +31,11 @@ const { Text, Title } = Typography;
 interface HeaderProps {
     onRefresh: () => void;
     onAdd: () => void;
+    searchValue: string;
+    onSearchChange: (value: string) => void;
 }
 
-const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
+const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange }: HeaderProps) => (
     <div style={pageStyles.header}>
         <div style={pageStyles.headerDecoCircle1} />
         <div style={pageStyles.headerDecoCircle2} />
@@ -47,7 +51,7 @@ const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
                         fontSize: 13,
                         display: 'block'
                     }}>
-                        จัดการข้อมูล
+                        ????????????????????????????????????
                     </Text>
                     <Title level={4} style={{ 
                         color: 'white', 
@@ -55,11 +59,18 @@ const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
                         fontWeight: 700,
                         letterSpacing: '0.5px'
                     }}>
-                        บริการส่ง
+                        ???????????????????????????
                     </Title>
                 </div>
             </div>
             <div style={pageStyles.headerActions}>
+                <Input
+                    allowClear
+                    placeholder="???????????????"
+                    value={searchValue}
+                    onChange={(e) => onSearchChange(e.target.value)}
+                    style={{ width: 220, borderRadius: 10 }}
+                />
                 <Button
                     type="text"
                     icon={<ReloadOutlined style={{ color: 'white' }} />}
@@ -85,12 +96,34 @@ const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
                         boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                     }}
                 >
-                    เพิ่มบริการส่ง
+                    ??????????????????????????????????????????
                 </Button>
             </div>
+            {lastPage > 1 && (
+                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
+                    <Pagination
+                        current={page}
+                        pageSize={DELIVERY_LIMIT}
+                        total={total}
+                        onChange={(value) => setPage(value)}
+                        size="small"
+                    />
+                </div>
+            )}
         </div>
     </div>
-);
+)
+
+type DeliveryCacheResult = {
+    data: Delivery[];
+    total: number;
+    page: number;
+    last_page: number;
+};
+
+const DELIVERY_LIMIT = 50;
+const DELIVERY_CACHE_KEY = "pos:delivery-providers";
+const DELIVERY_CACHE_TTL = 5 * 60 * 1000;
 
 // ============ STATS CARD COMPONENT ============
 
@@ -290,6 +323,11 @@ const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
 export default function DeliveryPage() {
     const router = useRouter();
     const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+    const [page, setPage] = useState(1);
+    const [total, setTotal] = useState(0);
+    const [lastPage, setLastPage] = useState(1);
+    const [searchValue, setSearchValue] = useState("");
+    const [debouncedSearch, setDebouncedSearch] = useState("");
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
@@ -300,17 +338,41 @@ export default function DeliveryPage() {
         getCsrfTokenCached();
     }, []);
 
+    useEffect(() => {
+        const handler = setTimeout(() => {
+            setDebouncedSearch(searchValue.trim());
+            setPage(1);
+        }, 400);
+        return () => clearTimeout(handler);
+    }, [searchValue]);
+
+    useEffect(() => {
+        if (debouncedSearch || page !== 1) return;
+        const cached = readCache<DeliveryCacheResult>(DELIVERY_CACHE_KEY, DELIVERY_CACHE_TTL);
+        if (cached?.data?.length) {
+            setDeliveries(cached.data);
+            setTotal(cached.total);
+            setLastPage(cached.last_page);
+        }
+    }, [debouncedSearch, page]);
+
     const fetchDeliveries = useCallback(async () => {
         execute(async () => {
-            const response = await fetch('/api/pos/delivery');
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลบริการส่งได้');
+            const params = new URLSearchParams();
+            params.set("page", page.toString());
+            params.set("limit", DELIVERY_LIMIT.toString());
+            if (debouncedSearch) {
+                params.set("q", debouncedSearch);
             }
-            const data = await response.json();
-            setDeliveries(data);
-        }, 'กำลังโหลดข้อมูลบริการส่ง...');
-    }, [execute]);
+            const result = await deliveryService.getAll(undefined, params);
+            setDeliveries(result.data);
+            setTotal(result.total);
+            setLastPage(result.last_page);
+            if (!debouncedSearch && page === 1) {
+                writeCache(DELIVERY_CACHE_KEY, result);
+            }
+        }, '????????????????????????...');
+    }, [debouncedSearch, execute, page]);
 
     useEffect(() => {
         if (isAuthorized) {
@@ -318,11 +380,13 @@ export default function DeliveryPage() {
         }
     }, [isAuthorized, fetchDeliveries]);
 
-    useRealtimeList(
+    useRealtimeRefresh({
         socket,
-        { create: "delivery:create", update: "delivery:update", delete: "delivery:delete" },
-        setDeliveries
-    );
+        events: ["delivery:create", "delivery:update", "delivery:delete"],
+        onRefresh: () => fetchDeliveries(),
+        intervalMs: 20000,
+        debounceMs: 1000,
+    });
 
     const handleAdd = () => {
         showLoading("กำลังเปิดหน้าจัดการบริการส่ง...");
@@ -403,6 +467,8 @@ export default function DeliveryPage() {
             <PageHeader 
                 onRefresh={fetchDeliveries}
                 onAdd={handleAdd}
+                searchValue={searchValue}
+                onSearchChange={setSearchValue}
             />
             
             {/* Stats Card */}
