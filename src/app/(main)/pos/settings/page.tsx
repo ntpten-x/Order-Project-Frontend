@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import React, { useCallback, useEffect, useState } from "react";
 import { Typography, Card, Button, Spin, Divider, Row, Col, App, Tag, Select, Space } from "antd";
@@ -6,9 +6,8 @@ import { SettingOutlined, BankOutlined, CheckCircleOutlined, PlusOutlined, Qrcod
 import { authService } from "../../../../services/auth.service";
 import { paymentAccountService } from "../../../../services/pos/paymentAccount.service";
 import { ShopPaymentAccount } from "../../../../types/api/pos/shopPaymentAccount";
-import { posPageStyles, posColors } from "@/theme/pos";
 import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
-import { ShopProfile } from "@/services/pos/shopProfile.service";
+import { pageStyles } from "@/theme/pos/settings/style";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -63,18 +62,18 @@ export default function POSSettingsPage() {
 
     if (loading) {
         return (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: posPageStyles.container.background as string }}>
+            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: pageStyles.container.background as string }}>
                 <Spin size="large" tip="กำลังโหลด..." />
             </div>
         );
     }
 
     return (
-        <div style={posPageStyles.container}>
+        <div style={pageStyles.container}>
             {/* Header */}
-            <div style={{ ...posPageStyles.heroParams, paddingBottom: 60 }}>
+            <div style={{ ...pageStyles.heroParams, paddingBottom: 60 }}>
                 <div style={{ maxWidth: 1000, margin: '0 auto', position: 'relative', zIndex: 10 }}>
-                    <div style={posPageStyles.sectionTitle}>
+                    <div style={pageStyles.sectionTitle}>
                         <SettingOutlined style={{ fontSize: 28 }} />
                         <div>
                             <Title level={3} style={{ margin: 0, color: '#fff' }}>ตั้งค่าบัญชีรับเงิน (Payment Settings)</Title>
@@ -85,10 +84,10 @@ export default function POSSettingsPage() {
             </div>
 
             {/* Content */}
-            <div style={{ maxWidth: 700, margin: '-40px auto 30px', padding: '0 24px', position: 'relative', zIndex: 20 }}>
-                <Card variant="borderless" style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+            <div style={pageStyles.contentWrapper}>
+                <Card variant="borderless" style={pageStyles.card}>
                     <div style={{ marginBottom: 32 }}>
-                        <Divider titlePlacement="left" plain style={{ fontSize: 16, fontWeight: 600 }}>
+                        <Divider titlePlacement="left" plain style={pageStyles.dividerTitle}>
                             บัญชีรับเงินที่ใช้งาน (Primary Payment Account)
                         </Divider>
 
@@ -133,13 +132,7 @@ export default function POSSettingsPage() {
                         </div>
 
                         {activeAccount && (
-                             <div style={{ 
-                                background: '#f0f5ff', 
-                                border: '1px solid #adc6ff', 
-                                borderRadius: 12, 
-                                padding: '20px',
-                                marginBottom: 32
-                            }}>
+                             <div style={pageStyles.activeAccountCard}>
                                 <Row align="middle" gutter={16}>
                                     <Col>
                                         <CheckCircleOutlined style={{ fontSize: 24, color: '#52c41a' }} />
@@ -165,15 +158,7 @@ export default function POSSettingsPage() {
                             size="large" 
                             icon={<PlusOutlined />}
                             onClick={() => window.location.href = '/pos/settings/payment-accounts/manage'}
-                            style={{ 
-                                borderRadius: 12, 
-                                height: 52, 
-                                fontSize: 16,
-                                fontWeight: 600,
-                                background: '#fff',
-                                border: `1px dashed ${posColors.primary}`,
-                                color: posColors.primary
-                            }}
+                            style={pageStyles.addButton}
                         >
                             เพิ่มแหรือแก้ไขบัญชี (Manage Accounts)
                         </Button>
