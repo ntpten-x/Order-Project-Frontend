@@ -102,7 +102,7 @@ const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(({ order, shopN
                 )}
                 <div style={flexBetweenStyle}>
                     <span>พนักงาน:</span>
-                    <span>{order.created_by?.display_name || order.created_by?.username || '-'}</span>
+                    <span>{order.created_by?.name || order.created_by?.username || '-'}</span>
                 </div>
             </div>
 

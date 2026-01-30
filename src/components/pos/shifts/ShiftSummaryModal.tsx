@@ -21,7 +21,7 @@ interface ShiftOrder {
 
 interface ShiftSummaryData {
     id: string;
-    user: { username: string; display_name?: string };
+    user: { name: string; display_name?: string };
     open_time: string;
     close_time: string;
     start_amount: number;
@@ -47,7 +47,7 @@ export default function ShiftSummaryModal({ open, onClose, shiftData, orders = [
 
     if (!shiftData) return null;
 
-    const userName = shiftData.user?.display_name || shiftData.user?.username || 'Unknown';
+    const userName = shiftData.user?.name || shiftData.user?.display_name || 'Unknown';
     
     // Calculate payment method breakdown from orders
     const paymentBreakdown: Record<string, number> = {};

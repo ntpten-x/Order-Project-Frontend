@@ -35,10 +35,10 @@ const AppHeader: React.FC = () => {
             />
             <div>
               <Text strong style={{ fontSize: '16px', display: 'block', marginBottom: '2px' }}>
-                {user?.username || "Guest"}
+                {user?.name || user?.username || "Guest"}
               </Text>
               <Text type="secondary" style={{ fontSize: '13px' }}>
-                {user?.display_name || "ไม่ได้กำหนดสิทธิ์"}
+                {user?.name ? user.username : user?.display_name || "ไม่ได้กำหนดสิทธิ์"}
               </Text>
             </div>
           </Space>

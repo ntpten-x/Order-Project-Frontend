@@ -345,7 +345,7 @@ export default function OrderDetailModal({ order, open, onClose }: OrderDetailMo
                         <InfoItem 
                             icon={<UserOutlined />}
                             label="ผู้สั่งซื้อ"
-                            value={order.ordered_by?.username || 'Unknown'}
+                            value={order.ordered_by?.name || 'Unknown'}
                         />
                         <InfoItem 
                             icon={<CalendarOutlined />}

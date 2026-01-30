@@ -112,7 +112,7 @@ export default function UsersPage() {
   const handleDelete = (user: User) => {
     Modal.confirm({
         title: 'ยืนยันการลบผู้ใช้',
-        content: `คุณต้องการลบผู้ใช้ "${user.username}" หรือไม่?`,
+        content: `คุณต้องการลบผู้ใช้ "${user.name || user.username}" หรือไม่?`,
         okText: 'ลบ',
         okType: 'danger',
         cancelText: 'ยกเลิก',
@@ -126,7 +126,7 @@ export default function UsersPage() {
                     }
                 });
                 if (!response.ok) throw new Error('ไม่สามารถลบผู้ใช้ได้');
-                message.success(`ลบผู้ใช้ "${user.username}" สำเร็จ`);
+                message.success(`ลบผู้ใช้ "${user.name || user.username}" สำเร็จ`);
             }, "กำลังลบผู้ใช้งาน...");
         },
     });
