@@ -11,7 +11,8 @@ export function useTables() {
     const { data, error, isLoading, refetch } = useQuery<Tables[]>({
         queryKey: ['tables'],
         queryFn: async () => {
-            return await tablesService.getAll();
+            const result = await tablesService.getAll();
+            return result.data;
         },
         staleTime: 2000,
         refetchOnReconnect: true

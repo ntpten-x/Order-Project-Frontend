@@ -9,7 +9,10 @@ export function useDelivery() {
     const queryClient = useQueryClient();
     const { data, error, isLoading, refetch } = useQuery<Delivery[]>({
         queryKey: ['delivery'],
-        queryFn: () => deliveryService.getAll(),
+        queryFn: async () => {
+            const result = await deliveryService.getAll();
+            return result.data;
+        },
         staleTime: 5000,
     });
 

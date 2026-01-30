@@ -1,5 +1,5 @@
 import { CSSProperties } from 'react';
-import { orderColors } from './orders.theme';
+import { orderColors } from './orders/style';
 
 export const paymentColors = {
     ...orderColors, // Inherit base colors

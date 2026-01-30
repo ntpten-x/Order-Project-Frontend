@@ -98,7 +98,7 @@ const SalesOrderSummarySchema = z.object({
     delivery_id: z.string().nullable().optional(),
     table: OrderSummaryRelationSchema.optional(),
     delivery: OrderSummaryRelationSchema.optional(),
-    items_summary: z.record(z.coerce.number()).optional(),
+    items_summary: z.record(z.string(), z.coerce.number()).optional(),
     items_count: z.coerce.number().optional(),
 });
 

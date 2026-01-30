@@ -5,7 +5,10 @@ import { PaymentMethod } from '../../types/api/pos/paymentMethod';
 export function usePaymentMethods() {
     const { data, error, isLoading, refetch } = useQuery<PaymentMethod[]>({
         queryKey: ['paymentMethods'],
-        queryFn: () => paymentMethodService.getAll(),
+        queryFn: async () => {
+            const result = await paymentMethodService.getAll();
+            return result.data;
+        },
         staleTime: 5000,
     });
 
