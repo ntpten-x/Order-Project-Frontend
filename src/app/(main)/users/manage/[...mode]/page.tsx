@@ -12,6 +12,9 @@ const { Option } = Select;
 
 
 import { authService } from "../../../../../services/auth.service";
+import { userService } from "../../../../../services/users.service";
+import { branchService } from "../../../../../services/branch.service";
+import { Branch } from '@/types/api/branch';
 
 export default function UserManagePage({ params }: { params: { mode: string[] } }) {
   const router = useRouter();
@@ -19,6 +22,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [roles, setRoles] = useState<Role[]>([]);
+  const [branches, setBranches] = useState<Branch[]>([]);
   const [csrfToken, setCsrfToken] = useState<string>("");
 
   const mode = params.mode[0];
@@ -46,17 +50,26 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
     }
   }, []);
 
+  const fetchBranches = useCallback(async () => {
+    try {
+      const data = await branchService.getAll();
+      setBranches(data);
+    } catch (error) {
+      console.error(error);
+      message.error('ไม่สามารถดึงข้อมูลสาขาได้');
+    }
+  }, []);
+
   const fetchUser = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
     try {
-      const response = await fetch(`/api/users/getById/${userId}`);
-      if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลผู้ใช้ได้');
-      const user = await response.json();
+      const user = await userService.getUserById(userId);
       form.setFieldsValue({
         username: user.username,
         name: user.name,
         roles_id: user.roles?.id || user.roles_id,
+        branch_id: user.branch?.id || user.branch_id,
         is_active: user.is_active,
         is_use: user.is_use
       });
@@ -72,10 +85,11 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
 
   useEffect(() => {
     fetchRoles();
+    fetchBranches();
     if (isEdit) {
       fetchUser();
     }
-  }, [isEdit, userId, fetchRoles, fetchUser]);
+  }, [isEdit, userId, fetchRoles, fetchBranches, fetchUser]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onFinish = async (values: any) => {
@@ -86,37 +100,11 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
         const payload = { ...values };
         if (!payload.password) delete payload.password;
 
-        const response = await fetch(`/api/users/update/${userId}`, {
-          method: 'PUT',
-          headers: {
-             'Content-Type': 'application/json',
-             'X-CSRF-Token': csrfToken
-          },
-          body: JSON.stringify(payload)
-        });
-
-        if (!response.ok) {
-             const error = await response.json();
-             throw new Error(error.message || error.error || 'ไม่สามารถอัปเดตผู้ใช้ได้');
-        }
-
+        await userService.updateUser(userId, payload, undefined, csrfToken);
         message.success('อัปเดตผู้ใช้สำเร็จ');
       } else {
         // Create mode
-        const response = await fetch('/api/users/add', {
-           method: 'POST',
-           headers: {
-             'Content-Type': 'application/json',
-             'X-CSRF-Token': csrfToken
-           },
-           body: JSON.stringify(values)
-        });
-
-        if (!response.ok) {
-             const error = await response.json();
-             throw new Error(error.message || error.error || 'ไม่สามารถสร้างผู้ใช้ได้');
-        }
-
+        await userService.createUser(values, undefined, csrfToken);
         message.success('สร้างผู้ใช้สำเร็จ');
       }
       router.push('/users');
@@ -131,14 +119,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   const handleDelete = async () => {
     if (!userId) return;
     try {
-      const response = await fetch(`/api/users/delete/${userId}`, {
-          method: 'DELETE',
-          headers: {
-             'X-CSRF-Token': csrfToken
-          }
-      });
-      if (!response.ok) throw new Error('ไม่สามารถลบผู้ใช้ได้');
-      
+      await userService.deleteUser(userId, undefined, csrfToken);
       message.success('ลบผู้ใช้สำเร็จ');
       router.push('/users');
     } catch (error) {
@@ -230,6 +211,20 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
                   {roles.map((role) => (
                     <Option key={role.id} value={role.id}>
                       {role.display_name}
+                    </Option>
+                  ))}
+                </Select>
+              </Form.Item>
+
+              <Form.Item
+                name="branch_id"
+                label="สาขา"
+                rules={[{ required: true, message: 'กรุณาเลือกสาขา' }]}
+              >
+                <Select size="large" placeholder="เลือกสาขา" allowClear>
+                  {branches.map((branch) => (
+                    <Option key={branch.id} value={branch.id}>
+                      {branch.branch_name} ({branch.branch_code})
                     </Option>
                   ))}
                 </Select>

@@ -1,16 +1,17 @@
 "use client";
 
 import React from 'react';
-import { Card, Statistic, Button, Avatar, Tag, Tooltip, Typography, Badge } from 'antd';
+import { Card, Statistic, Button, Tag, Tooltip, Typography, Badge } from 'antd';
 import { 
-    TeamOutlined, 
-    UserOutlined, 
-    UserAddOutlined, 
+    ShopOutlined, 
+    PlusOutlined, 
     ReloadOutlined, 
     EditOutlined, 
     DeleteOutlined, 
+    PhoneOutlined,
+    EnvironmentOutlined
 } from '@ant-design/icons';
-import { User } from "../../../types/api/users";
+import { Branch } from "../../../types/api/branch";
 import { CSSProperties } from 'react';
 
 const { Title, Text } = Typography;
@@ -23,13 +24,13 @@ export const pageStyles = {
     } as CSSProperties,
     
     header: {
-        background: 'linear-gradient(135deg, #1e40af 0%, #3b82f6 100%)', // Blue gradient
+        background: 'linear-gradient(135deg, #7c3aed 0%, #a78bfa 100%)', // Purple gradient for Branch
         padding: '30px 24px 80px',
         position: 'relative' as CSSProperties['position'],
         borderBottomLeftRadius: 32,
         borderBottomRightRadius: 32,
         marginBottom: -40,
-        boxShadow: '0 10px 30px -10px rgba(37, 99, 235, 0.4)',
+        boxShadow: '0 10px 30px -10px rgba(124, 58, 237, 0.4)',
     },
 
     listContainer: {
@@ -40,21 +41,21 @@ export const pageStyles = {
         zIndex: 2,
     },
 
-    userCard: (isActive: boolean) => ({
+    branchCard: (isActive: boolean) => ({
         borderRadius: 20,
         border: 'none',
         overflow: 'hidden',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         background: '#fff',
         boxShadow: isActive 
-            ? '0 10px 30px rgba(37, 99, 235, 0.15)' 
+            ? '0 10px 30px rgba(124, 58, 237, 0.15)' 
             : '0 4px 20px rgba(0,0,0,0.05)',
         transform: isActive ? 'translateY(-4px)' : 'none',
         position: 'relative' as CSSProperties['position'],
     } as CSSProperties),
 };
 
-export const UserPageStyles = () => (
+export const BranchPageStyles = () => (
     <style jsx global>{`
       @keyframes fadeInUp {
         from {
@@ -112,14 +113,14 @@ export const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
                              display: 'flex',
                              backdropFilter: 'blur(4px)'
                          }}>
-                            <TeamOutlined style={{ fontSize: 28, color: '#fff' }} />
+                            <ShopOutlined style={{ fontSize: 28, color: '#fff' }} />
                          </div>
                          <Title level={2} style={{ margin: 0, color: '#fff', fontWeight: 800 }}>
-                            จัดการผู้ใช้
+                            จัดการสาขา
                          </Title>
                     </div>
                     <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 16, display: 'block', paddingLeft: 4 }}>
-                        บริหารจัดการสิทธิ์และข้อมูลผู้ใช้งานในระบบ
+                        บริหารจัดการข้อมูลสาขาในระบบ
                     </Text>
                 </div>
 
@@ -140,19 +141,19 @@ export const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
                     </Button>
                     <Button 
                         type="primary" 
-                        icon={<UserAddOutlined />} 
+                        icon={<PlusOutlined />} 
                         onClick={onAdd}
                         size="large"
                         style={{ 
                             background: '#fff', 
-                            color: '#2563eb',
+                            color: '#7c3aed',
                             border: 'none',
                             borderRadius: 12,
                             fontWeight: 600,
                             boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
                         }}
                     >
-                        เพิ่มผู้ใช้
+                        เพิ่มสาขา
                     </Button>
                 </div>
             </div>
@@ -161,12 +162,11 @@ export const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
 );
 
 interface StatsCardProps {
-    totalUsers: number;
-    activeUsers: number;
-    onlineUsers: number; // Reusing is_active as "Online" logic for now based on user implementation
+    totalBranches: number;
+    activeBranches: number;
 }
 
-export const StatsCard = ({ totalUsers, activeUsers, onlineUsers }: StatsCardProps) => (
+export const StatsCard = ({ totalBranches, activeBranches }: StatsCardProps) => (
     <div style={{ 
         display: 'grid', 
         gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', 
@@ -179,101 +179,72 @@ export const StatsCard = ({ totalUsers, activeUsers, onlineUsers }: StatsCardPro
         marginLeft: 'auto',
         marginRight: 'auto',
         padding: '0 24px',
-        justifyContent: 'center' // Center grid items on mobile
+        justifyContent: 'center'
     }}>
         <Card variant="borderless" style={{ borderRadius: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}>
             <Statistic 
-                title={<Text type="secondary">ผู้ใช้ทั้งหมด</Text>}
-                value={totalUsers} 
-                prefix={<TeamOutlined style={{ color: '#3b82f6', background: '#eff6ff', padding: 8, borderRadius: '50%' }} />} 
+                title={<Text type="secondary">สาขาทั้งหมด</Text>}
+                value={totalBranches} 
+                prefix={<ShopOutlined style={{ color: '#8b5cf6', background: '#f5f3ff', padding: 8, borderRadius: '50%' }} />} 
                 styles={{ content: { fontWeight: 700 } }}
             />
         </Card>
         <Card variant="borderless" style={{ borderRadius: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}>
             <Statistic 
-                title={<Text type="secondary">ออนไลน์/ใช้งาน</Text>}
-                value={activeUsers} 
+                title={<Text type="secondary">เปิดให้บริการ</Text>}
+                value={activeBranches} 
                 styles={{ content: { color: '#10b981', fontWeight: 700 } }}
                 prefix={<Badge status="processing" color="#10b981" />}
-            />
-        </Card>
-        <Card variant="borderless" style={{ borderRadius: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}>
-             <Statistic 
-                title={<Text type="secondary">ผู้ดูแลระบบ</Text>}
-                value={onlineUsers} 
-                styles={{ content: { color: '#f59e0b', fontWeight: 700 } }}
-                prefix={<UserOutlined style={{ color: '#f59e0b', background: '#fffbeb', padding: 8, borderRadius: '50%' }} />}
             />
         </Card>
     </div>
 );
 
-interface UserCardProps {
-    user: User;
-    onEdit: (user: User) => void;
-    onDelete: (user: User) => void;
+interface BranchCardProps {
+    branch: Branch;
+    onEdit: (branch: Branch) => void;
+    onDelete: (branch: Branch) => void;
 }
 
-export const UserCard = ({ user, onEdit, onDelete }: UserCardProps) => {
-    const roleName = user.roles?.roles_name || '';
-    
-    const getRoleColor = (role: string) => {
-        if (role === 'Admin') return 'gold';
-        if (role === 'Manager') return 'magenta'; // Ant Design pink/magenta
-        return 'blue';
-    };
-
-    const getAvatarColor = (role: string) => {
-        if (role === 'Admin') return '#f59e0b'; // Gold
-        if (role === 'Manager') return '#eb2f96'; // Pink
-        return '#3b82f6'; // Blue
-    };
-    
+export const BranchCard = ({ branch, onEdit, onDelete }: BranchCardProps) => {
     return (
         <Card 
             hoverable 
-            style={pageStyles.userCard(user.is_active || false)}
+            style={pageStyles.branchCard(branch.is_active)}
             styles={{ body: { padding: 20 } }}
             actions={[
                 <Tooltip title="แก้ไขข้อมูล" key="edit">
-                    <Button type="text" icon={<EditOutlined style={{ color: '#3b82f6' }} />} onClick={() => onEdit(user)}>แก้ไข</Button>
+                    <Button type="text" icon={<EditOutlined style={{ color: '#8b5cf6' }} />} onClick={() => onEdit(branch)}>แก้ไข</Button>
                 </Tooltip>,
-                <Tooltip title="ลบผู้ใช้" key="delete">
-                    <Button type="text" danger icon={<DeleteOutlined />} onClick={() => onDelete(user)}>ลบ</Button>
+                <Tooltip title="ลบสาขา" key="delete">
+                    <Button type="text" danger icon={<DeleteOutlined />} onClick={() => onDelete(branch)}>ลบ</Button>
                 </Tooltip>
             ]}
         >
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 16 }}>
-                <Avatar 
-                    size={64} 
-                    style={{ 
-                        backgroundColor: getAvatarColor(roleName),
-                        fontSize: 24,
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                        border: user.is_active ? '3px solid #10b981' : '3px solid transparent', // Add green ring if active
-                        transition: 'all 0.3s ease'
-                    }}
-                    icon={<UserOutlined />}
-                />
+                <div style={{ 
+                    width: 64, height: 64, 
+                    borderRadius: 16, 
+                    background: branch.is_active ? '#f5f3ff' : '#f3f4f6',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    border: branch.is_active ? '2px solid #a78bfa' : '2px solid transparent',
+                    transition: 'all 0.3s ease'
+                }}>
+                     <ShopOutlined style={{ fontSize: 28, color: branch.is_active ? '#7c3aed' : '#9ca3af' }} />
+                </div>
+                
                 <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                         <div>
                             <Title level={4} style={{ margin: 0, marginBottom: 4, color: '#1f2937' }}>
-                                {user.name || user.username}
+                                {branch.branch_name}
                             </Title>
-                            <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                                <Tag color={getRoleColor(roleName)} style={{ borderRadius: 12, border: 'none', padding: '0 10px', margin: 0 }}>
-                                    {user.roles?.display_name || user.roles?.roles_name || 'N/A'}
-                                </Tag>
-                                {user.branch && (
-                                    <Tag color="cyan" style={{ borderRadius: 12, border: 'none', padding: '0 10px', margin: 0 }}>
-                                        {user.branch.branch_name}
-                                    </Tag>
-                                )}
-                            </div>
+                            <Tag color="purple" style={{ borderRadius: 12, border: 'none', padding: '0 10px' }}>
+                                Code: {branch.branch_code}
+                            </Tag>
                         </div>
-                        <Tooltip title={user.is_active ? "กำลังใช้งาน" : "ออฟไลน์"}>
-                            {user.is_active ? (
+                        <Tooltip title={branch.is_active ? "เปิดดำเนินการ" : "ปิดปรับปรุง"}>
+                            {branch.is_active ? (
                                 <div style={{ 
                                     width: 12, height: 12, borderRadius: '50%', 
                                     background: '#10b981', 
@@ -288,29 +259,27 @@ export const UserCard = ({ user, onEdit, onDelete }: UserCardProps) => {
             </div>
 
             <div style={{ background: '#f9fafb', padding: 12, borderRadius: 12 }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>สถานะการใช้งาน</Text>
-                    {user.is_active ? (
-                        <Tag color="#10b981" style={{ margin: 0, borderRadius: 12, border: 'none', padding: '0 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
-                             <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }} />
-                             <span style={{ fontWeight: 600 }}>กำลังใช้งาน</span>
-                        </Tag>
-                    ) : (
-                        <Tag style={{ margin: 0, borderRadius: 12, border: 'none', background: '#f3f4f6', color: '#9ca3af' }}>
-                            ออฟไลน์
-                        </Tag>
-                    )}
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>สถานะบัญชี</Text>
-                    <Badge status={user.is_use ? "success" : "error"} text={<span style={{ fontSize: 12 }}>{user.is_use ? 'เปิดใช้งาน' : 'ระงับ'}</span>} />
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>เข้าสู่ระบบล่าสุด</Text>
-                    <Text style={{ fontSize: 12, fontWeight: 500 }}>
-                        {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString('th-TH') : '-'}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <EnvironmentOutlined style={{ color: '#9ca3af' }} />
+                    <Text ellipsis style={{ color: '#4b5563', fontSize: 13, flex: 1 }}>
+                        {branch.address || '-'}
                     </Text>
                 </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <PhoneOutlined style={{ color: '#9ca3af' }} />
+                    <Text style={{ color: '#4b5563', fontSize: 13 }}>
+                        {branch.phone || '-'}
+                    </Text>
+                </div>
+            </div>
+
+            <div style={{ marginTop: 12, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                 <Text type="secondary" style={{ fontSize: 12 }}>Tax ID: {branch.tax_id || '-'}</Text>
+                 {branch.is_active ? (
+                    <Tag color="#10b981" style={{ margin: 0, borderRadius: 12, border: 'none' }}>Active</Tag>
+                 ) : (
+                    <Tag style={{ margin: 0, borderRadius: 12, border: 'none', background: '#f3f4f6' }}>Inactive</Tag>
+                 )}
             </div>
         </Card>
     );

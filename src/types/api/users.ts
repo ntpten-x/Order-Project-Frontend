@@ -1,4 +1,5 @@
 import { Role } from "./roles";
+import { Branch } from "./branch";
 
 export interface User {
     id: string;
@@ -7,6 +8,8 @@ export interface User {
     password?: string;
     roles_id?: string;
     roles?: Role;
+    branch_id?: string;
+    branch?: Branch;
     create_date?: string;
     last_login_at?: string;
     is_use?: boolean;

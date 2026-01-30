@@ -1,5 +1,6 @@
 import { User } from "../types/api/users";
 import { getProxyUrl } from "../lib/proxy-utils";
+import { UserSchema, UsersResponseSchema } from "../schemas/api/users.schema";
 
 const BASE_PATH = "/users";
 
@@ -24,7 +25,9 @@ export const userService = {
             const detailedError = errorData.errors?.map((e: { message: string }) => e.message).join(", ");
             throw new Error(detailedError || errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลผู้ใช้ได้");
         }
-        return response.json();
+
+        const json = await response.json();
+        return UsersResponseSchema.parse(json) as unknown as User[];
     },
 
     getUserById: async (id: string, cookie?: string): Promise<User> => {
@@ -43,7 +46,9 @@ export const userService = {
             const detailedError = errorData.errors?.map((e: { message: string }) => e.message).join(", ");
             throw new Error(detailedError || errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลผู้ใช้ได้");
         }
-        return response.json();
+
+        const json = await response.json();
+        return UserSchema.parse(json) as unknown as User;
     },
 
     createUser: async (data: Partial<User>, cookie?: string, csrfToken?: string): Promise<User> => {

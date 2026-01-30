@@ -60,14 +60,37 @@ export default function CloseShiftModal({ open, onCancel }: CloseShiftModalProps
                     label="ยอดเงินที่นับได้จริง (Cash Counted)"
                     rules={[{ required: true, message: 'กรุณาระบุจำนวนเงิน' }]}
                 >
-                    <InputNumber
-                        style={{ width: '100%' }}
+                    <InputNumber<number>
+                        style={{ width: '100%', fontSize: '24px', height: '60px', display: 'flex', alignItems: 'center' }}
                         size="large"
-                        prefix={<DollarOutlined />}
+                        prefix={<DollarOutlined style={{ fontSize: '24px' }} />}
                         min={0}
                         precision={2}
                         placeholder="0.00"
                         autoFocus
+                        controls={false}
+                        inputMode="decimal"
+                        formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                        parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                        onKeyDown={(e) => {
+                            // Allow: backspace, delete, tab, escape, enter, .
+                            if ([8, 46, 9, 27, 13, 190, 110].includes(e.keyCode) ||
+                                // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+                                (e.ctrlKey === true || e.metaKey === true) ||
+                                // Allow: home, end, left, right
+                                (e.keyCode >= 35 && e.keyCode <= 39)) {
+                                
+                                // Prevent multiple dots
+                                if ((e.keyCode === 190 || e.keyCode === 110) && (e.currentTarget.value.includes('.') )) {
+                                    e.preventDefault();
+                                }
+                                return;
+                            }
+                            // Block any character that is not a number
+                            if ((e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) && (e.keyCode < 96 || e.keyCode > 105)) {
+                                e.preventDefault();
+                            }
+                        }}
                     />
                 </Form.Item>
 

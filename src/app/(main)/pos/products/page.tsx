@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Spin, Typography, Tag, Button, Empty, Input } from 'antd';
+import { message, Modal, Spin, Typography, Tag, Button, Empty, Input, Alert, Tooltip } from 'antd';
 import Image from "next/image";
 import { 
     ShopOutlined,
@@ -13,6 +13,8 @@ import {
     CloseCircleFilled
 } from '@ant-design/icons';
 import { Products } from "../../../../types/api/pos/products";
+import { Category } from "../../../../types/api/pos/category";
+import { ProductsUnit } from "../../../../types/api/pos/productsUnit";
 import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
 import { useAsyncAction } from "../../../../hooks/useAsyncAction";
@@ -22,6 +24,10 @@ import { useRoleGuard } from "../../../../utils/pos/accessControl";
 import { useRealtimeList } from "../../../../utils/pos/realtime";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
 import { pageStyles, globalStyles } from '../../../../theme/pos/products/style';
+import { useCategories } from '@/hooks/pos/useCategories';
+import { useProductsUnit } from '@/hooks/pos/useProductsUnit';
+import { formatPrice } from '@/utils/products/productDisplay.utils';
+import { checkProductSetupState, getSetupMissingMessage } from '@/utils/products/productSetup.utils';
 
 const { Text, Title } = Typography;
 
@@ -32,9 +38,10 @@ interface HeaderProps {
     onAdd: () => void;
     searchValue: string;
     onSearchChange: (value: string) => void;
+    disabledAdd?: boolean;
 }
 
-const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange }: HeaderProps) => (
+const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange, disabledAdd }: HeaderProps) => (
     <div style={pageStyles.header}>
         <div style={pageStyles.headerDecoCircle1} />
         <div style={pageStyles.headerDecoCircle2} />
@@ -81,22 +88,24 @@ const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange }: HeaderPro
                         width: 40
                     }}
                 />
-                <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={onAdd}
-                    style={{
-                        background: 'white',
-                        color: '#1890ff',
-                        borderRadius: 12,
-                        height: 40,
-                        fontWeight: 600,
-                        border: 'none',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                    }}
-                >
-                    เพิ่มสินค้า
-                </Button>
+                {!disabledAdd && (
+                    <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={onAdd}
+                        style={{
+                            background: 'white',
+                            color: '#1890ff',
+                            borderRadius: 12,
+                            height: 40,
+                            fontWeight: 600,
+                            border: 'none',
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                        }}
+                    >
+                        เพิ่มสินค้า
+                    </Button>
+                )}
             </div>
         </div>
     </div>
@@ -213,7 +222,7 @@ const ProductCard = ({ product, index, onEdit, onDelete }: ProductCardProps) => 
                                 fontSize: 11 
                             }}
                         >
-                            ฿{Number(product.price).toLocaleString()}
+                            {formatPrice(Number(product.price))}
                         </Tag>
                         <Tag 
                             color="blue" 
@@ -274,7 +283,7 @@ const ProductCard = ({ product, index, onEdit, onDelete }: ProductCardProps) => 
 
 // ============ EMPTY STATE COMPONENT ============
 
-const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
+const EmptyState = ({ onAdd, showAdd = true }: { onAdd: () => void, showAdd?: boolean }) => (
     <Empty
         image={Empty.PRESENTED_IMAGE_SIMPLE}
         description={
@@ -295,9 +304,11 @@ const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
             margin: '0 16px'
         }}
     >
-        <Button type="primary" icon={<PlusOutlined />} onClick={onAdd}>
-            เพิ่มสินค้า
-        </Button>
+        {showAdd && (
+            <Button type="primary" icon={<PlusOutlined />} onClick={onAdd}>
+                เพิ่มสินค้า
+            </Button>
+        )}
     </Empty>
 );
 
@@ -310,6 +321,23 @@ export default function ProductsPage() {
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
     const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
+    
+    // Metadata State
+    const [categories, setCategories] = useState<Category[]>([]);
+    const [units, setUnits] = useState<ProductsUnit[]>([]);
+
+    // Fetch initial metadata
+    const { data: initialCategories = [], isLoading: isLoadingCategories } = useCategories();
+    const { data: initialUnits = [], isLoading: isLoadingUnits } = useProductsUnit();
+
+    // Sync initial metadata to local state
+    useEffect(() => {
+        if (initialCategories.length > 0) setCategories(initialCategories);
+    }, [initialCategories]);
+
+    useEffect(() => {
+        if (initialUnits.length > 0) setUnits(initialUnits);
+    }, [initialUnits]);
 
 
     useEffect(() => {
@@ -366,6 +394,21 @@ export default function ProductsPage() {
         setProducts,
         (item) => item.id,
         shouldIncludeProduct
+    );
+
+    // Real-time Metadata Updates
+    useRealtimeList(
+        socket,
+        { create: "category:create", update: "category:update", delete: "category:delete" },
+        setCategories,
+        (item) => item.id
+    );
+
+    useRealtimeList(
+        socket,
+        { create: "productsUnit:create", update: "productsUnit:update", delete: "productsUnit:delete" },
+        setUnits,
+        (item) => item.id
     );
 
     useEffect(() => {
@@ -445,6 +488,69 @@ export default function ProductsPage() {
     const activeProducts = products.filter(p => p.is_active);
     const inactiveProducts = products.filter(p => !p.is_active);
 
+    // Initial Setup Check using Utility
+    const setupState = checkProductSetupState(categories, units);
+    const hasMetadata = setupState.isReady;
+    const isMetadataLoading = isLoadingCategories || isLoadingUnits;
+
+    if (!isMetadataLoading && !hasMetadata && products.length === 0) {
+        return (
+            <div className="products-page" style={pageStyles.container}>
+                <style>{globalStyles}</style>
+                <PageHeader 
+                    onRefresh={() => fetchProducts(debouncedSearch || undefined)}
+                    onAdd={handleAdd}
+                    searchValue={searchValue}
+                    onSearchChange={setSearchValue}
+                    disabledAdd={!hasMetadata}
+                />
+                <div style={{ ...pageStyles.listContainer, padding: '40px 20px' }}>
+                    <div style={{ 
+                        background: '#fff', 
+                        borderRadius: 24, 
+                        padding: '80px 24px', 
+                        textAlign: 'center',
+                        boxShadow: '0 4px 24px rgba(0,0,0,0.04)'
+                    }}>
+                        <Empty 
+                            image={Empty.PRESENTED_IMAGE_SIMPLE}
+                            imageStyle={{ height: 120 }}
+                            description={
+                                <div style={{ marginTop: 20 }}>
+                                    <Title level={4} style={{ marginBottom: 8 }}>ยังไม่พร้อมเพิ่มสินค้า</Title>
+                                    <Text type="secondary" style={{ fontSize: 16 }}>{getSetupMissingMessage(categories, units)}</Text>
+                                </div>
+                            }
+                        >
+                            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 24, flexWrap: 'wrap' }}>
+                                {!setupState.hasCategories && (
+                                    <Button 
+                                        type="primary" 
+                                        size="large"
+                                        onClick={() => router.push("/pos/category")}
+                                        style={{ height: 45, borderRadius: 12, background: '#1890ff', border: 'none' }}
+                                    >
+                                        เพิ่มหมวดหมู่สินค้า
+                                    </Button>
+                                )}
+                                {!setupState.hasUnits && (
+                                    <Button 
+                                        type="primary" 
+                                        size="large"
+                                        onClick={() => router.push("/pos/productsUnit")}
+                                        style={{ height: 45, borderRadius: 12, background: '#52c41a', border: 'none' }}
+                                    >
+                                        เพิ่มหน่วยสินค้า
+                                    </Button>
+                                )}
+                            </div>
+                        </Empty>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="products-page" style={pageStyles.container}>
             <style>{globalStyles}</style>
@@ -455,7 +561,33 @@ export default function ProductsPage() {
                 onAdd={handleAdd}
                 searchValue={searchValue}
                 onSearchChange={setSearchValue}
+                disabledAdd={!hasMetadata}
             />
+
+            {!isMetadataLoading && !hasMetadata && products.length > 0 && (
+                <div style={{ margin: '0 16px 20px' }}>
+                    <Alert
+                        message="ตั้งค่าไม่สมบูรณ์"
+                        description={getSetupMissingMessage(categories, units)}
+                        type="warning"
+                        showIcon
+                        action={
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                {!setupState.hasCategories && (
+                                    <Button size="small" type="primary" ghost onClick={() => router.push("/pos/category")}>
+                                        เพิ่มหมวดหมู่
+                                    </Button>
+                                )}
+                                {!setupState.hasUnits && (
+                                    <Button size="small" type="primary" ghost onClick={() => router.push("/pos/productsUnit")}>
+                                        เพิ่มหน่วยสินค้า
+                                    </Button>
+                                )}
+                            </div>
+                        }
+                    />
+                </div>
+            )}
             
             {/* Stats Card */}
             <StatsCard 
@@ -496,7 +628,7 @@ export default function ProductsPage() {
                         ))}
                     </>
                 ) : (
-                    <EmptyState onAdd={handleAdd} />
+                    <EmptyState onAdd={handleAdd} showAdd={hasMetadata} />
                 )}
             </div>
         </div>

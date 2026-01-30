@@ -262,13 +262,29 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                 { type: 'number', min: 0, message: 'ราคาต้องไม่ติดลบ' }
                             ]}
                         >
-                            <InputNumber 
+                            <InputNumber<number> 
                                 size="large" 
                                 placeholder="0.00"
                                 min={0}
                                 precision={2}
-                                style={{ width: '100%' }}
+                                style={{ width: '100%', height: 45, fontSize: 16 }}
+                                inputMode="decimal"
+                                controls={false}
                                 formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                parser={(value) => value!.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                                onKeyDown={(e) => {
+                                    const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', '.'];
+                                    const isNumber = /^[0-9]$/.test(e.key);
+                                    
+                                    if (!isNumber && !allowedKeys.includes(e.key)) {
+                                        e.preventDefault();
+                                    }
+
+                                    // Prevent multiple decimal points
+                                    if (e.key === '.' && form.getFieldValue('price')?.toString().includes('.')) {
+                                        e.preventDefault();
+                                    }
+                                }}
                             />
                         </Form.Item>
 

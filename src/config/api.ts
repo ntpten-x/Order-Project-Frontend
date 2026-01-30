@@ -33,5 +33,6 @@ export const API_ROUTES = {
         SALES_ORDER_DETAILS: '/pos/salesOrderDetail',
         PRODUCTS_UNIT: '/pos/productsUnit',
         PAYMENT_DETAILS: '/pos/paymentDetails',
+        BRANCH: '/branches',
     },
 };

@@ -23,6 +23,7 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { Spin } from 'antd';
 
 import { authService } from "../../../services/auth.service";
+import { userService } from "../../../services/users.service";
 
 export default function UsersPage() {
   const router = useRouter();
@@ -56,11 +57,7 @@ export default function UsersPage() {
 
   const fetchUsers = useCallback(async () => {
     execute(async () => {
-      const response = await fetch('/api/users/getAll');
-      if (!response.ok) {
-          throw new Error("ไม่สามารถดึงข้อมูลผู้ใช้ได้");
-      }
-      const data = await response.json();
+      const data = await userService.getAllUsers();
       setUsers(data);
     }, 'กำลังโหลดข้อมูลผู้ใช้...');
   }, [execute]);
@@ -119,13 +116,7 @@ export default function UsersPage() {
         centered: true,
         onOk: async () => {
             await execute(async () => {
-                const response = await fetch(`/api/users/delete/${user.id}`, {
-                    method: 'DELETE',
-                    headers: {
-                        'X-CSRF-Token': csrfToken
-                    }
-                });
-                if (!response.ok) throw new Error('ไม่สามารถลบผู้ใช้ได้');
+                await userService.deleteUser(user.id, undefined, csrfToken);
                 message.success(`ลบผู้ใช้ "${user.name || user.username}" สำเร็จ`);
             }, "กำลังลบผู้ใช้งาน...");
         },

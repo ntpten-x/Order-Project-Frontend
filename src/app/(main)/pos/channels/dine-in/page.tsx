@@ -2,7 +2,7 @@
 
 import React, { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Typography, Row, Col, Empty } from "antd";
+import { Typography, Row, Col, Empty, Button } from "antd";
 import {
   ShopOutlined,
   CloseCircleOutlined,
@@ -224,11 +224,39 @@ export default function DineInTableSelectionPage() {
             <div style={{ 
                 background: '#fff', 
                 borderRadius: 24, 
-                padding: '80px 24px', 
+                padding: '100px 24px', 
                 textAlign: 'center',
-                boxShadow: '0 4px 24px rgba(0,0,0,0.06)' 
+                boxShadow: '0 4px 24px rgba(0,0,0,0.04)',
+                marginTop: 20
             }}>
-              <Empty description="ไม่พบข้อมูลโต๊ะ" />
+              <Empty 
+                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                imageStyle={{ height: 120 }}
+                description={
+                  <div style={{ marginTop: 20 }}>
+                    <Title level={4} style={{ marginBottom: 8 }}>ยังไม่มีข้อมูลโต๊ะ</Title>
+                    <Text type="secondary" style={{ fontSize: 16 }}>กรุณาเพิ่มข้อมูลโต๊ะก่อนเริ่มการขาย</Text>
+                  </div>
+                }
+              >
+                <Button 
+                  type="primary" 
+                  size="large"
+                  icon={<ShopOutlined />}
+                  style={{ 
+                    height: 50, 
+                    padding: '0 40px', 
+                    borderRadius: 25,
+                    fontSize: 16,
+                    marginTop: 20,
+                    background: channelColors.dineIn.primary,
+                    border: 'none'
+                  }}
+                  onClick={() => router.push("/pos/tables")}
+                >
+                  ไปหน้าจัดการโต๊ะ
+                </Button>
+              </Empty>
             </div>
           )}
         </div>

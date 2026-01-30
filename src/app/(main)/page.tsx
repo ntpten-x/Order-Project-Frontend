@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Typography, Row, Col, Card } from "antd";
-import { AppstoreOutlined, ShopOutlined, SettingOutlined, ArrowRightOutlined } from "@ant-design/icons";
+import { AppstoreOutlined, ShopOutlined, SettingOutlined, ArrowRightOutlined, BranchesOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 
 const { Title, Text } = Typography;
@@ -36,6 +36,15 @@ export default function LandingPage() {
             path: "/users",
             color: "linear-gradient(135deg, #f6ffed 0%, #ffffff 100%)",
             borderColor: "#b7eb8f",
+            enabled: true,
+        },
+        {
+            title: "จัดการข้อมูลสาขา",
+            description: "ตั้งค่าสาขา ข้อมูลติดต่อ และตรวจสอบการทำงานรายสาขา",
+            icon: <BranchesOutlined style={{ fontSize: 48, color: '#722ed1' }} />,
+            path: "/branch",
+            color: "linear-gradient(135deg, #f9f0ff 0%, #ffffff 100%)",
+            borderColor: "#d3adf7",
             enabled: true,
         },
     ];
