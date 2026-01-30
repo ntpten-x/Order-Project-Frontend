@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { ordersService } from "@/services/pos/orders.service";
-import { OrderStatus, OrderType, SalesOrder } from "@/types/api/pos/salesOrder";
+import { OrderStatus, OrderType, SalesOrderSummary } from "@/types/api/pos/salesOrder";
 import { useSocket } from "@/hooks/useSocket";
 import { useRealtimeRefresh } from "@/utils/pos/realtime";
 
@@ -25,7 +25,7 @@ const DEFAULT_EVENTS = [
     "payments:update",
 ];
 
-const filterActiveOrders = (orders: SalesOrder[], orderType: OrderType) =>
+const filterActiveOrders = (orders: SalesOrderSummary[], orderType: OrderType) =>
     orders.filter(
         (order) =>
             order.order_type === orderType &&
@@ -52,7 +52,7 @@ export function useChannelOrders({
     events = DEFAULT_EVENTS,
 }: ChannelOrdersOptions) {
     const { socket } = useSocket();
-    const [orders, setOrders] = useState<SalesOrder[]>([]);
+    const [orders, setOrders] = useState<SalesOrderSummary[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
     const fetchOrders = useCallback(
@@ -60,7 +60,7 @@ export function useChannelOrders({
             if (!enabled) return;
             if (!silent) setIsLoading(true);
             try {
-                const res = await ordersService.getAll(
+                const res = await ordersService.getAllSummary(
                     undefined,
                     page,
                     limit,
@@ -88,6 +88,7 @@ export function useChannelOrders({
         onRefresh: () => fetchOrders(true),
         intervalMs: refreshIntervalMs,
         enabled,
+        debounceMs: 800,
     });
 
     return {

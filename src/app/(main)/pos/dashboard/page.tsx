@@ -11,7 +11,7 @@ import 'dayjs/locale/th';
 import { dashboardService } from "../../../../services/pos/dashboard.service";
 import { ordersService } from "../../../../services/pos/orders.service";
 import { SalesSummary, TopItem } from "../../../../types/api/pos/dashboard";
-import { SalesOrder, OrderStatus, OrderType } from "../../../../types/api/pos/salesOrder";
+import { SalesOrderSummary, OrderStatus, OrderType } from "../../../../types/api/pos/salesOrder";
 import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 import { useSocket } from "@/hooks/useSocket";
 import { useRealtimeRefresh } from "@/utils/pos/realtime";
@@ -26,7 +26,7 @@ export default function DashboardPage() {
     const { socket } = useSocket();
     const [salesData, setSalesData] = useState<SalesSummary[]>([]);
     const [topItems, setTopItems] = useState<TopItem[]>([]);
-    const [recentOrders, setRecentOrders] = useState<SalesOrder[]>([]);
+    const [recentOrders, setRecentOrders] = useState<SalesOrderSummary[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([dayjs().startOf('month'), dayjs().endOf('month')]);
 
@@ -40,7 +40,7 @@ export default function DashboardPage() {
             const [salesRes, itemsRes, ordersRes] = await Promise.all([
                 dashboardService.getSalesSummary(startDate, endDate),
                 dashboardService.getTopSellingItems(5),
-                ordersService.getAll(undefined, 1, 10, 'Paid,Cancelled')
+                ordersService.getAllSummary(undefined, 1, 10, 'Paid,Cancelled')
             ]);
 
             setSalesData(salesRes);
@@ -62,6 +62,7 @@ export default function DashboardPage() {
         events: ["orders:update", "orders:create", "orders:delete", "payments:create"],
         onRefresh: () => fetchData(),
         intervalMs: 20000,
+        debounceMs: 1000,
     });
 
     const handleExportPDF = () => {
@@ -351,7 +352,7 @@ export default function DashboardPage() {
                                         };
                                         return <Tag color={statusMap[status]?.color || 'default'}>{statusMap[status]?.label || status}</Tag>;
                                     }},
-                                    { title: '', key: 'action', width: 100, render: (_value: unknown, record: SalesOrder) => (
+                                    { title: '', key: 'action', width: 100, render: (_value: unknown, record: SalesOrderSummary) => (
                                         <Button 
                                             type="primary" 
                                             icon={<EyeOutlined />} 

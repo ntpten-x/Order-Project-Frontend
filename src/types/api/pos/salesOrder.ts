@@ -47,6 +47,22 @@ export interface SalesOrder {
     payments?: Payments[]; // ประวัติการชำระเงินของออเดอร์นี้
 }
 
+export interface SalesOrderSummary {
+    id: string;
+    order_no: string;
+    order_type: OrderType;
+    status: OrderStatus;
+    create_date: string;
+    total_amount: number;
+    delivery_code?: string | null;
+    table_id?: string | null;
+    delivery_id?: string | null;
+    table?: { table_name?: string | null } | null;
+    delivery?: { delivery_name?: string | null } | null;
+    items_summary?: Record<string, number>;
+    items_count?: number;
+}
+
 // DTOs for Creating/Updating Orders
 export interface CreateOrderItemDTO {
     product_id: string;

@@ -28,14 +28,17 @@ export function useRealtimeList<T>(
         if (!socket) return;
 
         const handleCreate = (newItem: T) => {
-            setItems((prev) => [...prev, newItem]);
+            const newId = getId(newItem);
+            setItems((prev) => (prev.some((item) => getId(item) === newId) ? prev : [...prev, newItem]));
         };
 
         const handleUpdate = (updatedItem: T) => {
             const updatedId = getId(updatedItem);
-            setItems((prev) =>
-                prev.map((item) => (getId(item) === updatedId ? updatedItem : item))
-            );
+            setItems((prev) => {
+                const found = prev.some((item) => getId(item) === updatedId);
+                if (!found) return [...prev, updatedItem];
+                return prev.map((item) => (getId(item) === updatedId ? updatedItem : item));
+            });
         };
 
         const handleDelete = (payload: DeletePayload) => {
@@ -62,6 +65,7 @@ type RefreshOptions = {
     onRefresh: () => void;
     intervalMs?: number;
     enabled?: boolean;
+    debounceMs?: number;
 };
 
 export function useRealtimeRefresh({
@@ -70,17 +74,30 @@ export function useRealtimeRefresh({
     onRefresh,
     intervalMs,
     enabled = true,
+    debounceMs,
 }: RefreshOptions) {
     useEffect(() => {
         if (!enabled || !socket || events.length === 0) return;
 
-        const handler = () => onRefresh();
+        let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+        const handler = () => {
+            if (!debounceMs || debounceMs <= 0) {
+                onRefresh();
+                return;
+            }
+            if (debounceTimer) clearTimeout(debounceTimer);
+            debounceTimer = setTimeout(() => {
+                debounceTimer = null;
+                onRefresh();
+            }, debounceMs);
+        };
         events.forEach((event) => socket.on(event, handler));
 
         return () => {
+            if (debounceTimer) clearTimeout(debounceTimer);
             events.forEach((event) => socket.off(event, handler));
         };
-    }, [enabled, socket, events, onRefresh]);
+    }, [enabled, socket, events, onRefresh, debounceMs]);
 
     useEffect(() => {
         if (!enabled || !intervalMs) return;

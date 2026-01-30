@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useEffect, useState, useContext, useMemo, useCallback } from "react";
+import React, { useEffect, useState, useContext, useMemo } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Typography, Card, Button, Row, Col, Tag, Badge, Empty, Spin, Switch, message, Space, Tooltip, Divider } from "antd";
 import { 
     CheckOutlined, 
@@ -68,10 +69,21 @@ interface GroupedOrder {
 export default function KitchenDisplayPage() {
     const { socket, isConnected } = useContext(SocketContext);
     const { showLoading, hideLoading } = useGlobalLoading();
-    const [allItems, setAllItems] = useState<SalesOrderItem[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const queryClient = useQueryClient();
     const [soundEnabled, setSoundEnabled] = useState(true);
     const [filterStatus, setFilterStatus] = useState<ItemStatus | 'all'>('all');
+
+    const { data: allItems = [], isLoading, refetch } = useQuery<SalesOrderItem[]>({
+        queryKey: ["orderItems", "kitchen"],
+        queryFn: async () => {
+            const items = await ordersService.getItems();
+            return items.filter((item: SalesOrderItem) =>
+                item.status !== ItemStatus.Served &&
+                item.status !== ItemStatus.Cancelled
+            );
+        },
+        staleTime: 2000,
+    });
 
     // Group items by order
     const groupedOrders = useMemo((): GroupedOrder[] => {
@@ -103,32 +115,12 @@ export default function KitchenDisplayPage() {
         );
     }, [allItems, filterStatus]);
 
-    const fetchItems = useCallback(async (silent = false) => {
-        if (!silent) setIsLoading(true);
-        try {
-            const items = await ordersService.getItems();
-            // Filter out served and cancelled items for the KDS
-            setAllItems(items.filter((item: SalesOrderItem) => 
-                item.status !== ItemStatus.Served && 
-                item.status !== ItemStatus.Cancelled
-            ));
-        } catch (error) {
-            console.error("KDS Fetch Error:", error);
-        } finally {
-            if (!silent) setIsLoading(false);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchItems();
-    }, [fetchItems]);
-
     // Socket listeners for real-time updates
     useEffect(() => {
         if (!socket) return;
 
         const handleOrderCreate = (newOrder: any) => {
-            fetchItems(true);
+            refetch();
             if (soundEnabled) {
                 playNotificationSound();
                 message.info(`ออเดอร์ใหม่: #${newOrder.order_no}`);
@@ -136,7 +128,7 @@ export default function KitchenDisplayPage() {
         };
 
         const handleOrderUpdate = () => {
-            fetchItems(true);
+            refetch();
         };
 
         socket.on('orders:create', handleOrderCreate);
@@ -146,7 +138,7 @@ export default function KitchenDisplayPage() {
             socket.off('orders:create', handleOrderCreate);
             socket.off('orders:update', handleOrderUpdate);
         };
-    }, [socket, soundEnabled, fetchItems]);
+    }, [socket, soundEnabled, refetch]);
 
     const playNotificationSound = () => {
         try {
@@ -162,10 +154,10 @@ export default function KitchenDisplayPage() {
             showLoading("กำลังอัปเดต...");
             const csrfToken = await getCsrfTokenCached();
             await ordersService.updateItemStatus(itemId, newStatus, undefined, csrfToken);
-            setAllItems(prev => 
-                prev.map(item => 
-                    item.id === itemId ? { ...item, status: newStatus } : item
-                ).filter(item => item.status !== ItemStatus.Served)
+            queryClient.setQueryData<SalesOrderItem[]>(["orderItems", "kitchen"], (prev = []) =>
+                prev
+                    .map(item => (item.id === itemId ? { ...item, status: newStatus } : item))
+                    .filter(item => item.status !== ItemStatus.Served && item.status !== ItemStatus.Cancelled)
             );
             message.success("อัปเดตสถานะสำเร็จ");
         } catch {
@@ -188,9 +180,11 @@ export default function KitchenDisplayPage() {
 
             await Promise.all(updatePromises);
             
-            setAllItems(prev => prev.filter(item => item.order_id !== orderId || item.status === ItemStatus.Served));
+            queryClient.setQueryData<SalesOrderItem[]>(["orderItems", "kitchen"], (prev = []) =>
+                prev.filter(item => item.order_id !== orderId)
+            );
             message.success(`เสิร์ฟออเดอร์ #${order.order_no} ทั้งหมดแล้ว`);
-            fetchItems(true);
+            refetch();
         } catch {
             message.error("เกิดข้อผิดพลาดในการเสิร์ฟทั้งหมด");
         } finally {

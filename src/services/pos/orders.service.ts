@@ -1,8 +1,8 @@
-import { SalesOrder, CreateSalesOrderDTO, CreateOrderItemDTO } from "../../types/api/pos/salesOrder";
+import { SalesOrder, SalesOrderSummary, CreateSalesOrderDTO, CreateOrderItemDTO } from "../../types/api/pos/salesOrder";
 import { getProxyUrl } from "../../lib/proxy-utils";
 import { SalesOrderItem } from "../../types/api/pos/salesOrderItem";
 import { API_ROUTES } from "../../config/api";
-import { OrdersResponseSchema, SalesOrderSchema } from "../../schemas/api/pos/orders.schema";
+import { OrdersResponseSchema, OrdersSummaryResponseSchema, SalesOrderSchema } from "../../schemas/api/pos/orders.schema";
 
 const BASE_PATH = API_ROUTES.POS.ORDERS;
 
@@ -41,6 +41,45 @@ export const ordersService = {
             return OrdersResponseSchema.parse(json) as unknown as { data: SalesOrder[], total: number, page: number, last_page: number };
         } catch (error) {
             console.error("Zod Validation Error in ordersService.getAll:", error);
+            if (error instanceof Error) {
+                console.error("Zod Issues:", (error as any).issues);
+            }
+            throw error;
+        }
+    },
+
+    getAllSummary: async (
+        cookie?: string,
+        page: number = 1,
+        limit: number = 50,
+        status?: string,
+        type?: string
+    ): Promise<{ data: SalesOrderSummary[], total: number, page: number, last_page?: number }> => {
+        const queryParams = new URLSearchParams({
+            page: page.toString(),
+            limit: limit.toString(),
+            ...(status && { status }),
+            ...(type && { type })
+        });
+        const endpoint = `${BASE_PATH}/summary?${queryParams.toString()}`;
+        const url = getProxyUrl("GET", endpoint);
+        const headers = getHeaders(cookie, "");
+
+        const response = await fetch(url!, {
+            cache: "no-store",
+            headers,
+            credentials: "include"
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลออเดอร์ได้");
+        }
+
+        const json = await response.json();
+        try {
+            return OrdersSummaryResponseSchema.parse(json) as unknown as { data: SalesOrderSummary[], total: number, page: number, last_page?: number };
+        } catch (error) {
+            console.error("Zod Validation Error in ordersService.getAllSummary:", error);
             if (error instanceof Error) {
                 console.error("Zod Issues:", (error as any).issues);
             }

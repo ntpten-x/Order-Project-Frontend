@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useState } from "react";
 import { Typography, Card, Table, Tag, Button, Empty, Divider, Grid, List } from "antd";
 import { 
   ReloadOutlined, 
@@ -10,21 +10,19 @@ import {
   ContainerOutlined
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
-import { ordersService } from "@/services/pos/orders.service";
-import { SalesOrder, OrderStatus, OrderType } from "@/types/api/pos/salesOrder";
+import { SalesOrderSummary, OrderStatus, OrderType } from "@/types/api/pos/salesOrder";
 import { 
   getOrderStatusColor, 
   getOrderStatusText, 
   getOrderChannelColor, 
   getOrderChannelText,
   getOrderReference,
-  getTotalItemsQuantity,
-  groupItemsByCategory,
   formatCurrency
 } from "@/utils/orders";
 import { orderColors, ordersStyles, ordersResponsiveStyles } from "@/theme/pos/orders/style";
 import { useSocket } from "@/hooks/useSocket";
 import { useRealtimeRefresh } from "@/utils/pos/realtime";
+import { useOrdersSummary } from "@/hooks/pos/useOrdersSummary";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 
@@ -38,36 +36,17 @@ export default function POSOrdersPage() {
     const isMobile = !screens.md;
     const { socket } = useSocket();
 
-    const [orders, setOrders] = useState<SalesOrder[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
     const [page, setPage] = useState(1);
-    const [total, setTotal] = useState(0);
     const LIMIT = 10;
-
-    const fetchOrders = useCallback(async (silent = false) => {
-        if (!silent) setIsLoading(true);
-        try {
-            // Filter only active statuses
-            const activeStatuses = 'Pending,Cooking,Served,WaitingForPayment';
-            const data = await ordersService.getAll(undefined, page, LIMIT, activeStatuses);
-            setOrders(data.data || []);
-            setTotal(data.total || 0);
-        } catch (error) {
-            // Error handled by service/interceptor
-        } finally {
-            if (!silent) setIsLoading(false);
-        }
-    }, [page]);
-
-    useEffect(() => {
-        fetchOrders(false);
-    }, [fetchOrders]);
+    const activeStatuses = 'Pending,Cooking,Served,WaitingForPayment';
+    const { orders, total, isLoading, refetch } = useOrdersSummary({ page, limit: LIMIT, status: activeStatuses });
 
     useRealtimeRefresh({
         socket,
         events: ["orders:create", "orders:update", "orders:delete", "payments:create", "payments:update"],
-        onRefresh: () => fetchOrders(true),
+        onRefresh: () => refetch(),
         intervalMs: 15000,
+        debounceMs: 1000,
     });
 
     const columns = [
@@ -119,21 +98,26 @@ export default function POSOrdersPage() {
             key: 'items_summary',
             width: 200,
             align: 'center' as const,
-            render: (_: any, record: SalesOrder) => {
-                const summary = groupItemsByCategory(record.items);
-                const totalQty = getTotalItemsQuantity(record.items);
+            render: (_: any, record: SalesOrderSummary) => {
+                const summary = record.items_summary || {};
+                const totalQty = record.items_count || 0;
+                const entries = Object.entries(summary);
 
                 if (totalQty === 0) return <Text type="secondary">-</Text>;
 
                 return (
                     <div style={{ fontSize: 13, lineHeight: '1.6', textAlign: 'left', display: 'inline-block', minWidth: 140 }}>
-                        {Object.entries(summary).map(([cat, qty]) => (
-                            <div key={cat} style={ordersStyles.summaryRow}>
-                                <Text type="secondary">{cat}</Text>
-                                <Text strong>{qty} รายการ</Text>
-                            </div>
-                        ))}
-                        <Divider style={{ margin: '4px 0' }} />
+                        {entries.length > 0 ? (
+                            <>
+                                {entries.map(([cat, qty]) => (
+                                    <div key={cat} style={ordersStyles.summaryRow}>
+                                        <Text type="secondary">{cat}</Text>
+                                        <Text strong>{qty} รายการ</Text>
+                                    </div>
+                                ))}
+                                <Divider style={{ margin: '4px 0' }} />
+                            </>
+                        ) : null}
                         <div style={ordersStyles.summaryRowBold}>
                             <Text strong>รวม</Text>
                             <Text strong style={{ color: orderColors.primary }}>{totalQty} รายการ</Text>
@@ -164,7 +148,7 @@ export default function POSOrdersPage() {
             title: 'จัดการ',
             key: 'action',
             align: 'center' as const,
-            render: (_: any, record: SalesOrder) => (
+            render: (_: any, record: SalesOrderSummary) => (
                 <Button 
                     type="primary" 
                     icon={<EyeOutlined />} 
@@ -196,7 +180,7 @@ export default function POSOrdersPage() {
                         <Title level={2} style={ordersStyles.headerTitle} className="orders-page-title">รายการออเดอร์ปัจจุบัน</Title>
                         <Text style={ordersStyles.headerSubtitle} className="orders-page-subtitle">จัดการและติดตามสถานะออเดอร์ที่กำลังดำเนินการ</Text>
                     </div>
-                    <Button icon={<ReloadOutlined />} onClick={fetchOrders} size={isMobile ? 'middle' : 'large'} ghost>รีเฟรช</Button>
+                    <Button icon={<ReloadOutlined />} onClick={() => refetch()} size={isMobile ? 'middle' : 'large'} ghost>รีเฟรช</Button>
                 </div>
             </div>
 

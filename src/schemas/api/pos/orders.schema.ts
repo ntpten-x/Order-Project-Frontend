@@ -77,3 +77,34 @@ export const OrdersResponseSchema = z.object({
     page: z.coerce.number(),
     last_page: z.coerce.number().optional(), // Make optional just in case
 });
+
+const OrderSummaryRelationSchema = z
+    .object({
+        table_name: z.string().nullable().optional(),
+        delivery_name: z.string().nullable().optional(),
+    })
+    .partial()
+    .nullable();
+
+const SalesOrderSummarySchema = z.object({
+    id: z.string(),
+    order_no: z.string(),
+    order_type: z.nativeEnum(OrderType),
+    status: z.nativeEnum(OrderStatus),
+    create_date: z.string(),
+    total_amount: z.coerce.number(),
+    delivery_code: z.string().nullable().optional(),
+    table_id: z.string().nullable().optional(),
+    delivery_id: z.string().nullable().optional(),
+    table: OrderSummaryRelationSchema.optional(),
+    delivery: OrderSummaryRelationSchema.optional(),
+    items_summary: z.record(z.coerce.number()).optional(),
+    items_count: z.coerce.number().optional(),
+});
+
+export const OrdersSummaryResponseSchema = z.object({
+    data: z.array(SalesOrderSummarySchema),
+    total: z.coerce.number(),
+    page: z.coerce.number(),
+    last_page: z.coerce.number().optional(),
+});

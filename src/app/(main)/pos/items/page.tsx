@@ -67,6 +67,7 @@ export default function POSItemsPage() {
         events: ["orders:update", "orders:create", "orders:delete"],
         onRefresh: () => fetchServedItems(false),
         intervalMs: 15000,
+        debounceMs: 1000,
     });
 
     const getOrderTypeUserFriendly = (type?: OrderType, table?: SalesOrder["table"]) => {

@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useCallback, useEffect, useState, useContext } from "react";
+import React, { useEffect, useState, useContext } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Typography, Card, Button, Row, Col, InputNumber, Statistic, Tag, Modal, Spin, Divider, Result, App, Space } from "antd";
 import { 
     ClockCircleOutlined, 
@@ -87,43 +88,46 @@ export default function ShiftPage() {
     const router = useRouter();
     const { message } = App.useApp();
     const { showLoading, hideLoading } = useGlobalLoading();
-    const [currentShift, setCurrentShift] = useState<Shift | null>(null);
-    const [summary, setSummary] = useState<any>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const queryClient = useQueryClient();
     const [startAmount, setStartAmount] = useState<number>(0);
     const [endAmount, setEndAmount] = useState<number>(0);
     const [openModalVisible, setOpenModalVisible] = useState(false);
     const [closeModalVisible, setCloseModalVisible] = useState(false);
     const { socket } = useContext(SocketContext);
 
-    const fetchCurrentShift = useCallback(async () => {
-        setIsLoading(true);
-        try {
-            const shift = await shiftsService.getCurrentShift();
-            setCurrentShift(shift);
-            if (shift) {
-                const summaryData = await shiftsService.getCurrentSummary();
-                setSummary(summaryData);
-            } else {
-                setSummary(null);
-            }
-        } catch (error) {
-            // Error handled silently for background fetch
-        } finally {
-            setIsLoading(false);
-        }
-    }, []);
+    const {
+        data: currentShift = null,
+        isLoading: isShiftLoading
+    } = useQuery<Shift | null>({
+        queryKey: ["shiftCurrent"],
+        queryFn: async () => {
+            return await shiftsService.getCurrentShift();
+        },
+        staleTime: 2000,
+    });
 
-    useEffect(() => {
-        fetchCurrentShift();
-    }, [fetchCurrentShift]);
+    const {
+        data: summaryData = null,
+        isLoading: isSummaryLoading
+    } = useQuery<any>({
+        queryKey: ["shiftSummary", currentShift?.id || "none"],
+        queryFn: async () => {
+            return await shiftsService.getCurrentSummary();
+        },
+        enabled: !!currentShift,
+        staleTime: 2000,
+    });
+
+    const summary = currentShift ? summaryData : null;
+    const isLoading = isShiftLoading || (currentShift ? isSummaryLoading : false);
     
     // Listen for real-time updates
     useEffect(() => {
         if (!socket) return;
         
         const handleUpdate = () => {
-             fetchCurrentShift();
+            queryClient.invalidateQueries({ queryKey: ["shiftCurrent"] });
+            queryClient.invalidateQueries({ queryKey: ["shiftSummary"] });
         };
 
         socket.on("shifts:update", handleUpdate);
@@ -131,7 +135,7 @@ export default function ShiftPage() {
         return () => {
             socket.off("shifts:update", handleUpdate);
         };
-    }, [socket, fetchCurrentShift]);
+    }, [socket, queryClient]);
 
     const handleOpenShift = async () => {
         if (startAmount < 0) {
@@ -142,9 +146,9 @@ export default function ShiftPage() {
         try {
             showLoading("กำลังเปิดกะ...");
             setOpenModalVisible(false);
-            const shift = await shiftsService.openShift(startAmount);
-            setCurrentShift(shift);
-            await fetchCurrentShift(); // Reload with summary
+            await shiftsService.openShift(startAmount);
+            queryClient.invalidateQueries({ queryKey: ["shiftCurrent"] });
+            queryClient.invalidateQueries({ queryKey: ["shiftSummary"] });
             setStartAmount(0);
             message.success("เปิดกะสำเร็จ!");
         } catch (error) {
@@ -167,10 +171,10 @@ export default function ShiftPage() {
             const shift = await shiftsService.closeShift(endAmount);
             const summaryData = await shiftsService.getSummary(shift.id);
             
-            setCurrentShift(null);
-            setSummary(null);
             setEndAmount(0);
             message.success("ปิดกะสำเร็จ!");
+            queryClient.invalidateQueries({ queryKey: ["shiftCurrent"] });
+            queryClient.invalidateQueries({ queryKey: ["shiftSummary"] });
             
             // Show summary modal
             Modal.info({
