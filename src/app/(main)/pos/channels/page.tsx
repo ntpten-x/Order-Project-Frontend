@@ -4,7 +4,8 @@ import React from "react";
 import { useRouter } from "next/navigation";
 import { Typography, Row, Col } from "antd";
 import { ShopOutlined, ShoppingOutlined, RocketOutlined } from "@ant-design/icons";
-import { posPageStyles, channelColors } from "@/theme/pos";
+import { channelColors } from "@/theme/pos";
+import { channelsStyles } from "@/theme/pos/channels/style";
 import { POSGlobalStyles } from "@/theme/pos/GlobalStyles";
 import { 
   useChannelStats,
@@ -61,28 +62,28 @@ export default function ChannelSelectionPage() {
   return (
     <>
       <POSGlobalStyles />
-      <div style={posPageStyles.channelsContainer}>
+      <div style={channelsStyles.channelsContainer}>
         {/* Header Section */}
-        <div style={posPageStyles.channelsHeader} className="channels-header-mobile">
+        <div style={channelsStyles.channelsHeader} className="channels-header-mobile">
           <div className="header-pattern"></div>
           <div className="header-circle circle-1"></div>
           <div className="header-circle circle-2"></div>
           
-          <div style={posPageStyles.channelsHeaderContent}>
+          <div style={channelsStyles.channelsHeaderContent}>
             <div className="header-icon-animate">
-              <ShopOutlined style={posPageStyles.channelsHeaderIcon} className="channels-header-icon-mobile" />
+              <ShopOutlined style={channelsStyles.channelsHeaderIcon} className="channels-header-icon-mobile" />
             </div>
-            <Title level={1} style={posPageStyles.channelsHeaderTitle} className="channels-header-title-mobile">
+            <Title level={1} style={channelsStyles.channelsHeaderTitle} className="channels-header-title-mobile">
               เลือกช่องทางขาย
             </Title>
-            <Text style={posPageStyles.channelsHeaderSubtitle} className="channels-header-subtitle-mobile">
+            <Text style={channelsStyles.channelsHeaderSubtitle} className="channels-header-subtitle-mobile">
               Select Sales Channel
             </Text>
           </div>
         </div>
 
         {/* Channel Cards */}
-        <div style={posPageStyles.channelsCardsContainer} className="channels-cards-container-mobile">
+        <div style={channelsStyles.channelsCardsContainer} className="channels-cards-container-mobile">
           <Row gutter={[24, 24]} justify="center">
             {channels.map((channel, index) => {
               const Icon = channel.icon;
@@ -92,14 +93,14 @@ export default function ChannelSelectionPage() {
                 <Col xs={24} sm={12} md={8} key={channel.id}>
                   <div
                     className={`channel-card-hover fade-in-up card-delay-${index + 1}`}
-                    style={posPageStyles.channelCard}
+                    style={channelsStyles.channelCard}
                     onClick={() => router.push(channel.path)}
                   >
-                    <div style={posPageStyles.channelCardInner} className="channels-card-inner-mobile">
+                    <div style={channelsStyles.channelCardInner} className="channels-card-inner-mobile">
                       <div 
                         className="icon-wrapper channels-icon-wrapper-mobile"
                         style={{
-                          ...posPageStyles.channelIconWrapper,
+                          ...channelsStyles.channelIconWrapper,
                           background: channel.colors.light,
                           border: `2px solid ${channel.colors.border}`,
                         }}
@@ -107,23 +108,23 @@ export default function ChannelSelectionPage() {
                         <div 
                           className="decorative-glow"
                           style={{
-                            ...posPageStyles.channelDecorativeGlow,
+                            ...channelsStyles.channelDecorativeGlow,
                             background: channel.colors.gradient,
                           }}
                         />
                         <Icon 
                           className="channels-channel-icon-mobile"
                           style={{
-                            ...posPageStyles.channelIcon,
+                            ...channelsStyles.channelIcon,
                             color: channel.colors.primary,
                           }} 
                         />
                       </div>
                       
-                      <Title level={2} style={posPageStyles.channelCardTitle} className="channels-card-title-mobile">
+                      <Title level={2} style={channelsStyles.channelCardTitle} className="channels-card-title-mobile">
                         {channel.title}
                       </Title>
-                      <Text style={posPageStyles.channelCardSubtitle} className="channels-card-subtitle-mobile">
+                      <Text style={channelsStyles.channelCardSubtitle} className="channels-card-subtitle-mobile">
                         {channel.subtitle}
                       </Text>
 
@@ -131,7 +132,7 @@ export default function ChannelSelectionPage() {
                       <div
                         className="channels-stats-badge-mobile"
                         style={{
-                          ...posPageStyles.channelStatsBadge,
+                          ...channelsStyles.channelStatsBadge,
                           background: hasOrders ? channel.colors.light : '#fafafa',
                           color: hasOrders ? channel.colors.primary : '#8c8c8c',
                           border: `1px solid ${hasOrders ? channel.colors.border : '#f0f0f0'}`,
@@ -141,7 +142,7 @@ export default function ChannelSelectionPage() {
                           <span
                             className="pulse-animation"
                             style={{
-                              ...posPageStyles.channelActiveIndicator,
+                              ...channelsStyles.channelActiveIndicator,
                               background: channel.colors.primary,
                             }}
                           />

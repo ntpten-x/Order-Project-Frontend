@@ -15,7 +15,7 @@ import { categoryService } from '@/services/pos/category.service';
 import { productsService } from '@/services/pos/products.service';
 import { Category } from '@/types/api/pos/category';
 import { Products } from '@/types/api/pos/products';
-import { orderDetailStyles, orderDetailColors, modalStyles, addItemsModalStyles, orderDetailResponsiveStyles } from './style';
+import { orderDetailStyles, orderDetailColors, modalStyles, addItemsModalStyles, ordersResponsiveStyles } from '@/theme/pos/orders/style';
 import { formatCurrency, calculateItemTotal } from "@/utils/orders";
 import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 
@@ -177,7 +177,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
             destroyOnClose
             centered
         >
-            <style jsx global>{orderDetailResponsiveStyles}</style>
+            <style jsx global>{ordersResponsiveStyles}</style>
             
             {/* Modal Header */}
             <div style={modalStyles.modalHeader}>

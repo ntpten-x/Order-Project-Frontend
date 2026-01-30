@@ -7,6 +7,7 @@ import { ShoppingOutlined, ArrowLeftOutlined, PlusOutlined } from "@ant-design/i
 import { ordersService } from "../../../../../services/pos/orders.service";
 import { SalesOrder, OrderStatus, OrderType } from "../../../../../types/api/pos/salesOrder";
 import { posPageStyles, channelColors, posColors, tableColors } from "@/theme/pos";
+import { channelPageStyles } from "@/theme/pos/channels/style";
 import { POSGlobalStyles } from "@/theme/pos/GlobalStyles";
 import { getOrderChannelStats, getOrderColorScheme, formatOrderStatus } from "@/utils/channels";
 import { getOrderNavigationPath } from "@/utils/orders";
@@ -71,14 +72,14 @@ export default function TakeawayPage() {
             <POSGlobalStyles />
             <div style={posPageStyles.container}>
                 {/* Header Section */}
-                <div style={{ ...posPageStyles.channelHeader, background: channelColors.takeaway.gradient }} className="takeaway-header-mobile">
+                <div style={{ ...channelPageStyles.channelHeader, background: channelColors.takeaway.gradient }} className="takeaway-header-mobile">
                     <div className="header-pattern"></div>
 
-                    <div style={posPageStyles.channelHeaderContent} className="takeaway-header-content-mobile">
+                    <div style={channelPageStyles.channelHeaderContent} className="takeaway-header-content-mobile">
                         {/* Back Button */}
                         <div
                             className="back-button-hover takeaway-back-button-mobile"
-                            style={posPageStyles.channelBackButton}
+                            style={channelPageStyles.channelBackButton}
                             onClick={handleBack}
                         >
                             <ArrowLeftOutlined />
@@ -86,25 +87,25 @@ export default function TakeawayPage() {
                         </div>
 
                         {/* Title Section */}
-                        <div style={posPageStyles.channelTitleSection} className="takeaway-title-section-mobile">
-                            <ShoppingOutlined style={posPageStyles.channelHeaderIcon} className="takeaway-header-icon-mobile" />
+                        <div style={channelPageStyles.channelTitleSection} className="takeaway-title-section-mobile">
+                            <ShoppingOutlined style={channelPageStyles.channelHeaderIcon} className="takeaway-header-icon-mobile" />
                             <div>
-                                <Title level={3} style={posPageStyles.channelHeaderTitle} className="takeaway-header-title-mobile">
+                                <Title level={3} style={channelPageStyles.channelHeaderTitle} className="takeaway-header-title-mobile">
                                     สั่งกลับบ้าน
                                 </Title>
-                                <Text style={posPageStyles.channelHeaderSubtitle}>Take Away</Text>
+                                <Text style={channelPageStyles.channelHeaderSubtitle}>Take Away</Text>
                             </div>
                         </div>
 
                         {/* Statistics Bar */}
-                        <div style={posPageStyles.channelStatsBar} className="takeaway-stats-bar-mobile">
-                            <div style={posPageStyles.statItem}>
-                                <span style={{ ...posPageStyles.statDot, background: '#fff' }} />
-                                <Text style={posPageStyles.statText}>ทั้งหมด {stats.total}</Text>
+                        <div style={channelPageStyles.channelStatsBar} className="takeaway-stats-bar-mobile">
+                            <div style={channelPageStyles.statItem}>
+                                <span style={{ ...channelPageStyles.statDot, background: '#fff' }} />
+                                <Text style={channelPageStyles.statText}>ทั้งหมด {stats.total}</Text>
                             </div>
-                            <div style={posPageStyles.statItem}>
-                                <span style={{ ...posPageStyles.statDot, background: tableColors.occupied.primary }} />
-                                <Text style={posPageStyles.statText}>กำลังปรุง {stats.cooking}</Text>
+                            <div style={channelPageStyles.statItem}>
+                                <span style={{ ...channelPageStyles.statDot, background: tableColors.occupied.primary }} />
+                                <Text style={channelPageStyles.statText}>กำลังปรุง {stats.cooking}</Text>
                             </div>
                         </div>
                     </div>
@@ -143,7 +144,7 @@ export default function TakeawayPage() {
                                     <div
                                         className={`takeaway-order-card table-card-animate table-card-delay-${(index % 6) + 1}`}
                                         style={{
-                                            ...posPageStyles.channelPageCard,
+                                            ...channelPageStyles.channelPageCard,
                                             background: colors.light,
                                             border: `2px solid ${colors.border}`,
                                         }}
@@ -151,20 +152,20 @@ export default function TakeawayPage() {
                                     >
                                         <div
                                             style={{
-                                                ...posPageStyles.channelPageCardGradientOverlay,
+                                                ...channelPageStyles.channelPageCardGradientOverlay,
                                                 background: colors.gradient,
                                             }}
                                         />
 
-                                        <div style={posPageStyles.channelPageCardInner}>
+                                        <div style={channelPageStyles.channelPageCardInner}>
                                             <ShoppingOutlined
                                                 style={{
-                                                    ...posPageStyles.channelPageCardIcon,
+                                                    ...channelPageStyles.channelPageCardIcon,
                                                     color: colors.primary,
                                                 }}
                                             />
 
-                                            <div style={posPageStyles.channelPageCardMainText}>
+                                            <div style={channelPageStyles.channelPageCardMainText}>
                                                 {orderNum}
                                             </div>
 
@@ -174,7 +175,7 @@ export default function TakeawayPage() {
                                                 </div>
                                                 <div
                                                     style={{
-                                                        ...posPageStyles.channelPageCardStatusBadge,
+                                                        ...channelPageStyles.channelPageCardStatusBadge,
                                                         background: colors.primary,
                                                         color: '#fff',
                                                     }}

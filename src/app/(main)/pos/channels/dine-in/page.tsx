@@ -12,6 +12,7 @@ import {
 } from "@ant-design/icons";
 import { useTables } from "@/hooks/pos/useTables";
 import { posPageStyles, tableColors, channelColors } from "@/theme/pos";
+import { channelPageStyles } from "@/theme/pos/channels/style";
 import { POSGlobalStyles } from "@/theme/pos/GlobalStyles";
 import { getTableNavigationPath } from "@/utils/orders";
 import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
@@ -49,14 +50,14 @@ export default function DineInTableSelectionPage() {
       <POSGlobalStyles />
       <div style={posPageStyles.container}>
         {/* Header Section */}
-        <div style={{ ...posPageStyles.channelHeader, background: channelColors.dineIn.gradient }} className="dine-in-header-mobile">
+        <div style={{ ...channelPageStyles.channelHeader, background: channelColors.dineIn.gradient }} className="dine-in-header-mobile">
           <div className="header-pattern"></div>
 
-          <div style={posPageStyles.channelHeaderContent} className="dine-in-header-content-mobile">
+          <div style={channelPageStyles.channelHeaderContent} className="dine-in-header-content-mobile">
             {/* Back Button */}
             <div
               className="back-button-hover dine-in-back-button-mobile"
-              style={posPageStyles.channelBackButton}
+              style={channelPageStyles.channelBackButton}
               onClick={() => router.push("/pos/channels")}
             >
               <ArrowLeftOutlined />
@@ -64,37 +65,37 @@ export default function DineInTableSelectionPage() {
             </div>
 
             {/* Title Section */}
-            <div style={posPageStyles.channelTitleSection} className="dine-in-title-section-mobile">
-              <ShopOutlined style={posPageStyles.channelHeaderIcon} className="dine-in-header-icon-mobile" />
+            <div style={channelPageStyles.channelTitleSection} className="dine-in-title-section-mobile">
+              <ShopOutlined style={channelPageStyles.channelHeaderIcon} className="dine-in-header-icon-mobile" />
               <div>
-                <Title level={3} style={posPageStyles.channelHeaderTitle} className="dine-in-header-title-mobile">
+                <Title level={3} style={channelPageStyles.channelHeaderTitle} className="dine-in-header-title-mobile">
                   เลือกโต๊ะ
                 </Title>
-                <Text style={posPageStyles.channelHeaderSubtitle}>Dine In</Text>
+                <Text style={channelPageStyles.channelHeaderSubtitle}>Dine In</Text>
               </div>
             </div>
 
             {/* Statistics Bar */}
-            <div style={posPageStyles.channelStatsBar} className="dine-in-stats-bar-mobile">
-              <div style={posPageStyles.statItem}>
+            <div style={channelPageStyles.channelStatsBar} className="dine-in-stats-bar-mobile">
+              <div style={channelPageStyles.statItem}>
                 <span
                   style={{
-                    ...posPageStyles.statDot,
+                    ...channelPageStyles.statDot,
                     background: tableColors.available.primary,
                   }}
                 />
-                <Text style={posPageStyles.statText}>
+                <Text style={channelPageStyles.statText}>
                   ว่าง {stats.available}
                 </Text>
               </div>
-              <div style={posPageStyles.statItem}>
+              <div style={channelPageStyles.statItem}>
                 <span
                   style={{
-                    ...posPageStyles.statDot,
+                    ...channelPageStyles.statDot,
                     background: tableColors.occupied.primary,
                   }}
                 />
-                <Text style={posPageStyles.statText}>
+                <Text style={channelPageStyles.statText}>
                   ไม่ว่าง {stats.occupied}
                 </Text>
               </div>
@@ -119,7 +120,7 @@ export default function DineInTableSelectionPage() {
                         (index % 6) + 1
                       }`}
                       style={{
-                        ...posPageStyles.channelPageCard,
+                        ...channelPageStyles.channelPageCard,
                         background: colors.light,
                         border: `2px solid ${colors.border}`,
                         opacity: isInactive ? 0.6 : 1,
@@ -134,19 +135,19 @@ export default function DineInTableSelectionPage() {
                       {/* Gradient Overlay */}
                       <div
                         style={{
-                          ...posPageStyles.channelPageCardGradientOverlay,
+                          ...channelPageStyles.channelPageCardGradientOverlay,
                           background: colors.gradient,
                         }}
                       />
 
                         {/* Card Content */}
-                        <div style={posPageStyles.channelPageCardInner}>
+                        <div style={channelPageStyles.channelPageCardInner}>
                           {/* Icon logic based on specific status */}
                           {isInactive ? (
                             <StopOutlined
                               className="dine-in-table-icon-mobile"
                               style={{
-                                ...posPageStyles.channelPageCardIcon,
+                                ...channelPageStyles.channelPageCardIcon,
                                 color: colors.primary,
                               }}
                             />
@@ -154,7 +155,7 @@ export default function DineInTableSelectionPage() {
                             <ShopOutlined
                               className="dine-in-table-icon-mobile"
                               style={{
-                                ...posPageStyles.channelPageCardIcon,
+                                ...channelPageStyles.channelPageCardIcon,
                                 color: colors.primary,
                                 opacity: 0.6
                               }}
@@ -163,14 +164,14 @@ export default function DineInTableSelectionPage() {
                             <CloseCircleOutlined
                               className="pulse-soft dine-in-table-icon-mobile"
                               style={{
-                                ...posPageStyles.channelPageCardIcon,
+                                ...channelPageStyles.channelPageCardIcon,
                                 color: colors.primary,
                               }}
                             />
                           )}
 
                           {/* Table Name */}
-                          <div style={posPageStyles.channelPageCardMainText} className="dine-in-table-name-mobile">
+                          <div style={channelPageStyles.channelPageCardMainText} className="dine-in-table-name-mobile">
                             {table.table_name}
                           </div>
 
@@ -194,7 +195,7 @@ export default function DineInTableSelectionPage() {
                             {/* Tier 2: Specific order status badge */}
                             <div
                               style={{
-                                ...posPageStyles.channelPageCardStatusBadge,
+                                ...channelPageStyles.channelPageCardStatusBadge,
                                 background: isInactive ? "#bfbfbf" : isAvailable ? "#f0f0f0" : colors.primary,
                                 color: isInactive ? "#fff" : isAvailable ? "#8c8c8c" : "#fff",
                                 border: isAvailable ? "1px solid #d9d9d9" : "none",

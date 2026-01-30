@@ -13,9 +13,9 @@ import {
     CloseOutlined,
     InfoCircleOutlined,
     ReloadOutlined,
-    CheckCircleOutlined,
     ShoppingOutlined,
-    RocketOutlined
+    RocketOutlined,
+    CheckCircleOutlined
 } from "@ant-design/icons";
 import { ordersService } from "@/services/pos/orders.service";
 import { authService } from "@/services/auth.service";
@@ -23,7 +23,7 @@ import { tablesService } from "@/services/pos/tables.service";
 import { SalesOrder, OrderStatus, OrderType } from "@/types/api/pos/salesOrder";
 import { SalesOrderItem } from "@/types/api/pos/salesOrderItem";
 import { TableStatus } from "@/types/api/pos/tables";
-import { orderDetailStyles, orderDetailColors, orderDetailResponsiveStyles, orderDetailTypography } from "./style"; 
+import { orderDetailStyles, orderDetailColors, ordersResponsiveStyles, orderDetailTypography } from "@/theme/pos/orders/style"; 
 import {
   calculateOrderTotal,
   getNonCancelledItems,
@@ -33,12 +33,12 @@ import {
   ConfirmationConfig,
   getOrderStatusColor,
   getOrderStatusText,
-  groupItemsByCategory,
   getOrderChannelColor,
   getOrderChannelText,
   getServeActionText,
+  getServedStatusText,
+  groupItemsByCategory,
   getConfirmServeActionText,
-  getServedStatusText
 } from "@/utils/orders"; 
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
@@ -657,7 +657,7 @@ export default function POSOrderDetailsPage() {
 
     return (
         <div className="order-detail-page" style={orderDetailStyles.container}>
-            <style jsx global>{orderDetailResponsiveStyles}</style>
+            <style jsx global>{ordersResponsiveStyles}</style>
             
             {/* Sticky Compact Header */}
             <header className="order-detail-header" style={orderDetailStyles.header}>

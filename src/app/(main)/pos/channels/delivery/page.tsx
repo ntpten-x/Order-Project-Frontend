@@ -8,6 +8,7 @@ import { useDelivery } from "../../../../../hooks/pos/useDelivery";
 import { ordersService } from "../../../../../services/pos/orders.service";
 import { SalesOrder, OrderStatus, OrderType } from "../../../../../types/api/pos/salesOrder";
 import { posPageStyles, channelColors, posColors, tableColors } from "@/theme/pos";
+import { channelPageStyles } from "@/theme/pos/channels/style";
 import { POSGlobalStyles } from "@/theme/pos/GlobalStyles";
 import { getOrderChannelStats, getOrderColorScheme, formatOrderStatus } from "@/utils/channels";
 import { getOrderNavigationPath } from "@/utils/orders";
@@ -101,14 +102,14 @@ export default function DeliverySelectionPage() {
             <POSGlobalStyles />
             <div style={posPageStyles.container}>
                 {/* Header Section */}
-                <div style={{ ...posPageStyles.channelHeader, background: channelColors.delivery.gradient }} className="delivery-header-mobile">
+                <div style={{ ...channelPageStyles.channelHeader, background: channelColors.delivery.gradient }} className="delivery-header-mobile">
                     <div className="header-pattern"></div>
 
-                    <div style={posPageStyles.channelHeaderContent} className="delivery-header-content-mobile">
+                    <div style={channelPageStyles.channelHeaderContent} className="delivery-header-content-mobile">
                         {/* Back Button */}
                         <div
                             className="back-button-hover delivery-back-button-mobile"
-                            style={posPageStyles.channelBackButton}
+                            style={channelPageStyles.channelBackButton}
                             onClick={handleBack}
                         >
                             <ArrowLeftOutlined />
@@ -116,25 +117,25 @@ export default function DeliverySelectionPage() {
                         </div>
 
                         {/* Title Section */}
-                        <div style={posPageStyles.channelTitleSection} className="delivery-title-section-mobile">
-                            <RocketOutlined style={posPageStyles.channelHeaderIcon} className="delivery-header-icon-mobile" />
+                        <div style={channelPageStyles.channelTitleSection} className="delivery-title-section-mobile">
+                            <RocketOutlined style={channelPageStyles.channelHeaderIcon} className="delivery-header-icon-mobile" />
                             <div>
-                                <Title level={3} style={posPageStyles.channelHeaderTitle} className="delivery-header-title-mobile">
+                                <Title level={3} style={channelPageStyles.channelHeaderTitle} className="delivery-header-title-mobile">
                                     เดลิเวอรี่
                                 </Title>
-                                <Text style={posPageStyles.channelHeaderSubtitle}>Delivery</Text>
+                                <Text style={channelPageStyles.channelHeaderSubtitle}>Delivery</Text>
                             </div>
                         </div>
 
                         {/* Statistics Bar */}
-                        <div style={posPageStyles.channelStatsBar} className="delivery-stats-bar-mobile">
-                            <div style={posPageStyles.statItem}>
-                                <span style={{ ...posPageStyles.statDot, background: '#fff' }} />
-                                <Text style={posPageStyles.statText}>ทั้งหมด {stats.total}</Text>
+                        <div style={channelPageStyles.channelStatsBar} className="delivery-stats-bar-mobile">
+                            <div style={channelPageStyles.statItem}>
+                                <span style={{ ...channelPageStyles.statDot, background: '#fff' }} />
+                                <Text style={channelPageStyles.statText}>ทั้งหมด {stats.total}</Text>
                             </div>
-                            <div style={posPageStyles.statItem}>
-                                <span style={{ ...posPageStyles.statDot, background: tableColors.occupied.primary }} />
-                                <Text style={posPageStyles.statText}>กำลังปรุง {stats.cooking}</Text>
+                            <div style={channelPageStyles.statItem}>
+                                <span style={{ ...channelPageStyles.statDot, background: tableColors.occupied.primary }} />
+                                <Text style={channelPageStyles.statText}>กำลังปรุง {stats.cooking}</Text>
                             </div>
                         </div>
                     </div>
@@ -175,7 +176,7 @@ export default function DeliverySelectionPage() {
                                     <div
                                         className={`delivery-order-card table-card-animate table-card-delay-${(index % 6) + 1}`}
                                         style={{
-                                            ...posPageStyles.channelPageCard,
+                                            ...channelPageStyles.channelPageCard,
                                             background: colors.light,
                                             border: `2px solid ${colors.border}`,
                                         }}
@@ -183,20 +184,20 @@ export default function DeliverySelectionPage() {
                                     >
                                         <div
                                             style={{
-                                                ...posPageStyles.channelPageCardGradientOverlay,
+                                                ...channelPageStyles.channelPageCardGradientOverlay,
                                                 background: colors.gradient,
                                             }}
                                         />
 
-                                        <div style={posPageStyles.channelPageCardInner}>
+                                        <div style={channelPageStyles.channelPageCardInner}>
                                             <RocketOutlined
                                                 style={{
-                                                    ...posPageStyles.channelPageCardIcon,
+                                                    ...channelPageStyles.channelPageCardIcon,
                                                     color: colors.primary,
                                                 }}
                                             />
 
-                                            <div style={posPageStyles.channelPageCardMainText}>
+                                            <div style={channelPageStyles.channelPageCardMainText}>
                                                 {orderNum}
                                             </div>
 
@@ -206,7 +207,7 @@ export default function DeliverySelectionPage() {
                                                 </div>
                                                 <div
                                                     style={{
-                                                        ...posPageStyles.channelPageCardStatusBadge,
+                                                        ...channelPageStyles.channelPageCardStatusBadge,
                                                         background: colors.primary,
                                                         color: '#fff',
                                                     }}

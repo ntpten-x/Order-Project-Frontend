@@ -1,17 +1,4 @@
-
-import { Typography, Button, Empty } from "antd";
-import {
-    TagsOutlined,
-    PlusOutlined,
-    ReloadOutlined,
-    EditOutlined,
-    DeleteOutlined,
-    CheckCircleFilled,
-    CloseCircleFilled
-} from "@ant-design/icons";
-import { Category } from "../../../../types/api/pos/category";
-
-const { Text, Title } = Typography;
+import { CSSProperties } from 'react';
 
 // ============ STYLES ============
 

@@ -3,7 +3,7 @@ import { Modal, Input, Button, Typography, Space, Divider, InputNumber, Tag } fr
 import { PlusOutlined, MinusOutlined, SaveOutlined, CloseOutlined, InfoCircleOutlined, DeleteOutlined } from '@ant-design/icons';
 import { SalesOrderItem } from '@/types/api/pos/salesOrderItem';
 import { SalesOrderDetail } from '@/types/api/pos/salesOrderDetail';
-import { orderDetailStyles, orderDetailColors, modalStyles } from './style';
+import { orderDetailStyles, orderDetailColors, modalStyles } from '@/theme/pos/orders/style';
 import { calculateItemTotal, formatCurrency } from '@/utils/orders';
 import { useGlobalLoading } from '@/contexts/pos/GlobalLoadingContext';
 
