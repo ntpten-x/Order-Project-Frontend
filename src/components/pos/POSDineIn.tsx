@@ -30,7 +30,7 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
 
     useEffect(() => {
         const initData = async () => {
-            showLoading();
+            showLoading("กำลังโหลดข้อมูล...");
             try {
                 // Fetch CSRF and Table details in parallel
                 const [token, table] = await Promise.all([
@@ -71,7 +71,7 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
     }, [tableId, setOrderMode, setReferenceId, setReferenceCode]);
 
     const handleCreateOrder = async () => {
-        showLoading();
+        showLoading("กำลังสร้างออเดอร์...");
         try {
             const orderPayload: CreateSalesOrderDTO = {
                 order_no: `ORD-${Date.now()}`,

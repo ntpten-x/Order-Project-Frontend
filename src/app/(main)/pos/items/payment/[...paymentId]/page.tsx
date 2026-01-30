@@ -20,7 +20,7 @@ import { TableStatus } from "@/types/api/pos/tables";
 import { Discounts, DiscountType } from "@/types/api/pos/discounts";
 import { PaymentStatus } from "@/types/api/pos/payments";
 import { paymentPageStyles, paymentColors } from "@/theme/pos/payments.theme";
-import { calculatePaymentTotals, isCashMethod, isPromptPayMethod, quickCashAmounts } from "@/utils/payments";
+import { calculatePaymentTotals, isCashMethod, isPromptPayMethod, quickCashAmounts, getPostCancelPaymentRedirect, getEditOrderRedirect } from "@/utils/payments";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import { getOrderChannelText, getOrderReference, getOrderStatusColor, getOrderStatusText, getEditOrderNavigationPath, getCancelOrderNavigationPath, ConfirmationConfig, formatCurrency } from "@/utils/orders";
@@ -78,7 +78,7 @@ export default function POSPaymentPage() {
                 discountsService.getAll()
             ]);
             
-            if (orderData.status !== OrderStatus.WaitingForPayment) {
+            if ([OrderStatus.Paid, OrderStatus.Cancelled].includes(orderData.status)) {
                 router.push('/pos/channels');
                 return;
             }
@@ -275,7 +275,7 @@ export default function POSPaymentPage() {
                     await ordersService.updateStatus(order.id, OrderStatus.Pending, csrfToken);
 
                     messageApi.success("ย้อนกลับไปแก้ไขออเดอร์เรียบร้อย");
-                    router.push(getEditOrderNavigationPath(order.id));
+                    router.push(getEditOrderRedirect(order.id));
 
                 } catch (error) {
                     messageApi.error("ไม่สามารถเปลี่ยนสถานะออเดอร์ได้");
@@ -319,7 +319,7 @@ export default function POSPaymentPage() {
                     }
 
                     messageApi.success("ยกเลิกออเดอร์เรียบร้อย");
-                    router.push(getCancelOrderNavigationPath(order.order_type));
+                    router.push(getPostCancelPaymentRedirect());
 
                 } catch (error) {
                     messageApi.error("ไม่สามารถยกเลิกออเดอร์ได้");
@@ -378,30 +378,15 @@ export default function POSPaymentPage() {
                             <Button 
                                 icon={<EditOutlined />} 
                                 onClick={handleEditOrder}
-                                className="hide-on-mobile"
                                 style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff' }}
                             >
                                 แก้ไขออเดอร์
                             </Button>
                             <Button 
-                                icon={<EditOutlined />} 
-                                onClick={handleEditOrder}
-                                className="show-on-mobile-inline"
-                                style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff' }}
-                            />
-                            <Button 
                                 danger
                                 onClick={handleCancelOrder}
-                                className="hide-on-mobile"
                             >
                                 ยกเลิกออเดอร์
-                            </Button>
-                            <Button 
-                                danger
-                                onClick={handleCancelOrder}
-                                className="show-on-mobile-inline"
-                            >
-                                ยกเลิก
                             </Button>
                         </div>
                     </div>
@@ -431,7 +416,22 @@ export default function POSPaymentPage() {
                                                     <Text type="secondary" style={{ fontSize: 13 }}>{formatCurrency(item.price)}</Text>
                                                     <Tag style={{ margin: 0, fontSize: 11 }}>x{item.quantity}</Tag>
                                                 </div>
-                                                {item.notes && <Text type="secondary" style={{ display: 'block', fontSize: 12, fontStyle: 'italic' }}>* {item.notes}</Text>}
+                                                {item.notes && (
+                                                    <Text style={{ display: 'block', fontSize: 12, fontStyle: 'italic', color: '#ef4444', marginTop: 2 }}>
+                                                        * {item.notes}
+                                                    </Text>
+                                                )}
+                                                {item.details && item.details.length > 0 && (
+                                                    <div style={{ marginTop: 2, display: 'flex', flexDirection: 'column', gap: 0 }}>
+                                                        {item.details.map((detail: any, dIdx: number) => (
+                                                            <div key={dIdx}>
+                                                                <Text style={{ color: '#10b981', fontSize: 12 }}>
+                                                                    + {detail.detail_name} {Number(detail.extra_price) > 0 ? `(+${Number(detail.extra_price)})` : ''}
+                                                                </Text>
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                )}
                                             </div>
                                          </div>
                                          <Text strong>{formatCurrency(Number(item.total_price || (Number(item.price) * item.quantity)))}</Text>

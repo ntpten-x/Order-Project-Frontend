@@ -99,8 +99,8 @@ export default function POSOrderDetailsPage() {
             showLoading("กำลังโหลดข้อมูลออเดอร์...");
             const data = await ordersService.getById(id);
             if ([OrderStatus.Paid, OrderStatus.Cancelled, OrderStatus.WaitingForPayment].includes(data.status)) {
-                message.warning("ออเดอร์นี้ไม่อยู่ในสถานะที่ดำเนินการได้");
-                router.push('/pos/orders');
+                const nextPath = getPostConfirmServeNavigationPath(data);
+                router.push(nextPath);
                 return;
             }
             setOrder(data);

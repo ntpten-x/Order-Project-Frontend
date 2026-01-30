@@ -369,12 +369,26 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                         onChange={e => updateDetail(detail.id, 'name', e.target.value)}
                                         style={{ flex: 1, borderRadius: 8 }}
                                     />
-                                    <InputNumber 
-                                        placeholder="0" 
+                                    <InputNumber<number> 
+                                        placeholder="0.00" 
                                         value={detail.price} 
                                         onChange={v => updateDetail(detail.id, 'price', v || 0)}
-                                        style={{ width: 80, borderRadius: 8 }}
-                                        prefix="฿"
+                                        style={{ width: 100, borderRadius: 8, height: 40 }}
+                                        inputMode="decimal"
+                                        controls={false}
+                                        min={0}
+                                        precision={2}
+                                        formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                        parser={(value) => value!.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                                        onKeyDown={(e) => {
+                                            const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', '.'];
+                                            if (!/^[0-9]$/.test(e.key) && !allowedKeys.includes(e.key)) {
+                                                e.preventDefault();
+                                            }
+                                            if (e.key === '.' && detail.price.toString().includes('.')) {
+                                                e.preventDefault();
+                                            }
+                                        }}
                                     />
                                     <Button 
                                         type="text" 

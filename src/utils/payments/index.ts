@@ -48,3 +48,20 @@ export const isPromptPayMethod = (methodName: string = '', displayName: string =
 };
 
 export const quickCashAmounts = [20, 50, 100, 500, 1000];
+
+/**
+ * Get navigation path after cancelling an order from the payment page
+ * @returns The target navigation path
+ */
+export const getPostCancelPaymentRedirect = (): string => {
+    return '/pos/channels';
+};
+
+/**
+ * Get navigation path for editing an order from the payment page
+ * @param orderId - The ID of the order to edit
+ * @returns The target navigation path
+ */
+export const getEditOrderRedirect = (orderId: string): string => {
+    return `/pos/orders/${orderId}`;
+};

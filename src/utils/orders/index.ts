@@ -230,12 +230,14 @@ export const sortOrdersByQuantity = <T extends { items?: OrderItemLike[] }>(orde
  * @returns The target navigation path
  */
 export const getPostConfirmServeNavigationPath = (order: OrderLike | SalesOrder): string => {
-    const orderId = (order as any).id;
-    if (orderId) {
-        if (order.order_type === 'Delivery') {
-            return `/pos/items/delivery/${orderId}`;
-        }
-        return `/pos/items/payment/${orderId}`;
+    if (order.order_type === 'DineIn') {
+        return '/pos/channels/dine-in';
+    }
+    if (order.order_type === 'TakeAway') {
+        return '/pos/channels/takeaway';
+    }
+    if (order.order_type === 'Delivery') {
+        return '/pos/channels/delivery';
     }
 
     // Fallback to orders list
@@ -277,10 +279,7 @@ export const getOrderNavigationPath = (order: SalesOrder | SalesOrderSummary): s
  * @returns The target navigation path
  */
 export const getCancelOrderNavigationPath = (orderType: string): string => {
-    if (orderType === 'DineIn') {
-        return '/pos/channels/dine-in';
-    }
-    return '/pos/orders';
+    return '/pos/channels';
 };
 
 export const createOrderPayload = (

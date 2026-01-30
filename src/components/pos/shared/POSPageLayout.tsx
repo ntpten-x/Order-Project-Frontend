@@ -14,6 +14,7 @@ import {
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useCart } from "../../../contexts/pos/CartContext";
+import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 import { useProducts } from "../../../hooks/pos/useProducts";
 import { useCategories } from "@/hooks/pos/useCategories";
 import { Products } from "../../../types/api/pos/products";
@@ -41,6 +42,7 @@ interface POSPageLayoutProps {
 }
 
 export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }: POSPageLayoutProps) {
+  const { isLoading: isGlobalLoading } = useGlobalLoading();
   const router = useRouter();
   const [page, setPage] = useState(1);
   const LIMIT = 20;
@@ -202,7 +204,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
 
         {/* Content */}
         <div style={posLayoutStyles.content} className="pos-content-mobile">
-          {isLoading ? (
+          {isLoading && !isGlobalLoading ? (
             <div style={posLayoutStyles.loadingContainer}>
               <Spin size="large" />
             </div>
@@ -808,12 +810,26 @@ function CartItemDetailModal({ item, isOpen, onClose, onSave }: CartItemDetailMo
                   onChange={(e) => handleUpdateDetail(index, 'detail_name', e.target.value)}
                   style={{ flex: 2 }}
                 />
-                <InputNumber
+                <InputNumber<number>
                   placeholder="ราคา"
                   value={detail.extra_price}
                   onChange={(val) => handleUpdateDetail(index, 'extra_price', val || 0)}
-                  style={{ flex: 1 }}
+                  style={{ flex: 1, height: 40, fontSize: 14 }}
+                  inputMode="decimal"
+                  controls={false}
                   min={0}
+                  precision={2}
+                  formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={(value) => value!.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                  onKeyDown={(e) => {
+                    const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', '.'];
+                    if (!/^[0-9]$/.test(e.key) && !allowedKeys.includes(e.key)) {
+                      e.preventDefault();
+                    }
+                    if (e.key === '.' && detail.extra_price.toString().includes('.')) {
+                      e.preventDefault();
+                    }
+                  }}
                 />
                 <Button 
                   danger 

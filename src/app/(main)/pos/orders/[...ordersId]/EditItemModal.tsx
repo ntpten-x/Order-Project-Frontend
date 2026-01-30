@@ -175,14 +175,26 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                                         onChange={(e) => handleUpdateDetail(index, 'detail_name', e.target.value)}
                                         style={{ flex: 2, borderRadius: 8 }}
                                     />
-                                    <InputNumber
+                                    <InputNumber<number>
                                         placeholder="ราคา"
                                         value={detail.extra_price}
                                         onChange={(val) => handleUpdateDetail(index, 'extra_price', val || 0)}
-                                        formatter={value => `฿ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                                        // parser={value => value!.replace(/฿\s?|(,*)/g, '')}
-                                        style={{ flex: 1, borderRadius: 8 }}
+                                        style={{ flex: 1, borderRadius: 8, height: 40 }}
+                                        inputMode="decimal"
+                                        controls={false}
                                         min={0}
+                                        precision={2}
+                                        formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                        parser={(value) => value!.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                                        onKeyDown={(e) => {
+                                            const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', '.'];
+                                            if (!/^[0-9]$/.test(e.key) && !allowedKeys.includes(e.key)) {
+                                                e.preventDefault();
+                                            }
+                                            if (e.key === '.' && detail.extra_price.toString().includes('.')) {
+                                                e.preventDefault();
+                                            }
+                                        }}
                                     />
                                     <Button 
                                         danger 
