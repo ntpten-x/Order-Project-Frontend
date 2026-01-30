@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { authService } from "../services/auth.service";
+import { offlineQueueService } from "@/services/pos/offline.queue.service";
 import { User, LoginCredentials } from "../types/api/auth";
 import { Spin } from "antd";
 import { useGlobalLoading } from "./pos/GlobalLoadingContext";
@@ -105,6 +106,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             if (typeof window !== "undefined") {
                 localStorage.removeItem("token_ws");
             }
+            offlineQueueService.clearQueue();
             setUser(null);
             router.push("/login");
         } catch (error) {

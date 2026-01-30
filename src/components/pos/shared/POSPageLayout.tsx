@@ -15,6 +15,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useCart } from "../../../contexts/pos/CartContext";
 import { useProducts } from "../../../hooks/pos/useProducts";
+import { useCategories } from "@/hooks/pos/useCategories";
 import { Products } from "../../../types/api/pos/products";
 import { Category } from "../../../types/api/pos/category";
 import { 
@@ -45,24 +46,8 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
   const LIMIT = 20;
   
   // Category State
-  const [categories, setCategories] = useState<Category[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
-
-  React.useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const response = await fetch('/api/pos/category');
-        if (response.ok) {
-            const data = await response.json();
-            setCategories(data);
-        }
-      } catch (error) {
-        console.error("Failed to fetch categories:", error);
-      }
-    };
-    fetchCategories();
-  }, []);
-
+  const { data: categories = [] } = useCategories();
 
   const { products, isLoading, total } = useProducts(page, LIMIT, selectedCategory);
 
