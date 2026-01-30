@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { Form, Input, message, Spin, Switch, Modal } from 'antd';
@@ -11,7 +11,9 @@ import {
     ActionButtons
 } from './style';
 
-import { authService } from '../../../../../../services/auth.service';
+import { getCsrfTokenCached } from "@/utils/pos/csrf";
+import { useRoleGuard } from "@/utils/pos/accessControl";
+import { AccessGuardFallback } from "@/components/pos/AccessGuard";
 
 export default function DeliveryManagePage({ params }: { params: { mode: string[] } }) {
     const router = useRouter();
@@ -24,10 +26,11 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
     const mode = params.mode[0];
     const id = params.mode[1] || null;
     const isEdit = mode === 'edit' && !!id;
+    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
 
     useEffect(() => {
         const fetchCsrf = async () => {
-             const token = await authService.getCsrfToken();
+             const token = await getCsrfTokenCached();
              setCsrfToken(token);
         };
         fetchCsrf();
@@ -37,7 +40,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
         setLoading(true);
         try {
             const response = await fetch(`/api/pos/delivery/getById/${id}`);
-            if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลบริการส่งได้');
+            if (!response.ok) throw new Error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธเธฃเธดเธเธฒเธฃเธชเนเธเนเธ”เน');
             const data = await response.json();
             form.setFieldsValue({
                 delivery_name: data.delivery_name,
@@ -48,7 +51,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
             setDeliveryName(data.delivery_name || '');
         } catch (error) {
             console.error(error);
-            message.error('ไม่สามารถดึงข้อมูลบริการส่งได้');
+            message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธเธฃเธดเธเธฒเธฃเธชเนเธเนเธ”เน');
             router.push('/pos/delivery');
         } finally {
             setLoading(false);
@@ -77,10 +80,10 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถอัปเดตบริการส่งได้');
+                    throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเน€เธ”เธ•เธเธฃเธดเธเธฒเธฃเธชเนเธเนเธ”เน');
                 }
                 
-                message.success('อัปเดตบริการส่งสำเร็จ');
+                message.success('เธญเธฑเธเน€เธ”เธ•เธเธฃเธดเธเธฒเธฃเธชเนเธเธชเธณเน€เธฃเนเธ');
             } else {
                 const response = await fetch(`/api/pos/delivery/create`, {
                     method: 'POST',
@@ -93,15 +96,15 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถสร้างบริการส่งได้');
+                    throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธเธเธฃเธดเธเธฒเธฃเธชเนเธเนเธ”เน');
                 }
                 
-                message.success('สร้างบริการส่งสำเร็จ');
+                message.success('เธชเธฃเนเธฒเธเธเธฃเธดเธเธฒเธฃเธชเนเธเธชเธณเน€เธฃเนเธ');
             }
             router.push('/pos/delivery');
         } catch (error: unknown) {
             console.error(error);
-            message.error((error as { message: string }).message || (isEdit ? 'ไม่สามารถอัปเดตบริการส่งได้' : 'ไม่สามารถสร้างบริการส่งได้'));
+            message.error((error as { message: string }).message || (isEdit ? 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเน€เธ”เธ•เธเธฃเธดเธเธฒเธฃเธชเนเธเนเธ”เน' : 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธเธเธฃเธดเธเธฒเธฃเธชเนเธเนเธ”เน'));
         } finally {
             setSubmitting(false);
         }
@@ -110,11 +113,11 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
     const handleDelete = () => {
         if (!id) return;
         Modal.confirm({
-            title: 'ยืนยันการลบบริการส่ง',
-            content: `คุณต้องการลบบริการส่ง "${deliveryName}" หรือไม่?`,
-            okText: 'ลบ',
+            title: 'เธขเธทเธเธขเธฑเธเธเธฒเธฃเธฅเธเธเธฃเธดเธเธฒเธฃเธชเนเธ',
+            content: `เธเธธเธ“เธ•เนเธญเธเธเธฒเธฃเธฅเธเธเธฃเธดเธเธฒเธฃเธชเนเธ "${deliveryName}" เธซเธฃเธทเธญเนเธกเน?`,
+            okText: 'เธฅเธ',
             okType: 'danger',
-            cancelText: 'ยกเลิก',
+            cancelText: 'เธขเธเน€เธฅเธดเธ',
             centered: true,
             onOk: async () => {
                 try {
@@ -124,18 +127,25 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                             'X-CSRF-Token': csrfToken
                         }
                     });
-                    if (!response.ok) throw new Error('ไม่สามารถลบบริการส่งได้');
-                    message.success('ลบบริการส่งสำเร็จ');
+                    if (!response.ok) throw new Error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเธเธฃเธดเธเธฒเธฃเธชเนเธเนเธ”เน');
+                    message.success('เธฅเธเธเธฃเธดเธเธฒเธฃเธชเนเธเธชเธณเน€เธฃเนเธ');
                     router.push('/pos/delivery');
                 } catch (error) {
                     console.error(error);
-                    message.error('ไม่สามารถลบบริการส่งได้');
+                    message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเธเธฃเธดเธเธฒเธฃเธชเนเธเนเธ”เน');
                 }
             }
         });
     };
 
     const handleBack = () => router.push('/pos/delivery');
+
+    if (isChecking) {
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
+    }
+    if (!isAuthorized) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    }
 
     return (
         <div className="manage-page" style={pageStyles.container}>
@@ -174,30 +184,30 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                     >
                         <Form.Item
                             name="delivery_name"
-                            label="ชื่อบริการส่ง *"
+                            label="เธเธทเนเธญเธเธฃเธดเธเธฒเธฃเธชเนเธ *"
                             rules={[
-                                { required: true, message: 'กรุณากรอกชื่อบริการส่ง' },
-                                { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
+                                { required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเธเธฃเธดเธเธฒเธฃเธชเนเธ' },
+                                { max: 100, message: 'เธเธงเธฒเธกเธขเธฒเธงเธ•เนเธญเธเนเธกเนเน€เธเธดเธ 100 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ' }
                             ]}
                         >
                             <Input 
                                 size="large" 
-                                placeholder="เช่น Grab, Lineman, Food Panda" 
+                                placeholder="เน€เธเนเธ Grab, Lineman, Food Panda" 
                                 maxLength={100}
                             />
                         </Form.Item>
 
                         <Form.Item
                             name="delivery_prefix"
-                            label="รหัสย่อ (Prefix)"
+                            label="เธฃเธซเธฑเธชเธขเนเธญ (Prefix)"
                             rules={[
-                                { max: 10, message: 'ความยาวต้องไม่เกิน 10 ตัวอักษร' }
+                                { max: 10, message: 'เธเธงเธฒเธกเธขเธฒเธงเธ•เนเธญเธเนเธกเนเน€เธเธดเธ 10 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ' }
                             ]}
                             normalize={(value) => (value || '').toUpperCase()}
                         >
                             <Input 
                                 size="large" 
-                                placeholder="เช่น GF, LM (สำหรับสร้างรหัสออเดอร์อัตโนมัติ)" 
+                                placeholder="เน€เธเนเธ GF, LM (เธชเธณเธซเธฃเธฑเธเธชเธฃเนเธฒเธเธฃเธซเธฑเธชเธญเธญเน€เธ”เธญเธฃเนเธญเธฑเธ•เนเธเธกเธฑเธ•เธด)" 
                                 maxLength={10}
                                 style={{ textTransform: 'uppercase' }}
                             />
@@ -205,7 +215,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
 
                         <Form.Item
                             name="logo"
-                            label="โลโก้ (URL)"
+                            label="เนเธฅเนเธเน (URL)"
                             rules={[
                                 { 
                                     validator: async (_, value) => {
@@ -217,7 +227,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                             new URL(value);
                                             return;
                                         } catch {
-                                            throw new Error('กรุณากรอก URL หรือ Data URI ที่ถูกต้อง');
+                                            throw new Error('เธเธฃเธธเธ“เธฒเธเธฃเธญเธ URL เธซเธฃเธทเธญ Data URI เธ—เธตเนเธ–เธนเธเธ•เนเธญเธ');
                                         }
                                     }
                                 }
@@ -241,13 +251,13 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
 
                         <Form.Item
                             name="is_active"
-                            label="สถานะการใช้งาน"
+                            label="เธชเธ–เธฒเธเธฐเธเธฒเธฃเนเธเนเธเธฒเธ"
                             valuePropName="checked"
                             style={{ marginTop: 20 }}
                         >
                             <Switch 
-                                checkedChildren="เปิดใช้งาน" 
-                                unCheckedChildren="ปิดใช้งาน"
+                                checkedChildren="เน€เธเธดเธ”เนเธเนเธเธฒเธ" 
+                                unCheckedChildren="เธเธดเธ”เนเธเนเธเธฒเธ"
                             />
                         </Form.Item>
 
@@ -263,3 +273,4 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
         </div>
     );
 }
+

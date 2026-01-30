@@ -18,6 +18,7 @@ import { ordersService } from "../../../../services/pos/orders.service";
 import { SalesOrderItem, ItemStatus } from "../../../../types/api/pos/salesOrderItem";
 import { posPageStyles, posColors } from "@/theme/pos";
 import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
+import { getCsrfTokenCached } from "@/utils/pos/csrf";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -159,7 +160,8 @@ export default function KitchenDisplayPage() {
     const updateItemStatus = async (itemId: string, newStatus: ItemStatus) => {
         try {
             showLoading("กำลังอัปเดต...");
-            await ordersService.updateItemStatus(itemId, newStatus);
+            const csrfToken = await getCsrfTokenCached();
+            await ordersService.updateItemStatus(itemId, newStatus, undefined, csrfToken);
             setAllItems(prev => 
                 prev.map(item => 
                     item.id === itemId ? { ...item, status: newStatus } : item
@@ -179,8 +181,9 @@ export default function KitchenDisplayPage() {
             const order = groupedOrders.find(o => o.order_id === orderId);
             if (!order) return;
 
+            const csrfToken = await getCsrfTokenCached();
             const updatePromises = order.items.map(item => 
-                ordersService.updateItemStatus(item.id, ItemStatus.Served)
+                ordersService.updateItemStatus(item.id, ItemStatus.Served, undefined, csrfToken)
             );
 
             await Promise.all(updatePromises);

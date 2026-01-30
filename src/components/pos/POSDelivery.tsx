@@ -5,13 +5,13 @@ import { useRouter } from "next/navigation";
 import { message } from "antd";
 import { RocketOutlined } from "@ant-design/icons";
 import { useCart } from "../../contexts/pos/CartContext";
-import { authService } from "../../services/auth.service";
 import { ordersService } from "../../services/pos/orders.service";
 import { createOrderPayload } from "../../utils/orders";
 import { getPostCreateOrderNavigationPath } from "../../utils/channels";
 import { OrderType } from "../../types/api/pos/salesOrder";
 import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 import POSPageLayout from "./shared/POSPageLayout";
+import { getCsrfTokenCached } from "@/utils/pos/csrf";
 
 interface POSDeliveryProps {
     providerId: string;
@@ -26,7 +26,7 @@ export default function POSDelivery({ providerId, deliveryCode }: POSDeliveryPro
     useEffect(() => {
         const init = async () => {
              showLoading();
-             const token = await authService.getCsrfToken();
+             const token = await getCsrfTokenCached();
              if (token) setCsrfToken(token);
              hideLoading();
         };

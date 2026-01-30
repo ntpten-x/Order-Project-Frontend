@@ -10,6 +10,8 @@ import { OrderStatus, OrderType, SalesOrder } from "@/types/api/pos/salesOrder";
 import { paymentPageStyles, paymentColors } from "@/theme/pos/payments.theme";
 import { formatCurrency } from "@/utils/orders";
 import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
+import { useSocket } from "@/hooks/useSocket";
+import { useRealtimeRefresh } from "@/utils/pos/realtime";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 
@@ -27,9 +29,11 @@ export default function POSItemsPage() {
     const [orderGroups, setOrderGroups] = useState<OrderGroup[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { showLoading, hideLoading } = useGlobalLoading();
+    const { socket } = useSocket();
 
-    const fetchServedItems = useCallback(async () => {
+    const fetchServedItems = useCallback(async (initial = false) => {
         try {
+            if (initial) showLoading("กำลังโหลดรายการรอชำระเงิน...");
             setIsLoading(true);
             const activeStatuses = [OrderStatus.WaitingForPayment].join(',');
             
@@ -50,13 +54,20 @@ export default function POSItemsPage() {
             // Silently handle error or show notification if critical
         } finally {
             setIsLoading(false);
+            if (initial) hideLoading();
         }
-    }, []);
+    }, [showLoading, hideLoading]);
 
     useEffect(() => {
-        fetchServedItems();
-        // Optional: Polling could be added here
+        fetchServedItems(true);
     }, [fetchServedItems]);
+
+    useRealtimeRefresh({
+        socket,
+        events: ["orders:update", "orders:create", "orders:delete"],
+        onRefresh: () => fetchServedItems(false),
+        intervalMs: 15000,
+    });
 
     const getOrderTypeUserFriendly = (type?: OrderType, table?: SalesOrder["table"]) => {
         switch (type) {
@@ -200,4 +211,3 @@ export default function POSItemsPage() {
         </div>
     );
 }
-

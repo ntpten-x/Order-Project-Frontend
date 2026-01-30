@@ -6,7 +6,6 @@ import { message, Spin } from "antd";
 import { ShopOutlined } from "@ant-design/icons";
 import { useCart } from "@/contexts/pos/CartContext";
 import { tablesService } from "@/services/pos/tables.service";
-import { authService } from "@/services/auth.service";
 import { ordersService } from "@/services/pos/orders.service";
 import { useAuth } from "@/contexts/AuthContext";
 import POSPageLayout from "./shared/POSPageLayout";
@@ -15,6 +14,7 @@ import { CreateSalesOrderDTO, OrderType, OrderStatus } from "@/types/api/pos/sal
 import { offlineQueueService } from "@/services/pos/offline.queue.service";
 import { getPostCreateOrderNavigationPath } from "@/utils/channels";
 import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
+import { getCsrfTokenCached } from "@/utils/pos/csrf";
 
 interface POSDineInProps {
     tableId: string;
@@ -34,7 +34,7 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
             try {
                 // Fetch CSRF and Table details in parallel
                 const [token, table] = await Promise.all([
-                    authService.getCsrfToken(),
+                    getCsrfTokenCached(),
                     tableId ? tablesService.getById(tableId) : Promise.resolve(null)
                 ]);
 

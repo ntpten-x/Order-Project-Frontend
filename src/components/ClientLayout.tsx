@@ -1,7 +1,8 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import React from "react";
+import React, { useEffect } from "react";
+import { useGlobalLoading } from "../contexts/pos/GlobalLoadingContext";
 
 interface ClientLayoutProps {
   children: React.ReactNode;
@@ -9,6 +10,11 @@ interface ClientLayoutProps {
 
 const ClientLayout: React.FC<ClientLayoutProps> = ({ children }) => {
   const pathname = usePathname();
+  const { resetLoading } = useGlobalLoading();
+
+  useEffect(() => {
+    resetLoading();
+  }, [pathname, resetLoading]);
 
   // ถ้าอยู่หน้า login ไม่ต้องใส่ padding-top
   const isLoginPage = pathname === "/login";

@@ -16,6 +16,8 @@ import 'dayjs/locale/th';
 import ReceiptTemplate from "../../../../../components/pos/shared/ReceiptTemplate";
 import { sortOrderItems, getItemRowStyle, getStatusTextStyle } from "../../../../../utils/dashboard/orderUtils";
 import { ItemStatus } from "../../../../../types/api/pos/salesOrderItem";
+import { useSocket } from "@/hooks/useSocket";
+import { useRealtimeRefresh } from "@/utils/pos/realtime";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -38,6 +40,7 @@ type PaymentWithMethod = Payments & {
 export default function DashboardOrderDetailPage({ params }: Props) {
     const router = useRouter();
     const orderId = params.id[0];
+    const { socket } = useSocket();
     
     const [order, setOrder] = useState<SalesOrder | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -62,6 +65,13 @@ export default function DashboardOrderDetailPage({ params }: Props) {
     useEffect(() => {
         fetchOrderDetail();
     }, [fetchOrderDetail]);
+
+    useRealtimeRefresh({
+        socket,
+        events: ["orders:update", "orders:delete", "payments:create", "payments:update"],
+        onRefresh: () => fetchOrderDetail(),
+        intervalMs: 20000,
+    });
 
     const fetchShopProfile = useCallback(async () => {
         try {

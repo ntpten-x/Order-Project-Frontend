@@ -1,17 +1,17 @@
 "use client";
 
-import React, { useState, useCallback, useEffect, useMemo } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Typography, Row, Col, Empty, Spin, Button, Tag, Space } from "antd";
+import { Typography, Row, Col, Empty, Button } from "antd";
 import { ShoppingOutlined, ArrowLeftOutlined, PlusOutlined } from "@ant-design/icons";
-import { ordersService } from "../../../../../services/pos/orders.service";
-import { SalesOrder, OrderStatus, OrderType } from "../../../../../types/api/pos/salesOrder";
-import { posPageStyles, channelColors, posColors, tableColors } from "@/theme/pos";
+import { OrderType } from "../../../../../types/api/pos/salesOrder";
+import { posPageStyles, channelColors, tableColors } from "@/theme/pos";
 import { channelPageStyles } from "@/theme/pos/channels/style";
 import { POSGlobalStyles } from "@/theme/pos/GlobalStyles";
 import { getOrderChannelStats, getOrderColorScheme, formatOrderStatus } from "@/utils/channels";
 import { getOrderNavigationPath } from "@/utils/orders";
 import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
+import { useChannelOrders } from "@/utils/pos/channelOrders";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import 'dayjs/locale/th';
@@ -23,36 +23,17 @@ dayjs.locale('th');
 export default function TakeawayPage() {
     const router = useRouter();
     const { showLoading, hideLoading } = useGlobalLoading();
-    const [orders, setOrders] = useState<SalesOrder[]>([]);
+    const { orders, isLoading } = useChannelOrders({ orderType: OrderType.TakeAway });
 
     const stats = useMemo(() => getOrderChannelStats(orders), [orders]);
 
-    const fetchOrders = useCallback(async (isInitial = false) => {
-        if (isInitial) showLoading();
-        try {
-            const res = await ordersService.getAll(undefined, 1, 100, undefined, OrderType.TakeAway);
-            
-            const activeOrders = res.data.filter(o => 
-                o.order_type === OrderType.TakeAway &&
-                o.status !== OrderStatus.Paid && 
-                o.status !== OrderStatus.Completed &&
-                o.status !== OrderStatus.Cancelled
-            );
-            
-            setOrders(activeOrders);
-        } catch (error) {
-            // Silent error
-        } finally {
-            if (isInitial) hideLoading();
-        }
-    }, [showLoading, hideLoading]);
-
     useEffect(() => {
-        fetchOrders(true);
-        // Set up polling interval for real-time-like updates
-        const interval = setInterval(() => fetchOrders(false), 15000);
-        return () => clearInterval(interval);
-    }, [fetchOrders]);
+        if (isLoading) {
+            showLoading("กำลังโหลดออเดอร์...");
+        } else {
+            hideLoading();
+        }
+    }, [isLoading, showLoading, hideLoading]);
 
     const handleCreateOrder = () => {
         router.push('/pos/channels/takeaway/buying');

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { Form, Input, message, Spin, Switch, Modal } from 'antd';
@@ -11,7 +11,9 @@ import {
     ActionButtons
 } from './style';
 
-import { authService } from '../../../../../../services/auth.service';
+import { getCsrfTokenCached } from "@/utils/pos/csrf";
+import { useRoleGuard } from "@/utils/pos/accessControl";
+import { AccessGuardFallback } from "@/components/pos/AccessGuard";
 
 export default function PaymentMethodManagePage({ params }: { params: { mode: string[] } }) {
     const router = useRouter();
@@ -25,10 +27,11 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
     const mode = params.mode[0];
     const id = params.mode[1] || null;
     const isEdit = mode === 'edit' && !!id;
+    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
 
     useEffect(() => {
         const fetchCsrf = async () => {
-             const token = await authService.getCsrfToken();
+             const token = await getCsrfTokenCached();
              setCsrfToken(token);
         };
         fetchCsrf();
@@ -38,7 +41,7 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
         setLoading(true);
         try {
             const response = await fetch(`/api/pos/paymentMethod/getById/${id}`);
-            if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลวิธีชำระเงินได้');
+            if (!response.ok) throw new Error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเนเธ”เน');
             const data = await response.json();
             form.setFieldsValue({
                 payment_method_name: data.payment_method_name,
@@ -49,7 +52,7 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
             setDisplayName(data.display_name || '');
         } catch (error) {
             console.error(error);
-            message.error('ไม่สามารถดึงข้อมูลวิธีชำระเงินได้');
+            message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเนเธ”เน');
             router.push('/pos/paymentMethod');
         } finally {
             setLoading(false);
@@ -78,10 +81,10 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถอัปเดตวิธีชำระเงินได้');
+                    throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเน€เธ”เธ•เธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเนเธ”เน');
                 }
                 
-                message.success('อัปเดตวิธีชำระเงินสำเร็จ');
+                message.success('เธญเธฑเธเน€เธ”เธ•เธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเธชเธณเน€เธฃเนเธ');
             } else {
                 const response = await fetch(`/api/pos/paymentMethod/create`, {
                     method: 'POST',
@@ -94,15 +97,15 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถสร้างวิธีชำระเงินได้');
+                    throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเนเธ”เน');
                 }
                 
-                message.success('สร้างวิธีชำระเงินสำเร็จ');
+                message.success('เธชเธฃเนเธฒเธเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเธชเธณเน€เธฃเนเธ');
             }
             router.push('/pos/paymentMethod');
         } catch (error: unknown) {
             console.error(error);
-            message.error((error as { message: string }).message || (isEdit ? 'ไม่สามารถอัปเดตวิธีชำระเงินได้' : 'ไม่สามารถสร้างวิธีชำระเงินได้'));
+            message.error((error as { message: string }).message || (isEdit ? 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเน€เธ”เธ•เธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเนเธ”เน' : 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเนเธ”เน'));
         } finally {
             setSubmitting(false);
         }
@@ -111,11 +114,11 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
     const handleDelete = () => {
         if (!id) return;
         Modal.confirm({
-            title: 'ยืนยันการลบวิธีชำระเงิน',
-            content: `คุณต้องการลบวิธีชำระเงิน "${displayName || paymentMethodName}" หรือไม่?`,
-            okText: 'ลบ',
+            title: 'เธขเธทเธเธขเธฑเธเธเธฒเธฃเธฅเธเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธ',
+            content: `เธเธธเธ“เธ•เนเธญเธเธเธฒเธฃเธฅเธเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธ "${displayName || paymentMethodName}" เธซเธฃเธทเธญเนเธกเน?`,
+            okText: 'เธฅเธ',
             okType: 'danger',
-            cancelText: 'ยกเลิก',
+            cancelText: 'เธขเธเน€เธฅเธดเธ',
             centered: true,
             onOk: async () => {
                 try {
@@ -125,18 +128,25 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                             'X-CSRF-Token': csrfToken
                         }
                     });
-                    if (!response.ok) throw new Error('ไม่สามารถลบวิธีชำระเงินได้');
-                    message.success('ลบวิธีชำระเงินสำเร็จ');
+                    if (!response.ok) throw new Error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเนเธ”เน');
+                    message.success('เธฅเธเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเธชเธณเน€เธฃเนเธ');
                     router.push('/pos/paymentMethod');
                 } catch (error) {
                     console.error(error);
-                    message.error('ไม่สามารถลบวิธีชำระเงินได้');
+                    message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธเนเธ”เน');
                 }
             }
         });
     };
 
     const handleBack = () => router.push('/pos/paymentMethod');
+
+    if (isChecking) {
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
+    }
+    if (!isAuthorized) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    }
 
     return (
         <div className="manage-page" style={pageStyles.container}>
@@ -178,30 +188,30 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                     >
                         <Form.Item
                             name="payment_method_name"
-                            label="รหัสวิธีชำระเงิน *"
+                            label="เธฃเธซเธฑเธชเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธ *"
                             rules={[
-                                { required: true, message: 'กรุณากรอกรหัสวิธีชำระเงิน' },
-                                { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
+                                { required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธฃเธซเธฑเธชเธงเธดเธเธตเธเธณเธฃเธฐเน€เธเธดเธ' },
+                                { max: 100, message: 'เธเธงเธฒเธกเธขเธฒเธงเธ•เนเธญเธเนเธกเนเน€เธเธดเธ 100 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ' }
                             ]}
                         >
                             <Input 
                                 size="large" 
-                                placeholder="เช่น Cash, CreditCard, PromptPay" 
+                                placeholder="เน€เธเนเธ Cash, CreditCard, PromptPay" 
                                 maxLength={100}
                             />
                         </Form.Item>
 
                         <Form.Item
                             name="display_name"
-                            label="ชื่อที่แสดง *"
+                            label="เธเธทเนเธญเธ—เธตเนเนเธชเธ”เธ *"
                             rules={[
-                                { required: true, message: 'กรุณากรอกชื่อที่แสดง' },
-                                { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
+                                { required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเธ—เธตเนเนเธชเธ”เธ' },
+                                { max: 100, message: 'เธเธงเธฒเธกเธขเธฒเธงเธ•เนเธญเธเนเธกเนเน€เธเธดเธ 100 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ' }
                             ]}
                         >
                             <Input 
                                 size="large" 
-                                placeholder="เช่น เงินสด, บัตรเครดิต, พร้อมเพย์" 
+                                placeholder="เน€เธเนเธ เน€เธเธดเธเธชเธ”, เธเธฑเธ•เธฃเน€เธเธฃเธ”เธดเธ•, เธเธฃเนเธญเธกเน€เธเธขเน" 
                                 maxLength={100}
                             />
                         </Form.Item>
@@ -218,13 +228,13 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
 
                         <Form.Item
                             name="is_active"
-                            label="สถานะการใช้งาน"
+                            label="เธชเธ–เธฒเธเธฐเธเธฒเธฃเนเธเนเธเธฒเธ"
                             valuePropName="checked"
                             style={{ marginTop: 20 }}
                         >
                             <Switch 
-                                checkedChildren="เปิดใช้งาน" 
-                                unCheckedChildren="ปิดใช้งาน"
+                                checkedChildren="เน€เธเธดเธ”เนเธเนเธเธฒเธ" 
+                                unCheckedChildren="เธเธดเธ”เนเธเนเธเธฒเธ"
                             />
                         </Form.Item>
 
@@ -240,3 +250,4 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
         </div>
     );
 }
+

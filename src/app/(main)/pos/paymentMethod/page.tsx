@@ -16,8 +16,9 @@ import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
 import { useAsyncAction } from "../../../../hooks/useAsyncAction";
 import { useSocket } from "../../../../hooks/useSocket";
-import { useAuth } from "../../../../contexts/AuthContext";
-import { authService } from "../../../../services/auth.service";
+import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
+import { useRoleGuard } from "../../../../utils/pos/accessControl";
+import { useRealtimeList } from "../../../../utils/pos/realtime";
 import { pageStyles, globalStyles } from '../../../../theme/pos/paymentMethod/style';
 
 const { Text, Title } = Typography;
@@ -271,21 +272,15 @@ const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
 
 export default function PaymentMethodPage() {
     const router = useRouter();
-    const { user, loading: authLoading } = useAuth();
     const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
     const { execute } = useAsyncAction();
-    const { showLoading, hideLoading } = useGlobalLoading();
+    const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const [csrfToken, setCsrfToken] = useState<string>("");
+    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
 
-    const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
     useEffect(() => {
-        const fetchCsrf = async () => {
-             const token = await authService.getCsrfToken();
-             setCsrfToken(token);
-        };
-        fetchCsrf();
+        getCsrfTokenCached();
     }, []);
 
     const fetchPaymentMethods = useCallback(async () => {
@@ -301,63 +296,25 @@ export default function PaymentMethodPage() {
     }, [execute]);
 
     useEffect(() => {
-        if (!authLoading) {
-            if (!user) {
-                setIsAuthorized(false);
-                setTimeout(() => {
-                    router.replace('/login');
-                }, 1000); 
-            } else if (user.role !== 'Admin') {
-                setIsAuthorized(false);
-                message.error("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
-                setTimeout(() => {
-                    router.replace('/pos');
-                }, 1000); 
-            } else {
-                setIsAuthorized(true);
-                fetchPaymentMethods();
-            }
+        if (isAuthorized) {
+            fetchPaymentMethods();
         }
-    }, [user, authLoading, router, fetchPaymentMethods]);
+    }, [isAuthorized, fetchPaymentMethods]);
 
-    useEffect(() => {
-        fetchPaymentMethods();
-    }, [fetchPaymentMethods]);
-
-    useEffect(() => {
-        if (!socket) return;
-
-        socket.on('paymentMethod:create', (newItem: PaymentMethod) => {
-            setPaymentMethods((prev) => [...prev, newItem]);
-        });
-
-        socket.on('paymentMethod:update', (updatedItem: PaymentMethod) => {
-            setPaymentMethods((prev) =>
-                prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
-            );
-        });
-
-        socket.on('paymentMethod:delete', ({ id }: { id: string }) => {
-            setPaymentMethods((prev) => prev.filter((item) => item.id !== id));
-        });
-
-        return () => {
-            socket.off('paymentMethod:create');
-            socket.off('paymentMethod:update');
-            socket.off('paymentMethod:delete');
-        };
-    }, [socket]);
+    useRealtimeList(
+        socket,
+        { create: "paymentMethod:create", update: "paymentMethod:update", delete: "paymentMethod:delete" },
+        setPaymentMethods
+    );
 
     const handleAdd = () => {
-        showLoading();
+        showLoading("กำลังเปิดหน้าจัดการวิธีชำระเงิน...");
         router.push('/pos/paymentMethod/manager/add');
-        setTimeout(() => hideLoading(), 1000);
     };
 
     const handleEdit = (paymentMethod: PaymentMethod) => {
-        showLoading();
+        showLoading("กำลังเปิดหน้าแก้ไขวิธีชำระเงิน...");
         router.push(`/pos/paymentMethod/manager/edit/${paymentMethod.id}`);
-        setTimeout(() => hideLoading(), 1000);
     };
 
     const handleDelete = (paymentMethod: PaymentMethod) => {
@@ -370,6 +327,7 @@ export default function PaymentMethodPage() {
             centered: true,
             onOk: async () => {
                 await execute(async () => {
+                    const csrfToken = await getCsrfTokenCached();
                     const response = await fetch(`/api/pos/paymentMethod/delete/${paymentMethod.id}`, {
                         method: 'DELETE',
                         headers: {
@@ -385,7 +343,7 @@ export default function PaymentMethodPage() {
         });
     };
 
-    if (authLoading || isAuthorized === null) {
+    if (isChecking) {
         return (
             <div style={{ 
                 display: 'flex', 
@@ -401,7 +359,7 @@ export default function PaymentMethodPage() {
         );
     }
 
-    if (isAuthorized === false) {
+    if (!isAuthorized) {
         return (
             <div style={{ 
                 display: 'flex', 

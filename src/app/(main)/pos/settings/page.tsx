@@ -1,13 +1,17 @@
-'use client';
+﻿'use client';
 
 import React, { useCallback, useEffect, useState } from "react";
 import { Typography, Card, Button, Spin, Divider, Row, Col, App, Tag, Select, Space } from "antd";
 import { SettingOutlined, BankOutlined, CheckCircleOutlined, PlusOutlined, QrcodeOutlined } from "@ant-design/icons";
-import { authService } from "../../../../services/auth.service";
 import { paymentAccountService } from "../../../../services/pos/paymentAccount.service";
 import { ShopPaymentAccount } from "../../../../types/api/pos/shopPaymentAccount";
 import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 import { pageStyles } from "@/theme/pos/settings/style";
+import { getCsrfTokenCached } from "@/utils/pos/csrf";
+import { useSocket } from "@/hooks/useSocket";
+import { useRealtimeRefresh } from "@/utils/pos/realtime";
+import { useRoleGuard } from "@/utils/pos/accessControl";
+import { AccessGuardFallback } from "@/components/pos/AccessGuard";
 
 const { Title, Text } = Typography;
 const { Option } = Select;
@@ -18,6 +22,8 @@ export default function POSSettingsPage() {
     const [accounts, setAccounts] = useState<ShopPaymentAccount[]>([]);
     const [activeAccount, setActiveAccount] = useState<ShopPaymentAccount | null>(null);
     const { showLoading, hideLoading } = useGlobalLoading();
+    const { socket } = useSocket();
+    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
 
     const fetchData = useCallback(async (silent = false) => {
         try {
@@ -27,7 +33,7 @@ export default function POSSettingsPage() {
             const active = accountsList.find(acc => acc.is_active);
             setActiveAccount(active || null);
         } catch (error) {
-            message.error("ไม่สามารถดึงข้อมูลบัญชีได้");
+            message.error("เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธเธฑเธเธเธตเนเธ”เน");
         } finally {
             if (!silent) setLoading(false);
         }
@@ -37,9 +43,16 @@ export default function POSSettingsPage() {
         fetchData();
     }, [fetchData]);
 
+    useRealtimeRefresh({
+        socket,
+        events: ["payment-accounts:update", "payment-accounts:create", "payment-accounts:delete"],
+        onRefresh: () => fetchData(true),
+        intervalMs: 20000,
+    });
+
     const handleActivate = async (id: string) => {
         try {
-            showLoading("กำลังเปลี่ยนบัญชีรับเงิน...");
+            showLoading("เธเธณเธฅเธฑเธเน€เธเธฅเธตเนเธขเธเธเธฑเธเธเธตเธฃเธฑเธเน€เธเธดเธ...");
             
             // Optimistic update for UI feel (optional but good)
             const targetAcc = accounts.find(a => a.id === id);
@@ -47,12 +60,12 @@ export default function POSSettingsPage() {
                 setActiveAccount(targetAcc);
             }
 
-            const csrfToken = await authService.getCsrfToken();
+            const csrfToken = await getCsrfTokenCached();
             await paymentAccountService.activate(id, undefined, undefined, csrfToken);
-            message.success("เปลี่ยนบัญชีรับเงินหลักสำเร็จ");
+            message.success("เน€เธเธฅเธตเนเธขเธเธเธฑเธเธเธตเธฃเธฑเธเน€เธเธดเธเธซเธฅเธฑเธเธชเธณเน€เธฃเนเธ");
             await fetchData(true); // Silent refresh to sync all state
         } catch (error) {
-            message.error("ไม่สามารถเปลี่ยนบัญชีได้");
+            message.error("เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เน€เธเธฅเธตเนเธขเธเธเธฑเธเธเธตเนเธ”เน");
             await fetchData(true); // Rollback on error
         } finally {
             hideLoading();
@@ -60,10 +73,17 @@ export default function POSSettingsPage() {
     };
 
 
+    if (isChecking) {
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
+    }
+    if (!isAuthorized) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    }
+
     if (loading) {
         return (
             <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: pageStyles.container.background as string }}>
-                <Spin size="large" tip="กำลังโหลด..." />
+                <Spin size="large" tip="เธเธณเธฅเธฑเธเนเธซเธฅเธ”..." />
             </div>
         );
     }
@@ -76,7 +96,7 @@ export default function POSSettingsPage() {
                     <div style={pageStyles.sectionTitle}>
                         <SettingOutlined style={{ fontSize: 28 }} />
                         <div>
-                            <Title level={3} style={{ margin: 0, color: '#fff' }}>ตั้งค่าบัญชีรับเงิน (Payment Settings)</Title>
+                            <Title level={3} style={{ margin: 0, color: '#fff' }}>เธ•เธฑเนเธเธเนเธฒเธเธฑเธเธเธตเธฃเธฑเธเน€เธเธดเธ (Payment Settings)</Title>
                             <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14 }}>Manage your active payment account</Text>
                         </div>
                     </div>
@@ -88,17 +108,17 @@ export default function POSSettingsPage() {
                 <Card variant="borderless" style={pageStyles.card}>
                     <div style={{ marginBottom: 32 }}>
                         <Divider titlePlacement="left" plain style={pageStyles.dividerTitle}>
-                            บัญชีรับเงินที่ใช้งาน (Primary Payment Account)
+                            เธเธฑเธเธเธตเธฃเธฑเธเน€เธเธดเธเธ—เธตเนเนเธเนเธเธฒเธ (Primary Payment Account)
                         </Divider>
 
                         <div style={{ marginBottom: 24 }}>
                             <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
-                                เลือกบัญชีที่จะให้ลูกค้าโอนเงินเข้า (ใช้สร้าง QR Code อัตโนมัติ)
+                                เน€เธฅเธทเธญเธเธเธฑเธเธเธตเธ—เธตเนเธเธฐเนเธซเนเธฅเธนเธเธเนเธฒเนเธญเธเน€เธเธดเธเน€เธเนเธฒ (เนเธเนเธชเธฃเนเธฒเธ QR Code เธญเธฑเธ•เนเธเธกเธฑเธ•เธด)
                             </Text>
                             <Select 
                                 size="large" 
                                 style={{ width: '100%' }}
-                                placeholder="-- เลือกบัญชีรับเงิน --"
+                                placeholder="-- เน€เธฅเธทเธญเธเธเธฑเธเธเธตเธฃเธฑเธเน€เธเธดเธ --"
                                 value={activeAccount?.id}
                                 onChange={handleActivate}
                                 dropdownRender={(menu) => (
@@ -112,7 +132,7 @@ export default function POSSettingsPage() {
                                                 icon={<PlusOutlined />} 
                                                 onClick={() => window.location.href = '/pos/settings/payment-accounts/manage'}
                                             >
-                                                จัดการบัญชีเพิ่มเติม
+                                                เธเธฑเธ”เธเธฒเธฃเธเธฑเธเธเธตเน€เธเธดเนเธกเน€เธ•เธดเธก
                                             </Button>
                                         </div>
                                     </>
@@ -124,7 +144,7 @@ export default function POSSettingsPage() {
                                             {acc.account_type === 'PromptPay' ? <QrcodeOutlined style={{ color: '#eb2f96' }} /> : <BankOutlined style={{ color: '#1890ff' }} />}
                                             <Text strong>{acc.account_name}</Text>
                                             <Text type="secondary" style={{ fontSize: 12 }}>({acc.account_number})</Text>
-                                            {acc.is_active && <Tag color="success" style={{ marginLeft: 8 }}>ใช้งานอยู่</Tag>}
+                                            {acc.is_active && <Tag color="success" style={{ marginLeft: 8 }}>เนเธเนเธเธฒเธเธญเธขเธนเน</Tag>}
                                         </Space>
                                     </Option>
                                 ))}
@@ -139,12 +159,12 @@ export default function POSSettingsPage() {
                                     </Col>
                                     <Col flex="1">
                                         <div style={{ marginBottom: 4 }}>
-                                            <Text type="secondary" style={{ fontSize: 12 }}>กำลังใช้งานอยู่ในปัจจุบัน:</Text>
+                                            <Text type="secondary" style={{ fontSize: 12 }}>เธเธณเธฅเธฑเธเนเธเนเธเธฒเธเธญเธขเธนเนเนเธเธเธฑเธเธเธธเธเธฑเธ:</Text>
                                         </div>
                                         <Space direction="vertical" size={0}>
                                             <Text strong style={{ fontSize: 18 }}>{activeAccount.account_name}</Text>
                                             <Space>
-                                                <Text type="secondary">{activeAccount.account_type === 'PromptPay' ? 'พร้อมเพย์' : (activeAccount.bank_name || 'ธนาคาร')}: </Text>
+                                                <Text type="secondary">{activeAccount.account_type === 'PromptPay' ? 'เธเธฃเนเธญเธกเน€เธเธขเน' : (activeAccount.bank_name || 'เธเธเธฒเธเธฒเธฃ')}: </Text>
                                                 <Text strong>{activeAccount.account_number}</Text>
                                             </Space>
                                         </Space>
@@ -160,7 +180,7 @@ export default function POSSettingsPage() {
                             onClick={() => window.location.href = '/pos/settings/payment-accounts/manage'}
                             style={pageStyles.addButton}
                         >
-                            เพิ่มแหรือแก้ไขบัญชี (Manage Accounts)
+                            เน€เธเธดเนเธกเนเธซเธฃเธทเธญเนเธเนเนเธเธเธฑเธเธเธต (Manage Accounts)
                         </Button>
                     </div>
                 </Card>
@@ -168,3 +188,4 @@ export default function POSSettingsPage() {
         </div>
     );
 }
+

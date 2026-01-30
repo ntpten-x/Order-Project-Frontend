@@ -17,8 +17,9 @@ import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
 import { useAsyncAction } from "../../../../hooks/useAsyncAction";
 import { useSocket } from "../../../../hooks/useSocket";
-import { useAuth } from "../../../../contexts/AuthContext";
-import { authService } from "../../../../services/auth.service";
+import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
+import { useRoleGuard } from "../../../../utils/pos/accessControl";
+import { useRealtimeList } from "../../../../utils/pos/realtime";
 import { pageStyles, globalStyles } from '../../../../theme/pos/delivery/style';
 
 const { Text, Title } = Typography;
@@ -288,21 +289,15 @@ const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
 
 export default function DeliveryPage() {
     const router = useRouter();
-    const { user, loading: authLoading } = useAuth();
     const [deliveries, setDeliveries] = useState<Delivery[]>([]);
     const { execute } = useAsyncAction();
-    const { showLoading, hideLoading } = useGlobalLoading();
+    const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const [csrfToken, setCsrfToken] = useState<string>("");
+    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
 
-    const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
     useEffect(() => {
-        const fetchCsrf = async () => {
-             const token = await authService.getCsrfToken();
-             setCsrfToken(token);
-        };
-        fetchCsrf();
+        getCsrfTokenCached();
     }, []);
 
     const fetchDeliveries = useCallback(async () => {
@@ -318,63 +313,25 @@ export default function DeliveryPage() {
     }, [execute]);
 
     useEffect(() => {
-        if (!authLoading) {
-            if (!user) {
-                setIsAuthorized(false);
-                setTimeout(() => {
-                    router.replace('/login');
-                }, 1000); 
-            } else if (user.role !== 'Admin') {
-                setIsAuthorized(false);
-                message.error("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
-                setTimeout(() => {
-                    router.replace('/pos');
-                }, 1000); 
-            } else {
-                setIsAuthorized(true);
-                fetchDeliveries();
-            }
+        if (isAuthorized) {
+            fetchDeliveries();
         }
-    }, [user, authLoading, router, fetchDeliveries]);
+    }, [isAuthorized, fetchDeliveries]);
 
-    useEffect(() => {
-        fetchDeliveries();
-    }, [fetchDeliveries]);
-
-    useEffect(() => {
-        if (!socket) return;
-
-        socket.on('delivery:create', (newItem: Delivery) => {
-            setDeliveries((prev) => [...prev, newItem]);
-        });
-
-        socket.on('delivery:update', (updatedItem: Delivery) => {
-            setDeliveries((prev) =>
-                prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
-            );
-        });
-
-        socket.on('delivery:delete', ({ id }: { id: string }) => {
-            setDeliveries((prev) => prev.filter((item) => item.id !== id));
-        });
-
-        return () => {
-            socket.off('delivery:create');
-            socket.off('delivery:update');
-            socket.off('delivery:delete');
-        };
-    }, [socket]);
+    useRealtimeList(
+        socket,
+        { create: "delivery:create", update: "delivery:update", delete: "delivery:delete" },
+        setDeliveries
+    );
 
     const handleAdd = () => {
-        showLoading();
+        showLoading("กำลังเปิดหน้าจัดการบริการส่ง...");
         router.push('/pos/delivery/manager/add');
-        setTimeout(() => hideLoading(), 1000);
     };
 
     const handleEdit = (delivery: Delivery) => {
-        showLoading();
+        showLoading("กำลังเปิดหน้าแก้ไขบริการส่ง...");
         router.push(`/pos/delivery/manager/edit/${delivery.id}`);
-        setTimeout(() => hideLoading(), 1000);
     };
 
     const handleDelete = (delivery: Delivery) => {
@@ -387,6 +344,7 @@ export default function DeliveryPage() {
             centered: true,
             onOk: async () => {
                 await execute(async () => {
+                    const csrfToken = await getCsrfTokenCached();
                     const response = await fetch(`/api/pos/delivery/delete/${delivery.id}`, {
                         method: 'DELETE',
                         headers: {
@@ -402,7 +360,7 @@ export default function DeliveryPage() {
         });
     };
 
-    if (authLoading || isAuthorized === null) {
+    if (isChecking) {
         return (
             <div style={{ 
                 display: 'flex', 
@@ -418,7 +376,7 @@ export default function DeliveryPage() {
         );
     }
 
-    if (isAuthorized === false) {
+    if (!isAuthorized) {
         return (
             <div style={{ 
                 display: 'flex', 

@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { Form, Input, message, Spin, Switch, Modal } from 'antd';
@@ -11,7 +11,9 @@ import {
     ActionButtons
 } from './style';
 
-import { authService } from '../../../../../../services/auth.service';
+import { getCsrfTokenCached } from "@/utils/pos/csrf";
+import { useRoleGuard } from "@/utils/pos/accessControl";
+import { AccessGuardFallback } from "@/components/pos/AccessGuard";
 
 export default function CategoryManagePage({ params }: { params: { mode: string[] } }) {
     const router = useRouter();
@@ -25,10 +27,11 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
     const mode = params.mode[0];
     const id = params.mode[1] || null;
     const isEdit = mode === 'edit' && !!id;
+    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
 
     useEffect(() => {
         const fetchCsrf = async () => {
-             const token = await authService.getCsrfToken();
+             const token = await getCsrfTokenCached();
              setCsrfToken(token);
         };
         fetchCsrf();
@@ -38,7 +41,7 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
         setLoading(true);
         try {
             const response = await fetch(`/api/pos/category/getById/${id}`);
-            if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลหมวดหมู่ได้');
+            if (!response.ok) throw new Error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธซเธกเธงเธ”เธซเธกเธนเนเนเธ”เน');
             const data = await response.json();
             form.setFieldsValue({
                 category_name: data.category_name,
@@ -49,7 +52,7 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
             setCategoryName(data.category_name || '');
         } catch (error) {
             console.error(error);
-            message.error('ไม่สามารถดึงข้อมูลหมวดหมู่ได้');
+            message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธซเธกเธงเธ”เธซเธกเธนเนเนเธ”เน');
             router.push('/pos/category');
         } finally {
             setLoading(false);
@@ -78,10 +81,10 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
                 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถอัปเดตหมวดหมู่ได้');
+                    throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเน€เธ”เธ•เธซเธกเธงเธ”เธซเธกเธนเนเนเธ”เน');
                 }
                 
-                message.success('อัปเดตหมวดหมู่สำเร็จ');
+                message.success('เธญเธฑเธเน€เธ”เธ•เธซเธกเธงเธ”เธซเธกเธนเนเธชเธณเน€เธฃเนเธ');
             } else {
                 const response = await fetch(`/api/pos/category/create`, {
                     method: 'POST',
@@ -94,15 +97,15 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถสร้างหมวดหมู่ได้');
+                    throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธเธซเธกเธงเธ”เธซเธกเธนเนเนเธ”เน');
                 }
                 
-                message.success('สร้างหมวดหมู่สำเร็จ');
+                message.success('เธชเธฃเนเธฒเธเธซเธกเธงเธ”เธซเธกเธนเนเธชเธณเน€เธฃเนเธ');
             }
             router.push('/pos/category');
         } catch (error: unknown) {
             console.error(error);
-            message.error((error as { message: string }).message || (isEdit ? 'ไม่สามารถอัปเดตหมวดหมู่ได้' : 'ไม่สามารถสร้างหมวดหมู่ได้'));
+            message.error((error as { message: string }).message || (isEdit ? 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเน€เธ”เธ•เธซเธกเธงเธ”เธซเธกเธนเนเนเธ”เน' : 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธเธซเธกเธงเธ”เธซเธกเธนเนเนเธ”เน'));
         } finally {
             setSubmitting(false);
         }
@@ -111,11 +114,11 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
     const handleDelete = () => {
         if (!id) return;
         Modal.confirm({
-            title: 'ยืนยันการลบหมวดหมู่',
-            content: `คุณต้องการลบหมวดหมู่ "${displayName}" หรือไม่?`,
-            okText: 'ลบ',
+            title: 'เธขเธทเธเธขเธฑเธเธเธฒเธฃเธฅเธเธซเธกเธงเธ”เธซเธกเธนเน',
+            content: `เธเธธเธ“เธ•เนเธญเธเธเธฒเธฃเธฅเธเธซเธกเธงเธ”เธซเธกเธนเน "${displayName}" เธซเธฃเธทเธญเนเธกเน?`,
+            okText: 'เธฅเธ',
             okType: 'danger',
-            cancelText: 'ยกเลิก',
+            cancelText: 'เธขเธเน€เธฅเธดเธ',
             centered: true,
             onOk: async () => {
                 try {
@@ -125,18 +128,25 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
                             'X-CSRF-Token': csrfToken
                         }
                     });
-                    if (!response.ok) throw new Error('ไม่สามารถลบหมวดหมู่ได้');
-                    message.success('ลบหมวดหมู่สำเร็จ');
+                    if (!response.ok) throw new Error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเธซเธกเธงเธ”เธซเธกเธนเนเนเธ”เน');
+                    message.success('เธฅเธเธซเธกเธงเธ”เธซเธกเธนเนเธชเธณเน€เธฃเนเธ');
                     router.push('/pos/category');
                 } catch (error) {
                     console.error(error);
-                    message.error('ไม่สามารถลบหมวดหมู่ได้');
+                    message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเธซเธกเธงเธ”เธซเธกเธนเนเนเธ”เน');
                 }
             }
         });
     };
 
     const handleBack = () => router.push('/pos/category');
+
+    if (isChecking) {
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
+    }
+    if (!isAuthorized) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    }
 
     return (
         <div className="manage-page" style={pageStyles.container}>
@@ -178,31 +188,31 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
                     >
                         <Form.Item
                             name="category_name"
-                            label="ชื่อหมวดหมู่ (ภาษาอังกฤษ) *"
+                            label="เธเธทเนเธญเธซเธกเธงเธ”เธซเธกเธนเน (เธ เธฒเธฉเธฒเธญเธฑเธเธเธคเธฉ) *"
                             rules={[
-                                { required: true, message: 'กรุณากรอกชื่อหมวดหมู่' },
-                                { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'กรุณากรอกภาษาอังกฤษเท่านั้น' },
-                                { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
+                                { required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเธซเธกเธงเธ”เธซเธกเธนเน' },
+                                { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธ เธฒเธฉเธฒเธญเธฑเธเธเธคเธฉเน€เธ—เนเธฒเธเธฑเนเธ' },
+                                { max: 100, message: 'เธเธงเธฒเธกเธขเธฒเธงเธ•เนเธญเธเนเธกเนเน€เธเธดเธ 100 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ' }
                             ]}
                         >
                             <Input 
                                 size="large" 
-                                placeholder="เช่น Beverage, Food, Snack" 
+                                placeholder="เน€เธเนเธ Beverage, Food, Snack" 
                                 maxLength={100}
                             />
                         </Form.Item>
 
                         <Form.Item
                             name="display_name"
-                            label="ชื่อที่แสดง (ภาษาไทย) *"
+                            label="เธเธทเนเธญเธ—เธตเนเนเธชเธ”เธ (เธ เธฒเธฉเธฒเนเธ—เธข) *"
                             rules={[
-                                { required: true, message: 'กรุณากรอกชื่อที่แสดง' },
-                                { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
+                                { required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเธ—เธตเนเนเธชเธ”เธ' },
+                                { max: 100, message: 'เธเธงเธฒเธกเธขเธฒเธงเธ•เนเธญเธเนเธกเนเน€เธเธดเธ 100 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ' }
                             ]}
                         >
                             <Input 
                                 size="large" 
-                                placeholder="เช่น เครื่องดื่ม, อาหาร, ขนม" 
+                                placeholder="เน€เธเนเธ เน€เธเธฃเธทเนเธญเธเธ”เธทเนเธก, เธญเธฒเธซเธฒเธฃ, เธเธเธก" 
                                 maxLength={100}
                             />
                         </Form.Item>
@@ -215,13 +225,13 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
 
                         <Form.Item
                             name="is_active"
-                            label="สถานะการใช้งาน"
+                            label="เธชเธ–เธฒเธเธฐเธเธฒเธฃเนเธเนเธเธฒเธ"
                             valuePropName="checked"
                             style={{ marginTop: 20 }}
                         >
                             <Switch 
-                                checkedChildren="ใช้งาน" 
-                                unCheckedChildren="ไม่ใช้งาน"
+                                checkedChildren="เนเธเนเธเธฒเธ" 
+                                unCheckedChildren="เนเธกเนเนเธเนเธเธฒเธ"
                             />
                         </Form.Item>
 
@@ -237,3 +247,4 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
         </div>
     );
 }
+

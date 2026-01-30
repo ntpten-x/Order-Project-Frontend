@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { Form, Input, message, Spin, Select, Switch, Modal } from 'antd';
@@ -12,7 +12,9 @@ import {
     ActionButtons
 } from './style';
 
-import { authService } from '../../../../../../services/auth.service';
+import { getCsrfTokenCached } from "@/utils/pos/csrf";
+import { useRoleGuard } from "@/utils/pos/accessControl";
+import { AccessGuardFallback } from "@/components/pos/AccessGuard";
 import { tablesService } from '../../../../../../services/pos/tables.service';
 
 export default function TablesManagePage({ params }: { params: { mode: string[] } }) {
@@ -27,10 +29,11 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
     const mode = params.mode[0];
     const id = params.mode[1] || null;
     const isEdit = mode === 'edit' && !!id;
+    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
 
     useEffect(() => {
         const fetchCsrf = async () => {
-             const token = await authService.getCsrfToken();
+             const token = await getCsrfTokenCached();
              setCsrfToken(token);
         };
         fetchCsrf();
@@ -50,7 +53,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
             setTableStatus(data.status || '');
         } catch (error) {
             console.error(error);
-            message.error('ไม่สามารถดึงข้อมูลโต๊ะได้');
+            message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเนเธ•เนเธฐเนเธ”เน');
             router.push('/pos/tables');
         } finally {
             setLoading(false);
@@ -70,15 +73,15 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
             if (isEdit) {
                 if (!id) throw new Error("ID not found");
                 await tablesService.update(id, values, undefined, csrfToken);
-                message.success('อัปเดตโต๊ะสำเร็จ');
+                message.success('เธญเธฑเธเน€เธ”เธ•เนเธ•เนเธฐเธชเธณเน€เธฃเนเธ');
             } else {
                 await tablesService.create(values, undefined, csrfToken);
-                message.success('สร้างโต๊ะสำเร็จ');
+                message.success('เธชเธฃเนเธฒเธเนเธ•เนเธฐเธชเธณเน€เธฃเนเธ');
             }
             router.push('/pos/tables');
         } catch (error: unknown) {
             console.error(error);
-            message.error((error as { message: string }).message || (isEdit ? 'ไม่สามารถอัปเดตโต๊ะได้' : 'ไม่สามารถสร้างโต๊ะได้'));
+            message.error((error as { message: string }).message || (isEdit ? 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเน€เธ”เธ•เนเธ•เนเธฐเนเธ”เน' : 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธเนเธ•เนเธฐเนเธ”เน'));
         } finally {
             setSubmitting(false);
         }
@@ -87,26 +90,33 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
     const handleDelete = () => {
         if (!id) return;
         Modal.confirm({
-            title: 'ยืนยันการลบโต๊ะ',
-            content: `คุณต้องการลบโต๊ะ "${tableName}" หรือไม่?`,
-            okText: 'ลบ',
+            title: 'เธขเธทเธเธขเธฑเธเธเธฒเธฃเธฅเธเนเธ•เนเธฐ',
+            content: `เธเธธเธ“เธ•เนเธญเธเธเธฒเธฃเธฅเธเนเธ•เนเธฐ "${tableName}" เธซเธฃเธทเธญเนเธกเน?`,
+            okText: 'เธฅเธ',
             okType: 'danger',
-            cancelText: 'ยกเลิก',
+            cancelText: 'เธขเธเน€เธฅเธดเธ',
             centered: true,
             onOk: async () => {
                 try {
                     await tablesService.delete(id, undefined, csrfToken);
-                    message.success('ลบโต๊ะสำเร็จ');
+                    message.success('เธฅเธเนเธ•เนเธฐเธชเธณเน€เธฃเนเธ');
                     router.push('/pos/tables');
                 } catch (error) {
                     console.error(error);
-                    message.error('ไม่สามารถลบโต๊ะได้');
+                    message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเนเธ•เนเธฐเนเธ”เน');
                 }
             }
         });
     };
 
     const handleBack = () => router.push('/pos/tables');
+
+    if (isChecking) {
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
+    }
+    if (!isAuthorized) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    }
 
     return (
         <div className="manage-page" style={pageStyles.container}>
@@ -148,33 +158,33 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                     >
                         <Form.Item
                             name="table_name"
-                            label="ชื่อโต๊ะ *"
+                            label="เธเธทเนเธญเนเธ•เนเธฐ *"
                             rules={[
-                                { required: true, message: 'กรุณากรอกชื่อโต๊ะ' },
-                                { max: 50, message: 'ความยาวต้องไม่เกิน 50 ตัวอักษร' }
+                                { required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเนเธ•เนเธฐ' },
+                                { max: 50, message: 'เธเธงเธฒเธกเธขเธฒเธงเธ•เนเธญเธเนเธกเนเน€เธเธดเธ 50 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ' }
                             ]}
                         >
                             <Input 
                                 size="large" 
-                                placeholder="เช่น T1, A10, VIP1" 
+                                placeholder="เน€เธเนเธ T1, A10, VIP1" 
                                 maxLength={50}
                             />
                         </Form.Item>
 
                         <Form.Item
                             name="status"
-                            label="สถานะโต๊ะ *"
-                            rules={[{ required: true, message: 'กรุณาเลือกสถานะโต๊ะ' }]}
+                            label="เธชเธ–เธฒเธเธฐเนเธ•เนเธฐ *"
+                            rules={[{ required: true, message: 'เธเธฃเธธเธ“เธฒเน€เธฅเธทเธญเธเธชเธ–เธฒเธเธฐเนเธ•เนเธฐ' }]}
                         >
                             <Select 
                                 size="large" 
-                                placeholder="เลือกสถานะ"
+                                placeholder="เน€เธฅเธทเธญเธเธชเธ–เธฒเธเธฐ"
                             >
                                 <Select.Option value={TableStatus.Available}>
-                                    ว่าง (Available)
+                                    เธงเนเธฒเธ (Available)
                                 </Select.Option>
                                 <Select.Option value={TableStatus.Unavailable}>
-                                    ไม่ว่าง (Unavailable)
+                                    เนเธกเนเธงเนเธฒเธ (Unavailable)
                                 </Select.Option>
                             </Select>
                         </Form.Item>
@@ -184,13 +194,13 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
 
                         <Form.Item
                             name="is_active"
-                            label="สถานะการใช้งาน"
+                            label="เธชเธ–เธฒเธเธฐเธเธฒเธฃเนเธเนเธเธฒเธ"
                             valuePropName="checked"
                             style={{ marginTop: 20 }}
                         >
                             <Switch 
-                                checkedChildren="เปิดใช้งาน" 
-                                unCheckedChildren="ปิดใช้งาน"
+                                checkedChildren="เน€เธเธดเธ”เนเธเนเธเธฒเธ" 
+                                unCheckedChildren="เธเธดเธ”เนเธเนเธเธฒเธ"
                             />
                         </Form.Item>
 
@@ -206,3 +216,4 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
         </div>
     );
 }
+

@@ -7,7 +7,7 @@ import { ArrowLeftOutlined, ShopOutlined, RocketOutlined, CheckCircleOutlined, U
 import { ordersService } from "@/services/pos/orders.service";
 import { paymentMethodService } from "@/services/pos/paymentMethod.service";
 import { paymentsService } from "@/services/pos/payments.service";
-import { authService } from "@/services/auth.service";
+import { getCsrfTokenCached } from "@/utils/pos/csrf";
 import { SalesOrder, OrderStatus, OrderType } from "@/types/api/pos/salesOrder";
 import { PaymentStatus } from "@/types/api/pos/payments";
 import { paymentPageStyles, paymentColors } from "@/theme/pos/payments.theme";
@@ -17,6 +17,8 @@ import 'dayjs/locale/th';
 import { getOrderChannelText, getOrderReference, getOrderStatusColor, getOrderStatusText, getEditOrderNavigationPath, getCancelOrderNavigationPath, ConfirmationConfig, formatCurrency } from "@/utils/orders";
 import ConfirmationDialog from "@/components/dialog/ConfirmationDialog";
 import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
+import { useSocket } from "@/hooks/useSocket";
+import { useRealtimeRefresh } from "@/utils/pos/realtime";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -31,6 +33,7 @@ export default function POSDeliverySummaryPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [hasDeliveryMethod, setHasDeliveryMethod] = useState(true);
     const { showLoading, hideLoading } = useGlobalLoading();
+    const { socket } = useSocket();
 
     // Confirmation Dialog State
     const [confirmConfig, setConfirmConfig] = useState<ConfirmationConfig>({
@@ -81,6 +84,18 @@ export default function POSDeliverySummaryPage() {
         }
     }, [fetchInitialData, deliveryId]);
 
+    useRealtimeRefresh({
+        socket,
+        events: ["orders:update", "orders:delete", "payments:create", "payments:update"],
+        onRefresh: () => {
+            if (deliveryId) {
+                fetchInitialData();
+            }
+        },
+        intervalMs: 15000,
+        enabled: Boolean(deliveryId),
+    });
+
     const { subtotal, discount, vat, total } = calculatePaymentTotals(order, Number(order?.total_amount || 0));
 
     const handleHandoverToRider = async () => {
@@ -106,7 +121,7 @@ export default function POSDeliverySummaryPage() {
                 try {
                     showLoading("กำลังดำเนินการส่งมอบ...");
                     closeConfirm();
-                    const csrfToken = await authService.getCsrfToken();
+                    const csrfToken = await getCsrfTokenCached();
                     
                     // 1. Fetch the explicit "Delivery" payment method
                     const deliveryMethod = await paymentMethodService.getByName('Delivery');
@@ -153,7 +168,7 @@ export default function POSDeliverySummaryPage() {
                 try {
                     showLoading("กำลังดำเนินการ...");
                     closeConfirm();
-                    const csrfToken = await authService.getCsrfToken();
+                    const csrfToken = await getCsrfTokenCached();
                     
                     const activeItems = order.items?.filter(item => item.status !== OrderStatus.Cancelled) || [];
                     await Promise.all(
@@ -190,7 +205,7 @@ export default function POSDeliverySummaryPage() {
                 try {
                     showLoading("กำลังดำเนินการยกเลิก...");
                     closeConfirm();
-                    const csrfToken = await authService.getCsrfToken();
+                    const csrfToken = await getCsrfTokenCached();
 
                     const activeItems = order.items?.filter(item => item.status !== OrderStatus.Cancelled) || [];
                     await Promise.all(

@@ -5,7 +5,6 @@ import React, { createContext, useCallback, useContext, useEffect, useState } fr
 import { useAuth } from "../AuthContext";
 import { shiftsService } from "../../services/pos/shifts.service";
 import { Shift } from "../../types/api/pos/shifts";
-import { authService } from "../../services/auth.service";
 import { message } from "antd";
 
 interface ShiftContextType {

@@ -1,5 +1,5 @@
 import { Shift } from "../../types/api/pos/shifts";
-import { authService } from "../auth.service";
+import { getCsrfTokenCached } from "@/utils/pos/csrf";
 
 export const shiftsService = {
     getCurrentShift: async (): Promise<Shift | null> => {
@@ -21,7 +21,7 @@ export const shiftsService = {
     },
 
     openShift: async (startAmount: number): Promise<Shift> => {
-        const csrfToken = await authService.getCsrfToken();
+        const csrfToken = await getCsrfTokenCached();
 
         const response = await fetch("/api/pos/shifts/open", {
             method: "POST",
@@ -42,7 +42,7 @@ export const shiftsService = {
     },
 
     closeShift: async (endAmount: number): Promise<Shift> => {
-        const csrfToken = await authService.getCsrfToken();
+        const csrfToken = await getCsrfTokenCached();
 
         const response = await fetch("/api/pos/shifts/close", {
             method: "POST",

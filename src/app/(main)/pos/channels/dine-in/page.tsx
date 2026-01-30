@@ -2,10 +2,9 @@
 
 import React, { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Typography, Row, Col, Empty, Spin } from "antd";
+import { Typography, Row, Col, Empty } from "antd";
 import {
   ShopOutlined,
-  CheckCircleOutlined,
   CloseCircleOutlined,
   ArrowLeftOutlined,
   StopOutlined,

@@ -17,7 +17,7 @@ const { Title, Text } = Typography;
 
 export default function ChannelSelectionPage() {
   const router = useRouter();
-  const { showLoading, hideLoading, isLoading } = useGlobalLoading();
+  const { showLoading, hideLoading } = useGlobalLoading();
   // Use the new hook for real-time stats (WebSocket driven)
   const { stats, isLoading: statsLoading } = useChannelStats();
 

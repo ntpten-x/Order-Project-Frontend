@@ -18,8 +18,9 @@ import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
 import { useAsyncAction } from "../../../../hooks/useAsyncAction";
 import { useSocket } from "../../../../hooks/useSocket";
-import { useAuth } from "../../../../contexts/AuthContext";
-import { authService } from "../../../../services/auth.service";
+import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
+import { useRoleGuard } from "../../../../utils/pos/accessControl";
+import { useRealtimeList } from "../../../../utils/pos/realtime";
 import { pageStyles, globalStyles } from '../../../../theme/pos/tables/style';
 
 const { Text, Title } = Typography;
@@ -288,21 +289,15 @@ const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
 
 export default function TablesPage() {
     const router = useRouter();
-    const { user, loading: authLoading } = useAuth();
     const [tables, setTables] = useState<Tables[]>([]);
     const { execute } = useAsyncAction();
-    const { showLoading, hideLoading } = useGlobalLoading();
+    const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const [csrfToken, setCsrfToken] = useState<string>("");
+    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
 
-    const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
     useEffect(() => {
-        const fetchCsrf = async () => {
-             const token = await authService.getCsrfToken();
-             setCsrfToken(token);
-        };
-        fetchCsrf();
+        getCsrfTokenCached();
     }, []);
 
     const fetchTables = useCallback(async () => {
@@ -318,63 +313,25 @@ export default function TablesPage() {
     }, [execute]);
 
     useEffect(() => {
-        if (!authLoading) {
-            if (!user) {
-                setIsAuthorized(false);
-                setTimeout(() => {
-                    router.replace('/login');
-                }, 1000); 
-            } else if (user.role !== 'Admin') {
-                setIsAuthorized(false);
-                message.error("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
-                setTimeout(() => {
-                    router.replace('/pos');
-                }, 1000); 
-            } else {
-                setIsAuthorized(true);
-                fetchTables();
-            }
+        if (isAuthorized) {
+            fetchTables();
         }
-    }, [user, authLoading, router, fetchTables]);
+    }, [isAuthorized, fetchTables]);
 
-    useEffect(() => {
-        fetchTables();
-    }, [fetchTables]);
-
-    useEffect(() => {
-        if (!socket) return;
-
-        socket.on('tables:create', (newItem: Tables) => {
-            setTables((prev) => [...prev, newItem]);
-        });
-
-        socket.on('tables:update', (updatedItem: Tables) => {
-            setTables((prev) =>
-                prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
-            );
-        });
-
-        socket.on('tables:delete', ({ id }: { id: string }) => {
-            setTables((prev) => prev.filter((item) => item.id !== id));
-        });
-
-        return () => {
-            socket.off('tables:create');
-            socket.off('tables:update');
-            socket.off('tables:delete');
-        };
-    }, [socket]);
+    useRealtimeList(
+        socket,
+        { create: "tables:create", update: "tables:update", delete: "tables:delete" },
+        setTables
+    );
 
     const handleAdd = () => {
-        showLoading();
+        showLoading("กำลังเปิดหน้าจัดการโต๊ะ...");
         router.push('/pos/tables/manager/add');
-        setTimeout(() => hideLoading(), 1000);
     };
 
     const handleEdit = (table: Tables) => {
-        showLoading();
+        showLoading("กำลังเปิดหน้าแก้ไขโต๊ะ...");
         router.push(`/pos/tables/manager/edit/${table.id}`);
-        setTimeout(() => hideLoading(), 1000);
     };
 
     const handleDelete = (table: Tables) => {
@@ -387,6 +344,7 @@ export default function TablesPage() {
             centered: true,
             onOk: async () => {
                 await execute(async () => {
+                    const csrfToken = await getCsrfTokenCached();
                     const response = await fetch(`/api/pos/tables/delete/${table.id}`, {
                         method: 'DELETE',
                         headers: {
@@ -402,7 +360,7 @@ export default function TablesPage() {
         });
     };
 
-    if (authLoading || isAuthorized === null) {
+    if (isChecking) {
         return (
             <div style={{ 
                 display: 'flex', 
@@ -418,7 +376,7 @@ export default function TablesPage() {
         );
     }
 
-    if (isAuthorized === false) {
+    if (!isAuthorized) {
         return (
             <div style={{ 
                 display: 'flex', 

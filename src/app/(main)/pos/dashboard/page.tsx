@@ -13,6 +13,8 @@ import { ordersService } from "../../../../services/pos/orders.service";
 import { SalesSummary, TopItem } from "../../../../types/api/pos/dashboard";
 import { SalesOrder, OrderStatus, OrderType } from "../../../../types/api/pos/salesOrder";
 import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
+import { useSocket } from "@/hooks/useSocket";
+import { useRealtimeRefresh } from "@/utils/pos/realtime";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -21,6 +23,7 @@ dayjs.locale('th');
 export default function DashboardPage() {
     const router = useRouter();
     const { showLoading, hideLoading } = useGlobalLoading(); // Note: Dashboard often loads on mount, so global loading might cover the whole page or just use local loading for regions
+    const { socket } = useSocket();
     const [salesData, setSalesData] = useState<SalesSummary[]>([]);
     const [topItems, setTopItems] = useState<TopItem[]>([]);
     const [recentOrders, setRecentOrders] = useState<SalesOrder[]>([]);
@@ -53,6 +56,13 @@ export default function DashboardPage() {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    useRealtimeRefresh({
+        socket,
+        events: ["orders:update", "orders:create", "orders:delete", "payments:create"],
+        onRefresh: () => fetchData(),
+        intervalMs: 20000,
+    });
 
     const handleExportPDF = () => {
         try {

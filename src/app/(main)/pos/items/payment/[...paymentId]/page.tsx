@@ -11,8 +11,8 @@ import { paymentMethodService } from "@/services/pos/paymentMethod.service";
 import { discountsService } from "@/services/pos/discounts.service";
 import { paymentsService } from "@/services/pos/payments.service";
 import { tablesService } from "@/services/pos/tables.service";
-import { authService } from "@/services/auth.service";
 import { shopProfileService, ShopProfile } from "@/services/pos/shopProfile.service";
+import { getCsrfTokenCached } from "@/utils/pos/csrf";
 
 import { SalesOrder, OrderStatus, OrderType } from "@/types/api/pos/salesOrder";
 import { PaymentMethod } from "@/types/api/pos/paymentMethod";
@@ -26,6 +26,8 @@ import 'dayjs/locale/th';
 import { getOrderChannelText, getOrderReference, getOrderStatusColor, getOrderStatusText, getEditOrderNavigationPath, getCancelOrderNavigationPath, ConfirmationConfig, formatCurrency } from "@/utils/orders";
 import ConfirmationDialog from "@/components/dialog/ConfirmationDialog";
 import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
+import { useSocket } from "@/hooks/useSocket";
+import { useRealtimeRefresh } from "@/utils/pos/realtime";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -48,6 +50,7 @@ export default function POSPaymentPage() {
     const [receivedAmount, setReceivedAmount] = useState<number>(0);
     const [appliedDiscount, setAppliedDiscount] = useState<Discounts | null>(null);
     const { showLoading, hideLoading } = useGlobalLoading();
+    const { socket } = useSocket();
 
     // Confirmation Dialog State
     const [confirmConfig, setConfirmConfig] = useState<ConfirmationConfig>({
@@ -125,6 +128,18 @@ export default function POSPaymentPage() {
         }
     }, [fetchInitialData, paymentId]);
 
+    useRealtimeRefresh({
+        socket,
+        events: ["orders:update", "orders:delete", "payments:create", "payments:update"],
+        onRefresh: () => {
+            if (paymentId) {
+                fetchInitialData();
+            }
+        },
+        intervalMs: 15000,
+        enabled: Boolean(paymentId),
+    });
+
     const { subtotal, discount, vat, total, change } = calculatePaymentTotals(order, receivedAmount);
 
     const handleDiscountChange = async (value: string | undefined) => {
@@ -132,7 +147,7 @@ export default function POSPaymentPage() {
         
         try {
             showLoading("กำลังอัปเดตส่วนลด...");
-            const csrfToken = await authService.getCsrfToken();
+            const csrfToken = await getCsrfTokenCached();
             
             const updatedOrder = await ordersService.update(
                 order.id, 
@@ -204,7 +219,7 @@ export default function POSPaymentPage() {
                 try {
                     showLoading("กำลังดำเนินการชำระเงิน...");
                     closeConfirm();
-                    const csrfToken = await authService.getCsrfToken();
+                    const csrfToken = await getCsrfTokenCached();
                     
                     // 1. Create Payment Record
                     const paymentData = {
@@ -252,7 +267,7 @@ export default function POSPaymentPage() {
                 try {
                     showLoading("กำลังดำเนินการ...");
                     closeConfirm();
-                    const csrfToken = await authService.getCsrfToken();
+                    const csrfToken = await getCsrfTokenCached();
                     
                     // 1. Revert all non-cancelled items to 'Served' status
                     const activeItems = order.items?.filter(item => item.status !== OrderStatus.Cancelled) || [];
@@ -291,7 +306,7 @@ export default function POSPaymentPage() {
                 try {
                     showLoading("กำลังดำเนินการยกเลิก...");
                     closeConfirm();
-                    const csrfToken = await authService.getCsrfToken();
+                    const csrfToken = await getCsrfTokenCached();
 
                     // 1. Cancel all non-cancelled items
                     const activeItems = order.items?.filter(item => item.status !== OrderStatus.Cancelled) || [];

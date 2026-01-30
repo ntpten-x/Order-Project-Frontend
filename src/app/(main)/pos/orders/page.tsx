@@ -23,6 +23,8 @@ import {
   formatCurrency
 } from "@/utils/orders";
 import { orderColors, ordersStyles, ordersResponsiveStyles } from "@/theme/pos/orders/style";
+import { useSocket } from "@/hooks/useSocket";
+import { useRealtimeRefresh } from "@/utils/pos/realtime";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 
@@ -34,6 +36,7 @@ export default function POSOrdersPage() {
     const router = useRouter();
     const screens = useBreakpoint();
     const isMobile = !screens.md;
+    const { socket } = useSocket();
 
     const [orders, setOrders] = useState<SalesOrder[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -41,8 +44,8 @@ export default function POSOrdersPage() {
     const [total, setTotal] = useState(0);
     const LIMIT = 10;
 
-    const fetchOrders = useCallback(async () => {
-        setIsLoading(true);
+    const fetchOrders = useCallback(async (silent = false) => {
+        if (!silent) setIsLoading(true);
         try {
             // Filter only active statuses
             const activeStatuses = 'Pending,Cooking,Served,WaitingForPayment';
@@ -52,13 +55,20 @@ export default function POSOrdersPage() {
         } catch (error) {
             // Error handled by service/interceptor
         } finally {
-            setIsLoading(false);
+            if (!silent) setIsLoading(false);
         }
     }, [page]);
 
     useEffect(() => {
-        fetchOrders();
+        fetchOrders(false);
     }, [fetchOrders]);
+
+    useRealtimeRefresh({
+        socket,
+        events: ["orders:create", "orders:update", "orders:delete", "payments:create", "payments:update"],
+        onRefresh: () => fetchOrders(true),
+        intervalMs: 15000,
+    });
 
     const columns = [
         {

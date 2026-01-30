@@ -1,18 +1,18 @@
 ﻿"use client";
 
-import React, { useState, useCallback, useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Typography, Row, Col, Empty, Spin, Modal, Input, message, Button, Tag, Select, Space } from "antd";
+import { Typography, Row, Col, Empty, Modal, Input, message, Button, Select, Space } from "antd";
 import { RocketOutlined, PlusOutlined, ArrowLeftOutlined } from "@ant-design/icons";
 import { useDelivery } from "../../../../../hooks/pos/useDelivery";
-import { ordersService } from "../../../../../services/pos/orders.service";
-import { SalesOrder, OrderStatus, OrderType } from "../../../../../types/api/pos/salesOrder";
-import { posPageStyles, channelColors, posColors, tableColors } from "@/theme/pos";
+import { OrderType } from "../../../../../types/api/pos/salesOrder";
+import { posPageStyles, channelColors, tableColors } from "@/theme/pos";
 import { channelPageStyles } from "@/theme/pos/channels/style";
 import { POSGlobalStyles } from "@/theme/pos/GlobalStyles";
 import { getOrderChannelStats, getOrderColorScheme, formatOrderStatus } from "@/utils/channels";
 import { getOrderNavigationPath } from "@/utils/orders";
 import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
+import { useChannelOrders } from "@/utils/pos/channelOrders";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import 'dayjs/locale/th';
@@ -25,7 +25,7 @@ export default function DeliverySelectionPage() {
     const router = useRouter();
     const { showLoading, hideLoading } = useGlobalLoading();
     const { deliveryProviders, isLoading: isLoadingProviders } = useDelivery();
-    const [orders, setOrders] = useState<SalesOrder[]>([]);
+    const { orders, isLoading } = useChannelOrders({ orderType: OrderType.Delivery });
     const [isModalOpen, setIsModalOpen] = useState(false);
     
     const stats = useMemo(() => getOrderChannelStats(orders), [orders]);
@@ -37,38 +37,22 @@ export default function DeliverySelectionPage() {
         deliveryProviders.find(p => p.id === selectedProviderId),
     [deliveryProviders, selectedProviderId]);
 
-    const fetchOrders = useCallback(async (isInitial = false) => {
-        if (isInitial) showLoading();
-        try {
-            const res = await ordersService.getAll(undefined, 1, 100, undefined, OrderType.Delivery);
-            const activeOrders = res.data.filter(o => 
-                o.order_type === OrderType.Delivery &&
-                o.status !== OrderStatus.Paid && 
-                o.status !== OrderStatus.Completed &&
-                o.status !== OrderStatus.Cancelled
-            );
-            setOrders(activeOrders);
-        } catch (error) {
-            // Silent error
-        } finally {
-            if (isInitial) hideLoading();
+    useEffect(() => {
+        if (isLoading || isLoadingProviders) {
+            showLoading("กำลังโหลดออเดอร์...");
+        } else {
+            hideLoading();
         }
-    }, [showLoading, hideLoading]);
+    }, [isLoading, isLoadingProviders, showLoading, hideLoading]);
 
     const handleBack = () => {
         router.push('/pos/channels');
     };
 
-    const handleOrderClick = (order: SalesOrder) => {
+    const handleOrderClick = (order: (typeof orders)[number]) => {
         const path = getOrderNavigationPath(order);
         router.push(path);
     };
-
-    useEffect(() => {
-        fetchOrders(true);
-        const interval = setInterval(() => fetchOrders(false), 15000);
-        return () => clearInterval(interval);
-    }, [fetchOrders]);
 
     const handleCreateOrderClick = () => {
         setDeliveryCode("");

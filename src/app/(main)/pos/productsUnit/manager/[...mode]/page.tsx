@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { Form, Input, message, Spin, Switch, Modal } from 'antd';
@@ -7,11 +7,13 @@ import {
     ManagePageStyles,
     pageStyles,
     PageHeader,
-    UnitPreview,
+    ProductsUnitPreview,
     ActionButtons
 } from './style';
 
-import { authService } from '../../../../../../services/auth.service';
+import { getCsrfTokenCached } from "@/utils/pos/csrf";
+import { useRoleGuard } from "@/utils/pos/accessControl";
+import { AccessGuardFallback } from "@/components/pos/AccessGuard";
 
 export default function ProductsUnitManagePage({ params }: { params: { mode: string[] } }) {
     const router = useRouter();
@@ -25,10 +27,11 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
     const mode = params.mode[0];
     const id = params.mode[1] || null;
     const isEdit = mode === 'edit' && !!id;
+    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
 
     useEffect(() => {
         const fetchCsrf = async () => {
-             const token = await authService.getCsrfToken();
+             const token = await getCsrfTokenCached();
              setCsrfToken(token);
         };
         fetchCsrf();
@@ -38,7 +41,7 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
         setLoading(true);
         try {
             const response = await fetch(`/api/pos/productsUnit/getById/${id}`);
-            if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลหน่วยสินค้าได้');
+            if (!response.ok) throw new Error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธซเธเนเธงเธขเธชเธดเธเธเนเธฒเนเธ”เน');
             const data = await response.json();
             form.setFieldsValue({
                 unit_name: data.unit_name,
@@ -49,7 +52,7 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
             setUnitName(data.unit_name || '');
         } catch (error) {
             console.error(error);
-            message.error('ไม่สามารถดึงข้อมูลหน่วยสินค้าได้');
+            message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธซเธเนเธงเธขเธชเธดเธเธเนเธฒเนเธ”เน');
             router.push('/pos/productsUnit');
         } finally {
             setLoading(false);
@@ -78,10 +81,10 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
                 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถอัปเดตหน่วยสินค้าได้');
+                    throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเน€เธ”เธ•เธซเธเนเธงเธขเธชเธดเธเธเนเธฒเนเธ”เน');
                 }
                 
-                message.success('อัปเดตหน่วยสินค้าสำเร็จ');
+                message.success('เธญเธฑเธเน€เธ”เธ•เธซเธเนเธงเธขเธชเธดเธเธเนเธฒเธชเธณเน€เธฃเนเธ');
             } else {
                 const response = await fetch(`/api/pos/productsUnit/create`, {
                     method: 'POST',
@@ -94,15 +97,15 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถสร้างหน่วยสินค้าได้');
+                    throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธเธซเธเนเธงเธขเธชเธดเธเธเนเธฒเนเธ”เน');
                 }
                 
-                message.success('สร้างหน่วยสินค้าสำเร็จ');
+                message.success('เธชเธฃเนเธฒเธเธซเธเนเธงเธขเธชเธดเธเธเนเธฒเธชเธณเน€เธฃเนเธ');
             }
             router.push('/pos/productsUnit');
         } catch (error: unknown) {
             console.error(error);
-            message.error((error as { message: string }).message || (isEdit ? 'ไม่สามารถอัปเดตหน่วยสินค้าได้' : 'ไม่สามารถสร้างหน่วยสินค้าได้'));
+            message.error((error as { message: string }).message || (isEdit ? 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเน€เธ”เธ•เธซเธเนเธงเธขเธชเธดเธเธเนเธฒเนเธ”เน' : 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธเธซเธเนเธงเธขเธชเธดเธเธเนเธฒเนเธ”เน'));
         } finally {
             setSubmitting(false);
         }
@@ -111,11 +114,11 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
     const handleDelete = () => {
         if (!id) return;
         Modal.confirm({
-            title: 'ยืนยันการลบหน่วยสินค้า',
-            content: `คุณต้องการลบหน่วย "${displayName}" หรือไม่?`,
-            okText: 'ลบ',
+            title: 'เธขเธทเธเธขเธฑเธเธเธฒเธฃเธฅเธเธซเธเนเธงเธขเธชเธดเธเธเนเธฒ',
+            content: `เธเธธเธ“เธ•เนเธญเธเธเธฒเธฃเธฅเธเธซเธเนเธงเธข "${displayName}" เธซเธฃเธทเธญเนเธกเน?`,
+            okText: 'เธฅเธ',
             okType: 'danger',
-            cancelText: 'ยกเลิก',
+            cancelText: 'เธขเธเน€เธฅเธดเธ',
             centered: true,
             onOk: async () => {
                 try {
@@ -125,18 +128,25 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
                             'X-CSRF-Token': csrfToken
                         }
                     });
-                    if (!response.ok) throw new Error('ไม่สามารถลบหน่วยสินค้าได้');
-                    message.success('ลบหน่วยสินค้าสำเร็จ');
+                    if (!response.ok) throw new Error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเธซเธเนเธงเธขเธชเธดเธเธเนเธฒเนเธ”เน');
+                    message.success('เธฅเธเธซเธเนเธงเธขเธชเธดเธเธเนเธฒเธชเธณเน€เธฃเนเธ');
                     router.push('/pos/productsUnit');
                 } catch (error) {
                     console.error(error);
-                    message.error('ไม่สามารถลบหน่วยสินค้าได้');
+                    message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเธซเธเนเธงเธขเธชเธดเธเธเนเธฒเนเธ”เน');
                 }
             }
         });
     };
 
     const handleBack = () => router.push('/pos/productsUnit');
+
+    if (isChecking) {
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
+    }
+    if (!isAuthorized) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    }
 
     return (
         <div className="manage-page" style={pageStyles.container}>
@@ -178,50 +188,50 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
                     >
                         <Form.Item
                             name="unit_name"
-                            label="ชื่อหน่วย (ภาษาอังกฤษ) *"
+                            label="เธเธทเนเธญเธซเธเนเธงเธข (เธ เธฒเธฉเธฒเธญเธฑเธเธเธคเธฉ) *"
                             rules={[
-                                { required: true, message: 'กรุณากรอกชื่อหน่วย' },
-                                { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'กรุณากรอกภาษาอังกฤษเท่านั้น' },
-                                { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
+                                { required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเธซเธเนเธงเธข' },
+                                { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธ เธฒเธฉเธฒเธญเธฑเธเธเธคเธฉเน€เธ—เนเธฒเธเธฑเนเธ' },
+                                { max: 100, message: 'เธเธงเธฒเธกเธขเธฒเธงเธ•เนเธญเธเนเธกเนเน€เธเธดเธ 100 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ' }
                             ]}
                         >
                             <Input 
                                 size="large" 
-                                placeholder="เช่น Piece, Bottle, Cup" 
+                                placeholder="เน€เธเนเธ Piece, Bottle, Cup" 
                                 maxLength={100}
                             />
                         </Form.Item>
 
                         <Form.Item
                             name="display_name"
-                            label="ชื่อที่แสดง (ภาษาไทย) *"
+                            label="เธเธทเนเธญเธ—เธตเนเนเธชเธ”เธ (เธ เธฒเธฉเธฒเนเธ—เธข) *"
                             rules={[
-                                { required: true, message: 'กรุณากรอกชื่อที่แสดง' },
-                                { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
+                                { required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเธ—เธตเนเนเธชเธ”เธ' },
+                                { max: 100, message: 'เธเธงเธฒเธกเธขเธฒเธงเธ•เนเธญเธเนเธกเนเน€เธเธดเธ 100 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ' }
                             ]}
                         >
                             <Input 
                                 size="large" 
-                                placeholder="เช่น ชิ้น, ขวด, แก้ว" 
+                                placeholder="เน€เธเนเธ เธเธดเนเธ, เธเธงเธ”, เนเธเนเธง" 
                                 maxLength={100}
                             />
                         </Form.Item>
 
                         {/* Unit Preview */}
-                        <UnitPreview 
+                        <ProductsUnitPreview 
                             displayName={displayName} 
                             unitName={unitName} 
                         />
 
                         <Form.Item
                             name="is_active"
-                            label="สถานะการใช้งาน"
+                            label="เธชเธ–เธฒเธเธฐเธเธฒเธฃเนเธเนเธเธฒเธ"
                             valuePropName="checked"
                             style={{ marginTop: 20 }}
                         >
                             <Switch 
-                                checkedChildren="ใช้งาน" 
-                                unCheckedChildren="ไม่ใช้งาน"
+                                checkedChildren="เนเธเนเธเธฒเธ" 
+                                unCheckedChildren="เนเธกเนเนเธเนเธเธฒเธ"
                             />
                         </Form.Item>
 
@@ -237,3 +247,4 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
         </div>
     );
 }
+

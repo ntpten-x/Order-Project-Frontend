@@ -18,7 +18,7 @@ import {
     CheckCircleOutlined
 } from "@ant-design/icons";
 import { ordersService } from "@/services/pos/orders.service";
-import { authService } from "@/services/auth.service";
+import { getCsrfTokenCached } from "@/utils/pos/csrf";
 import { tablesService } from "@/services/pos/tables.service";
 import { SalesOrder, OrderStatus, OrderType } from "@/types/api/pos/salesOrder";
 import { SalesOrderItem } from "@/types/api/pos/salesOrderItem";
@@ -50,6 +50,8 @@ import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 import { Products } from "@/types/api/pos/products";
 import { useNetwork } from "@/hooks/useNetwork";
 import { offlineQueueService } from "@/services/pos/offline.queue.service";
+import { useSocket } from "@/hooks/useSocket";
+import { useRealtimeRefresh } from "@/utils/pos/realtime";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -68,6 +70,7 @@ export default function POSOrderDetailsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
     const { showLoading, hideLoading } = useGlobalLoading();
+    const { socket } = useSocket();
     const isOnline = useNetwork();
     
     // Selection State
@@ -116,11 +119,23 @@ export default function POSOrderDetailsPage() {
         }
     }, [orderId, fetchOrder]);
 
+    useRealtimeRefresh({
+        socket,
+        events: ["orders:update", "orders:delete", "orders:create", "payments:create", "payments:update"],
+        onRefresh: () => {
+            if (orderId) {
+                fetchOrder(orderId as string);
+            }
+        },
+        intervalMs: 15000,
+        enabled: Boolean(orderId),
+    });
+
     const handleServeItem = async (itemId: string) => {
         try {
             setIsUpdating(true);
             showLoading("กำลังดำเนินการเสิร์ฟ...");
-            const csrfToken = await authService.getCsrfToken();
+            const csrfToken = await getCsrfTokenCached();
             await ordersService.updateItemStatus(itemId, OrderStatus.Served, undefined, csrfToken);
             message.success("เสิร์ฟรายการเรียบร้อย");
             fetchOrder(orderId as string);
@@ -137,7 +152,7 @@ export default function POSOrderDetailsPage() {
         try {
             setIsUpdating(true);
             showLoading(`กำลังดำเนินการเสิร์ฟ ${selectedRowKeys.length} รายการ...`);
-            const csrfToken = await authService.getCsrfToken();
+            const csrfToken = await getCsrfTokenCached();
             await Promise.all(selectedRowKeys.map(key => 
                 ordersService.updateItemStatus(key.toString(), OrderStatus.Served, undefined, csrfToken)
             ));
@@ -167,7 +182,7 @@ export default function POSOrderDetailsPage() {
                     setIsUpdating(true);
                     showLoading("กำลังดำเนินการยกเลิก...");
                     closeConfirm();
-                    const csrfToken = await authService.getCsrfToken();
+                    const csrfToken = await getCsrfTokenCached();
                     await Promise.all(selectedRowKeys.map(key => 
                         ordersService.updateItemStatus(key.toString(), OrderStatus.Cancelled, undefined, csrfToken)
                     ));
@@ -188,7 +203,7 @@ export default function POSOrderDetailsPage() {
         try {
             setIsUpdating(true);
             showLoading("กำลังย้อนกลับสถานะ...");
-            const csrfToken = await authService.getCsrfToken();
+            const csrfToken = await getCsrfTokenCached();
             await ordersService.updateItemStatus(itemId, OrderStatus.Cooking, undefined, csrfToken);
             message.success("ยกเลิกการเสิร์ฟ (กลับไปปรุง)");
             fetchOrder(orderId as string);
@@ -213,7 +228,7 @@ export default function POSOrderDetailsPage() {
                     setIsUpdating(true);
                     showLoading("กำลังดำเนินการยกเลิก...");
                     closeConfirm();
-                    const csrfToken = await authService.getCsrfToken();
+                    const csrfToken = await getCsrfTokenCached();
 
                     // 1. Cancel all non-cancelled items
                     const activeItems = order.items?.filter(item => item.status !== OrderStatus.Cancelled) || [];
@@ -259,7 +274,7 @@ export default function POSOrderDetailsPage() {
                     setIsUpdating(true);
                     showLoading("กำลังลบรายการ...");
                     closeConfirm();
-                    const csrfToken = await authService.getCsrfToken();
+                    const csrfToken = await getCsrfTokenCached();
                     await ordersService.deleteItem(itemId, undefined, csrfToken);
                     message.success("ลบรายการเรียบร้อย");
                     fetchOrder(orderId as string);
@@ -277,7 +292,7 @@ export default function POSOrderDetailsPage() {
         try {
             setIsUpdating(true);
             showLoading("กำลังบันทึกข้อมูล...");
-            const csrfToken = await authService.getCsrfToken();
+            const csrfToken = await getCsrfTokenCached();
             await ordersService.updateItem(itemId, { quantity, notes, details }, undefined, csrfToken);
             message.success("แก้ไขรายการเรียบร้อย");
             fetchOrder(orderId as string);
@@ -311,7 +326,7 @@ export default function POSOrderDetailsPage() {
         try {
             setIsUpdating(true);
             showLoading("กำลังเพิ่มสินค้า...");
-            const csrfToken = await authService.getCsrfToken();
+            const csrfToken = await getCsrfTokenCached();
             await ordersService.addItem(orderId as string, {
                 product_id: product.id,
                 quantity: quantity,
@@ -347,7 +362,7 @@ export default function POSOrderDetailsPage() {
                     setIsUpdating(true);
                     showLoading("กำลังยืนยันรายการ...");
                     closeConfirm();
-                    const csrfToken = await authService.getCsrfToken();
+                    const csrfToken = await getCsrfTokenCached();
                     await ordersService.updateStatus(orderId as string, OrderStatus.WaitingForPayment, csrfToken);
                     message.success("ยืนยันออเดอร์เรียบร้อย");
                     

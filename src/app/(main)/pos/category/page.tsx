@@ -16,8 +16,9 @@ import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
 import { useAsyncAction } from "../../../../hooks/useAsyncAction";
 import { useSocket } from "../../../../hooks/useSocket";
-import { useAuth } from "../../../../contexts/AuthContext";
-import { authService } from "../../../../services/auth.service";
+import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
+import { useRoleGuard } from "../../../../utils/pos/accessControl";
+import { useRealtimeList } from "../../../../utils/pos/realtime";
 import { pageStyles, globalStyles } from '../../../../theme/pos/category/style';
 
 const { Text, Title } = Typography;
@@ -241,21 +242,14 @@ const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
 
 export default function CategoryPage() {
     const router = useRouter();
-    const { user, loading: authLoading } = useAuth();
     const [categories, setCategories] = useState<Category[]>([]);
     const { execute } = useAsyncAction();
-    const { showLoading, hideLoading } = useGlobalLoading();
+    const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const [csrfToken, setCsrfToken] = useState<string>("");
-
-    const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
 
     useEffect(() => {
-        const fetchCsrf = async () => {
-             const token = await authService.getCsrfToken();
-             setCsrfToken(token);
-        };
-        fetchCsrf();
+        getCsrfTokenCached();
     }, []);
 
     const fetchCategories = useCallback(async () => {
@@ -271,63 +265,25 @@ export default function CategoryPage() {
     }, [execute]);
 
     useEffect(() => {
-        if (!authLoading) {
-            if (!user) {
-                setIsAuthorized(false);
-                setTimeout(() => {
-                    router.replace('/login');
-                }, 1000); 
-            } else if (user.role !== 'Admin') {
-                setIsAuthorized(false);
-                message.error("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
-                setTimeout(() => {
-                    router.replace('/pos');
-                }, 1000); 
-            } else {
-                setIsAuthorized(true);
-                fetchCategories();
-            }
+        if (isAuthorized) {
+            fetchCategories();
         }
-    }, [user, authLoading, router, fetchCategories]);
+    }, [isAuthorized, fetchCategories]);
 
-    useEffect(() => {
-        fetchCategories();
-    }, [fetchCategories]);
-
-    useEffect(() => {
-        if (!socket) return;
-
-        socket.on('category:create', (newItem: Category) => {
-            setCategories((prev) => [...prev, newItem]);
-        });
-
-        socket.on('category:update', (updatedItem: Category) => {
-            setCategories((prev) =>
-                prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
-            );
-        });
-
-        socket.on('category:delete', ({ id }: { id: string }) => {
-            setCategories((prev) => prev.filter((item) => item.id !== id));
-        });
-
-        return () => {
-            socket.off('category:create');
-            socket.off('category:update');
-            socket.off('category:delete');
-        };
-    }, [socket]);
+    useRealtimeList(
+        socket,
+        { create: "category:create", update: "category:update", delete: "category:delete" },
+        setCategories
+    );
 
     const handleAdd = () => {
-        showLoading();
+        showLoading("กำลังเปิดหน้าจัดการหมวดหมู่...");
         router.push('/pos/category/manager/add');
-        setTimeout(() => hideLoading(), 1000);
     };
 
     const handleEdit = (category: Category) => {
-        showLoading();
+        showLoading("กำลังเปิดหน้าแก้ไขหมวดหมู่...");
         router.push(`/pos/category/manager/edit/${category.id}`);
-        setTimeout(() => hideLoading(), 1000);
     };
 
     const handleDelete = (category: Category) => {
@@ -340,6 +296,7 @@ export default function CategoryPage() {
             centered: true,
             onOk: async () => {
                 await execute(async () => {
+                    const csrfToken = await getCsrfTokenCached();
                     const response = await fetch(`/api/pos/category/delete/${category.id}`, {
                         method: 'DELETE',
                         headers: {
@@ -355,7 +312,7 @@ export default function CategoryPage() {
         });
     };
 
-    if (authLoading || isAuthorized === null) {
+    if (isChecking) {
         return (
             <div style={{ 
                 display: 'flex', 
@@ -371,7 +328,7 @@ export default function CategoryPage() {
         );
     }
 
-    if (isAuthorized === false) {
+    if (!isAuthorized) {
         return (
             <div style={{ 
                 display: 'flex', 

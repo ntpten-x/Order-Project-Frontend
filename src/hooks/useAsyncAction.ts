@@ -15,7 +15,7 @@ export const useAsyncAction = () => {
         errorMessage: string = "เกิดข้อผิดพลาด"
     ): Promise<T | undefined> => {
         try {
-            showLoading(loadingMessage);
+            showLoading(loadingMessage, "async");
             const result = await action();
 
             // Wait a bit to ensure the loading state is perceived (optional, sometimes good for UX)
@@ -35,7 +35,7 @@ export const useAsyncAction = () => {
             });
             return undefined;
         } finally {
-            hideLoading();
+            hideLoading("async");
         }
     }, [showLoading, hideLoading]);
 

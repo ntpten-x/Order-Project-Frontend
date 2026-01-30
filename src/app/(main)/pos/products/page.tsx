@@ -17,8 +17,9 @@ import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
 import { useAsyncAction } from "../../../../hooks/useAsyncAction";
 import { useSocket } from "../../../../hooks/useSocket";
-import { useAuth } from "../../../../contexts/AuthContext";
-import { authService } from "../../../../services/auth.service";
+import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
+import { useRoleGuard } from "../../../../utils/pos/accessControl";
+import { useRealtimeList } from "../../../../utils/pos/realtime";
 import { pageStyles, globalStyles } from '../../../../theme/pos/products/style';
 
 const { Text, Title } = Typography;
@@ -292,21 +293,15 @@ const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
 
 export default function ProductsPage() {
     const router = useRouter();
-    const { user, loading: authLoading } = useAuth();
     const [products, setProducts] = useState<Products[]>([]);
     const { execute } = useAsyncAction();
-    const { showLoading, hideLoading } = useGlobalLoading();
+    const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const [csrfToken, setCsrfToken] = useState<string>("");
+    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
 
-    const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
     useEffect(() => {
-        const fetchCsrf = async () => {
-             const token = await authService.getCsrfToken();
-             setCsrfToken(token);
-        };
-        fetchCsrf();
+        getCsrfTokenCached();
     }, []);
 
     const fetchProducts = useCallback(async () => {
@@ -322,63 +317,25 @@ export default function ProductsPage() {
     }, [execute]);
 
     useEffect(() => {
-        if (!authLoading) {
-            if (!user) {
-                setIsAuthorized(false);
-                setTimeout(() => {
-                    router.replace('/login');
-                }, 1000); 
-            } else if (user.role !== 'Admin') {
-                setIsAuthorized(false);
-                message.error("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
-                setTimeout(() => {
-                    router.replace('/pos');
-                }, 1000); 
-            } else {
-                setIsAuthorized(true);
-                fetchProducts();
-            }
+        if (isAuthorized) {
+            fetchProducts();
         }
-    }, [user, authLoading, router, fetchProducts]);
+    }, [isAuthorized, fetchProducts]);
 
-    useEffect(() => {
-        fetchProducts();
-    }, [fetchProducts]);
-
-    useEffect(() => {
-        if (!socket) return;
-
-        socket.on('products:create', (newItem: Products) => {
-            setProducts((prev) => [...prev, newItem]);
-        });
-
-        socket.on('products:update', (updatedItem: Products) => {
-            setProducts((prev) =>
-                prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
-            );
-        });
-
-        socket.on('products:delete', ({ id }: { id: string }) => {
-            setProducts((prev) => prev.filter((item) => item.id !== id));
-        });
-
-        return () => {
-            socket.off('products:create');
-            socket.off('products:update');
-            socket.off('products:delete');
-        };
-    }, [socket]);
+    useRealtimeList(
+        socket,
+        { create: "products:create", update: "products:update", delete: "products:delete" },
+        setProducts
+    );
 
     const handleAdd = () => {
-        showLoading();
+        showLoading("กำลังเปิดหน้าจัดการสินค้า...");
         router.push('/pos/products/manage/add');
-        setTimeout(() => hideLoading(), 1000);
     };
 
     const handleEdit = (product: Products) => {
-        showLoading();
+        showLoading("กำลังเปิดหน้าแก้ไขสินค้า...");
         router.push(`/pos/products/manage/edit/${product.id}`);
-        setTimeout(() => hideLoading(), 1000);
     };
 
     const handleDelete = (product: Products) => {
@@ -391,6 +348,7 @@ export default function ProductsPage() {
             centered: true,
             onOk: async () => {
                 await execute(async () => {
+                    const csrfToken = await getCsrfTokenCached();
                     const response = await fetch(`/api/pos/products/delete/${product.id}`, {
                         method: 'DELETE',
                         headers: {
@@ -406,7 +364,7 @@ export default function ProductsPage() {
         });
     };
 
-    if (authLoading || isAuthorized === null) {
+    if (isChecking) {
         return (
             <div style={{ 
                 display: 'flex', 
@@ -422,7 +380,7 @@ export default function ProductsPage() {
         );
     }
 
-    if (isAuthorized === false) {
+    if (!isAuthorized) {
         return (
             <div style={{ 
                 display: 'flex', 

@@ -17,8 +17,9 @@ import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
 import { useAsyncAction } from "../../../../hooks/useAsyncAction";
 import { useSocket } from "../../../../hooks/useSocket";
-import { useAuth } from "../../../../contexts/AuthContext";
-import { authService } from "../../../../services/auth.service";
+import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
+import { useRoleGuard } from "../../../../utils/pos/accessControl";
+import { useRealtimeList } from "../../../../utils/pos/realtime";
 import { pageStyles, globalStyles } from '../../../../theme/pos/discounts/style';
 
 const { Text, Title } = Typography;
@@ -298,21 +299,15 @@ const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
 
 export default function DiscountsPage() {
     const router = useRouter();
-    const { user, loading: authLoading } = useAuth();
     const [discounts, setDiscounts] = useState<Discounts[]>([]);
     const { execute } = useAsyncAction();
-    const { showLoading, hideLoading } = useGlobalLoading();
+    const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const [csrfToken, setCsrfToken] = useState<string>("");
+    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
 
-    const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
 
     useEffect(() => {
-        const fetchCsrf = async () => {
-             const token = await authService.getCsrfToken();
-             setCsrfToken(token);
-        };
-        fetchCsrf();
+        getCsrfTokenCached();
     }, []);
 
     const fetchDiscounts = useCallback(async () => {
@@ -328,63 +323,25 @@ export default function DiscountsPage() {
     }, [execute]);
 
     useEffect(() => {
-        if (!authLoading) {
-            if (!user) {
-                setIsAuthorized(false);
-                setTimeout(() => {
-                    router.replace('/login');
-                }, 1000); 
-            } else if (user.role !== 'Admin') {
-                setIsAuthorized(false);
-                message.error("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
-                setTimeout(() => {
-                    router.replace('/pos');
-                }, 1000); 
-            } else {
-                setIsAuthorized(true);
-                fetchDiscounts();
-            }
+        if (isAuthorized) {
+            fetchDiscounts();
         }
-    }, [user, authLoading, router, fetchDiscounts]);
+    }, [isAuthorized, fetchDiscounts]);
 
-    useEffect(() => {
-        fetchDiscounts();
-    }, [fetchDiscounts]);
-
-    useEffect(() => {
-        if (!socket) return;
-
-        socket.on('discounts:create', (newItem: Discounts) => {
-            setDiscounts((prev) => [...prev, newItem]);
-        });
-
-        socket.on('discounts:update', (updatedItem: Discounts) => {
-            setDiscounts((prev) =>
-                prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
-            );
-        });
-
-        socket.on('discounts:delete', ({ id }: { id: string }) => {
-            setDiscounts((prev) => prev.filter((item) => item.id !== id));
-        });
-
-        return () => {
-            socket.off('discounts:create');
-            socket.off('discounts:update');
-            socket.off('discounts:delete');
-        };
-    }, [socket]);
+    useRealtimeList(
+        socket,
+        { create: "discounts:create", update: "discounts:update", delete: "discounts:delete" },
+        setDiscounts
+    );
 
     const handleAdd = () => {
-        showLoading();
+        showLoading("กำลังเปิดหน้าจัดการส่วนลด...");
         router.push('/pos/discounts/manager/add');
-        setTimeout(() => hideLoading(), 1000);
     };
 
     const handleEdit = (discount: Discounts) => {
-        showLoading();
+        showLoading("กำลังเปิดหน้าแก้ไขส่วนลด...");
         router.push(`/pos/discounts/manager/edit/${discount.id}`);
-        setTimeout(() => hideLoading(), 1000);
     };
 
     const handleDelete = (discount: Discounts) => {
@@ -397,6 +354,7 @@ export default function DiscountsPage() {
             centered: true,
             onOk: async () => {
                 await execute(async () => {
+                    const csrfToken = await getCsrfTokenCached();
                     const response = await fetch(`/api/pos/discounts/delete/${discount.id}`, {
                         method: 'DELETE',
                         headers: {
@@ -412,7 +370,7 @@ export default function DiscountsPage() {
         });
     };
 
-    if (authLoading || isAuthorized === null) {
+    if (isChecking) {
         return (
             <div style={{ 
                 display: 'flex', 
@@ -428,7 +386,7 @@ export default function DiscountsPage() {
         );
     }
 
-    if (isAuthorized === false) {
+    if (!isAuthorized) {
         return (
             <div style={{ 
                 display: 'flex', 
