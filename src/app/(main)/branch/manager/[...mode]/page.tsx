@@ -46,7 +46,7 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
         } finally {
             setLoading(false);
         }
-    }, [id, form, router]);
+    }, [id, form, router, message]);
 
     useEffect(() => {
         if (!authLoading && user) {
@@ -73,9 +73,10 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
                 message.success('สร้างสาขาสำเร็จ');
             }
             router.push('/branch');
-        } catch (error: unknown) {
+        } catch (error) {
             console.error(error);
-            message.error((error as Error).message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+            const err = error as Error;
+            message.error(err.message || 'เกิดข้อผิดพลาดในการบันทึกข้อมูล');
         } finally {
             setSubmitting(false);
         }
@@ -96,7 +97,7 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
                     await branchService.delete(id, undefined, csrfToken);
                     message.success('ลบสาขาสำเร็จ');
                     router.push('/branch');
-                } catch (error) {
+                } catch {
                     message.error('ไม่สามารถลบสาขาได้');
                 }
             },

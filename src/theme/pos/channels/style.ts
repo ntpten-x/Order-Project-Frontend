@@ -1,5 +1,5 @@
 import { CSSProperties } from 'react';
-import { posColors, channelColors } from '../index';
+// import { posColors, channelColors } from '../index';
 
 export const channelsStyles = {
     channelsContainer: {

@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Image from "next/image";
-import { Typography, Button, Spin, Empty, Badge, Drawer, List, message, Pagination, Divider, Input, Modal, Tag, InputNumber } from "antd";
+import { Typography, Button, Spin, Empty, Badge, Drawer, List, message, Pagination, Input, Modal, Tag, InputNumber } from "antd";
 import { 
   ShoppingCartOutlined, 
   DeleteOutlined, 
@@ -18,7 +18,7 @@ import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 import { useProducts } from "../../../hooks/pos/useProducts";
 import { useCategories } from "@/hooks/pos/useCategories";
 import { Products } from "../../../types/api/pos/products";
-import { Category } from "../../../types/api/pos/category";
+// import { Category } from "../../../types/api/pos/category";
 import { 
   posLayoutStyles, 
   posCartStyles, 
@@ -27,7 +27,6 @@ import {
 } from "./style";
 import { 
   formatPrice, 
-  formatItemCount, 
   hasProductImage, 
   getProductCategoryName 
 } from "@/utils/products/productDisplay.utils";
@@ -66,7 +65,6 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
     updateQuantity, 
     updateItemNote,
     clearCart,
-    addDetailToItem,
     removeDetailFromItem,
     updateItemDetails,
     getTotalItems, 
@@ -579,6 +577,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                       }}>
                         <div style={{ width: 40, height: 40, borderRadius: 8, overflow: 'hidden', flexShrink: 0, border: '1px solid #f0f0f0' }}>
                           {item.product.img_url ? (
+                            /* eslint-disable-next-line @next/next/no-img-element */
                             <img src={item.product.img_url} alt={item.product.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                           ) : (
                             <div style={{ width: '100%', height: '100%', background: '#f5f5f5', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -626,7 +625,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                                         <Text type="secondary" style={{ fontSize: 11 }}>{formatPrice(Number(item.product.price))}</Text>
                                     </div>
                                     
-                                    {item.details && item.details.map((d: any, idx: number) => (
+                                    {item.details && item.details.map((d: { detail_name: string; extra_price: number }, idx: number) => (
                                         <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
                                             <Text style={{ fontSize: 11, color: '#52c41a' }}>+ {d.detail_name}</Text>
                                             <Text style={{ fontSize: 11, color: '#52c41a' }}>{formatPrice(Number(d.extra_price))}</Text>
@@ -759,9 +758,9 @@ function CartItemDetailModal({ item, isOpen, onClose, onSave }: CartItemDetailMo
     setDetails(details.filter((_, i) => i !== index));
   };
 
-  const handleUpdateDetail = (index: number, field: string, value: any) => {
+  const handleUpdateDetail = (index: number, field: string, value: unknown) => {
     const newDetails = [...details];
-    // @ts-ignore
+
     newDetails[index] = { ...newDetails[index], [field]: value };
     setDetails(newDetails);
   };

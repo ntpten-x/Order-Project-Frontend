@@ -1,8 +1,8 @@
 ﻿"use client";
 
 import React, { useEffect, useState } from "react";
-import { Typography, Card, Button, Table, Tag, Modal, Form, Input, Select, App, Space, Switch, Popconfirm, Divider, Row, Col, Empty, Spin } from "antd";
-import { ArrowLeftOutlined, PlusOutlined, BankOutlined, QrcodeOutlined, DeleteOutlined, CheckCircleOutlined, EditOutlined, ShoppingCartOutlined, CreditCardOutlined } from "@ant-design/icons";
+import { Typography, Card, Button, Tag, Modal, Form, Input, App, Popconfirm, Divider, Row, Col, Empty, Spin } from "antd";
+import { ArrowLeftOutlined, PlusOutlined, QrcodeOutlined, DeleteOutlined, CheckCircleOutlined, EditOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { pageStyles } from "./style";
 import { paymentAccountService } from "@/services/pos/paymentAccount.service";
@@ -13,9 +13,9 @@ import { useRoleGuard } from "@/utils/pos/accessControl";
 import { AccessGuardFallback } from "@/components/pos/AccessGuard";
 
 const { Title, Text } = Typography;
-const { Option } = Select;
 
-export default function PaymentAccountManagementPage({ params }: { params: { mode: string[] } }) {
+
+export default function PaymentAccountManagementPage() {
     const { message } = App.useApp();
     const router = useRouter();
     const [accounts, setAccounts] = useState<ShopPaymentAccount[]>([]);
@@ -24,23 +24,23 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [form] = Form.useForm();
     const [editingId, setEditingId] = useState<string | null>(null);
-    const accountType = Form.useWatch('account_type', form);
 
-    const fetchAccounts = async () => {
+
+    const fetchAccounts = React.useCallback(async () => {
         setLoading(true);
         try {
             const data = await paymentAccountService.getByShopId();
             setAccounts(data);
-        } catch (error) {
+        } catch {
             message.error("ไม่สามารถโหลดข้อมูลบัญชีได้");
         } finally {
             setLoading(false);
         }
-    };
+    }, [message]);
 
     useEffect(() => {
         fetchAccounts();
-    }, []);
+    }, [fetchAccounts]);
 
     const handleAdd = () => {
         setEditingId(null);
@@ -60,8 +60,9 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
             await paymentAccountService.delete(id, undefined, undefined, csrfToken);
             message.success("ลบบัญชีสำเร็จ");
             fetchAccounts();
-        } catch (error: any) {
-            message.error(error.message || "ลบไม่สำเร็จ (บัญชีที่ใช้งานอยู่อาจลบไม่ได้)");
+        } catch (error: unknown) {
+             const errorMessage = error instanceof Error ? error.message : "ลบไม่สำเร็จ (บัญชีที่ใช้งานอยู่อาจลบไม่ได้)";
+             message.error(errorMessage);
         }
     };
 
@@ -89,9 +90,13 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
             }
             setIsModalVisible(false);
             fetchAccounts();
-        } catch (error: any) {
-            if (error?.errorFields) return; // Form validation error
-            message.error(error.message || "บันทึกไม่สำเร็จ");
+        } catch (error: unknown) {
+            // Check if it's a form validation error (has errorFields property)
+            // Since error is unknown, we need a type guard or safe check
+            if (typeof error === 'object' && error !== null && 'errorFields' in error) return; 
+
+            const errorMessage = error instanceof Error ? error.message : "บันทึกไม่สำเร็จ";
+            message.error(errorMessage);
         }
     };
 

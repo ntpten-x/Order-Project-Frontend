@@ -3,7 +3,7 @@ import { API_ROUTES, API_PREFIX } from "../config/api";
 import { getProxyUrl } from "../lib/proxy-utils";
 
 // 4000 is the usual backend port if not specified
-const BACKEND_API = process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:4000";
+// const BACKEND_API = process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:4000";
 
 export const authService = {
     login: async (credentials: LoginCredentials, csrfToken?: string, cookieHeader?: string): Promise<User & { token: string }> => {

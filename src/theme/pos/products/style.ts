@@ -1,7 +1,5 @@
 
-import { Typography } from "antd";
-
-const { Text, Title } = Typography;
+// const { Text, Title } = Typography;
 
 // ============ STYLES ============
 

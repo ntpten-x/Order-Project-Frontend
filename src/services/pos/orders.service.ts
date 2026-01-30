@@ -1,4 +1,5 @@
 import { SalesOrder, SalesOrderSummary, CreateSalesOrderDTO, CreateOrderItemDTO } from "../../types/api/pos/salesOrder";
+import { ZodError } from "zod";
 import { getProxyUrl } from "../../lib/proxy-utils";
 import { SalesOrderItem } from "../../types/api/pos/salesOrderItem";
 import { API_ROUTES } from "../../config/api";
@@ -42,8 +43,8 @@ export const ordersService = {
             return OrdersResponseSchema.parse(json) as unknown as { data: SalesOrder[], total: number, page: number, last_page: number };
         } catch (error) {
             console.error("Zod Validation Error in ordersService.getAll:", error);
-            if (error instanceof Error) {
-                console.error("Zod Issues:", (error as any).issues);
+            if (error instanceof ZodError) {
+                console.error("Zod Issues:", error.issues);
             }
             throw error;
         }
@@ -83,8 +84,8 @@ export const ordersService = {
             return OrdersSummaryResponseSchema.parse(json) as unknown as { data: SalesOrderSummary[], total: number, page: number, last_page?: number };
         } catch (error) {
             console.error("Zod Validation Error in ordersService.getAllSummary:", error);
-            if (error instanceof Error) {
-                console.error("Zod Issues:", (error as any).issues);
+            if (error instanceof ZodError) {
+                console.error("Zod Issues:", error.issues);
             }
             throw error;
         }
@@ -129,8 +130,8 @@ export const ordersService = {
             return SalesOrderSchema.parse(json) as unknown as SalesOrder;
         } catch (error) {
             console.error("Zod Validation Error in ordersService.getById:", error);
-            if (error instanceof Error) {
-                console.error("Zod Issues:", (error as any).issues);
+            if (error instanceof ZodError) {
+                console.error("Zod Issues:", error.issues);
             }
             throw error;
         }
@@ -240,7 +241,7 @@ export const ordersService = {
         return response.json();
     },
 
-    updateItem: async (itemId: string, data: { quantity?: number, notes?: string, details?: any[] }, cookie?: string, csrfToken?: string): Promise<SalesOrder> => {
+    updateItem: async (itemId: string, data: { quantity?: number, notes?: string, details?: Record<string, unknown>[] }, cookie?: string, csrfToken?: string): Promise<SalesOrder> => {
         const url = getProxyUrl("PUT", `${BASE_PATH}/items/${itemId}`);
         const headers = getHeaders(cookie) as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;

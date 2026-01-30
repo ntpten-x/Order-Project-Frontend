@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Typography, Row, Col, Card, Tag, Button, Spin, Empty, Divider, Avatar, Space, Skeleton } from "antd";
+import { Typography, Row, Col, Card, Tag, Button, Empty, Divider, Avatar, Space, Skeleton } from "antd";
 import { CheckCircleOutlined, ShopOutlined, ShoppingOutlined, RocketOutlined, UserOutlined } from "@ant-design/icons";
 import { ordersService } from "@/services/pos/orders.service";
 import { SalesOrderItem } from "@/types/api/pos/salesOrderItem";
@@ -57,7 +57,7 @@ export default function POSItemsPage() {
                 if (isEqual(prev, groups)) return prev;
                 return groups;
             });
-        } catch (error) {
+        } catch {
             // Silently handle error or show notification if critical
         } finally {
             if (initial) {

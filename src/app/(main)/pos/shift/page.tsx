@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useContext } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Typography, Card, Button, Row, Col, InputNumber, Statistic, Tag, Modal, Spin, Divider, Result, App, Space } from "antd";
+import { Typography, Card, Button, Row, Col, InputNumber, Statistic, Tag, Modal, Spin, Divider, App } from "antd";
 import { 
     ClockCircleOutlined, 
     DollarCircleOutlined, 
@@ -18,7 +18,7 @@ import {
 import { useRouter } from "next/navigation";
 import { SocketContext } from "../../../../contexts/SocketContext";
 import { shiftsService } from "../../../../services/pos/shifts.service";
-import { Shift } from "../../../../types/api/pos/shifts";
+import { Shift, ShiftSummary } from "../../../../types/api/pos/shifts";
 import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
@@ -109,16 +109,16 @@ export default function ShiftPage() {
     const {
         data: summaryData = null,
         isLoading: isSummaryLoading
-    } = useQuery<any>({
+    } = useQuery<ShiftSummary | null>({
         queryKey: ["shiftSummary", currentShift?.id || "none"],
         queryFn: async () => {
-            return await shiftsService.getCurrentSummary();
+            return (await shiftsService.getCurrentSummary()) as ShiftSummary;
         },
         enabled: !!currentShift,
         staleTime: 2000,
     });
 
-    const summary = currentShift ? summaryData : null;
+    const summary = currentShift ? (summaryData as ShiftSummary) : null;
     const isLoading = isShiftLoading || (currentShift ? isSummaryLoading : false);
     
     // Listen for real-time updates
@@ -169,7 +169,7 @@ export default function ShiftPage() {
             showLoading("กำลังปิดกะและคำนวณยอด...");
             setCloseModalVisible(false);
             const shift = await shiftsService.closeShift(endAmount);
-            const summaryData = await shiftsService.getSummary(shift.id);
+            const summaryData = (await shiftsService.getSummary(shift.id)) as ShiftSummary;
             
             setEndAmount(0);
             message.success("ปิดกะสำเร็จ!");
@@ -219,7 +219,7 @@ export default function ShiftPage() {
                                 <Divider style={{ margin: '8px 0' }} />
                                 <Text strong style={{ display: 'block', marginBottom: 8 }}>ยอดขายแยกตามวิธีชำระเงิน</Text>
                                 <Row gutter={16}>
-                                    {Object.entries(summaryData.summary.payment_methods || {}).map(([method, amount]: [string, any]) => (
+                                    {Object.entries(summaryData.summary.payment_methods || {}).map(([method, amount]) => (
                                         <Col span={8} key={method}>
                                             <Statistic 
                                                 title={method} 
@@ -264,7 +264,7 @@ export default function ShiftPage() {
                         
                         <Divider plain>จำนวนที่ขายได้แยกตามหมวดหมู่</Divider>
                         <div style={{ maxHeight: 200, overflow: 'auto' }}>
-                            {Object.entries(summaryData.categories).map(([cat, qty]: [string, any]) => (
+                            {Object.entries(summaryData.categories).map(([cat, qty]) => (
                                 <div key={cat} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
                                     <Text>{cat}:</Text>
                                     <Text strong>{qty} ชิ้น</Text>
@@ -397,7 +397,7 @@ export default function ShiftPage() {
                                             <Col xs={24} sm={12} md={8}>
                                                 <Statistic 
                                                     title="รวมจำนวนที่ขายได้" 
-                                                    value={Object.values(summary.categories).reduce((a: any, b: any) => a + b, 0) as number} 
+                                                    value={Object.values(summary.categories).reduce((a, b) => (Number(a) || 0) + (Number(b) || 0), 0) as number} 
                                                     suffix="ชิ้น"
                                                     valueStyle={{ fontWeight: 600 }}
                                                 />
@@ -421,7 +421,7 @@ export default function ShiftPage() {
                                                 <div style={{ marginTop: 24 }}>
                                                     <Text strong style={{ fontSize: 14, color: '#64748b', display: 'block', marginBottom: 16 }}>ยอดขายตามวิธีชำระเงิน</Text>
                                                     <Row gutter={[12, 12]}>
-                                                        {Object.entries(summary.summary.payment_methods || {}).map(([method, amount]: [string, any]) => {
+                                                        {Object.entries(summary.summary.payment_methods || {}).map(([method, amount]) => {
                                                             const getMethodColor = (name: string) => {
                                                                 if (name === 'เงินสด') return '#1890ff';
                                                                 if (name === 'พร้อมเพย์') return '#722ed1';
@@ -448,7 +448,7 @@ export default function ShiftPage() {
                                                     <Text strong style={{ fontSize: 14, color: '#64748b', display: 'block', marginBottom: 16 }}>สินค้าขายดี 5 อันดับแรก</Text>
                                                     <div style={{ background: '#f8fafc', borderRadius: 12, padding: 16 }}>
                                                         {summary.top_products.length > 0 ? (
-                                                            summary.top_products.map((item: any, index: number) => (
+                                                            summary.top_products.map((item, index) => (
                                                                 <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: index === 4 ? 0 : 12, paddingBottom: index === 4 ? 0 : 12, borderBottom: index === 4 ? 'none' : '1px solid #e2e8f0' }}>
                                                                     <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
                                                                         <div style={{ 
@@ -579,7 +579,7 @@ export default function ShiftPage() {
                 onCancel={() => setCloseModalVisible(false)}
                 onOk={handleCloseShift}
                 okText="ยืนยันปิดกะ"
-                okButtonProps={{ danger: true, size: 'large', height: 40 } as any}
+                okButtonProps={{ danger: true, size: 'large', style: { height: 40 } }}
                 cancelButtonProps={{ size: 'large', type: 'text' }}
                 cancelText="ยกเลิก"
                 width={500}

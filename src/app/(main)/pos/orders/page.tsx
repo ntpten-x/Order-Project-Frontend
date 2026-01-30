@@ -10,7 +10,7 @@ import {
   ContainerOutlined
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
-import { SalesOrder, SalesOrderSummary, OrderStatus, OrderType } from "@/types/api/pos/salesOrder";
+import { SalesOrderSummary, OrderStatus, OrderType } from "@/types/api/pos/salesOrder";
 import { 
   getOrderStatusColor, 
   getOrderStatusText, 
@@ -101,7 +101,7 @@ export default function POSOrdersPage() {
             title: 'โต๊ะ / รหัสอ้างอิง',
             key: 'reference',
             align: 'center' as const,
-            render: (_: any, record: SalesOrderSummary) => {
+            render: (_: unknown, record: SalesOrderSummary) => {
                 const ref = getOrderReference(record);
                 let color = 'default';
                 if (record.order_type === OrderType.DineIn) color = 'cyan';
@@ -114,7 +114,7 @@ export default function POSOrdersPage() {
             key: 'items_summary',
             width: 200,
             align: 'center' as const,
-            render: (_: any, record: SalesOrderSummary) => {
+            render: (_: unknown, record: SalesOrderSummary) => {
                 const summary = record.items_summary || {};
                 const totalQty = record.items_count || 0;
                 const entries = Object.entries(summary);
@@ -164,7 +164,7 @@ export default function POSOrdersPage() {
             title: 'จัดการ',
             key: 'action',
             align: 'center' as const,
-            render: (_: any, record: SalesOrderSummary) => (
+            render: (_: unknown, record: SalesOrderSummary) => (
                 <Button 
                     type="primary" 
                     icon={<EyeOutlined />} 

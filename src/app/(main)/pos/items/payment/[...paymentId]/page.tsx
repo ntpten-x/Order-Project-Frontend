@@ -2,8 +2,8 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Typography, Row, Col, Card, Button, Spin, Empty, Divider, message, InputNumber, Select, Tag, Avatar, Alert } from "antd";
-import { ArrowLeftOutlined, ShopOutlined, DollarOutlined, CreditCardOutlined, QrcodeOutlined, UndoOutlined, EditOutlined, UserOutlined, SettingOutlined } from "@ant-design/icons";
+import { Typography, Row, Col, Card, Button, Empty, Divider, message, InputNumber, Select, Tag, Avatar, Alert } from "antd";
+import { ArrowLeftOutlined, ShopOutlined, DollarOutlined, CreditCardOutlined, QrcodeOutlined, UndoOutlined, EditOutlined, SettingOutlined } from "@ant-design/icons";
 import { QRCodeSVG } from 'qrcode.react';
 import generatePayload from 'promptpay-qr';
 import { ordersService } from "@/services/pos/orders.service";
@@ -23,7 +23,7 @@ import { paymentPageStyles, paymentColors } from "@/theme/pos/payments.theme";
 import { calculatePaymentTotals, isCashMethod, isPromptPayMethod, quickCashAmounts, getPostCancelPaymentRedirect, getEditOrderRedirect, isPaymentMethodConfigured } from "@/utils/payments";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
-import { getOrderChannelText, getOrderReference, getOrderStatusColor, getOrderStatusText, getEditOrderNavigationPath, getCancelOrderNavigationPath, ConfirmationConfig, formatCurrency } from "@/utils/orders";
+import { getOrderChannelText, getOrderReference, getOrderStatusColor, getOrderStatusText, ConfirmationConfig, formatCurrency } from "@/utils/orders";
 import ConfirmationDialog from "@/components/dialog/ConfirmationDialog";
 import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 import { useSocket } from "@/hooks/useSocket";
@@ -110,7 +110,7 @@ export default function POSPaymentPage() {
                 setReceivedAmount(Number(orderData.total_amount));
             }
 
-        } catch (error) {
+        } catch {
             if (!silent) messageApi.error("ไม่สามารถโหลดข้อมูลการชำระเงินได้");
         } finally {
             if (!silent) {
@@ -171,7 +171,7 @@ export default function POSPaymentPage() {
             // Update received amount to match new total for convenience
             setReceivedAmount(Number(updatedOrder.total_amount));
 
-        } catch (error) {
+        } catch {
             messageApi.error("ไม่สามารถบันทึกส่วนลดได้");
         } finally {
             hideLoading();
@@ -242,7 +242,7 @@ export default function POSPaymentPage() {
                     messageApi.success("ชำระเงินเรียบร้อย");
                     router.push(`/pos/dashboard/${order!.id}`); // Go to order detail/dashboard
 
-                } catch (error) {
+                } catch {
                     messageApi.error("การชำระเงินล้มเหลว");
                 } finally {
                     hideLoading();
@@ -281,7 +281,7 @@ export default function POSPaymentPage() {
                     messageApi.success("ย้อนกลับไปแก้ไขออเดอร์เรียบร้อย");
                     router.push(getEditOrderRedirect(order.id));
 
-                } catch (error) {
+                } catch {
                     messageApi.error("ไม่สามารถเปลี่ยนสถานะออเดอร์ได้");
                 } finally {
                     hideLoading();
@@ -325,7 +325,7 @@ export default function POSPaymentPage() {
                     messageApi.success("ยกเลิกออเดอร์เรียบร้อย");
                     router.push(getPostCancelPaymentRedirect());
 
-                } catch (error) {
+                } catch {
                     messageApi.error("ไม่สามารถยกเลิกออเดอร์ได้");
                 } finally {
                     hideLoading();
@@ -427,7 +427,7 @@ export default function POSPaymentPage() {
                                                 )}
                                                 {item.details && item.details.length > 0 && (
                                                     <div style={{ marginTop: 2, display: 'flex', flexDirection: 'column', gap: 0 }}>
-                                                        {item.details.map((detail: any, dIdx: number) => (
+                                                        {item.details.map((detail: { detail_name: string; extra_price: number }, dIdx: number) => (
                                                             <div key={dIdx}>
                                                                 <Text style={{ color: '#10b981', fontSize: 12 }}>
                                                                     + {detail.detail_name} {Number(detail.extra_price) > 0 ? `(+${Number(detail.extra_price)})` : ''}

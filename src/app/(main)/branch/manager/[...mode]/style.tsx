@@ -4,8 +4,7 @@ import React from 'react';
 import { Button, Typography } from 'antd';
 import { 
     ArrowLeftOutlined,
-    DeleteOutlined,
-    ShopOutlined
+    DeleteOutlined
 } from '@ant-design/icons';
 import { CSSProperties } from 'react';
 

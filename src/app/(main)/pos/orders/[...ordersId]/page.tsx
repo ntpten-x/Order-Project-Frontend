@@ -27,7 +27,6 @@ import { orderDetailStyles, orderDetailColors, ordersResponsiveStyles, orderDeta
 import {
   calculateOrderTotal,
   getNonCancelledItems,
-  calculateItemExtras,
   getPostConfirmServeNavigationPath,
   getCancelOrderNavigationPath,
   ConfirmationConfig,
@@ -288,7 +287,7 @@ export default function POSOrderDetailsPage() {
         });
     };
 
-    const handleSaveEdit = async (itemId: string, quantity: number, notes: string, details: any[] = []) => {
+    const handleSaveEdit = async (itemId: string, quantity: number, notes: string, details: ItemDetailInput[] = []) => {
         try {
             setIsUpdating(true);
             showLoading("กำลังบันทึกข้อมูล...");
@@ -451,7 +450,6 @@ export default function POSOrderDetailsPage() {
             width: 110,
             align: 'center' as const,
             render: (_value: unknown, record: SalesOrderItem) => {
-                const extrasPrice = calculateItemExtras(record.details);
                 return (
                     <Space direction="vertical" size={0} align="center">
                         <Text style={{ ...orderDetailStyles.priceTag, fontSize: 18 }}>฿{Number(record.price).toLocaleString()}</Text>
@@ -586,7 +584,6 @@ export default function POSOrderDetailsPage() {
             width: 110,
             align: 'center' as const,
             render: (_value: unknown, record: SalesOrderItem) => {
-                const extrasPrice = calculateItemExtras(record.details);
                 return (
                     <Space direction="vertical" size={0} align="center">
                         <Text style={{...orderDetailStyles.priceTag, opacity: 0.7}}>฿{Number(record.price).toLocaleString()}</Text>
@@ -666,7 +663,7 @@ export default function POSOrderDetailsPage() {
         return 0;
     });
 
-    const nonCancelledItems = getNonCancelledItems(order.items) as any[];
+    const nonCancelledItems = getNonCancelledItems(order.items) as SalesOrderItem[];
     const calculatedTotal = calculateOrderTotal(order.items);
     const isOrderComplete = activeItems.length === 0 && (order.items?.length || 0) > 0;
     const shouldVirtualizeActive = activeItems.length > 12;
@@ -883,7 +880,7 @@ export default function POSOrderDetailsPage() {
                                                         <div style={{ paddingLeft: 24, marginTop: 2 }}>
                                                             {item.details && item.details.length > 0 && (
                                                                 <div style={{ fontSize: 12, color: orderDetailColors.served, marginBottom: 4 }}>
-                                                                    {item.details.map((d: any) => `${d.detail_name} (+ ฿${Number(d.extra_price).toLocaleString()})`).join(', ')}
+                                                                    {item.details.map((d: { detail_name: string; extra_price: number }) => `${d.detail_name} (+ ฿${Number(d.extra_price).toLocaleString()})`).join(', ')}
                                                                 </div>
                                                             )}
                                                             <Space direction="vertical" size={2}>
@@ -990,11 +987,14 @@ export default function POSOrderDetailsPage() {
                                                     {/* Product Image */}
                                                     <div style={{ flexShrink: 0 }}>
                                                         {item.product?.img_url ? (
-                                                            <img
-                                                                src={item.product.img_url}
-                                                                alt={item.product?.display_name ?? "สินค้า"}
-                                                                style={{...orderDetailStyles.productThumb, width: 50, height: 50, opacity: 0.7}}
-                                                            />
+                                                            <>
+                                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                <img
+                                                                    src={item.product.img_url}
+                                                                    alt={item.product?.display_name ?? "สินค้า"}
+                                                                    style={{...orderDetailStyles.productThumb, width: 50, height: 50, opacity: 0.7}}
+                                                                />
+                                                            </>
                                                         ) : (
                                                             <div style={{...orderDetailStyles.productThumbPlaceholder, width: 50, height: 50}}><ShopOutlined /></div>
                                                         )}
@@ -1019,7 +1019,7 @@ export default function POSOrderDetailsPage() {
                                                                 </div>
                                                                 {item.details && item.details.length > 0 && (
                                                                     <div style={{ fontSize: 12, color: orderDetailColors.served, opacity: 0.7, marginBottom: 4 }}>
-                                                                        {item.details.map((d: any) => `${d.detail_name} (+ ฿${Number(d.extra_price).toLocaleString()})`).join(', ')}
+                                                                        {item.details.map((d: { detail_name: string; extra_price: number }) => `${d.detail_name} (+ ฿${Number(d.extra_price).toLocaleString()})`).join(', ')}
                                                                     </div>
                                                                 )}
                                                                 <Space direction="vertical" size={2} style={{ marginTop: 4, width: '100%' }}>
@@ -1083,11 +1083,14 @@ export default function POSOrderDetailsPage() {
                                     <div key={item.id || index} style={orderDetailStyles.summaryItemRow}>
                                         {/* Product Image */}
                                         {item.product?.img_url ? (
-                                            <img 
-                                                src={item.product.img_url} 
-                                                alt={item.product?.display_name || 'สินค้า'} 
-                                                style={orderDetailStyles.summaryItemImage} 
-                                            />
+                                            <>
+                                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                <img 
+                                                    src={item.product.img_url} 
+                                                    alt={item.product?.display_name || 'สินค้า'} 
+                                                    style={orderDetailStyles.summaryItemImage} 
+                                                />
+                                            </>
                                         ) : (
                                             <div style={{ ...orderDetailStyles.summaryItemImage, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
                                                 <ShopOutlined style={{ fontSize: 16, color: '#bfbfbf' }} />
@@ -1107,7 +1110,7 @@ export default function POSOrderDetailsPage() {
 
                                             {item.details && item.details.length > 0 && (
                                                 <div style={orderDetailStyles.summaryDetailText}>
-                                                    <PlusOutlined style={{ fontSize: 10 }} /> {item.details.map((d: any) => `${d.detail_name} (+${Number(d.extra_price).toLocaleString()})`).join(', ')}
+                                                    <PlusOutlined style={{ fontSize: 10 }} /> {item.details.map((d: { detail_name: string; extra_price: number }) => `${d.detail_name} (+${Number(d.extra_price).toLocaleString()})`).join(', ')}
                                                 </div>
                                             )}
                                             

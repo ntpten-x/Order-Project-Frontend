@@ -8,7 +8,7 @@ import { useCart } from "../../contexts/pos/CartContext";
 import { ordersService } from "../../services/pos/orders.service";
 import { createOrderPayload } from "../../utils/orders";
 import { getPostCreateOrderNavigationPath } from "../../utils/channels";
-import { OrderType } from "../../types/api/pos/salesOrder";
+import { OrderType, CreateSalesOrderDTO } from "../../types/api/pos/salesOrder";
 import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 import POSPageLayout from "./shared/POSPageLayout";
 import { getCsrfTokenCached } from "@/utils/pos/csrf";
@@ -30,7 +30,7 @@ export default function POSTakeAway({ queueNumber }: POSTakeAwayProps) {
              hideLoading();
         };
         init();
-    }, []);
+    }, [showLoading, hideLoading]);
 
     const { 
         cartItems, 
@@ -68,7 +68,7 @@ export default function POSTakeAway({ queueNumber }: POSTakeAwayProps) {
             );
             
             
-            await ordersService.create(orderPayload as any, undefined, csrfToken);
+            await ordersService.create(orderPayload as unknown as CreateSalesOrderDTO, undefined, csrfToken);
 
             message.success("สร้างออเดอร์เรียบร้อยแล้ว");
             

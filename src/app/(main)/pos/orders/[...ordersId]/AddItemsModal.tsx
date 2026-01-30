@@ -1,13 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { Modal, Input, Button, List, Typography, Space, Tag, Empty, Grid, Divider, message, InputNumber } from 'antd';
+import { Modal, Input, Button, Typography, Empty, Divider, message, InputNumber } from 'antd';
 import { 
     SearchOutlined, 
     PlusOutlined, 
     MinusOutlined, 
     ShoppingCartOutlined,
     ArrowLeftOutlined,
-    CheckOutlined,
     CloseOutlined,
     DeleteOutlined
 } from '@ant-design/icons';
@@ -15,12 +14,12 @@ import { categoryService } from '@/services/pos/category.service';
 import { productsService } from '@/services/pos/products.service';
 import { Category } from '@/types/api/pos/category';
 import { Products } from '@/types/api/pos/products';
-import { orderDetailStyles, orderDetailColors, modalStyles, addItemsModalStyles, ordersResponsiveStyles } from '@/theme/pos/orders/style';
+import { orderDetailColors, modalStyles, addItemsModalStyles, ordersResponsiveStyles } from '@/theme/pos/orders/style';
 import { formatCurrency, calculateItemTotal } from "@/utils/orders";
 import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 
 const { Text, Title } = Typography;
-const { useBreakpoint } = Grid;
+
 
 type ItemDetailInput = {
     detail_name: string;

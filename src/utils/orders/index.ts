@@ -1,4 +1,3 @@
-import React from 'react';
 import { OrderStatus, OrderType, SalesOrder, SalesOrderSummary } from '../../types/api/pos/salesOrder';
 import { Tables, TableStatus } from '../../types/api/pos/tables';
 import { DialogType } from '../../components/dialog/ConfirmationDialog';
@@ -20,6 +19,11 @@ export interface ConfirmationConfig {
  * @param table - The table object
  * @returns The navigation path string
  */
+// Local interface to handle loaded relationships that might not be in the base type
+interface TableWithActiveOrder extends Tables {
+    active_order?: { id: string; status: OrderStatus };
+}
+
 export const getTableNavigationPath = (table: Tables): string => {
     // 1. Available -> Go to Table Detail Page (New Order)
     if (table.status === TableStatus.Available) {
@@ -27,8 +31,8 @@ export const getTableNavigationPath = (table: Tables): string => {
     }
 
     // 2. Unavailable -> Check Active Order
-    const activeOrderId = table.active_order_id || (table as any).active_order?.id;
-    const activeOrderStatus = table.active_order_status || (table as any).active_order?.status;
+    const activeOrderId = table.active_order_id || (table as TableWithActiveOrder).active_order?.id;
+    const activeOrderStatus = table.active_order_status || (table as TableWithActiveOrder).active_order?.status;
 
     if (activeOrderId) {
         // If Waiting For Payment -> Go to Payment Page
@@ -278,12 +282,28 @@ export const getOrderNavigationPath = (order: SalesOrder | SalesOrderSummary): s
  * @param orderType - The type of order that was cancelled
  * @returns The target navigation path
  */
-export const getCancelOrderNavigationPath = (orderType: string): string => {
+export const getCancelOrderNavigationPath = (orderType?: string): string => {
+    if (orderType === OrderType.Delivery) {
+        return '/pos/channels/delivery';
+    }
+    if (orderType === OrderType.TakeAway) {
+        return '/pos/channels/takeaway';
+    }
+    if (orderType === OrderType.DineIn) {
+        return '/pos/channels/dine-in';
+    }
     return '/pos/channels';
 };
 
+interface CartItemInput {
+    product: { id: string; price: number | string };
+    quantity: number;
+    notes?: string;
+    details?: { detail_name: string; extra_price: number | string }[];
+}
+
 export const createOrderPayload = (
-    cartItems: any[],
+    cartItems: CartItemInput[],
     orderType: OrderType,
     totals: { subTotal: number; discountAmount: number; totalAmount: number },
     options: {
@@ -312,7 +332,7 @@ export const createOrderPayload = (
         delivery_code: options.deliveryCode || null,
         items: cartItems.map(item => {
             const productPrice = Number(item.product.price);
-            const detailsPrice = (item.details || []).reduce((sum: number, d: any) => sum + Number(d.extra_price), 0);
+            const detailsPrice = (item.details || []).reduce((sum: number, d) => sum + Number(d.extra_price), 0);
             const totalPrice = (productPrice + detailsPrice) * item.quantity;
 
             return {

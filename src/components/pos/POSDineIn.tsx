@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { message, Spin } from "antd";
+import { message } from "antd";
 import { ShopOutlined } from "@ant-design/icons";
 import { useCart } from "@/contexts/pos/CartContext";
 import { tablesService } from "@/services/pos/tables.service";
@@ -40,7 +40,7 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
 
                 if (token) setCsrfToken(token);
                 if (table) setTableName(table.table_name);
-            } catch (error) {
+            } catch {
                 message.error("ไม่สามารถโหลดข้อมูลโต๊ะได้");
             } finally {
                 hideLoading();
@@ -48,7 +48,7 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
         };
         
         initData();
-    }, [tableId]);
+    }, [tableId, showLoading, hideLoading]);
 
     // Context State
     const { 

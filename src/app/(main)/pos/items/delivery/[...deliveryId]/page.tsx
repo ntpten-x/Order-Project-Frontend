@@ -2,8 +2,8 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Typography, Row, Col, Card, Button, Spin, Empty, Divider, message, Tag, Avatar, Space, Alert } from "antd";
-import { ArrowLeftOutlined, ShopOutlined, RocketOutlined, CheckCircleOutlined, UserOutlined, EditOutlined, InfoCircleOutlined } from "@ant-design/icons";
+import { Typography, Row, Col, Card, Button, Empty, Divider, message, Tag, Avatar, Space, Alert } from "antd";
+import { ArrowLeftOutlined, ShopOutlined, RocketOutlined, CheckCircleOutlined, EditOutlined, InfoCircleOutlined } from "@ant-design/icons";
 import { ordersService } from "@/services/pos/orders.service";
 import { paymentMethodService } from "@/services/pos/paymentMethod.service";
 import { paymentsService } from "@/services/pos/payments.service";
@@ -14,7 +14,7 @@ import { paymentPageStyles, paymentColors } from "@/theme/pos/payments.theme";
 import { calculatePaymentTotals } from "@/utils/payments";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
-import { getOrderChannelText, getOrderReference, getOrderStatusColor, getOrderStatusText, getEditOrderNavigationPath, getCancelOrderNavigationPath, ConfirmationConfig, formatCurrency } from "@/utils/orders";
+import { getOrderStatusColor, getOrderStatusText, getEditOrderNavigationPath, getCancelOrderNavigationPath, ConfirmationConfig, formatCurrency } from "@/utils/orders";
 import ConfirmationDialog from "@/components/dialog/ConfirmationDialog";
 import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 import { useSocket } from "@/hooks/useSocket";
@@ -70,7 +70,7 @@ export default function POSDeliverySummaryPage() {
 
             setOrder(orderData);
             setHasDeliveryMethod(!!deliveryMethod);
-        } catch (error) {
+        } catch {
             messageApi.error("ไม่สามารถโหลดข้อมูลออเดอร์ได้");
         } finally {
             setIsLoading(false);
@@ -145,7 +145,7 @@ export default function POSDeliverySummaryPage() {
                     // Navigate to success/dashboard
                     router.push(`/pos/dashboard/${order.id}`);
 
-                } catch (error) {
+                } catch {
                     messageApi.error("เกิดข้อผิดพลาดในการส่งมอบ");
                 } finally {
                     hideLoading();
@@ -182,7 +182,7 @@ export default function POSDeliverySummaryPage() {
                     messageApi.success("ย้อนกลับไปแก้ไขออเดอร์เรียบร้อย");
                     router.push(getEditOrderNavigationPath(order.id));
 
-                } catch (error) {
+                } catch {
                     messageApi.error("ไม่สามารถเปลี่ยนสถานะออเดอร์ได้");
                 } finally {
                     hideLoading();
@@ -219,7 +219,7 @@ export default function POSDeliverySummaryPage() {
                     messageApi.success("ยกเลิกออเดอร์เรียบร้อย");
                     router.push(getCancelOrderNavigationPath(order.order_type));
 
-                } catch (error) {
+                } catch {
                     messageApi.error("ไม่สามารถยกเลิกออเดอร์ได้");
                 } finally {
                     hideLoading();

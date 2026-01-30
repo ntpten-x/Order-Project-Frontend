@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Modal, Input, Button, Typography, Space, Divider, InputNumber, Tag } from 'antd';
+import Image from 'next/image';
 import { PlusOutlined, MinusOutlined, SaveOutlined, CloseOutlined, InfoCircleOutlined, DeleteOutlined } from '@ant-design/icons';
 import { SalesOrderItem } from '@/types/api/pos/salesOrderItem';
-import { SalesOrderDetail } from '@/types/api/pos/salesOrderDetail';
-import { orderDetailStyles, orderDetailColors, modalStyles } from '@/theme/pos/orders/style';
+import { orderDetailColors, modalStyles } from '@/theme/pos/orders/style';
 import { calculateItemTotal, formatCurrency } from '@/utils/orders';
 import { useGlobalLoading } from '@/contexts/pos/GlobalLoadingContext';
 
@@ -14,13 +14,13 @@ interface EditItemModalProps {
     item: SalesOrderItem | null;
     isOpen: boolean;
     onClose: () => void;
-    onSave: (itemId: string, quantity: number, notes: string, details: any[]) => Promise<void>;
+    onSave: (itemId: string, quantity: number, notes: string, details: { detail_name: string; extra_price: number }[]) => Promise<void>;
 }
 
 export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onClose, onSave }) => {
     const [quantity, setQuantity] = useState(1);
     const [notes, setNotes] = useState('');
-    const [details, setDetails] = useState<any[]>([]);
+    const [details, setDetails] = useState<{ detail_name: string; extra_price: number }[]>([]);
     const { showLoading, hideLoading } = useGlobalLoading();
 
     useEffect(() => {
@@ -60,7 +60,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
         setDetails(details.filter((_, i) => i !== index));
     };
 
-    const handleUpdateDetail = (index: number, field: string, value: any) => {
+    const handleUpdateDetail = (index: number, field: string, value: string | number) => {
         const newDetails = [...details];
         newDetails[index] = { ...newDetails[index], [field]: value };
         setDetails(newDetails);
@@ -103,10 +103,12 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                 <div style={{ display: 'flex', gap: 16, marginBottom: 20, alignItems: 'center' }}>
                     <div style={{ flexShrink: 0 }}>
                         {item.product?.img_url ? (
-                            <img
+                            <Image
                                 src={item.product.img_url}
                                 alt={item.product?.display_name ?? "สินค้า"}
-                                style={{ width: 80, height: 80, borderRadius: 12, objectFit: 'cover', border: `1px solid ${orderDetailColors.border}` }}
+                                width={80}
+                                height={80}
+                                style={{ borderRadius: 12, objectFit: 'cover', border: `1px solid ${orderDetailColors.border}` }}
                             />
                         ) : (
                             <div style={{ width: 80, height: 80, borderRadius: 12, background: orderDetailColors.backgroundSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

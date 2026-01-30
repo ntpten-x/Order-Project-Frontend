@@ -2,7 +2,7 @@
 
 import { Button, Result, ConfigProvider } from 'antd';
 import th_TH from 'antd/locale/th_TH';
-import { Inter, Kanit } from "next/font/google"; // Assuming these fonts are used in layout
+import { Kanit } from "next/font/google"; // Assuming these fonts are used in layout
 import "./globals.css"; // Ensure Tailwind is available if possible, though global-error replaces layout
 
 // Re-defining basic font styles in case layout is broken

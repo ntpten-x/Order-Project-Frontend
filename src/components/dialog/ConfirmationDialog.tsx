@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Typography, Button, Space } from 'antd';
+import { Modal, Typography, Button } from 'antd';
 import { 
     QuestionCircleOutlined, 
     ExclamationCircleOutlined, 

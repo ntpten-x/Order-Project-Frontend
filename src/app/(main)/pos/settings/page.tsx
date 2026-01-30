@@ -32,7 +32,7 @@ export default function POSSettingsPage() {
             setAccounts(accountsList);
             const active = accountsList.find(acc => acc.is_active);
             setActiveAccount(active || null);
-        } catch (error) {
+        } catch {
             message.error("ไม่สามารถดึงข้อมูลบัญชีได้");
         } finally {
             if (!silent) setLoading(false);
@@ -64,7 +64,7 @@ export default function POSSettingsPage() {
             await paymentAccountService.activate(id, undefined, undefined, csrfToken);
             message.success("เปลี่ยนบัญชีรับเงินหลักสำเร็จ");
             await fetchData(true); // Silent refresh to sync all state
-        } catch (error) {
+        } catch {
             message.error("ไม่สามารถเปลี่ยนบัญชีได้");
             await fetchData(true); // Rollback on error
         } finally {

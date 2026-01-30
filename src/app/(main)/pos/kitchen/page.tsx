@@ -2,22 +2,20 @@
 
 import React, { useEffect, useState, useContext, useMemo } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Typography, Card, Button, Row, Col, Tag, Badge, Empty, Spin, Switch, message, Space, Tooltip, Divider } from "antd";
+import { Typography, Button, Row, Col, Tag, Badge, Empty, Spin, Switch, message, Space, Tooltip, Divider } from "antd";
 import { 
     CheckOutlined, 
     ClockCircleOutlined, 
     FireOutlined, 
     SoundOutlined, 
-    ReloadOutlined, 
-    AppstoreOutlined,
-    NotificationOutlined,
+    ReloadOutlined,
     ThunderboltOutlined,
     DoubleRightOutlined
 } from "@ant-design/icons";
 import { SocketContext } from "../../../../contexts/SocketContext";
 import { ordersService } from "../../../../services/pos/orders.service";
 import { SalesOrderItem, ItemStatus } from "../../../../types/api/pos/salesOrderItem";
-import { posPageStyles, posColors } from "@/theme/pos";
+import { posPageStyles } from "@/theme/pos";
 import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
 import { getCsrfTokenCached } from "@/utils/pos/csrf";
 import dayjs from "dayjs";
@@ -119,7 +117,7 @@ export default function KitchenDisplayPage() {
     useEffect(() => {
         if (!socket) return;
 
-        const handleOrderCreate = (newOrder: any) => {
+        const handleOrderCreate = (newOrder: { order_no: string }) => {
             refetch();
             if (soundEnabled) {
                 playNotificationSound();

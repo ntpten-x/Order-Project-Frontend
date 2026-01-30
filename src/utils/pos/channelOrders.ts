@@ -79,13 +79,13 @@ export function useChannelOrders({
                 if (!silent) setIsLoading(false);
             }
         },
-        [enabled, limit, orderType, page]
+        [enabled, limit, orderType, page, statusFilter]
     );
 
     useEffect(() => {
         if (!enabled) return;
         fetchOrders(false);
-    }, [enabled, fetchOrders]);
+    }, [enabled, fetchOrders, statusFilter]);
 
     useRealtimeRefresh({
         socket,

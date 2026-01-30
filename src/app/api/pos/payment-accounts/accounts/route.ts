@@ -28,9 +28,9 @@ export async function GET(request: NextRequest) {
 
         const data = await response.json();
         return NextResponse.json(data);
-    } catch (error: any) {
-        console.error("[API Proxy] Proxy Execution Error (GET):", error.message);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        console.error("[API Proxy] Proxy Execution Error (GET):", (error as Error).message);
+        return NextResponse.json({ error: (error as Error).message }, { status: 500 });
     }
 }
 
@@ -61,8 +61,8 @@ export async function POST(request: NextRequest) {
 
         const data = await response.json();
         return NextResponse.json(data);
-    } catch (error: any) {
-        console.error("[API Proxy] Proxy Execution Error (POST):", error.message);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        console.error("[API Proxy] Proxy Execution Error (POST):", (error as Error).message);
+        return NextResponse.json({ error: (error as Error).message }, { status: 500 });
     }
 }

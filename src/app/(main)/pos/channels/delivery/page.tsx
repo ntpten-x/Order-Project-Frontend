@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Typography, Row, Col, Empty, Modal, Input, message, Button, Select, Space } from "antd";
+import { Typography, Row, Col, Empty, Modal, Input, message, Button, Select } from "antd";
 import { RocketOutlined, PlusOutlined, ArrowLeftOutlined } from "@ant-design/icons";
 import { useDelivery } from "../../../../../hooks/pos/useDelivery";
 import { OrderType, SalesOrderSummary } from "../../../../../types/api/pos/salesOrder";
@@ -219,7 +219,7 @@ export default function DeliverySelectionPage() {
                             description={
                                 <div style={{ marginTop: 16 }}>
                                     <Title level={4} style={{ marginBottom: 8 }}>ไม่มีออเดอร์เดลิเวอรี่</Title>
-                                    <Text type="secondary">เริ่มรับออเดอร์โดยกดปุ่ม "เพิ่มออเดอร์"</Text>
+                                    <Text type="secondary">เริ่มรับออเดอร์โดยกดปุ่ม &quot;เพิ่มออเดอร์&quot;</Text>
                                 </div>
                             } 
                         />

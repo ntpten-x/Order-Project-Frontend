@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Button, Typography, Modal, Spin, App } from 'antd';
+import { Button, App, Typography, Spin } from 'antd';
 import { ShopOutlined } from '@ant-design/icons';
 import { Branch } from "../../../types/api/branch";
 import { useRouter } from 'next/navigation';
@@ -44,7 +44,7 @@ export default function BranchPage() {
         }
         fetchBranches();
     }
-  }, [user, authLoading, router, fetchBranches]);
+  }, [user, authLoading, router, fetchBranches, message]);
   
   const handleAdd = () => {
     showLoading();
@@ -70,7 +70,7 @@ export default function BranchPage() {
                 await branchService.delete(branch.id, undefined, csrfToken);
                 message.success(`ลบสาขา "${branch.branch_name}" สำเร็จ`);
                 fetchBranches();
-            } catch (error) {
+            } catch {
                 message.error('ไม่สามารถลบสาขาได้');
             }
         },

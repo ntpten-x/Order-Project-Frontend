@@ -21,7 +21,7 @@ export function useChannelStats() {
     const queryClient = useQueryClient();
 
     // Fetch initial data, disable auto-polling (rely on socket)
-    const { data, error, isLoading, refetch } = useQuery<ChannelStats>({
+    const { data, error, isLoading } = useQuery<ChannelStats>({
         queryKey: ['channelStats'],
         queryFn: async () => {
             return await ordersService.getStats();

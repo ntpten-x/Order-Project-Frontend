@@ -62,7 +62,7 @@ export const shiftsService = {
         return response.json();
     },
 
-    getCurrentSummary: async (): Promise<any> => {
+    getCurrentSummary: async (): Promise<unknown> => {
         const response = await fetch("/api/pos/shifts/current/summary", {
             method: "GET",
             headers: { "Content-Type": "application/json" },
@@ -76,7 +76,7 @@ export const shiftsService = {
         return response.json();
     },
 
-    getSummary: async (id: string): Promise<any> => {
+    getSummary: async (id: string): Promise<unknown> => {
         const response = await fetch(`/api/pos/shifts/summary/${id}`, {
             method: "GET",
             headers: { "Content-Type": "application/json" },

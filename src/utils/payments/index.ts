@@ -1,5 +1,5 @@
 import { SalesOrder } from '../../types/api/pos/salesOrder';
-import { Discounts } from '../../types/api/pos/discounts';
+
 
 /**
  * Calculate totals for an order including discount, vat, and change.

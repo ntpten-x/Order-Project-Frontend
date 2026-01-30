@@ -46,7 +46,7 @@ export default function DashboardPage() {
             setSalesData(salesRes);
             setTopItems(itemsRes);
             setRecentOrders(ordersRes.data || []);
-        } catch (error) {
+        } catch {
             // Silent failure for dashboard data
         } finally {
             if (!silent) setIsLoading(false);

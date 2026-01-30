@@ -29,9 +29,9 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
 
         const data = await response.json();
         return NextResponse.json(data);
-    } catch (error: any) {
-        console.error("[API Proxy] Proxy Execution Error (PUT):", error.message);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        console.error("[API Proxy] Proxy Execution Error (PUT):", (error as Error).message);
+        return NextResponse.json({ error: (error as Error).message }, { status: 500 });
     }
 }
 
@@ -60,8 +60,8 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
         }
 
         return new NextResponse(null, { status: 204 });
-    } catch (error: any) {
-        console.error("[API Proxy] Proxy Execution Error (DELETE):", error.message);
-        return NextResponse.json({ error: error.message }, { status: 500 });
+    } catch (error: unknown) {
+        console.error("[API Proxy] Proxy Execution Error (DELETE):", (error as Error).message);
+        return NextResponse.json({ error: (error as Error).message }, { status: 500 });
     }
 }

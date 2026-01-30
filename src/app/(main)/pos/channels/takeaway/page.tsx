@@ -204,7 +204,7 @@ export default function TakeawayPage() {
                             description={
                                 <div style={{ marginTop: 16 }}>
                                     <Title level={4} style={{ marginBottom: 8 }}>ไม่มีออเดอร์ในขณะนี้</Title>
-                                    <Text type="secondary">เริ่มรับออเดอร์สั่งกลับบ้านโดยกดปุ่ม "เพิ่มออเดอร์"</Text>
+                                    <Text type="secondary">เริ่มรับออเดอร์สั่งกลับบ้านโดยกดปุ่ม &quot;เพิ่มออเดอร์&quot;</Text>
                                 </div>
                             } 
                         />
