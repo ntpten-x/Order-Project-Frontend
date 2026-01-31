@@ -3,6 +3,7 @@
 import { usePathname } from "next/navigation";
 import React, { useEffect } from "react";
 import { useGlobalLoading } from "../contexts/pos/GlobalLoadingContext";
+import { useNetworkInterceptors } from "../hooks/useNetworkInterceptors";
 
 interface ClientLayoutProps {
   children: React.ReactNode;
@@ -11,6 +12,7 @@ interface ClientLayoutProps {
 const ClientLayout: React.FC<ClientLayoutProps> = ({ children }) => {
   const pathname = usePathname();
   const { resetLoading } = useGlobalLoading();
+  useNetworkInterceptors();
 
   useEffect(() => {
     resetLoading();

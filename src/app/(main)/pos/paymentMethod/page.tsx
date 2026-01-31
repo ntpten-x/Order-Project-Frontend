@@ -22,6 +22,7 @@ import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
 import { paymentMethodService } from "../../../../services/pos/paymentMethod.service";
 import { pageStyles, globalStyles } from '../../../../theme/pos/paymentMethod/style';
+import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 
 const { Text, Title } = Typography;
 
@@ -314,7 +315,7 @@ export default function PaymentMethodPage() {
     const [total, setTotal] = useState(0);
     const [lastPage, setLastPage] = useState(1);
     const [searchValue, setSearchValue] = useState("");
-    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const debouncedSearch = useDebouncedValue(searchValue.trim(), 400);
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
@@ -325,12 +326,8 @@ export default function PaymentMethodPage() {
         getCsrfTokenCached();
     }, []);
     useEffect(() => {
-        const handler = setTimeout(() => {
-            setDebouncedSearch(searchValue.trim());
-            setPage(1);
-        }, 400);
-        return () => clearTimeout(handler);
-    }, [searchValue]);
+        setPage(1);
+    }, [debouncedSearch]);
 
     useEffect(() => {
         if (debouncedSearch || page !== 1) return;

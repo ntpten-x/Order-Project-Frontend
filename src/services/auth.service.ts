@@ -74,15 +74,18 @@ export const authService = {
         }
     },
 
-    getMe: async (token: string): Promise<User> => {
+    getMe: async (token?: string): Promise<User> => {
         try {
             const url = getProxyUrl("GET", API_ROUTES.AUTH.ME);
+            const headers: Record<string, string> = {
+                "Content-Type": "application/json"
+            };
+            if (token) {
+                headers["Authorization"] = `Bearer ${token}`;
+            }
             const response = await fetch(url!, {
                 method: "GET",
-                headers: {
-                    "Authorization": `Bearer ${token}`,
-                    "Content-Type": "application/json"
-                },
+                headers,
                 credentials: 'include',
                 cache: "no-store",
             });

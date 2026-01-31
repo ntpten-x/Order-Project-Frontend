@@ -13,17 +13,23 @@ import {
     BranchCard 
 } from './style';
 import { useGlobalLoading } from "../../../contexts/pos/GlobalLoadingContext";
+import { useSocket } from "../../../hooks/useSocket";
+import { useRealtimeList } from "../../../utils/pos/realtime";
 import { useAuth } from "../../../contexts/AuthContext";
 import { branchService } from "../../../services/branch.service";
 import { getCsrfTokenCached } from '../../../utils/pos/csrf';
 import { useAsyncAction } from "../../../hooks/useAsyncAction";
+import { readCache, writeCache } from "../../../utils/pos/cache";
 
 const { Title, Text } = Typography;
+const BRANCH_CACHE_KEY = "pos:branches";
+const BRANCH_CACHE_TTL = 5 * 60 * 1000;
 
 export default function BranchPage() {
   const router = useRouter();
   const [branches, setBranches] = useState<Branch[]>([]);
   const { showLoading, hideLoading } = useGlobalLoading();
+  const { socket } = useSocket();
   const { user, loading: authLoading } = useAuth();
   const { message, modal } = App.useApp();
   const { execute } = useAsyncAction();
@@ -34,6 +40,27 @@ export default function BranchPage() {
       setBranches(data);
     }, 'กำลังโหลดข้อมูลสาขา...');
   }, [execute]);
+
+  useRealtimeList(
+    socket,
+    { create: "branches:create", update: "branches:update", delete: "branches:delete" },
+    setBranches,
+    (item) => item.id,
+    (item) => item.is_active !== false
+  );
+
+  useEffect(() => {
+    const cached = readCache<Branch[]>(BRANCH_CACHE_KEY, BRANCH_CACHE_TTL);
+    if (cached?.length) {
+      setBranches(cached);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (branches.length > 0) {
+      writeCache(BRANCH_CACHE_KEY, branches);
+    }
+  }, [branches]);
 
   useEffect(() => {
     if (!authLoading && user) {
@@ -144,3 +171,4 @@ export default function BranchPage() {
     </div>
   );
 }
+

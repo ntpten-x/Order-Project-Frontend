@@ -10,7 +10,6 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(roles);
     } catch (error: unknown) {
         console.error("API Error fetching roles:", error);
-        console.error("Backend URL used:", process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:3000");
         return NextResponse.json({ error: (error as Error).message || "Internal Server Error" }, { status: 500 });
     }
 }
