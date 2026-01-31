@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef } from "react";
 import { message } from "antd";
 import { useRouter } from "next/navigation";
-import { useAuth } from "@/contexts/AuthContext";
-import type { User } from "@/types/api/auth";
+import { useAuth } from "../../contexts/AuthContext";
+import type { User } from "../../types/api/auth";
 
 export type AccessStatus = "checking" | "authorized" | "unauthenticated" | "unauthorized";
 

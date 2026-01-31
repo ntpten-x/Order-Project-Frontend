@@ -1,4 +1,4 @@
-import { authService } from "@/services/auth.service";
+import { authService } from "../../services/auth.service";
 
 const CSRF_CACHE_TTL_MS = 10 * 60 * 1000;
 

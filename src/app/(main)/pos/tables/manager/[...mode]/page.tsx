@@ -12,9 +12,9 @@ import {
     ActionButtons
 } from './style';
 
-import { getCsrfTokenCached } from "@/utils/pos/csrf";
-import { useRoleGuard } from "@/utils/pos/accessControl";
-import { AccessGuardFallback } from "@/components/pos/AccessGuard";
+import { getCsrfTokenCached } from "../../../../../../utils/pos/csrf";
+import { useRoleGuard } from "../../../../../../utils/pos/accessControl";
+import { AccessGuardFallback } from "../../../../../../components/pos/AccessGuard";
 import { tablesService } from '../../../../../../services/pos/tables.service';
 
 export default function TablesManagePage({ params }: { params: { mode: string[] } }) {

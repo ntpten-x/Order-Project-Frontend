@@ -10,14 +10,14 @@ import { SalesOrder, OrderStatus, OrderType } from "../../../../../types/api/pos
 import { SalesOrderItem } from "../../../../../types/api/pos/salesOrderItem";
 import { Payments } from "../../../../../types/api/pos/payments";
 import { PaymentMethod } from "../../../../../types/api/pos/paymentMethod";
-import { posPageStyles, posColors } from "@/theme/pos";
+import { posPageStyles, posColors } from "../../../../../theme/pos";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import ReceiptTemplate from "../../../../../components/pos/shared/ReceiptTemplate";
 import { sortOrderItems, getItemRowStyle, getStatusTextStyle } from "../../../../../utils/dashboard/orderUtils";
 import { ItemStatus } from "../../../../../types/api/pos/salesOrderItem";
-import { useSocket } from "@/hooks/useSocket";
-import { useRealtimeRefresh } from "@/utils/pos/realtime";
+import { useSocket } from "../../../../../hooks/useSocket";
+import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');

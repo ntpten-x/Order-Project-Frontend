@@ -4,14 +4,14 @@ import React, { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Typography, Row, Col } from "antd";
 import { ShopOutlined, ShoppingOutlined, RocketOutlined } from "@ant-design/icons";
-import { channelColors } from "@/theme/pos";
-import { channelsStyles } from "@/theme/pos/channels/style";
-import { POSGlobalStyles } from "@/theme/pos/GlobalStyles";
+import { channelColors } from "../../../../theme/pos";
+import { channelsStyles } from "../../../../theme/pos/channels/style";
+import { POSGlobalStyles } from "../../../../theme/pos/GlobalStyles";
 import { 
   useChannelStats,
   formatOrderCount
 } from "../../../../utils/channels/channelStats.utils";
-import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
+import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
 
 const { Title, Text } = Typography;
 

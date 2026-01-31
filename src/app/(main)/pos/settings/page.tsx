@@ -5,13 +5,13 @@ import { Typography, Card, Button, Spin, Divider, Row, Col, App, Tag, Select, Sp
 import { SettingOutlined, BankOutlined, CheckCircleOutlined, PlusOutlined, QrcodeOutlined } from "@ant-design/icons";
 import { paymentAccountService } from "../../../../services/pos/paymentAccount.service";
 import { ShopPaymentAccount } from "../../../../types/api/pos/shopPaymentAccount";
-import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
-import { pageStyles } from "@/theme/pos/settings/style";
-import { getCsrfTokenCached } from "@/utils/pos/csrf";
-import { useSocket } from "@/hooks/useSocket";
-import { useRealtimeRefresh } from "@/utils/pos/realtime";
-import { useRoleGuard } from "@/utils/pos/accessControl";
-import { AccessGuardFallback } from "@/components/pos/AccessGuard";
+import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
+import { pageStyles } from "../../../../theme/pos/settings/style";
+import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
+import { useSocket } from "../../../../hooks/useSocket";
+import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
+import { useRoleGuard } from "../../../../utils/pos/accessControl";
+import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
 
 const { Title, Text } = Typography;
 const { Option } = Select;

@@ -1,6 +1,6 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
-import { ordersService } from "@/services/pos/orders.service";
-import { SalesOrderSummary } from "@/types/api/pos/salesOrder";
+import { ordersService } from "../../services/pos/orders.service";
+import { SalesOrderSummary } from "../../types/api/pos/salesOrder";
 
 interface OrdersSummaryResponse {
     data: SalesOrderSummary[];

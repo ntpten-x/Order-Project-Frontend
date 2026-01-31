@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authService } from "@/services/auth.service";
+import { authService } from "../../../../services/auth.service";
 
 export const dynamic = 'force-dynamic';
 

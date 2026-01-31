@@ -8,7 +8,7 @@ import {
     createManagePageStyles,
     ManagePageHeader,
     ManageActionButtons,
-} from "@/theme/pos/manage.shared";
+} from "../../../../../../theme/pos/manage.shared";
 
 const { Text } = Typography;
 

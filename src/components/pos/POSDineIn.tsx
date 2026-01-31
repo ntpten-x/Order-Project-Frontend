@@ -4,17 +4,17 @@ import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { message } from "antd";
 import { ShopOutlined } from "@ant-design/icons";
-import { useCart } from "@/contexts/pos/CartContext";
-import { tablesService } from "@/services/pos/tables.service";
-import { ordersService } from "@/services/pos/orders.service";
-import { useAuth } from "@/contexts/AuthContext";
+import { useCart } from "../../contexts/pos/CartContext";
+import { tablesService } from "../../services/pos/tables.service";
+import { ordersService } from "../../services/pos/orders.service";
+import { useAuth } from "../../contexts/AuthContext";
 import POSPageLayout from "./shared/POSPageLayout";
-import { useNetwork } from "@/hooks/useNetwork";
-import { CreateSalesOrderDTO, OrderType, OrderStatus } from "@/types/api/pos/salesOrder";
-import { offlineQueueService } from "@/services/pos/offline.queue.service";
-import { getPostCreateOrderNavigationPath } from "@/utils/channels";
-import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
-import { getCsrfTokenCached } from "@/utils/pos/csrf";
+import { useNetwork } from "../../hooks/useNetwork";
+import { CreateSalesOrderDTO, OrderType, OrderStatus } from "../../types/api/pos/salesOrder";
+import { offlineQueueService } from "../../services/pos/offline.queue.service";
+import { getPostCreateOrderNavigationPath } from "../../utils/channels";
+import { useGlobalLoading } from "../../contexts/pos/GlobalLoadingContext";
+import { getCsrfTokenCached } from "../../utils/pos/csrf";
 
 interface POSDineInProps {
     tableId: string;

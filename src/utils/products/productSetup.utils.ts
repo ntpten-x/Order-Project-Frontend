@@ -1,5 +1,5 @@
-import { Category } from "@/types/api/pos/category";
-import { ProductsUnit } from "@/types/api/pos/productsUnit";
+import { Category } from "../../types/api/pos/category";
+import { ProductsUnit } from "../../types/api/pos/productsUnit";
 
 /**
  * Checks if the necessary metadata (categories and units) exists for product management.

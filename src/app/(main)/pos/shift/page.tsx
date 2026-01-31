@@ -19,11 +19,11 @@ import { useRouter } from "next/navigation";
 import { SocketContext } from "../../../../contexts/SocketContext";
 import { shiftsService } from "../../../../services/pos/shifts.service";
 import { Shift, ShiftSummary } from "../../../../types/api/pos/shifts";
-import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
+import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import duration from 'dayjs/plugin/duration';
-import { pageStyles, globalStyles } from "@/theme/pos/shift/style";
+import { pageStyles, globalStyles } from "../../../../theme/pos/shift/style";
 
 dayjs.extend(duration);
 dayjs.locale('th');

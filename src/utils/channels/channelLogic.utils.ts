@@ -1,5 +1,5 @@
-import { Tables, TableStatus } from "@/types/api/pos/tables";
-import { SalesOrder, SalesOrderSummary, OrderStatus } from "@/types/api/pos/salesOrder";
+import { Tables, TableStatus } from "../../types/api/pos/tables";
+import { SalesOrder, SalesOrderSummary, OrderStatus } from "../../types/api/pos/salesOrder";
 
 /**
  * Table statistics and grouping

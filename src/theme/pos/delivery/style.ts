@@ -1,5 +1,5 @@
 
-import { createSharedPageStyles, sharedGlobalStyles } from "@/theme/pos/sharedStyles";
+import { createSharedPageStyles, sharedGlobalStyles } from "../sharedStyles";
 
 const base = createSharedPageStyles("linear-gradient(135deg, #13c2c2 0%, #08979c 100%)");
 

@@ -10,7 +10,7 @@ import {
   ContainerOutlined
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
-import { SalesOrderSummary, OrderStatus, OrderType } from "@/types/api/pos/salesOrder";
+import { SalesOrderSummary, OrderStatus, OrderType } from "../../../../types/api/pos/salesOrder";
 import { 
   getOrderStatusColor, 
   getOrderStatusText, 
@@ -18,11 +18,11 @@ import {
   getOrderChannelText,
   getOrderReference,
   formatCurrency
-} from "@/utils/orders";
-import { orderColors, ordersStyles, ordersResponsiveStyles } from "@/theme/pos/orders/style";
-import { useSocket } from "@/hooks/useSocket";
-import { useRealtimeRefresh } from "@/utils/pos/realtime";
-import { useOrdersSummary } from "@/hooks/pos/useOrdersSummary";
+} from "../../../../utils/orders";
+import { orderColors, ordersStyles, ordersResponsiveStyles } from "../../../../theme/pos/orders/style";
+import { useSocket } from "../../../../hooks/useSocket";
+import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
+import { useOrdersSummary } from "../../../../hooks/pos/useOrdersSummary";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 

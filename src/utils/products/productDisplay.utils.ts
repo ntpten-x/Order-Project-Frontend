@@ -1,4 +1,4 @@
-import { Products } from "@/types/api/pos/products";
+import { Products } from "../../types/api/pos/products";
 
 /**
  * Format price to Thai Baht

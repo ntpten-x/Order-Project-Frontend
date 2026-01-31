@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ordersService } from "@/services/pos/orders.service";
+import { ordersService } from "../../../../../services/pos/orders.service";
 
 interface Params {
     params: {

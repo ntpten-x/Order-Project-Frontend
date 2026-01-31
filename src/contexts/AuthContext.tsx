@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import { authService } from "../services/auth.service";
-import { offlineQueueService } from "@/services/pos/offline.queue.service";
+import { offlineQueueService } from "../services/pos/offline.queue.service";
 import { User, LoginCredentials } from "../types/api/auth";
 import { Spin } from "antd";
 import { useGlobalLoading } from "./pos/GlobalLoadingContext";

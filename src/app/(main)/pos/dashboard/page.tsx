@@ -5,16 +5,16 @@ import { Typography, Card, Row, Col, Statistic, Table, DatePicker, Button, Avata
 import { DollarCircleOutlined, ShoppingOutlined, RiseOutlined, ReloadOutlined, EyeOutlined, DownloadOutlined, FilePdfOutlined, FileExcelOutlined } from "@ant-design/icons";
 import { exportSalesReportPDF, exportSalesReportExcel } from "../../../../utils/export.utils";
 import { useRouter } from "next/navigation";
-import { posPageStyles, posColors } from "@/theme/pos";
+import { posPageStyles, posColors } from "../../../../theme/pos";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import { dashboardService } from "../../../../services/pos/dashboard.service";
 import { ordersService } from "../../../../services/pos/orders.service";
 import { SalesSummary, TopItem } from "../../../../types/api/pos/dashboard";
 import { SalesOrderSummary, OrderStatus, OrderType } from "../../../../types/api/pos/salesOrder";
-import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
-import { useSocket } from "@/hooks/useSocket";
-import { useRealtimeRefresh } from "@/utils/pos/realtime";
+import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
+import { useSocket } from "../../../../hooks/useSocket";
+import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;

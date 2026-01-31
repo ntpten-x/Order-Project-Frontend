@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useContext, useEffect } from "react";
-import { SocketContext } from "@/contexts/SocketContext";
+import { SocketContext } from "../../contexts/SocketContext";
 import { Tables } from "../../types/api/pos/tables";
 import { tablesService } from "../../services/pos/tables.service";
 

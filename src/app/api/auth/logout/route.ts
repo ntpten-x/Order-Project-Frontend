@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { authService } from "@/services/auth.service";
+import { authService } from "../../../../services/auth.service";
 
 export async function POST(request: NextRequest) {
     const token = request.cookies.get("token")?.value;

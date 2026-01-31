@@ -11,9 +11,9 @@ import {
     ActionButtons
 } from './style';
 
-import { getCsrfTokenCached } from "@/utils/pos/csrf";
-import { useRoleGuard } from "@/utils/pos/accessControl";
-import { AccessGuardFallback } from "@/components/pos/AccessGuard";
+import { getCsrfTokenCached } from "../../../../../../utils/pos/csrf";
+import { useRoleGuard } from "../../../../../../utils/pos/accessControl";
+import { AccessGuardFallback } from "../../../../../../components/pos/AccessGuard";
 
 export default function PaymentMethodManagePage({ params }: { params: { mode: string[] } }) {
     const router = useRouter();

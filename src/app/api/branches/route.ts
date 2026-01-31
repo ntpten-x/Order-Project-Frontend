@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { branchService } from "@/services/branch.service";
+import { branchService } from "../../../services/branch.service";
 
 export async function GET(req: NextRequest) {
     try {

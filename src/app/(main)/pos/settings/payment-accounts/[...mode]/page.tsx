@@ -5,12 +5,12 @@ import { Typography, Card, Button, Tag, Modal, Form, Input, App, Popconfirm, Div
 import { ArrowLeftOutlined, PlusOutlined, QrcodeOutlined, DeleteOutlined, CheckCircleOutlined, EditOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { pageStyles } from "./style";
-import { paymentAccountService } from "@/services/pos/paymentAccount.service";
-import { getCsrfTokenCached } from "@/utils/pos/csrf";
-import { ShopPaymentAccount } from "@/types/api/pos/shopPaymentAccount";
-import { posColors } from "@/theme/pos";
-import { useRoleGuard } from "@/utils/pos/accessControl";
-import { AccessGuardFallback } from "@/components/pos/AccessGuard";
+import { paymentAccountService } from "../../../../../../services/pos/paymentAccount.service";
+import { getCsrfTokenCached } from "../../../../../../utils/pos/csrf";
+import { ShopPaymentAccount } from "../../../../../../types/api/pos/shopPaymentAccount";
+import { posColors } from "../../../../../../theme/pos";
+import { useRoleGuard } from "../../../../../../utils/pos/accessControl";
+import { AccessGuardFallback } from "../../../../../../components/pos/AccessGuard";
 
 const { Title, Text } = Typography;
 

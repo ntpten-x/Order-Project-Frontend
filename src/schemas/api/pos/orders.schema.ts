@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { OrderStatus, OrderType } from '@/types/api/pos/salesOrder';
+import { OrderStatus, OrderType } from '../../../types/api/pos/salesOrder';
 
 const UserSchema = z.object({
     id: z.string(),

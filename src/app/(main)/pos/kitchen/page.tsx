@@ -15,9 +15,9 @@ import {
 import { SocketContext } from "../../../../contexts/SocketContext";
 import { ordersService } from "../../../../services/pos/orders.service";
 import { SalesOrderItem, ItemStatus } from "../../../../types/api/pos/salesOrderItem";
-import { posPageStyles } from "@/theme/pos";
-import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
-import { getCsrfTokenCached } from "@/utils/pos/csrf";
+import { posPageStyles } from "../../../../theme/pos";
+import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
+import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import relativeTime from 'dayjs/plugin/relativeTime';

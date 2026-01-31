@@ -1,5 +1,5 @@
 import { Shift } from "../../types/api/pos/shifts";
-import { getCsrfTokenCached } from "@/utils/pos/csrf";
+import { getCsrfTokenCached } from "../../utils/pos/csrf";
 
 export const shiftsService = {
     getCurrentShift: async (): Promise<Shift | null> => {

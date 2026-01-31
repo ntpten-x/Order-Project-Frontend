@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { shopProfileService } from "@/services/pos/shopProfile.service";
+import { shopProfileService } from "../../../../services/pos/shopProfile.service";
 
 export async function GET(request: NextRequest) {
     try {

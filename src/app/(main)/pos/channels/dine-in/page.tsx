@@ -9,20 +9,20 @@ import {
   ArrowLeftOutlined,
   StopOutlined,
 } from "@ant-design/icons";
-import { Tables } from "@/types/api/pos/tables";
-import { useTables } from "@/hooks/pos/useTables";
-import { posPageStyles, tableColors, channelColors } from "@/theme/pos";
-import { channelPageStyles } from "@/theme/pos/channels/style";
-import { POSGlobalStyles } from "@/theme/pos/GlobalStyles";
-import { getTableNavigationPath } from "@/utils/orders";
-import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
+import { Tables } from "../../../../../types/api/pos/tables";
+import { useTables } from "../../../../../hooks/pos/useTables";
+import { posPageStyles, tableColors, channelColors } from "../../../../../theme/pos";
+import { channelPageStyles } from "../../../../../theme/pos/channels/style";
+import { POSGlobalStyles } from "../../../../../theme/pos/GlobalStyles";
+import { getTableNavigationPath } from "../../../../../utils/orders";
+import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
 import {
     getTableStats,
     sortTables,
     getActiveTables,
     getTableColorScheme,
     formatOrderStatus,
-} from "@/utils/channels";
+} from "../../../../../utils/channels";
 
 const { Title, Text } = Typography;
 

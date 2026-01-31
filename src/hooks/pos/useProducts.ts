@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { useContext, useEffect } from 'react';
-import { SocketContext } from '@/contexts/SocketContext';
+import { SocketContext } from '../../contexts/SocketContext';
 import { Products } from '../../types/api/pos/products';
 import { productsService } from '../../services/pos/products.service';
 

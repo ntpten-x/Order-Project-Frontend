@@ -14,9 +14,9 @@ import {
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useCart } from "../../../contexts/pos/CartContext";
-import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
+import { useGlobalLoading } from "../../../contexts/pos/GlobalLoadingContext";
 import { useProducts } from "../../../hooks/pos/useProducts";
-import { useCategories } from "@/hooks/pos/useCategories";
+import { useCategories } from "../../../hooks/pos/useCategories";
 import { Products } from "../../../types/api/pos/products";
 // import { Category } from "../../../types/api/pos/category";
 import { 
@@ -29,7 +29,7 @@ import {
   formatPrice, 
   hasProductImage, 
   getProductCategoryName 
-} from "@/utils/products/productDisplay.utils";
+} from "../../../utils/products/productDisplay.utils";
 
 const { Title, Text } = Typography;
 

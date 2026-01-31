@@ -10,13 +10,13 @@ import {
     CloseOutlined,
     DeleteOutlined
 } from '@ant-design/icons';
-import { categoryService } from '@/services/pos/category.service';
-import { productsService } from '@/services/pos/products.service';
-import { Category } from '@/types/api/pos/category';
-import { Products } from '@/types/api/pos/products';
-import { orderDetailColors, modalStyles, addItemsModalStyles, ordersResponsiveStyles } from '@/theme/pos/orders/style';
-import { formatCurrency, calculateItemTotal } from "@/utils/orders";
-import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
+import { categoryService } from '../../../../../services/pos/category.service';
+import { productsService } from '../../../../../services/pos/products.service';
+import { Category } from '../../../../../types/api/pos/category';
+import { Products } from '../../../../../types/api/pos/products';
+import { orderDetailColors, modalStyles, addItemsModalStyles, ordersResponsiveStyles } from '../../../../../theme/pos/orders/style';
+import { formatCurrency, calculateItemTotal } from "../../../../../utils/orders";
+import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
 
 const { Text, Title } = Typography;
 

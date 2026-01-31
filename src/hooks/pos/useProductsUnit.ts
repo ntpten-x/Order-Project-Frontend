@@ -1,8 +1,8 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { productsUnitService } from "@/services/pos/productsUnit.service";
-import { ProductsUnit } from "@/types/api/pos/productsUnit";
+import { productsUnitService } from "../../services/pos/productsUnit.service";
+import { ProductsUnit } from "../../types/api/pos/productsUnit";
 
 export function useProductsUnit() {
     return useQuery<ProductsUnit[]>({

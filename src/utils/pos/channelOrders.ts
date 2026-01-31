@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { ordersService } from "@/services/pos/orders.service";
-import { OrderStatus, OrderType, SalesOrderSummary } from "@/types/api/pos/salesOrder";
-import { useSocket } from "@/hooks/useSocket";
-import { useRealtimeRefresh } from "@/utils/pos/realtime";
+import { ordersService } from "../../services/pos/orders.service";
+import { OrderStatus, OrderType, SalesOrderSummary } from "../../types/api/pos/salesOrder";
+import { useSocket } from "../../hooks/useSocket";
+import { useRealtimeRefresh } from "./realtime";
 import { isEqual } from "lodash";
 
 const EXCLUDED_STATUSES = new Set<OrderStatus>([

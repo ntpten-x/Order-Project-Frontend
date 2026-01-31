@@ -24,10 +24,10 @@ import { useRoleGuard } from "../../../../utils/pos/accessControl";
 import { useRealtimeList } from "../../../../utils/pos/realtime";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
 import { pageStyles, globalStyles } from '../../../../theme/pos/products/style';
-import { useCategories } from '@/hooks/pos/useCategories';
-import { useProductsUnit } from '@/hooks/pos/useProductsUnit';
-import { formatPrice } from '@/utils/products/productDisplay.utils';
-import { checkProductSetupState, getSetupMissingMessage } from '@/utils/products/productSetup.utils';
+import { useCategories } from '../../../../hooks/pos/useCategories';
+import { useProductsUnit } from '../../../../hooks/pos/useProductsUnit';
+import { formatPrice } from '../../../../utils/products/productDisplay.utils';
+import { checkProductSetupState, getSetupMissingMessage } from '../../../../utils/products/productSetup.utils';
 
 const { Text, Title } = Typography;
 

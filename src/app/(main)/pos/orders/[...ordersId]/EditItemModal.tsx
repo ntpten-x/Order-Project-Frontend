@@ -2,10 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { Modal, Input, Button, Typography, Space, Divider, InputNumber, Tag } from 'antd';
 import Image from 'next/image';
 import { PlusOutlined, MinusOutlined, SaveOutlined, CloseOutlined, InfoCircleOutlined, DeleteOutlined } from '@ant-design/icons';
-import { SalesOrderItem } from '@/types/api/pos/salesOrderItem';
-import { orderDetailColors, modalStyles } from '@/theme/pos/orders/style';
-import { calculateItemTotal, formatCurrency } from '@/utils/orders';
-import { useGlobalLoading } from '@/contexts/pos/GlobalLoadingContext';
+import { SalesOrderItem } from '../../../../../types/api/pos/salesOrderItem';
+import { orderDetailColors, modalStyles } from '../../../../../theme/pos/orders/style';
+import { calculateItemTotal, formatCurrency } from '../../../../../utils/orders';
+import { useGlobalLoading } from '../../../../../contexts/pos/GlobalLoadingContext';
 
 const { Text, Title } = Typography;
 const { TextArea } = Input;

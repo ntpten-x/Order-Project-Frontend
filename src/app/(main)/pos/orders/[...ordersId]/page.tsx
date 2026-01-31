@@ -17,13 +17,13 @@ import {
     RocketOutlined,
     CheckCircleOutlined
 } from "@ant-design/icons";
-import { ordersService } from "@/services/pos/orders.service";
-import { getCsrfTokenCached } from "@/utils/pos/csrf";
-import { tablesService } from "@/services/pos/tables.service";
-import { SalesOrder, OrderStatus, OrderType } from "@/types/api/pos/salesOrder";
-import { SalesOrderItem } from "@/types/api/pos/salesOrderItem";
-import { TableStatus } from "@/types/api/pos/tables";
-import { orderDetailStyles, orderDetailColors, ordersResponsiveStyles, orderDetailTypography } from "@/theme/pos/orders/style"; 
+import { ordersService } from "../../../../../services/pos/orders.service";
+import { getCsrfTokenCached } from "../../../../../utils/pos/csrf";
+import { tablesService } from "../../../../../services/pos/tables.service";
+import { SalesOrder, OrderStatus, OrderType } from "../../../../../types/api/pos/salesOrder";
+import { SalesOrderItem } from "../../../../../types/api/pos/salesOrderItem";
+import { TableStatus } from "../../../../../types/api/pos/tables";
+import { orderDetailStyles, orderDetailColors, ordersResponsiveStyles, orderDetailTypography } from "../../../../../theme/pos/orders/style"; 
 import {
   calculateOrderTotal,
   getNonCancelledItems,
@@ -38,19 +38,19 @@ import {
   getServedStatusText,
   groupItemsByCategory,
   getConfirmServeActionText,
-} from "@/utils/orders"; 
+} from "../../../../../utils/orders"; 
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 
 import { AddItemsModal } from "./AddItemsModal";
 import { EditItemModal } from "./EditItemModal";
-import ConfirmationDialog from "@/components/dialog/ConfirmationDialog";
-import { useGlobalLoading } from "@/contexts/pos/GlobalLoadingContext";
-import { Products } from "@/types/api/pos/products";
-import { useNetwork } from "@/hooks/useNetwork";
-import { offlineQueueService } from "@/services/pos/offline.queue.service";
-import { useSocket } from "@/hooks/useSocket";
-import { useRealtimeRefresh } from "@/utils/pos/realtime";
+import ConfirmationDialog from "../../../../../components/dialog/ConfirmationDialog";
+import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
+import { Products } from "../../../../../types/api/pos/products";
+import { useNetwork } from "../../../../../hooks/useNetwork";
+import { offlineQueueService } from "../../../../../services/pos/offline.queue.service";
+import { useSocket } from "../../../../../hooks/useSocket";
+import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
