@@ -21,7 +21,8 @@ import {
 } from "../../../../utils/orders";
 import { orderColors, ordersStyles, ordersResponsiveStyles } from "../../../../theme/pos/orders/style";
 import { useSocket } from "../../../../hooks/useSocket";
-import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
+// import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
+import { useDebouncedValue } from "../../../../utils/useDebouncedValue";
 import { useOrdersSummary } from "../../../../hooks/pos/useOrdersSummary";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
@@ -38,17 +39,13 @@ export default function POSOrdersPage() {
 
     const [page, setPage] = useState(1);
     const [searchValue, setSearchValue] = useState("");
-    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const debouncedSearch = useDebouncedValue(searchValue.trim(), 400);
     const LIMIT = 10;
     const activeStatuses = 'Pending,Cooking,Served,WaitingForPayment';
 
     useEffect(() => {
-        const handler = setTimeout(() => {
-            setDebouncedSearch(searchValue.trim());
-            setPage(1);
-        }, 400);
-        return () => clearTimeout(handler);
-    }, [searchValue]);
+        setPage(1);
+    }, [debouncedSearch]);
 
     const { orders, total, isLoading, refetch } = useOrdersSummary({
         page,
@@ -57,13 +54,14 @@ export default function POSOrdersPage() {
         query: debouncedSearch || undefined
     });
 
-    useRealtimeRefresh({
-        socket,
-        events: ["orders:create", "orders:update", "orders:delete", "payments:create", "payments:update"],
-        onRefresh: () => refetch(),
-        intervalMs: 15000,
-        debounceMs: 1000,
-    });
+// Socket logic moved to useOrders hook to prevent double fetching
+    // useRealtimeRefresh({
+    //     socket,
+    //     events: ["orders:create", "orders:update", "orders:delete", "payments:create", "payments:update"],
+    //     onRefresh: () => refetch(),
+    //     intervalMs: 15000,
+    //     debounceMs: 1000,
+    // });
 
     const columns = [
         {

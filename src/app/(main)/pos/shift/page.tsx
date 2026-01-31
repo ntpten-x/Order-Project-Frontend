@@ -118,6 +118,18 @@ export default function ShiftPage() {
         staleTime: 2000,
     });
 
+    useEffect(() => {
+        if (!socket) return;
+        const handleShiftUpdate = () => {
+            queryClient.invalidateQueries({ queryKey: ["shiftCurrent"] });
+            queryClient.invalidateQueries({ queryKey: ["shiftSummary"] });
+        };
+        socket.on("shifts:update", handleShiftUpdate);
+        return () => {
+            socket.off("shifts:update", handleShiftUpdate);
+        };
+    }, [socket, queryClient]);
+
     const summary = currentShift ? (summaryData as ShiftSummary) : null;
     const isLoading = isShiftLoading || (currentShift ? isSummaryLoading : false);
     

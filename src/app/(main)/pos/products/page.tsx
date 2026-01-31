@@ -28,6 +28,7 @@ import { useCategories } from '../../../../hooks/pos/useCategories';
 import { useProductsUnit } from '../../../../hooks/pos/useProductsUnit';
 import { formatPrice } from '../../../../utils/products/productDisplay.utils';
 import { checkProductSetupState, getSetupMissingMessage } from '../../../../utils/products/productSetup.utils';
+import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 
 const { Text, Title } = Typography;
 
@@ -316,7 +317,7 @@ export default function ProductsPage() {
     const router = useRouter();
     const [products, setProducts] = useState<Products[]>([]);
     const [searchValue, setSearchValue] = useState("");
-    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const debouncedSearch = useDebouncedValue(searchValue.trim(), 400);
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
@@ -343,13 +344,6 @@ export default function ProductsPage() {
     useEffect(() => {
         getCsrfTokenCached();
     }, []);
-
-    useEffect(() => {
-        const handler = setTimeout(() => {
-            setDebouncedSearch(searchValue.trim());
-        }, 400);
-        return () => clearTimeout(handler);
-    }, [searchValue]);
 
     useEffect(() => {
         if (debouncedSearch) return;

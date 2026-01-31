@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import axios from "axios";
+import api from "../../../lib/axios";
 import { 
   Typography, 
   Result,
@@ -32,7 +32,7 @@ export default function HomePage() {
     const fetchIngredients = async () => {
       try {
         setLoading(true);
-        const response = await axios.get("/api/stock/ingredients?active=true");
+        const response = await api.get("/stock/ingredients?active=true");
         setIngredients(response.data);
         setError(null);
       } catch (error: unknown) {
@@ -225,4 +225,3 @@ export default function HomePage() {
     </div>
   );
 }
-

@@ -26,30 +26,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const checkAuth = async () => {
         try {
-            // authService.getMe requires a token, but here we rely on cookie (httpOnly). 
-            // However, getMe in authService currently expects a token string for Authorization header if passing one, 
-            // OR if it uses cookie it should just work if the backend reads cookies. 
-            // The previous code fetch("/api/auth/me") relies on the proxy sending the cookie.
-            // authService.getMe(token) sends "Authorization: Bearer undefined" if we don't have token in local state yet.
-            // But we might have token in localStorage "token_ws".
-            // Let's check how we store token.
-            
-            let token = "";
-            if (typeof window !== "undefined") {
-                 token = localStorage.getItem("token_ws") || "";
-            }
-
-            // If we don't have a token, we might still be logged in via cookie?? 
-            // The original code was: const response = await fetch("/api/auth/me");
-            // API route probably forwards cookie.
-            // authService.getMe sends request to backend. If we use getProxyUrl it goes to /api/auth/me.
-            // If /api/auth/me relies on cookie, we don't strictly need the Bearer token if the proxy handles it?
-            // Actually, usually /api/auth/me might unwrap cookie or just forward it.
-            // Let's rely on authService.getMe. The signature is getMe(token).
-            // If token is empty, we pass empty string. Backend might rely on cookie if token is missing?
-            // Wait, authService.getMe adds Authorization header.
-            
-            const user = await authService.getMe(token);
+            const user = await authService.getMe();
             setUser(user);
         } catch {
             setUser(null);
@@ -77,11 +54,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             // Get CSRF Token first
             const csrfToken = await authService.getCsrfToken();
             
-            const { token, ...userData } = await authService.login(credentials, csrfToken);
-
-            if (token && typeof window !== "undefined") {
-                localStorage.setItem("token_ws", token);
-            }
+            const { token: _token, ...userData } = await authService.login(credentials, csrfToken);
             setUser(userData);
             router.push("/"); // Redirect to dashboard
         } catch (error: unknown) {
@@ -95,17 +68,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         try {
             showLoading("กำลังออกจากระบบ...");
             
-            let token = "";
-            if (typeof window !== "undefined") {
-                token = localStorage.getItem("token_ws") || "";
-            }
-            
-            // Call authService logout
-            await authService.logout(token);
-            
-            if (typeof window !== "undefined") {
-                localStorage.removeItem("token_ws");
-            }
+            await authService.logout();
             offlineQueueService.clearQueue();
             setUser(null);
             router.push("/login");

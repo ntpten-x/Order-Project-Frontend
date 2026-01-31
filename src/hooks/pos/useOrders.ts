@@ -45,11 +45,15 @@ export function useOrders({ page = 1, limit = 50, status }: UseOrdersParams) {
         socket.on("orders:create", handleOrderUpdate);
         socket.on("orders:update", handleOrderUpdate);
         socket.on("orders:delete", handleOrderUpdate);
+        socket.on("payments:create", handleOrderUpdate);
+        socket.on("payments:update", handleOrderUpdate);
 
         return () => {
             socket.off("orders:create", handleOrderUpdate);
             socket.off("orders:update", handleOrderUpdate);
             socket.off("orders:delete", handleOrderUpdate);
+            socket.off("payments:create", handleOrderUpdate);
+            socket.off("payments:update", handleOrderUpdate);
         };
     }, [socket, queryClient]);
 

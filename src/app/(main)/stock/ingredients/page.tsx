@@ -74,10 +74,6 @@ export default function IngredientsPage() {
     }, [user, authLoading, router, fetchIngredients]);
 
     useEffect(() => {
-        fetchIngredients();
-    }, [fetchIngredients]);
-
-    useEffect(() => {
         if (!socket) return;
 
         socket.on('ingredients:create', (newItem: Ingredients) => {

@@ -63,9 +63,11 @@ export default function UsersPage() {
   }, [execute]);
 
   useEffect(() => {
-    // We already checked role in the render guard/redirect effect
-    fetchUsers();
-  }, [fetchUsers]);
+    if (authLoading) return;
+    if (user?.role === 'Admin') {
+      fetchUsers();
+    }
+  }, [authLoading, user, fetchUsers]);
 
   useEffect(() => {
     if (!socket) return;

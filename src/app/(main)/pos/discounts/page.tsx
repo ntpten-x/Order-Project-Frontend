@@ -22,6 +22,7 @@ import { useRoleGuard } from "../../../../utils/pos/accessControl";
 import { useRealtimeList } from "../../../../utils/pos/realtime";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
 import { pageStyles, globalStyles } from '../../../../theme/pos/discounts/style';
+import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 
 const { Text, Title } = Typography;
 
@@ -311,7 +312,7 @@ export default function DiscountsPage() {
     const router = useRouter();
     const [discounts, setDiscounts] = useState<Discounts[]>([]);
     const [searchValue, setSearchValue] = useState("");
-    const [debouncedSearch, setDebouncedSearch] = useState("");
+    const debouncedSearch = useDebouncedValue(searchValue.trim(), 400);
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
@@ -321,13 +322,6 @@ export default function DiscountsPage() {
     useEffect(() => {
         getCsrfTokenCached();
     }, []);
-
-    useEffect(() => {
-        const handler = setTimeout(() => {
-            setDebouncedSearch(searchValue.trim());
-        }, 400);
-        return () => clearTimeout(handler);
-    }, [searchValue]);
 
     useEffect(() => {
         if (debouncedSearch) return;
