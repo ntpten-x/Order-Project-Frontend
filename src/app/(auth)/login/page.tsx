@@ -29,6 +29,10 @@ export default function LoginPage() {
                 description: "ยินดีต้อนรับเข้าสู่ระบบ",
                 placement: "topRight",
             });
+            // Redirect after successful login
+            setTimeout(() => {
+                window.location.href = "/";
+            }, 1000);
         } catch (error: unknown) {
             notification.error({
                 message: "เข้าสู่ระบบไม่สำเร็จ",
