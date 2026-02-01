@@ -1,14 +1,1 @@
-{
-  "/api/stock/orders/route": "app/api/stock/orders/route.js",
-  "/api/stock/ingredients/route": "app/api/stock/ingredients/route.js",
-  "/api/pos/shifts/current/route": "app/api/pos/shifts/current/route.js",
-  "/api/pos/orders/stats/route": "app/api/pos/orders/stats/route.js",
-  "/(main)/page": "app/(main)/page.js",
-  "/(main)/pos/channels/dine-in/page": "app/(main)/pos/channels/dine-in/page.js",
-  "/(main)/pos/products/page": "app/(main)/pos/products/page.js",
-  "/(main)/pos/channels/dine-in/[tableId]/page": "app/(main)/pos/channels/dine-in/[tableId]/page.js",
-  "/(main)/pos/productsUnit/page": "app/(main)/pos/productsUnit/page.js",
-  "/(main)/stock/page": "app/(main)/stock/page.js",
-  "/(main)/pos/page": "app/(main)/pos/page.js",
-  "/(main)/pos/channels/page": "app/(main)/pos/channels/page.js"
-}
+{}

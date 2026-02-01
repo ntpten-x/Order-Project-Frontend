@@ -1,1 +1,1 @@
-self.__REACT_LOADABLE_MANIFEST="{\"components\\\\pos\\\\POSBottomNavigation.tsx -> ./shifts/CloseShiftModal\":{\"id\":\"components\\\\pos\\\\POSBottomNavigation.tsx -> ./shifts/CloseShiftModal\",\"files\":[\"static/chunks/antd.js\",\"static/css/vendor.css\",\"static/chunks/vendor.js\",\"static/chunks/_app-pages-browser_src_components_pos_shifts_CloseShiftModal_tsx.js\"]}}"
+self.__REACT_LOADABLE_MANIFEST="{}"
