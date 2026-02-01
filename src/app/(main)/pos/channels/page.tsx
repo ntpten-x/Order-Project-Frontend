@@ -12,6 +12,7 @@ import {
   formatOrderCount
 } from "../../../../utils/channels/channelStats.utils";
 import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
+import { usePOSPrefetching } from "../../../../hooks/pos/usePrefetching";
 
 const { Title, Text } = Typography;
 
@@ -20,6 +21,9 @@ export default function ChannelSelectionPage() {
   const { showLoading, hideLoading } = useGlobalLoading();
   // Use the new hook for real-time stats (WebSocket driven)
   const { stats, isLoading: statsLoading } = useChannelStats();
+  
+  // Prefetch POS data (products, categories)
+  usePOSPrefetching();
 
   useEffect(() => {
     router.prefetch("/pos/channels/dine-in");

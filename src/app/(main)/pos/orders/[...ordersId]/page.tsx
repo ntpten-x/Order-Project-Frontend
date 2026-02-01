@@ -51,6 +51,9 @@ import { useNetwork } from "../../../../../hooks/useNetwork";
 import { offlineQueueService } from "../../../../../services/pos/offline.queue.service";
 import { useSocket } from "../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
+import { useOrderQueue } from "../../../../../hooks/pos/useOrderQueue";
+import { QueueStatus, QueuePriority } from "../../../../../types/api/pos/orderQueue";
+import { UnorderedListOutlined } from "@ant-design/icons";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -71,6 +74,10 @@ export default function POSOrderDetailsPage() {
     const { showLoading, hideLoading } = useGlobalLoading();
     const { socket } = useSocket();
     const isOnline = useNetwork();
+    
+    // Queue management
+    const { queue, addToQueue, removeFromQueue, isLoading: isQueueLoading } = useOrderQueue();
+    const currentQueueItem = order ? queue.find(q => q.order_id === order.id) : null;
     
     // Selection State
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
@@ -725,15 +732,63 @@ export default function POSOrderDetailsPage() {
                             </Text>
                         </div>
                     </div>
-                    <Tag 
-                        color={getOrderStatusColor(order.status)} 
-                        className="status-badge"
-                        style={{ margin: 0, fontSize: 12 }}
-                    >
-                        {getOrderStatusText(order.status, order.order_type)}
-                    </Tag>
+                    <Space direction="vertical" align="end" size={4}>
+                        <Tag 
+                            color={getOrderStatusColor(order.status)} 
+                            className="status-badge"
+                            style={{ margin: 0, fontSize: 12 }}
+                        >
+                            {getOrderStatusText(order.status, order.order_type)}
+                        </Tag>
+                        {currentQueueItem && (
+                            <Tag 
+                                color={
+                                    currentQueueItem.status === QueueStatus.Pending ? 'orange' :
+                                    currentQueueItem.status === QueueStatus.Processing ? 'blue' :
+                                    currentQueueItem.status === QueueStatus.Completed ? 'green' : 'red'
+                                }
+                                style={{ margin: 0, fontSize: 11 }}
+                            >
+                                คิว #{currentQueueItem.queue_position} - {currentQueueItem.status === QueueStatus.Pending ? 'รอ' :
+                                    currentQueueItem.status === QueueStatus.Processing ? 'กำลังทำ' :
+                                    currentQueueItem.status === QueueStatus.Completed ? 'เสร็จ' : 'ยกเลิก'}
+                            </Tag>
+                        )}
+                    </Space>
                 </div>
             </header>
+            
+            {/* Queue Management Actions */}
+            {order && order.status !== OrderStatus.Cancelled && order.status !== OrderStatus.Completed && (
+                <div style={{ padding: '0 24px 16px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                    {currentQueueItem ? (
+                        <Button
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={() => {
+                                removeFromQueue(currentQueueItem.id);
+                            }}
+                            loading={isQueueLoading}
+                        >
+                            ลบออกจากคิว
+                        </Button>
+                    ) : (
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={() => {
+                                addToQueue({
+                                    orderId: order.id,
+                                    priority: QueuePriority.Normal
+                                });
+                            }}
+                            loading={isQueueLoading}
+                        >
+                            <UnorderedListOutlined /> เพิ่มเข้าคิว
+                        </Button>
+                    )}
+                </div>
+            )}
 
             <main className="order-detail-content" style={orderDetailStyles.contentWrapper}>
                 <Row gutter={[20, 20]}>

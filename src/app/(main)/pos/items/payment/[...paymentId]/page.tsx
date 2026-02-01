@@ -30,8 +30,6 @@ import { useSocket } from "../../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
 import PromotionCodeInput from "../../../../../../components/pos/PromotionCodeInput";
 import { PromotionEligibility } from "../../../../../../types/api/pos/promotions";
-import PromotionCodeInput from "../../../../../../components/pos/PromotionCodeInput";
-import { PromotionEligibility } from "../../../../../../types/api/pos/promotions";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');

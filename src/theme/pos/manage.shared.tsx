@@ -178,6 +178,19 @@ export const createManagePageStyles = ({
             width: 100%;
         }
 
+        /* Fix dropdown z-index and overflow issues */
+        .manage-page .ant-select-dropdown {
+            z-index: 9999 !important;
+        }
+
+        .manage-page .ant-form-item {
+            overflow: visible !important;
+        }
+
+        .manage-form-card {
+            overflow: visible !important;
+        }
+
         ${extraCss}
     `}</style>
     );

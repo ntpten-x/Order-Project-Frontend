@@ -1,5 +1,7 @@
 ﻿"use client";
 
+import { useOrderListPrefetching } from "../../../../hooks/pos/usePrefetching";
+
 import React, { useEffect, useState } from "react";
 import { Typography, Card, Table, Tag, Button, Empty, Divider, Grid, List, Input } from "antd";
 import { 
@@ -36,6 +38,9 @@ export default function POSOrdersPage() {
     const screens = useBreakpoint();
     const isMobile = !screens.md;
     // const { socket } = useSocket();
+    
+    // Prefetch order list data
+    useOrderListPrefetching();
 
     const [page, setPage] = useState(1);
     const [searchValue, setSearchValue] = useState("");

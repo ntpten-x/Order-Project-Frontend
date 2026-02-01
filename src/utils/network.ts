@@ -43,8 +43,13 @@ export const shouldTrackRequest = (url: string, init?: RequestInit): boolean => 
 export const shouldAttachCsrf = (url: string, method: string, init?: RequestInit): boolean => {
     if (!isApiRequest(url)) return false;
     if (isCsrfEndpoint(url)) return false;
-    if (!isMutatingMethod(method)) return false;
+    // Attach CSRF token for ALL cookie-based requests (including GET for token generation)
+    // This ensures CSRF protection works properly
     const hdrs = new Headers(init?.headers);
     if (hdrs.has("X-CSRF-Token")) return false;
+    // For mutating methods, always attach CSRF token
+    if (isMutatingMethod(method)) return true;
+    // For GET requests, also attach if it's a cookie-based request (for token generation)
+    // This helps ensure CSRF token is available for subsequent requests
     return true;
 };
