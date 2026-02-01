@@ -24,20 +24,19 @@ export const paymentPageStyles = {
     heroSection: {
         background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)',
         padding: '32px 24px 70px',
-        position: 'relative' as const,
         borderBottomLeftRadius: 24,
         borderBottomRightRadius: 24,
         boxShadow: '0 8px 24px rgba(24, 144, 255, 0.25)',
         marginBottom: -40,
-        zIndex: 1,
-        overflow: 'hidden',
+        zIndex: 1, // Ensure base level
     } as CSSProperties,
 
     contentWrapper: {
         maxWidth: 1200,
         margin: '0 auto',
+        paddingTop: 16,
         position: 'relative' as const,
-        zIndex: 10,
+        zIndex: 100, // Ensure content is above hero
     } as CSSProperties,
 
     // Typography
@@ -56,7 +55,6 @@ export const paymentPageStyles = {
     // Cards
     card: {
         borderRadius: 12,
-        overflow: 'hidden',
         border: 'none',
         boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
         height: '100%',

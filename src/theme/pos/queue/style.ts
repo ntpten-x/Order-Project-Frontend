@@ -10,13 +10,12 @@ export const queueStyles = {
     } as CSSProperties,
 
     header: {
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        padding: '24px 16px 60px',
+        background: 'linear-gradient(135deg, #6366F1 0%, #4F46E5 100%)',
+        padding: '16px 16px 48px',
         position: 'relative' as CSSProperties['position'],
-        borderBottomLeftRadius: 24,
-        borderBottomRightRadius: 24,
-        boxShadow: '0 4px 20px rgba(102, 126, 234, 0.2)',
-        marginBottom: -32,
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20,
+        boxShadow: '0 4px 16px rgba(99, 102, 241, 0.2)',
         zIndex: 1,
         overflow: 'hidden' as CSSProperties['overflow'],
     } as CSSProperties,

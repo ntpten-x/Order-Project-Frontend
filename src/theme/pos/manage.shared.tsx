@@ -30,6 +30,11 @@ export const createManagePageStyles = ({
             paddingBottom: 100,
             backgroundColor: "#f8f9fc",
             minHeight: "100vh",
+            // Use dvh for better mobile viewport handling
+            height: "100dvh",
+            overflowX: "hidden" as const,
+            overflowY: "auto" as const,
+            WebkitOverflowScrolling: "touch" as const,
         },
         header: (isEdit: boolean) => ({
             background: isEdit

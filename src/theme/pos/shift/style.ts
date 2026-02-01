@@ -1,25 +1,25 @@
 
 import { CSSProperties } from 'react';
+import { posColors } from '../index';
 
 // ============ STYLES ============
 
 export const pageStyles = {
     container: {
         paddingBottom: 100,
-        backgroundColor: '#f8f9fc',
+        backgroundColor: posColors.background,
         minHeight: '100vh',
-        fontFamily: "'Inter', 'Sarabun', sans-serif",
+        fontFamily: "'Inter', 'Sarabun', -apple-system, BlinkMacSystemFont, sans-serif",
     } as CSSProperties,
 
     header: {
-        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)', // Green for money/shift
-        padding: '24px 24px 60px 24px',
+        background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
+        padding: '16px 16px 48px 16px',
         position: 'relative' as const,
         overflow: 'hidden' as const,
-        marginBottom: -40,
-        borderBottomLeftRadius: 30,
-        borderBottomRightRadius: 30,
-        boxShadow: '0 10px 30px rgba(16, 185, 129, 0.2)'
+        borderBottomLeftRadius: 20,
+        borderBottomRightRadius: 20,
+        boxShadow: '0 4px 16px rgba(16, 185, 129, 0.2)'
     } as CSSProperties,
 
     headerDecoCircle1: {

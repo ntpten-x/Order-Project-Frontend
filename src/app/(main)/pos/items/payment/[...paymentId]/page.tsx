@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Typography, Row, Col, Card, Button, Empty, Divider, message, InputNumber, Select, Tag, Avatar, Alert } from "antd";
+import { Typography, Row, Col, Card, Button, Empty, Divider, message, InputNumber, Select, Tag, Avatar, Alert, Modal } from "antd";
 import { ArrowLeftOutlined, ShopOutlined, DollarOutlined, CreditCardOutlined, QrcodeOutlined, UndoOutlined, EditOutlined, SettingOutlined } from "@ant-design/icons";
 import { QRCodeSVG } from 'qrcode.react';
 import generatePayload from 'promptpay-qr';
@@ -28,8 +28,6 @@ import ConfirmationDialog from "../../../../../../components/dialog/Confirmation
 import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
-import PromotionCodeInput from "../../../../../../components/pos/PromotionCodeInput";
-import { PromotionEligibility } from "../../../../../../types/api/pos/promotions";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -51,15 +49,13 @@ export default function POSPaymentPage() {
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
     const [receivedAmount, setReceivedAmount] = useState<number>(0);
     const [appliedDiscount, setAppliedDiscount] = useState<Discounts | null>(null);
-    const [appliedPromotion, setAppliedPromotion] = useState<PromotionEligibility | null>(null);
+    const [discountModalVisible, setDiscountModalVisible] = useState(false);
     const { showLoading, hideLoading } = useGlobalLoading();
     const { socket } = useSocket();
     
-    // Refs for input fields to prevent auto-scroll issues
+    // Refs for input fields
     const cashInputRef = useRef<any>(null);
     const cardInputRef = useRef<any>(null);
-    const hasFocusedCashInput = useRef(false);
-    const hasFocusedCardInput = useRef(false);
 
     // Confirmation Dialog State
     const [confirmConfig, setConfirmConfig] = useState<ConfirmationConfig>({
@@ -154,33 +150,37 @@ export default function POSPaymentPage() {
 
     // Memoize discount options for Select component
     const discountOptions = useMemo(() => {
+        console.log('[DiscountOptions] Input discounts:', discounts);
+        
         if (!discounts || !Array.isArray(discounts) || discounts.length === 0) {
+            console.log('[DiscountOptions] No discounts available');
             return [];
         }
         
         const activeDiscounts = discounts.filter(d => {
-            if (!d) {
-                return false;
-            }
+            if (!d) return false;
             return d.is_active === true || d.is_active === undefined;
         });
         
+        console.log('[DiscountOptions] Active discounts:', activeDiscounts);
+        
         if (activeDiscounts.length === 0) {
+            console.log('[DiscountOptions] No active discounts');
             return [];
         }
         
         const options = activeDiscounts.map(d => {
-            if (!d.display_name || !d.id) {
+            // Use display_name first, fallback to discount_name
+            const displayName = d.display_name || d.discount_name;
+            if (!displayName || !d.id) {
+                console.log('[DiscountOptions] Skipping item without name/id:', d);
                 return null;
             }
-            const label = `${d.display_name} (${d.discount_type === DiscountType.Percentage ? `${d.discount_amount}%` : `-${d.discount_amount}฿`})`;
-            return {
-                label,
-                value: d.id,
-                key: d.id
-            };
-        }).filter((opt): opt is { label: string; value: string; key: string } => opt !== null);
+            const label = `${displayName} (${d.discount_type === DiscountType.Percentage ? `${d.discount_amount}%` : `-${d.discount_amount}฿`})`;
+            return { label, value: d.id };
+        }).filter((opt): opt is { label: string; value: string } => opt !== null);
         
+        console.log('[DiscountOptions] Final options:', options);
         return options;
     }, [discounts]);
 
@@ -190,28 +190,16 @@ export default function POSPaymentPage() {
         }
     }, [fetchInitialData, paymentId]);
 
+    // Temporarily disable realtime refresh to test if it causes dropdown issues
+    /*
     useRealtimeRefresh({
         socket,
         events: ["orders:update", "orders:delete", "payments:create", "payments:update"],
-        onRefresh: () => {
-            if (paymentId) {
-                // Save scroll position before refresh
-                const scrollY = window.scrollY;
-                const isUserScrolling = document.body.scrollTop > 0 || document.documentElement.scrollTop > 0;
-                
-                fetchInitialData(true).then(() => {
-                    // Only restore scroll if user was scrolling, and use setTimeout to avoid conflicts
-                    if (isUserScrolling) {
-                        setTimeout(() => {
-                            window.scrollTo({ top: scrollY, behavior: 'auto' });
-                        }, 100);
-                    }
-                });
-            }
-        },
-        intervalMs: 30000, // Increase interval to reduce refresh frequency
-        enabled: Boolean(paymentId),
+        onRefresh: async () => {
+             // fetchInitialData(true);
+        }
     });
+    */
     
     // Prevent auto-scroll when component re-renders
     useEffect(() => {
@@ -224,10 +212,7 @@ export default function POSPaymentPage() {
         }
     }, []);
 
-    const { subtotal, discount, vat, total: baseTotal, change } = calculatePaymentTotals(order, receivedAmount);
-    // Apply promotion discount if available
-    const promotionDiscount = appliedPromotion?.eligible ? appliedPromotion.discountAmount : 0;
-    const total = Math.max(0, baseTotal - promotionDiscount);
+    const { subtotal, discount, vat, total, change } = calculatePaymentTotals(order, receivedAmount);
 
     const handleDiscountChange = async (value: string | undefined) => {
         if (!order) return;
@@ -547,12 +532,6 @@ export default function POSPaymentPage() {
                                         <Text type="success">-{formatCurrency(discount)}</Text>
                                     </Row>
                                 )}
-                                {promotionDiscount > 0 && (
-                                    <Row justify="space-between" style={{ marginBottom: 8, color: '#f5576c' }}>
-                                        <Text style={{ color: '#f5576c' }}>โปรโมชัน (Promotion)</Text>
-                                        <Text style={{ color: '#f5576c' }}>-{formatCurrency(promotionDiscount)}</Text>
-                                    </Row>
-                                )}
                                 {vat > 0 && (
                                     <Row justify="space-between" style={{ marginBottom: 8 }}>
                                         <Text type="secondary">VAT (7%)</Text>
@@ -571,52 +550,114 @@ export default function POSPaymentPage() {
                     {/* Right: Payment Actions */}
                     <Col xs={24} lg={10}>
                          <Card 
-                            style={{ ...paymentPageStyles.card, marginBottom: 12, overflow: 'visible' }} 
+                            style={{ ...paymentPageStyles.card, height: 'auto', marginBottom: 12, overflow: 'visible' }} 
                             styles={{ body: { padding: '12px 16px', overflow: 'visible' } }}
                         >
                             <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 13 }}>ส่วนลด (Discount)</Text>
-                            <Select
-                                placeholder={discounts.length === 0 && isLoading ? "กำลังโหลดข้อมูล..." : discountOptions.length === 0 ? "ไม่มีส่วนลด" : "เลือกส่วนลด (Select Discount)"}
-                                style={{ width: '100%' }}
-                                allowClear
-                                size="large"
-                                value={appliedDiscount ? appliedDiscount.id : undefined}
-                                onChange={handleDiscountChange}
-                                loading={discounts.length === 0 && isLoading}
-                                notFoundContent={discountOptions.length === 0 && !isLoading ? "ไม่มีส่วนลด" : null}
-                                showSearch
-                                optionFilterProp="label"
-                                disabled={discountOptions.length === 0 && isLoading}
-                                getPopupContainer={() => document.body}
-                                dropdownStyle={{ zIndex: 9999 }}
-                                popupMatchSelectWidth={true}
-                                virtual={false}
+                            {/* Discount Selection - Switched to Modal for better Mobile/Touch experience */}
+                            <div 
+                                style={{ 
+                                    border: `1px solid ${appliedDiscount ? '#4F46E5' : '#d9d9d9'}`,
+                                    borderRadius: 8,
+                                    padding: '8px 12px',
+                                    cursor: 'pointer',
+                                    background: '#fff',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    height: 48, // Touch friendly height
+                                    transition: 'all 0.2s'
+                                }}
+                                onClick={() => {
+                                    if (!isLoading) {
+                                        setDiscountModalVisible(true);
+                                    }
+                                }}
                             >
-                                {discountOptions.length > 0 ? (
-                                    discountOptions.map(opt => (
-                                        <Select.Option key={opt.key} value={opt.value}>
-                                            {opt.label}
-                                        </Select.Option>
-                                    ))
+                                <span style={{ color: appliedDiscount ? '#1f2937' : '#9ca3af' }}>
+                                    {appliedDiscount 
+                                        ? `${appliedDiscount.display_name || appliedDiscount.discount_name} (${appliedDiscount.discount_type === 'Percentage' ? `${appliedDiscount.discount_amount}%` : `-${appliedDiscount.discount_amount}฿`})`
+                                        : "เลือกส่วนลด (Select Discount)"}
+                                </span>
+                                {appliedDiscount ? (
+                                    <span 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDiscountChange(undefined);
+                                        }}
+                                        style={{ color: '#ef4444', padding: 4 }}
+                                    >
+                                        ✕
+                                    </span>
                                 ) : (
-                                    !isLoading && <Select.Option disabled value="no-discount">ไม่มีส่วนลด</Select.Option>
+                                    <span style={{ color: '#9ca3af' }}>▼</span>
                                 )}
-                            </Select>
-                            
-                            <div style={{ marginTop: 16 }}>
-                                <PromotionCodeInput
-                                    onApply={(eligibility) => {
-                                        setAppliedPromotion(eligibility);
-                                        messageApi.success(`ใช้โปรโมชันสำเร็จ! ลด ${eligibility.discountAmount.toFixed(2)} บาท`);
-                                    }}
-                                    onRemove={() => {
-                                        setAppliedPromotion(null);
-                                        messageApi.info("ยกเลิกการใช้โปรโมชัน");
-                                    }}
-                                    appliedPromotion={appliedPromotion}
-                                />
                             </div>
                          </Card>
+                         
+                         {/* Discount Selection Modal */}
+                         <Modal
+                            title="เลือกส่วนลด"
+                            open={discountModalVisible}
+                            onCancel={() => setDiscountModalVisible(false)}
+                            footer={null}
+                            centered
+                            width={400}
+                            zIndex={10001} // Ensure above everything
+                         >
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '60vh', overflowY: 'auto' }}>
+                                {discountOptions.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: 24, color: '#9ca3af' }}>
+                                        ไม่มีส่วนลดที่ใช้งานได้
+                                    </div>
+                                ) : (
+                                    discountOptions.map(opt => (
+                                        <div
+                                            key={opt.value}
+                                            onClick={() => {
+                                                handleDiscountChange(opt.value);
+                                                setDiscountModalVisible(false);
+                                            }}
+                                            style={{
+                                                padding: '12px 16px',
+                                                border: '1px solid #e5e7eb',
+                                                borderRadius: 8,
+                                                cursor: 'pointer',
+                                                background: appliedDiscount?.id === opt.value ? '#eff6ff' : '#fff',
+                                                borderColor: appliedDiscount?.id === opt.value ? '#3b82f6' : '#e5e7eb',
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center'
+                                            }}
+                                        >
+                                            <span style={{ fontWeight: appliedDiscount?.id === opt.value ? 500 : 400 }}>
+                                                {opt.label}
+                                            </span>
+                                            {appliedDiscount?.id === opt.value && (
+                                                <span style={{ color: '#3b82f6' }}>✓</span>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                                <div
+                                    onClick={() => {
+                                        handleDiscountChange(undefined);
+                                        setDiscountModalVisible(false);
+                                    }}
+                                    style={{
+                                        padding: '12px 16px',
+                                        marginTop: 8,
+                                        textAlign: 'center',
+                                        color: '#ef4444',
+                                        cursor: 'pointer',
+                                        border: '1px dashed #ef4444',
+                                        borderRadius: 8
+                                    }}
+                                >
+                                    ไม่ใช้ส่วนลด
+                                </div>
+                            </div>
+                         </Modal>
 
                           <Card style={paymentPageStyles.card}>
                              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -638,43 +679,13 @@ export default function POSPaymentPage() {
                                                     <div 
                                                         onClick={() => {
                                                             setSelectedPaymentMethod(method.id);
-                                                            // Auto-fill amount for digital payments
+                                                            // Auto-fill amount based on payment type
                                                             if (isPromptPayMethod(method.payment_method_name, method.display_name)) {
                                                                 setReceivedAmount(total);
                                                             } else if (isCashMethod(method.payment_method_name, method.display_name)) {
                                                                 setReceivedAmount(0);
-                                                                // Focus cash input only once when first selecting cash method
-                                                                // Use requestAnimationFrame to prevent scroll jump
-                                                                requestAnimationFrame(() => {
-                                                                    setTimeout(() => {
-                                                                        if (cashInputRef.current && !hasFocusedCashInput.current) {
-                                                                            const scrollY = window.scrollY;
-                                                                            cashInputRef.current.focus();
-                                                                            hasFocusedCashInput.current = true;
-                                                                            // Restore scroll position after focus to prevent jump
-                                                                            requestAnimationFrame(() => {
-                                                                                window.scrollTo({ top: scrollY, behavior: 'auto' });
-                                                                            });
-                                                                        }
-                                                                    }, 50);
-                                                                });
                                                             } else {
-                                                                 setReceivedAmount(total); // Default for credit card etc
-                                                                 // Focus card input only once when first selecting card method
-                                                                 // Use requestAnimationFrame to prevent scroll jump
-                                                                 requestAnimationFrame(() => {
-                                                                     setTimeout(() => {
-                                                                         if (cardInputRef.current && !hasFocusedCardInput.current) {
-                                                                             const scrollY = window.scrollY;
-                                                                             cardInputRef.current.focus();
-                                                                             hasFocusedCardInput.current = true;
-                                                                             // Restore scroll position after focus to prevent jump
-                                                                             requestAnimationFrame(() => {
-                                                                                 window.scrollTo({ top: scrollY, behavior: 'auto' });
-                                                                             });
-                                                                         }
-                                                                     }, 50);
-                                                                 });
+                                                                setReceivedAmount(total);
                                                             }
                                                         }}
                                                         style={{ 

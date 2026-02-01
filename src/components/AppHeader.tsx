@@ -1,7 +1,6 @@
 ﻿"use client";
 
-import React from "react";
-import { Layout, Avatar, Dropdown, Typography, Badge, Space } from "antd";
+import { Layout, Avatar, Dropdown, Typography, Badge, Space, Popover, Button } from "antd";
 import type { MenuProps } from 'antd';
 import { UserOutlined, LogoutOutlined, SettingOutlined, ShoppingOutlined, DownOutlined } from "@ant-design/icons";
 import { useAuth } from "../contexts/AuthContext";
@@ -19,54 +18,7 @@ const AppHeader: React.FC = () => {
     return null;
   }
 
-  const menuItems: MenuProps['items'] = [
-    {
-      key: 'profile',
-      label: (
-        <div style={{ padding: '12px 8px', minWidth: '240px' }}>
-          <Space align="center" size={16}>
-            <Avatar
-              size={56}
-              icon={<UserOutlined />}
-              style={{
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
-              }}
-            />
-            <div>
-              <Text strong style={{ fontSize: '16px', display: 'block', marginBottom: '2px' }}>
-                {user?.name || user?.username || "Guest"}
-              </Text>
-              <Text type="secondary" style={{ fontSize: '13px' }}>
-                {user?.name ? user.username : user?.display_name || "ไม่ได้กำหนดสิทธิ์"}
-              </Text>
-            </div>
-          </Space>
-        </div>
-      ),
-      disabled: true,
-    },
-    {
-      type: 'divider',
-    },
-    {
-      key: 'settings',
-      icon: <SettingOutlined />,
-      label: 'การตั้งค่า',
-      style: { padding: '10px 16px' },
-    },
-    {
-      type: 'divider',
-    },
-    {
-      key: 'logout',
-      icon: <LogoutOutlined />,
-      label: 'ออกจากระบบ',
-      danger: true,
-      style: { padding: '10px 16px' },
-      onClick: logout,
-    },
-  ];
+
 
   return (
     <Header
@@ -129,7 +81,62 @@ const AppHeader: React.FC = () => {
       </Space>
 
       {user && (
-        <Dropdown menu={{ items: menuItems }} trigger={['click']} placement="bottomRight">
+        <Popover 
+          content={
+            <div style={{ width: 260 }}>
+              {/* Profile Header */}
+              <div style={{ padding: '12px 0 16px', borderBottom: '1px solid #f0f0f0', marginBottom: 8 }}>
+                <Space align="center" size={16} style={{ padding: '0 8px' }}>
+                  <Avatar
+                    size={56}
+                    icon={<UserOutlined />}
+                    style={{
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      boxShadow: '0 4px 12px rgba(102, 126, 234, 0.3)',
+                    }}
+                  />
+                  <div>
+                    <Text strong style={{ fontSize: '16px', display: 'block', marginBottom: '2px' }}>
+                      {user?.name || user?.username || "Guest"}
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: '13px' }}>
+                      {user?.name ? user.username : user?.display_name || "ไม่ได้กำหนดสิทธิ์"}
+                    </Text>
+                  </div>
+                </Space>
+              </div>
+
+              {/* Menu Actions */}
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <Button 
+                  type="text" 
+                  icon={<SettingOutlined />} 
+                  style={{ textAlign: 'left', height: 44, fontSize: '15px' }}
+                  block
+                >
+                  การตั้งค่า
+                </Button>
+                
+                <div style={{ height: 1, background: '#f0f0f0', margin: '4px 0' }} />
+                
+                <Button 
+                  type="text" 
+                  danger 
+                  icon={<LogoutOutlined />} 
+                  style={{ textAlign: 'left', height: 44, fontSize: '15px' }}
+                  onClick={logout}
+                  block
+                >
+                  ออกจากระบบ
+                </Button>
+              </div>
+            </div>
+          } 
+          trigger="click"
+          placement="bottomRight"
+          overlayStyle={{ zIndex: 99999 }}
+          getPopupContainer={() => document.body}
+        >
           <div
             style={{
               display: 'flex',
@@ -186,7 +193,7 @@ const AppHeader: React.FC = () => {
               }}
             />
           </div>
-        </Dropdown>
+        </Popover>
       )}
     </Header>
   );

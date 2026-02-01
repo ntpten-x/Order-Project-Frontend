@@ -48,8 +48,8 @@ const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange, disabledAdd
         <div style={pageStyles.headerDecoCircle1} />
         <div style={pageStyles.headerDecoCircle2} />
         
-        <div style={pageStyles.headerContent}>
-            <div style={pageStyles.headerLeft}>
+        <div className="products-header-content" style={pageStyles.headerContent}>
+            <div className="products-header-left" style={pageStyles.headerLeft}>
                 <div style={pageStyles.headerIconBox}>
                     <ShopOutlined style={{ fontSize: 24, color: 'white' }} />
                 </div>
@@ -71,8 +71,9 @@ const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange, disabledAdd
                     </Title>
                 </div>
         </div>
-        <div style={pageStyles.headerActions}>
+        <div className="products-header-actions" style={pageStyles.headerActions}>
             <Input
+                className="products-search-input"
                 allowClear
                 placeholder="ค้นหาสินค้า..."
                 value={searchValue}
@@ -87,7 +88,8 @@ const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange, disabledAdd
                         background: 'rgba(255,255,255,0.2)',
                         borderRadius: 12,
                         height: 40,
-                        width: 40
+                        width: 40,
+                        flexShrink: 0
                     }}
                 />
                 {!disabledAdd && (
@@ -102,10 +104,11 @@ const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange, disabledAdd
                             height: 40,
                             fontWeight: 600,
                             border: 'none',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                            flexShrink: 0
                         }}
                     >
-                        เพิ่มสินค้า
+                        <span className="products-add-btn-text">เพิ่มสินค้า</span>
                     </Button>
                 )}
             </div>
@@ -158,7 +161,7 @@ const ProductCard = ({ product, index, onEdit, onDelete }: ProductCardProps) => 
                 animationDelay: `${index * 0.03}s`
             }}
         >
-            <div style={pageStyles.productCardInner}>
+            <div className="product-card-inner" style={pageStyles.productCardInner}>
                 {/* Image */}
                 <div style={{
                     width: 64,
