@@ -76,6 +76,16 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/(main)/pos/orders/[...ordersId]/page.js"
+    ],
+    "/(main)/pos/products/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/pos/products/page.js"
+    ],
+    "/(main)/pos/category/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/pos/category/page.js"
     ]
   }
 }
