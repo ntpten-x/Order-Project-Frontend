@@ -1,14 +1,8 @@
 {
-  "/api/pos/paymentMethod/route": "app/api/pos/paymentMethod/route.js",
-  "/_not-found/page": "app/_not-found/page.js",
-  "/api/auth/me/route": "app/api/auth/me/route.js",
-  "/api/csrf/route": "app/api/csrf/route.js",
-  "/api/pos/shifts/current/route": "app/api/pos/shifts/current/route.js",
-  "/api/pos/products/route": "app/api/pos/products/route.js",
-  "/api/pos/category/route": "app/api/pos/category/route.js",
-  "/(main)/pos/channels/dine-in/page": "app/(main)/pos/channels/dine-in/page.js",
+  "/api/stock/orders/route": "app/api/stock/orders/route.js",
   "/(main)/pos/queue/page": "app/(main)/pos/queue/page.js",
-  "/(main)/pos/items/payment/[...paymentId]/page": "app/(main)/pos/items/payment/[...paymentId]/page.js",
   "/(main)/pos/paymentMethod/page": "app/(main)/pos/paymentMethod/page.js",
-  "/(main)/pos/paymentMethod/manager/[...mode]/page": "app/(main)/pos/paymentMethod/manager/[...mode]/page.js"
+  "/(main)/pos/paymentMethod/manager/[...mode]/page": "app/(main)/pos/paymentMethod/manager/[...mode]/page.js",
+  "/(main)/stock/page": "app/(main)/stock/page.js",
+  "/(main)/page": "app/(main)/page.js"
 }
