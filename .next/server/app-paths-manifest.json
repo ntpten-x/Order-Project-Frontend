@@ -1,9 +1,8 @@
 {
-  "/api/pos/orders/route": "app/api/pos/orders/route.js",
-  "/api/pos/tables/route": "app/api/pos/tables/route.js",
-  "/api/pos/orders/[id]/route": "app/api/pos/orders/[id]/route.js",
-  "/api/pos/orders/items/[itemId]/status/route": "app/api/pos/orders/items/[itemId]/status/route.js",
+  "/api/auth/me/route": "app/api/auth/me/route.js",
   "/api/pos/orders/stats/route": "app/api/pos/orders/stats/route.js",
+  "/api/pos/shifts/current/route": "app/api/pos/shifts/current/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
   "/(main)/pos/page": "app/(main)/pos/page.js",
   "/(main)/pos/channels/page": "app/(main)/pos/channels/page.js",
   "/(main)/pos/channels/dine-in/page": "app/(main)/pos/channels/dine-in/page.js",
