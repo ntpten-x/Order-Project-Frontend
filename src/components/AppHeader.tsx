@@ -124,7 +124,7 @@ const AppHeader: React.FC = () => {
             textShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
           }}
         >
-          Order App
+          POS App
         </Text>
       </Space>
 

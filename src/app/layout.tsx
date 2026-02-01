@@ -13,8 +13,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ORDER",
-  description: "ORDER",
+  title: "POS",
+  description: "POS",
 };
 
 import AntdRegistry from "../lib/AntdRegistry";
