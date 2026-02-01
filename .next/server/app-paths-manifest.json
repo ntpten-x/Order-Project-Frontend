@@ -1,10 +1,1 @@
-{
-  "/api/pos/category/route": "app/api/pos/category/route.js",
-  "/api/pos/category/create/route": "app/api/pos/category/create/route.js",
-  "/api/pos/category/delete/[id]/route": "app/api/pos/category/delete/[id]/route.js",
-  "/(main)/page": "app/(main)/page.js",
-  "/(main)/pos/channels/page": "app/(main)/pos/channels/page.js",
-  "/(main)/pos/dashboard/[...id]/page": "app/(main)/pos/dashboard/[...id]/page.js",
-  "/(main)/pos/category/page": "app/(main)/pos/category/page.js",
-  "/(main)/pos/category/manager/[...mode]/page": "app/(main)/pos/category/manager/[...mode]/page.js"
-}
+{}
