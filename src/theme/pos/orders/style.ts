@@ -1048,6 +1048,39 @@ export const ordersResponsiveStyles = `
       padding: 20px 12px !important;
     }
 
+    .orders-header-content-mobile {
+      flex-wrap: wrap !important;
+      gap: 12px !important;
+    }
+
+    .orders-back-button-mobile {
+      order: 1 !important;
+    }
+
+    .orders-header-icon {
+      order: 2 !important;
+      width: 40px !important;
+      height: 40px !important;
+      padding: 10px !important;
+      font-size: 20px !important;
+    }
+
+    .orders-header-text-mobile {
+      order: 3 !important;
+      flex: 1 1 100% !important;
+    }
+
+    .orders-header-actions-mobile {
+      order: 4 !important;
+      width: 100% !important;
+      justify-content: space-between !important;
+    }
+
+    .orders-search-input-mobile {
+      flex: 1 !important;
+      min-width: 120px !important;
+    }
+
     .orders-content-wrapper {
       padding: 0 12px !important;
     }

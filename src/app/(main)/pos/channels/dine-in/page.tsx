@@ -12,7 +12,7 @@ import {
 import { Tables } from "../../../../../types/api/pos/tables";
 import { useTables } from "../../../../../hooks/pos/useTables";
 import { posPageStyles, tableColors, channelColors } from "../../../../../theme/pos";
-import { channelPageStyles } from "../../../../../theme/pos/channels/style";
+import { channelPageStyles, channelsResponsiveStyles } from "../../../../../theme/pos/channels/style";
 import { POSGlobalStyles } from "../../../../../theme/pos/GlobalStyles";
 import { getTableNavigationPath } from "../../../../../utils/orders";
 import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
@@ -48,6 +48,7 @@ export default function DineInTableSelectionPage() {
   return (
     <>
       <POSGlobalStyles />
+      <style jsx global>{channelsResponsiveStyles}</style>
       <div style={posPageStyles.container}>
         {/* Header Section */}
         <div style={{ ...channelPageStyles.channelHeader, background: channelColors.dineIn.gradient }} className="dine-in-header-mobile">

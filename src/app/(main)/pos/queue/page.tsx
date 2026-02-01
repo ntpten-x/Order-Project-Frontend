@@ -1,10 +1,9 @@
 "use client";
 
 import React, { useState, useCallback } from 'react';
-import { message, Modal, Typography, Tag, Button, Empty, Select, Card, Space, Badge } from 'antd';
+import { message, Modal, Typography, Tag, Button, Empty, Select, Space, Badge } from 'antd';
 import {
     UnorderedListOutlined,
-    PlusOutlined,
     ReloadOutlined,
     PlayCircleOutlined,
     CheckCircleOutlined,
@@ -19,6 +18,7 @@ import { OrderQueue, QueueStatus, QueuePriority } from '../../../../types/api/po
 import { useRoleGuard } from '../../../../utils/pos/accessControl';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 import { useQueuePrefetching } from '../../../../hooks/pos/usePrefetching';
+import { queueStyles, queueResponsiveStyles } from '../../../../theme/pos/queue/style';
 import dayjs from 'dayjs';
 import 'dayjs/locale/th';
 
@@ -111,239 +111,249 @@ export default function OrderQueuePage() {
     const processingQueue = queue.filter(q => q.status === QueueStatus.Processing);
     const completedQueue = queue.filter(q => q.status === QueueStatus.Completed);
 
+    const getPriorityGradient = (priority: QueuePriority) => {
+        switch (priority) {
+            case QueuePriority.Urgent:
+                return 'linear-gradient(135deg, #ff4d4f 0%, #cf1322 100%)';
+            case QueuePriority.High:
+                return 'linear-gradient(135deg, #fa8c16 0%, #d48806 100%)';
+            case QueuePriority.Normal:
+                return 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)';
+            default:
+                return 'linear-gradient(135deg, #8c8c8c 0%, #595959 100%)';
+        }
+    };
+
     return (
-        <div style={{ padding: '24px', maxWidth: 1400, margin: '0 auto' }}>
-            {/* Header */}
-            <div style={{
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                borderRadius: 20,
-                padding: '32px 24px',
-                marginBottom: 24,
-                position: 'relative',
-                overflow: 'hidden',
-            }}>
-                <div style={{
-                    position: 'absolute',
-                    top: -50,
-                    right: -50,
-                    width: 200,
-                    height: 200,
-                    borderRadius: '50%',
-                    background: 'rgba(255,255,255,0.1)',
-                }} />
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', position: 'relative', zIndex: 1 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                        <div style={{
-                            width: 64,
-                            height: 64,
-                            borderRadius: 16,
-                            background: 'rgba(255,255,255,0.2)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                        }}>
-                            <UnorderedListOutlined style={{ fontSize: 28, color: 'white' }} />
-                        </div>
-                        <div>
-                            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 14, display: 'block' }}>
-                                จัดการคิวออเดอร์
-                            </Text>
-                            <Title level={3} style={{ color: 'white', margin: 0, fontWeight: 700 }}>
-                                Order Queue
-                            </Title>
+        <>
+            <style jsx global>{queueResponsiveStyles}</style>
+            <div style={queueStyles.container}>
+                {/* Header */}
+                <div style={queueStyles.header} className="queue-header-mobile">
+                    <div style={{
+                        position: 'absolute',
+                        top: -50,
+                        right: -50,
+                        width: 200,
+                        height: 200,
+                        borderRadius: '50%',
+                        background: 'rgba(255,255,255,0.08)',
+                        pointerEvents: 'none',
+                    }} />
+                    <div style={{
+                        position: 'absolute',
+                        bottom: -30,
+                        left: -30,
+                        width: 120,
+                        height: 120,
+                        borderRadius: '50%',
+                        background: 'rgba(255,255,255,0.06)',
+                        pointerEvents: 'none',
+                    }} />
+                    
+                    <div style={queueStyles.headerContent}>
+                        <div style={queueStyles.headerTop}>
+                            <div style={queueStyles.headerLeft}>
+                                <div style={queueStyles.headerIconBox} className="queue-header-icon-mobile">
+                                    <UnorderedListOutlined style={{ fontSize: 24, color: 'white' }} />
+                                </div>
+                                <div style={queueStyles.headerTitleBox}>
+                                    <Text style={queueStyles.headerSubtitle} className="queue-header-subtitle-mobile">
+                                        จัดการคิวออเดอร์
+                                    </Text>
+                                    <Title level={3} style={queueStyles.headerTitle} className="queue-header-title-mobile">
+                                        Order Queue
+                                    </Title>
+                                </div>
+                            </div>
+                            <div style={queueStyles.headerActions}>
+                                <Select
+                                    value={statusFilter}
+                                    placeholder="กรองสถานะ"
+                                    allowClear
+                                    style={{ width: 140, minWidth: 120 }}
+                                    size="middle"
+                                    onChange={setStatusFilter}
+                                >
+                                    {Object.values(QueueStatus).map(status => (
+                                        <Select.Option key={status} value={status}>
+                                            {statusLabels[status]}
+                                        </Select.Option>
+                                    ))}
+                                </Select>
+                                <Button
+                                    icon={<ReloadOutlined />}
+                                    onClick={() => window.location.reload()}
+                                    style={{ 
+                                        background: 'rgba(255,255,255,0.2)', 
+                                        color: 'white', 
+                                        border: 'none',
+                                        borderRadius: 10,
+                                    }}
+                                    size="middle"
+                                />
+                                <Button
+                                    icon={<SortAscendingOutlined />}
+                                    onClick={handleReorder}
+                                    loading={isReordering}
+                                    style={{ 
+                                        background: 'white', 
+                                        color: '#667eea',
+                                        borderRadius: 10,
+                                        fontWeight: 600,
+                                    }}
+                                    size="middle"
+                                >
+                                    <span className="hide-on-mobile">จัดเรียง</span>
+                                </Button>
+                            </div>
                         </div>
                     </div>
-                    <Space>
-                        <Select
-                            value={statusFilter}
-                            placeholder="กรองตามสถานะ"
-                            allowClear
-                            style={{ width: 200 }}
-                            onChange={setStatusFilter}
-                        >
-                            {Object.values(QueueStatus).map(status => (
-                                <Select.Option key={status} value={status}>
-                                    {statusLabels[status]}
-                                </Select.Option>
-                            ))}
-                        </Select>
-                        <Button
-                            icon={<ReloadOutlined />}
-                            onClick={() => window.location.reload()}
-                            style={{ background: 'rgba(255,255,255,0.2)', color: 'white', border: 'none' }}
-                        />
-                        <Button
-                            icon={<SortAscendingOutlined />}
-                            onClick={handleReorder}
-                            loading={isReordering}
-                            style={{ background: 'white', color: '#667eea' }}
-                        >
-                            จัดเรียงใหม่
-                        </Button>
-                    </Space>
                 </div>
-            </div>
 
-            {/* Stats */}
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 16, marginBottom: 24 }}>
-                <Card>
-                    <div style={{ textAlign: 'center' }}>
-                        <Badge count={pendingQueue.length} showZero>
-                            <ClockCircleOutlined style={{ fontSize: 32, color: '#1890ff' }} />
-                        </Badge>
-                        <div style={{ marginTop: 8 }}>
-                            <Text type="secondary">รอในคิว</Text>
+                {/* Content */}
+                <div style={{ maxWidth: 1400, margin: '0 auto', padding: '48px 16px 80px' }}>
+                    {/* Stats */}
+                    <div style={queueStyles.statsGrid} className="queue-stats-grid-mobile">
+                        <div style={queueStyles.statCard} className="queue-stat-card-mobile">
+                            <Badge count={pendingQueue.length} showZero offset={[10, -5]}>
+                                <ClockCircleOutlined style={{ ...queueStyles.statIcon, color: '#1890ff' }} className="queue-stat-icon-mobile" />
+                            </Badge>
+                            <Text style={queueStyles.statLabel}>รอในคิว</Text>
+                        </div>
+                        <div style={queueStyles.statCard} className="queue-stat-card-mobile">
+                            <Badge count={processingQueue.length} showZero offset={[10, -5]}>
+                                <PlayCircleOutlined style={{ ...queueStyles.statIcon, color: '#fa8c16' }} className="queue-stat-icon-mobile" />
+                            </Badge>
+                            <Text style={queueStyles.statLabel}>กำลังดำเนินการ</Text>
+                        </div>
+                        <div style={queueStyles.statCard} className="queue-stat-card-mobile">
+                            <Badge count={completedQueue.length} showZero offset={[10, -5]}>
+                                <CheckCircleOutlined style={{ ...queueStyles.statIcon, color: '#52c41a' }} className="queue-stat-icon-mobile" />
+                            </Badge>
+                            <Text style={queueStyles.statLabel}>เสร็จสิ้น</Text>
+                        </div>
+                        <div style={queueStyles.statCard} className="queue-stat-card-mobile">
+                            <Badge count={queue.length} showZero offset={[10, -5]}>
+                                <UnorderedListOutlined style={{ ...queueStyles.statIcon, color: '#722ed1' }} className="queue-stat-icon-mobile" />
+                            </Badge>
+                            <Text style={queueStyles.statLabel}>ทั้งหมด</Text>
                         </div>
                     </div>
-                </Card>
-                <Card>
-                    <div style={{ textAlign: 'center' }}>
-                        <Badge count={processingQueue.length} showZero>
-                            <PlayCircleOutlined style={{ fontSize: 32, color: '#fa8c16' }} />
-                        </Badge>
-                        <div style={{ marginTop: 8 }}>
-                            <Text type="secondary">กำลังดำเนินการ</Text>
-                        </div>
-                    </div>
-                </Card>
-                <Card>
-                    <div style={{ textAlign: 'center' }}>
-                        <Badge count={completedQueue.length} showZero>
-                            <CheckCircleOutlined style={{ fontSize: 32, color: '#52c41a' }} />
-                        </Badge>
-                        <div style={{ marginTop: 8 }}>
-                            <Text type="secondary">เสร็จสิ้น</Text>
-                        </div>
-                    </div>
-                </Card>
-                <Card>
-                    <div style={{ textAlign: 'center' }}>
-                        <Badge count={queue.length} showZero>
-                            <UnorderedListOutlined style={{ fontSize: 32, color: '#722ed1' }} />
-                        </Badge>
-                        <div style={{ marginTop: 8 }}>
-                            <Text type="secondary">ทั้งหมด</Text>
-                        </div>
-                    </div>
-                </Card>
-            </div>
 
-            {/* Queue List */}
-            {isLoading ? (
-                <Card loading={true} />
-            ) : queue.length === 0 ? (
-                <Card>
-                    <Empty description="ยังไม่มีออเดอร์ในคิว" />
-                </Card>
-            ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                    {queue.map((item, index) => (
-                        <Card
-                            key={item.id}
-                            style={{
-                                borderRadius: 12,
-                                boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                            }}
-                        >
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <div style={{ display: 'flex', gap: 16, alignItems: 'center', flex: 1 }}>
-                                    <div style={{
-                                        width: 48,
-                                        height: 48,
-                                        borderRadius: 12,
-                                        background: `linear-gradient(135deg, ${
-                                            item.priority === QueuePriority.Urgent ? '#ff4d4f' :
-                                            item.priority === QueuePriority.High ? '#fa8c16' :
-                                            item.priority === QueuePriority.Normal ? '#1890ff' : '#8c8c8c'
-                                        } 0%, ${
-                                            item.priority === QueuePriority.Urgent ? '#cf1322' :
-                                            item.priority === QueuePriority.High ? '#d48806' :
-                                            item.priority === QueuePriority.Normal ? '#096dd9' : '#595959'
-                                        } 100%)`,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        color: 'white',
-                                        fontWeight: 'bold',
-                                        fontSize: 18,
-                                    }}>
-                                        {item.queue_position}
-                                    </div>
-                                    <div style={{ flex: 1 }}>
-                                        <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginBottom: 8 }}>
-                                            <Text strong style={{ fontSize: 16 }}>
-                                                {item.order?.order_no || 'N/A'}
-                                            </Text>
-                                            <Tag color={priorityColors[item.priority]}>
-                                                {priorityLabels[item.priority]}
-                                            </Tag>
-                                            <Tag color={statusColors[item.status]}>
-                                                {statusLabels[item.status]}
-                                            </Tag>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: 16, fontSize: 12, color: '#8c8c8c' }}>
-                                            <Text type="secondary">
-                                                สร้างเมื่อ: {dayjs(item.created_at).format('DD/MM/YYYY HH:mm')}
-                                            </Text>
-                                            {item.started_at && (
-                                                <Text type="secondary">
-                                                    เริ่ม: {dayjs(item.started_at).format('HH:mm')}
+                    {/* Queue List */}
+                    {isLoading ? (
+                        <div style={queueStyles.emptyCard}>
+                            <Empty description="กำลังโหลด..." />
+                        </div>
+                    ) : queue.length === 0 ? (
+                        <div style={queueStyles.emptyCard}>
+                            <Empty description="ยังไม่มีออเดอร์ในคิว" />
+                        </div>
+                    ) : (
+                        <div style={queueStyles.queueList}>
+                            {queue.map((item, index) => (
+                                <div
+                                    key={item.id}
+                                    className={`queue-card-hover queue-card-animate queue-card-delay-${(index % 4) + 1}`}
+                                    style={queueStyles.queueCard}
+                                >
+                                    <div style={queueStyles.queueCardContent} className="queue-card-content-mobile">
+                                        <div style={queueStyles.queueCardTop}>
+                                            <div 
+                                                style={{
+                                                    ...queueStyles.queuePosition,
+                                                    background: getPriorityGradient(item.priority),
+                                                }}
+                                                className="queue-position-mobile"
+                                            >
+                                                {item.queue_position}
+                                            </div>
+                                            <div style={queueStyles.queueInfo}>
+                                                <Text strong style={queueStyles.queueOrderNo} className="queue-order-no-mobile">
+                                                    {item.order?.order_no || 'N/A'}
                                                 </Text>
-                                            )}
-                                            {item.completed_at && (
-                                                <Text type="secondary">
-                                                    เสร็จ: {dayjs(item.completed_at).format('HH:mm')}
-                                                </Text>
-                                            )}
+                                                <div style={queueStyles.queueTags}>
+                                                    <Tag color={priorityColors[item.priority]} style={{ margin: 0, borderRadius: 8 }}>
+                                                        {priorityLabels[item.priority]}
+                                                    </Tag>
+                                                    <Tag color={statusColors[item.status]} style={{ margin: 0, borderRadius: 8 }}>
+                                                        {statusLabels[item.status]}
+                                                    </Tag>
+                                                </div>
+                                                <div style={queueStyles.queueMeta}>
+                                                    <Text type="secondary">
+                                                        สร้าง: {dayjs(item.created_at).format('DD/MM/YYYY HH:mm')}
+                                                    </Text>
+                                                    {item.started_at && (
+                                                        <Text type="secondary">
+                                                            เริ่ม: {dayjs(item.started_at).format('HH:mm')}
+                                                        </Text>
+                                                    )}
+                                                    {item.completed_at && (
+                                                        <Text type="secondary">
+                                                            เสร็จ: {dayjs(item.completed_at).format('HH:mm')}
+                                                        </Text>
+                                                    )}
+                                                </div>
+                                                {item.notes && (
+                                                    <div style={queueStyles.queueNotes}>
+                                                        <Text type="secondary">หมายเหตุ: {item.notes}</Text>
+                                                    </div>
+                                                )}
+                                            </div>
                                         </div>
-                                        {item.notes && (
-                                            <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
-                                                หมายเหตุ: {item.notes}
-                                            </Text>
-                                        )}
+                                        <div style={queueStyles.queueActions} className="queue-actions-mobile">
+                                            {item.status === QueueStatus.Pending && (
+                                                <Button
+                                                    type="primary"
+                                                    icon={<PlayCircleOutlined />}
+                                                    onClick={() => handleUpdateStatus(item, QueueStatus.Processing)}
+                                                    size="middle"
+                                                    style={{ borderRadius: 10 }}
+                                                >
+                                                    เริ่มดำเนินการ
+                                                </Button>
+                                            )}
+                                            {item.status === QueueStatus.Processing && (
+                                                <Button
+                                                    type="primary"
+                                                    icon={<CheckCircleOutlined />}
+                                                    onClick={() => handleUpdateStatus(item, QueueStatus.Completed)}
+                                                    size="middle"
+                                                    style={{ borderRadius: 10, background: '#52c41a', borderColor: '#52c41a' }}
+                                                >
+                                                    เสร็จสิ้น
+                                                </Button>
+                                            )}
+                                            {item.status !== QueueStatus.Completed && (
+                                                <Button
+                                                    danger
+                                                    icon={<CloseCircleOutlined />}
+                                                    onClick={() => handleUpdateStatus(item, QueueStatus.Cancelled)}
+                                                    size="middle"
+                                                    style={{ borderRadius: 10 }}
+                                                >
+                                                    ยกเลิก
+                                                </Button>
+                                            )}
+                                            <Button
+                                                danger
+                                                icon={<DeleteOutlined />}
+                                                onClick={() => handleRemove(item)}
+                                                size="middle"
+                                                style={{ borderRadius: 10 }}
+                                            >
+                                                ลบ
+                                            </Button>
+                                        </div>
                                     </div>
                                 </div>
-                                <Space>
-                                    {item.status === QueueStatus.Pending && (
-                                        <Button
-                                            type="primary"
-                                            icon={<PlayCircleOutlined />}
-                                            onClick={() => handleUpdateStatus(item, QueueStatus.Processing)}
-                                        >
-                                            เริ่มดำเนินการ
-                                        </Button>
-                                    )}
-                                    {item.status === QueueStatus.Processing && (
-                                        <Button
-                                            type="primary"
-                                            icon={<CheckCircleOutlined />}
-                                            onClick={() => handleUpdateStatus(item, QueueStatus.Completed)}
-                                        >
-                                            เสร็จสิ้น
-                                        </Button>
-                                    )}
-                                    {item.status !== QueueStatus.Completed && (
-                                        <Button
-                                            danger
-                                            icon={<CloseCircleOutlined />}
-                                            onClick={() => handleUpdateStatus(item, QueueStatus.Cancelled)}
-                                        >
-                                            ยกเลิก
-                                        </Button>
-                                    )}
-                                    <Button
-                                        danger
-                                        icon={<DeleteOutlined />}
-                                        onClick={() => handleRemove(item)}
-                                    >
-                                        ลบ
-                                    </Button>
-                                </Space>
-                            </div>
-                        </Card>
-                    ))}
+                            ))}
+                        </div>
+                    )}
                 </div>
-            )}
-        </div>
+            </div>
+        </>
     );
 }

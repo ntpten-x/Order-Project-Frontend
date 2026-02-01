@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { Typography, Row, Col } from "antd";
 import { ShopOutlined, ShoppingOutlined, RocketOutlined } from "@ant-design/icons";
 import { channelColors } from "../../../../theme/pos";
-import { channelsStyles } from "../../../../theme/pos/channels/style";
+import { channelsStyles, channelsResponsiveStyles } from "../../../../theme/pos/channels/style";
 import { POSGlobalStyles } from "../../../../theme/pos/GlobalStyles";
 import { 
   useChannelStats,
@@ -72,6 +72,7 @@ export default function ChannelSelectionPage() {
   return (
     <>
       <POSGlobalStyles />
+      <style jsx global>{channelsResponsiveStyles}</style>
       <div style={channelsStyles.channelsContainer}>
         {/* Header Section */}
         <div style={channelsStyles.channelsHeader} className="channels-header-mobile">

@@ -1,8 +1,14 @@
 {
-  "/api/stock/orders/route": "app/api/stock/orders/route.js",
+  "/api/pos/orders/[id]/route": "app/api/pos/orders/[id]/route.js",
+  "/api/pos/paymentMethod/route": "app/api/pos/paymentMethod/route.js",
+  "/api/pos/discounts/route": "app/api/pos/discounts/route.js",
+  "/api/csrf/route": "app/api/csrf/route.js",
+  "/api/pos/tables/route": "app/api/pos/tables/route.js",
+  "/api/pos/queue/route": "app/api/pos/queue/route.js",
+  "/api/pos/orders/items/[itemId]/status/route": "app/api/pos/orders/items/[itemId]/status/route.js",
   "/(main)/pos/queue/page": "app/(main)/pos/queue/page.js",
-  "/(main)/pos/paymentMethod/page": "app/(main)/pos/paymentMethod/page.js",
-  "/(main)/pos/paymentMethod/manager/[...mode]/page": "app/(main)/pos/paymentMethod/manager/[...mode]/page.js",
-  "/(main)/stock/page": "app/(main)/stock/page.js",
-  "/(main)/page": "app/(main)/page.js"
+  "/(main)/pos/channels/dine-in/page": "app/(main)/pos/channels/dine-in/page.js",
+  "/(main)/pos/channels/dine-in/[tableId]/page": "app/(main)/pos/channels/dine-in/[tableId]/page.js",
+  "/(main)/pos/orders/[...ordersId]/page": "app/(main)/pos/orders/[...ordersId]/page.js",
+  "/(main)/pos/items/payment/[...paymentId]/page": "app/(main)/pos/items/payment/[...paymentId]/page.js"
 }
