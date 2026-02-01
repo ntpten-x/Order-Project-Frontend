@@ -54,7 +54,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             // Get CSRF Token first
             const csrfToken = await authService.getCsrfToken();
             
-            const { token: _token, ...userData } = await authService.login(credentials, csrfToken);
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
+            const { token: _, ...userData } = await authService.login(credentials, csrfToken);
             setUser(userData);
             router.push("/"); // Redirect to dashboard
         } catch (error: unknown) {

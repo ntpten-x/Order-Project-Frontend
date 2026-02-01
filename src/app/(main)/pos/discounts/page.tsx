@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Spin, Typography, Tag, Button, Empty, Input } from 'antd';
+import { message, Modal, Typography, Tag, Button, Empty, Input } from 'antd';
 import { 
     PercentageOutlined,
     PlusOutlined,
@@ -23,6 +23,7 @@ import { useRealtimeList } from "../../../../utils/pos/realtime";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
 import { pageStyles, globalStyles } from '../../../../theme/pos/discounts/style';
 import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
+import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 
 const { Text, Title } = Typography;
 
@@ -410,35 +411,11 @@ export default function DiscountsPage() {
     };
 
     if (isChecking) {
-        return (
-            <div style={{ 
-                display: 'flex', 
-                height: '100vh', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                flexDirection: 'column', 
-                gap: 16 
-            }}>
-                <Spin size="large" />
-                <Text type="secondary">กำลังตรวจสอบสิทธิ์การใช้งาน...</Text>
-            </div>
-        );
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
     }
 
     if (!isAuthorized) {
-        return (
-            <div style={{ 
-                display: 'flex', 
-                height: '100vh', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                flexDirection: 'column', 
-                gap: 16 
-            }}>
-                <Spin size="large" />
-                <Text type="danger">คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ...</Text>
-            </div>
-        );
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
     }
 
     const activeDiscounts = discounts.filter(d => d.is_active);

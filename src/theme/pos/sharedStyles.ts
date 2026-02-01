@@ -95,6 +95,27 @@ export const createSharedPageStyles = (headerGradient: string) => ({
     header: { ...sharedBaseStyles.header, background: headerGradient }
 });
 
+// Shared card style factory - เพื่อลด duplicate code
+export const createCardStyle = (isActive: boolean) => ({
+    marginBottom: 12,
+    borderRadius: 20,
+    border: 'none',
+    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+    overflow: 'hidden',
+    transition: 'all 0.3s ease',
+    background: isActive
+        ? 'white'
+        : 'linear-gradient(to right, #fafafa, white)',
+    opacity: isActive ? 1 : 0.7
+});
+
+export const cardInnerStyle = {
+    padding: 16,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 14
+};
+
 export const sharedGlobalStyles = (pageSelector: string, cardSelector: string) => `
     @keyframes fadeSlideIn {
         from {

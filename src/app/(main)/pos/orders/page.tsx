@@ -20,7 +20,7 @@ import {
   formatCurrency
 } from "../../../../utils/orders";
 import { orderColors, ordersStyles, ordersResponsiveStyles } from "../../../../theme/pos/orders/style";
-import { useSocket } from "../../../../hooks/useSocket";
+// import { useSocket } from "../../../../hooks/useSocket";
 // import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
 import { useDebouncedValue } from "../../../../utils/useDebouncedValue";
 import { useOrdersSummary } from "../../../../hooks/pos/useOrdersSummary";
@@ -35,7 +35,7 @@ export default function POSOrdersPage() {
     const router = useRouter();
     const screens = useBreakpoint();
     const isMobile = !screens.md;
-    const { socket } = useSocket();
+    // const { socket } = useSocket();
 
     const [page, setPage] = useState(1);
     const [searchValue, setSearchValue] = useState("");

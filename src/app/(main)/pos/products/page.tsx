@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Spin, Typography, Tag, Button, Empty, Input, Alert } from 'antd';
+import { message, Modal, Typography, Tag, Button, Empty, Input, Alert } from 'antd';
 import Image from "next/image";
 import { 
     ShopOutlined,
@@ -29,6 +29,7 @@ import { useProductsUnit } from '../../../../hooks/pos/useProductsUnit';
 import { formatPrice } from '../../../../utils/products/productDisplay.utils';
 import { checkProductSetupState, getSetupMissingMessage } from '../../../../utils/products/productSetup.utils';
 import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
+import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 
 const { Text, Title } = Typography;
 
@@ -448,35 +449,11 @@ export default function ProductsPage() {
     };
 
     if (isChecking) {
-        return (
-            <div style={{ 
-                display: 'flex', 
-                height: '100vh', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                flexDirection: 'column', 
-                gap: 16 
-            }}>
-                <Spin size="large" />
-                <Text type="secondary">กำลังตรวจสอบสิทธิ์การใช้งาน...</Text>
-            </div>
-        );
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
     }
 
     if (!isAuthorized) {
-        return (
-            <div style={{ 
-                display: 'flex', 
-                height: '100vh', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                flexDirection: 'column', 
-                gap: 16 
-            }}>
-                <Spin size="large" />
-                <Text type="danger">คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ...</Text>
-            </div>
-        );
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
     }
 
     const activeProducts = products.filter(p => p.is_active);

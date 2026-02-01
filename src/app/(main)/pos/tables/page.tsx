@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Spin, Typography, Tag, Button, Empty, Input, Pagination } from 'antd';
+import { message, Modal, Typography, Tag, Button, Empty, Input, Pagination } from 'antd';
 import { 
     TableOutlined,
     PlusOutlined,
@@ -25,6 +25,7 @@ import { readCache, writeCache } from "../../../../utils/pos/cache";
 import { tablesService } from "../../../../services/pos/tables.service";
 import { pageStyles, globalStyles } from '../../../../theme/pos/tables/style';
 import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
+import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 
 const { Text, Title } = Typography;
 
@@ -421,35 +422,11 @@ export default function TablesPage() {
     };
 
     if (isChecking) {
-        return (
-            <div style={{ 
-                display: 'flex', 
-                height: '100vh', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                flexDirection: 'column', 
-                gap: 16 
-            }}>
-                <Spin size="large" />
-                <Text type="secondary">กำลังตรวจสอบสิทธิ์การใช้งาน...</Text>
-            </div>
-        );
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
     }
 
     if (!isAuthorized) {
-        return (
-            <div style={{ 
-                display: 'flex', 
-                height: '100vh', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                flexDirection: 'column', 
-                gap: 16 
-            }}>
-                <Spin size="large" />
-                <Text type="danger">คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ...</Text>
-            </div>
-        );
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
     }
 
     const activeTables = tables.filter(t => t.is_active);

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Spin, Typography, Button, Empty } from 'antd';
+import { message, Modal, Typography, Button, Empty } from 'antd';
 import { 
     UnorderedListOutlined,
     PlusOutlined,
@@ -21,6 +21,7 @@ import { useRoleGuard } from "../../../../utils/pos/accessControl";
 import { useRealtimeList } from "../../../../utils/pos/realtime";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
 import { pageStyles, globalStyles } from '../../../../theme/pos/productsUnit/style';
+import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 
 const { Text, Title } = Typography;
 
@@ -327,35 +328,11 @@ export default function ProductsUnitPage() {
     };
 
     if (isChecking) {
-        return (
-            <div style={{ 
-                display: 'flex', 
-                height: '100vh', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                flexDirection: 'column', 
-                gap: 16 
-            }}>
-                <Spin size="large" />
-                <Text type="secondary">กำลังตรวจสอบสิทธิ์การใช้งาน...</Text>
-            </div>
-        );
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
     }
 
     if (!isAuthorized) {
-        return (
-            <div style={{ 
-                display: 'flex', 
-                height: '100vh', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                flexDirection: 'column', 
-                gap: 16 
-            }}>
-                <Spin size="large" />
-                <Text type="danger">คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ...</Text>
-            </div>
-        );
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
     }
 
     const activeUnits = units.filter(u => u.is_active);
