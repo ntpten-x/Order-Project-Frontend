@@ -33,6 +33,7 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
     const [displayName, setDisplayName] = useState<string>('');
     const [csrfToken, setCsrfToken] = useState<string>("");
     const [existingPaymentMethods, setExistingPaymentMethods] = useState<PaymentMethod[]>([]);
+    const [methodModalVisible, setMethodModalVisible] = useState(false);
 
     const mode = params.mode[0];
     const id = params.mode[1] || null;
@@ -199,7 +200,7 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
     }
 
     return (
-        <div className="manage-page" style={pageStyles.container}>
+        <div className="manage-page" style={pageStyles.container as React.CSSProperties}>
             <ManagePageStyles />
             
             {/* Header */}
@@ -243,47 +244,104 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                                 { required: true, message: 'กรุณาเลือกวิธีการชำระเงิน' }
                             ]}
                         >
-                            <Select
-                                size="large"
-                                placeholder="เลือกวิธีการชำระเงิน"
-                                onChange={(value) => {
-                                    // เมื่อเลือก payment_method_name ให้ set display_name อัตโนมัติ
-                                    const selectedMethod = ALLOWED_PAYMENT_METHODS.find(
-                                        method => method.payment_method_name === value
-                                    );
-                                    if (selectedMethod) {
-                                        form.setFieldsValue({ display_name: selectedMethod.display_name });
-                                        setPaymentMethodName(selectedMethod.payment_method_name);
-                                        setDisplayName(selectedMethod.display_name);
-                                    }
-                                }}
-                                disabled={isEdit}
-                                getPopupContainer={() => document.body}
-                                dropdownStyle={{ zIndex: 9999 }}
-                                virtual={false}
-                                notFoundContent="ไม่มีตัวเลือก"
-                                popupMatchSelectWidth={true}
-                                dropdownRender={(menu) => (
-                                    <div>
-                                        {menu}
-                                    </div>
-                                )}
-                            >
+                            {/* Payment Method Selection - Switched to Modal for better Mobile/Touch experience */}
+                            <>
+                                <div 
+                                    style={{ 
+                                        border: `1px solid ${paymentMethodName ? '#10b981' : '#d9d9d9'}`,
+                                        borderRadius: 12,
+                                        padding: '12px 16px',
+                                        cursor: isEdit ? 'not-allowed' : 'pointer',
+                                        background: isEdit ? '#f5f5f5' : '#fff',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        height: 48,
+                                        transition: 'all 0.2s',
+                                        boxShadow: paymentMethodName ? '0 0 0 2px rgba(16, 185, 129, 0.1)' : 'none'
+                                    }}
+                                    onClick={() => {
+                                        if (!isEdit) {
+                                            setMethodModalVisible(true);
+                                        }
+                                    }}
+                                >
+                                    <span style={{ color: paymentMethodName ? '#1a1a2e' : '#bfbfbf', fontSize: 16 }}>
+                                        {paymentMethodName 
+                                            ? `${displayName} (${paymentMethodName})`
+                                            : "เลือกวิธีการชำระเงิน"}
+                                    </span>
+                                    <span style={{ color: '#bfbfbf' }}>▼</span>
+                                </div>
+                                {/* Hidden Input for Form Validation */}
+                                <Form.Item 
+                                    name="payment_method_name" 
+                                    style={{ display: 'none' }}
+                                    rules={[{ required: true, message: 'กรุณาเลือกวิธีการชำระเงิน' }]}
+                                >
+                                    <Input />
+                                </Form.Item>
+                            </>
+                        </Form.Item>
+
+                        <Modal
+                            title="เลือกวิธีการชำระเงิน"
+                            open={methodModalVisible}
+                            onCancel={() => setMethodModalVisible(false)}
+                            footer={null}
+                            centered
+                            width={400}
+                            zIndex={10001}
+                        >
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                 {ALLOWED_PAYMENT_METHODS.map(method => {
                                     const exists = !isEdit && isPaymentMethodExists(method.payment_method_name);
+                                    const isSelected = paymentMethodName === method.payment_method_name;
+                                    
                                     return (
-                                        <Select.Option 
-                                            key={method.payment_method_name} 
-                                            value={method.payment_method_name}
-                                            disabled={exists}
+                                        <div
+                                            key={method.payment_method_name}
+                                            onClick={() => {
+                                                if (!exists) {
+                                                    form.setFieldsValue({ 
+                                                        payment_method_name: method.payment_method_name,
+                                                        display_name: method.display_name
+                                                    });
+                                                    setPaymentMethodName(method.payment_method_name);
+                                                    setDisplayName(method.display_name);
+                                                    setMethodModalVisible(false);
+                                                }
+                                            }}
+                                            style={{
+                                                padding: '16px',
+                                                border: `1px solid ${isSelected ? '#10b981' : '#e5e7eb'}`,
+                                                borderRadius: 12,
+                                                cursor: exists ? 'not-allowed' : 'pointer',
+                                                background: isSelected ? '#ecfdf5' : (exists ? '#f5f5f5' : '#fff'),
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                opacity: exists ? 0.6 : 1
+                                            }}
                                         >
-                                            {method.display_name} ({method.payment_method_name})
-                                            {exists && ' - มีอยู่แล้ว'}
-                                        </Select.Option>
+                                            <div>
+                                                <div style={{ fontWeight: 600, color: isSelected ? '#047857' : '#1f2937', fontSize: 16 }}>
+                                                    {method.display_name}
+                                                </div>
+                                                <div style={{ fontSize: 13, color: isSelected ? '#059669' : '#6b7280' }}>
+                                                    {method.payment_method_name}
+                                                </div>
+                                            </div>
+                                            {exists && <span style={{ fontSize: 12, color: '#ef4444' }}>มีอยู่แล้ว</span>}
+                                            {isSelected && !exists && <span style={{ color: '#10b981', fontSize: 18 }}>✓</span>}
+                                        </div>
                                     );
                                 })}
-                            </Select>
-                        </Form.Item>
+                            </div>
+                        </Modal>
+
+                        {/* Spacer to replace Form.Item wrapper since we moved it inside */}
+                        <div style={{ marginBottom: 24 }} />
 
                         <Form.Item
                             name="display_name"

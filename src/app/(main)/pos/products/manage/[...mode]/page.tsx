@@ -29,6 +29,9 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     const [imageUrl, setImageUrl] = useState<string>('');
     const [displayName, setDisplayName] = useState<string>('');
     const [csrfToken, setCsrfToken] = useState<string>("");
+    const [categoryModalVisible, setCategoryModalVisible] = useState(false);
+    const [unitModalVisible, setUnitModalVisible] = useState(false);
+    const [, forceUpdate] = useState({}); // To trigger re-render on form change for custom display
 
     const mode = params.mode[0];
     const id = params.mode[1] || null;
@@ -221,6 +224,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                             if (changedValues.display_name !== undefined) {
                                 setDisplayName(changedValues.display_name);
                             }
+                            forceUpdate({}); // Force re-render for custom specific selectors
                         }}
                     >
                         <Form.Item
@@ -293,18 +297,69 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                             label="หมวดหมู่ *"
                             rules={[{ required: true, message: 'กรุณาเลือกหมวดหมู่' }]}
                         >
-                            <Select 
-                                size="large" 
-                                placeholder="เลือกหมวดหมู่"
-                                showSearch
-                                optionFilterProp="children"
+                            <div 
+                                style={{ 
+                                    border: '1px solid #d9d9d9',
+                                    borderRadius: 12,
+                                    padding: '12px 16px',
+                                    cursor: 'pointer',
+                                    background: '#fff',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    height: 48,
+                                    transition: 'all 0.2s',
+                                    marginBottom: 0
+                                }}
+                                onClick={() => setCategoryModalVisible(true)}
                             >
-                                {categories.map((cat) => (
-                                    <Select.Option key={cat.id} value={cat.id}>
-                                        {cat.display_name} ({cat.category_name})
-                                    </Select.Option>
-                                ))}
-                            </Select>
+                                <span style={{ color: form.getFieldValue('category_id') ? '#1a1a2e' : '#bfbfbf', fontSize: 16 }}>
+                                    {categories.find(c => c.id === form.getFieldValue('category_id'))?.display_name || "เลือกหมวดหมู่"}
+                                </span>
+                                <span style={{ color: '#bfbfbf' }}>▼</span>
+                            </div>
+                            {/* Hidden field for validation */}
+                            <Form.Item name="category_id" style={{ display: 'none' }} rules={[{ required: true, message: 'กรุณาเลือกหมวดหมู่' }]}>
+                                <Input />
+                            </Form.Item>
+
+                            <Modal
+                                title="เลือกหมวดหมู่"
+                                open={categoryModalVisible}
+                                onCancel={() => setCategoryModalVisible(false)}
+                                footer={null}
+                                centered
+                                width={400}
+                                zIndex={10001}
+                            >
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
+                                    {categories.map((cat) => (
+                                        <div
+                                            key={cat.id}
+                                            onClick={() => {
+                                                form.setFieldsValue({ category_id: cat.id });
+                                                setCategoryModalVisible(false);
+                                            }}
+                                            style={{
+                                                padding: '16px',
+                                                border: `1px solid ${form.getFieldValue('category_id') === cat.id ? '#10b981' : '#e5e7eb'}`,
+                                                borderRadius: 12,
+                                                cursor: 'pointer',
+                                                background: form.getFieldValue('category_id') === cat.id ? '#ecfdf5' : '#fff',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between'
+                                            }}
+                                        >
+                                            <div>
+                                                <div style={{ fontWeight: 600 }}>{cat.display_name}</div>
+                                                <div style={{ fontSize: 12, color: '#666' }}>{cat.category_name}</div>
+                                            </div>
+                                            {form.getFieldValue('category_id') === cat.id && <span style={{ color: '#10b981' }}>✓</span>}
+                                        </div>
+                                    ))}
+                                </div>
+                            </Modal>
                         </Form.Item>
 
                         <Form.Item
@@ -312,18 +367,69 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                             label="หน่วยสินค้า *"
                             rules={[{ required: true, message: 'กรุณาเลือกหน่วยสินค้า' }]}
                         >
-                            <Select 
-                                size="large" 
-                                placeholder="เลือกหน่วย"
-                                showSearch
-                                optionFilterProp="children"
+                            <div 
+                                style={{ 
+                                    border: '1px solid #d9d9d9',
+                                    borderRadius: 12,
+                                    padding: '12px 16px',
+                                    cursor: 'pointer',
+                                    background: '#fff',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    height: 48,
+                                    transition: 'all 0.2s',
+                                    marginBottom: 0
+                                }}
+                                onClick={() => setUnitModalVisible(true)}
                             >
-                                {units.map((unit) => (
-                                    <Select.Option key={unit.id} value={unit.id}>
-                                        {unit.display_name} ({unit.unit_name})
-                                    </Select.Option>
-                                ))}
-                            </Select>
+                                <span style={{ color: form.getFieldValue('unit_id') ? '#1a1a2e' : '#bfbfbf', fontSize: 16 }}>
+                                    {units.find(u => u.id === form.getFieldValue('unit_id'))?.display_name || "เลือกหน่วย"}
+                                </span>
+                                <span style={{ color: '#bfbfbf' }}>▼</span>
+                            </div>
+                            {/* Hidden field for validation */}
+                            <Form.Item name="unit_id" style={{ display: 'none' }} rules={[{ required: true, message: 'กรุณาเลือกหน่วยสินค้า' }]}>
+                                <Input />
+                            </Form.Item>
+
+                            <Modal
+                                title="เลือกหน่วยสินค้า"
+                                open={unitModalVisible}
+                                onCancel={() => setUnitModalVisible(false)}
+                                footer={null}
+                                centered
+                                width={400}
+                                zIndex={10001}
+                            >
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
+                                    {units.map((unit) => (
+                                        <div
+                                            key={unit.id}
+                                            onClick={() => {
+                                                form.setFieldsValue({ unit_id: unit.id });
+                                                setUnitModalVisible(false);
+                                            }}
+                                            style={{
+                                                padding: '16px',
+                                                border: `1px solid ${form.getFieldValue('unit_id') === unit.id ? '#10b981' : '#e5e7eb'}`,
+                                                borderRadius: 12,
+                                                cursor: 'pointer',
+                                                background: form.getFieldValue('unit_id') === unit.id ? '#ecfdf5' : '#fff',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between'
+                                            }}
+                                        >
+                                            <div>
+                                                <div style={{ fontWeight: 600 }}>{unit.display_name}</div>
+                                                <div style={{ fontSize: 12, color: '#666' }}>{unit.unit_name}</div>
+                                            </div>
+                                            {form.getFieldValue('unit_id') === unit.id && <span style={{ color: '#10b981' }}>✓</span>}
+                                        </div>
+                                    ))}
+                                </div>
+                            </Modal>
                         </Form.Item>
 
                         <Form.Item

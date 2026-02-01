@@ -8,7 +8,7 @@ import { useDelivery } from "../../../../../hooks/pos/useDelivery";
 import { OrderType, SalesOrderSummary } from "../../../../../types/api/pos/salesOrder";
 import { Delivery } from "../../../../../types/api/pos/delivery";
 import { posPageStyles, channelColors, tableColors } from "../../../../../theme/pos";
-import { channelPageStyles } from "../../../../../theme/pos/channels/style";
+import { channelPageStyles, channelsResponsiveStyles } from "../../../../../theme/pos/channels/style";
 import { POSGlobalStyles } from "../../../../../theme/pos/GlobalStyles";
 import { getOrderChannelStats, getOrderColorScheme, formatOrderStatus } from "../../../../../utils/channels";
 import { getOrderNavigationPath } from "../../../../../utils/orders";
@@ -85,6 +85,7 @@ export default function DeliverySelectionPage() {
     return (
         <>
             <POSGlobalStyles />
+            <style jsx global>{channelsResponsiveStyles}</style>
             <div style={posPageStyles.container}>
                 {/* Header Section */}
                 <div style={{ ...channelPageStyles.channelHeader, background: channelColors.delivery.gradient }} className="delivery-header-mobile">
@@ -127,7 +128,7 @@ export default function DeliverySelectionPage() {
                 </div>
 
                 {/* Content Section */}
-                <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 16px 24px' }}>
+                <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 16px 24px' }} className="delivery-content-mobile">
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
                         <Button 
                             type="primary" 
@@ -143,8 +144,10 @@ export default function DeliverySelectionPage() {
                                 border: 'none',
                                 boxShadow: `0 8px 16px rgba(114, 46, 209, 0.25)`,
                             }}
+                            className="delivery-add-button-mobile"
                         >
-                            เพิ่มออเดอร์ใหม่
+                            <span className="hide-on-mobile">เพิ่มออเดอร์ใหม่</span>
+                            <span className="show-on-mobile-inline">เพิ่ม</span>
                         </Button>
                     </div>
 
@@ -157,7 +160,7 @@ export default function DeliverySelectionPage() {
                             const orderNum = order.delivery_code || order.order_no.split('-').pop();
 
                             return (
-                                <Col xs={12} sm={8} md={6} lg={4} key={order.id}>
+                                <Col xs={12} sm={8} md={6} lg={4} key={order.id} className="delivery-order-col-mobile">
                                     <div
                                         className={`delivery-order-card table-card-animate table-card-delay-${(index % 6) + 1}`}
                                         style={{

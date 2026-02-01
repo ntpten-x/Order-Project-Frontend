@@ -10,7 +10,7 @@ import { paymentsService } from "../../../../../../services/pos/payments.service
 import { getCsrfTokenCached } from "../../../../../../utils/pos/csrf";
 import { SalesOrder, OrderStatus, OrderType } from "../../../../../../types/api/pos/salesOrder";
 import { PaymentStatus } from "../../../../../../types/api/pos/payments";
-import { paymentPageStyles, paymentColors } from "../../../../../../theme/pos/payments.theme";
+import { paymentPageStyles, paymentColors, paymentResponsiveStyles } from "../../../../../../theme/pos/payments.theme";
 import { calculatePaymentTotals } from "../../../../../../utils/payments";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
@@ -233,11 +233,12 @@ export default function POSDeliverySummaryPage() {
 
     return (
         <div style={paymentPageStyles.container}>
+            <style jsx global>{paymentResponsiveStyles}</style>
             {contextHolder}
             
             {/* Hero Header */}
-             <div style={{ ...paymentPageStyles.heroSection, background: 'linear-gradient(135deg, #eb2f96 0%, #c41d7f 100%)' }}>
-                <div style={paymentPageStyles.contentWrapper}>
+             <div style={{ ...paymentPageStyles.heroSection, background: 'linear-gradient(135deg, #eb2f96 0%, #c41d7f 100%)' }} className="payment-hero-mobile">
+                <div style={paymentPageStyles.contentWrapper} className="payment-content-mobile">
                     <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
                              <Button 

@@ -185,29 +185,41 @@ export default function POSOrdersPage() {
             <style jsx global>{ordersResponsiveStyles}</style>
 
             <div style={ordersStyles.header} className="orders-header">
-                <div style={ordersStyles.headerContent} className="orders-content">
+                <div style={ordersStyles.headerContent} className="orders-content orders-header-content-mobile">
                      <Button 
                         icon={<ArrowLeftOutlined />} 
                         onClick={() => router.push('/pos')}
                         type="text"
+                        className="orders-back-button-mobile"
                         style={{ color: '#fff', fontSize: 18, marginRight: 16 }}
                     />
                     <div style={ordersStyles.headerIcon} className="orders-header-icon">
                         <ContainerOutlined style={{ color: '#fff' }} />
                     </div>
-                    <div style={ordersStyles.headerTextContainer}>
+                    <div style={ordersStyles.headerTextContainer} className="orders-header-text-mobile">
                         <Title level={2} style={ordersStyles.headerTitle} className="orders-page-title">รายการออเดอร์ปัจจุบัน</Title>
                         <Text style={ordersStyles.headerSubtitle} className="orders-page-subtitle">จัดการและติดตามสถานะออเดอร์ที่กำลังดำเนินการ</Text>
                     </div>
-                    <Input
-                        allowClear
-                        placeholder="ค้นหาเลขที่ออเดอร์/โต๊ะ/เดลิเวอรี่"
-                        value={searchValue}
-                        onChange={(e) => setSearchValue(e.target.value)}
-                        size={isMobile ? "middle" : "large"}
-                        style={{ width: isMobile ? 200 : 280 }}
-                    />
-                    <Button icon={<ReloadOutlined />} onClick={() => refetch()} size={isMobile ? 'middle' : 'large'} ghost>รีเฟรช</Button>
+                    <div className="orders-header-actions-mobile" style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                        <Input
+                            allowClear
+                            placeholder="ค้นหา..."
+                            value={searchValue}
+                            onChange={(e) => setSearchValue(e.target.value)}
+                            size={isMobile ? "middle" : "large"}
+                            className="orders-search-input-mobile"
+                            style={{ width: isMobile ? 140 : 280, minWidth: 120 }}
+                        />
+                        <Button 
+                            icon={<ReloadOutlined />} 
+                            onClick={() => refetch()} 
+                            size={isMobile ? 'middle' : 'large'} 
+                            ghost
+                            className="orders-refresh-button-mobile"
+                        >
+                            <span className="hide-on-mobile">รีเฟรช</span>
+                        </Button>
+                    </div>
                 </div>
             </div>
 

@@ -1,914 +1,916 @@
 import { CSSProperties } from 'react';
+import { posColors } from '../index';
 
 // ============================================
-// Order Theme Constants
+// Order Theme Constants - Using unified design tokens
 // ============================================
 export const orderColors = {
-    // Primary - Modern Blue
-    primary: '#3b82f6',
-    primaryLight: '#eff6ff',
-    primaryDark: '#1d4ed8',
-    primaryGradient: 'linear-gradient(135deg, #3b82f6 0%, #06b6d4 100%)',
+  // Primary - Matches theme
+  primary: posColors.primary,
+  primaryLight: posColors.primaryLight,
+  primaryDark: posColors.primaryDark,
+  primaryGradient: `linear-gradient(135deg, ${posColors.primary} 0%, ${posColors.primaryDark} 100%)`,
 
-    // Status Colors
-    pending: '#f59e0b',
-    pendingLight: '#fef3c7',
-    cooking: '#3b82f6',
-    cookingLight: '#dbeafe',
-    served: '#10b981',
-    servedLight: '#d1fae5',
-    paid: '#13c2c2',
-    paidLight: '#e6fffb',
-    cancelled: '#ef4444',
-    cancelledLight: '#fee2e2',
+  // Status Colors
+  pending: '#F59E0B',
+  pendingLight: '#FFFBEB',
+  cooking: '#3B82F6',
+  cookingLight: '#EFF6FF',
+  served: posColors.success,
+  servedLight: posColors.successLight,
+  paid: '#06B6D4',
+  paidLight: '#ECFEFF',
+  cancelled: posColors.error,
+  cancelledLight: posColors.errorLight,
 
-    // Compatibility Aliases
-    success: '#10b981',
-    danger: '#ef4444',
-    dangerLight: '#fee2e2',
-    warning: '#f59e0b',
-    priceTotal: '#065f46',
+  // Compatibility Aliases
+  success: posColors.success,
+  danger: posColors.error,
+  dangerLight: posColors.errorLight,
+  warning: posColors.warning,
+  priceTotal: '#065F46',
 
-    waitingForPayment: '#faad14',
-    waitingForPaymentLight: '#fff7e6',
+  waitingForPayment: '#6366F1',
+  waitingForPaymentLight: '#EEF2FF',
 
-    // Channel Colors
-    dineIn: '#722ed1',
-    takeAway: '#fa8c16',
-    delivery: '#eb2f96',
+  // Channel Colors
+  dineIn: '#3B82F6',
+  takeAway: '#F59E0B',
+  delivery: '#8B5CF6',
 
-    // Base Colors
-    text: '#1f2937',
-    textSecondary: '#6b7280',
-    textLight: '#9ca3af',
-    background: '#f8fafc',
-    backgroundSecondary: '#f1f5f9',
-    white: '#ffffff',
-    border: '#e2e8f0',
-    borderLight: '#f1f5f9',
+  // Base Colors
+  text: posColors.text,
+  textSecondary: posColors.textSecondary,
+  textLight: posColors.textMuted,
+  background: posColors.background,
+  backgroundSecondary: '#F1F5F9',
+  white: posColors.cardBg,
+  border: posColors.border,
+  borderLight: posColors.borderLight,
 
-    // Card Shadow
-    cardShadow: '0 1px 3px rgba(0,0,0,0.08), 0 1px 2px rgba(0,0,0,0.06)',
-    cardShadowHover: '0 10px 25px rgba(0,0,0,0.1), 0 4px 10px rgba(0,0,0,0.05)',
+  // Card Shadow
+  cardShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+  cardShadowHover: '0 8px 24px rgba(0, 0, 0, 0.08)',
 };
 
 export const orderDetailColors = orderColors;
 
 
 export const orderTypography = {
-    pageTitle: {
-        fontSize: 28,
-        fontWeight: 700,
-        lineHeight: 1.2,
-        margin: 0,
-        color: orderColors.text,
-    } as CSSProperties,
+  pageTitle: {
+    fontSize: 28,
+    fontWeight: 700,
+    lineHeight: 1.2,
+    margin: 0,
+    color: orderColors.text,
+  } as CSSProperties,
 
-    sectionTitle: {
-        fontSize: 20,
-        fontWeight: 600,
-        lineHeight: 1.4,
-        color: orderColors.text,
-    } as CSSProperties,
+  sectionTitle: {
+    fontSize: 20,
+    fontWeight: 600,
+    lineHeight: 1.4,
+    color: orderColors.text,
+  } as CSSProperties,
 
-    cardTitle: {
-        fontSize: 16,
-        fontWeight: 600,
-        lineHeight: 1.3,
-        color: orderColors.text,
-    } as CSSProperties,
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: 600,
+    lineHeight: 1.3,
+    color: orderColors.text,
+  } as CSSProperties,
 
-    cardRef: {
-        fontSize: 18,
-        fontWeight: 700,
-        lineHeight: 1.2,
-        color: orderColors.text,
-    } as CSSProperties,
+  cardRef: {
+    fontSize: 18,
+    fontWeight: 700,
+    lineHeight: 1.2,
+    color: orderColors.text,
+  } as CSSProperties,
 
-    label: {
-        fontSize: 13,
-        fontWeight: 500,
-        color: orderColors.textSecondary,
-    } as CSSProperties,
+  label: {
+    fontSize: 13,
+    fontWeight: 500,
+    color: orderColors.textSecondary,
+  } as CSSProperties,
 };
 
 export const orderDetailTypography = orderTypography;
 
 
 export const orderBreakpoints = {
-    mobile: 480,
-    tablet: 768,
-    desktop: 1024,
-    wide: 1200,
+  mobile: 480,
+  tablet: 768,
+  desktop: 1024,
+  wide: 1200,
 };
 
 // ============================================
 // Styles for Orders List Page
 // ============================================
 export const ordersStyles = {
-    // Page Container
-    container: {
-        minHeight: '100vh',
-        background: orderColors.background,
-        paddingBottom: 40,
-    } as CSSProperties,
+  // Page Container
+  container: {
+    minHeight: '100vh',
+    background: orderColors.background,
+    paddingBottom: 100,
+  } as CSSProperties,
 
-    // Hero Header
-    header: {
-        background: orderColors.primaryGradient,
-        padding: '32px 24px',
-        marginBottom: 32,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-    } as CSSProperties,
+  // Hero Header - Compact
+  header: {
+    background: orderColors.primaryGradient,
+    padding: '16px 16px 40px',
+    boxShadow: '0 4px 16px rgba(99, 102, 241, 0.15)',
+    borderBottomLeftRadius: 20,
+    borderBottomRightRadius: 20,
+  } as CSSProperties,
 
-    headerContent: {
-        maxWidth: 1400,
-        margin: '0 auto',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 16,
-        color: '#fff',
-    } as CSSProperties,
+  headerContent: {
+    maxWidth: 1400,
+    margin: '0 auto',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 16,
+    color: '#fff',
+  } as CSSProperties,
 
-    headerIcon: {
-        fontSize: 48,
-        background: 'rgba(255,255,255,0.15)',
-        borderRadius: 16,
-        padding: 16,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-    } as CSSProperties,
+  headerIcon: {
+    fontSize: 48,
+    background: 'rgba(255,255,255,0.15)',
+    borderRadius: 16,
+    padding: 16,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as CSSProperties,
 
-    headerTextContainer: {
-        flex: 1,
-    } as CSSProperties,
+  headerTextContainer: {
+    flex: 1,
+  } as CSSProperties,
 
-    headerTitle: {
-        color: '#fff',
-        fontSize: 28,
-        fontWeight: 700,
-        margin: 0,
-        lineHeight: 1.2,
-    } as CSSProperties,
+  headerTitle: {
+    color: '#fff',
+    fontSize: 28,
+    fontWeight: 700,
+    margin: 0,
+    lineHeight: 1.2,
+  } as CSSProperties,
 
-    headerSubtitle: {
-        color: 'rgba(255,255,255,0.9)',
-        fontSize: 14,
-        marginTop: 4,
-        display: 'block',
-    } as CSSProperties,
+  headerSubtitle: {
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 14,
+    marginTop: 4,
+    display: 'block',
+  } as CSSProperties,
 
-    // Content Container
-    contentWrapper: {
-        maxWidth: 1400,
-        margin: '0 auto',
-        padding: '0 24px',
-    } as CSSProperties,
+  // Content Container
+  contentWrapper: {
+    maxWidth: 1400,
+    margin: '0 auto',
+    padding: '0 24px',
+  } as CSSProperties,
 
-    // Filter Section
-    filterSection: {
-        background: '#fff',
-        borderRadius: 16,
-        padding: '12px 16px',
-        marginBottom: 24,
-        boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        flexWrap: 'wrap' as CSSProperties['flexWrap'],
-        gap: 16,
-        border: '1px solid #f0f2f5',
-    } as CSSProperties,
+  // Filter Section
+  filterSection: {
+    background: '#fff',
+    borderRadius: 16,
+    padding: '12px 16px',
+    marginBottom: 24,
+    boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    flexWrap: 'wrap' as CSSProperties['flexWrap'],
+    gap: 16,
+    border: '1px solid #f0f2f5',
+  } as CSSProperties,
 
-    filterLeft: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        background: '#f8fafc',
-        padding: '6px 12px',
-        borderRadius: 10,
-    } as CSSProperties,
+  filterLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    background: '#f8fafc',
+    padding: '6px 12px',
+    borderRadius: 10,
+  } as CSSProperties,
 
-    filterRight: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        flexWrap: 'wrap' as CSSProperties['flexWrap'],
-    } as CSSProperties,
+  filterRight: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    flexWrap: 'wrap' as CSSProperties['flexWrap'],
+  } as CSSProperties,
 
-    statsText: {
-        fontSize: 13,
-        color: orderColors.textSecondary,
-        fontWeight: 500,
-    } as CSSProperties,
+  statsText: {
+    fontSize: 13,
+    color: orderColors.textSecondary,
+    fontWeight: 500,
+  } as CSSProperties,
 
-    // Order Card
-    orderCard: {
-        borderRadius: 12,
-        overflow: 'hidden',
-        border: 'none',
-        boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-        height: '100%',
-        cursor: 'pointer',
-    } as CSSProperties,
+  // Order Card
+  orderCard: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    border: 'none',
+    boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    height: '100%',
+    cursor: 'pointer',
+  } as CSSProperties,
 
-    orderCardHover: {
-        transform: 'translateY(-4px)',
-        boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
-    } as CSSProperties,
+  orderCardHover: {
+    transform: 'translateY(-4px)',
+    boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
+  } as CSSProperties,
 
-    // Card Header
-    cardHeader: {
-        padding: '14px 16px',
-        borderBottom: `1px solid ${orderColors.borderLight}`,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        background: 'linear-gradient(to bottom, #fafafa 0%, #ffffff 100%)',
-    } as CSSProperties,
+  // Card Header
+  cardHeader: {
+    padding: '14px 16px',
+    borderBottom: `1px solid ${orderColors.borderLight}`,
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    background: 'linear-gradient(to bottom, #fafafa 0%, #ffffff 100%)',
+  } as CSSProperties,
 
-    cardHeaderLeft: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        flex: 1,
-        minWidth: 0,
-    } as CSSProperties,
+  cardHeaderLeft: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    flex: 1,
+    minWidth: 0,
+  } as CSSProperties,
 
-    // Card Body
-    cardBody: {
-        padding: '16px 18px',
-    } as CSSProperties,
+  // Card Body
+  cardBody: {
+    padding: '16px 18px',
+  } as CSSProperties,
 
-    // Reference Section
-    refSection: {
-        marginBottom: 14,
-        paddingBottom: 12,
-        borderBottom: `1px solid ${orderColors.borderLight}`,
-    } as CSSProperties,
+  // Reference Section
+  refSection: {
+    marginBottom: 14,
+    paddingBottom: 12,
+    borderBottom: `1px solid ${orderColors.borderLight}`,
+  } as CSSProperties,
 
-    refLabel: {
-        ...orderTypography.label,
-        marginBottom: 4,
-        display: 'block',
-    } as CSSProperties,
+  refLabel: {
+    ...orderTypography.label,
+    marginBottom: 4,
+    display: 'block',
+  } as CSSProperties,
 
-    refValue: {
-        ...orderTypography.cardRef,
-        color: orderColors.text,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-    } as CSSProperties,
+  refValue: {
+    ...orderTypography.cardRef,
+    color: orderColors.text,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+  } as CSSProperties,
 
-    // Items Summary
-    itemsSummary: {
-        background: orderColors.primaryLight,
-        padding: 12,
-        borderRadius: 8,
-        marginBottom: 14,
-        border: `1px solid ${orderColors.primaryDark}20`,
-    } as CSSProperties,
+  // Items Summary
+  itemsSummary: {
+    background: orderColors.primaryLight,
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 14,
+    border: `1px solid ${orderColors.primaryDark}20`,
+  } as CSSProperties,
 
-    summaryRow: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 6,
-        fontSize: 13,
-    } as CSSProperties,
+  summaryRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+    fontSize: 13,
+  } as CSSProperties,
 
-    summaryRowBold: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginTop: 8,
-        paddingTop: 8,
-        borderTop: `1px solid ${orderColors.primary}30`,
-        fontWeight: 600,
-        fontSize: 14,
-    } as CSSProperties,
+  summaryRowBold: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTop: `1px solid ${orderColors.primary}30`,
+    fontWeight: 600,
+    fontSize: 14,
+  } as CSSProperties,
 
-    // Total Amount
-    totalSection: {
-        background: 'linear-gradient(135deg, #f6ffed 0%, #e6fffb 100%)',
-        padding: '10px 14px',
-        borderRadius: 8,
-        marginBottom: 14,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        border: `1px solid ${orderColors.served}30`,
-    } as CSSProperties,
+  // Total Amount
+  totalSection: {
+    background: 'linear-gradient(135deg, #f6ffed 0%, #e6fffb 100%)',
+    padding: '10px 14px',
+    borderRadius: 8,
+    marginBottom: 14,
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    border: `1px solid ${orderColors.served}30`,
+  } as CSSProperties,
 
-    totalLabel: {
-        fontSize: 14,
-        fontWeight: 500,
-        color: orderColors.textSecondary,
-    } as CSSProperties,
+  totalLabel: {
+    fontSize: 14,
+    fontWeight: 500,
+    color: orderColors.textSecondary,
+  } as CSSProperties,
 
-    totalAmount: {
-        fontSize: 20,
-        fontWeight: 700,
-        color: '#52c41a',
-    } as CSSProperties,
+  totalAmount: {
+    fontSize: 20,
+    fontWeight: 700,
+    color: '#52c41a',
+  } as CSSProperties,
 
-    // Metadata Section
-    metaSection: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        color: orderColors.textSecondary,
-        fontSize: 12,
-        marginBottom: 14,
-    } as CSSProperties,
+  // Metadata Section
+  metaSection: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    color: orderColors.textSecondary,
+    fontSize: 12,
+    marginBottom: 14,
+  } as CSSProperties,
 
-    // Action Button
-    actionButton: {
-        borderRadius: 8,
-        fontWeight: 600,
-        height: 40,
-        fontSize: 14,
-        width: '100%',
-    } as CSSProperties,
+  // Action Button
+  actionButton: {
+    borderRadius: 8,
+    fontWeight: 600,
+    height: 40,
+    fontSize: 14,
+    width: '100%',
+  } as CSSProperties,
 
-    // Empty State
-    emptyState: {
-        background: '#fff',
-        borderRadius: 12,
-        padding: 60,
-        textAlign: 'center' as CSSProperties['textAlign'],
-        boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-    } as CSSProperties,
+  // Empty State
+  emptyState: {
+    background: '#fff',
+    borderRadius: 12,
+    padding: 60,
+    textAlign: 'center' as CSSProperties['textAlign'],
+    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+  } as CSSProperties,
 
-    // Loading State
-    loadingState: {
-        background: '#fff',
-        borderRadius: 12,
-        padding: 60,
-        textAlign: 'center' as CSSProperties['textAlign'],
-        boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-    } as CSSProperties,
+  // Loading State
+  loadingState: {
+    background: '#fff',
+    borderRadius: 12,
+    padding: 60,
+    textAlign: 'center' as CSSProperties['textAlign'],
+    boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+  } as CSSProperties,
 };
 
 // ============================================
 // Styles for Order Detail Page
 // ============================================
 export const orderDetailStyles = {
-    // Page Container - Matches list style for consistency
-    container: {
-        minHeight: '100vh',
-        background: orderColors.background,
-        paddingBottom: 100, // Safe area for bottom nav
-    } as CSSProperties,
+  // Page Container - Matches list style for consistency
+  container: {
+    minHeight: '100vh',
+    background: orderColors.background,
+    paddingBottom: 100, // Safe area for bottom nav
+  } as CSSProperties,
 
-    // Compact Header
-    header: {
-        background: orderColors.white,
-        padding: '12px 16px',
-        borderBottom: `1px solid ${orderColors.border}`,
-        position: 'sticky' as const,
-        top: 0,
-        zIndex: 100,
-    } as CSSProperties,
+  // Compact Header
+  header: {
+    background: orderColors.white,
+    padding: '12px 16px',
+    borderBottom: `1px solid ${orderColors.border}`,
+    position: 'sticky' as const,
+    top: 0,
+    zIndex: 100,
+  } as CSSProperties,
 
-    headerContent: {
-        maxWidth: 1200,
-        margin: '0 auto',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-    } as CSSProperties,
+  headerContent: {
+    maxWidth: 1200,
+    margin: '0 auto',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+  } as CSSProperties,
 
-    headerTitle: {
-        fontSize: 18,
-        fontWeight: 700,
-        margin: 0,
-        color: orderColors.text,
-        flex: 1,
-    } as CSSProperties,
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: 700,
+    margin: 0,
+    color: orderColors.text,
+    flex: 1,
+  } as CSSProperties,
 
-    headerSubtitle: {
-        fontSize: 12,
-        color: orderColors.textSecondary,
-    } as CSSProperties,
+  headerSubtitle: {
+    fontSize: 12,
+    color: orderColors.textSecondary,
+  } as CSSProperties,
 
-    tableNameBadge: {
-        background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
-        color: '#ffffff',
-        fontWeight: 800,
-        fontSize: 16,
-        padding: '4px 14px',
-        borderRadius: '10px',
-        boxShadow: '0 4px 10px rgba(124, 58, 237, 0.3)',
-        border: 'none',
-        display: 'inline-flex',
-        alignItems: 'center',
-        margin: 0,
-        height: 'fit-content',
-        textShadow: '0 1px 2px rgba(0,0,0,0.1)',
-    } as CSSProperties,
+  tableNameBadge: {
+    background: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+    color: '#ffffff',
+    fontWeight: 800,
+    fontSize: 16,
+    padding: '4px 14px',
+    borderRadius: '10px',
+    boxShadow: '0 4px 10px rgba(124, 58, 237, 0.3)',
+    border: 'none',
+    display: 'inline-flex',
+    alignItems: 'center',
+    margin: 0,
+    height: 'fit-content',
+    textShadow: '0 1px 2px rgba(0,0,0,0.1)',
+  } as CSSProperties,
 
-    channelBadge: {
-        fontWeight: 700,
-        fontSize: 12,
-        borderRadius: 8,
-        padding: '2px 10px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        height: 28,
-        border: 'none',
-        boxShadow: '0 2px 5px rgba(0,0,0,0.05)',
-        transition: 'all 0.3s ease',
-    } as CSSProperties,
+  channelBadge: {
+    fontWeight: 700,
+    fontSize: 12,
+    borderRadius: 8,
+    padding: '2px 10px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    height: 28,
+    border: 'none',
+    boxShadow: '0 2px 5px rgba(0,0,0,0.05)',
+    transition: 'all 0.3s ease',
+  } as CSSProperties,
 
-    headerMetaRow: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        marginTop: 6,
-    } as CSSProperties,
+  headerMetaRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+    marginTop: 6,
+  } as CSSProperties,
 
-    headerMetaSeparator: {
-        height: 14,
-        width: 1,
-        background: '#e2e8f0',
-        margin: '0 2px',
-    } as CSSProperties,
+  headerMetaSeparator: {
+    height: 14,
+    width: 1,
+    background: '#e2e8f0',
+    margin: '0 2px',
+  } as CSSProperties,
 
-    // Content Container
-    contentWrapper: {
-        maxWidth: 1200,
-        margin: '0 auto',
-        padding: '16px',
-    } as CSSProperties,
+  // Content Container
+  contentWrapper: {
+    maxWidth: 1200,
+    margin: '0 auto',
+    padding: '16px',
+  } as CSSProperties,
 
-    // Card Styles
-    card: {
-        borderRadius: 16,
-        overflow: 'hidden',
-        boxShadow: orderColors.cardShadow,
-        border: 'none',
-        marginBottom: 16,
-        background: orderColors.white,
-    } as CSSProperties,
+  // Card Styles
+  card: {
+    borderRadius: 16,
+    overflow: 'hidden',
+    boxShadow: orderColors.cardShadow,
+    border: 'none',
+    marginBottom: 16,
+    background: orderColors.white,
+  } as CSSProperties,
 
-    cardHeader: {
-        background: orderColors.white,
-        padding: '14px 16px',
-        borderBottom: `1px solid ${orderColors.borderLight}`,
-    } as CSSProperties,
+  cardHeader: {
+    background: orderColors.white,
+    padding: '14px 16px',
+    borderBottom: `1px solid ${orderColors.borderLight}`,
+  } as CSSProperties,
 
-    // Summary Card
-    summaryCard: {
-        borderRadius: 16,
-        boxShadow: orderColors.cardShadow,
-        background: orderColors.white,
-        padding: 16,
-    } as CSSProperties,
+  // Summary Card
+  summaryCard: {
+    borderRadius: 16,
+    boxShadow: orderColors.cardShadow,
+    background: orderColors.white,
+    padding: 16,
+  } as CSSProperties,
 
-    summaryRow: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '8px 0',
-    } as CSSProperties,
+  summaryRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '8px 0',
+  } as CSSProperties,
 
-    summaryList: {
-        background: '#f8fafc',
-        padding: '12px',
-        borderRadius: '12px',
-        marginBottom: '16px',
-        border: '1px solid #e2e8f0',
-    } as CSSProperties,
+  summaryList: {
+    background: '#f8fafc',
+    padding: '12px',
+    borderRadius: '12px',
+    marginBottom: '16px',
+    border: '1px solid #e2e8f0',
+  } as CSSProperties,
 
-    summaryMainRow: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '12px 0',
-        marginTop: '4px',
-    } as CSSProperties,
+  summaryMainRow: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: '12px 0',
+    marginTop: '4px',
+  } as CSSProperties,
 
-    summaryItemRow: {
-        display: 'flex',
-        flexDirection: 'row' as const,
-        gap: 12,
-        padding: '12px 0',
-        borderBottom: '1px dashed #e2e8f0',
-    } as CSSProperties,
+  summaryItemRow: {
+    display: 'flex',
+    flexDirection: 'row' as const,
+    gap: 12,
+    padding: '12px 0',
+    borderBottom: '1px dashed #e2e8f0',
+  } as CSSProperties,
 
-    summaryItemImage: {
-        width: 40,
-        height: 40,
-        borderRadius: 8,
-        objectFit: 'cover' as const,
-        flexShrink: 0,
-        border: '1px solid #f1f5f9',
-    } as CSSProperties,
+  summaryItemImage: {
+    width: 40,
+    height: 40,
+    borderRadius: 8,
+    objectFit: 'cover' as const,
+    flexShrink: 0,
+    border: '1px solid #f1f5f9',
+  } as CSSProperties,
 
-    summaryItemContent: {
-        flex: 1,
-        minWidth: 0,
-    } as CSSProperties,
+  summaryItemContent: {
+    flex: 1,
+    minWidth: 0,
+  } as CSSProperties,
 
-    summaryDetailText: {
-        fontSize: 12,
-        color: orderColors.success,
-        marginTop: 2,
-        paddingLeft: 0,
-    } as CSSProperties,
+  summaryDetailText: {
+    fontSize: 12,
+    color: orderColors.success,
+    marginTop: 2,
+    paddingLeft: 0,
+  } as CSSProperties,
 
-    // Empty State
-    emptyState: {
-        textAlign: 'center' as const,
-        padding: '32px 20px',
-        background: orderColors.backgroundSecondary,
-        borderRadius: 12,
-    } as CSSProperties,
+  // Empty State
+  emptyState: {
+    textAlign: 'center' as const,
+    padding: '32px 20px',
+    background: orderColors.backgroundSecondary,
+    borderRadius: 12,
+  } as CSSProperties,
 
-    // Loading State
-    loadingState: {
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: '80vh',
-        width: '100%',
-    } as CSSProperties,
+  // Loading State
+  loadingState: {
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+    justifyContent: 'center',
+    height: '80vh',
+    width: '100%',
+  } as CSSProperties,
 
-    // Complete State Card
-    completeCard: {
-        background: `linear-gradient(135deg, ${orderColors.servedLight} 0%, #ecfdf5 100%)`,
-        padding: '20px',
-        borderRadius: 12,
-        border: `1px solid ${orderColors.served}20`,
-        textAlign: 'center' as const,
-    } as CSSProperties,
+  // Complete State Card
+  completeCard: {
+    background: `linear-gradient(135deg, ${orderColors.servedLight} 0%, #ecfdf5 100%)`,
+    padding: '20px',
+    borderRadius: 12,
+    border: `1px solid ${orderColors.served}20`,
+    textAlign: 'center' as const,
+  } as CSSProperties,
 
-    // Order Item Card (Mobile)
-    itemCard: {
-        background: orderColors.white,
-        borderRadius: 12,
-        padding: 14,
-        marginBottom: 10,
-        border: `1px solid ${orderColors.border}`,
-        transition: 'all 0.2s ease',
-    } as CSSProperties,
+  // Order Item Card (Mobile)
+  itemCard: {
+    background: orderColors.white,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 10,
+    border: `1px solid ${orderColors.border}`,
+    transition: 'all 0.2s ease',
+  } as CSSProperties,
 
-    itemCardActive: {
-        borderLeft: `3px solid ${orderColors.primary}`,
-    } as CSSProperties,
+  itemCardActive: {
+    borderLeft: `3px solid ${orderColors.primary}`,
+  } as CSSProperties,
 
-    itemCardServed: {
-        background: orderColors.backgroundSecondary,
-        borderLeft: `3px solid ${orderColors.served}`,
-    } as CSSProperties,
+  itemCardServed: {
+    background: orderColors.backgroundSecondary,
+    borderLeft: `3px solid ${orderColors.served}`,
+  } as CSSProperties,
 
-    // Action Bar (Floating)
-    floatingActions: {
-        position: 'fixed' as const,
-        bottom: 120,
-        left: '50%',
-        transform: 'translateX(-50%)',
-        background: 'rgba(255, 255, 255, 0.98)',
-        backdropFilter: 'blur(10px)',
-        padding: '10px 16px',
-        borderRadius: '50px',
-        boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
-        zIndex: 1000,
-        display: 'flex',
-        gap: 8,
-        alignItems: 'center',
-        minWidth: 'max-content',
-        border: `1px solid ${orderColors.border}`,
-        animation: 'slideUp 0.3s ease-out',
-    } as CSSProperties,
+  // Action Bar (Floating)
+  floatingActions: {
+    position: 'fixed' as const,
+    bottom: 120,
+    left: '50%',
+    transform: 'translateX(-50%)',
+    background: 'rgba(255, 255, 255, 0.98)',
+    backdropFilter: 'blur(10px)',
+    padding: '10px 16px',
+    borderRadius: '50px',
+    boxShadow: '0 12px 30px rgba(0,0,0,0.25)',
+    zIndex: 1000,
+    display: 'flex',
+    gap: 8,
+    alignItems: 'center',
+    minWidth: 'max-content',
+    border: `1px solid ${orderColors.border}`,
+    animation: 'slideUp 0.3s ease-out',
+  } as CSSProperties,
 
-    floatingActionButton: {
-        borderRadius: '40px',
-        height: 42,
-        padding: '0 20px',
-        fontSize: 14,
-        fontWeight: 600,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 8,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
-    } as CSSProperties,
+  floatingActionButton: {
+    borderRadius: '40px',
+    height: 42,
+    padding: '0 20px',
+    fontSize: 14,
+    fontWeight: 600,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.05)',
+  } as CSSProperties,
 
-    bulkActionButtonDesktop: {
-        padding: '0 12px',
-        height: 34,
-        fontSize: 13,
-        borderRadius: 8,
-        fontWeight: 600,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        transition: 'all 0.2s ease',
-    } as CSSProperties,
+  bulkActionButtonDesktop: {
+    padding: '0 12px',
+    height: 34,
+    fontSize: 13,
+    borderRadius: 8,
+    fontWeight: 600,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    transition: 'all 0.2s ease',
+  } as CSSProperties,
 
-    actionButtonSecondary: {
-        width: 34,
-        height: 34,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: 8,
-        border: `1px solid ${orderColors.border}`,
-        background: orderColors.white,
-        color: orderColors.textSecondary,
-        cursor: 'pointer',
-        transition: 'all 0.2s ease',
-        padding: 0,
-    } as CSSProperties,
+  actionButtonSecondary: {
+    width: 34,
+    height: 34,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    border: `1px solid ${orderColors.border}`,
+    background: orderColors.white,
+    color: orderColors.textSecondary,
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+    padding: 0,
+  } as CSSProperties,
 
-    unserveButton: {
-        borderRadius: 12,
-        height: 32,
-        fontSize: 12,
-        fontWeight: 600,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        border: `1px solid ${orderColors.danger}`,
-        color: orderColors.danger,
-        backgroundColor: '#fff',
-        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-        boxShadow: '0 2px 4px rgba(255, 77, 79, 0.05)',
-    } as CSSProperties,
+  unserveButton: {
+    borderRadius: 12,
+    height: 32,
+    fontSize: 12,
+    fontWeight: 600,
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    border: `1px solid ${orderColors.danger}`,
+    color: orderColors.danger,
+    backgroundColor: '#fff',
+    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+    boxShadow: '0 2px 4px rgba(255, 77, 79, 0.05)',
+  } as CSSProperties,
 
-    actionButtonPrimary: {
-        height: 34,
-        padding: '0 12px',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 6,
-        borderRadius: 8,
-        background: orderColors.primary,
-        color: orderColors.white,
-        border: 'none',
-        fontWeight: 600,
-        fontSize: 13,
-        cursor: 'pointer',
-        transition: 'all 0.2s ease',
-    } as CSSProperties,
+  actionButtonPrimary: {
+    height: 34,
+    padding: '0 12px',
+    display: 'flex',
+    alignItems: 'center',
+    gap: 6,
+    borderRadius: 8,
+    background: orderColors.primary,
+    color: orderColors.white,
+    border: 'none',
+    fontWeight: 600,
+    fontSize: 13,
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  } as CSSProperties,
 
-    // Product Thumbnails
-    productThumb: {
-        width: 48,
-        height: 48,
-        borderRadius: 8,
-        objectFit: "cover" as const,
-        border: `1px solid ${orderColors.borderLight}`,
-    } as CSSProperties,
+  // Product Thumbnails
+  productThumb: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    objectFit: "cover" as const,
+    border: `1px solid ${orderColors.borderLight}`,
+  } as CSSProperties,
 
-    productThumbPlaceholder: {
-        width: 48,
-        height: 48,
-        borderRadius: 8,
-        background: orderColors.backgroundSecondary,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        color: orderColors.textSecondary,
-        fontSize: 20
-    } as CSSProperties,
+  productThumbPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 8,
+    background: orderColors.backgroundSecondary,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    color: orderColors.textSecondary,
+    fontSize: 20
+  } as CSSProperties,
 
-    categoryTag: {
-        fontSize: 10,
-        borderRadius: 4,
-        padding: "0 6px",
-        margin: "2px 0 0 0",
-        fontWeight: 500,
-        textTransform: "uppercase" as const
-    } as CSSProperties,
+  categoryTag: {
+    fontSize: 10,
+    borderRadius: 4,
+    padding: "0 6px",
+    margin: "2px 0 0 0",
+    fontWeight: 500,
+    textTransform: "uppercase" as const
+  } as CSSProperties,
 
-    priceTag: {
-        fontSize: 13,
-        color: orderColors.primary,
-        fontWeight: 600
-    } as CSSProperties,
+  priceTag: {
+    fontSize: 13,
+    color: orderColors.primary,
+    fontWeight: 600
+  } as CSSProperties,
 
-    masterCheckboxWrapper: {
-        display: 'inline-flex',
-        padding: '6px',
-        background: orderColors.primaryLight,
-        borderRadius: '8px',
-        border: `1px solid ${orderColors.primary}40`,
-        boxShadow: '0 2px 4px rgba(59, 130, 246, 0.1)',
-        transition: 'all 0.2s ease',
-    } as CSSProperties,
+  masterCheckboxWrapper: {
+    display: 'inline-flex',
+    padding: '6px',
+    background: orderColors.primaryLight,
+    borderRadius: '8px',
+    border: `1px solid ${orderColors.primary}40`,
+    boxShadow: '0 2px 4px rgba(59, 130, 246, 0.1)',
+    transition: 'all 0.2s ease',
+  } as CSSProperties,
 
-    masterCheckbox: {
-        transform: 'scale(1.2)',
-    } as CSSProperties,
+  masterCheckbox: {
+    transform: 'scale(1.2)',
+  } as CSSProperties,
 };
 
 // ============================================
 // Modal Styles
 // ============================================
 export const modalStyles = {
-    // Fullscreen modal for mobile
-    mobileModal: {
-        top: 0,
-        margin: 0,
-        padding: 0,
-        maxWidth: '100vw',
-    } as CSSProperties,
+  // Fullscreen modal for mobile
+  mobileModal: {
+    top: 0,
+    margin: 0,
+    padding: 0,
+    maxWidth: '100vw',
+  } as CSSProperties,
 
-    // Modal header
-    modalHeader: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12,
-        padding: '16px',
-        borderBottom: `1px solid ${orderColors.border}`,
-    } as CSSProperties,
+  // Modal header
+  modalHeader: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 12,
+    padding: '16px',
+    borderBottom: `1px solid ${orderColors.border}`,
+  } as CSSProperties,
 
-    // Quantity control
-    quantityControl: {
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: 20,
-        padding: '16px',
-        background: orderColors.primaryLight,
-        borderRadius: 16,
-    } as CSSProperties,
+  // Quantity control
+  quantityControl: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 20,
+    padding: '16px',
+    background: orderColors.primaryLight,
+    borderRadius: 16,
+  } as CSSProperties,
 
-    quantityButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 10,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        fontSize: 16,
-    } as CSSProperties,
+  quantityButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 10,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    fontSize: 16,
+  } as CSSProperties,
 
-    quantityDisplay: {
-        fontSize: 24,
-        fontWeight: 700,
-        color: orderColors.primary,
-        minWidth: 40,
-        textAlign: 'center' as const,
-    } as CSSProperties,
+  quantityDisplay: {
+    fontSize: 24,
+    fontWeight: 700,
+    color: orderColors.primary,
+    minWidth: 40,
+    textAlign: 'center' as const,
+  } as CSSProperties,
 
-    // Price display
-    priceCard: {
-        background: `linear-gradient(135deg, ${orderColors.servedLight} 0%, #ecfdf5 100%)`,
-        padding: '16px 20px',
-        borderRadius: 12,
-        border: `1px solid ${orderColors.served}30`,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-    } as CSSProperties,
+  // Price display
+  priceCard: {
+    background: `linear-gradient(135deg, ${orderColors.servedLight} 0%, #ecfdf5 100%)`,
+    padding: '16px 20px',
+    borderRadius: 12,
+    border: `1px solid ${orderColors.served}30`,
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  } as CSSProperties,
 
-    priceValue: {
-        fontSize: 18,
-        fontWeight: 700,
-        color: orderColors.success,
-    } as CSSProperties,
+  priceValue: {
+    fontSize: 18,
+    fontWeight: 700,
+    color: orderColors.success,
+  } as CSSProperties,
 
-    // Action buttons
-    actionButtons: {
-        display: 'flex',
-        gap: 12,
-        padding: '16px',
-        borderTop: `1px solid ${orderColors.border}`,
-        background: orderColors.white,
-    } as CSSProperties,
+  // Action buttons
+  actionButtons: {
+    display: 'flex',
+    gap: 12,
+    padding: '16px',
+    borderTop: `1px solid ${orderColors.border}`,
+    background: orderColors.white,
+  } as CSSProperties,
 
-    primaryButton: {
-        flex: 2,
-        height: 40,
-        borderRadius: 10,
-        fontWeight: 600,
-        fontSize: 14,
-    } as CSSProperties,
+  primaryButton: {
+    flex: 2,
+    height: 40,
+    borderRadius: 10,
+    fontWeight: 600,
+    fontSize: 14,
+  } as CSSProperties,
 
-    secondaryButton: {
-        flex: 1,
-        height: 40,
-        borderRadius: 10,
-        fontWeight: 500,
-        fontSize: 14,
-    } as CSSProperties,
+  secondaryButton: {
+    flex: 1,
+    height: 40,
+    borderRadius: 10,
+    fontWeight: 500,
+    fontSize: 14,
+  } as CSSProperties,
 };
 
 // ============================================
 // AddItemsModal Styles
 // ============================================
 export const addItemsModalStyles = {
-    // Search bar
-    searchBar: {
-        padding: '12px 16px',
-        borderBottom: `1px solid ${orderColors.border}`,
-        position: 'sticky' as const,
-        top: 0,
-        background: orderColors.white,
-        zIndex: 10,
-    } as CSSProperties,
+  // Search bar
+  searchBar: {
+    padding: '12px 16px',
+    borderBottom: `1px solid ${orderColors.border}`,
+    position: 'sticky' as const,
+    top: 0,
+    background: orderColors.white,
+    zIndex: 10,
+  } as CSSProperties,
 
-    searchInput: {
-        borderRadius: 12,
-        height: 44,
-    } as CSSProperties,
+  searchInput: {
+    borderRadius: 12,
+    height: 44,
+  } as CSSProperties,
 
-    // Product grid
-    productGrid: {
-        display: 'grid',
-        gap: 12,
-        padding: 16,
-    } as CSSProperties,
+  // Product grid
+  productGrid: {
+    display: 'grid',
+    gap: 12,
+    padding: 16,
+  } as CSSProperties,
 
-    // Product Card
-    productCard: {
-        borderRadius: 14,
-        overflow: 'hidden',
-        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-        cursor: 'pointer',
-        border: `1px solid ${orderColors.border}`,
-        background: orderColors.white,
-    } as CSSProperties,
+  // Product Card
+  productCard: {
+    borderRadius: 14,
+    overflow: 'hidden',
+    transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+    cursor: 'pointer',
+    border: `1px solid ${orderColors.border}`,
+    background: orderColors.white,
+  } as CSSProperties,
 
-    productCardHover: {
-        transform: 'translateY(-2px)',
-        boxShadow: orderColors.cardShadowHover,
-        borderColor: orderColors.primary,
-    } as CSSProperties,
+  productCardHover: {
+    transform: 'translateY(-2px)',
+    boxShadow: orderColors.cardShadowHover,
+    borderColor: orderColors.primary,
+  } as CSSProperties,
 
-    productImage: {
-        width: '100%',
-        height: 100,
-        objectFit: 'cover' as const,
-    } as CSSProperties,
+  productImage: {
+    width: '100%',
+    height: 100,
+    objectFit: 'cover' as const,
+  } as CSSProperties,
 
-    productPlaceholder: {
-        width: '100%',
-        height: 100,
-        background: `linear-gradient(135deg, ${orderColors.backgroundSecondary} 0%, ${orderColors.border} 100%)`,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: orderColors.textLight,
-        fontSize: 12,
-    } as CSSProperties,
+  productPlaceholder: {
+    width: '100%',
+    height: 100,
+    background: `linear-gradient(135deg, ${orderColors.backgroundSecondary} 0%, ${orderColors.border} 100%)`,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    color: orderColors.textLight,
+    fontSize: 12,
+  } as CSSProperties,
 
-    productInfo: {
-        padding: '10px 12px',
-        textAlign: 'center',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-    } as CSSProperties,
+  productInfo: {
+    padding: '10px 12px',
+    textAlign: 'center',
+    display: 'flex',
+    flexDirection: 'column',
+    alignItems: 'center',
+  } as CSSProperties,
 
-    productName: {
-        fontSize: 13,
-        fontWeight: 600,
-        marginBottom: 4,
-        overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        whiteSpace: 'nowrap' as const,
-        color: orderColors.text,
-    } as CSSProperties,
+  productName: {
+    fontSize: 13,
+    fontWeight: 600,
+    marginBottom: 4,
+    overflow: 'hidden',
+    textOverflow: 'ellipsis',
+    whiteSpace: 'nowrap' as const,
+    color: orderColors.text,
+  } as CSSProperties,
 
-    productPrice: {
-        fontSize: 14,
-        fontWeight: 700,
-        color: orderColors.primary,
-    } as CSSProperties,
+  productPrice: {
+    fontSize: 14,
+    fontWeight: 700,
+    color: orderColors.primary,
+  } as CSSProperties,
 
-    // Detail section
-    detailSection: {
-        padding: '16px',
-    } as CSSProperties,
+  // Detail section
+  detailSection: {
+    padding: '16px',
+  } as CSSProperties,
 
-    detailImage: {
-        width: '100%',
-        maxHeight: 200,
-        objectFit: 'cover' as const,
-        borderRadius: 12,
-        boxShadow: orderColors.cardShadow,
-    } as CSSProperties,
+  detailImage: {
+    width: '100%',
+    maxHeight: 200,
+    objectFit: 'cover' as const,
+    borderRadius: 12,
+    boxShadow: orderColors.cardShadow,
+  } as CSSProperties,
 
-    // Detail items (extras)
-    detailItemRow: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 10,
-        padding: '8px 12px',
-        background: orderColors.backgroundSecondary,
-        borderRadius: 10,
-    } as CSSProperties,
+  // Detail items (extras)
+  detailItemRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 10,
+    padding: '8px 12px',
+    background: orderColors.backgroundSecondary,
+    borderRadius: 10,
+  } as CSSProperties,
 };
 
 // ============================================
@@ -1046,6 +1048,39 @@ export const ordersResponsiveStyles = `
     /* List Page Low Res */
     .orders-header {
       padding: 20px 12px !important;
+    }
+
+    .orders-header-content-mobile {
+      flex-wrap: wrap !important;
+      gap: 12px !important;
+    }
+
+    .orders-back-button-mobile {
+      order: 1 !important;
+    }
+
+    .orders-header-icon {
+      order: 2 !important;
+      width: 40px !important;
+      height: 40px !important;
+      padding: 10px !important;
+      font-size: 20px !important;
+    }
+
+    .orders-header-text-mobile {
+      order: 3 !important;
+      flex: 1 1 100% !important;
+    }
+
+    .orders-header-actions-mobile {
+      order: 4 !important;
+      width: 100% !important;
+      justify-content: space-between !important;
+    }
+
+    .orders-search-input-mobile {
+      flex: 1 !important;
+      min-width: 120px !important;
     }
 
     .orders-content-wrapper {

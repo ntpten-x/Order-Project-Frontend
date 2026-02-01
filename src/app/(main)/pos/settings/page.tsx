@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Typography, Card, Button, Spin, Divider, Row, Col, App, Tag, Select, Space } from "antd";
+import { Typography, Card, Button, Spin, Divider, Row, Col, App, Tag, Select, Space, Modal } from "antd";
 import { SettingOutlined, BankOutlined, CheckCircleOutlined, PlusOutlined, QrcodeOutlined } from "@ant-design/icons";
 import { paymentAccountService } from "../../../../services/pos/paymentAccount.service";
 import { ShopPaymentAccount } from "../../../../types/api/pos/shopPaymentAccount";
@@ -21,6 +21,7 @@ export default function POSSettingsPage() {
     const [loading, setLoading] = useState(true);
     const [accounts, setAccounts] = useState<ShopPaymentAccount[]>([]);
     const [activeAccount, setActiveAccount] = useState<ShopPaymentAccount | null>(null);
+    const [modalVisible, setModalVisible] = useState(false);
     const { showLoading, hideLoading } = useGlobalLoading();
     const { socket } = useSocket();
     const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
@@ -115,40 +116,104 @@ export default function POSSettingsPage() {
                             <Text type="secondary" style={{ display: 'block', marginBottom: 16 }}>
                                 เลือกบัญชีที่จะให้ลูกค้าโอนเงินเข้า (ใช้สร้าง QR Code อัตโนมัติ)
                             </Text>
-                            <Select 
-                                size="large" 
-                                style={{ width: '100%' }}
-                                placeholder="-- เลือกบัญชีรับเงิน --"
-                                value={activeAccount?.id}
-                                onChange={handleActivate}
-                                dropdownRender={(menu) => (
-                                    <>
-                                        {menu}
-                                        <Divider style={{ margin: '8px 0' }} />
-                                        <div style={{ padding: '0 8px 4px' }}>
-                                            <Button 
-                                                type="link" 
-                                                block 
-                                                icon={<PlusOutlined />} 
-                                                onClick={() => window.location.href = '/pos/settings/payment-accounts/manage'}
-                                            >
-                                                จัดการบัญชีเพิ่มเติม
-                                            </Button>
-                                        </div>
-                                    </>
-                                )}
+                            <div 
+                                style={{
+                                    border: '1px solid #d9d9d9',
+                                    borderRadius: 12,
+                                    padding: '12px 16px',
+                                    cursor: 'pointer',
+                                    background: '#fff',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    height: 50,
+                                    transition: 'all 0.2s',
+                                    boxShadow: '0 2px 0 rgba(0,0,0,0.02)'
+                                }}
+                                onClick={() => setModalVisible(true)}
                             >
-                                {accounts.map(acc => (
-                                    <Option key={acc.id} value={acc.id}>
-                                        <Space>
-                                            {acc.account_type === 'PromptPay' ? <QrcodeOutlined style={{ color: '#eb2f96' }} /> : <BankOutlined style={{ color: '#1890ff' }} />}
-                                            <Text strong>{acc.account_name}</Text>
-                                            <Text type="secondary" style={{ fontSize: 12 }}>({acc.account_number})</Text>
-                                            {acc.is_active && <Tag color="success" style={{ marginLeft: 8 }}>ใช้งานอยู่</Tag>}
-                                        </Space>
-                                    </Option>
-                                ))}
-                            </Select>
+                                {activeAccount ? (
+                                    <Space>
+                                        {activeAccount.account_type === 'PromptPay' ? <QrcodeOutlined style={{ color: '#eb2f96' }} /> : <BankOutlined style={{ color: '#1890ff' }} />}
+                                        <Text strong>{activeAccount.account_name}</Text>
+                                        <Text type="secondary" style={{ fontSize: 12 }}>({activeAccount.account_number})</Text>
+                                        <Tag color="success" style={{ marginLeft: 8 }}>ใช้งานอยู่</Tag>
+                                    </Space>
+                                ) : (
+                                    <Text type="secondary">-- เลือกบัญชีรับเงิน --</Text>
+                                )}
+                                <span style={{ color: '#bfbfbf' }}>▼</span>
+                            </div>
+
+                            <Modal
+                                title="เลือกบัญชีรับเงิน"
+                                open={modalVisible}
+                                onCancel={() => setModalVisible(false)}
+                                footer={
+                                    <Button 
+                                        type="dashed" 
+                                        block 
+                                        icon={<PlusOutlined />} 
+                                        onClick={() => window.location.href = '/pos/settings/payment-accounts/manage'}
+                                        style={{ height: 40, borderRadius: 10 }}
+                                    >
+                                        จัดการบัญชีเพิ่มเติม
+                                    </Button>
+                                }
+                                centered
+                                width={500}
+                                zIndex={10001}
+                            >
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: '60vh', overflowY: 'auto' }}>
+                                    {accounts.map(acc => {
+                                        const isActive = activeAccount?.id === acc.id;
+                                        return (
+                                            <div
+                                                key={acc.id}
+                                                onClick={() => {
+                                                    if (!isActive) {
+                                                        handleActivate(acc.id);
+                                                        setModalVisible(false);
+                                                    }
+                                                }}
+                                                style={{
+                                                    padding: '16px',
+                                                    border: `1px solid ${isActive ? '#10b981' : '#e5e7eb'}`,
+                                                    borderRadius: 12,
+                                                    cursor: isActive ? 'default' : 'pointer',
+                                                    background: isActive ? '#ecfdf5' : '#fff',
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    justifyContent: 'space-between',
+                                                    transition: 'all 0.2s'
+                                                }}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                                    <div style={{
+                                                        width: 40,
+                                                        height: 40,
+                                                        borderRadius: 10,
+                                                        background: acc.account_type === 'PromptPay' ? '#fff0f6' : '#e6f7ff',
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
+                                                    }}>
+                                                        {acc.account_type === 'PromptPay' 
+                                                            ? <QrcodeOutlined style={{ color: '#eb2f96', fontSize: 20 }} /> 
+                                                            : <BankOutlined style={{ color: '#1890ff', fontSize: 20 }} />
+                                                        }
+                                                    </div>
+                                                    <div>
+                                                        <Text strong style={{ display: 'block', fontSize: 15 }}>{acc.account_name}</Text>
+                                                        <Text type="secondary" style={{ fontSize: 13 }}>{acc.account_number}</Text>
+                                                    </div>
+                                                </div>
+                                                {isActive && <CheckCircleOutlined style={{ color: '#10b981', fontSize: 20 }} />}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            </Modal>
                         </div>
 
                         {activeAccount && (

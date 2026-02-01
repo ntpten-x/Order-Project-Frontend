@@ -6,7 +6,7 @@ import { Typography, Row, Col, Empty, Button, Card, Tag, Divider } from "antd";
 import { ShoppingOutlined, ArrowLeftOutlined, PlusOutlined } from "@ant-design/icons";
 import { OrderType, SalesOrderSummary } from "../../../../../types/api/pos/salesOrder";
 import { posPageStyles, channelColors, tableColors } from "../../../../../theme/pos";
-import { channelPageStyles } from "../../../../../theme/pos/channels/style";
+import { channelPageStyles, channelsResponsiveStyles } from "../../../../../theme/pos/channels/style";
 import { POSGlobalStyles } from "../../../../../theme/pos/GlobalStyles";
 import { getOrderChannelStats, getOrderColorScheme, formatOrderStatus } from "../../../../../utils/channels";
 import { getOrderNavigationPath } from "../../../../../utils/orders";
@@ -51,6 +51,7 @@ export default function TakeawayPage() {
     return (
         <>
             <POSGlobalStyles />
+            <style jsx global>{channelsResponsiveStyles}</style>
             <div style={posPageStyles.container}>
                 {/* Header Section */}
                 <div style={{ ...channelPageStyles.channelHeader, background: channelColors.takeaway.gradient }} className="takeaway-header-mobile">
@@ -93,7 +94,7 @@ export default function TakeawayPage() {
                 </div>
 
                 {/* Content Section */}
-                <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 16px 24px' }}>
+                <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 16px 24px' }} className="takeaway-content-mobile">
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
                         <Button 
                             type="primary" 
@@ -109,8 +110,10 @@ export default function TakeawayPage() {
                                 border: 'none',
                                 boxShadow: `0 8px 16px rgba(82, 196, 26, 0.25)`,
                             }}
+                            className="takeaway-add-button-mobile"
                         >
-                            เพิ่มออเดอร์ใหม่
+                            <span className="hide-on-mobile">เพิ่มออเดอร์ใหม่</span>
+                            <span className="show-on-mobile-inline">เพิ่ม</span>
                         </Button>
                     </div>
                 {orders.length > 0 ? (
@@ -121,7 +124,7 @@ export default function TakeawayPage() {
                             const orderNum = order.order_no.split('-').pop();
 
                             return (
-                                <Col xs={24} sm={12} md={12} lg={8} xl={6} key={order.id}>
+                                <Col xs={24} sm={12} md={12} lg={8} xl={6} key={order.id} className="takeaway-order-col-mobile">
                                     <Card
                                         hoverable
                                         className={`takeaway-order-card table-card-animate table-card-delay-${(index % 6) + 1}`}

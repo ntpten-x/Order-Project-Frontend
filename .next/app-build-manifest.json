@@ -10,13 +10,25 @@
       "static/chunks/common.js",
       "static/chunks/app/global-error.js"
     ],
-    "/(main)/page": [
+    "/(main)/pos/channels/dine-in/page": [
       "static/chunks/webpack.js",
       "static/css/vendor.css",
       "static/chunks/vendor.js",
       "static/chunks/main-app.js",
       "static/chunks/antd.js",
-      "static/chunks/app/(main)/page.js"
+      "static/css/common.css",
+      "static/chunks/common.js",
+      "static/chunks/app/(main)/pos/channels/dine-in/page.js"
+    ],
+    "/(main)/pos/layout": [
+      "static/chunks/webpack.js",
+      "static/css/vendor.css",
+      "static/chunks/vendor.js",
+      "static/chunks/main-app.js",
+      "static/chunks/antd.js",
+      "static/css/common.css",
+      "static/chunks/common.js",
+      "static/chunks/app/(main)/pos/layout.js"
     ],
     "/(main)/layout": [
       "static/chunks/webpack.js",
@@ -61,6 +73,16 @@
       "static/chunks/antd.js",
       "static/chunks/app/not-found.js"
     ],
+    "/(main)/pos/items/payment/[...paymentId]/page": [
+      "static/chunks/webpack.js",
+      "static/css/vendor.css",
+      "static/chunks/vendor.js",
+      "static/chunks/main-app.js",
+      "static/chunks/antd.js",
+      "static/css/common.css",
+      "static/chunks/common.js",
+      "static/chunks/app/(main)/pos/items/payment/[...paymentId]/page.js"
+    ],
     "/_not-found/page": [
       "static/chunks/webpack.js",
       "static/css/vendor.css",
@@ -79,16 +101,6 @@
       "static/chunks/common.js",
       "static/chunks/app/(main)/pos/page.js"
     ],
-    "/(main)/pos/layout": [
-      "static/chunks/webpack.js",
-      "static/css/vendor.css",
-      "static/chunks/vendor.js",
-      "static/chunks/main-app.js",
-      "static/chunks/antd.js",
-      "static/css/common.css",
-      "static/chunks/common.js",
-      "static/chunks/app/(main)/pos/layout.js"
-    ],
     "/(main)/pos/channels/page": [
       "static/chunks/webpack.js",
       "static/css/vendor.css",
@@ -99,36 +111,6 @@
       "static/chunks/common.js",
       "static/chunks/app/(main)/pos/channels/page.js"
     ],
-    "/(main)/pos/channels/dine-in/page": [
-      "static/chunks/webpack.js",
-      "static/css/vendor.css",
-      "static/chunks/vendor.js",
-      "static/chunks/main-app.js",
-      "static/chunks/antd.js",
-      "static/css/common.css",
-      "static/chunks/common.js",
-      "static/chunks/app/(main)/pos/channels/dine-in/page.js"
-    ],
-    "/(main)/pos/channels/dine-in/[tableId]/page": [
-      "static/chunks/webpack.js",
-      "static/css/vendor.css",
-      "static/chunks/vendor.js",
-      "static/chunks/main-app.js",
-      "static/chunks/antd.js",
-      "static/css/common.css",
-      "static/chunks/common.js",
-      "static/chunks/app/(main)/pos/channels/dine-in/[tableId]/page.js"
-    ],
-    "/(main)/pos/products/page": [
-      "static/chunks/webpack.js",
-      "static/css/vendor.css",
-      "static/chunks/vendor.js",
-      "static/chunks/main-app.js",
-      "static/chunks/antd.js",
-      "static/css/common.css",
-      "static/chunks/common.js",
-      "static/chunks/app/(main)/pos/products/page.js"
-    ],
     "/(main)/pos/orders/[...ordersId]/page": [
       "static/chunks/webpack.js",
       "static/css/vendor.css",
@@ -138,26 +120,6 @@
       "static/css/common.css",
       "static/chunks/common.js",
       "static/chunks/app/(main)/pos/orders/[...ordersId]/page.js"
-    ],
-    "/(main)/pos/queue/page": [
-      "static/chunks/webpack.js",
-      "static/css/vendor.css",
-      "static/chunks/vendor.js",
-      "static/chunks/main-app.js",
-      "static/chunks/antd.js",
-      "static/css/common.css",
-      "static/chunks/common.js",
-      "static/chunks/app/(main)/pos/queue/page.js"
-    ],
-    "/(main)/pos/items/payment/[...paymentId]/page": [
-      "static/chunks/webpack.js",
-      "static/css/vendor.css",
-      "static/chunks/vendor.js",
-      "static/chunks/main-app.js",
-      "static/chunks/antd.js",
-      "static/css/common.css",
-      "static/chunks/common.js",
-      "static/chunks/app/(main)/pos/items/payment/[...paymentId]/page.js"
     ],
     "/(main)/pos/paymentMethod/page": [
       "static/chunks/webpack.js",
@@ -178,6 +140,74 @@
       "static/css/common.css",
       "static/chunks/common.js",
       "static/chunks/app/(main)/pos/paymentMethod/manager/[...mode]/page.js"
+    ],
+    "/(main)/pos/products/page": [
+      "static/chunks/webpack.js",
+      "static/css/vendor.css",
+      "static/chunks/vendor.js",
+      "static/chunks/main-app.js",
+      "static/chunks/antd.js",
+      "static/css/common.css",
+      "static/chunks/common.js",
+      "static/chunks/app/(main)/pos/products/page.js"
+    ],
+    "/(main)/pos/products/manage/[...mode]/page": [
+      "static/chunks/webpack.js",
+      "static/css/vendor.css",
+      "static/chunks/vendor.js",
+      "static/chunks/main-app.js",
+      "static/chunks/antd.js",
+      "static/css/common.css",
+      "static/chunks/common.js",
+      "static/chunks/app/(main)/pos/products/manage/[...mode]/page.js"
+    ],
+    "/(main)/pos/dashboard/page": [
+      "static/chunks/webpack.js",
+      "static/css/vendor.css",
+      "static/chunks/vendor.js",
+      "static/chunks/main-app.js",
+      "static/chunks/antd.js",
+      "static/css/common.css",
+      "static/chunks/common.js",
+      "static/chunks/app/(main)/pos/dashboard/page.js"
+    ],
+    "/(main)/pos/orders/page": [
+      "static/chunks/webpack.js",
+      "static/css/vendor.css",
+      "static/chunks/vendor.js",
+      "static/chunks/main-app.js",
+      "static/chunks/antd.js",
+      "static/css/common.css",
+      "static/chunks/common.js",
+      "static/chunks/app/(main)/pos/orders/page.js"
+    ],
+    "/(main)/pos/settings/page": [
+      "static/chunks/webpack.js",
+      "static/css/vendor.css",
+      "static/chunks/vendor.js",
+      "static/chunks/main-app.js",
+      "static/chunks/antd.js",
+      "static/css/common.css",
+      "static/chunks/common.js",
+      "static/chunks/app/(main)/pos/settings/page.js"
+    ],
+    "/(main)/pos/settings/payment-accounts/[...mode]/page": [
+      "static/chunks/webpack.js",
+      "static/css/vendor.css",
+      "static/chunks/vendor.js",
+      "static/chunks/main-app.js",
+      "static/chunks/antd.js",
+      "static/css/common.css",
+      "static/chunks/common.js",
+      "static/chunks/app/(main)/pos/settings/payment-accounts/[...mode]/page.js"
+    ],
+    "/(main)/page": [
+      "static/chunks/webpack.js",
+      "static/css/vendor.css",
+      "static/chunks/vendor.js",
+      "static/chunks/main-app.js",
+      "static/chunks/antd.js",
+      "static/chunks/app/(main)/page.js"
     ]
   }
 }

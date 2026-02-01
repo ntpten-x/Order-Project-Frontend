@@ -1,6 +1,6 @@
 import { createSharedPageStyles, sharedGlobalStyles, createCardStyle, cardInnerStyle } from "../sharedStyles";
 
-const base = createSharedPageStyles("linear-gradient(135deg, #722ed1 0%, #531dab 100%)");
+const base = createSharedPageStyles("linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)");
 
 export const pageStyles = {
     ...base,
