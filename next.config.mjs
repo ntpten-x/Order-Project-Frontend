@@ -34,12 +34,13 @@ const nextConfig = {
                     cacheGroups: {
                         default: false,
                         vendors: false,
-                        // Vendor chunk
+                        // Vendor chunk - more specific to avoid conflicts
                         vendor: {
                             name: 'vendor',
                             chunks: 'all',
-                            test: /node_modules/,
+                            test: /[\\/]node_modules[\\/]/,
                             priority: 20,
+                            reuseExistingChunk: true,
                         },
                         // Common chunk
                         common: {
@@ -56,6 +57,7 @@ const nextConfig = {
                             test: /[\\/]node_modules[\\/](antd|@ant-design)[\\/]/,
                             chunks: 'all',
                             priority: 30,
+                            reuseExistingChunk: true,
                         },
                     },
                 },

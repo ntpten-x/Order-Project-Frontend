@@ -74,9 +74,14 @@ export const useNetworkInterceptors = () => {
         let finalInit = init;
         if (shouldAttachCsrf(url, method, init)) {
           const headers = new Headers(init?.headers || request?.headers || {});
+          // Always try to get CSRF token for cookie-based requests
           const csrfToken = await getCsrfTokenCached();
           if (csrfToken) {
             headers.set("X-CSRF-Token", csrfToken);
+          } else {
+            // If token fetch failed, log warning but don't block request
+            // Backend will reject if CSRF token is required
+            console.warn("[CSRF] Failed to get CSRF token for request:", method, url);
           }
           finalInit = { ...init, headers };
         }

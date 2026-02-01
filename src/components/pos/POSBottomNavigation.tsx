@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState } from "react";
@@ -18,7 +17,11 @@ import {
 } from "@ant-design/icons";
 import { useAuth } from "../../contexts/AuthContext";
 import { useShift } from "../../contexts/pos/ShiftContext";
-import CloseShiftModal from "./shifts/CloseShiftModal";
+import dynamic from "next/dynamic";
+
+const CloseShiftModal = dynamic(() => import("./shifts/CloseShiftModal"), {
+    ssr: false,
+});
 
 const POSBottomNavigation = () => {
   const router = useRouter();

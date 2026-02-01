@@ -29,15 +29,28 @@ const getCsrfToken = async () => {
 
 // Request interceptor to add CSRF token
 api.interceptors.request.use(async (config) => {
-    // Only add token for mutating requests
-    if (["post", "put", "delete", "patch"].includes(config.method?.toLowerCase() || "")) {
+    // Add CSRF token for ALL requests that use cookie authentication
+    // This includes both mutating (POST, PUT, DELETE, PATCH) and non-mutating (GET) requests
+    // GET requests need token for CSRF token generation, mutating requests need it for protection
+    
+    // Check if this is a cookie-based request (not Bearer token only)
+    const hasAuthHeader = config.headers?.Authorization;
+    const isCookieAuth = !hasAuthHeader || config.withCredentials !== false;
+    
+    if (isCookieAuth) {
+        // Always ensure we have a CSRF token for cookie-based requests
         if (!csrfToken) {
-            await getCsrfToken();
+            const token = await getCsrfToken();
+            if (token) {
+                csrfToken = token;
+            }
         }
         if (csrfToken) {
+            config.headers = config.headers || {};
             config.headers["X-CSRF-Token"] = csrfToken;
         }
     }
+    
     return config;
 }, (error) => {
     return Promise.reject(error);
@@ -46,14 +59,28 @@ api.interceptors.request.use(async (config) => {
 // Response interceptor to retry if CSRF invalid
 api.interceptors.response.use((response) => response, async (error) => {
     const originalRequest = error.config;
-    if (error.response?.status === 403 && error.response?.data?.message === "invalid csrf token" && !originalRequest._retry) {
-        originalRequest._retry = true;
-        await getCsrfToken(); // Refresh token
-        if (csrfToken) {
-            originalRequest.headers["X-CSRF-Token"] = csrfToken;
+    
+    // Handle CSRF token errors (403 Forbidden)
+    if (error.response?.status === 403) {
+        const errorMessage = error.response?.data?.message || error.response?.data?.error || '';
+        const isCsrfError = errorMessage.toLowerCase().includes('csrf') || 
+                           errorMessage.toLowerCase().includes('token required');
+        
+        if (isCsrfError && !originalRequest._retry) {
+            originalRequest._retry = true;
+            // Refresh CSRF token
+            csrfToken = null;
+            const token = await getCsrfToken();
+            if (token) {
+                csrfToken = token;
+                originalRequest.headers = originalRequest.headers || {};
+                originalRequest.headers["X-CSRF-Token"] = csrfToken;
+                // Retry the request with new token
+                return api(originalRequest);
+            }
         }
-        return api(originalRequest);
     }
+    
     return Promise.reject(error);
 });
 

@@ -33,11 +33,14 @@ export default function HomePage() {
       try {
         setLoading(true);
         const response = await api.get("/stock/ingredients?active=true");
-        setIngredients(response.data);
+        // Ensure response.data is an array
+        const data = response.data;
+        setIngredients(Array.isArray(data) ? data : []);
         setError(null);
       } catch (error: unknown) {
         console.error("Error fetching ingredients:", error);
         setError("Failed to load ingredients. Please try again later.");
+        setIngredients([]); // Set empty array on error
       } finally {
         setLoading(false);
       }
@@ -208,7 +211,7 @@ export default function HomePage() {
         ) : (
           <List
             grid={pageStyles.gridConfig}
-            dataSource={ingredients}
+            dataSource={Array.isArray(ingredients) ? ingredients : []}
             renderItem={(item, index) => (
               <List.Item 
                 className="animate-card"
