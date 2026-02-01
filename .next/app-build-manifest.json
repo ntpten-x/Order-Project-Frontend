@@ -96,6 +96,11 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/(main)/pos/dashboard/[...id]/page.js"
+    ],
+    "/(main)/pos/category/manager/[...mode]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/pos/category/manager/[...mode]/page.js"
     ]
   }
 }
