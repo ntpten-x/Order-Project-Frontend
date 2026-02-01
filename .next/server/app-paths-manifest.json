@@ -3,6 +3,6 @@
   "/(main)/pos/channels/dine-in/page": "app/(main)/pos/channels/dine-in/page.js",
   "/(main)/pos/queue/page": "app/(main)/pos/queue/page.js",
   "/(main)/pos/items/payment/[...paymentId]/page": "app/(main)/pos/items/payment/[...paymentId]/page.js",
-  "/(main)/pos/paymentMethod/manager/[...mode]/page": "app/(main)/pos/paymentMethod/manager/[...mode]/page.js",
-  "/(main)/pos/paymentMethod/page": "app/(main)/pos/paymentMethod/page.js"
+  "/(main)/pos/paymentMethod/page": "app/(main)/pos/paymentMethod/page.js",
+  "/(main)/pos/paymentMethod/manager/[...mode]/page": "app/(main)/pos/paymentMethod/manager/[...mode]/page.js"
 }

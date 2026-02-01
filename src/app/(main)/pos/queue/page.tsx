@@ -18,6 +18,7 @@ import { useOrderQueue } from '../../../../hooks/pos/useOrderQueue';
 import { OrderQueue, QueueStatus, QueuePriority } from '../../../../types/api/pos/orderQueue';
 import { useRoleGuard } from '../../../../utils/pos/accessControl';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
+import { useQueuePrefetching } from '../../../../hooks/pos/usePrefetching';
 import dayjs from 'dayjs';
 import 'dayjs/locale/th';
 
@@ -57,6 +58,9 @@ export default function OrderQueuePage() {
     const [statusFilter, setStatusFilter] = useState<QueueStatus | undefined>(undefined);
     const { queue, isLoading, addToQueue, updateStatus, removeFromQueue, reorderQueue, isReordering } = useOrderQueue(statusFilter);
     const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
+    
+    // Prefetch queue data
+    useQueuePrefetching();
 
     const handleUpdateStatus = (queueItem: OrderQueue, newStatus: QueueStatus) => {
         updateStatus(
