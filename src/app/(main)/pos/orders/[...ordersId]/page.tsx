@@ -416,7 +416,7 @@ export default function POSOrderDetailsPage() {
             key: 'product',
             align: 'center' as const,
             render: (_value: unknown, record: SalesOrderItem) => (
-                <Space direction="vertical" size={2} align="center">
+                <Space orientation="vertical" size={2} align="center">
                     <Text strong style={{ fontSize: 15, lineHeight: '1.2' }}>{record.product?.display_name}</Text>
                     {record.details && record.details.length > 0 && (
                         <div style={{ fontSize: 13, color: orderDetailColors.served, textAlign: 'center' }}>
@@ -435,7 +435,7 @@ export default function POSOrderDetailsPage() {
             width: 120,
             align: 'center' as const,
             render: (_value: unknown, record: SalesOrderItem) => (
-                <Space direction="vertical" size={0} align="center">
+                <Space orientation="vertical" size={0} align="center">
                     {record.product?.category?.display_name ? (
                         <Tag color="cyan" style={orderDetailStyles.categoryTag}>
                             {record.product.category.display_name}
@@ -451,7 +451,7 @@ export default function POSOrderDetailsPage() {
             align: 'center' as const,
             render: (_value: unknown, record: SalesOrderItem) => {
                 return (
-                    <Space direction="vertical" size={0} align="center">
+                    <Space orientation="vertical" size={0} align="center">
                         <Text style={{ ...orderDetailStyles.priceTag, fontSize: 18 }}>฿{Number(record.price).toLocaleString()}</Text>
                         {record.details && record.details.length > 0 && record.details.map((d, i) => (
                             <Text key={i} style={{ fontSize: 13, color: orderDetailColors.priceTotal, display: 'block', lineHeight: '1.4' }}>
@@ -543,7 +543,7 @@ export default function POSOrderDetailsPage() {
             key: 'product',
             align: 'center' as const,
             render: (_value: unknown, record: SalesOrderItem) => (
-                <Space direction="vertical" size={2} align="center">
+                <Space orientation="vertical" size={2} align="center">
                     <Text strong style={{ 
                         fontSize: 15, 
                         lineHeight: '1.2',
@@ -569,7 +569,7 @@ export default function POSOrderDetailsPage() {
             width: 120,
             align: 'center' as const,
             render: (_value: unknown, record: SalesOrderItem) => (
-                <Space direction="vertical" size={0} align="center">
+                <Space orientation="vertical" size={0} align="center">
                     {record.product?.category?.display_name ? (
                         <Tag color="cyan" style={{...orderDetailStyles.categoryTag, opacity: 0.7}}>
                             {record.product.category.display_name}
@@ -585,7 +585,7 @@ export default function POSOrderDetailsPage() {
             align: 'center' as const,
             render: (_value: unknown, record: SalesOrderItem) => {
                 return (
-                    <Space direction="vertical" size={0} align="center">
+                    <Space orientation="vertical" size={0} align="center">
                         <Text style={{...orderDetailStyles.priceTag, opacity: 0.7}}>฿{Number(record.price).toLocaleString()}</Text>
                         {record.details && record.details.length > 0 && record.details.map((d, i) => (
                             <Text key={i} style={{ fontSize: 11, opacity: 0.7, color: orderDetailColors.priceTotal, display: 'block', lineHeight: '1.4' }}>
@@ -883,7 +883,7 @@ export default function POSOrderDetailsPage() {
                                                                     {item.details.map((d: { detail_name: string; extra_price: number }) => `${d.detail_name} (+ ฿${Number(d.extra_price).toLocaleString()})`).join(', ')}
                                                                 </div>
                                                             )}
-                                                            <Space direction="vertical" size={2}>
+                                                            <Space orientation="vertical" size={2}>
                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                                     <Text style={orderDetailStyles.priceTag}>฿{Number(item.price).toLocaleString()}</Text>
                                                                     <Text strong style={{ color: orderDetailColors.priceTotal }}>
@@ -1022,7 +1022,7 @@ export default function POSOrderDetailsPage() {
                                                                         {item.details.map((d: { detail_name: string; extra_price: number }) => `${d.detail_name} (+ ฿${Number(d.extra_price).toLocaleString()})`).join(', ')}
                                                                     </div>
                                                                 )}
-                                                                <Space direction="vertical" size={2} style={{ marginTop: 4, width: '100%' }}>
+                                                                <Space orientation="vertical" size={2} style={{ marginTop: 4, width: '100%' }}>
                                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                                         <div>
                                                                             <Text style={{...orderDetailStyles.priceTag, opacity: 0.7}}>฿{Number(item.price).toLocaleString()}</Text>

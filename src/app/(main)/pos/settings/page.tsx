@@ -161,7 +161,7 @@ export default function POSSettingsPage() {
                                         <div style={{ marginBottom: 4 }}>
                                             <Text type="secondary" style={{ fontSize: 12 }}>กำลังใช้งานอยู่ในปัจจุบัน:</Text>
                                         </div>
-                                        <Space direction="vertical" size={0}>
+                                        <Space orientation="vertical" size={0}>
                                             <Text strong style={{ fontSize: 18 }}>{activeAccount.account_name}</Text>
                                             <Space>
                                                 <Text type="secondary">{activeAccount.account_type === 'PromptPay' ? 'พร้อมเพย์' : (activeAccount.bank_name || 'ธนาคาร')}: </Text>

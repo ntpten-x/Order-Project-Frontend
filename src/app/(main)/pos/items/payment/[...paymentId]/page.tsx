@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Typography, Row, Col, Card, Button, Empty, Divider, message, InputNumber, Select, Tag, Avatar, Alert } from "antd";
 import { ArrowLeftOutlined, ShopOutlined, DollarOutlined, CreditCardOutlined, QrcodeOutlined, UndoOutlined, EditOutlined, SettingOutlined } from "@ant-design/icons";
@@ -51,6 +51,12 @@ export default function POSPaymentPage() {
     const [appliedDiscount, setAppliedDiscount] = useState<Discounts | null>(null);
     const { showLoading, hideLoading } = useGlobalLoading();
     const { socket } = useSocket();
+    
+    // Refs for input fields to prevent auto-scroll issues
+    const cashInputRef = useRef<any>(null);
+    const cardInputRef = useRef<any>(null);
+    const hasFocusedCashInput = useRef(false);
+    const hasFocusedCardInput = useRef(false);
 
     // Confirmation Dialog State
     const [confirmConfig, setConfirmConfig] = useState<ConfirmationConfig>({
@@ -63,7 +69,7 @@ export default function POSPaymentPage() {
 
     const closeConfirm = () => setConfirmConfig(prev => ({ ...prev, open: false }));
 
-    const fetchInitialData = useCallback(async (silent = false) => {
+    const fetchInitialData = useCallback(async (silent = false): Promise<void> => {
         if (!paymentId) return;
         try {
             if (!silent) {
@@ -97,7 +103,29 @@ export default function POSPaymentPage() {
             });
 
             setPaymentMethods(filteredMethods);
-            setDiscounts(discountsRes);
+            
+            // Ensure discounts is always an array
+            // discountsService.getAll() should always return Discounts[]
+            // but handle edge cases just in case
+            let discountsArray: Discounts[] = [];
+            if (Array.isArray(discountsRes)) {
+                discountsArray = discountsRes;
+            } else if (discountsRes && typeof discountsRes === 'object') {
+                // Handle single object response
+                const discountObj = discountsRes as any;
+                if (discountObj.id && (discountObj.discount_name || discountObj.display_name)) {
+                    discountsArray = [discountObj as Discounts];
+                } else if (discountObj.data && Array.isArray(discountObj.data)) {
+                    discountsArray = discountObj.data;
+                } else if (discountObj.success && Array.isArray(discountObj.data)) {
+                    discountsArray = discountObj.data;
+                } else if (discountObj.success && discountObj.data && typeof discountObj.data === 'object' && !Array.isArray(discountObj.data)) {
+                    if (discountObj.data.id && (discountObj.data.discount_name || discountObj.data.display_name)) {
+                        discountsArray = [discountObj.data as Discounts];
+                    }
+                }
+            }
+            setDiscounts(discountsArray);
             setShopProfile(shopRes);
             
             // Sync initial discount
@@ -120,6 +148,39 @@ export default function POSPaymentPage() {
         }
     }, [messageApi, paymentId, router, showLoading, hideLoading]);
 
+
+    // Memoize discount options for Select component
+    const discountOptions = useMemo(() => {
+        if (!discounts || !Array.isArray(discounts) || discounts.length === 0) {
+            return [];
+        }
+        
+        const activeDiscounts = discounts.filter(d => {
+            if (!d) {
+                return false;
+            }
+            return d.is_active === true || d.is_active === undefined;
+        });
+        
+        if (activeDiscounts.length === 0) {
+            return [];
+        }
+        
+        const options = activeDiscounts.map(d => {
+            if (!d.display_name || !d.id) {
+                return null;
+            }
+            const label = `${d.display_name} (${d.discount_type === DiscountType.Percentage ? `${d.discount_amount}%` : `-${d.discount_amount}฿`})`;
+            return {
+                label,
+                value: d.id,
+                key: d.id
+            };
+        }).filter((opt): opt is { label: string; value: string; key: string } => opt !== null);
+        
+        return options;
+    }, [discounts]);
+
     useEffect(() => {
         if (paymentId) {
             fetchInitialData(false);
@@ -131,12 +192,34 @@ export default function POSPaymentPage() {
         events: ["orders:update", "orders:delete", "payments:create", "payments:update"],
         onRefresh: () => {
             if (paymentId) {
-                fetchInitialData(true);
+                // Save scroll position before refresh
+                const scrollY = window.scrollY;
+                const isUserScrolling = document.body.scrollTop > 0 || document.documentElement.scrollTop > 0;
+                
+                fetchInitialData(true).then(() => {
+                    // Only restore scroll if user was scrolling, and use setTimeout to avoid conflicts
+                    if (isUserScrolling) {
+                        setTimeout(() => {
+                            window.scrollTo({ top: scrollY, behavior: 'auto' });
+                        }, 100);
+                    }
+                });
             }
         },
-        intervalMs: 15000,
+        intervalMs: 30000, // Increase interval to reduce refresh frequency
         enabled: Boolean(paymentId),
     });
+    
+    // Prevent auto-scroll when component re-renders
+    useEffect(() => {
+        // Disable Next.js auto-scroll behavior
+        if (typeof window !== 'undefined') {
+            // Prevent scroll restoration
+            if ('scrollRestoration' in window.history) {
+                window.history.scrollRestoration = 'manual';
+            }
+        }
+    }, []);
 
     const { subtotal, discount, vat, total, change } = calculatePaymentTotals(order, receivedAmount);
 
@@ -401,7 +484,10 @@ export default function POSPaymentPage() {
                 <Row gutter={[24, 24]}>
                     {/* Left: Summary */}
                     <Col xs={24} lg={14}>
-                        <Card style={paymentPageStyles.card} bodyStyle={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                        <Card 
+                            style={paymentPageStyles.card} 
+                            styles={{ body: { height: '100%', display: 'flex', flexDirection: 'column' } }}
+                        >
                              <Title level={4} style={{ marginBottom: 16, marginTop: 0 }}>รายการสรุป (Order Summary)</Title>
                             <div style={{ flex: 1, overflowY: 'auto', paddingRight: 8, minHeight: 300, maxHeight: 500 }}>
                                 {order.items?.filter(item => item.status !== OrderStatus.Cancelled).map((item, idx) => (
@@ -471,21 +557,37 @@ export default function POSPaymentPage() {
                     
                     {/* Right: Payment Actions */}
                     <Col xs={24} lg={10}>
-                         <Card style={{ ...paymentPageStyles.card, marginBottom: 12 }} bodyStyle={{ padding: '12px 16px' }}>
+                         <Card 
+                            style={{ ...paymentPageStyles.card, marginBottom: 12, overflow: 'visible' }} 
+                            styles={{ body: { padding: '12px 16px', overflow: 'visible' } }}
+                        >
                             <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 13 }}>ส่วนลด (Discount)</Text>
                             <Select
-                                placeholder="เลือกส่วนลด (Select Discount)"
+                                placeholder={discounts.length === 0 && isLoading ? "กำลังโหลดข้อมูล..." : discountOptions.length === 0 ? "ไม่มีส่วนลด" : "เลือกส่วนลด (Select Discount)"}
                                 style={{ width: '100%' }}
                                 allowClear
                                 size="large"
                                 value={appliedDiscount ? appliedDiscount.id : undefined}
                                 onChange={handleDiscountChange}
+                                loading={discounts.length === 0 && isLoading}
+                                notFoundContent={discountOptions.length === 0 && !isLoading ? "ไม่มีส่วนลด" : null}
+                                showSearch
+                                optionFilterProp="label"
+                                disabled={discountOptions.length === 0 && isLoading}
+                                getPopupContainer={() => document.body}
+                                dropdownStyle={{ zIndex: 9999 }}
+                                popupMatchSelectWidth={true}
+                                virtual={false}
                             >
-                                {discounts.filter(d => d.is_active).map(d => (
-                                    <Select.Option key={d.id} value={d.id}>
-                                        {d.display_name} ({d.discount_type === DiscountType.Percentage ? `${d.discount_amount}%` : `-${d.discount_amount}฿`})
-                                    </Select.Option>
-                                ))}
+                                {discountOptions.length > 0 ? (
+                                    discountOptions.map(opt => (
+                                        <Select.Option key={opt.key} value={opt.value}>
+                                            {opt.label}
+                                        </Select.Option>
+                                    ))
+                                ) : (
+                                    !isLoading && <Select.Option disabled value="no-discount">ไม่มีส่วนลด</Select.Option>
+                                )}
                             </Select>
                          </Card>
 
@@ -514,8 +616,38 @@ export default function POSPaymentPage() {
                                                                 setReceivedAmount(total);
                                                             } else if (isCashMethod(method.payment_method_name, method.display_name)) {
                                                                 setReceivedAmount(0);
+                                                                // Focus cash input only once when first selecting cash method
+                                                                // Use requestAnimationFrame to prevent scroll jump
+                                                                requestAnimationFrame(() => {
+                                                                    setTimeout(() => {
+                                                                        if (cashInputRef.current && !hasFocusedCashInput.current) {
+                                                                            const scrollY = window.scrollY;
+                                                                            cashInputRef.current.focus();
+                                                                            hasFocusedCashInput.current = true;
+                                                                            // Restore scroll position after focus to prevent jump
+                                                                            requestAnimationFrame(() => {
+                                                                                window.scrollTo({ top: scrollY, behavior: 'auto' });
+                                                                            });
+                                                                        }
+                                                                    }, 50);
+                                                                });
                                                             } else {
                                                                  setReceivedAmount(total); // Default for credit card etc
+                                                                 // Focus card input only once when first selecting card method
+                                                                 // Use requestAnimationFrame to prevent scroll jump
+                                                                 requestAnimationFrame(() => {
+                                                                     setTimeout(() => {
+                                                                         if (cardInputRef.current && !hasFocusedCardInput.current) {
+                                                                             const scrollY = window.scrollY;
+                                                                             cardInputRef.current.focus();
+                                                                             hasFocusedCardInput.current = true;
+                                                                             // Restore scroll position after focus to prevent jump
+                                                                             requestAnimationFrame(() => {
+                                                                                 window.scrollTo({ top: scrollY, behavior: 'auto' });
+                                                                             });
+                                                                         }
+                                                                     }, 50);
+                                                                 });
                                                             }
                                                         }}
                                                         style={{ 
@@ -585,6 +717,7 @@ export default function POSPaymentPage() {
                                                     <div style={paymentPageStyles.inputArea}>
                                                         <Text style={{ display: 'block', marginBottom: 8 }}>รับเงินมา (Received)</Text>
                                                          <InputNumber 
+                                                            ref={cashInputRef}
                                                             style={{ width: '100%', fontSize: 24, padding: 8, borderRadius: 8, marginBottom: 12 }} 
                                                             size="large"
                                                             min={0}
@@ -593,7 +726,6 @@ export default function POSPaymentPage() {
                                                             formatter={value => `฿ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                                                             parser={value => Number(value!.replace(/฿\s?|(,*)/g, ''))}
                                                             onFocus={(e) => e.target.select()}
-                                                            autoFocus
                                                             controls={false}
                                                             inputMode="decimal"
                                                             onKeyDown={(e) => {
@@ -636,6 +768,7 @@ export default function POSPaymentPage() {
                                                     <Text type="secondary">ตรวจสอบยอดเงินและชำระผ่านช่องทางที่เลือก</Text>
                                                     <div style={{ marginTop: 16 }}>
                                                          <InputNumber 
+                                                            ref={cardInputRef}
                                                             style={{ width: '100%', fontSize: 24 }} 
                                                             value={receivedAmount} 
                                                             onChange={val => setReceivedAmount(val || 0)} 

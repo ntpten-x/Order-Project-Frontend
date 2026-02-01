@@ -156,7 +156,7 @@ export default function POSItemsPage() {
                                                     {getOrderTypeUserFriendly(group.order.order_type, group.order.table)}
                                                 </Text>
                                             </div>
-                                            <Space size={4} direction="vertical" style={{ marginTop: 4 }}>
+                                            <Space size={4} orientation="vertical" style={{ marginTop: 4 }}>
                                                 <Text type="secondary" style={{ fontSize: 12 }}>#{group.order.order_no}</Text>
                                                 {group.order.created_by_id && (
                                                     <Text type="secondary" style={{ fontSize: 11 }}>

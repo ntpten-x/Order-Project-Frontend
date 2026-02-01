@@ -86,6 +86,16 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/(main)/pos/category/page.js"
+    ],
+    "/(main)/pos/items/payment/[...paymentId]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/pos/items/payment/[...paymentId]/page.js"
+    ],
+    "/(main)/pos/dashboard/[...id]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/pos/dashboard/[...id]/page.js"
     ]
   }
 }

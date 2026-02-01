@@ -485,7 +485,7 @@ export default function ProductsPage() {
                     }}>
                         <Empty 
                             image={Empty.PRESENTED_IMAGE_SIMPLE}
-                            imageStyle={{ height: 120 }}
+                            styles={{ image: { height: 120 } }}
                             description={
                                 <div style={{ marginTop: 20 }}>
                                     <Title level={4} style={{ marginBottom: 8 }}>ยังไม่พร้อมเพิ่มสินค้า</Title>

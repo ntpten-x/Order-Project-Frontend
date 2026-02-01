@@ -358,7 +358,7 @@ export default function POSDeliverySummaryPage() {
                                 style={{ background: '#f9fafb', borderRadius: 16, border: '1px dashed #d1d5db', marginBottom: 32 }}
                                 bodyStyle={{ padding: 16 }}
                             >
-                                <Space direction="vertical" style={{ width: '100%' }} size={12}>
+                                <Space orientation="vertical" style={{ width: '100%' }} size={12}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                         <Text type="secondary">ผู้ให้บริการ</Text>
                                         <Text strong>{order.delivery?.delivery_name || '-'}</Text>

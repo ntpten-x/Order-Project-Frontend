@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { Modal, Input, Button, Typography, Empty, Divider, message, InputNumber } from 'antd';
+import { Modal, Input, Button, Typography, Empty, Divider, InputNumber, App } from 'antd';
 import { 
     SearchOutlined, 
     PlusOutlined, 
@@ -39,6 +39,7 @@ interface AddItemsModalProps {
 }
 
 export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, onAddItem }) => {
+    const { message } = App.useApp();
     const [products, setProducts] = useState<Products[]>([]);
     const [filteredProducts, setFilteredProducts] = useState<Products[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -61,7 +62,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
             ]);
             setProducts(productsRes.data);
             setFilteredProducts(productsRes.data);
-            setCategories(categoriesRes);
+            setCategories(Array.isArray(categoriesRes) ? categoriesRes : []);
         } catch {
             message.error("ไม่สามารถโหลดข้อมูลได้");
         } finally {
@@ -173,7 +174,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
             onCancel={onClose}
             footer={null}
             width={850}
-            destroyOnClose
+            destroyOnHidden
             centered
         >
             <style jsx global>{ordersResponsiveStyles}</style>

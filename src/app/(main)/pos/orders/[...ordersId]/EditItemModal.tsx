@@ -168,7 +168,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                             <Text type="secondary" style={{ fontSize: 13 }}>ไม่มีรายการเพิ่มเติม</Text>
                         </div>
                     ) : (
-                        <Space direction="vertical" style={{ width: '100%' }} size={10}>
+                        <Space orientation="vertical" style={{ width: '100%' }} size={10}>
                             {details.map((detail, index) => (
                                 <div key={index} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
                                     <Input 

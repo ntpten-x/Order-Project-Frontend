@@ -231,7 +231,7 @@ export default function DineInTableSelectionPage() {
             }}>
               <Empty 
                 image={Empty.PRESENTED_IMAGE_SIMPLE}
-                imageStyle={{ height: 120 }}
+                styles={{ image: { height: 120 } }}
                 description={
                   <div style={{ marginTop: 20 }}>
                     <Title level={4} style={{ marginBottom: 8 }}>ยังไม่มีข้อมูลโต๊ะ</Title>

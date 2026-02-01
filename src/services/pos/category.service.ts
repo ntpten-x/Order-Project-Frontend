@@ -22,7 +22,14 @@ export const categoryService = {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || errorData.message || "Failed to fetch categories");
         }
-        return response.json();
+        const json = await response.json();
+        if (Array.isArray(json)) {
+            return json;
+        }
+        if (json?.success && Array.isArray(json.data)) {
+            return json.data;
+        }
+        throw new Error("Invalid categories response format");
     },
 
     findOne: async (id: string, cookie?: string): Promise<Category> => {
@@ -39,7 +46,11 @@ export const categoryService = {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || errorData.message || "Failed to fetch category");
         }
-        return response.json();
+        const json = await response.json();
+        if (json?.success && json.data) {
+            return json.data;
+        }
+        return json;
     },
 
     findOneByName: async (name: string, cookie?: string): Promise<Category> => {
@@ -56,7 +67,11 @@ export const categoryService = {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || errorData.message || "Failed to fetch category by name");
         }
-        return response.json();
+        const json = await response.json();
+        if (json?.success && json.data) {
+            return json.data;
+        }
+        return json;
     },
 
     create: async (data: Partial<Category>, cookie?: string, csrfToken?: string): Promise<Category> => {
