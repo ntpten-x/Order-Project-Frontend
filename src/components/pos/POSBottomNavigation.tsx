@@ -113,6 +113,18 @@ const POSBottomNavigation = () => {
         path: '/pos/discounts', 
       },
       {
+        key: 'promotions',
+        label: 'โปรโมชัน',
+        icon: <TagsOutlined className="text-2xl" />,
+        path: '/pos/promotions', 
+      },
+      {
+        key: 'queue',
+        label: 'คิวออเดอร์',
+        icon: <UnorderedListOutlined className="text-2xl" />,
+        path: '/pos/queue', 
+      },
+      {
         key: 'paymentMethod',
         label: 'วิธีการชำระเงิน',
         icon: <DollarOutlined className="text-2xl" />,

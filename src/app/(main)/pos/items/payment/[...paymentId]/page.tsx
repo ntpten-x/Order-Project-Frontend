@@ -28,6 +28,10 @@ import ConfirmationDialog from "../../../../../../components/dialog/Confirmation
 import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
+import PromotionCodeInput from "../../../../../../components/pos/PromotionCodeInput";
+import { PromotionEligibility } from "../../../../../../types/api/pos/promotions";
+import PromotionCodeInput from "../../../../../../components/pos/PromotionCodeInput";
+import { PromotionEligibility } from "../../../../../../types/api/pos/promotions";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -49,6 +53,7 @@ export default function POSPaymentPage() {
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
     const [receivedAmount, setReceivedAmount] = useState<number>(0);
     const [appliedDiscount, setAppliedDiscount] = useState<Discounts | null>(null);
+    const [appliedPromotion, setAppliedPromotion] = useState<PromotionEligibility | null>(null);
     const { showLoading, hideLoading } = useGlobalLoading();
     const { socket } = useSocket();
     
@@ -221,7 +226,10 @@ export default function POSPaymentPage() {
         }
     }, []);
 
-    const { subtotal, discount, vat, total, change } = calculatePaymentTotals(order, receivedAmount);
+    const { subtotal, discount, vat, total: baseTotal, change } = calculatePaymentTotals(order, receivedAmount);
+    // Apply promotion discount if available
+    const promotionDiscount = appliedPromotion?.eligible ? appliedPromotion.discountAmount : 0;
+    const total = Math.max(0, baseTotal - promotionDiscount);
 
     const handleDiscountChange = async (value: string | undefined) => {
         if (!order) return;
@@ -540,6 +548,12 @@ export default function POSPaymentPage() {
                                         <Text type="success">-{formatCurrency(discount)}</Text>
                                     </Row>
                                 )}
+                                {promotionDiscount > 0 && (
+                                    <Row justify="space-between" style={{ marginBottom: 8, color: '#f5576c' }}>
+                                        <Text style={{ color: '#f5576c' }}>โปรโมชัน (Promotion)</Text>
+                                        <Text style={{ color: '#f5576c' }}>-{formatCurrency(promotionDiscount)}</Text>
+                                    </Row>
+                                )}
                                 {vat > 0 && (
                                     <Row justify="space-between" style={{ marginBottom: 8 }}>
                                         <Text type="secondary">VAT (7%)</Text>
@@ -589,6 +603,20 @@ export default function POSPaymentPage() {
                                     !isLoading && <Select.Option disabled value="no-discount">ไม่มีส่วนลด</Select.Option>
                                 )}
                             </Select>
+                            
+                            <div style={{ marginTop: 16 }}>
+                                <PromotionCodeInput
+                                    onApply={(eligibility) => {
+                                        setAppliedPromotion(eligibility);
+                                        messageApi.success(`ใช้โปรโมชันสำเร็จ! ลด ${eligibility.discountAmount.toFixed(2)} บาท`);
+                                    }}
+                                    onRemove={() => {
+                                        setAppliedPromotion(null);
+                                        messageApi.info("ยกเลิกการใช้โปรโมชัน");
+                                    }}
+                                    appliedPromotion={appliedPromotion}
+                                />
+                            </div>
                          </Card>
 
                           <Card style={paymentPageStyles.card}>
