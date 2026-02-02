@@ -4,7 +4,7 @@ import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { Button, Result, Typography } from 'antd';
 import { ReloadOutlined, HomeOutlined, BugOutlined } from '@ant-design/icons';
 
-const { Text, Paragraph } = Typography;
+const { Text, Paragraph, Title } = Typography;
 
 interface Props {
   children: ReactNode;
@@ -91,84 +91,127 @@ export class ErrorBoundary extends Component<Props, State> {
             alignItems: 'center',
             justifyContent: 'center',
             padding: 24,
-            background: 'linear-gradient(180deg, #f5f5f5 0%, #fafafa 100%)',
+            background: '#f8fafc',
+            fontFamily: 'var(--font-family, sans-serif)',
           }}
           role="alert"
           aria-live="assertive"
         >
-          <Result
-            status="error"
-            title="เกิดข้อผิดพลาด"
-            subTitle="ขออภัย มีบางอย่างผิดปกติ กรุณาลองใหม่อีกครั้ง"
-            style={{
-              background: 'white',
-              borderRadius: 16,
-              padding: '40px 24px',
-              boxShadow: '0 4px 24px rgba(0,0,0,0.06)',
-              maxWidth: 600,
-              width: '100%',
-            }}
-            extra={[
+          <div style={{
+            background: 'rgba(255, 255, 255, 0.8)',
+            backdropFilter: 'blur(20px)',
+            borderRadius: 32,
+            padding: '48px 32px',
+            boxShadow: '0 20px 40px -10px rgba(0, 0, 0, 0.05)',
+            maxWidth: 560,
+            width: '100%',
+            textAlign: 'center',
+            border: '1px solid rgba(255, 255, 255, 0.6)',
+          }}>
+            <div style={{
+              width: 80,
+              height: 80,
+              background: '#fee2e2',
+              borderRadius: '50%',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '0 auto 24px',
+              color: '#ef4444',
+              fontSize: 36,
+              boxShadow: '0 8px 16px rgba(239, 68, 68, 0.15)',
+            }}>
+              <BugOutlined />
+            </div>
+
+            <Title level={3} style={{ margin: '0 0 12px', color: '#1e293b', fontWeight: 700 }}>
+              ระบบแจ้งเตือนข้อผิดพลาด
+            </Title>
+            
+            <Paragraph style={{ fontSize: 16, color: '#64748b', marginBottom: 32, lineHeight: 1.6 }}>
+              ขออภัยในความไม่สะดวก ระบบตรวจพบความผิดปกติบางอย่าง<br/>กรุณาลองรีโหลดหน้าเว็บใหม่อีกครั้ง
+            </Paragraph>
+            
+            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', flexWrap: 'wrap' }}>
               <Button 
                 key="retry" 
                 type="primary" 
                 icon={<ReloadOutlined />}
                 onClick={this.handleReload}
                 size="large"
-                style={{ borderRadius: 8, fontWeight: 500 }}
+                style={{ 
+                  borderRadius: 16, 
+                  fontWeight: 600, 
+                  height: 48,
+                  padding: '0 24px',
+                  background: '#10b981',
+                  boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)',
+                  border: 'none',
+                }}
               >
                 ลองใหม่อีกครั้ง
-              </Button>,
+              </Button>
               <Button 
                 key="home" 
                 icon={<HomeOutlined />}
                 onClick={this.handleGoHome}
                 size="large"
-                style={{ borderRadius: 8 }}
+                style={{ 
+                  borderRadius: 16, 
+                  height: 48,
+                  padding: '0 24px',
+                  color: '#64748b',
+                  borderColor: '#cbd5e1',
+                }}
               >
                 กลับหน้าแรก
-              </Button>,
-            ]}
-          >
+              </Button>
+            </div>
+
             {isDev && this.state.error && (
               <div 
                 style={{ 
-                  marginTop: 24, 
-                  padding: 16, 
-                  background: '#fff2f0', 
-                  borderRadius: 8,
-                  border: '1px solid #ffccc7',
+                  marginTop: 40, 
+                  padding: 20, 
+                  background: '#1e293b', 
+                  borderRadius: 16,
                   textAlign: 'left',
+                  color: '#e2e8f0',
+                  boxShadow: 'inset 0 2px 8px rgba(0,0,0,0.2)',
+                  overflow: 'hidden',
                 }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 8 }}>
-                  <BugOutlined style={{ color: '#ff4d4f' }} />
-                  <Text strong style={{ color: '#ff4d4f' }}>Debug Info (Development Only)</Text>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12, borderBottom: '1px solid #334155', paddingBottom: 12 }}>
+                  <BugOutlined style={{ color: '#ef4444' }} />
+                  <Text strong style={{ color: '#f8fafc' }}>Developer Debug Info</Text>
                 </div>
                 <Paragraph 
                   code 
                   copyable 
                   style={{ 
-                    fontSize: 12, 
-                    marginBottom: 8,
-                    whiteSpace: 'pre-wrap',
-                    wordBreak: 'break-word',
+                    fontSize: 13, 
+                    marginBottom: 12,
+                    color: '#94a3b8',
+                    fontFamily: 'monospace',
                   }}
                 >
                   {this.state.error.message}
                 </Paragraph>
                 {this.state.error.stack && (
-                  <details style={{ fontSize: 11, color: '#8c8c8c' }}>
-                    <summary style={{ cursor: 'pointer', marginBottom: 8 }}>
-                      Stack Trace
+                  <details>
+                    <summary style={{ cursor: 'pointer', color: '#64748b', fontSize: 12, userSelect: 'none' }}>
+                      View Stack Trace
                     </summary>
                     <pre style={{ 
+                      marginTop: 12,
                       overflow: 'auto', 
                       maxHeight: 200,
-                      fontSize: 10,
-                      background: '#fafafa',
-                      padding: 8,
-                      borderRadius: 4,
+                      fontSize: 11,
+                      background: '#0f172a',
+                      padding: 12,
+                      borderRadius: 8,
+                      color: '#cbd5e1',
+                      border: '1px solid #334155',
                     }}>
                       {this.state.error.stack}
                     </pre>
@@ -176,7 +219,7 @@ export class ErrorBoundary extends Component<Props, State> {
                 )}
               </div>
             )}
-          </Result>
+          </div>
         </div>
       );
     }

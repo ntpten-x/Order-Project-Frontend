@@ -1,6 +1,6 @@
-"use client";
+'use client';
 
-import React, { useEffect, useState, useContext, useMemo } from "react";
+import React, { useEffect, useState, useContext, useMemo, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Typography, Button, Row, Col, Tag, Badge, Empty, Spin, Switch, message, Space, Tooltip, Divider } from "antd";
 import { 
@@ -10,12 +10,13 @@ import {
     SoundOutlined, 
     ReloadOutlined,
     ThunderboltOutlined,
-    DoubleRightOutlined
+    DoubleRightOutlined,
+    NotificationOutlined,
+    WifiOutlined
 } from "@ant-design/icons";
 import { SocketContext } from "../../../../contexts/SocketContext";
 import { ordersService } from "../../../../services/pos/orders.service";
 import { SalesOrderItem, ItemStatus } from "../../../../types/api/pos/salesOrderItem";
-import { posPageStyles } from "../../../../theme/pos";
 import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import dayjs from "dayjs";
@@ -27,31 +28,75 @@ dayjs.locale('th');
 
 const { Title, Text } = Typography;
 
-// Timer color helper with glow/gradient intent
-const getUrgencyConfig = (createdAt: string): { 
-    color: string; 
-    bgColor: string; 
-    urgency: 'low' | 'medium' | 'high';
-    label: string 
-} => {
+// KDS Specific Styles
+const kdsStyles = {
+    container: {
+        minHeight: '100vh',
+        background: '#0f172a', // Slate 900
+        padding: '24px',
+        color: '#f8fafc',
+        fontFamily: "'Inter', 'Sarabun', sans-serif"
+    },
+    header: {
+        marginBottom: 32,
+        background: '#1e293b',
+        padding: '16px 24px',
+        borderRadius: 20,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        border: '1px solid rgba(255,255,255,0.05)',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+    },
+    card: (urgencyColor: string, isHighUrgency: boolean) => ({
+        background: '#1e293b',
+        borderRadius: 16,
+        overflow: 'hidden',
+        border: `2px solid ${isHighUrgency ? urgencyColor : 'rgba(255,255,255,0.05)'}`,
+        boxShadow: isHighUrgency 
+            ? `0 0 0 2px ${urgencyColor}, 0 10px 15px -3px rgba(0, 0, 0, 0.1)` 
+            : '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column' as const,
+        transition: 'all 0.3s ease',
+        animation: isHighUrgency ? 'pulse-border 2s infinite' : 'none'
+    }),
+    itemRow: (status: ItemStatus) => ({
+        padding: '12px',
+        background: status === ItemStatus.Cooking ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255,255,255,0.03)',
+        marginBottom: 8,
+        borderRadius: 8,
+        borderLeft: `4px solid ${
+            status === ItemStatus.Cooking ? '#10b981' : 
+            status === ItemStatus.Served ? '#64748b' : '#f59e0b'
+        }`,
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start'
+    })
+};
+
+// Urgency Logic
+const getUrgencyConfig = (createdAt: string) => {
     const minutes = dayjs().diff(dayjs(createdAt), 'minute');
-    if (minutes < 5) return { 
-        color: '#52c41a', 
-        bgColor: 'rgba(82, 196, 26, 0.1)', 
-        urgency: 'low',
-        label: 'ปกติ'
+    if (minutes < 10) return { 
+        color: '#10b981', // Emerald 500
+        bgColor: 'rgba(16, 185, 129, 0.2)', 
+        label: 'ปกติ',
+        level: 1
     };
-    if (minutes < 15) return { 
-        color: '#faad14', 
-        bgColor: 'rgba(250, 173, 20, 0.1)', 
-        urgency: 'medium',
-        label: 'ล่าช้า'
+    if (minutes < 20) return { 
+        color: '#f59e0b', // Amber 500
+        bgColor: 'rgba(245, 158, 11, 0.2)', 
+        label: 'เริ่มช้า',
+        level: 2
     };
     return { 
-        color: '#ff4d4f', 
-        bgColor: 'rgba(255, 77, 79, 0.15)', 
-        urgency: 'high',
-        label: 'ด่วนมาก'
+        color: '#ef4444', // Red 500
+        bgColor: 'rgba(239, 68, 68, 0.2)', 
+        label: 'ด่วน!',
+        level: 3
     };
 };
 
@@ -69,7 +114,21 @@ export default function KitchenDisplayPage() {
     const { showLoading, hideLoading } = useGlobalLoading();
     const queryClient = useQueryClient();
     const [soundEnabled, setSoundEnabled] = useState(true);
+    const audioRef = useRef<HTMLAudioElement | null>(null);
     const [filterStatus, setFilterStatus] = useState<ItemStatus | 'all'>('all');
+
+    // Initialize audio
+    useEffect(() => {
+        audioRef.current = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
+        audioRef.current.volume = 0.6;
+    }, []);
+
+    const playNotificationSound = () => {
+        if (soundEnabled && audioRef.current) {
+            audioRef.current.currentTime = 0;
+            audioRef.current.play().catch(console.error);
+        }
+    };
 
     const { data: allItems = [], isLoading, refetch } = useQuery<SalesOrderItem[]>({
         queryKey: ["orderItems", "kitchen"],
@@ -81,9 +140,9 @@ export default function KitchenDisplayPage() {
             );
         },
         staleTime: 2000,
+        refetchInterval: 30000, // Safety polling every 30s
     });
 
-    // Group items by order
     const groupedOrders = useMemo((): GroupedOrder[] => {
         const grouped: Record<string, GroupedOrder> = {};
         
@@ -107,22 +166,27 @@ export default function KitchenDisplayPage() {
             grouped[orderId].items.push(item);
         });
 
-        // Sort by oldest first (those waiting longest)
+        // Sort: Urgent (Oldest) First
         return Object.values(grouped).sort((a, b) => 
             dayjs(a.created_at).valueOf() - dayjs(b.created_at).valueOf()
         );
     }, [allItems, filterStatus]);
 
-    // Socket listeners for real-time updates
+    // Socket Event Handlers
     useEffect(() => {
         if (!socket) return;
 
         const handleOrderCreate = (newOrder: { order_no: string }) => {
+            console.log("New Order Received:", newOrder);
             refetch();
-            if (soundEnabled) {
-                playNotificationSound();
-                message.info(`ออเดอร์ใหม่: #${newOrder.order_no}`);
-            }
+            playNotificationSound();
+            message.open({
+                type: 'info',
+                content: `ออเดอร์ใหม่: #${newOrder.order_no}`,
+                icon: <NotificationOutlined style={{ color: '#10b981' }} />,
+                className: 'kds-notification',
+                duration: 5,
+            });
         };
 
         const handleOrderUpdate = () => {
@@ -136,32 +200,20 @@ export default function KitchenDisplayPage() {
             socket.off('orders:create', handleOrderCreate);
             socket.off('orders:update', handleOrderUpdate);
         };
-    }, [socket, soundEnabled, refetch]);
-
-    const playNotificationSound = () => {
-        try {
-            // Using a system beep or data URI if .mp3 not found
-            const audio = new Audio("https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3");
-            audio.volume = 0.5;
-            audio.play().catch(() => {});
-        } catch {}
-    };
+    }, [socket, refetch, soundEnabled]); // Removed playNotificationSound dependency to avoid recreating effect
 
     const updateItemStatus = async (itemId: string, newStatus: ItemStatus) => {
         try {
-            showLoading("กำลังอัปเดต...");
+            // Optimistic Update
+            queryClient.setQueryData<SalesOrderItem[]>(["orderItems", "kitchen"], (prev = []) =>
+                prev.map(item => (item.id === itemId ? { ...item, status: newStatus } : item))
+            );
+
             const csrfToken = await getCsrfTokenCached();
             await ordersService.updateItemStatus(itemId, newStatus, undefined, csrfToken);
-            queryClient.setQueryData<SalesOrderItem[]>(["orderItems", "kitchen"], (prev = []) =>
-                prev
-                    .map(item => (item.id === itemId ? { ...item, status: newStatus } : item))
-                    .filter(item => item.status !== ItemStatus.Served && item.status !== ItemStatus.Cancelled)
-            );
-            message.success("อัปเดตสถานะสำเร็จ");
         } catch {
-            message.error("ไม่สามารถอัปเดตสถานะได้");
-        } finally {
-            hideLoading();
+            message.error("อัปเดตสถานะไม่สำเร็จ");
+            refetch(); // Revert on failure
         }
     };
 
@@ -178,33 +230,17 @@ export default function KitchenDisplayPage() {
 
             await Promise.all(updatePromises);
             
+            // Remove locally immediately for snappy feel
             queryClient.setQueryData<SalesOrderItem[]>(["orderItems", "kitchen"], (prev = []) =>
                 prev.filter(item => item.order_id !== orderId)
             );
-            message.success(`เสิร์ฟออเดอร์ #${order.order_no} ทั้งหมดแล้ว`);
-            refetch();
+            
+            message.success(`เสิร์ฟออเดอร์ #${order.order_no} เรียบร้อย`);
         } catch {
             message.error("เกิดข้อผิดพลาดในการเสิร์ฟทั้งหมด");
+            refetch();
         } finally {
             hideLoading();
-        }
-    };
-
-    const getStatusColor = (status: ItemStatus) => {
-        switch (status) {
-            case ItemStatus.Pending: return '#faad14';
-            case ItemStatus.Cooking: return '#1890ff';
-            case ItemStatus.Served: return '#52c41a';
-            default: return '#8c8c8c';
-        }
-    };
-
-    const getStatusLabel = (status: ItemStatus) => {
-        switch (status) {
-            case ItemStatus.Pending: return 'รอทำ';
-            case ItemStatus.Cooking: return 'กำลังทำ';
-            case ItemStatus.Served: return 'เสร็จแล้ว';
-            default: return status;
         }
     };
 
@@ -212,267 +248,279 @@ export default function KitchenDisplayPage() {
     const cookingCount = allItems.filter(i => i.status === ItemStatus.Cooking).length;
 
     return (
-        <div style={posPageStyles.kitchenContainer}>
+        <div style={kdsStyles.container}>
+            <style jsx global>{`
+                @keyframes pulse-border {
+                    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+                    70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+                    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+                }
+                .kds-notification .ant-message-custom-content {
+                    display: flex;
+                    align-items: center;
+                    font-size: 16px;
+                    font-weight: 600;
+                }
+            `}</style>
+            
             {/* Header */}
-            <div style={posPageStyles.kitchenHeader}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                    <div style={{ 
-                        width: 50, 
-                        height: 50, 
-                        borderRadius: 12, 
-                        background: 'linear-gradient(135deg, #ff6b35 0%, #ff9f1c 100%)',
+            <div style={kdsStyles.header}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                     <div style={{ 
+                        width: 56, 
+                        height: 56, 
+                        borderRadius: 16, 
+                        background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', // Amber for Kitchen
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        boxShadow: '0 4px 12px rgba(255, 107, 53, 0.4)'
+                        boxShadow: '0 0 20px rgba(245, 158, 11, 0.3)'
                     }}>
-                        <FireOutlined style={{ fontSize: 28, color: '#fff' }} />
+                        <FireOutlined style={{ fontSize: 30, color: '#fff' }} />
                     </div>
                     <div>
-                        <Title level={2} style={{ margin: 0, color: '#fff', fontSize: 24 }}>Kitchen Display</Title>
-                        <Space split={<Divider type="vertical" style={{ borderColor: 'rgba(255,255,255,0.2)' }} />}>
-                            <Text style={{ color: 'rgba(255,255,255,0.7)' }}>จอครัวอัจฉริยะ</Text>
-                            <Badge status={isConnected ? 'success' : 'error'} text={
-                                <Text style={{ color: isConnected ? '#52c41a' : '#ff4d4f', fontSize: 12 }}>
-                                    {isConnected ? 'LIVE' : 'OFFLINE'}
-                                </Text>
-                            } />
-                        </Space>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            <Title level={2} style={{ margin: 0, color: '#fff', fontSize: 28, letterSpacing: '0.5px' }}>
+                                KITCHEN DISPLAY
+                            </Title>
+                            {isConnected ? (
+                                <Tag icon={<WifiOutlined />} color="#10b981" style={{ margin: 0, borderRadius: 12, padding: '2px 10px' }}>LIVE</Tag>
+                            ) : (
+                                <Tag icon={<WifiOutlined />} color="#ef4444" style={{ margin: 0, borderRadius: 12, padding: '2px 10px' }}>OFFLINE</Tag>
+                            )}
+                        </div>
+                        <Text style={{ color: '#94a3b8', fontSize: 14 }}>ระบบจัดการออเดอร์ในครัวอัจฉริยะ</Text>
                     </div>
                 </div>
 
-                <Space wrap>
-                    <div style={{ 
-                        background: 'rgba(255,255,255,0.05)', 
-                        padding: '4px 8px', 
-                        borderRadius: 12, 
-                        border: '1px solid rgba(255,255,255,0.1)',
-                        display: 'flex',
-                        gap: 8
-                    }}>
-                        <Button 
-                            type="text"
-                            onClick={() => setFilterStatus('all')}
-                            style={{ 
-                                color: filterStatus === 'all' ? '#fff' : 'rgba(255,255,255,0.5)',
-                                background: filterStatus === 'all' ? 'rgba(255,255,255,0.1)' : 'transparent',
-                                borderRadius: 8
-                            }}
-                        >
-                            ทั้งหมด ({allItems.length})
-                        </Button>
-                        <Button 
-                            type="text"
-                            onClick={() => setFilterStatus(ItemStatus.Pending)}
-                            style={{ 
-                                color: filterStatus === ItemStatus.Pending ? '#faad14' : 'rgba(255,255,255,0.5)',
-                                background: filterStatus === ItemStatus.Pending ? 'rgba(250, 173, 20, 0.1)' : 'transparent',
-                                borderRadius: 8
-                            }}
-                        >
-                            รอทำ ({pendingCount})
-                        </Button>
-                        <Button 
-                            type="text"
-                            onClick={() => setFilterStatus(ItemStatus.Cooking)}
-                            style={{ 
-                                color: filterStatus === ItemStatus.Cooking ? '#1890ff' : 'rgba(255,255,255,0.5)',
-                                background: filterStatus === ItemStatus.Cooking ? 'rgba(24, 144, 255, 0.1)' : 'transparent',
-                                borderRadius: 8
-                            }}
-                        >
-                            กำลังปรุง ({cookingCount})
-                        </Button>
+                <Space size={16}>
+                     {/* Stats Filter Buttons */}
+                     <div style={{ background: '#020617', padding: 6, borderRadius: 14, display: 'flex', gap: 4 }}>
+                        {['all', ItemStatus.Pending, ItemStatus.Cooking].map((status) => {
+                            const isActive = filterStatus === status;
+                            let count = allItems.length;
+                            let label = 'ทั้งหมด';
+                            let activeColor = '#3b82f6';
+
+                            if (status === ItemStatus.Pending) {
+                                count = pendingCount;
+                                label = 'รอทำ';
+                                activeColor = '#f59e0b';
+                            } else if (status === ItemStatus.Cooking) {
+                                count = cookingCount;
+                                label = 'กำลังทำ';
+                                activeColor = '#10b981';
+                            }
+
+                            return (
+                                <Button
+                                    key={status}
+                                    type="text"
+                                    onClick={() => setFilterStatus(status as any)}
+                                    style={{
+                                        color: isActive ? '#fff' : '#64748b',
+                                        background: isActive ? activeColor : 'transparent',
+                                        borderRadius: 10,
+                                        fontWeight: isActive ? 600 : 400,
+                                        height: 36,
+                                        padding: '0 16px'
+                                    }}
+                                >
+                                    {label} <span style={{ opacity: 0.7, marginLeft: 6, fontSize: 12 }}>{count}</span>
+                                </Button>
+                            );
+                        })}
                     </div>
 
-                    <Space size={12}>
-                        <Tooltip title="เปิด/ปิดเสียงแจ้งเตือน">
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'rgba(255,255,255,0.7)' }}>
-                                <SoundOutlined />
-                                <Switch 
-                                    size="small"
-                                    checked={soundEnabled} 
-                                    onChange={setSoundEnabled}
-                                />
-                            </div>
-                        </Tooltip>
+                    <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.1)' }} />
+
+                    <Tooltip title="เปิด/ปิดเสียง">
                         <Button 
-                            icon={<ReloadOutlined />} 
-                            onClick={() => refetch()} 
-                            loading={isLoading}
+                            type="text"
+                            icon={<SoundOutlined style={{ fontSize: 18 }} />}
+                            onClick={() => setSoundEnabled(!soundEnabled)}
                             style={{ 
-                                background: 'rgba(255,255,255,0.1)', 
-                                borderColor: 'transparent', 
-                                color: '#fff',
-                                borderRadius: 10
+                                color: soundEnabled ? '#10b981' : '#64748b',
+                                background: soundEnabled ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255,255,255,0.05)',
+                                width: 44,
+                                height: 44,
+                                borderRadius: 12
                             }}
-                        >
-                            รีเฟรช
-                        </Button>
-                    </Space>
+                        />
+                    </Tooltip>
+                    
+                    <Button 
+                        icon={<ReloadOutlined />}
+                        onClick={() => refetch()}
+                        loading={isLoading}
+                        style={{ 
+                            background: '#334155',
+                            border: 'none',
+                            color: 'white',
+                            borderRadius: 12,
+                            height: 44
+                        }}
+                    >
+                        รีเฟรช
+                    </Button>
                 </Space>
             </div>
 
-            {/* Orders Grid */}
+            {/* Grid */}
             {isLoading ? (
-                <div style={{ textAlign: 'center', padding: 100 }}>
-                    <Spin size="large" tip="กำลังโหลดออเดอร์..." />
+                <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 100 }}>
+                    <Spin size="large" />
                 </div>
             ) : groupedOrders.length === 0 ? (
-                <div style={{ 
-                    textAlign: 'center', 
-                    padding: 100,
-                    background: 'rgba(255,255,255,0.02)',
-                    borderRadius: 24,
-                    border: '2px dashed rgba(255,255,255,0.05)'
-                }}>
-                    <Empty 
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        description={<Text style={{ color: 'rgba(255,255,255,0.4)', fontSize: 18 }}>ไม่มีออเดอร์ค้างในครัว</Text>} 
-                    />
-                </div>
+                <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description={<Text style={{ color: '#64748b', fontSize: 18 }}>ไม่มีออเดอร์ในครัวขณะนี้</Text>}
+                    style={{ marginTop: 100 }}
+                />
             ) : (
                 <Row gutter={[20, 20]}>
                     {groupedOrders.map((order) => {
                         const urgency = getUrgencyConfig(order.created_at);
+                        const isHighUrgency = urgency.level === 3;
+
                         return (
                             <Col xs={24} sm={12} lg={8} xl={6} key={order.order_id}>
-                                <div style={{
-                                    ...posPageStyles.kitchenGlassCard,
-                                    height: '100%',
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    borderTop: `4px solid ${urgency.color}`,
-                                    boxShadow: urgency.urgency === 'high' ? `0 0 20px ${urgency.bgColor}` : posPageStyles.kitchenGlassCard.boxShadow
-                                }}>
-                                    {/* Order Header */}
-                                    <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid rgba(255,255,255,0.05)' }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 }}>
-                                            <div>
-                                                <Title level={4} style={{ margin: 0, color: '#fff', fontSize: 20 }}>#{order.order_no}</Title>
-                                                <Space style={{ marginTop: 4 }}>
-                                                    {order.table_name ? (
-                                                        <Tag color="blue" style={{ borderRadius: 4, margin: 0 }}>โต๊ะ: {order.table_name}</Tag>
-                                                    ) : (
-                                                        <Tag color="purple" style={{ borderRadius: 4, margin: 0 }}>{order.order_type}</Tag>
-                                                    )}
-                                                </Space>
+                                <div style={kdsStyles.card(urgency.color, isHighUrgency)}>
+                                    
+                                    {/* Card Header */}
+                                    <div style={{ 
+                                        padding: '16px', 
+                                        background: isHighUrgency ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
+                                        borderBottom: '1px solid rgba(255,255,255,0.05)' 
+                                    }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                                <span style={{ 
+                                                    background: '#fff', 
+                                                    color: '#0f172a', 
+                                                    fontWeight: 800, 
+                                                    padding: '2px 8px', 
+                                                    borderRadius: 6,
+                                                    fontSize: 16
+                                                }}>
+                                                    #{order.order_no}
+                                                </span>
+                                                {order.table_name && (
+                                                    <span style={{ color: '#94a3b8', fontSize: 16, fontWeight: 600 }}>
+                                                        โต๊ะ {order.table_name}
+                                                    </span>
+                                                )}
                                             </div>
-                                            <div style={{ textAlign: 'right' }}>
-                                                <Tag 
-                                                    icon={<ClockCircleOutlined />} 
-                                                    style={{ 
-                                                        background: urgency.bgColor, 
-                                                        color: urgency.color, 
-                                                        border: 'none',
-                                                        borderRadius: 6,
-                                                        fontWeight: 600,
-                                                        margin: 0
-                                                    }}
-                                                >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: urgency.color }}>
+                                                <ClockCircleOutlined />
+                                                <span style={{ fontWeight: 700, fontSize: 14 }}>
                                                     {dayjs(order.created_at).fromNow(true)}
-                                                </Tag>
+                                                </span>
                                             </div>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                            <Tag color={isHighUrgency ? 'red' : 'blue'} style={{ margin: 0, border: 'none' }}>
+                                                {order.order_type}
+                                            </Tag>
+                                            {isHighUrgency && (
+                                                <span style={{ color: '#ef4444', fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
+                                                    LATE
+                                                </span>
+                                            )}
                                         </div>
                                     </div>
 
                                     {/* Items List */}
-                                    <div style={{ flex: 1, padding: 12, maxHeight: 400, overflowY: 'auto' }}>
+                                    <div style={{ flex: 1, padding: 16, overflowY: 'auto', maxHeight: '50vh' }}>
                                         {order.items.map((item) => (
-                                            <div 
-                                                key={item.id} 
-                                                style={{
-                                                    background: 'rgba(255,255,255,0.03)',
-                                                    borderRadius: 12,
-                                                    padding: 12,
-                                                    marginBottom: 10,
-                                                    border: `1px solid ${item.status === ItemStatus.Cooking ? 'rgba(24, 144, 255, 0.3)' : 'rgba(255,255,255,0.05)'}`,
-                                                    position: 'relative'
-                                                }}
-                                            >
-                                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                                    <div style={{ flex: 1 }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                            <div style={{ 
-                                                                fontSize: 18, 
-                                                                fontWeight: 800, 
-                                                                color: item.status === ItemStatus.Cooking ? '#1890ff' : '#fff',
-                                                                minWidth: 35
-                                                            }}>
-                                                                {item.quantity}x
+                                            <div key={item.id} style={kdsStyles.itemRow(item.status as ItemStatus)}>
+                                                <div style={{ flex: 1 }}>
+                                                    <div style={{ display: 'flex', gap: 12 }}>
+                                                        <span style={{ 
+                                                            fontSize: 18, 
+                                                            fontWeight: 800, 
+                                                            color: '#f8fafc',
+                                                            minWidth: 32
+                                                        }}>
+                                                            {item.quantity}
+                                                        </span>
+                                                        <div style={{ flex: 1 }}>
+                                                            <div style={{ fontSize: 16, fontWeight: 600, color: '#f1f5f9', lineHeight: 1.4 }}>
+                                                                {item.product?.display_name}
                                                             </div>
-                                                            <Text style={{ fontSize: 15, color: '#f1f5f9', fontWeight: 500 }}>
-                                                                {item.product?.display_name || 'สินค้า'}
-                                                            </Text>
-                                                        </div>
-                                                        
-                                                        {item.notes && (
-                                                            <div style={{ 
-                                                                marginTop: 6, 
-                                                                padding: '4px 8px', 
-                                                                background: 'rgba(250, 173, 20, 0.1)', 
-                                                                borderRadius: 6,
-                                                                borderLeft: '3px solid #faad14'
-                                                            }}>
-                                                                <Text style={{ color: '#faad14', fontSize: 13 }}>{item.notes}</Text>
+                                                            {item.notes && (
+                                                                <div style={{ 
+                                                                    marginTop: 8, 
+                                                                    background: '#f59e0b', 
+                                                                    color: '#000', 
+                                                                    padding: '4px 8px', 
+                                                                    borderRadius: 6, 
+                                                                    fontWeight: 600,
+                                                                    fontSize: 13,
+                                                                    display: 'inline-block'
+                                                                }}>
+                                                                    ⚠️ {item.notes}
+                                                                </div>
+                                                            )}
+                                                            <div style={{ marginTop: 6, fontSize: 12, color: '#94a3b8' }}>
+                                                                {item.status === ItemStatus.Cooking && 'กำลังปรุง...'}
+                                                                {item.status === ItemStatus.Pending && 'รอคิว'}
                                                             </div>
-                                                        )}
-
-                                                        <div style={{ marginTop: 8 }}>
-                                                            <Badge 
-                                                                status={item.status === ItemStatus.Cooking ? 'processing' : 'default'} 
-                                                                text={
-                                                                    <Text style={{ 
-                                                                        color: getStatusColor(item.status as ItemStatus), 
-                                                                        fontSize: 12,
-                                                                        fontWeight: 600
-                                                                    }}>
-                                                                        {getStatusLabel(item.status as ItemStatus).toUpperCase()}
-                                                                    </Text>
-                                                                } 
-                                                            />
                                                         </div>
                                                     </div>
+                                                </div>
 
-                                                    <div style={{ marginLeft: 12, display: 'flex', alignItems: 'center' }}>
-                                                        {item.status === ItemStatus.Pending && (
-                                                            <Button 
-                                                                type="primary"
-                                                                shape="circle"
-                                                                icon={<ThunderboltOutlined />}
-                                                                onClick={() => updateItemStatus(item.id, ItemStatus.Cooking)}
-                                                                style={{ background: '#1890ff', boxShadow: '0 4px 10px rgba(24, 144, 255, 0.3)' }}
-                                                            />
-                                                        )}
-                                                        {item.status === ItemStatus.Cooking && (
-                                                            <Button 
-                                                                type="primary"
-                                                                shape="circle"
-                                                                icon={<CheckOutlined />}
-                                                                onClick={() => updateItemStatus(item.id, ItemStatus.Served)}
-                                                                style={{ background: '#52c41a', borderColor: '#52c41a', boxShadow: '0 4px 10px rgba(82, 196, 26, 0.3)' }}
-                                                            />
-                                                        )}
-                                                    </div>
+                                                {/* Action Button */}
+                                                <div style={{ marginLeft: 8 }}>
+                                                    {item.status === ItemStatus.Pending && (
+                                                        <Button 
+                                                            type="text"
+                                                            icon={<ThunderboltOutlined style={{ fontSize: 18 }} />}
+                                                            onClick={() => updateItemStatus(item.id, ItemStatus.Cooking)}
+                                                            style={{ 
+                                                                color: '#f59e0b', 
+                                                                background: 'rgba(245, 158, 11, 0.1)',
+                                                                width: 44, 
+                                                                height: 44,
+                                                                borderRadius: 12
+                                                            }}
+                                                        />
+                                                    )}
+                                                    {item.status === ItemStatus.Cooking && (
+                                                        <Button 
+                                                            type="text"
+                                                            icon={<CheckOutlined style={{ fontSize: 20 }} />}
+                                                            onClick={() => updateItemStatus(item.id, ItemStatus.Served)}
+                                                            style={{ 
+                                                                color: '#10b981', 
+                                                                background: 'rgba(16, 185, 129, 0.2)',
+                                                                width: 44, 
+                                                                height: 44,
+                                                                borderRadius: 12,
+                                                                border: '1px solid rgba(16, 185, 129, 0.3)'
+                                                            }}
+                                                        />
+                                                    )}
                                                 </div>
                                             </div>
                                         ))}
                                     </div>
 
-                                    {/* Order Footer */}
-                                    <div style={{ padding: 12, background: 'rgba(255,255,255,0.02)', borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                                        <Button 
-                                            block 
-                                            type="primary" 
+                                    {/* Action Footer */}
+                                    <div style={{ padding: 16, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
+                                        <Button
+                                            block
+                                            type="primary"
+                                            size="large"
                                             icon={<DoubleRightOutlined />}
                                             onClick={() => serveAllItems(order.order_id)}
-                                            style={{ 
-                                                background: 'rgba(82, 196, 26, 0.15)', 
-                                                color: '#52c41a', 
-                                                borderColor: 'rgba(82, 196, 26, 0.3)',
-                                                height: 40,
-                                                borderRadius: 10,
-                                                fontWeight: 600
+                                            style={{
+                                                background: '#10b981',
+                                                borderColor: '#10b981',
+                                                borderRadius: 12,
+                                                height: 48,
+                                                fontWeight: 700,
+                                                fontSize: 16
                                             }}
                                         >
                                             เสิร์ฟทั้งหมด
@@ -484,43 +532,6 @@ export default function KitchenDisplayPage() {
                     })}
                 </Row>
             )}
-
-            {/* Float Stats Bar */}
-            <div style={{
-                position: 'fixed',
-                bottom: 24,
-                left: '50%',
-                transform: 'translateX(-50%)',
-                zIndex: 1000,
-                background: 'rgba(15, 23, 42, 0.8)',
-                backdropFilter: 'blur(20px)',
-                padding: '12px 24px',
-                borderRadius: 50,
-                border: '1px solid rgba(255,255,255,0.1)',
-                display: 'flex',
-                gap: 24,
-                alignItems: 'center',
-                boxShadow: '0 10px 40px rgba(0,0,0,0.5)'
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#faad14' }} />
-                    <Text style={{ color: '#fff' }}>รอทำ: <span style={{ fontWeight: 800, fontSize: 18 }}>{pendingCount}</span></Text>
-                </div>
-                <div style={{ height: 20, width: 1, background: 'rgba(255,255,255,0.1)' }} />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                    <div style={{ width: 10, height: 10, borderRadius: '50%', background: '#1890ff', boxShadow: '0 0 10px #1890ff' }} />
-                    <Text style={{ color: '#fff' }}>กำลังทำ: <span style={{ fontWeight: 800, fontSize: 18 }}>{cookingCount}</span></Text>
-                </div>
-                <div style={{ height: 20, width: 1, background: 'rgba(255,255,255,0.1)' }} />
-                <Button 
-                    type="text" 
-                    icon={<ReloadOutlined style={{ color: '#fff' }} />} 
-                    onClick={() => refetch()}
-                    style={{ color: '#fff' }}
-                >
-                    REFRESH
-                </Button>
-            </div>
         </div>
     );
 }

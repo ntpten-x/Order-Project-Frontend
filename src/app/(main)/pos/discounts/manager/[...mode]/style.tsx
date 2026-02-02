@@ -13,9 +13,9 @@ import {
 const { Text } = Typography;
 
 const { pageStyles, ManagePageStyles } = createManagePageStyles({
-    focusColor: "#fa8c16",
-    focusShadow: "rgba(250, 140, 22, 0.1)",
-    switchGradient: "linear-gradient(135deg, #fa8c16 0%, #d48806 100%)",
+    focusColor: "#F59E0B",
+    focusShadow: "rgba(245, 158, 11, 0.15)",
+    switchGradient: "linear-gradient(135deg, #F59E0B 0%, #D97706 100%)",
     extraCss: `
         .manage-page .ant-radio-button-wrapper {
             border-radius: 12px !important;
@@ -34,9 +34,9 @@ const { pageStyles, ManagePageStyles } = createManagePageStyles({
         }
 
         .manage-page .ant-radio-button-wrapper-checked {
-            border-color: #fa8c16 !important;
-            background: linear-gradient(135deg, #fff7e6 0%, #ffe7ba 100%) !important;
-            color: #fa8c16 !important;
+            border-color: #F59E0B !important;
+            background: linear-gradient(135deg, #FFF7ED 0%, #FFEDD5 100%) !important;
+            color: #F59E0B !important;
         }
 
         .manage-page .ant-radio-button-wrapper-checked::before {
@@ -61,7 +61,7 @@ export const PageHeader = ({ isEdit, onBack, onDelete }: HeaderProps) => (
         isEdit={isEdit}
         onBack={onBack}
         onDelete={onDelete}
-        titleCreate="เพิ่มส่วนลด"
+        titleCreate="สร้างส่วนลดใหม่"
         titleEdit="แก้ไขส่วนลด"
     />
 );
@@ -76,48 +76,88 @@ interface DiscountPreviewProps {
 
 export const DiscountPreview = ({ displayName, discountType, discountAmount }: DiscountPreviewProps) => {
     const isFixed = discountType === DiscountType.Fixed;
+    const value = discountAmount || 0;
 
     return (
-        <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 14,
-            padding: 16,
-            background: "#fafafa",
-            borderRadius: 16,
-            marginTop: 12,
-        }}>
+        <div>
+            <Typography.Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 13, textAlign: 'center' }}>
+                ตัวอย่างคูปอง (Preview)
+            </Typography.Text>
+            
             <div style={{
-                width: 80,
-                height: 80,
-                borderRadius: 14,
-                border: "2px solid white",
-                boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-                overflow: "hidden",
-                position: "relative",
-                flexShrink: 0,
-                background: isFixed
-                    ? "linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%)"
-                    : "linear-gradient(135deg, #f9f0ff 0%, #efdbff 100%)",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
+                background: 'white',
+                borderRadius: 20,
+                overflow: 'hidden',
+                boxShadow: '0 8px 30px rgba(0,0,0,0.06)',
+                border: '1px solid #F1F5F9',
+                maxWidth: 300,
+                margin: '0 auto',
+                position: 'relative'
             }}>
-                {isFixed ? (
-                    <DollarOutlined style={{ fontSize: 32, color: "#1890ff", opacity: 0.8 }} />
-                ) : (
-                    <PercentageOutlined style={{ fontSize: 32, color: "#722ed1", opacity: 0.8 }} />
-                )}
-            </div>
-            <div>
-                <Text strong style={{ display: "block", marginBottom: 4, fontSize: 16 }}>
-                    {displayName || "ตัวอย่างส่วนลด"}
-                </Text>
-                <Text type="secondary" style={{ fontSize: 14 }}>
-                    {discountAmount
-                        ? (isFixed ? `ลด ฿${discountAmount}` : `ลด ${discountAmount}%`)
-                        : "กรุณาระบุมูลค่าส่วนลด"}
-                </Text>
+                {/* Top Section / Decoration */}
+                <div style={{
+                    height: 80,
+                    background: isFixed 
+                        ? 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)' 
+                        : 'linear-gradient(135deg, #8B5CF6 0%, #7C3AED 100%)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    position: 'relative'
+                }}>
+                    <div style={{
+                        width: 48,
+                        height: 48,
+                        background: 'rgba(255,255,255,0.2)',
+                        backdropFilter: 'blur(10px)',
+                        borderRadius: '50%',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        border: '1px solid rgba(255,255,255,0.3)'
+                    }}>
+                        {isFixed ? (
+                            <DollarOutlined style={{ fontSize: 24, color: 'white' }} />
+                        ) : (
+                            <PercentageOutlined style={{ fontSize: 24, color: 'white' }} />
+                        )}
+                    </div>
+                    {/* Punch holes */}
+                    <div style={{ position: 'absolute', bottom: -10, left: -10, width: 20, height: 20, borderRadius: '50%', background: '#F8FAFC' }} />
+                    <div style={{ position: 'absolute', bottom: -10, right: -10, width: 20, height: 20, borderRadius: '50%', background: '#F8FAFC' }} />
+                </div>
+
+                {/* Content */}
+                <div style={{ padding: '24px 20px', textAlign: 'center' }}>
+                    <div style={{ 
+                        fontSize: 32, 
+                        fontWeight: 800, 
+                        color: isFixed ? '#2563EB' : '#7C3AED',
+                        lineHeight: 1,
+                        marginBottom: 8
+                    }}>
+                         {isFixed ? '฿' : ''}{value.toLocaleString()}{!isFixed ? '%' : ''}
+                    </div>
+                    <div style={{ 
+                        fontSize: 14, 
+                        fontWeight: 600, 
+                        color: '#94A3B8',
+                        textTransform: 'uppercase',
+                        letterSpacing: '1px',
+                        marginBottom: 16
+                    }}>
+                        DISCOUNT
+                    </div>
+                    
+                    <div style={{ height: 1, background: '#E2E8F0', marginBottom: 16, width: '100%' }} />
+                    
+                    <Typography.Text strong style={{ fontSize: 16, color: '#1E293B', display: 'block', marginBottom: 4 }}>
+                        {displayName || "ชื่อส่วนลด"}
+                    </Typography.Text>
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                        พร้อมใช้งานทันที
+                    </Typography.Text>
+                </div>
             </div>
         </div>
     );

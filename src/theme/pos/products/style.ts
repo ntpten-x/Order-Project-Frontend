@@ -1,13 +1,13 @@
 import { createSharedPageStyles, sharedGlobalStyles, createCardStyle, cardInnerStyle } from "../sharedStyles";
 import { posColors } from '../index';
 
-const base = createSharedPageStyles(`linear-gradient(135deg, ${posColors.primary} 0%, ${posColors.primaryDark} 100%)`);
+const base = createSharedPageStyles("linear-gradient(135deg, #4F46E5 0%, #4338CA 100%)");
 
 
 export const pageStyles = {
-    ...base,
-    productCard: createCardStyle,
-    productCardInner: cardInnerStyle
+  ...base,
+  productCard: createCardStyle,
+  productCardInner: cardInnerStyle
 };
 
 export const globalStyles = `

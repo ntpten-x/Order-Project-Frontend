@@ -179,24 +179,44 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
         >
             <style jsx global>{ordersResponsiveStyles}</style>
             
-            {/* Modal Header */}
+            {/* Modal Header - Enhanced */}
             <div style={modalStyles.modalHeader}>
                 {selectedProduct ? (
                     <Button 
                         type="text" 
                         icon={<ArrowLeftOutlined />} 
                         onClick={() => setSelectedProduct(null)}
-                        style={{ height: 40, width: 40, borderRadius: '50%' }}
+                        aria-label="กลับ"
+                        style={{ 
+                            height: 42, 
+                            width: 42, 
+                            borderRadius: 12,
+                            background: orderDetailColors.backgroundSecondary,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}
+                        className="scale-hover"
                     />
                 ) : (
                     <Button 
                         type="text" 
                         icon={<CloseOutlined />} 
                         onClick={onClose}
-                        style={{ height: 40, width: 40, borderRadius: '50%' }}
+                        aria-label="ปิด"
+                        style={{ 
+                            height: 42, 
+                            width: 42, 
+                            borderRadius: 12,
+                            background: orderDetailColors.backgroundSecondary,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}
+                        className="scale-hover"
                     />
                 )}
-                <Text strong style={{ fontSize: 20, flex: 1 }}>
+                <Text strong style={{ fontSize: 20, flex: 1, color: orderDetailColors.text }}>
                     {selectedProduct ? 'ระบุรายละเอียด' : 'เลือกสินค้า'}
                 </Text>
             </div>
@@ -327,23 +347,34 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
 
                         <Divider style={{ margin: '0' }} />
 
-                        {/* Quantity Control */}
+                        {/* Quantity Control - Enhanced */}
                         <div>
-                            <Text strong style={{ display: 'block', marginBottom: 12, fontSize: 16 }}>จำนวน</Text>
+                            <Text strong style={{ display: 'block', marginBottom: 12, fontSize: 16, color: orderDetailColors.text }}>จำนวน</Text>
                             <div style={modalStyles.quantityControl}>
                                 <Button
                                     type="primary"
                                     icon={<MinusOutlined />}
                                     onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
                                     disabled={quantity <= 1}
-                                    style={{...modalStyles.quantityButton, background: orderDetailColors.white, color: orderDetailColors.primary, border: `1px solid ${orderDetailColors.primary}`}}
+                                    style={{
+                                        ...modalStyles.quantityButton, 
+                                        background: orderDetailColors.white, 
+                                        color: orderDetailColors.primary, 
+                                        border: `2px solid ${orderDetailColors.primary}`,
+                                    }}
+                                    className="scale-hover"
                                 />
                                 <div style={modalStyles.quantityDisplay}>{quantity}</div>
                                 <Button
                                     type="primary"
                                     icon={<PlusOutlined />}
                                     onClick={() => setQuantity(prev => prev + 1)}
-                                    style={modalStyles.quantityButton}
+                                    style={{
+                                        ...modalStyles.quantityButton,
+                                        background: `linear-gradient(135deg, ${orderDetailColors.primary} 0%, ${orderDetailColors.primaryDark} 100%)`,
+                                        border: 'none',
+                                    }}
+                                    className="scale-hover"
                                 />
                             </div>
                         </div>
@@ -412,19 +443,20 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                             />
                         </div>
 
-                        {/* Total & Action Bar */}
-                        <div style={{ marginTop: 20 }}>
-                            <div style={{...modalStyles.priceCard, marginBottom: 16, padding: '16px'}}>
-                                <Text strong style={{ fontSize: 16 }}>ยอดรวมรายการนี้</Text>
-                                <Text style={{...modalStyles.priceValue, fontSize: 24}}>
+                        {/* Total & Action Bar - Enhanced */}
+                        <div style={{ marginTop: 24 }}>
+                            <div style={modalStyles.priceCard}>
+                                <Text strong style={{ fontSize: 16, color: orderDetailColors.text }}>ยอดรวมรายการนี้</Text>
+                                <Title level={4} style={{ margin: 0, color: orderDetailColors.priceTotal, fontSize: 24 }}>
                                     {formatCurrency(calculateTotalPrice())}
-                                </Text>
+                                </Title>
                             </div>
                             
-                            <div style={{ display: 'flex', gap: 12 }}>
+                            <div style={modalStyles.actionButtons}>
                                 <Button
                                     onClick={() => setSelectedProduct(null)}
                                     style={modalStyles.secondaryButton}
+                                    className="scale-hover"
                                 >
                                     ย้อนกลับ
                                 </Button>
@@ -433,6 +465,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                     onClick={handleConfirmAdd}
                                     icon={<PlusOutlined />}
                                     style={modalStyles.primaryButton}
+                                    className="scale-hover"
                                 >
                                     เพิ่มลงออเดอร์
                                 </Button>

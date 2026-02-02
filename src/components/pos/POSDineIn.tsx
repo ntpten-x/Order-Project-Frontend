@@ -33,12 +33,16 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
             showLoading("กำลังโหลดข้อมูล...");
             try {
                 // Fetch CSRF and Table details in parallel
-                const [token, table] = await Promise.all([
+                const [token, tableResponse] = await Promise.all([
                     getCsrfTokenCached(),
                     tableId ? tablesService.getById(tableId) : Promise.resolve(null)
                 ]);
 
                 if (token) setCsrfToken(token);
+                
+                // API response is wrapped in { success: true, data: { ... } }
+                const table = (tableResponse as any)?.data || tableResponse;
+
                 if (table && table.table_name) {
                     setTableName(table.table_name);
                 } else if (tableId) {
@@ -146,8 +150,8 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
 
     return (
         <POSPageLayout 
-            title="ระบบขายหน้าร้าน (Dine In)"
-            subtitle={tableName ? `ทานที่ร้าน - ${tableName}` : `ทานที่ร้าน - โต๊ะ ${tableId.substring(0, 8)}...`}
+            title="ระบบขายหน้าร้าน"
+            subtitle={tableName ? `ทานที่ร้าน - โต๊ะ ${tableName}` : `ทานที่ร้าน - โต๊ะ ${tableId.substring(0, 8)}...`}
             icon={<ShopOutlined style={{ fontSize: 28 }} />}
             onConfirmOrder={handleCreateOrder}
         />

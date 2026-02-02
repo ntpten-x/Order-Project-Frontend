@@ -1,8 +1,8 @@
 ﻿"use client";
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
-import { Typography, Card, Table, Tag, Button, Spin, Row, Col, message, Image, Avatar, Timeline, Statistic, Modal } from "antd";
-import { ArrowLeftOutlined, UserOutlined, ShopOutlined, ClockCircleOutlined, DollarCircleOutlined, TableOutlined, CarOutlined, ShoppingOutlined, PrinterOutlined, TagOutlined, CheckCircleOutlined, CloseCircleOutlined, CreditCardOutlined } from "@ant-design/icons";
+import { Typography, Button, Spin, message, Image, Modal } from "antd";
+import { ArrowLeftOutlined, UserOutlined, ShopOutlined, ClockCircleOutlined, DollarCircleOutlined, TableOutlined, CarOutlined, ShoppingOutlined, PrinterOutlined, TagOutlined, CheckCircleOutlined, CloseCircleOutlined, CreditCardOutlined, CalendarOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { ordersService } from "../../../../../services/pos/orders.service";
 import { shopProfileService, ShopProfile } from "../../../../../services/pos/shopProfile.service";
@@ -10,7 +10,7 @@ import { SalesOrder, OrderStatus, OrderType } from "../../../../../types/api/pos
 import { SalesOrderItem } from "../../../../../types/api/pos/salesOrderItem";
 import { Payments } from "../../../../../types/api/pos/payments";
 import { PaymentMethod } from "../../../../../types/api/pos/paymentMethod";
-import { posPageStyles, posColors } from "../../../../../theme/pos";
+import { dashboardColors } from "../../../../../theme/pos/dashboard/style";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import ReceiptTemplate from "../../../../../components/pos/shared/ReceiptTemplate";
@@ -35,6 +35,14 @@ type ShopProfileExtended = ShopProfile & {
 
 type PaymentWithMethod = Payments & {
     payment_method?: PaymentMethod | null;
+};
+
+// Thai months array
+const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+
+const formatThaiDate = (dateStr: string) => {
+    const d = dayjs(dateStr);
+    return `${d.date()} ${thaiMonths[d.month()]} ${d.format('HH:mm')}`;
 };
 
 export default function DashboardOrderDetailPage({ params }: Props) {
@@ -119,7 +127,13 @@ export default function DashboardOrderDetailPage({ params }: Props) {
 
     if (isLoading) {
         return (
-            <div style={{ ...posPageStyles.container, display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+            <div style={{ 
+                minHeight: '100vh', 
+                background: '#F8FAFC',
+                display: 'flex', 
+                justifyContent: 'center', 
+                alignItems: 'center' 
+            }}>
                 <Spin size="large" />
             </div>
         );
@@ -127,10 +141,11 @@ export default function DashboardOrderDetailPage({ params }: Props) {
 
     if (!order) {
         return (
-             <div style={posPageStyles.container}>
-                <div style={{ padding: 24, textAlign: 'center' }}>
-                    <Title level={4}>ไม่พบข้อมูลออเดอร์</Title>
-                    <Button onClick={() => router.back()}>ย้อนกลับ</Button>
+            <div style={{ minHeight: '100vh', background: '#F8FAFC', padding: 24 }}>
+                <div style={{ textAlign: 'center', paddingTop: 60 }}>
+                    <ShopOutlined style={{ fontSize: 48, color: '#CBD5E1', marginBottom: 16 }} />
+                    <Title level={4} style={{ color: '#64748B' }}>ไม่พบข้อมูลออเดอร์</Title>
+                    <Button type="primary" onClick={() => router.back()}>ย้อนกลับ</Button>
                 </div>
             </div>
         );
@@ -138,319 +153,481 @@ export default function DashboardOrderDetailPage({ params }: Props) {
 
     const items = sortOrderItems(order.items || []);
     const payments = (order.payments || []) as PaymentWithMethod[];
-    const shouldVirtualizeItems = items.length > 12;
     
     // Derived Data
-    const employeeName = order.created_by?.display_name || order.created_by?.username || 'ไม่ทราบ';
+    const employeeName = order.created_by?.name || order.created_by?.username || 'ไม่ทราบ';
     const tableName = order.table?.table_name || '-';
     const discountInfo = order.discount;
 
     // Order Type Helper
     const getOrderTypeInfo = (type: OrderType) => {
         switch (type) {
-            case OrderType.DineIn: return { icon: <TableOutlined />, label: 'ทานที่ร้าน', color: '#1890ff' };
-            case OrderType.TakeAway: return { icon: <ShoppingOutlined />, label: 'สั่งกลับบ้าน', color: '#52c41a' };
-            case OrderType.Delivery: return { icon: <CarOutlined />, label: 'เดลิเวอรี่', color: '#fa8c16' };
-            default: return { icon: <ShopOutlined />, label: type, color: '#666' };
+            case OrderType.DineIn: return { icon: <TableOutlined />, label: 'ทานที่ร้าน', color: '#fff', bg: '#3B82F6' };
+            case OrderType.TakeAway: return { icon: <ShoppingOutlined />, label: 'กลับบ้าน', color: '#fff', bg: '#22C55E' };
+            case OrderType.Delivery: return { icon: <CarOutlined />, label: 'เดลิเวอรี่', color: '#fff', bg: '#EC4899' };
+            default: return { icon: <ShopOutlined />, label: type, color: '#fff', bg: '#6B7280' };
         }
     };
 
     // Status Helper
     const getStatusInfo = (status: OrderStatus) => {
         switch (status) {
-            case OrderStatus.Paid: return { color: 'green', label: 'ชำระเงินแล้ว', icon: <CheckCircleOutlined /> };
-            case OrderStatus.Cancelled: return { color: 'red', label: 'ยกเลิก', icon: <CloseCircleOutlined /> };
-            default: return { color: 'default', label: status, icon: null };
+            case OrderStatus.Paid: return { bg: '#DCFCE7', color: '#16A34A', label: 'ชำระเงินแล้ว', icon: <CheckCircleOutlined /> };
+            case OrderStatus.Cancelled: return { bg: '#FEE2E2', color: '#DC2626', label: 'ยกเลิก', icon: <CloseCircleOutlined /> };
+            default: return { bg: '#F3F4F6', color: '#6B7280', label: status, icon: null };
         }
     };
 
     const orderTypeInfo = getOrderTypeInfo(order.order_type);
     const statusInfo = getStatusInfo(order.status);
 
-    const itemColumns = [
-        {
-            title: 'รูป',
-            dataIndex: 'product',
-            key: 'image',
-            width: 80,
-            render: (product?: SalesOrderItem["product"]) => (
-                <div style={{ width: 60, height: 60, borderRadius: 8, overflow: 'hidden', border: '1px solid #f0f0f0' }}>
-                     {product?.img_url ? (
-                        <Image src={product.img_url} width="100%" height="100%" style={{ objectFit: 'cover' }} preview={false} alt="product" />
-                     ) : (
-                        <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f5f5f5' }}>
-                            <ShopOutlined style={{ fontSize: 24, color: '#ccc' }} />
-                        </div>
-                     )}
-                </div>
-            )
-        },
-        {
-            title: 'สินค้า',
-            dataIndex: 'product',
-            key: 'name',
-            render: (product: SalesOrderItem["product"], record: SalesOrderItem) => (
-                <div>
-                    <Text strong style={{ fontSize: 16 }}>{product?.display_name || product?.product_name || 'สินค้า'}</Text>
-                    
-                    {/* Toppings Display */}
-                    {record.details && record.details.length > 0 && (
-                        <div style={{ marginTop: 4, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                            {record.details.map((detail, dIdx) => (
-                                <Text key={dIdx} type="secondary" style={{ fontSize: 13, display: 'block', color: '#8c8c8c' }}>
-                                    + {detail.detail_name} {detail.extra_price > 0 && `(฿${Number(detail.extra_price).toLocaleString()})`}
-                                </Text>
-                            ))}
-                        </div>
-                    )}
-
-                    {record.status === ItemStatus.Cancelled && (
-                        <div style={{ marginTop: 6 }}>
-                            <Tag color="red" style={{ margin: 0 }}>ยกเลิกแล้ว</Tag>
-                        </div>
-                    )}
-                    {record.notes && (
-                        <div style={{ marginTop: 6, background: '#fff7e6', padding: '2px 8px', borderRadius: 4, border: '1px dashed #fa8c16', display: 'inline-block' }}>
-                            <Text type="warning" style={{ fontSize: 12 }}>หมายเหตุ: {record.notes}</Text>
-                        </div>
-                    )}
-                </div>
-            )
-        },
-        { title: 'จำนวน', dataIndex: 'quantity', key: 'quantity', align: 'center' as const, width: 80 },
-        { 
-            title: 'ราคา/หน่วย', 
-            dataIndex: 'price', 
-            key: 'price', 
-            align: 'right' as const, 
-            width: 120, 
-            render: (price: number, record: SalesOrderItem) => (
-                <Text style={getStatusTextStyle(record.status)}>฿{Number(price).toLocaleString()}</Text>
-            )
-        },
-        { 
-            title: 'รวม', 
-            dataIndex: 'total_price', 
-            key: 'total', 
-            align: 'right' as const, 
-            width: 120, 
-            render: (total: number, record: SalesOrderItem) => (
-                <Text strong style={getStatusTextStyle(record.status)}>฿{Number(total).toLocaleString()}</Text>
-            )
-        },
-    ];
-
-
     return (
-        <div style={posPageStyles.container}>
-            {/* Hero Header */}
-            <div style={{ ...posPageStyles.heroParams, paddingBottom: 60 }}>
-                <div style={{ maxWidth: 1200, margin: '0 auto', position: 'relative', zIndex: 10 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                            <Button 
-                                type="text" 
-                                icon={<ArrowLeftOutlined style={{ fontSize: 20, color: '#fff' }} />} 
-                                onClick={() => router.back()}
-                                style={{ background: 'rgba(255,255,255,0.2)', border: '1px solid rgba(255,255,255,0.3)' }}
-                            />
-                            <div>
-                                <Title level={3} style={{ margin: 0, color: '#fff' }}>
-                                    ออเดอร์ #{order.order_no}
-                                </Title>
-                                <Text style={{ color: 'rgba(255,255,255,0.85)' }}>
-                                    {dayjs(order.create_date).format('DD MMMM YYYY, HH:mm น.')}
-                                </Text>
-                            </div>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <Tag 
-                                icon={statusInfo.icon} 
-                                color={statusInfo.color} 
-                                style={{ fontSize: 14, padding: '4px 12px' }}
-                            >
-                                {statusInfo.label}
-                            </Tag>
-                            <Button 
-                                type="primary"
-                                icon={<PrinterOutlined />}
-                                onClick={handlePrint}
-                                style={{ background: '#52c41a', borderColor: '#52c41a' }}
-                            >
-                                พิมพ์ใบเสร็จ
-                            </Button>
+        <div style={{ 
+            minHeight: '100vh', 
+            background: '#F8FAFC',
+            paddingBottom: 100
+        }}>
+            {/* Compact Header */}
+            <div style={{
+                background: dashboardColors.headerGradient,
+                padding: '16px',
+                position: 'sticky',
+                top: 0,
+                zIndex: 100,
+                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                        <Button 
+                            type="text" 
+                            icon={<ArrowLeftOutlined style={{ fontSize: 18, color: '#fff' }} />} 
+                            onClick={() => router.back()}
+                            style={{ 
+                                background: 'rgba(255,255,255,0.15)', 
+                                border: 'none',
+                                width: 40,
+                                height: 40,
+                                borderRadius: 12
+                            }}
+                        />
+                        <div>
+                            <Text style={{ color: '#fff', fontSize: 18, fontWeight: 700, display: 'block' }}>
+                                #{order.order_no}
+                            </Text>
+                            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>
+                                📅 {formatThaiDate(order.create_date)}
+                            </Text>
                         </div>
                     </div>
+                    <Button 
+                        icon={<PrinterOutlined />}
+                        onClick={handlePrint}
+                        style={{ 
+                            background: '#fff',
+                            color: dashboardColors.primary,
+                            border: 'none',
+                            borderRadius: 10,
+                            fontWeight: 600,
+                            height: 36
+                        }}
+                    >
+                        พิมพ์
+                    </Button>
                 </div>
             </div>
 
             {/* Content */}
-            <div style={{ maxWidth: 1200, margin: '-40px auto 30px', padding: '0 24px', position: 'relative', zIndex: 20 }}>
-                {/* Summary Cards */}
-                <Row gutter={[24, 24]} style={{ marginBottom: 24 }}>
-                    <Col xs={24} sm={12} md={8} style={{ flex: 1 }}>
-                        <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%' }}>
-                            <Statistic 
-                                title="โต๊ะ" 
-                                value={tableName}
-                                prefix={<TableOutlined style={{ color: '#1890ff' }} />} 
-                                valueStyle={{ fontWeight: 'bold', fontSize: 24 }}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={24} sm={12} md={8} style={{ flex: 1 }}>
-                        <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%' }}>
-                            <Statistic 
-                                title="ประเภท" 
-                                valueRender={() => (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                                        {orderTypeInfo.icon}
-                                        <span style={{ color: orderTypeInfo.color, fontWeight: 'bold' }}>{orderTypeInfo.label}</span>
-                                    </div>
-                                )}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={24} sm={12} md={8} style={{ flex: 1 }}>
-                        <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%' }}>
-                            <Statistic 
-                                title="ผู้สร้างออเดอร์"
-                                valueRender={() => (
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                                        <Avatar size="small" icon={<UserOutlined />} style={{ background: posColors.primary }} />
-                                        <span style={{ fontWeight: 500, fontSize: 18 }}>{employeeName}</span>
-                                    </div>
-                                )}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={24} sm={12} md={8} style={{ flex: 1 }}>
-                        <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%' }}>
-                            <Statistic 
-                                title="ส่วนลด"
-                                valueRender={() => (
-                                    discountInfo ? (
-                                        <div style={{ marginTop: 4 }}>
-                                            <Tag icon={<TagOutlined />} color="volcano" style={{ fontSize: 14, padding: '2px 8px' }}>
-                                                {discountInfo.display_name || discountInfo.discount_name}
-                                            </Tag>
-                                            <div style={{ marginTop: 4 }}>
-                                                <Text type="danger" strong style={{ fontSize: 18 }}>-฿{Number(order.discount_amount).toLocaleString()}</Text>
-                                            </div>
-                                        </div>
-                                    ) : (
-                                        <Text type="secondary" style={{ fontSize: 18 }}>ไม่มีส่วนลด</Text>
-                                    )
-                                )}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={24} sm={12} md={8} style={{ flex: 1 }}>
-                        <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%' }}>
-                            <Statistic 
-                                title="ยอดสุทธิ" 
-                                value={order.total_amount} 
-                                precision={2}
-                                prefix={<DollarCircleOutlined style={{ color: posColors.primary }} />} 
-                                suffix="฿"
-                                valueStyle={{ color: posColors.primary, fontWeight: 'bold', fontSize: 24 }}
-                            />
-                        </Card>
-                    </Col>
-                </Row>
+            <div style={{ padding: '16px', maxWidth: 600, margin: '0 auto' }}>
+                
+                {/* Status & Total Card */}
+                <div style={{
+                    background: 'white',
+                    borderRadius: 16,
+                    padding: '20px',
+                    marginBottom: 16,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                        <span style={{
+                            padding: '6px 14px',
+                            borderRadius: 8,
+                            background: statusInfo.bg,
+                            color: statusInfo.color,
+                            fontWeight: 700,
+                            fontSize: 13,
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 6
+                        }}>
+                            {statusInfo.icon}
+                            {statusInfo.label}
+                        </span>
+                        <Text style={{ 
+                            fontSize: 26, 
+                            fontWeight: 800, 
+                            color: dashboardColors.salesColor 
+                        }}>
+                            ฿{Number(order.total_amount).toLocaleString()}
+                        </Text>
+                    </div>
+                    
+                    {/* Info Grid */}
+                    <div style={{ 
+                        display: 'grid', 
+                        gridTemplateColumns: 'repeat(2, 1fr)', 
+                        gap: 12 
+                    }}>
+                        {/* Order Type */}
+                        <div style={{
+                            background: '#F8FAFC',
+                            borderRadius: 12,
+                            padding: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10
+                        }}>
+                            <span style={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: 10,
+                                background: orderTypeInfo.bg,
+                                color: orderTypeInfo.color,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 16
+                            }}>
+                                {orderTypeInfo.icon}
+                            </span>
+                            <div>
+                                <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>ประเภท</Text>
+                                <Text strong style={{ fontSize: 13 }}>{orderTypeInfo.label}</Text>
+                            </div>
+                        </div>
 
-                {/* Items & Payments */}
-                <Row gutter={[24, 24]}>
-                    <Col xs={24} lg={16}>
-                        <Card 
-                            title={<><ShopOutlined style={{ marginRight: 8, color: posColors.primary }} />รายการสินค้า ({items.length} รายการ)</>} 
-                            bordered={false} 
-                            style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}
-                        >
-                            <Table 
-                                dataSource={items} 
-                                columns={itemColumns} 
-                                rowKey="id"
-                                virtual={shouldVirtualizeItems}
-                                scroll={shouldVirtualizeItems ? { y: 420 } : undefined}
-                                pagination={false}
-                                onRow={(record) => ({
-                                    style: getItemRowStyle(record.status)
-                                })}
-                                summary={() => (
-                                    <Table.Summary fixed>
-                                        <Table.Summary.Row>
-                                            <Table.Summary.Cell index={0} colSpan={3}></Table.Summary.Cell>
-                                            <Table.Summary.Cell index={1} align="right"><Text type="secondary">รวมรายการ</Text></Table.Summary.Cell>
-                                            <Table.Summary.Cell index={2} align="right"><Text strong>฿{Number(order.sub_total).toLocaleString()}</Text></Table.Summary.Cell>
-                                        </Table.Summary.Row>
-                                        {order.discount_amount > 0 && (
-                                            <Table.Summary.Row>
-                                                <Table.Summary.Cell index={0} colSpan={3}></Table.Summary.Cell>
-                                                <Table.Summary.Cell index={1} align="right"><Text type="secondary">ส่วนลด</Text></Table.Summary.Cell>
-                                                <Table.Summary.Cell index={2} align="right"><Text type="danger">-฿{Number(order.discount_amount).toLocaleString()}</Text></Table.Summary.Cell>
-                                            </Table.Summary.Row>
-                                        )}
-                                        {order.vat > 0 && (
-                                            <Table.Summary.Row>
-                                                <Table.Summary.Cell index={0} colSpan={3}></Table.Summary.Cell>
-                                                <Table.Summary.Cell index={1} align="right"><Text type="secondary">VAT 7%</Text></Table.Summary.Cell>
-                                                <Table.Summary.Cell index={2} align="right"><Text>฿{Number(order.vat).toLocaleString()}</Text></Table.Summary.Cell>
-                                            </Table.Summary.Row>
-                                        )}
-                                        <Table.Summary.Row style={{ background: '#fafafa' }}>
-                                            <Table.Summary.Cell index={0} colSpan={3}></Table.Summary.Cell>
-                                            <Table.Summary.Cell index={1} align="right"><Text strong style={{ fontSize: 16 }}>ยอดสุทธิ</Text></Table.Summary.Cell>
-                                            <Table.Summary.Cell index={2} align="right"><Text strong style={{ fontSize: 18, color: posColors.primary }}>฿{Number(order.total_amount).toLocaleString()}</Text></Table.Summary.Cell>
-                                        </Table.Summary.Row>
-                                    </Table.Summary>
+                        {/* Table */}
+                        <div style={{
+                            background: '#F8FAFC',
+                            borderRadius: 12,
+                            padding: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10
+                        }}>
+                            <span style={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: 10,
+                                background: '#EEF2FF',
+                                color: '#6366F1',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 16
+                            }}>
+                                <TableOutlined />
+                            </span>
+                            <div>
+                                <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>โต๊ะ</Text>
+                                <Text strong style={{ fontSize: 13 }}>{tableName}</Text>
+                            </div>
+                        </div>
+
+                        {/* Employee */}
+                        <div style={{
+                            background: '#F8FAFC',
+                            borderRadius: 12,
+                            padding: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10
+                        }}>
+                            <span style={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: 10,
+                                background: '#FEF3C7',
+                                color: '#D97706',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 16
+                            }}>
+                                <UserOutlined />
+                            </span>
+                            <div>
+                                <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>พนักงาน</Text>
+                                <Text strong style={{ fontSize: 13 }}>{employeeName}</Text>
+                            </div>
+                        </div>
+
+                        {/* Discount */}
+                        <div style={{
+                            background: '#F8FAFC',
+                            borderRadius: 12,
+                            padding: '12px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 10
+                        }}>
+                            <span style={{
+                                width: 36,
+                                height: 36,
+                                borderRadius: 10,
+                                background: discountInfo ? '#FEE2E2' : '#F3F4F6',
+                                color: discountInfo ? '#DC2626' : '#9CA3AF',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                fontSize: 16
+                            }}>
+                                <TagOutlined />
+                            </span>
+                            <div>
+                                <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>ส่วนลด</Text>
+                                {discountInfo ? (
+                                    <Text strong style={{ fontSize: 13, color: '#DC2626' }}>
+                                        -฿{Number(order.discount_amount).toLocaleString()}
+                                    </Text>
+                                ) : (
+                                    <Text type="secondary" style={{ fontSize: 13 }}>ไม่มี</Text>
                                 )}
-                            />
-                        </Card>
-                    </Col>
-                    <Col xs={24} lg={8}>
-                        <Card 
-                            title={<><CreditCardOutlined style={{ marginRight: 8, color: '#52c41a' }} />การชำระเงิน ({payments.length} รายการ)</>}
-                            bordered={false} 
-                            style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)', height: '100%' }}
-                        >
-                            {payments.length > 0 ? (
-                                <Timeline
-                                    items={payments.map((payment) => ({
-                                        color: payment.status === 'Success' ? 'green' : 'red',
-                                        children: (
-                                            <div>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                    <Text strong>{payment.payment_method?.display_name || payment.payment_method?.payment_method_name || 'ไม่ระบุ'}</Text>
-                                                    <Text strong style={{ color: posColors.primary }}>฿{Number(payment.amount).toLocaleString()}</Text>
-                                                </div>
-                                                <div>
-                                                    <Text type="secondary" style={{ fontSize: 12 }}>
-                                                        <ClockCircleOutlined style={{ marginRight: 4 }} />
-                                                        {dayjs(payment.payment_date).format('DD/MM/YYYY HH:mm')}
-                                                    </Text>
-                                                </div>
-                                                {payment.amount_received > 0 && (
-                                                    <div style={{ fontSize: 12, marginTop: 4 }}>
-                                                        <Text type="secondary">รับมา ฿{Number(payment.amount_received).toLocaleString()}</Text>
-                                                        {payment.change_amount > 0 && <Text type="secondary"> | ทอน ฿{Number(payment.change_amount).toLocaleString()}</Text>}
-                                                    </div>
-                                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Items Section */}
+                <div style={{
+                    background: 'white',
+                    borderRadius: 16,
+                    overflow: 'hidden',
+                    marginBottom: 16,
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                }}>
+                    <div style={{
+                        padding: '16px',
+                        borderBottom: '1px solid #F1F5F9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8
+                    }}>
+                        <ShopOutlined style={{ color: dashboardColors.primary, fontSize: 18 }} />
+                        <Text strong style={{ fontSize: 15 }}>รายการสินค้า ({items.length})</Text>
+                    </div>
+
+                    <div style={{ padding: '8px 0' }}>
+                        {items.map((item, index) => {
+                            const rowStyle = getItemRowStyle(item.status);
+                            const textStyle = getStatusTextStyle(item.status);
+                            const isCancelled = item.status === ItemStatus.Cancelled;
+
+                            return (
+                                <div 
+                                    key={item.id}
+                                    style={{
+                                        padding: '12px 16px',
+                                        borderBottom: index < items.length - 1 ? '1px solid #F8FAFC' : 'none',
+                                        display: 'flex',
+                                        gap: 12,
+                                        opacity: isCancelled ? 0.5 : 1
+                                    }}
+                                >
+                                    {/* Product Image */}
+                                    <div style={{
+                                        width: 56,
+                                        height: 56,
+                                        borderRadius: 10,
+                                        overflow: 'hidden',
+                                        flexShrink: 0,
+                                        background: '#F8FAFC',
+                                        border: '1px solid #E5E7EB'
+                                    }}>
+                                        {item.product?.img_url ? (
+                                            <Image 
+                                                src={item.product.img_url} 
+                                                width={56} 
+                                                height={56} 
+                                                style={{ objectFit: 'cover' }} 
+                                                preview={false} 
+                                                alt={item.product?.product_name || 'product'} 
+                                            />
+                                        ) : (
+                                            <div style={{
+                                                width: '100%',
+                                                height: '100%',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center'
+                                            }}>
+                                                <ShopOutlined style={{ color: '#CBD5E1', fontSize: 20 }} />
                                             </div>
-                                        )
-                                    }))}
-                                />
-                            ) : (
-                                <div style={{ textAlign: 'center', padding: 20, color: '#999' }}>
-                                    ไม่มีข้อมูลการชำระเงิน
+                                        )}
+                                    </div>
+
+                                    {/* Product Info */}
+                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                                            <Text strong style={{ fontSize: 14, ...textStyle }}>
+                                                {item.product?.display_name || item.product?.product_name || 'สินค้า'}
+                                            </Text>
+                                            <Text strong style={{ fontSize: 14, color: dashboardColors.salesColor, flexShrink: 0, ...textStyle }}>
+                                                ฿{Number(item.total_price).toLocaleString()}
+                                            </Text>
+                                        </div>
+                                        
+                                        <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                                x{item.quantity} • ฿{Number(item.price).toLocaleString()}/ชิ้น
+                                            </Text>
+                                            {isCancelled && (
+                                                <span style={{
+                                                    fontSize: 10,
+                                                    padding: '2px 6px',
+                                                    borderRadius: 4,
+                                                    background: '#FEE2E2',
+                                                    color: '#DC2626',
+                                                    fontWeight: 600
+                                                }}>
+                                                    ยกเลิก
+                                                </span>
+                                            )}
+                                        </div>
+
+                                        {/* Toppings */}
+                                        {item.details && item.details.length > 0 && (
+                                            <div style={{ marginTop: 6 }}>
+                                                {item.details.map((detail, dIdx) => (
+                                                    <Text key={dIdx} style={{ fontSize: 11, display: 'block', color: '#16A34A', fontWeight: 500 }}>
+                                                        + {detail.detail_name} {detail.extra_price > 0 && <span style={{ color: '#16A34A' }}>(+฿{Number(detail.extra_price).toLocaleString()})</span>}
+                                                    </Text>
+                                                ))}
+                                            </div>
+                                        )}
+
+                                        {/* Notes */}
+                                        {item.notes && (
+                                            <div style={{ 
+                                                marginTop: 6, 
+                                                background: '#FEF3C7', 
+                                                padding: '4px 8px', 
+                                                borderRadius: 6,
+                                                display: 'inline-block'
+                                            }}>
+                                                <Text style={{ fontSize: 11, color: '#B45309' }}>📝 {item.notes}</Text>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                            )}
-                        </Card>
-                    </Col>
-                </Row>
+                            );
+                        })}
+                    </div>
+
+                    {/* Summary */}
+                    <div style={{ 
+                        background: '#F8FAFC', 
+                        padding: '12px 16px',
+                        borderTop: '1px solid #F1F5F9'
+                    }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                            <Text type="secondary" style={{ fontSize: 13 }}>รวมรายการ</Text>
+                            <Text style={{ fontSize: 13 }}>฿{Number(order.sub_total).toLocaleString()}</Text>
+                        </div>
+                        {order.discount_amount > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                                <Text type="secondary" style={{ fontSize: 13 }}>ส่วนลด</Text>
+                                <Text style={{ fontSize: 13, color: '#DC2626' }}>-฿{Number(order.discount_amount).toLocaleString()}</Text>
+                            </div>
+                        )}
+                        {order.vat > 0 && (
+                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                                <Text type="secondary" style={{ fontSize: 13 }}>VAT 7%</Text>
+                                <Text style={{ fontSize: 13 }}>฿{Number(order.vat).toLocaleString()}</Text>
+                            </div>
+                        )}
+                        <div style={{ 
+                            display: 'flex', 
+                            justifyContent: 'space-between', 
+                            paddingTop: 8,
+                            borderTop: '1px dashed #E2E8F0'
+                        }}>
+                            <Text strong style={{ fontSize: 15 }}>ยอดสุทธิ</Text>
+                            <Text strong style={{ fontSize: 18, color: dashboardColors.salesColor }}>
+                                ฿{Number(order.total_amount).toLocaleString()}
+                            </Text>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Payments Section */}
+                <div style={{
+                    background: 'white',
+                    borderRadius: 16,
+                    overflow: 'hidden',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+                }}>
+                    <div style={{
+                        padding: '16px',
+                        borderBottom: '1px solid #F1F5F9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 8
+                    }}>
+                        <CreditCardOutlined style={{ color: '#22C55E', fontSize: 18 }} />
+                        <Text strong style={{ fontSize: 15 }}>การชำระเงิน ({payments.length})</Text>
+                    </div>
+
+                    {payments.length > 0 ? (
+                        <div style={{ padding: '8px 0' }}>
+                            {payments.map((payment, index) => (
+                                <div 
+                                    key={payment.id}
+                                    style={{
+                                        padding: '14px 16px',
+                                        borderBottom: index < payments.length - 1 ? '1px solid #F8FAFC' : 'none'
+                                    }}
+                                >
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <span style={{
+                                                width: 8,
+                                                height: 8,
+                                                borderRadius: '50%',
+                                                background: payment.status === 'Success' ? '#22C55E' : '#EF4444'
+                                            }} />
+                                            <Text strong style={{ fontSize: 14 }}>
+                                                {payment.payment_method?.display_name || payment.payment_method?.payment_method_name || 'ไม่ระบุ'}
+                                            </Text>
+                                        </div>
+                                        <Text strong style={{ fontSize: 15, color: dashboardColors.salesColor }}>
+                                            ฿{Number(payment.amount).toLocaleString()}
+                                        </Text>
+                                    </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                        <Text type="secondary" style={{ fontSize: 12 }}>
+                                            <ClockCircleOutlined style={{ marginRight: 4 }} />
+                                            {formatThaiDate(payment.payment_date)}
+                                        </Text>
+                                        {payment.amount_received > 0 && (
+                                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                                รับมา ฿{Number(payment.amount_received).toLocaleString()}
+                                                {payment.change_amount > 0 && ` • ทอน ฿${Number(payment.change_amount).toLocaleString()}`}
+                                            </Text>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div style={{ padding: '30px 16px', textAlign: 'center' }}>
+                            <CreditCardOutlined style={{ fontSize: 32, color: '#CBD5E1', marginBottom: 8 }} />
+                            <Text type="secondary" style={{ display: 'block' }}>ไม่มีข้อมูลการชำระเงิน</Text>
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {/* Print Receipt Modal (Hidden, for printing) */}
+            {/* Print Receipt Modal */}
             <Modal
                 open={isPrintModalVisible}
                 footer={null}

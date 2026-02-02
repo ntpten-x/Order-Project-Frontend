@@ -3,12 +3,11 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Typography, Row, Col, Card, Tag, Button, Empty, Divider, Avatar, Space, Skeleton } from "antd";
-import { CheckCircleOutlined, ShopOutlined, ShoppingOutlined, RocketOutlined, UserOutlined } from "@ant-design/icons";
+import { CheckCircleOutlined, ShopOutlined, ShoppingOutlined, RocketOutlined, UserOutlined, ArrowLeftOutlined } from "@ant-design/icons";
 import { ordersService } from "../../../../services/pos/orders.service";
 import { SalesOrderItem } from "../../../../types/api/pos/salesOrderItem";
 import { OrderStatus, OrderType, SalesOrder } from "../../../../types/api/pos/salesOrder";
-import { paymentPageStyles, paymentColors } from "../../../../theme/pos/payments.theme";
-import { itemsStyles, itemsResponsiveStyles } from "../../../../theme/pos/items/style";
+import { itemsStyles, itemsColors, itemsResponsiveStyles } from "../../../../theme/pos/items/style";
 import { formatCurrency } from "../../../../utils/orders";
 import { useGlobalLoadingDispatch } from "../../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../../hooks/useSocket";
@@ -111,31 +110,59 @@ export default function POSItemsPage() {
         <>
             <style jsx global>{itemsResponsiveStyles}</style>
             <div style={itemsStyles.container}>
-                <div style={itemsStyles.heroSection} className="items-hero-mobile">
-                    <div style={itemsStyles.contentWrapper}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-                            <CheckCircleOutlined style={{ fontSize: 28, color: '#fff' }} />
-                            <div>
-                                <Title level={3} style={itemsStyles.pageTitle} className="items-title-mobile">รายการรอชำระเงิน</Title>
-                                <Text style={itemsStyles.pageSubtitle} className="items-subtitle-mobile">Waiting For Payment Orders</Text>
+                {/* Hero Header - Enhanced */}
+                <header 
+                    style={itemsStyles.heroSection} 
+                    className="items-hero-mobile"
+                    role="banner"
+                >
+                    <div style={{ ...itemsStyles.contentWrapper, padding: '0 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                            <Button
+                                type="text"
+                                icon={<ArrowLeftOutlined />}
+                                onClick={() => router.back()}
+                                style={itemsStyles.backButton}
+                                className="items-back-button-mobile scale-hover"
+                                aria-label="กลับ"
+                            />
+                            <div style={{ 
+                                width: 52, 
+                                height: 52, 
+                                borderRadius: 16, 
+                                background: 'rgba(255, 255, 255, 0.2)',
+                                backdropFilter: 'blur(10px)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}>
+                                <CheckCircleOutlined style={{ fontSize: 26, color: '#fff' }} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <Title level={3} style={itemsStyles.pageTitle} className="items-title-mobile">
+                                    รายการรอชำระเงิน
+                                </Title>
+                                <Text style={itemsStyles.pageSubtitle} className="items-subtitle-mobile">
+                                    Waiting For Payment Orders
+                                </Text>
                             </div>
                         </div>
                     </div>
-                </div>
+                </header>
 
                 <div style={{ ...itemsStyles.contentWrapper, marginTop: -32, padding: '0 16px' }} className="items-content-mobile">
                 {isLoading ? (
                     <Row gutter={[16, 16]}>
                         {Array.from({ length: 6 }).map((_, index) => (
                             <Col xs={24} sm={12} lg={8} key={`skeleton-${index}`}>
-                                <Card style={paymentPageStyles.card}>
+                                <Card style={itemsStyles.card}>
                                     <Skeleton active paragraph={{ rows: 3 }} />
                                 </Card>
                             </Col>
                         ))}
                     </Row>
                 ) : orderGroups.length === 0 ? (
-                    <Card style={{ borderRadius: 12, border: 'none', boxShadow: paymentColors.cardShadow }}>
+                    <Card style={itemsStyles.emptyCard}>
                         <Empty description="ไม่มีรายการรอชำระเงิน" />
                     </Card>
                 ) : (
@@ -190,8 +217,8 @@ export default function POSItemsPage() {
                                                             style={itemsStyles.itemImage}
                                                         />
                                                     ) : (
-                                                        <div style={{ ...itemsStyles.itemImage, background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                                            <ShopOutlined style={{ color: paymentColors.textLight }} />
+                                                        <div style={itemsStyles.itemImagePlaceholder}>
+                                                            <ShopOutlined style={{ color: itemsColors.textLight }} />
                                                         </div>
                                                     )}
                                                     

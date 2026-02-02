@@ -2,8 +2,8 @@
 
 import React, { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Typography, Row, Col, Empty, Button, Card, Tag, Divider } from "antd";
-import { ShoppingOutlined, ArrowLeftOutlined, PlusOutlined } from "@ant-design/icons";
+import { Typography, Row, Col, Empty, Button, Tag } from "antd";
+import { ShoppingOutlined, ArrowLeftOutlined, PlusOutlined, ClockCircleOutlined } from "@ant-design/icons";
 import { OrderType, SalesOrderSummary } from "../../../../../types/api/pos/salesOrder";
 import { posPageStyles, channelColors, tableColors } from "../../../../../theme/pos";
 import { channelPageStyles, channelsResponsiveStyles } from "../../../../../theme/pos/channels/style";
@@ -48,29 +48,87 @@ export default function TakeawayPage() {
         router.push(path);
     };
 
+    const getStatusColor = (colorScheme: string) => {
+        switch (colorScheme) {
+            case 'available': return 'success';
+            case 'occupied': return 'orange';
+            case 'waitingForPayment': return 'blue';
+            default: return 'default';
+        }
+    };
+
     return (
         <>
             <POSGlobalStyles />
             <style jsx global>{channelsResponsiveStyles}</style>
+            <style jsx global>{`
+                /* Order Card Hover Effects */
+                .order-card-hover {
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                }
+                .order-card-hover:hover {
+                    transform: translateY(-4px) !important;
+                    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.1) !important;
+                }
+                .order-card-hover:active {
+                    transform: translateY(-2px) scale(0.99) !important;
+                }
+                @media (hover: none) {
+                    .order-card-hover:active {
+                        transform: scale(0.98) !important;
+                    }
+                    .order-card-hover:hover {
+                        transform: none !important;
+                    }
+                }
+                /* Back button hover */
+                .back-button-hover:hover {
+                    background: rgba(255, 255, 255, 0.28) !important;
+                    transform: translateX(-2px);
+                }
+                /* Add button hover */
+                .add-button-hover:hover {
+                    transform: translateY(-2px) !important;
+                    box-shadow: 0 12px 24px rgba(82, 196, 26, 0.35) !important;
+                }
+                .add-button-hover:active {
+                    transform: scale(0.98) !important;
+                }
+                /* Mobile-only styles */
+                .hide-on-mobile { display: inline !important; }
+                .show-on-mobile-inline { display: none !important; }
+                @media (max-width: 768px) {
+                    .hide-on-mobile { display: none !important; }
+                    .show-on-mobile-inline { display: inline !important; }
+                }
+            `}</style>
+            
             <div style={posPageStyles.container}>
                 {/* Header Section */}
-                <div style={{ ...channelPageStyles.channelHeader, background: channelColors.takeaway.gradient }} className="takeaway-header-mobile">
+                <header
+                    style={{ ...channelPageStyles.channelHeader, background: channelColors.takeaway.gradient }}
+                    className="takeaway-header-mobile"
+                    role="banner"
+                >
                     <div className="header-pattern"></div>
+                    <div className="header-circle circle-1"></div>
+                    <div className="header-circle circle-2"></div>
 
                     <div style={channelPageStyles.channelHeaderContent} className="takeaway-header-content-mobile">
                         {/* Back Button */}
-                        <div
+                        <button
                             className="back-button-hover takeaway-back-button-mobile"
                             style={channelPageStyles.channelBackButton}
                             onClick={handleBack}
+                            aria-label="กลับไปหน้าเลือกช่องทาง"
                         >
                             <ArrowLeftOutlined />
                             <span>กลับ</span>
-                        </div>
+                        </button>
 
                         {/* Title Section */}
                         <div style={channelPageStyles.channelTitleSection} className="takeaway-title-section-mobile">
-                            <ShoppingOutlined style={channelPageStyles.channelHeaderIcon} className="takeaway-header-icon-mobile" />
+                            <ShoppingOutlined style={channelPageStyles.channelHeaderIcon} className="takeaway-header-icon-mobile" aria-hidden="true" />
                             <div>
                                 <Title level={3} style={channelPageStyles.channelHeaderTitle} className="takeaway-header-title-mobile">
                                     สั่งกลับบ้าน
@@ -91,146 +149,154 @@ export default function TakeawayPage() {
                             </div>
                         </div>
                     </div>
-                </div>
+                </header>
 
                 {/* Content Section */}
-                <div style={{ maxWidth: 1400, margin: '0 auto', padding: '0 16px 24px' }} className="takeaway-content-mobile">
+                <main style={{ maxWidth: 1400, margin: '0 auto', padding: '0 16px 32px' }} className="takeaway-content-mobile" role="main">
+                    {/* Add Order Button */}
                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
-                        <Button 
-                            type="primary" 
+                        <Button
+                            type="primary"
                             size="large"
                             icon={<PlusOutlined />}
                             onClick={handleCreateOrder}
-                            style={{ 
-                                height: 48, 
-                                borderRadius: 12, 
-                                padding: '0 24px',
-                                fontWeight: 700,
+                            className="add-button-hover takeaway-add-button-mobile"
+                            style={{
+                                ...channelPageStyles.addOrderButton,
                                 background: channelColors.takeaway.primary,
-                                border: 'none',
-                                boxShadow: `0 8px 16px rgba(82, 196, 26, 0.25)`,
+                                boxShadow: `0 8px 20px ${channelColors.takeaway.primary}40`,
                             }}
-                            className="takeaway-add-button-mobile"
                         >
                             <span className="hide-on-mobile">เพิ่มออเดอร์ใหม่</span>
                             <span className="show-on-mobile-inline">เพิ่ม</span>
                         </Button>
                     </div>
-                {orders.length > 0 ? (
-                    <Row gutter={[20, 20]}>
-                        {orders.map((order: SalesOrderSummary, index) => {
-                            const colorScheme = getOrderColorScheme(order);
-                            const colors = tableColors[colorScheme];
-                            const orderNum = order.order_no.split('-').pop();
 
-                            return (
-                                <Col xs={24} sm={12} md={12} lg={8} xl={6} key={order.id} className="takeaway-order-col-mobile">
-                                    <Card
-                                        hoverable
-                                        className={`takeaway-order-card table-card-animate table-card-delay-${(index % 6) + 1}`}
-                                        style={{
-                                            borderRadius: 16,
-                                            overflow: 'hidden',
-                                            border: `1px solid ${colors.border}`,
-                                            background: '#fff',
-                                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                                            boxShadow: '0 4px 12px rgba(0,0,0,0.05)',
-                                        }}
-                                        bodyStyle={{ padding: 0 }}
-                                        onClick={() => handleOrderClick(order)}
-                                    >
-                                        {/* Card Header */}
-                                        <div style={{ 
-                                            padding: '12px 16px', 
-                                            background: colors.light, 
-                                            display: 'flex', 
-                                            justifyContent: 'space-between', 
-                                            alignItems: 'center',
-                                            borderBottom: `1px solid ${colors.border}40`
-                                        }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                <ShoppingOutlined style={{ color: colors.primary, fontSize: 18 }} />
-                                                <Text strong style={{ fontSize: 16 }}>#{orderNum}</Text>
-                                            </div>
-                                            <Tag 
-                                                color={colorScheme === 'available' ? 'success' : colorScheme === 'occupied' ? 'orange' : colorScheme === 'waitingForPayment' ? 'blue' : 'default'} 
-                                                style={{ borderRadius: 6, margin: 0, fontWeight: 600, border: 'none' }}
-                                            >
-                                                {formatOrderStatus(order.status)}
-                                            </Tag>
-                                        </div>
+                    {orders.length > 0 ? (
+                        <Row gutter={[16, 16]}>
+                            {orders.map((order: SalesOrderSummary, index) => {
+                                const colorScheme = getOrderColorScheme(order);
+                                const colors = tableColors[colorScheme];
+                                const orderNum = order.order_no.split('-').pop();
 
-                                        {/* Card Content */}
-                                        <div style={{ padding: 16 }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12 }}>
-                                                <div>
-                                                    <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>รายการสินค้า</Text>
-                                                    <Text strong style={{ fontSize: 15 }}>{order.items_count || 0} รายการ</Text>
+                                return (
+                                    <Col xs={24} sm={12} md={8} lg={6} xl={6} key={order.id} className="takeaway-order-col-mobile">
+                                        <article
+                                            className={`order-card-hover takeaway-order-card table-card-animate table-card-delay-${(index % 6) + 1}`}
+                                            style={{
+                                                ...channelPageStyles.orderCard,
+                                                border: `1.5px solid ${colors.border}`,
+                                            }}
+                                            onClick={() => handleOrderClick(order)}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Enter' || e.key === ' ') {
+                                                    e.preventDefault();
+                                                    handleOrderClick(order);
+                                                }
+                                            }}
+                                            role="button"
+                                            tabIndex={0}
+                                            aria-label={`ออเดอร์ #${orderNum} - ${formatOrderStatus(order.status)}`}
+                                        >
+                                            {/* Card Header */}
+                                            <div style={{
+                                                ...channelPageStyles.orderCardHeader,
+                                                background: colors.light,
+                                            }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                    <div style={{
+                                                        width: 40,
+                                                        height: 40,
+                                                        borderRadius: 12,
+                                                        background: `${colors.primary}20`,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center',
+                                                    }}>
+                                                        <ShoppingOutlined style={{ color: colors.primary, fontSize: 20 }} />
+                                                    </div>
+                                                    <Text strong style={{ fontSize: 18, color: '#1E293B' }}>#{orderNum}</Text>
                                                 </div>
-                                                <div style={{ textAlign: 'right' }}>
-                                                    <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>ยอดรวม</Text>
-                                                    <Text strong style={{ fontSize: 18, color: colors.primary }}>฿{order.total_amount?.toLocaleString()}</Text>
+                                                <Tag
+                                                    color={getStatusColor(colorScheme)}
+                                                    style={{ borderRadius: 8, margin: 0, fontWeight: 600, border: 'none', padding: '4px 12px' }}
+                                                >
+                                                    {formatOrderStatus(order.status)}
+                                                </Tag>
+                                            </div>
+
+                                            {/* Card Content */}
+                                            <div style={channelPageStyles.orderCardContent}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+                                                    <div>
+                                                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>รายการสินค้า</Text>
+                                                        <Text strong style={{ fontSize: 16 }}>{order.items_count || 0} รายการ</Text>
+                                                    </div>
+                                                    <div style={{ textAlign: 'right' }}>
+                                                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>ยอดรวม</Text>
+                                                        <Text strong style={{ fontSize: 20, color: colors.primary }}>฿{order.total_amount?.toLocaleString()}</Text>
+                                                    </div>
                                                 </div>
                                             </div>
-                                            
-                                            <Divider style={{ margin: '12px 0' }} />
-                                            
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+
+                                            {/* Card Footer */}
+                                            <div style={channelPageStyles.orderCardFooter}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                    <div style={{ 
-                                                        width: 8, 
-                                                        height: 8, 
-                                                        borderRadius: '50%', 
-                                                        background: colors.primary,
-                                                        boxShadow: `0 0 8px ${colors.primary}60`
-                                                    }} />
+                                                    <ClockCircleOutlined style={{ fontSize: 12, color: '#94A3B8' }} />
                                                     <Text type="secondary" style={{ fontSize: 12 }}>{dayjs(order.create_date).fromNow()}</Text>
                                                 </div>
-                                                <Text type="secondary" style={{ fontSize: 12 }}>Take Away</Text>
+                                                <Tag
+                                                    style={{
+                                                        margin: 0,
+                                                        borderRadius: 6,
+                                                        background: channelColors.takeaway.light,
+                                                        color: channelColors.takeaway.primary,
+                                                        border: `1px solid ${channelColors.takeaway.border}`,
+                                                        fontSize: 11,
+                                                        fontWeight: 600,
+                                                    }}
+                                                >
+                                                    Take Away
+                                                </Tag>
                                             </div>
-                                        </div>
-                                    </Card>
-                                </Col>
-                            );
-                        })}
-                    </Row>
-                ) : (
-                    <div style={{ 
-                        background: '#fff', 
-                        borderRadius: 24, 
-                        padding: '80px 24px', 
-                        textAlign: 'center',
-                        boxShadow: '0 4px 24px rgba(0,0,0,0.06)' 
-                    }}>
-                        <Empty 
-                            image={Empty.PRESENTED_IMAGE_SIMPLE}
-                            description={
-                                <div style={{ marginTop: 16 }}>
-                                    <Title level={4} style={{ marginBottom: 8 }}>ไม่มีออเดอร์ในขณะนี้</Title>
-                                    <Text type="secondary">เริ่มรับออเดอร์สั่งกลับบ้านโดยกดปุ่ม &quot;เพิ่มออเดอร์&quot;</Text>
-                                </div>
-                            } 
-                        />
-                        <Button 
-                            type="primary" 
-                            size="large" 
-                            icon={<PlusOutlined />} 
-                            onClick={handleCreateOrder}
-                            style={{ 
-                                marginTop: 24, 
-                                background: channelColors.takeaway.primary,
-                                borderColor: channelColors.takeaway.primary,
-                                height: 44,
-                                borderRadius: 10,
-                                padding: '0 32px'
-                            }}
-                        >
-                            สร้างออเดอร์ใหม่
-                        </Button>
-                    </div>
-                )}
+                                        </article>
+                                    </Col>
+                                );
+                            })}
+                        </Row>
+                    ) : (
+                        <div style={channelPageStyles.emptyStateContainer}>
+                            <Empty
+                                image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                description={
+                                    <div style={{ marginTop: 16 }}>
+                                        <Title level={4} style={{ marginBottom: 8, color: '#1E293B' }}>ไม่มีออเดอร์ในขณะนี้</Title>
+                                        <Text type="secondary" style={{ fontSize: 15 }}>เริ่มรับออเดอร์สั่งกลับบ้านโดยกดปุ่ม &quot;เพิ่มออเดอร์&quot;</Text>
+                                    </div>
+                                }
+                            />
+                            <Button
+                                type="primary"
+                                size="large"
+                                icon={<PlusOutlined />}
+                                onClick={handleCreateOrder}
+                                style={{
+                                    marginTop: 24,
+                                    background: channelColors.takeaway.primary,
+                                    height: 52,
+                                    borderRadius: 16,
+                                    padding: '0 32px',
+                                    fontWeight: 600,
+                                    border: 'none',
+                                    boxShadow: `0 8px 20px ${channelColors.takeaway.primary}40`,
+                                }}
+                            >
+                                สร้างออเดอร์ใหม่
+                            </Button>
+                        </div>
+                    )}
+                </main>
             </div>
-        </div>
         </>
     );
 }

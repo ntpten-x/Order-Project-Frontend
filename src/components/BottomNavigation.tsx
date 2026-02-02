@@ -84,49 +84,58 @@ const BottomNavigation = () => {
   const inactiveColor = '#D1D5DB'; // Gray-300 for better visibility on dark
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[90%] max-w-lg z-50">
+    <div className="fixed bottom-4 left-4 right-4 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-auto md:min-w-[320px] md:max-w-md z-50">
       <div 
-        className="flex justify-around items-center h-[72px] px-6 py-2 bg-[#171717]/95 backdrop-blur-xl shadow-2xl border border-white/10 rounded-full"
-        style={{ boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)' }}
+        className="flex justify-around items-center h-[72px] px-2 py-2 bg-[#0f172a]/85 backdrop-blur-xl shadow-2xl border border-slate-700/50 rounded-[24px]"
+        style={{ boxShadow: '0 20px 40px -5px rgba(0, 0, 0, 0.4)' }}
       >
         {menuItems.map((item) => {
             const isActive = pathname === item.path || (item.key === 'manage' && pathname.includes('/users'));
+            const activeColor = '#34d399'; // Emerald 400 (Brighter for dark bg)
+            const inactiveColor = '#94a3b8'; // Slate 400
             
             return (
                 <button
                   key={item.key}
                   onClick={() => router.push(item.path)}
-                  className="relative flex flex-col items-center justify-center w-full h-full group"
+                  className="relative flex flex-col items-center justify-center flex-1 h-full group"
                 >
-                  <div className="relative flex items-center justify-center">
-                    {isActive && (
-                      <div className="absolute inset-0 bg-yellow-400/20 blur-xl rounded-full" />
-                    )}
+                  <div className={`
+                    absolute top-1
+                    flex items-center justify-center 
+                    w-12 h-12 rounded-2xl 
+                    transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)]
+                    ${isActive ? 'bg-emerald-500/20 translate-y-[-4px]' : 'bg-transparent'}
+                  `}>
                     <div 
-                        className={`text-2xl transition-all duration-300 ease-out transform ${isActive ? '-translate-y-1 scale-110' : 'group-hover:scale-105'}`}
-                        style={{ color: isActive ? activeColor : inactiveColor }}
+                        className="text-2xl transition-all duration-300"
+                        style={{ 
+                          color: isActive ? activeColor : inactiveColor,
+                          transform: isActive ? 'scale(1.1)' : 'scale(1)',
+                          filter: isActive ? 'drop-shadow(0 0 8px rgba(52, 211, 153, 0.4))' : 'none'
+                        }}
                     >
                         {item.icon}
                         {item.key === 'items' && pendingCount > 0 && (
-                            <div className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 rounded-full border-2 border-[#171717] z-10 animate-pulse" />
+                            <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[#0f172a] z-10 animate-pulse" />
                         )}
                     </div>
                   </div>
                   
                   <span 
-                      className={`text-[11px] font-medium tracking-wide mt-1 transition-all duration-300 ${isActive ? 'opacity-100 translate-y-0' : 'opacity-70 translate-y-1'}`}
-                      style={{ color: isActive ? activeColor : inactiveColor }}
+                      className={`
+                        text-[10px] font-medium tracking-wide 
+                        absolute bottom-1.5
+                        transition-all duration-300
+                      `}
+                      style={{ 
+                        color: isActive ? activeColor : inactiveColor,
+                        opacity: isActive ? 1 : 0.6,
+                        transform: isActive ? 'translateY(0)' : 'translateY(2px)'
+                      }}
                   >
                       {item.label}
                   </span>
-
-                   {/* Active Indicator Dot */}
-                   {isActive && (
-                    <div 
-                      className="absolute -bottom-2 w-1.5 h-1.5 rounded-full transition-all duration-300"
-                      style={{ backgroundColor: activeColor }}
-                    />
-                   )}
                 </button>
             );
         })}

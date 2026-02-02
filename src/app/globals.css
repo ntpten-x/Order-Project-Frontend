@@ -8,27 +8,47 @@
  */
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-  
-  /* Color palette - following color-contrast guidelines */
-  --color-primary: #1890ff;
-  --color-primary-hover: #40a9ff;
-  --color-success: #52c41a;
-  --color-warning: #faad14;
-  --color-error: #ff4d4f;
-  --color-text: #1a1a2e;
-  --color-text-secondary: #595959;
-  --color-border: #d9d9d9;
-  
+  /* ===== Unified Theme: Soft Modern Clarity ===== */
+
+  /* Dark Navigation Theme */
+  --nav-bg: #0f172a;
+  --nav-bg-glass: rgba(15, 23, 42, 0.95);
+  --nav-border: rgba(255, 255, 255, 0.1);
+  --nav-text: #f8fafc;
+  --nav-text-muted: #94a3b8;
+
+  /* Light Content Theme */
+  --background: #f8fafc;
+  --foreground: #1e293b;
+  --card-bg: #ffffff;
+  --card-border: #e2e8f0;
+  --card-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+
+  /* Text Colors */
+  --color-text: #1e293b;
+  --color-text-secondary: #64748b;
+  --color-text-muted: #94a3b8;
+
+  /* Accent Colors */
+  --color-primary: #6366f1;         /* Indigo - Primary actions */
+  --color-primary-hover: #4f46e5;
+  --color-success: #10b981;         /* Emerald - Success/Active */
+  --color-success-glow: rgba(16, 185, 129, 0.3);
+  --color-warning: #f59e0b;         /* Amber - Warnings */
+  --color-error: #ef4444;           /* Red - Errors */
+  --color-info: #3b82f6;            /* Blue - Info */
+
+  /* Border */
+  --color-border: #e2e8f0;
+
   /* Animation durations - following duration-timing guidelines */
   --duration-fast: 150ms;
   --duration-normal: 200ms;
   --duration-slow: 300ms;
-  
+
   /* Focus ring - following focus-states guidelines */
-  --focus-ring: 0 0 0 3px rgba(24, 144, 255, 0.3);
-  --focus-ring-error: 0 0 0 3px rgba(255, 77, 79, 0.3);
+  --focus-ring: 0 0 0 3px rgba(99, 102, 241, 0.3);
+  --focus-ring-error: 0 0 0 3px rgba(239, 68, 68, 0.3);
 }
 
 /* Respect reduced motion preference */
@@ -45,13 +65,10 @@
 
 body {
   color: var(--foreground);
-  background: #ffffff;
-  font-family: var(--font-inter), Arial, Helvetica, sans-serif;
-  /* Readable font size - minimum 16px for mobile */
+  background: var(--background);
+  font-family: 'Inter', 'Sarabun', -apple-system, BlinkMacSystemFont, sans-serif;
   font-size: 16px;
-  /* Optimal line height for readability */
   line-height: 1.5;
-  /* Smooth scroll with reduced motion support */
   scroll-behavior: smooth;
 }
 

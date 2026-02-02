@@ -22,7 +22,15 @@ const ClientLayout: React.FC<ClientLayoutProps> = ({ children }) => {
   const isLoginPage = pathname === "/login";
 
   return (
-    <main style={{ paddingTop: isLoginPage ? "0" : "64px" }}>
+    <main 
+      style={{ 
+        paddingTop: isLoginPage ? "0" : "64px",
+        paddingBottom: isLoginPage ? "0" : "80px", // Increased for bottom nav
+        minHeight: "100vh",
+        background: isLoginPage ? "#fff" : "#f8fafc", // Soft gray background
+        transition: "all 0.3s ease"
+      }}
+    >
       {children}
     </main>
   );

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Typography, Tag, Button, Empty, Input, Pagination } from 'antd';
+import { message, Modal, Typography, Button, Empty, Input, Tag } from 'antd';
 import Image from "next/image";
 import { 
     CarOutlined,
@@ -10,7 +10,8 @@ import {
     EditOutlined,
     DeleteOutlined,
     CheckCircleFilled,
-    CloseCircleFilled
+    CloseCircleFilled,
+    SearchOutlined
 } from '@ant-design/icons';
 import { Delivery } from "../../../../types/api/pos/delivery";
 import { useRouter } from 'next/navigation';
@@ -19,51 +20,22 @@ import { useAsyncAction } from "../../../../hooks/useAsyncAction";
 import { useSocket } from "../../../../hooks/useSocket";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { useRoleGuard } from "../../../../utils/pos/accessControl";
-import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
+import { useRealtimeList } from "../../../../utils/pos/realtime";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
-import { deliveryService } from "../../../../services/pos/delivery.service";
 import { pageStyles, globalStyles } from '../../../../theme/pos/delivery/style';
-import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 
 const { Text, Title } = Typography;
 
-const DELIVERY_LIMIT = 50;
-const DELIVERY_CACHE_KEY = "pos:delivery-providers";
-const DELIVERY_CACHE_TTL = 5 * 60 * 1000;
-
-// ============ TYPES ============
+// ============ HEADER COMPONENT ============
 
 interface HeaderProps {
     onRefresh: () => void;
     onAdd: () => void;
-    searchValue: string;
-    onSearchChange: (value: string) => void;
-    page: number;
-    total: number;
-    lastPage: number;
-    setPage: (page: number) => void;
+    onSearch: (value: string) => void;
 }
 
-type DeliveryCacheResult = {
-    data: Delivery[];
-    total: number;
-    page: number;
-    last_page: number;
-};
-
-// ============ HEADER COMPONENT ============
-
-const PageHeader = ({ 
-    onRefresh, 
-    onAdd, 
-    searchValue, 
-    onSearchChange,
-    page,
-    total,
-    lastPage,
-    setPage
-}: HeaderProps) => (
+const PageHeader = ({ onRefresh, onAdd, onSearch }: HeaderProps) => (
     <div style={pageStyles.header}>
         <div style={pageStyles.headerDecoCircle1} />
         <div style={pageStyles.headerDecoCircle2} />
@@ -77,7 +49,8 @@ const PageHeader = ({
                     <Text style={{ 
                         color: 'rgba(255,255,255,0.85)', 
                         fontSize: 13,
-                        display: 'block'
+                        display: 'block',
+                        textShadow: '0 1px 2px rgba(0,0,0,0.1)'
                     }}>
                         จัดการผู้ให้บริการเดลิเวอรี่
                     </Text>
@@ -85,29 +58,25 @@ const PageHeader = ({
                         color: 'white', 
                         margin: 0,
                         fontWeight: 700,
-                        letterSpacing: '0.5px'
+                        letterSpacing: '0.5px',
+                        textShadow: '0 2px 4px rgba(0,0,0,0.1)'
                     }}>
                         บริการเดลิเวอรี่
                     </Title>
                 </div>
             </div>
             <div style={pageStyles.headerActions}>
-                <Input
-                    allowClear
-                    placeholder="ค้นหาบริการส่ง..."
-                    value={searchValue}
-                    onChange={(e) => onSearchChange(e.target.value)}
-                    style={{ width: 220, borderRadius: 10 }}
-                />
                 <Button
                     type="text"
                     icon={<ReloadOutlined style={{ color: 'white' }} />}
                     onClick={onRefresh}
                     style={{
                         background: 'rgba(255,255,255,0.2)',
+                        backdropFilter: 'blur(4px)',
                         borderRadius: 12,
                         height: 40,
-                        width: 40
+                        width: 40,
+                        border: '1px solid rgba(255,255,255,0.3)'
                     }}
                 />
                 <Button
@@ -116,7 +85,7 @@ const PageHeader = ({
                     onClick={onAdd}
                     style={{
                         background: 'white',
-                        color: '#13c2c2',
+                        color: '#0891B2',
                         borderRadius: 12,
                         height: 40,
                         fontWeight: 600,
@@ -124,20 +93,28 @@ const PageHeader = ({
                         boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                     }}
                 >
-                    เพิ่มบริการส่งใหม่
+                    <span className="hidden sm:inline">เพิ่มบริการส่ง</span>
                 </Button>
             </div>
-            {lastPage > 1 && (
-                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
-                    <Pagination
-                        current={page}
-                        pageSize={DELIVERY_LIMIT}
-                        total={total}
-                        onChange={(value) => setPage(value)}
-                        size="small"
-                    />
-                </div>
-            )}
+        </div>
+
+        {/* Search Bar */}
+        <div style={{ marginTop: 24, padding: '0 4px' }}>
+            <Input 
+                prefix={<SearchOutlined style={{ color: '#fff', opacity: 0.7 }} />}
+                placeholder="ค้นหาบริการส่ง (ชื่อ หรือ Prefix)..."
+                onChange={(e) => onSearch(e.target.value)}
+                bordered={false}
+                style={{
+                    background: 'rgba(255,255,255,0.15)',
+                    backdropFilter: 'blur(8px)',
+                    borderRadius: 14,
+                    padding: '8px 16px',
+                    color: 'white',
+                    fontSize: 15,
+                }}
+                className="search-input-placeholder-white"
+            />
         </div>
     </div>
 );
@@ -153,17 +130,17 @@ interface StatsCardProps {
 const StatsCard = ({ totalDelivery, activeDelivery, inactiveDelivery }: StatsCardProps) => (
     <div style={pageStyles.statsCard}>
         <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#13c2c2' }}>{totalDelivery}</span>
+            <span style={{ ...pageStyles.statNumber, color: '#0891B2' }}>{totalDelivery}</span>
             <Text style={pageStyles.statLabel}>ทั้งหมด</Text>
         </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
+        <div style={{ width: 1, height: 24, background: '#f0f0f0', alignSelf: 'center' }} />
         <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#52c41a' }}>{activeDelivery}</span>
+            <span style={{ ...pageStyles.statNumber, color: '#10B981' }}>{activeDelivery}</span>
             <Text style={pageStyles.statLabel}>เปิดใช้งาน</Text>
         </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
+        <div style={{ width: 1, height: 24, background: '#f0f0f0', alignSelf: 'center' }} />
         <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#ff4d4f' }}>{inactiveDelivery}</span>
+            <span style={{ ...pageStyles.statNumber, color: '#EF4444' }}>{inactiveDelivery}</span>
             <Text style={pageStyles.statLabel}>ปิดใช้งาน</Text>
         </div>
     </div>
@@ -186,84 +163,96 @@ const DeliveryCard = ({ delivery, index, onEdit, onDelete }: DeliveryCardProps) 
                 ...pageStyles.deliveryCard(delivery.is_active),
                 animationDelay: `${index * 0.03}s`
             }}
+            onClick={() => onEdit(delivery)}
         >
             <div style={pageStyles.deliveryCardInner}>
                 {/* Icon */}
                 <div style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 14,
-                    border: '2px solid #f0f0f0',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
+                    width: 56,
+                    height: 56,
+                    borderRadius: 16,
+                    background: delivery.is_active 
+                        ? 'linear-gradient(135deg, #CFFAFE 0%, #A5F3FC 100%)' 
+                        : '#F1F5F9',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
                     flexShrink: 0,
                     overflow: 'hidden',
                     position: 'relative',
-                    background: delivery.is_active 
-                        ? 'linear-gradient(135deg, #e6fffb 0%, #b5f5ec 100%)'
-                        : 'linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
+                    boxShadow: delivery.is_active ? '0 4px 10px rgba(8, 145, 178, 0.1)' : 'none'
                 }}>
                     {delivery.logo ? (
                         <Image 
                             src={delivery.logo} 
                             alt={delivery.delivery_name} 
                             fill
-                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                            sizes="56px"
                             style={{ 
                                 objectFit: 'contain',
-                                background: 'white',
+                                padding: 8,
                                 opacity: delivery.is_active ? 1 : 0.6
                             }} 
                         />
                     ) : (
                         <CarOutlined style={{ 
-                            fontSize: 28, 
-                            color: delivery.is_active ? '#13c2c2' : '#ff4d4f' 
+                            fontSize: 24, 
+                            color: delivery.is_active ? '#0891B2' : '#94A3B8' 
                         }} />
                     )}
                 </div>
 
                 {/* Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                         <Text 
                             strong 
-                            style={{ fontSize: 16, color: '#1a1a2e' }}
+                            style={{ 
+                                fontSize: 16, 
+                                color: delivery.is_active ? '#1E293B' : '#64748B' 
+                            }}
+                            ellipsis={{ tooltip: delivery.delivery_name }}
                         >
                             {delivery.delivery_name}
                         </Text>
                         {delivery.is_active ? (
-                            <CheckCircleFilled style={{ color: '#52c41a', fontSize: 14 }} />
+                            <div style={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: '50%',
+                                background: '#10B981',
+                                boxShadow: '0 0 0 2px #ecfdf5'
+                            }} />
                         ) : (
-                            <CloseCircleFilled style={{ color: '#ff4d4f', fontSize: 14 }} />
+                            <div style={{
+                                width: 6,
+                                height: 6,
+                                borderRadius: '50%',
+                                background: '#CBD5E1'
+                            }} />
                         )}
                     </div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        <Tag 
-                            color={delivery.is_active ? 'processing' : 'default'}
-                            style={{ 
-                                borderRadius: 8, 
-                                margin: 0,
-                                fontSize: 11 
-                            }}
-                        >
-                            {delivery.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
-                        </Tag>
-                        {delivery.delivery_prefix && (
+                    
+                    {delivery.delivery_prefix && (
+                         <div style={{ display: 'flex' }}>
                             <Tag 
-                                color="purple"
                                 style={{ 
-                                    borderRadius: 8, 
+                                    borderRadius: 6, 
                                     margin: 0,
-                                    fontSize: 11 
+                                    fontSize: 10,
+                                    color: '#0891B2',
+                                    background: '#CFFAFE',
+                                    border: 'none',
+                                    fontWeight: 600,
+                                    padding: '0 6px',
+                                    lineHeight: '18px',
+                                    height: 18
                                 }}
                             >
-                                Prefix: {delivery.delivery_prefix}
+                                {delivery.delivery_prefix}
                             </Tag>
-                        )}
-                    </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Actions */}
@@ -276,9 +265,11 @@ const DeliveryCard = ({ delivery, index, onEdit, onDelete }: DeliveryCardProps) 
                             onEdit(delivery);
                         }}
                         style={{
-                            borderRadius: 10,
-                            color: '#13c2c2',
-                            background: '#e6fffb'
+                            borderRadius: 12,
+                            color: '#0891B2',
+                            background: '#CFFAFE',
+                            width: 36,
+                            height: 36
                         }}
                     />
                     <Button
@@ -290,8 +281,10 @@ const DeliveryCard = ({ delivery, index, onEdit, onDelete }: DeliveryCardProps) 
                             onDelete(delivery);
                         }}
                         style={{
-                            borderRadius: 10,
-                            background: '#fff2f0'
+                            borderRadius: 12,
+                            background: '#FEF2F2',
+                            width: 36,
+                            height: 36
                         }}
                     />
                 </div>
@@ -302,38 +295,47 @@ const DeliveryCard = ({ delivery, index, onEdit, onDelete }: DeliveryCardProps) 
 
 // ============ EMPTY STATE COMPONENT ============
 
-const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
+const EmptyState = ({ onAdd, isSearch }: { onAdd: () => void, isSearch?: boolean }) => (
     <Empty
         image={Empty.PRESENTED_IMAGE_SIMPLE}
         description={
             <div style={{ textAlign: 'center' }}>
                 <Text type="secondary" style={{ fontSize: 15 }}>
-                    ยังไม่มีบริการส่ง
+                    {isSearch ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีบริการส่ง'}
                 </Text>
                 <br />
-                <Text type="secondary" style={{ fontSize: 13 }}>
-                    เริ่มต้นเพิ่มบริการส่งแรกของคุณ
-                </Text>
+                {!isSearch && (
+                    <Text type="secondary" style={{ fontSize: 13 }}>
+                        เริ่มต้นเพิ่มบริการส่งแรกของคุณได้เลย
+                    </Text>
+                )}
             </div>
         }
         style={{
             padding: '60px 20px',
             background: 'white',
-            borderRadius: 20,
-            margin: '0 16px'
+            borderRadius: 24,
+            margin: '24px 16px',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.04)'
         }}
     >
-        <Button 
-            type="primary" 
-            icon={<PlusOutlined />} 
-            onClick={onAdd}
-            style={{
-                background: 'linear-gradient(135deg, #13c2c2 0%, #08979c 100%)',
-                border: 'none'
-            }}
-        >
-            เพิ่มบริการส่ง
-        </Button>
+        {!isSearch && (
+            <Button 
+                type="primary" 
+                icon={<PlusOutlined />} 
+                onClick={onAdd} 
+                size="large"
+                style={{ 
+                    background: '#0891B2', 
+                    borderRadius: 12,
+                    height: 48,
+                    padding: '0 32px',
+                    boxShadow: '0 4px 12px rgba(8, 145, 178, 0.3)'
+                }}
+            >
+                เพิ่มบริการส่ง
+            </Button>
+        )}
     </Empty>
 );
 
@@ -342,11 +344,8 @@ const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
 export default function DeliveryPage() {
     const router = useRouter();
     const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-    const [page, setPage] = useState(1);
-    const [total, setTotal] = useState(0);
-    const [lastPage, setLastPage] = useState(1);
-    const [searchValue, setSearchValue] = useState("");
-    const debouncedSearch = useDebouncedValue(searchValue.trim(), 400);
+    const [filteredDeliveries, setFilteredDeliveries] = useState<Delivery[]>([]);
+    const [searchText, setSearchText] = useState("");
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
@@ -357,36 +356,33 @@ export default function DeliveryPage() {
     }, []);
 
     useEffect(() => {
-        setPage(1);
-    }, [debouncedSearch]);
-
-    useEffect(() => {
-        if (debouncedSearch || page !== 1) return;
-        const cached = readCache<DeliveryCacheResult>(DELIVERY_CACHE_KEY, DELIVERY_CACHE_TTL);
-        if (cached?.data?.length) {
-            setDeliveries(cached.data);
-            setTotal(cached.total);
-            setLastPage(cached.last_page);
+        const cached = readCache<Delivery[]>("pos:delivery-providers", 10 * 60 * 1000);
+        // Note: readCache returns null or the data. If data, we use it.
+        // But the previous implementation stored {data: [], total: ...} structure for pagination.
+        // We are simplifying to client-side search/filter for better UX on small lists.
+        // If the cache structure doesn't match, we might need to be careful.
+        // Assuming we want to fetch all for client side filtering as usually delivery providers are few (<50).
+        if (cached && Array.isArray(cached)) {
+             setDeliveries(cached);
         }
-    }, [debouncedSearch, page]);
+    }, []);
 
     const fetchDeliveries = useCallback(async () => {
         execute(async () => {
-            const params = new URLSearchParams();
-            params.set("page", page.toString());
-            params.set("limit", DELIVERY_LIMIT.toString());
-            if (debouncedSearch) {
-                params.set("q", debouncedSearch);
-            }
-            const result = await deliveryService.getAll(undefined, params);
-            setDeliveries(result.data);
-            setTotal(result.total);
-            setLastPage(result.last_page);
-            if (!debouncedSearch && page === 1) {
-                writeCache(DELIVERY_CACHE_KEY, result);
+            // Fetch all without pagination for client-side filtering/search
+            const result = await fetch('/api/pos/delivery?limit=100'); 
+            if (!result.ok) throw new Error("Failed to fetch deliveries");
+            const data = await result.json();
+            
+            // Handle both paginated reference and flat array if API varies
+            const list = data.data || data; 
+            
+            if (Array.isArray(list)) {
+                setDeliveries(list);
+                writeCache("pos:delivery-providers", list);
             }
         }, 'กำลังโหลดข้อมูล...');
-    }, [debouncedSearch, execute, page]);
+    }, [execute]);
 
     useEffect(() => {
         if (isAuthorized) {
@@ -394,13 +390,29 @@ export default function DeliveryPage() {
         }
     }, [isAuthorized, fetchDeliveries]);
 
-    useRealtimeRefresh({
+    useRealtimeList(
         socket,
-        events: ["delivery:create", "delivery:update", "delivery:delete"],
-        onRefresh: () => fetchDeliveries(),
-        intervalMs: 20000,
-        debounceMs: 1000,
-    });
+        { create: "delivery:create", update: "delivery:update", delete: "delivery:delete" },
+        setDeliveries
+    );
+
+    // Centralized filtering logic
+    useEffect(() => {
+        if (searchText) {
+            const lower = searchText.toLowerCase();
+            const filtered = deliveries.filter((d: Delivery) => 
+                d.delivery_name.toLowerCase().includes(lower) || 
+                (d.delivery_prefix && d.delivery_prefix.toLowerCase().includes(lower))
+            );
+            setFilteredDeliveries(filtered);
+        } else {
+            setFilteredDeliveries(deliveries);
+        }
+    }, [deliveries, searchText]);
+
+    const handleSearch = (value: string) => {
+        setSearchText(value);
+    };
 
     const handleAdd = () => {
         showLoading("กำลังเปิดหน้าจัดการบริการส่ง...");
@@ -420,6 +432,8 @@ export default function DeliveryPage() {
             okType: 'danger',
             cancelText: 'ยกเลิก',
             centered: true,
+            icon: <DeleteOutlined style={{ color: '#EF4444' }} />,
+            maskClosable: true,
             onOk: async () => {
                 await execute(async () => {
                     const csrfToken = await getCsrfTokenCached();
@@ -452,48 +466,63 @@ export default function DeliveryPage() {
     return (
         <div className="delivery-page" style={pageStyles.container}>
             <style>{globalStyles}</style>
+            <style jsx global>{`
+                .search-input-placeholder-white input::placeholder {
+                    color: rgba(255, 255, 255, 0.6) !important;
+                }
+                .search-input-placeholder-white input {
+                    color: white !important;
+                }
+                .delivery-card {
+                    cursor: pointer;
+                    -webkit-tap-highlight-color: transparent;
+                }
+            `}</style>
             
             {/* Header */}
             <PageHeader 
                 onRefresh={fetchDeliveries}
                 onAdd={handleAdd}
-                searchValue={searchValue}
-                onSearchChange={setSearchValue}
-                page={page}
-                total={total}
-                lastPage={lastPage}
-                setPage={setPage}
+                onSearch={handleSearch}
             />
             
             {/* Stats Card */}
-            <StatsCard 
-                totalDelivery={deliveries.length}
-                activeDelivery={activeDeliveries.length}
-                inactiveDelivery={inactiveDeliveries.length}
-            />
+            <div style={{ marginTop: -32, padding: '0 16px', position: 'relative', zIndex: 10 }}>
+                <StatsCard 
+                    totalDelivery={deliveries.length}
+                    activeDelivery={activeDeliveries.length}
+                    inactiveDelivery={inactiveDeliveries.length}
+                />
+            </div>
 
             {/* Deliveries List */}
             <div style={pageStyles.listContainer}>
-                {deliveries.length > 0 ? (
+                {filteredDeliveries.length > 0 ? (
                     <>
                         <div style={pageStyles.sectionTitle}>
-                            <CarOutlined style={{ fontSize: 18, color: '#13c2c2' }} />
-                            <span style={{ fontSize: 16, fontWeight: 600, color: '#1a1a2e' }}>
+                            <div style={{ 
+                                width: 4, 
+                                height: 16, 
+                                background: '#0891B2', 
+                                borderRadius: 2 
+                            }} />
+                            <span style={{ fontSize: 16, fontWeight: 700, color: '#1E293B' }}>
                                 รายการบริการส่ง
                             </span>
                             <div style={{
-                                background: 'linear-gradient(135deg, #13c2c2 0%, #08979c 100%)',
-                                color: 'white',
-                                padding: '4px 12px',
-                                borderRadius: 20,
+                                background: '#CFFAFE',
+                                color: '#0891B2',
+                                padding: '2px 10px',
+                                borderRadius: 12,
                                 fontSize: 12,
-                                fontWeight: 600
+                                fontWeight: 700,
+                                marginLeft: 'auto'
                             }}>
-                                {deliveries.length} รายการ
+                                {filteredDeliveries.length}
                             </div>
                         </div>
 
-                        {deliveries.map((delivery, index) => (
+                        {filteredDeliveries.map((delivery, index) => (
                             <DeliveryCard
                                 key={delivery.id}
                                 delivery={delivery}
@@ -504,9 +533,12 @@ export default function DeliveryPage() {
                         ))}
                     </>
                 ) : (
-                    <EmptyState onAdd={handleAdd} />
+                    <EmptyState onAdd={handleAdd} isSearch={!!searchText} />
                 )}
             </div>
+            
+            {/* Bottom padding */}
+            <div style={{ height: 40 }} />
         </div>
     );
 }

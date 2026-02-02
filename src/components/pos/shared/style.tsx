@@ -2,39 +2,49 @@
 
 import { CSSProperties } from 'react';
 
-// Color Palette for POS Ordering Interface
+// ============================================
+// Color Palette - Soft Modern Clarity
+// ============================================
 export const posColors = {
-  // Primary Colors
-  primary: '#1890ff',
-  primaryLight: '#e6f7ff',
-  primaryBorder: '#91d5ff',
+  // Primary Colors - Softer blues
+  primary: '#3B82F6',
+  primaryDark: '#2563EB',
+  primaryLight: '#EFF6FF',
+  primaryBorder: '#BFDBFE',
   
-  // Success (Cart & Actions)
-  success: '#52c41a',
-  successLight: '#f6ffed',
-  successBorder: '#b7eb8f',
+  // Success (Cart & Actions) - Softer greens
+  success: '#10B981',
+  successLight: '#ECFDF5',
+  successBorder: '#A7F3D0',
   
-  // Warning (Notes & Alerts)
-  warning: '#fa8c16',
-  warningLight: '#fff7e6',
-  warningBorder: '#ffd591',
+  // Warning (Notes & Alerts) - Warm oranges
+  warning: '#F59E0B',
+  warningLight: '#FFFBEB',
+  warningBorder: '#FDE68A',
   
-  // Text Colors
-  text: '#262626',
-  textSecondary: '#8c8c8c',
-  textLight: '#bfbfbf',
+  // Text Colors - Slate tones
+  text: '#1E293B',
+  textSecondary: '#64748B',
+  textLight: '#94A3B8',
   
   // Background Colors
-  background: '#f0f2f5',
-  white: '#ffffff',
-  card: '#ffffff',
+  background: '#F8FAFC',
+  white: '#FFFFFF',
+  card: '#FFFFFF',
   
   // Border Colors
-  border: '#d9d9d9',
-  borderLight: '#f0f0f0',
+  border: '#E2E8F0',
+  borderLight: '#F1F5F9',
+  
+  // Channel Colors
+  dineIn: '#3B82F6',
+  takeaway: '#10B981',
+  delivery: '#8B5CF6',
 };
 
+// ============================================
 // Typography
+// ============================================
 export const posTypography = {
   heroTitle: {
     fontSize: 24,
@@ -44,14 +54,14 @@ export const posTypography = {
   
   heroSubtitle: {
     fontSize: 14,
-    fontWeight: 400,
+    fontWeight: 500,
     opacity: 0.9,
   } as CSSProperties,
   
   productName: {
     fontSize: 15,
     fontWeight: 600,
-    lineHeight: 1.3,
+    lineHeight: 1.4,
   } as CSSProperties,
   
   productPrice: {
@@ -65,24 +75,27 @@ export const posTypography = {
   } as CSSProperties,
 };
 
-// Main Container Styles
+// ============================================
+// Main Layout Styles
+// ============================================
 export const posLayoutStyles = {
   container: {
     minHeight: '100vh',
     background: posColors.background,
     display: 'flex',
     flexDirection: 'column' as CSSProperties['flexDirection'],
-    paddingBottom: 100, // Space for mobile nav + cart bar
+    paddingBottom: 100,
   } as CSSProperties,
 
-  // Sticky Header
+  // Header - Softer gradient
   header: {
-    background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)',
-    padding: '16px 20px',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+    background: 'linear-gradient(145deg, #3B82F6 0%, #60A5FA 50%, #93C5FD 100%)',
+    padding: '20px 24px',
+    boxShadow: '0 4px 20px rgba(59, 130, 246, 0.15)',
     position: 'sticky' as CSSProperties['position'],
     top: 0,
     zIndex: 100,
+    borderRadius: '0 0 24px 24px',
   },
 
   headerContent: {
@@ -97,10 +110,37 @@ export const posLayoutStyles = {
   headerLeft: {
     display: 'flex',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
     flex: 1,
-    minWidth: 0, // Allow text truncation
+    minWidth: 0,
   },
+
+  headerBackButton: {
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: 42,
+    height: 42,
+    borderRadius: 14,
+    background: 'rgba(255, 255, 255, 0.2)',
+    backdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    color: '#fff',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  } as CSSProperties,
+
+  headerIconWrapper: {
+    width: 48,
+    height: 48,
+    borderRadius: 16,
+    background: 'rgba(255, 255, 255, 0.2)',
+    backdropFilter: 'blur(10px)',
+    border: '1px solid rgba(255, 255, 255, 0.3)',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as CSSProperties,
 
   headerInfo: {
     flex: 1,
@@ -109,31 +149,34 @@ export const posLayoutStyles = {
 
   headerTitle: {
     color: '#fff',
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: 700,
     margin: 0,
     lineHeight: 1.2,
+    textShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
   } as CSSProperties,
 
   headerSubtitle: {
-    color: 'rgba(255,255,255,0.85)',
-    fontSize: 13,
-    marginTop: 2,
+    color: 'rgba(255, 255, 255, 0.9)',
+    fontSize: 14,
+    marginTop: 4,
+    fontWeight: 500,
   } as CSSProperties,
 
   headerActions: {
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
 
-  // Category Filter Bar
+  // Category Filter Bar - Glass effect
   categoryBar: {
-    background: '#fff',
-    padding: '12px 20px',
-    borderBottom: '1px solid #f0f0f0',
+    background: 'rgba(255, 255, 255, 0.95)',
+    backdropFilter: 'blur(10px)',
+    padding: '14px 24px',
+    borderBottom: '1px solid rgba(226, 232, 240, 0.8)',
     position: 'sticky' as CSSProperties['position'],
-    top: 64, // Below header
+    top: 84,
     zIndex: 99,
     overflowX: 'auto' as CSSProperties['overflowX'],
     whiteSpace: 'nowrap' as CSSProperties['whiteSpace'],
@@ -143,14 +186,14 @@ export const posLayoutStyles = {
     maxWidth: 1400,
     margin: '0 auto',
     display: 'flex',
-    gap: 8,
+    gap: 10,
   },
 
   // Content Area
   content: {
     maxWidth: 1400,
     margin: '0 auto',
-    padding: '20px',
+    padding: '24px',
     flex: 1,
     width: '100%',
   },
@@ -158,51 +201,54 @@ export const posLayoutStyles = {
   // Product Grid
   productGrid: {
     display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))',
-    gap: 16,
+    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+    gap: 20,
   } as CSSProperties,
 
-  // Product Card
+  // Product Card - Modern with soft shadows
   productCard: {
     background: posColors.white,
-    borderRadius: 12,
+    borderRadius: 20,
     overflow: 'hidden',
-    boxShadow: '0 2px 8px rgba(0,0,0,0.06)',
+    boxShadow: '0 4px 16px rgba(0, 0, 0, 0.04)',
     transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     cursor: 'pointer',
-    border: '1px solid #f0f0f0',
+    border: '1px solid rgba(226, 232, 240, 0.8)',
+    position: 'relative' as CSSProperties['position'],
   } as CSSProperties,
 
   productImage: {
     width: '100%',
-    height: 180,
+    height: 160,
     position: 'relative' as CSSProperties['position'],
     overflow: 'hidden',
-    background: '#f5f5f5',
+    background: `linear-gradient(135deg, ${posColors.primaryLight} 0%, #DBEAFE 100%)`,
   },
 
   productInfo: {
-    padding: 14,
+    padding: 16,
   },
 
   productName: {
     ...posTypography.productName,
     color: posColors.text,
-    marginBottom: 4,
+    marginBottom: 6,
     display: 'block',
   } as CSSProperties,
 
   productCategory: {
     fontSize: 11,
     color: posColors.textSecondary,
-    marginBottom: 8,
+    marginBottom: 10,
   } as CSSProperties,
 
   productFooter: {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 12,
+    marginTop: 14,
+    paddingTop: 12,
+    borderTop: '1px solid #F1F5F9',
   },
 
   productPrice: {
@@ -211,79 +257,83 @@ export const posLayoutStyles = {
   } as CSSProperties,
 
   addButton: {
-    background: posColors.success,
+    background: `linear-gradient(135deg, ${posColors.success} 0%, #059669 100%)`,
     color: '#fff',
     border: 'none',
-    borderRadius: 8,
-    padding: '8px 16px',
+    borderRadius: 12,
+    padding: '10px 16px',
     fontSize: 13,
     fontWeight: 600,
     cursor: 'pointer',
     transition: 'all 0.3s ease',
     display: 'flex',
     alignItems: 'center',
-    gap: 4,
+    gap: 6,
+    boxShadow: `0 4px 12px ${posColors.success}40`,
   } as CSSProperties,
 
   // Pagination
   paginationContainer: {
     display: 'flex',
     justifyContent: 'center',
-    marginTop: 24,
-    padding: '20px 0',
+    marginTop: 32,
+    padding: '24px 0',
   },
 
-
-
-  // Floating Cart Button (Desktop)
+  // Floating Cart Button
   floatingCartButton: {
-    width: 60,
-    height: 60,
-    borderRadius: '50%',
-    background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)',
-    boxShadow: '0 6px 20px rgba(24, 144, 255, 0.4)',
+    width: 64,
+    height: 64,
+    borderRadius: 20,
+    background: `linear-gradient(145deg, ${posColors.primary} 0%, ${posColors.primaryDark} 100%)`,
+    boxShadow: `0 8px 24px ${posColors.primary}50`,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    border: '2px solid #fff',
+    border: '3px solid #fff',
   } as CSSProperties,
 
   // Loading State
   loadingContainer: {
     textAlign: 'center' as CSSProperties['textAlign'],
-    padding: 60,
+    padding: 80,
     background: '#fff',
-    borderRadius: 12,
+    borderRadius: 24,
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
   },
 
   // Empty State
   emptyContainer: {
     textAlign: 'center' as CSSProperties['textAlign'],
-    padding: 60,
+    padding: 80,
     background: '#fff',
-    borderRadius: 12,
+    borderRadius: 24,
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.04)',
   },
 };
 
+// ============================================
 // Cart Drawer Styles
+// ============================================
 export const posCartStyles = {
   cartHeader: {
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
 
   cartItem: {
-    padding: '14px 0',
-    borderBottom: '1px solid #f0f0f0',
+    padding: '16px 0',
+    borderBottom: '1px solid #F1F5F9',
   },
 
   cartItemImage: {
-    width: 50,
-    height: 50,
-    borderRadius: 8,
+    width: 56,
+    height: 56,
+    borderRadius: 12,
     objectFit: 'cover' as CSSProperties['objectFit'],
-    background: '#f5f5f5',
+    background: '#F8FAFC',
+    border: '1px solid #E2E8F0',
   } as CSSProperties,
 
   cartItemInfo: {
@@ -293,59 +343,79 @@ export const posCartStyles = {
   cartItemName: {
     ...posTypography.cartItemName,
     color: posColors.text,
-    marginBottom: 2,
+    marginBottom: 4,
   } as CSSProperties,
 
   cartItemPrice: {
-    fontSize: 12,
+    fontSize: 13,
     color: posColors.textSecondary,
   } as CSSProperties,
 
   cartItemNote: {
-    marginTop: 4,
+    marginTop: 6,
     background: posColors.warningLight,
-    padding: '2px 6px',
-    borderRadius: 4,
-    border: `1px dashed ${posColors.warningBorder}`,
+    padding: '4px 10px',
+    borderRadius: 8,
+    border: `1px solid ${posColors.warningBorder}`,
     display: 'inline-block',
-    fontSize: 11,
+    fontSize: 12,
   } as CSSProperties,
 
   quantityControl: {
     display: 'flex',
     alignItems: 'center',
-    gap: 8,
-    background: '#f5f5f5',
-    padding: '2px 8px',
-    borderRadius: 20,
+    gap: 12,
+    background: '#F8FAFC',
+    padding: '6px 12px',
+    borderRadius: 12,
+    border: '1px solid #E2E8F0',
   },
 
+  quantityButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 8,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    cursor: 'pointer',
+    transition: 'all 0.2s ease',
+  } as CSSProperties,
+
   checkoutSummary: {
-    background: '#fafafa',
+    background: '#F8FAFC',
     padding: 20,
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 24,
+    border: '1px solid #E2E8F0',
   },
 };
 
+// ============================================
 // Global Styles Component
+// ============================================
 export const POSSharedStyles = () => (
   <style jsx global>{`
     /* Product Card Hover Effects */
+    .pos-product-card {
+      transform: translateY(0);
+    }
+    
     .pos-product-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+      transform: translateY(-6px);
+      box-shadow: 0 12px 32px rgba(0, 0, 0, 0.1);
       border-color: ${posColors.primaryBorder};
     }
 
     .pos-product-card:active {
-      transform: translateY(-2px);
+      transform: translateY(-2px) scale(0.99);
     }
 
     /* Add Button Hover */
     .pos-add-button:hover {
-      background: #73d13d;
+      background: linear-gradient(135deg, #059669 0%, #047857 100%);
       transform: scale(1.05);
+      box-shadow: 0 6px 16px rgba(16, 185, 129, 0.5);
     }
 
     .pos-add-button:active {
@@ -356,7 +426,7 @@ export const POSSharedStyles = () => (
     @keyframes pos-fade-in {
       from {
         opacity: 0;
-        transform: translateY(20px);
+        transform: translateY(16px);
       }
       to {
         opacity: 1;
@@ -380,22 +450,65 @@ export const POSSharedStyles = () => (
     }
 
     .pos-category-bar::-webkit-scrollbar-track {
-      background: #f0f0f0;
+      background: transparent;
     }
 
     .pos-category-bar::-webkit-scrollbar-thumb {
-      background: #d9d9d9;
+      background: #CBD5E1;
       border-radius: 4px;
     }
 
-    /* Mobile Responsive Styles */
+    /* Category Button Styles */
+    .pos-category-btn {
+      border-radius: 12px !important;
+      font-weight: 600 !important;
+      height: 42px !important;
+      padding: 0 20px !important;
+      border: 1.5px solid #E2E8F0 !important;
+      transition: all 0.2s ease !important;
+    }
+    
+    .pos-category-btn:hover {
+      border-color: ${posColors.primary} !important;
+      color: ${posColors.primary} !important;
+    }
+
+    /* Header Back Button */
+    .pos-header-back:hover {
+      background: rgba(255, 255, 255, 0.3) !important;
+      transform: translateX(-2px);
+    }
+
+    /* Floating Button Container */
+    .pos-floating-btn-container {
+      position: fixed !important;
+      bottom: 32px !important;
+      right: 32px !important;
+      z-index: 1000 !important;
+      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    /* Pulse Animation for Cart */
+    @keyframes pos-pulse {
+      0%, 100% { box-shadow: 0 8px 24px ${posColors.primary}50; }
+      50% { box-shadow: 0 12px 32px ${posColors.primary}70; }
+    }
+    
+    .pos-cart-pulse {
+      animation: pos-pulse 2s ease-in-out infinite;
+    }
+
+    /* ============================================
+       Mobile Responsive Styles
+       ============================================ */
     @media (max-width: 768px) {
       .pos-header-mobile {
-        padding: 12px 16px !important;
+        padding: 16px 16px 20px !important;
+        border-radius: 0 0 20px 20px !important;
       }
 
       .pos-header-title-mobile {
-        font-size: 16px !important;
+        font-size: 18px !important;
       }
 
       .pos-header-subtitle-mobile {
@@ -403,8 +516,8 @@ export const POSSharedStyles = () => (
       }
 
       .pos-category-bar-mobile {
-        padding: 10px 16px !important;
-        top: 56px !important;
+        padding: 12px 16px !important;
+        top: 76px !important;
       }
 
       .pos-content-mobile {
@@ -413,11 +526,11 @@ export const POSSharedStyles = () => (
 
       .pos-product-grid-mobile {
         grid-template-columns: repeat(2, 1fr) !important;
-        gap: 12px !important;
+        gap: 14px !important;
       }
 
       .pos-product-image-mobile {
-        height: 140px !important;
+        height: 130px !important;
       }
 
       .pos-product-info-mobile {
@@ -425,36 +538,34 @@ export const POSSharedStyles = () => (
       }
 
       .pos-product-name-mobile {
-        font-size: 14px !important;
+        font-size: 13px !important;
+        line-height: 1.3 !important;
       }
 
       .pos-product-price-mobile {
-        font-size: 16px !important;
+        font-size: 15px !important;
       }
 
       .pos-add-button-mobile {
-        padding: 6px 12px !important;
-        font-size: 12px !important;
+        padding: 8px 12px !important;
+        font-size: 11px !important;
+        border-radius: 10px !important;
       }
 
-
-    }
-
-    /* Floating button container positioning - Outside media query to apply to all devices */
-    .pos-floating-btn-container {
-      position: fixed !important;
-      bottom: 32px !important;
-      right: 32px !important;
-      left: auto !important;
-      z-index: 1000 !important;
-      transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-    }
-
-    @media (max-width: 768px) {
       .pos-floating-btn-container {
-        bottom: 100px !important; /* Above the bottom navigation bar */
+        bottom: 100px !important;
         right: 20px !important;
-        left: auto !important;
+      }
+
+      /* Touch-friendly targets */
+      .pos-product-card {
+        min-height: 220px;
+      }
+
+      .pos-category-btn {
+        height: 38px !important;
+        padding: 0 16px !important;
+        font-size: 13px !important;
       }
     }
 
@@ -463,12 +574,49 @@ export const POSSharedStyles = () => (
         gap: 10px !important;
       }
 
+      .pos-product-image-mobile {
+        height: 110px !important;
+      }
+
+      .pos-product-info-mobile {
+        padding: 10px !important;
+      }
+
+      .pos-product-footer-mobile {
+        flex-direction: column !important;
+        gap: 10px !important;
+        align-items: stretch !important;
+      }
+
+      .pos-add-button-mobile {
+        width: 100% !important;
+        justify-content: center !important;
+      }
     }
 
-    /* Desktop - wider product grid */
-    @media (min-width: 1400px) {
+    /* Desktop - wider grid */
+    @media (min-width: 1200px) {
+      .pos-product-grid {
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)) !important;
+        gap: 24px !important;
+      }
+    }
+
+    @media (min-width: 1600px) {
       .pos-product-grid {
         grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)) !important;
+      }
+    }
+
+    /* Touch device adjustments */
+    @media (hover: none) {
+      .pos-product-card:active {
+        transform: scale(0.98) !important;
+      }
+      
+      .pos-product-card:hover {
+        transform: none !important;
+        box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04) !important;
       }
     }
   `}</style>

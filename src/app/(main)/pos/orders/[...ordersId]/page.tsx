@@ -680,9 +680,10 @@ export default function POSOrderDetailsPage() {
         <div className="order-detail-page" style={orderDetailStyles.container}>
             <style jsx global>{ordersResponsiveStyles}</style>
             
-            {/* Sticky Compact Header */}
+            {/* Sticky Compact Header - Glass Effect */}
             <header className="order-detail-header" style={orderDetailStyles.header}>
                 <div style={orderDetailStyles.headerContent}>
+                    {/* Glass Back Button */}
                     <Button 
                         type="text" 
                         icon={<ArrowLeftOutlined />} 
@@ -693,21 +694,23 @@ export default function POSOrderDetailsPage() {
                                 router.back();
                             }
                         }}
-                        style={{ height: 40, width: 40, borderRadius: '50%' }}
+                        aria-label="กลับ"
+                        style={orderDetailStyles.headerBackButton}
+                        className="scale-hover"
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <Title level={4} style={{ margin: 0, fontSize: 18, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap' }}>
+                            <Title level={4} style={orderDetailStyles.headerTitle}>
                                 {order.order_no}
                             </Title>
                             {order.order_type === OrderType.DineIn && order.table && (
                                 <Tag style={orderDetailStyles.tableNameBadge}>
-                                    โต๊ะ {order.table.table_name}
+                                    🪑 โต๊ะ {order.table.table_name}
                                 </Tag>
                             )}
                             {order.order_type === OrderType.Delivery && order.delivery_code && (
                                 <Tag style={orderDetailStyles.tableNameBadge}>
-                                    รหัสออเดอร์ : {order.delivery_code}
+                                    📋 รหัส: {order.delivery_code}
                                 </Tag>
                             )}
                         </div>
@@ -732,11 +735,11 @@ export default function POSOrderDetailsPage() {
                             </Text>
                         </div>
                     </div>
-                    <Space direction="vertical" align="end" size={4}>
+                    <Space direction="vertical" align="end" size={6}>
                         <Tag 
                             color={getOrderStatusColor(order.status)} 
                             className="status-badge"
-                            style={{ margin: 0, fontSize: 12 }}
+                            style={{ margin: 0, fontSize: 13, fontWeight: 600, borderRadius: 10, padding: '4px 14px' }}
                         >
                             {getOrderStatusText(order.status, order.order_type)}
                         </Tag>
@@ -747,7 +750,7 @@ export default function POSOrderDetailsPage() {
                                     currentQueueItem.status === QueueStatus.Processing ? 'blue' :
                                     currentQueueItem.status === QueueStatus.Completed ? 'green' : 'red'
                                 }
-                                style={{ margin: 0, fontSize: 11 }}
+                                style={{ margin: 0, fontSize: 11, borderRadius: 8 }}
                             >
                                 คิว #{currentQueueItem.queue_position} - {currentQueueItem.status === QueueStatus.Pending ? 'รอ' :
                                     currentQueueItem.status === QueueStatus.Processing ? 'กำลังทำ' :
@@ -760,7 +763,14 @@ export default function POSOrderDetailsPage() {
             
             {/* Queue Management Actions */}
             {order && order.status !== OrderStatus.Cancelled && order.status !== OrderStatus.Completed && (
-                <div style={{ padding: '0 24px 16px', display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                <div style={{ 
+                    padding: '16px 24px', 
+                    display: 'flex', 
+                    justifyContent: 'flex-end', 
+                    gap: 10,
+                    background: orderDetailColors.backgroundSecondary,
+                    borderBottom: `1px solid ${orderDetailColors.borderLight}`,
+                }}>
                     {currentQueueItem ? (
                         <Button
                             danger
@@ -769,6 +779,8 @@ export default function POSOrderDetailsPage() {
                                 removeFromQueue(currentQueueItem.id);
                             }}
                             loading={isQueueLoading}
+                            style={{ borderRadius: 12, height: 40, fontWeight: 600 }}
+                            className="scale-hover"
                         >
                             ลบออกจากคิว
                         </Button>
@@ -783,6 +795,15 @@ export default function POSOrderDetailsPage() {
                                 });
                             }}
                             loading={isQueueLoading}
+                            style={{ 
+                                borderRadius: 12, 
+                                height: 40, 
+                                fontWeight: 600,
+                                background: `linear-gradient(135deg, ${orderDetailColors.primary} 0%, ${orderDetailColors.primaryDark} 100%)`,
+                                border: 'none',
+                                boxShadow: `0 4px 12px ${orderDetailColors.primary}30`,
+                            }}
+                            className="scale-hover"
                         >
                             <UnorderedListOutlined /> เพิ่มเข้าคิว
                         </Button>
