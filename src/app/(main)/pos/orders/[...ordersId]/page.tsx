@@ -109,14 +109,8 @@ export default function POSOrderDetailsPage() {
                 router.push(nextPath);
                 return;
             }
-            console.log('Fetched order data:', { 
-                orderId: data.id, 
-                itemsCount: data.items?.length,
-                items: data.items?.map((item: SalesOrderItem) => ({ id: item.id, quantity: item.quantity }))
-            });
             setOrder(data);
         } catch (error) {
-            console.error("Failed to fetch order:", error);
             message.error("ไม่สามารถโหลดข้อมูลออเดอร์ได้");
         } finally {
             setIsLoading(false);
@@ -261,7 +255,6 @@ export default function POSOrderDetailsPage() {
                     router.push(getCancelOrderNavigationPath(order.order_type));
 
                 } catch (error) {
-                    console.error("Cancel failed:", error);
                     message.error("ไม่สามารถยกเลิกออเดอร์ได้");
                 } finally {
                     setIsUpdating(false);
@@ -311,8 +304,6 @@ export default function POSOrderDetailsPage() {
                 throw new Error("Invalid quantity");
             }
             
-            console.log('Updating item:', { itemId, quantity, notes, details });
-            
             // Prepare update data - ensure all values are properly formatted
             const updateData = {
                 quantity: Number(quantity),
@@ -323,13 +314,6 @@ export default function POSOrderDetailsPage() {
                 })) : []
             };
             
-            console.log('Sending update data:', JSON.stringify(updateData, null, 2));
-            console.log('Update data types:', {
-                quantity: typeof updateData.quantity,
-                notes: typeof updateData.notes,
-                details: Array.isArray(updateData.details)
-            });
-            
             // Send update request
             const updatedOrder = await ordersService.updateItem(
                 itemId, 
@@ -337,29 +321,6 @@ export default function POSOrderDetailsPage() {
                 undefined, 
                 csrfToken
             );
-            
-            console.log('Update response:', updatedOrder);
-            
-            // Verify the update in response
-            const updatedItem = updatedOrder?.items?.find((item: SalesOrderItem) => item.id === itemId);
-            if (updatedItem) {
-                console.log('Updated item in response:', { 
-                    id: updatedItem.id, 
-                    quantity: updatedItem.quantity,
-                    expectedQuantity: quantity,
-                    match: updatedItem.quantity === quantity
-                });
-                
-                if (updatedItem.quantity !== quantity) {
-                    console.warn('⚠️ Quantity mismatch! Expected:', quantity, 'Got:', updatedItem.quantity);
-                    console.warn('Full updated item:', updatedItem);
-                } else {
-                    console.log('✅ Quantity matches in response');
-                }
-            } else {
-                console.warn('⚠️ Updated item not found in response');
-                console.warn('Available items:', updatedOrder?.items?.map((item: SalesOrderItem) => ({ id: item.id, quantity: item.quantity })));
-            }
             
             message.success("แก้ไขรายการเรียบร้อย");
             
@@ -374,7 +335,6 @@ export default function POSOrderDetailsPage() {
             // Always fetch fresh data after update
             // Note: Backend might have a bug where it uses old quantity value
             // So we'll fetch multiple times to ensure we get the updated data
-            console.log('Update completed, fetching fresh order data...');
             
             // First fetch after short delay
             await new Promise(resolve => setTimeout(resolve, 600));
@@ -385,18 +345,9 @@ export default function POSOrderDetailsPage() {
                 const freshOrder = await ordersService.getById(orderId as string);
                 const freshItem = freshOrder?.items?.find((item: SalesOrderItem) => item.id === itemId);
                 if (freshItem) {
-                    console.log('Verifying update:', {
-                        itemId: freshItem.id,
-                        expectedQuantity: quantity,
-                        actualQuantity: freshItem.quantity,
-                        match: freshItem.quantity === quantity
-                    });
-                    
                     if (freshItem.quantity === quantity) {
-                        console.log('✅ Quantity update verified');
                         setOrder(freshOrder);
                     } else {
-                        console.warn('⚠️ Quantity mismatch, fetching again...');
                         // Try one more time after longer delay
                         setTimeout(async () => {
                             await fetchOrder(orderId as string);
@@ -405,7 +356,6 @@ export default function POSOrderDetailsPage() {
                 }
             }, 500);
         } catch (error) {
-            console.error("Error updating item:", error);
             message.error("ไม่สามารถแก้ไขรายการได้");
             throw error;
         } finally {

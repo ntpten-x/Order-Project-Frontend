@@ -30,11 +30,6 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
             const currentItemId = item.id;
             // Only initialize if it's a different item (different ID)
             if (currentItemId !== initializedItemIdRef.current) {
-                console.log('Initializing modal with item:', { 
-                    id: currentItemId, 
-                    quantity: item.quantity,
-                    previousItemId: initializedItemIdRef.current
-                });
                 setQuantity(item.quantity);
                 setNotes(item.notes || '');
                 setDetails(item.details ? [...item.details.map(d => ({ detail_name: d.detail_name, extra_price: d.extra_price }))] : []);
@@ -60,18 +55,10 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
             showLoading("กำลังบันทึกแก้ไข...");
             // Filter out empty details before saving
             const validDetails = details.filter(d => d.detail_name && d.detail_name.trim() !== '');
-            console.log('Saving item with data:', { 
-                itemId: item.id, 
-                quantity, 
-                notes, 
-                details: validDetails,
-                currentItemQuantity: item.quantity 
-            });
             await onSave(item.id, quantity, notes, validDetails);
             // Don't close immediately - let parent handle it after successful save
         } catch (error) {
             // Error handled by parent
-            console.error("Error saving item:", error);
         } finally {
             hideLoading();
         }

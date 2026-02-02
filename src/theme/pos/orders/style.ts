@@ -378,16 +378,17 @@ export const orderDetailStyles = {
     paddingBottom: 100,
   } as CSSProperties,
 
-  // Compact Header - Glass effect
+  // Compact Header - Enhanced glass effect
   header: {
-    background: orderColors.white,
-    backdropFilter: 'blur(10px)',
-    padding: '12px 16px',
+    background: `linear-gradient(180deg, ${orderColors.white} 0%, rgba(255, 255, 255, 0.98) 100%)`,
+    backdropFilter: 'blur(20px) saturate(180%)',
+    padding: '14px 20px',
     borderBottom: `1px solid ${orderColors.border}`,
     position: 'sticky' as const,
     top: 0,
     zIndex: 100,
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.08)',
+    transition: 'all 0.3s ease',
   } as CSSProperties,
 
   headerContent: {
@@ -399,18 +400,19 @@ export const orderDetailStyles = {
   } as CSSProperties,
 
   headerBackButton: {
-    width: 40,
-    height: 40,
+    width: 42,
+    height: 42,
     borderRadius: 12,
-    background: orderColors.backgroundSecondary,
+    background: `linear-gradient(135deg, ${orderColors.backgroundSecondary} 0%, ${orderColors.white} 100%)`,
     border: `1px solid ${orderColors.border}`,
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
     color: orderColors.text,
     cursor: 'pointer',
-    transition: 'all 0.2s ease',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
     flexShrink: 0,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
   } as CSSProperties,
 
   headerTitle: {
@@ -471,21 +473,23 @@ export const orderDetailStyles = {
     margin: '0 2px',
   } as CSSProperties,
 
-  // Content Container
+  // Content Container - Enhanced spacing
   contentWrapper: {
     maxWidth: 1200,
     margin: '0 auto',
-    padding: '16px',
+    padding: '20px 16px',
   } as CSSProperties,
 
-  // Card Styles - Modern design
+  // Card Styles - Modern design with enhanced depth
   card: {
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.08)',
     border: `1px solid ${orderColors.border}`,
-    marginBottom: 12,
+    marginBottom: 16,
     background: orderColors.white,
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    position: 'relative' as const,
   } as CSSProperties,
 
   cardHeader: {
@@ -494,13 +498,16 @@ export const orderDetailStyles = {
     borderBottom: `1px solid ${orderColors.borderLight}`,
   } as CSSProperties,
 
-  // Summary Card
+  // Summary Card - Enhanced design
   summaryCard: {
-    borderRadius: 12,
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
-    background: orderColors.white,
-    padding: 16,
+    borderRadius: 16,
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.08)',
+    background: `linear-gradient(180deg, ${orderColors.white} 0%, ${orderColors.backgroundSecondary} 100%)`,
+    padding: 20,
     border: `1px solid ${orderColors.border}`,
+    position: 'sticky' as const,
+    top: 80,
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
   } as CSSProperties,
 
   summaryRow: {
@@ -511,11 +518,13 @@ export const orderDetailStyles = {
   } as CSSProperties,
 
   summaryList: {
-    background: orderColors.backgroundSecondary,
-    padding: '12px 14px',
-    borderRadius: 10,
-    marginBottom: '12px',
+    background: `linear-gradient(135deg, ${orderColors.white} 0%, ${orderColors.backgroundSecondary} 100%)`,
+    padding: '16px 18px',
+    borderRadius: 12,
+    marginBottom: '16px',
     border: `1px solid ${orderColors.border}`,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+    transition: 'all 0.2s ease',
   } as CSSProperties,
 
   summaryMainRow: {
@@ -531,16 +540,23 @@ export const orderDetailStyles = {
     flexDirection: 'row' as const,
     gap: 14,
     padding: '14px 0',
-    borderBottom: '1px dashed #E2E8F0',
+    borderBottom: '1px solid rgba(226, 232, 240, 0.6)',
+    transition: 'all 0.2s ease',
+  } as CSSProperties,
+
+  summaryItemRowLast: {
+    borderBottom: 'none',
   } as CSSProperties,
 
   summaryItemImage: {
-    width: 44,
-    height: 44,
-    borderRadius: 10,
+    width: 48,
+    height: 48,
+    borderRadius: 12,
     objectFit: 'cover' as const,
     flexShrink: 0,
-    border: '1px solid #F1F5F9',
+    border: `2px solid ${orderColors.borderLight}`,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+    transition: 'all 0.2s ease',
   } as CSSProperties,
 
   summaryItemContent: {
@@ -582,25 +598,28 @@ export const orderDetailStyles = {
     textAlign: 'center' as const,
   } as CSSProperties,
 
-  // Order Item Card (Mobile)
+  // Order Item Card (Mobile) - Enhanced design
   itemCard: {
     background: orderColors.white,
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 10,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 12,
     border: `1px solid ${orderColors.border}`,
-    transition: 'all 0.2s ease',
-    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+    boxShadow: '0 2px 12px rgba(0, 0, 0, 0.04), 0 1px 3px rgba(0, 0, 0, 0.06)',
+    position: 'relative' as const,
   } as CSSProperties,
 
   itemCardActive: {
-    borderLeft: `3px solid ${orderColors.primary}`,
-    background: orderColors.white,
+    borderLeft: `4px solid ${orderColors.primary}`,
+    background: `linear-gradient(90deg, ${orderColors.primaryLight}05 0%, ${orderColors.white} 8%)`,
+    boxShadow: '0 4px 16px rgba(59, 130, 246, 0.12), 0 2px 6px rgba(0, 0, 0, 0.08)',
   } as CSSProperties,
 
   itemCardServed: {
-    background: orderColors.backgroundSecondary,
-    borderLeft: `3px solid ${orderColors.served}`,
+    background: `linear-gradient(90deg, ${orderColors.servedLight}08 0%, ${orderColors.backgroundSecondary} 8%)`,
+    borderLeft: `4px solid ${orderColors.served}`,
+    boxShadow: '0 2px 12px rgba(16, 185, 129, 0.08), 0 1px 3px rgba(0, 0, 0, 0.06)',
   } as CSSProperties,
 
   // Action Bar (Floating)
@@ -693,27 +712,30 @@ export const orderDetailStyles = {
     boxShadow: `0 2px 8px ${orderColors.primary}25`,
   } as CSSProperties,
 
-  // Product Thumbnails
+  // Product Thumbnails - Enhanced design
   productThumb: {
-    width: 52,
-    height: 52,
-    borderRadius: 10,
+    width: 56,
+    height: 56,
+    borderRadius: 12,
     objectFit: "cover" as const,
-    border: `1px solid ${orderColors.border}`,
+    border: `2px solid ${orderColors.borderLight}`,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.06)',
+    transition: 'all 0.2s ease',
   } as CSSProperties,
 
   productThumbPlaceholder: {
-    width: 52,
-    height: 52,
-    borderRadius: 10,
-    background: orderColors.backgroundSecondary,
+    width: 56,
+    height: 56,
+    borderRadius: 12,
+    background: `linear-gradient(135deg, ${orderColors.backgroundSecondary} 0%, ${orderColors.borderLight} 100%)`,
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
     color: orderColors.textLight,
-    fontSize: 18,
-    opacity: 0.5,
-    border: `1px solid ${orderColors.border}`,
+    fontSize: 20,
+    opacity: 0.6,
+    border: `2px solid ${orderColors.borderLight}`,
+    boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
   } as CSSProperties,
 
   categoryTag: {
@@ -987,6 +1009,80 @@ export const addItemsModalStyles = {
 // Responsive CSS Styles (List & Detail)
 // ============================================
 export const ordersResponsiveStyles = `
+  /* ===== Global Animations ===== */
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideIn {
+    from {
+      opacity: 0;
+      transform: translateX(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  @keyframes scaleIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  .fade-in {
+    animation: fadeIn 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .scale-in {
+    animation: scaleIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .scale-hover {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .scale-hover:hover {
+    transform: scale(1.05);
+  }
+
+  .scale-hover:active {
+    transform: scale(0.98);
+  }
+
+  /* Enhanced card hover effects */
+  .order-detail-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .order-detail-card:hover {
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.1) !important;
+    transform: translateY(-2px);
+  }
+
+  /* Smooth transitions for item cards */
+  .order-item-card {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .order-item-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.08), 0 2px 6px rgba(0, 0, 0, 0.1) !important;
+  }
+
   /* ===== Mobile (< 768px) ===== */
   @media (max-width: 768px) {
     /* List Page */
@@ -1186,11 +1282,13 @@ export const ordersResponsiveStyles = `
     }
 
     .summary-card {
-      padding: 12px !important;
+      padding: 16px !important;
+      border-radius: 16px !important;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
     }
 
     .summary-card .ant-card-body {
-      padding: 12px !important;
+      padding: 16px !important;
     }
 
     .summary-card .ant-card-head {
@@ -1264,20 +1362,21 @@ export const ordersResponsiveStyles = `
 
     /* Item Cards */
     .order-item-card {
-      border-radius: 12px !important;
-      margin-bottom: 10px !important;
-      transition: transform 0.2s ease, box-shadow 0.2s ease;
-      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04) !important;
-      padding: 12px !important;
+      border-radius: 14px !important;
+      margin-bottom: 12px !important;
+      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06), 0 1px 3px rgba(0, 0, 0, 0.08) !important;
+      padding: 16px !important;
     }
 
     .order-item-card:active {
-      transform: scale(0.98);
-      box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06) !important;
+      transform: scale(0.98) !important;
+      box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08) !important;
     }
 
     .order-item-card:hover {
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08) !important;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1), 0 2px 6px rgba(0, 0, 0, 0.12) !important;
+      transform: translateY(-2px) !important;
     }
 
     /* Better spacing for mobile cards */

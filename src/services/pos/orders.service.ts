@@ -246,13 +246,6 @@ export const ordersService = {
         const headers = getHeaders(cookie, "application/json") as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
-        console.log('updateItem request:', {
-            url,
-            method: 'PUT',
-            headers: { ...headers, 'X-CSRF-Token': '***' },
-            body: JSON.stringify(data)
-        });
-
         const response = await fetch(url!, {
             method: "PUT",
             headers,
@@ -262,13 +255,10 @@ export const ordersService = {
         
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            console.error('updateItem error:', errorData);
             throw new Error(errorData.error || errorData.message || "ไม่สามารถแก้ไขรายการได้");
         }
         
-        const result = await response.json();
-        console.log('updateItem response:', result);
-        return result;
+        return response.json();
     },
 
     deleteItem: async (itemId: string, cookie?: string, csrfToken?: string): Promise<SalesOrder> => {
