@@ -875,73 +875,75 @@ export default function POSOrderDetailsPage() {
                             style={orderDetailStyles.card}
                             title={
                                 <div className="card-header-wrapper">
-                                    <div className="card-header-left">
-                                        <div style={orderDetailStyles.masterCheckboxWrapper}>
-                                            <Checkbox 
-                                                indeterminate={selectedRowKeys.length > 0 && selectedRowKeys.length < activeItems.length}
-                                                checked={activeItems.length > 0 && selectedRowKeys.length === activeItems.length}
-                                                onChange={(e) => {
-                                                    if (e.target.checked) {
-                                                        setSelectedRowKeys(activeItems.map(i => i.id));
-                                                    } else {
-                                                        setSelectedRowKeys([]);
-                                                    }
-                                                }}
-                                                style={orderDetailStyles.masterCheckbox}
-                                            />
+                                    <div className="card-header-top-row">
+                                        <div className="card-header-left">
+                                            <div style={orderDetailStyles.masterCheckboxWrapper}>
+                                                <Checkbox 
+                                                    indeterminate={selectedRowKeys.length > 0 && selectedRowKeys.length < activeItems.length}
+                                                    checked={activeItems.length > 0 && selectedRowKeys.length === activeItems.length}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setSelectedRowKeys(activeItems.map(i => i.id));
+                                                        } else {
+                                                            setSelectedRowKeys([]);
+                                                        }
+                                                    }}
+                                                    style={orderDetailStyles.masterCheckbox}
+                                                />
+                                            </div>
+                                            <Text strong style={orderDetailTypography.sectionTitle} className="section-title-text">
+                                                กำลังทำอาหาร ({activeItems.length})
+                                            </Text>
                                         </div>
-                                        <Text strong style={orderDetailTypography.sectionTitle} className="section-title-text">
-                                            กำลังทำอาหาร ({activeItems.length})
-                                        </Text>
-                                    </div>
-                                    <div className="card-header-right">
-                                        {/* Bulk Actions - แสดงเมื่อเลือกหลายรายการ */}
-                                        {selectedRowKeys.length > 0 && (
-                                            <div className="bulk-actions-container">
+                                        <div className="card-header-right">
+                                            {/* Header Actions - แสดงเสมอ อยู่ฝั่งขวา */}
+                                            <div className="header-actions-container">
                                                 <Button 
-                                                    danger 
-                                                    icon={<DeleteOutlined />} 
-                                                    onClick={handleCancelSelected}
+                                                    icon={<ReloadOutlined />} 
+                                                    onClick={() => fetchOrder(orderId as string)}
                                                     size="small"
-                                                    className="bulk-action-btn"
-                                                >
-                                                    <span>ยกเลิก ({selectedRowKeys.length})</span>
-                                                </Button>
+                                                    style={orderDetailStyles.actionButtonSecondary}
+                                                    className="header-action-btn"
+                                                    title="รีเฟรช"
+                                                />
                                                 <Button 
                                                     type="primary" 
-                                                    icon={<CheckOutlined />} 
-                                                    onClick={handleServeSelected} 
-                                                    loading={isUpdating}
+                                                    icon={<PlusOutlined />} 
+                                                    onClick={() => setIsAddModalOpen(true)}
                                                     size="small"
-                                                    style={{ background: orderDetailColors.served, borderColor: orderDetailColors.served }}
-                                                    className="bulk-action-btn"
+                                                    style={orderDetailStyles.actionButtonPrimary}
+                                                    className="header-action-btn"
                                                 >
-                                                    <span>{getServeActionText(order.order_type)} ({selectedRowKeys.length})</span>
+                                                    <span>เพิ่ม</span>
                                                 </Button>
                                             </div>
-                                        )}
-                                        {/* Header Actions - แสดงเสมอ */}
-                                        <div className="header-actions-container">
-                                            <Button 
-                                                icon={<ReloadOutlined />} 
-                                                onClick={() => fetchOrder(orderId as string)}
-                                                size="small"
-                                                style={orderDetailStyles.actionButtonSecondary}
-                                                className="header-action-btn"
-                                                title="รีเฟรช"
-                                            />
-                                            <Button 
-                                                type="primary" 
-                                                icon={<PlusOutlined />} 
-                                                onClick={() => setIsAddModalOpen(true)}
-                                                size="small"
-                                                style={orderDetailStyles.actionButtonPrimary}
-                                                className="header-action-btn"
-                                            >
-                                                <span>เพิ่ม</span>
-                                            </Button>
                                         </div>
                                     </div>
+                                    {/* Bulk Actions - แสดงเมื่อเลือกหลายรายการ อยู่ฝั่งซ้าย ข้างล่าง Title */}
+                                    {selectedRowKeys.length > 0 && (
+                                        <div className="bulk-actions-container">
+                                            <Button 
+                                                danger 
+                                                icon={<DeleteOutlined />} 
+                                                onClick={handleCancelSelected}
+                                                size="small"
+                                                className="bulk-action-btn"
+                                            >
+                                                <span>ยกเลิก ({selectedRowKeys.length})</span>
+                                            </Button>
+                                            <Button 
+                                                type="primary" 
+                                                icon={<CheckOutlined />} 
+                                                onClick={handleServeSelected} 
+                                                loading={isUpdating}
+                                                size="small"
+                                                style={{ background: orderDetailColors.served, borderColor: orderDetailColors.served }}
+                                                className="bulk-action-btn"
+                                            >
+                                                <span>{getServeActionText(order.order_type)} ({selectedRowKeys.length})</span>
+                                            </Button>
+                                        </div>
+                                    )}
                                 </div>
                             }
                         >

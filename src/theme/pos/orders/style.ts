@@ -573,10 +573,15 @@ export const orderDetailStyles = {
 
   // Empty State
   emptyState: {
+    display: 'flex',
+    flexDirection: 'column' as const,
+    alignItems: 'center',
+    justifyContent: 'center',
     textAlign: 'center' as const,
-    padding: '40px 24px',
+    padding: '48px 24px',
     background: orderColors.backgroundSecondary,
     borderRadius: 16,
+    gap: 16,
   } as CSSProperties,
 
   // Loading State
@@ -1179,29 +1184,63 @@ export const ordersResponsiveStyles = `
       width: 100% !important;
     }
 
+    .card-header-top-row {
+      display: flex !important;
+      flex-direction: row !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      gap: 8px !important;
+      width: 100% !important;
+    }
+
     .card-header-left {
       display: flex !important;
       align-items: center !important;
       gap: 10px !important;
       flex: 1 !important;
       min-width: 0 !important;
+      flex-wrap: nowrap !important;
+    }
+
+    .section-title-text {
+      font-size: 17px !important;
+      line-height: 1.4 !important;
+      font-weight: 600 !important;
     }
 
     .card-header-right {
       display: flex !important;
       align-items: center !important;
       justify-content: flex-end !important;
-      gap: 8px !important;
-      flex-wrap: wrap !important;
+      gap: 6px !important;
+      flex-wrap: nowrap !important;
       flex-shrink: 0 !important;
     }
 
-    /* Bulk Actions Container */
+    /* Bulk Actions Container - อยู่ฝั่งซ้าย ข้างล่าง Title ใน mobile */
     .bulk-actions-container {
       display: flex !important;
       gap: 6px !important;
       align-items: center !important;
-      flex-wrap: wrap !important;
+      flex-wrap: nowrap !important;
+      width: 100% !important;
+      margin-top: 8px !important;
+      padding-left: 0 !important;
+    }
+
+    .bulk-action-btn {
+      flex: 1 !important;
+      min-width: 0 !important;
+      height: 32px !important;
+      font-size: 12px !important;
+      padding: 0 10px !important;
+    }
+
+    .bulk-action-btn span {
+      font-size: 12px !important;
+      white-space: nowrap !important;
+      overflow: hidden !important;
+      text-overflow: ellipsis !important;
     }
 
     /* Header Actions Container - แสดงเสมอ */
@@ -1683,21 +1722,57 @@ export const ordersResponsiveStyles = `
       display: none !important;
     }
 
-    /* Card Header Desktop */
+    /* Card Header Desktop - ปุ่ม bulk actions อยู่ข้างล่าง */
     .card-header-wrapper {
+      flex-direction: column !important;
+      gap: 12px !important;
+      align-items: stretch !important;
+    }
+
+    .card-header-top-row {
+      display: flex !important;
       flex-direction: row !important;
       justify-content: space-between !important;
       align-items: center !important;
+      gap: 12px !important;
+      width: 100% !important;
+    }
+
+    .card-header-left {
+      display: flex !important;
+      align-items: center !important;
+      gap: 10px !important;
+      flex: 1 !important;
+      min-width: 0 !important;
+      flex-wrap: nowrap !important;
+      overflow: hidden !important;
     }
 
     .card-header-right {
       flex-wrap: nowrap !important;
       gap: 10px !important;
+      display: flex !important;
+      align-items: center !important;
+      flex-shrink: 0 !important;
     }
 
+    /* Bulk Actions Container - อยู่ฝั่งซ้าย ข้างล่าง title ใน desktop */
     .bulk-actions-container {
-      flex-wrap: nowrap !important;
+      display: flex !important;
       gap: 8px !important;
+      align-items: center !important;
+      flex-wrap: nowrap !important;
+      margin-left: 0 !important;
+      width: auto !important;
+      margin-top: 0 !important;
+    }
+
+    /* Header Actions - แสดงเสมอใน desktop อยู่ฝั่งขวา */
+    .header-actions-container {
+      display: flex !important;
+      gap: 8px !important;
+      align-items: center !important;
+      flex-shrink: 0 !important;
     }
 
     .bulk-action-btn {
@@ -1713,7 +1788,10 @@ export const ordersResponsiveStyles = `
     }
 
     .header-actions-container {
+      display: flex !important;
       gap: 8px !important;
+      align-items: center !important;
+      flex-shrink: 0 !important;
     }
 
     .header-action-btn {
@@ -1722,10 +1800,14 @@ export const ordersResponsiveStyles = `
       font-size: 14px !important;
       padding: 0 16px !important;
       font-weight: 500 !important;
+      display: flex !important;
+      align-items: center !important;
+      justify-content: center !important;
     }
 
     .header-action-btn.ant-btn-icon-only {
       width: 38px !important;
+      padding: 0 !important;
     }
 
     /* Modal - Normal */
@@ -1767,6 +1849,56 @@ export const ordersResponsiveStyles = `
 
     .mobile-fullscreen-modal .ant-modal {
       max-width: 720px !important;
+    }
+
+    /* Card Header Desktop - ปุ่ม bulk actions อยู่ข้างล่าง */
+    .card-header-wrapper {
+      flex-direction: column !important;
+      gap: 14px !important;
+      align-items: stretch !important;
+    }
+
+    .card-header-top-row {
+      display: flex !important;
+      flex-direction: row !important;
+      justify-content: space-between !important;
+      align-items: center !important;
+      gap: 12px !important;
+      width: 100% !important;
+    }
+
+    .card-header-right {
+      display: flex !important;
+      align-items: center !important;
+      justify-content: flex-end !important;
+      gap: 10px !important;
+      flex-wrap: nowrap !important;
+    }
+
+    /* Bulk Actions Container - อยู่ข้างล่าง title ในหน้าจอใหญ่ */
+    .bulk-actions-container {
+      margin-left: 0 !important;
+      gap: 10px !important;
+    }
+
+    .header-actions-container {
+      display: flex !important;
+      gap: 10px !important;
+      align-items: center !important;
+      flex-shrink: 0 !important;
+    }
+
+    .header-action-btn {
+      height: 38px !important;
+      min-width: 38px !important;
+      font-size: 14px !important;
+      padding: 0 16px !important;
+      font-weight: 500 !important;
+    }
+
+    .header-action-btn.ant-btn-icon-only {
+      width: 38px !important;
+      padding: 0 !important;
     }
   }
 
@@ -1966,13 +2098,16 @@ export const ordersResponsiveStyles = `
 
   /* ===== Empty State Improvements ===== */
   .empty-state-icon {
-    font-size: 48px !important;
+    font-size: 56px !important;
     color: #94A3B8 !important;
     margin-bottom: 16px !important;
+    display: block !important;
   }
 
   .empty-state-text {
     font-size: 15px !important;
     color: #64748B !important;
+    margin: 0 !important;
+    display: block !important;
   }
 `;
