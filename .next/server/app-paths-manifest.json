@@ -1,5 +1,7 @@
 {
   "/api/pos/orders/[id]/route": "app/api/pos/orders/[id]/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
+  "/api/auth/me/route": "app/api/auth/me/route.js",
   "/(main)/page": "app/(main)/page.js",
   "/(main)/pos/orders/[...ordersId]/page": "app/(main)/pos/orders/[...ordersId]/page.js",
   "/(main)/pos/channels/page": "app/(main)/pos/channels/page.js",
