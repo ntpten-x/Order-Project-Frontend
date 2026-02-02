@@ -1,8 +1,8 @@
 {
   "/api/pos/orders/[id]/route": "app/api/pos/orders/[id]/route.js",
   "/_not-found/page": "app/_not-found/page.js",
-  "/api/pos/products/route": "app/api/pos/products/route.js",
   "/api/auth/me/route": "app/api/auth/me/route.js",
+  "/api/pos/products/route": "app/api/pos/products/route.js",
   "/api/pos/category/route": "app/api/pos/category/route.js",
   "/api/pos/queue/route": "app/api/pos/queue/route.js",
   "/api/pos/shifts/current/route": "app/api/pos/shifts/current/route.js",
