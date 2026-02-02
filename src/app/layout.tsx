@@ -13,8 +13,8 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "ORDER",
-  description: "ORDER",
+  title: "POS",
+  description: "POS",
 };
 
 import AntdRegistry from "../lib/AntdRegistry";
@@ -24,6 +24,7 @@ import { GlobalLoadingProvider } from "../contexts/pos/GlobalLoadingContext";
 import QueryProvider from "../providers/QueryProvider";
 import AppHeader from "../components/AppHeader";
 import ClientLayout from "../components/ClientLayout";
+import ServiceWorkerRegistration from "../components/ServiceWorkerRegistration";
 
 export default function RootLayout({
   children,
@@ -40,6 +41,7 @@ export default function RootLayout({
             <QueryProvider>
               <AuthProvider>
                 <SocketProvider>
+                  <ServiceWorkerRegistration />
                   <AppHeader />
                   <ClientLayout>{children}</ClientLayout>
                 </SocketProvider>

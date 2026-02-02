@@ -107,9 +107,19 @@ export const authService = {
             const response = await fetch(`${API_PREFIX}${API_ROUTES.AUTH.CSRF}`, {
                 credentials: "include"
             });
-            if (!response.ok) return "";
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                console.error("CSRF token fetch failed:", response.status, errorData);
+                return "";
+            }
             const data = await response.json();
-            return data.csrfToken;
+            // Handle different response formats
+            if (data.success && data.csrfToken) {
+                return data.csrfToken;
+            } else if (data.csrfToken) {
+                return data.csrfToken;
+            }
+            return "";
         } catch (error) {
             console.error("Failed to fetch CSRF token", error);
             return "";

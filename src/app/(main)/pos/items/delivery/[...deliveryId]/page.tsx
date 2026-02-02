@@ -10,7 +10,7 @@ import { paymentsService } from "../../../../../../services/pos/payments.service
 import { getCsrfTokenCached } from "../../../../../../utils/pos/csrf";
 import { SalesOrder, OrderStatus, OrderType } from "../../../../../../types/api/pos/salesOrder";
 import { PaymentStatus } from "../../../../../../types/api/pos/payments";
-import { paymentPageStyles, paymentColors } from "../../../../../../theme/pos/payments.theme";
+import { itemsDeliveryStyles, itemsColors, itemsResponsiveStyles } from "../../../../../../theme/pos/items/style";
 import { calculatePaymentTotals } from "../../../../../../utils/payments";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
@@ -232,12 +232,13 @@ export default function POSDeliverySummaryPage() {
     if (!order) return <Empty description="ไม่พบข้อมูลออเดอร์" />;
 
     return (
-        <div style={paymentPageStyles.container}>
+        <div style={itemsDeliveryStyles.container}>
+            <style jsx global>{itemsResponsiveStyles}</style>
             {contextHolder}
             
             {/* Hero Header */}
-             <div style={{ ...paymentPageStyles.heroSection, background: 'linear-gradient(135deg, #eb2f96 0%, #c41d7f 100%)' }}>
-                <div style={paymentPageStyles.contentWrapper}>
+             <div style={{ ...itemsDeliveryStyles.heroSection, background: 'linear-gradient(135deg, #eb2f96 0%, #c41d7f 100%)' }} className="payment-hero-mobile">
+                <div style={itemsDeliveryStyles.contentWrapper} className="payment-content-mobile">
                     <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
                              <Button 
@@ -247,7 +248,7 @@ export default function POSDeliverySummaryPage() {
                                 onClick={() => router.back()}
                               />
                              <div>
-                                <Title level={3} style={paymentPageStyles.pageTitle}>สรุปออเดอร์เดลิเวอรี่</Title>
+                                <Title level={3} style={itemsDeliveryStyles.pageTitle}>สรุปออเดอร์เดลิเวอรี่</Title>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
                                     <Tag color="magenta" style={{ borderRadius: 6, border: 'none', fontWeight: 600 }}>
                                         <RocketOutlined /> {order.delivery?.delivery_name || 'Delivery'} {order.delivery_code ? `#${order.delivery_code}` : ''}
@@ -279,14 +280,14 @@ export default function POSDeliverySummaryPage() {
                 </div>
             </div>
 
-            <div style={{ ...paymentPageStyles.contentWrapper, marginTop: -30, paddingBottom: 40 }}>
+            <div style={{ ...itemsDeliveryStyles.contentWrapper, marginTop: -30, paddingBottom: 40 }}>
                 <Row gutter={[24, 24]}>
                     <Col xs={24} lg={14}>
-                        <Card style={paymentPageStyles.card}>
+                        <Card style={itemsDeliveryStyles.card}>
                              <Title level={4} style={{ marginBottom: 20 }}>รายการอาหาร</Title>
                             <div style={{ overflowY: 'auto', paddingRight: 8, minHeight: 300, maxHeight: 600 }}>
                                 {order.items?.filter(item => item.status !== OrderStatus.Cancelled).map((item, idx) => (
-                                    <div key={item.id || idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${paymentColors.borderLight}` }}>
+                                    <div key={item.id || idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${itemsColors.borderLight}` }}>
                                          <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 0 }}>
                                             <Avatar 
                                                 shape="square" 
@@ -309,13 +310,13 @@ export default function POSDeliverySummaryPage() {
                                 ))}
                             </div>
                             
-                            <div style={{ ...paymentPageStyles.summaryBox, background: '#f8fafc', borderRadius: 16, padding: 20 }}>
+                            <div style={{ ...itemsDeliveryStyles.summaryBox, background: '#f8fafc', borderRadius: 16, padding: 20 }}>
                                 <Row justify="space-between" style={{ marginBottom: 8 }}>
                                     <Text type="secondary">ยอดรวม (Subtotal)</Text>
                                     <Text>{formatCurrency(subtotal)}</Text>
                                 </Row>
                                 {discount > 0 && (
-                                    <Row justify="space-between" style={{ marginBottom: 8, color: paymentColors.success }}>
+                                    <Row justify="space-between" style={{ marginBottom: 8, color: itemsColors.success }}>
                                         <Text type="success">ส่วนลด (Discount)</Text>
                                         <Text type="success">-{formatCurrency(discount)}</Text>
                                     </Row>
@@ -336,7 +337,7 @@ export default function POSDeliverySummaryPage() {
                     </Col>
                     
                     <Col xs={24} lg={10}>
-                         <Card style={{ ...paymentPageStyles.card, textAlign: 'center', padding: '24px 0' }}>
+                         <Card style={{ ...itemsDeliveryStyles.card, textAlign: 'center', padding: '24px 0' }}>
                             <div style={{ marginBottom: 32 }}>
                                 <div style={{ 
                                     width: 80, 
@@ -358,7 +359,7 @@ export default function POSDeliverySummaryPage() {
                                 style={{ background: '#f9fafb', borderRadius: 16, border: '1px dashed #d1d5db', marginBottom: 32 }}
                                 bodyStyle={{ padding: 16 }}
                             >
-                                <Space direction="vertical" style={{ width: '100%' }} size={12}>
+                                <Space orientation="vertical" style={{ width: '100%' }} size={12}>
                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                         <Text type="secondary">ผู้ให้บริการ</Text>
                                         <Text strong>{order.delivery?.delivery_name || '-'}</Text>

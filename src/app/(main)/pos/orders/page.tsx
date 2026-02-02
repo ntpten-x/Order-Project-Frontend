@@ -1,5 +1,7 @@
 ﻿"use client";
 
+import { useOrderListPrefetching } from "../../../../hooks/pos/usePrefetching";
+
 import React, { useEffect, useState } from "react";
 import { Typography, Card, Table, Tag, Button, Empty, Divider, Grid, List, Input } from "antd";
 import { 
@@ -20,7 +22,7 @@ import {
   formatCurrency
 } from "../../../../utils/orders";
 import { orderColors, ordersStyles, ordersResponsiveStyles } from "../../../../theme/pos/orders/style";
-import { useSocket } from "../../../../hooks/useSocket";
+// import { useSocket } from "../../../../hooks/useSocket";
 // import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
 import { useDebouncedValue } from "../../../../utils/useDebouncedValue";
 import { useOrdersSummary } from "../../../../hooks/pos/useOrdersSummary";
@@ -35,7 +37,10 @@ export default function POSOrdersPage() {
     const router = useRouter();
     const screens = useBreakpoint();
     const isMobile = !screens.md;
-    const { socket } = useSocket();
+    // const { socket } = useSocket();
+    
+    // Prefetch order list data
+    useOrderListPrefetching();
 
     const [page, setPage] = useState(1);
     const [searchValue, setSearchValue] = useState("");
@@ -179,35 +184,84 @@ export default function POSOrdersPage() {
         <div style={ordersStyles.container}>
             <style jsx global>{ordersResponsiveStyles}</style>
 
-            <div style={ordersStyles.header} className="orders-header">
-                <div style={ordersStyles.headerContent} className="orders-content">
-                     <Button 
+            {/* Header with softer gradient */}
+            <header style={ordersStyles.header} className="orders-header" role="banner">
+                <div style={ordersStyles.headerContent} className="orders-content orders-header-content-mobile">
+                    {/* Glass Back Button */}
+                    <Button 
                         icon={<ArrowLeftOutlined />} 
                         onClick={() => router.push('/pos')}
                         type="text"
-                        style={{ color: '#fff', fontSize: 18, marginRight: 16 }}
+                        className="orders-back-button-mobile"
+                        aria-label="กลับไปหน้า POS"
+                        style={{ 
+                            color: '#fff', 
+                            fontSize: 18, 
+                            marginRight: 12,
+                            width: 44,
+                            height: 44,
+                            borderRadius: 14,
+                            background: 'rgba(255,255,255,0.15)',
+                            backdropFilter: 'blur(8px)',
+                            border: '1px solid rgba(255,255,255,0.25)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }}
                     />
                     <div style={ordersStyles.headerIcon} className="orders-header-icon">
-                        <ContainerOutlined style={{ color: '#fff' }} />
+                        <ContainerOutlined style={{ color: '#fff', fontSize: 24 }} />
                     </div>
-                    <div style={ordersStyles.headerTextContainer}>
-                        <Title level={2} style={ordersStyles.headerTitle} className="orders-page-title">รายการออเดอร์ปัจจุบัน</Title>
-                        <Text style={ordersStyles.headerSubtitle} className="orders-page-subtitle">จัดการและติดตามสถานะออเดอร์ที่กำลังดำเนินการ</Text>
+                    <div style={ordersStyles.headerTextContainer} className="orders-header-text-mobile">
+                        <Title level={2} style={ordersStyles.headerTitle} className="orders-page-title">
+                            รายการออเดอร์ปัจจุบัน
+                        </Title>
+                        <Text style={ordersStyles.headerSubtitle} className="orders-page-subtitle">
+                            จัดการและติดตามสถานะออเดอร์ที่กำลังดำเนินการ
+                        </Text>
                     </div>
-                    <Input
-                        allowClear
-                        placeholder="ค้นหาเลขที่ออเดอร์/โต๊ะ/เดลิเวอรี่"
-                        value={searchValue}
-                        onChange={(e) => setSearchValue(e.target.value)}
-                        size={isMobile ? "middle" : "large"}
-                        style={{ width: isMobile ? 200 : 280 }}
-                    />
-                    <Button icon={<ReloadOutlined />} onClick={() => refetch()} size={isMobile ? 'middle' : 'large'} ghost>รีเฟรช</Button>
+                    <div className="orders-header-actions-mobile" style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                        <Input
+                            allowClear
+                            placeholder="ค้นหาออเดอร์..."
+                            value={searchValue}
+                            onChange={(e) => setSearchValue(e.target.value)}
+                            size={isMobile ? "middle" : "large"}
+                            className="orders-search-input-mobile"
+                            style={{ 
+                                width: isMobile ? 140 : 280, 
+                                minWidth: 120,
+                                borderRadius: 12,
+                            }}
+                        />
+                        <Button 
+                            icon={<ReloadOutlined />} 
+                            onClick={() => refetch()} 
+                            size={isMobile ? 'middle' : 'large'} 
+                            ghost
+                            className="orders-refresh-button-mobile scale-hover"
+                            style={{
+                                borderRadius: 12,
+                                border: '1px solid rgba(255,255,255,0.4)',
+                            }}
+                        >
+                            <span className="hide-on-mobile">รีเฟรช</span>
+                        </Button>
+                    </div>
                 </div>
-            </div>
+            </header>
 
-            <div style={ordersStyles.contentWrapper} className="orders-content-wrapper">
-                <Card bordered={false} style={{ borderRadius: 16, boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }} bodyStyle={ordersStyles.cardBody}>
+            {/* Content with Card */}
+            <main style={ordersStyles.contentWrapper} className="orders-content-wrapper">
+                <Card 
+                    bordered={false} 
+                    style={{ 
+                        borderRadius: 20, 
+                        boxShadow: orderColors.cardShadow,
+                        border: '1px solid rgba(226, 232, 240, 0.8)',
+                    }} 
+                    styles={{ body: ordersStyles.cardBody }}
+                >
                     {!isMobile ? (
                         <Table
                             columns={columns}
@@ -229,50 +283,74 @@ export default function POSOrdersPage() {
                         <List
                             loading={isLoading}
                             dataSource={orders}
-                            renderItem={(order) => {
+                            renderItem={(order, index) => {
                                 const totalQty = order.items_count || 0;
                                 
                                 return (
-                                    <div 
-                                        style={ordersStyles.orderCard} 
-                                        className="orders-card"
+                                    <article 
+                                        style={{
+                                            ...ordersStyles.orderCard,
+                                            marginBottom: 14,
+                                        }} 
+                                        className={`orders-card fade-in`}
                                         onClick={() => router.push(`/pos/orders/${order.id}`)}
+                                        role="button"
+                                        tabIndex={0}
+                                        aria-label={`ออเดอร์ ${order.order_no}`}
+                                        onKeyDown={(e) => e.key === 'Enter' && router.push(`/pos/orders/${order.id}`)}
                                     >
+                                        {/* Card Header */}
                                         <div style={ordersStyles.cardHeader} className="orders-card-header">
                                             <div style={ordersStyles.cardHeaderLeft}>
-                                                <Text strong style={{ fontSize: 16 }}>#{order.order_no}</Text>
-                                                <Tag color={getOrderStatusColor(order.status)} style={{ margin: 0 }}>{getOrderStatusText(order.status)}</Tag>
+                                                <Text strong style={{ fontSize: 17, color: orderColors.text }}>
+                                                    #{order.order_no}
+                                                </Text>
+                                                <Tag 
+                                                    color={getOrderStatusColor(order.status)} 
+                                                    style={{ margin: 0, borderRadius: 8, fontWeight: 600 }}
+                                                >
+                                                    {getOrderStatusText(order.status)}
+                                                </Tag>
                                             </div>
-                                             <Tag color={getOrderChannelColor(order.order_type)}>
+                                            <Tag 
+                                                color={getOrderChannelColor(order.order_type)}
+                                                style={{ borderRadius: 8, fontWeight: 600 }}
+                                            >
                                                 {getOrderChannelText(order.order_type)}
                                             </Tag>
                                         </div>
                                         
+                                        {/* Card Body */}
                                         <div style={ordersStyles.cardBody} className="orders-card-body">
+                                            {/* Reference Section */}
                                             <div style={ordersStyles.refSection}>
                                                 {order.order_type === OrderType.DineIn && order.table && (
                                                     <div style={ordersStyles.refValue} className="orders-ref-value">
-                                                        โต๊ะ {order.table.table_name}
+                                                        🪑 โต๊ะ {order.table.table_name}
                                                     </div>
                                                 )}
                                                 {(order.order_type === OrderType.Delivery || order.order_type === OrderType.TakeAway) && (
                                                     <div style={ordersStyles.refValue} className="orders-ref-value">
-                                                        {order.delivery_code ? `Ref: ${order.delivery_code}` : '-'}
+                                                        📋 {order.delivery_code ? `Ref: ${order.delivery_code}` : '-'}
                                                     </div>
                                                 )}
                                             </div>
 
+                                            {/* Summary Row */}
                                             <div style={ordersStyles.itemsSummary}>
                                                 <div style={ordersStyles.metaSection}>
-                                                    <ContainerOutlined />
-                                                    <Text strong>{totalQty} รายการ</Text>
+                                                    <ContainerOutlined style={{ color: orderColors.primary }} />
+                                                    <Text strong style={{ color: orderColors.text }}>{totalQty} รายการ</Text>
                                                 </div>
                                                 <div style={ordersStyles.metaSection}>
-                                                    <ClockCircleOutlined />
-                                                    <Text>{dayjs(order.create_date).format('HH:mm น.')}</Text>
+                                                    <ClockCircleOutlined style={{ color: orderColors.textSecondary }} />
+                                                    <Text style={{ color: orderColors.textSecondary }}>
+                                                        {dayjs(order.create_date).format('HH:mm น.')}
+                                                    </Text>
                                                 </div>
                                             </div>
 
+                                            {/* Total Section */}
                                             <div style={ordersStyles.totalSection}>
                                                 <Text style={ordersStyles.totalLabel}>ยอดรวม</Text>
                                                 <div style={ordersStyles.totalAmount} className="orders-total-amount">
@@ -280,9 +358,18 @@ export default function POSOrdersPage() {
                                                 </div>
                                             </div>
                                             
-                                            <Button type="primary" ghost icon={<EyeOutlined />} style={ordersStyles.actionButton}>รายละเอียด</Button>
+                                            {/* Action Button */}
+                                            <Button 
+                                                type="primary" 
+                                                ghost 
+                                                icon={<EyeOutlined />} 
+                                                style={ordersStyles.actionButton}
+                                                className="scale-hover"
+                                            >
+                                                ดูรายละเอียด
+                                            </Button>
                                         </div>
-                                    </div>
+                                    </article>
                                 );
                             }}
                             pagination={{
@@ -296,7 +383,7 @@ export default function POSOrdersPage() {
                         />
                     )}
                 </Card>
-            </div>
+            </main>
         </div>
     );
 }

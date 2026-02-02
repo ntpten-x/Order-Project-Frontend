@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Spin, Typography, Tag, Button, Empty, Input } from 'antd';
+import { message, Modal, Typography, Tag, Button, Empty, Input, Card } from 'antd';
 import { 
     PercentageOutlined,
     PlusOutlined,
@@ -9,8 +9,10 @@ import {
     EditOutlined,
     DeleteOutlined,
     CheckCircleFilled,
-    CloseCircleFilled,
-    DollarOutlined
+    StopOutlined,
+    DollarOutlined,
+    SearchOutlined,
+    GiftOutlined
 } from '@ant-design/icons';
 import { Discounts, DiscountType } from "../../../../types/api/pos/discounts";
 import { useRouter } from 'next/navigation';
@@ -23,6 +25,7 @@ import { useRealtimeList } from "../../../../utils/pos/realtime";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
 import { pageStyles, globalStyles } from '../../../../theme/pos/discounts/style';
 import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
+import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 
 const { Text, Title } = Typography;
 
@@ -33,72 +36,90 @@ interface HeaderProps {
     onAdd: () => void;
     searchValue: string;
     onSearchChange: (value: string) => void;
+    total: number;
 }
 
-const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange }: HeaderProps) => (
-    <div style={pageStyles.header}>
-        <div style={pageStyles.headerDecoCircle1} />
-        <div style={pageStyles.headerDecoCircle2} />
-        
-        <div style={pageStyles.headerContent}>
-            <div style={pageStyles.headerLeft}>
-                <div style={pageStyles.headerIconBox}>
-                    <PercentageOutlined style={{ fontSize: 24, color: 'white' }} />
-                </div>
-                <div>
-                    <Text style={{ 
-                        color: 'rgba(255,255,255,0.85)', 
-                        fontSize: 13,
-                        display: 'block'
-                    }}>
-                        จัดการข้อมูล
-                    </Text>
-                    <Title level={4} style={{ 
-                        color: 'white', 
-                        margin: 0,
-                        fontWeight: 700,
-                        letterSpacing: '0.5px'
-                    }}>
-                        ส่วนลด
-                    </Title>
-                </div>
+const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange, total }: HeaderProps) => (
+    <div style={{
+        marginBottom: 24,
+        background: 'white',
+        padding: '16px',
+        borderRadius: 20,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
+    }}>
+        {/* Title Row */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
+            <div style={{
+                width: 44,
+                height: 44,
+                background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                borderRadius: 12,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)',
+                flexShrink: 0
+            }}>
+                <PercentageOutlined style={{ fontSize: 22, color: 'white' }} />
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+                <Title level={4} style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1E293B' }}>
+                    จัดการส่วนลด
+                </Title>
+                <Text style={{ color: '#64748B', fontSize: 13 }}>
+                    {total} รายการ
+                </Text>
+            </div>
         </div>
-        <div style={pageStyles.headerActions}>
+
+        {/* Search & Actions Row */}
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
             <Input
+                prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
                 allowClear
-                placeholder="ค้นหาส่วนลด..."
+                placeholder="ค้นหา..."
                 value={searchValue}
                 onChange={(e) => onSearchChange(e.target.value)}
-                style={{ width: 240, borderRadius: 10 }}
+                style={{ 
+                    flex: 1,
+                    minWidth: 120,
+                    height: 44, 
+                    borderRadius: 12,
+                    background: '#F8FAFC',
+                    fontSize: 14,
+                    border: '1px solid #E2E8F0'
+                }}
             />
             <Button
-                type="text"
-                icon={<ReloadOutlined style={{ color: 'white' }} />}
-                    onClick={onRefresh}
-                    style={{
-                        background: 'rgba(255,255,255,0.2)',
-                        borderRadius: 12,
-                        height: 40,
-                        width: 40
-                    }}
-                />
-                <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={onAdd}
-                    style={{
-                        background: 'white',
-                        color: '#fa8c16',
-                        borderRadius: 12,
-                        height: 40,
-                        fontWeight: 600,
-                        border: 'none',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                    }}
-                >
-                    เพิ่มส่วนลด
-                </Button>
-            </div>
+                icon={<ReloadOutlined />}
+                onClick={onRefresh}
+                style={{
+                    height: 44,
+                    width: 44,
+                    borderRadius: 12,
+                    border: '1px solid #E2E8F0',
+                    color: '#64748B',
+                    flexShrink: 0
+                }}
+            />
+            <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={onAdd}
+                style={{
+                    height: 44,
+                    padding: '0 16px',
+                    borderRadius: 12,
+                    background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)',
+                    fontSize: 14,
+                    fontWeight: 600,
+                    border: 'none',
+                    flexShrink: 0
+                }}
+            >
+                เพิ่มส่วนลด
+            </Button>
         </div>
     </div>
 );
@@ -106,44 +127,92 @@ const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange }: HeaderPro
 // ============ STATS CARD COMPONENT ============
 
 interface StatsCardProps {
-    totalDiscounts: number;
-    fixedDiscounts: number;
-    percentageDiscounts: number;
-    activeDiscounts: number;
-    inactiveDiscounts: number;
+    total: number;
+    fixed: number;
+    percent: number;
+    active: number;
+    inactive: number;
 }
 
-const StatsCard = ({ 
-    totalDiscounts, 
-    fixedDiscounts, 
-    percentageDiscounts, 
-    activeDiscounts, 
-    inactiveDiscounts 
-}: StatsCardProps) => (
-    <div style={pageStyles.statsCard}>
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#fa8c16' }}>{totalDiscounts}</span>
-            <Text style={pageStyles.statLabel}>ทั้งหมด</Text>
+const StatsCard = ({ total, fixed, percent, active, inactive }: StatsCardProps) => (
+    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div style={{ 
+            background: 'white', 
+            padding: '12px 14px', 
+            borderRadius: 16, 
+            boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+            border: '1px solid #F1F5F9',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10
+        }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: '#FFF7ED', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <GiftOutlined style={{ fontSize: 20, color: '#F59E0B' }} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+                <Text style={{ color: '#64748B', display: 'block', fontSize: 11 }}>ทั้งหมด</Text>
+                <Title level={4} style={{ margin: 0, color: '#1E293B', fontWeight: 700, fontSize: 18 }}>{total}</Title>
+            </div>
         </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#1890ff' }}>{fixedDiscounts}</span>
-            <Text style={pageStyles.statLabel}>คงที่ (บาท)</Text>
+
+        <div style={{ 
+            background: 'white', 
+            padding: '12px 14px', 
+            borderRadius: 16, 
+            boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+            border: '1px solid #F1F5F9',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10
+        }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: '#F0F9FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <DollarOutlined style={{ fontSize: 20, color: '#0EA5E9' }} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+                <Text style={{ color: '#64748B', display: 'block', fontSize: 11 }}>แบบบาท</Text>
+                <Title level={4} style={{ margin: 0, color: '#1E293B', fontWeight: 700, fontSize: 18 }}>{fixed}</Title>
+            </div>
         </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#722ed1' }}>{percentageDiscounts}</span>
-            <Text style={pageStyles.statLabel}>เปอร์เซ็นต์</Text>
+
+        <div style={{ 
+            background: 'white', 
+            padding: '12px 14px', 
+            borderRadius: 16, 
+            boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+            border: '1px solid #F1F5F9',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10
+        }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: '#F5F3FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <PercentageOutlined style={{ fontSize: 20, color: '#8B5CF6' }} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+                <Text style={{ color: '#64748B', display: 'block', fontSize: 11 }}>แบบ %</Text>
+                <Title level={4} style={{ margin: 0, color: '#1E293B', fontWeight: 700, fontSize: 18 }}>{percent}</Title>
+            </div>
         </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#52c41a' }}>{activeDiscounts}</span>
-            <Text style={pageStyles.statLabel}>เปิดใช้งาน</Text>
-        </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#ff4d4f' }}>{inactiveDiscounts}</span>
-            <Text style={pageStyles.statLabel}>ปิดใช้งาน</Text>
+
+        <div style={{ 
+            background: 'white', 
+            padding: '12px 14px', 
+            borderRadius: 16, 
+            boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
+            border: '1px solid #F1F5F9',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 10
+        }}>
+            <div style={{ width: 40, height: 40, borderRadius: 10, background: '#ECFDF5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <CheckCircleFilled style={{ fontSize: 20, color: '#10B981' }} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+                <Text style={{ color: '#64748B', display: 'block', fontSize: 11 }}>ใช้งาน</Text>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
+                    <Title level={4} style={{ margin: 0, color: '#1E293B', fontWeight: 700, fontSize: 18 }}>{active}</Title>
+                    {inactive > 0 && <Text type="secondary" style={{ fontSize: 11 }}>(ปิด {inactive})</Text>}
+                </div>
+            </div>
         </div>
     </div>
 );
@@ -152,167 +221,171 @@ const StatsCard = ({
 
 interface DiscountCardProps {
     discount: Discounts;
-    index: number;
     onEdit: (discount: Discounts) => void;
     onDelete: (discount: Discounts) => void;
 }
 
-const DiscountCard = ({ discount, index, onEdit, onDelete }: DiscountCardProps) => {
+const DiscountCard = React.memo(({ discount, onEdit, onDelete }: DiscountCardProps) => {
     const isFixed = discount.discount_type === DiscountType.Fixed;
     
     return (
-        <div
-            className="discount-card"
-            style={{
-                ...pageStyles.discountCard(discount.is_active),
-                animationDelay: `${index * 0.03}s`
+        <Card
+            hoverable
+            onClick={() => onEdit(discount)}
+            style={{ 
+                borderRadius: 20, 
+                border: 'none', 
+                boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
+                transition: 'all 0.2s',
+                overflow: 'hidden',
+                background: 'white',
+                opacity: discount.is_active ? 1 : 0.7
             }}
+            styles={{ body: { padding: 16 } }}
         >
-            <div style={pageStyles.discountCardInner}>
-                {/* Icon */}
+             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
                 <div style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 14,
-                    border: '2px solid #f0f0f0',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
-                    flexShrink: 0,
-                    overflow: 'hidden',
-                    position: 'relative',
+                    width: 56,
+                    height: 56,
+                    borderRadius: 16,
                     background: isFixed 
-                        ? 'linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%)'
-                        : 'linear-gradient(135deg, #f9f0ff 0%, #efdbff 100%)',
+                        ? 'linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%)'
+                        : 'linear-gradient(135deg, #F3E8FF 0%, #D8B4FE 100%)',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    boxShadow: isFixed ? '0 4px 12px rgba(14, 165, 233, 0.2)' : '0 4px 12px rgba(139, 92, 246, 0.2)'
                 }}>
                     {isFixed ? (
-                        <DollarOutlined style={{ fontSize: 28, color: '#1890ff' }} />
+                        <DollarOutlined style={{ fontSize: 24, color: '#0369A1' }} />
                     ) : (
-                        <PercentageOutlined style={{ fontSize: 28, color: '#722ed1' }} />
+                        <PercentageOutlined style={{ fontSize: 24, color: '#7E22CE' }} />
                     )}
                 </div>
-
-                {/* Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                        <Text 
-                            strong 
-                            style={{ fontSize: 16, color: '#1a1a2e' }}
-                        >
-                            {discount.display_name || discount.discount_name}
-                        </Text>
-                        {discount.is_active ? (
-                            <CheckCircleFilled style={{ color: '#52c41a', fontSize: 14 }} />
-                        ) : (
-                            <CloseCircleFilled style={{ color: '#ff4d4f', fontSize: 14 }} />
-                        )}
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                        <Tag 
-                            color={isFixed ? 'blue' : 'purple'}
-                            style={{ 
-                                borderRadius: 8, 
-                                margin: 0,
-                                fontSize: 11 
-                            }}
-                        >
-                            {isFixed ? `฿${discount.discount_amount}` : `${discount.discount_amount}%`}
-                        </Tag>
-                        <Tag 
-                            color={discount.is_active ? 'success' : 'default'}
-                            style={{ 
-                                borderRadius: 8, 
-                                margin: 0,
-                                fontSize: 11 
-                            }}
-                        >
-                            {discount.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
-                        </Tag>
-                        {discount.description && (
-                            <Text type="secondary" style={{ fontSize: 11 }} ellipsis>
-                                {discount.description}
-                            </Text>
-                        )}
-                    </div>
-                </div>
-
-                {/* Actions */}
-                <div style={{ display: 'flex', gap: 8 }}>
-                    <Button
-                        type="text"
-                        icon={<EditOutlined />}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit(discount);
-                        }}
-                        style={{
-                            borderRadius: 10,
-                            color: '#fa8c16',
-                            background: '#fff7e6'
-                        }}
-                    />
-                    <Button
-                        type="text"
-                        danger
-                        icon={<DeleteOutlined />}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(discount);
-                        }}
-                        style={{
-                            borderRadius: 10,
-                            background: '#fff2f0'
-                        }}
-                    />
+                <div style={{ 
+                    padding: '4px 10px', 
+                    borderRadius: 20, 
+                    background: discount.is_active ? '#ECFDF5' : '#F1F5F9',
+                    color: discount.is_active ? '#059669' : '#64748B',
+                    fontSize: 12,
+                    fontWeight: 600,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 4
+                }}>
+                    {discount.is_active ? <CheckCircleFilled /> : <StopOutlined />}
+                    {discount.is_active ? 'Active' : 'Inactive'}
                 </div>
             </div>
-        </div>
+
+            <div style={{ marginBottom: 16 }}>
+                <Title level={5} style={{ margin: 0, marginBottom: 4, color: '#1E293B' }} ellipsis>
+                    {discount.display_name}
+                </Title>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <Text type="secondary" style={{ fontSize: 13 }}>Code:</Text>
+                    <Tag style={{ margin: 0, borderRadius: 6, background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#475569' }}>
+                        {discount.discount_name}
+                    </Tag>
+                </div>
+            </div>
+
+            <div style={{ 
+                background: '#F8FAFC', 
+                borderRadius: 12, 
+                padding: '10px 12px', 
+                marginBottom: 16,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+            }}>
+                <Text style={{ fontSize: 12, color: '#64748B' }}>
+                    มูลค่าส่วนลด
+                </Text>
+                <Text style={{ fontSize: 16, fontWeight: 700, color: '#F59E0B' }}>
+                    {isFixed ? `฿${discount.discount_amount.toLocaleString()}` : `${discount.discount_amount}% OFF`}
+                </Text>
+            </div>
+
+            <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
+                <Button 
+                    type="text" 
+                    icon={<EditOutlined />} 
+                    block
+                    onClick={(e) => { e.stopPropagation(); onEdit(discount); }}
+                    style={{ 
+                        borderRadius: 10, 
+                        background: '#FFF7ED', 
+                        color: '#F59E0B',
+                        fontWeight: 600
+                    }}
+                >
+                    แก้ไข
+                </Button>
+                <Button 
+                    type="text" 
+                    icon={<DeleteOutlined />} 
+                    onClick={(e) => { e.stopPropagation(); onDelete(discount); }}
+                    style={{ 
+                        borderRadius: 10, 
+                        background: '#FEF2F2', 
+                        color: '#EF4444'
+                    }}
+                />
+            </div>
+        </Card>
     );
-};
+});
 
 // ============ EMPTY STATE COMPONENT ============
 
-const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
-    <Empty
-        image={Empty.PRESENTED_IMAGE_SIMPLE}
-        description={
-            <div style={{ textAlign: 'center' }}>
-                <Text type="secondary" style={{ fontSize: 15 }}>
-                    ยังไม่มีส่วนลด
-                </Text>
-                <br />
-                <Text type="secondary" style={{ fontSize: 13 }}>
-                    เริ่มต้นเพิ่มส่วนลดแรกของคุณ
-                </Text>
-            </div>
-        }
-        style={{
-            padding: '60px 20px',
-            background: 'white',
-            borderRadius: 20,
-            margin: '0 16px'
-        }}
-    >
-        <Button 
-            type="primary" 
-            icon={<PlusOutlined />} 
-            onClick={onAdd}
-            style={{
-                background: 'linear-gradient(135deg, #fa8c16 0%, #d48806 100%)',
-                border: 'none'
-            }}
+const EmptyState = ({ onAdd, isSearch }: { onAdd: () => void, isSearch: boolean }) => (
+    <div style={{ 
+        gridColumn: '1 / -1', 
+        display: 'flex', 
+        justifyContent: 'center', 
+        padding: '60px 0' 
+    }}>
+        <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description={
+                <div style={{ textAlign: 'center' }}>
+                    <Text type="secondary" style={{ fontSize: 16, display: 'block', marginBottom: 8 }}>
+                        {isSearch ? "ไม่พบส่วนลดที่ค้นหา" : "ยังไม่มีรายการส่วนลด"}
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: 14 }}>
+                        {isSearch ? "ลองเปลี่ยนคำค้นหาใหม่" : "เพิ่มส่วนลดแรกเพื่อเริ่มใช้งาน"}
+                    </Text>
+                </div>
+            }
         >
-            เพิ่มส่วนลด
-        </Button>
-    </Empty>
+            {!isSearch && (
+                <Button 
+                    type="primary" 
+                    icon={<PlusOutlined />} 
+                    onClick={onAdd}
+                    size="large"
+                    style={{
+                        marginTop: 16,
+                        background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
+                        border: 'none',
+                        borderRadius: 12,
+                        height: 44,
+                        padding: '0 32px'
+                    }}
+                >
+                    เพิ่มส่วนลด
+                </Button>
+            )}
+        </Empty>
+    </div>
 );
 
 export default function DiscountsPage() {
     const router = useRouter();
     const [discounts, setDiscounts] = useState<Discounts[]>([]);
+    const [filteredDiscounts, setFilteredDiscounts] = useState<Discounts[]>([]);
     const [searchValue, setSearchValue] = useState("");
-    const debouncedSearch = useDebouncedValue(searchValue.trim(), 400);
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
@@ -323,55 +396,42 @@ export default function DiscountsPage() {
         getCsrfTokenCached();
     }, []);
 
-    useEffect(() => {
-        if (debouncedSearch) return;
-        const cached = readCache<Discounts[]>("pos:discounts", 5 * 60 * 1000);
-        if (cached && cached.length > 0) {
-            setDiscounts(cached);
-        }
-    }, [debouncedSearch]);
-
-    const fetchDiscounts = useCallback(async (query?: string) => {
+    const fetchDiscounts = useCallback(async () => {
         execute(async () => {
-            const params = new URLSearchParams();
-            if (query) params.set("q", query);
-            const url = params.toString() ? `/api/pos/discounts?${params.toString()}` : '/api/pos/discounts';
-            const response = await fetch(url);
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลส่วนลดได้');
-            }
+            const response = await fetch('/api/pos/discounts');
+            if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลส่วนลดได้');
             const data = await response.json();
             setDiscounts(data);
+            setFilteredDiscounts(data);
         }, 'กำลังโหลดข้อมูลส่วนลด...');
     }, [execute]);
 
     useEffect(() => {
         if (isAuthorized) {
-            fetchDiscounts(debouncedSearch || undefined);
+            fetchDiscounts();
         }
-    }, [isAuthorized, fetchDiscounts, debouncedSearch]);
+    }, [isAuthorized, fetchDiscounts]);
 
-    const normalizedQuery = debouncedSearch.trim().toLowerCase();
-    const shouldIncludeDiscount = useCallback((item: Discounts) => {
-        if (!normalizedQuery) return true;
-        const haystack = `${item.display_name || ""} ${item.discount_name || ""} ${item.description || ""}`.toLowerCase();
-        return haystack.includes(normalizedQuery);
-    }, [normalizedQuery]);
+    // Client-side filtering
+    useEffect(() => {
+        if (searchValue.trim()) {
+            const lower = searchValue.trim().toLowerCase();
+            const filtered = discounts.filter(d => 
+                d.display_name?.toLowerCase().includes(lower) || 
+                d.discount_name?.toLowerCase().includes(lower) ||
+                d.description?.toLowerCase().includes(lower)
+            );
+            setFilteredDiscounts(filtered);
+        } else {
+            setFilteredDiscounts(discounts);
+        }
+    }, [searchValue, discounts]);
 
     useRealtimeList(
         socket,
         { create: "discounts:create", update: "discounts:update", delete: "discounts:delete" },
-        setDiscounts,
-        (item) => item.id,
-        shouldIncludeDiscount
+        setDiscounts
     );
-
-    useEffect(() => {
-        if (!debouncedSearch && discounts.length > 0) {
-            writeCache("pos:discounts", discounts);
-        }
-    }, [discounts, debouncedSearch]);
 
     const handleAdd = () => {
         showLoading("กำลังเปิดหน้าจัดการส่วนลด...");
@@ -387,10 +447,12 @@ export default function DiscountsPage() {
         Modal.confirm({
             title: 'ยืนยันการลบส่วนลด',
             content: `คุณต้องการลบส่วนลด "${discount.display_name || discount.discount_name}" หรือไม่?`,
-            okText: 'ลบ',
+            okText: 'ลบรายการ',
             okType: 'danger',
             cancelText: 'ยกเลิก',
             centered: true,
+            icon: <DeleteOutlined style={{ color: '#EF4444' }} />,
+            styles: { body: { borderRadius: 16 } },
             onOk: async () => {
                 await execute(async () => {
                     const csrfToken = await getCsrfTokenCached();
@@ -400,46 +462,15 @@ export default function DiscountsPage() {
                             'X-CSRF-Token': csrfToken
                         }
                     });
-                    if (!response.ok) {
-                        throw new Error('ไม่สามารถลบส่วนลดได้');
-                    }
-                    message.success(`ลบส่วนลด "${discount.display_name || discount.discount_name}" สำเร็จ`);
+                    if (!response.ok) throw new Error('ไม่สามารถลบส่วนลดได้');
+                    message.success('ลบส่วนลดสำเร็จ');
                 }, "กำลังลบส่วนลด...");
             },
         });
     };
 
-    if (isChecking) {
-        return (
-            <div style={{ 
-                display: 'flex', 
-                height: '100vh', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                flexDirection: 'column', 
-                gap: 16 
-            }}>
-                <Spin size="large" />
-                <Text type="secondary">กำลังตรวจสอบสิทธิ์การใช้งาน...</Text>
-            </div>
-        );
-    }
-
-    if (!isAuthorized) {
-        return (
-            <div style={{ 
-                display: 'flex', 
-                height: '100vh', 
-                justifyContent: 'center', 
-                alignItems: 'center', 
-                flexDirection: 'column', 
-                gap: 16 
-            }}>
-                <Spin size="large" />
-                <Text type="danger">คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ...</Text>
-            </div>
-        );
-    }
+    if (isChecking) return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
+    if (!isAuthorized) return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
 
     const activeDiscounts = discounts.filter(d => d.is_active);
     const inactiveDiscounts = discounts.filter(d => !d.is_active);
@@ -447,59 +478,42 @@ export default function DiscountsPage() {
     const percentageDiscounts = discounts.filter(d => d.discount_type === DiscountType.Percentage);
 
     return (
-        <div className="discount-page" style={pageStyles.container}>
+        <div className="discount-page px-4 md:px-6" style={{ ...pageStyles.container, paddingTop: 16, paddingBottom: 24, background: '#F8FAFC', minHeight: '100vh' }}>
             <style>{globalStyles}</style>
             
-            {/* Header */}
             <PageHeader 
-                onRefresh={() => fetchDiscounts(debouncedSearch || undefined)}
+                onRefresh={fetchDiscounts}
                 onAdd={handleAdd}
                 searchValue={searchValue}
                 onSearchChange={setSearchValue}
+                total={discounts.length}
             />
             
-            {/* Stats Card */}
             <StatsCard 
-                totalDiscounts={discounts.length}
-                fixedDiscounts={fixedDiscounts.length}
-                percentageDiscounts={percentageDiscounts.length}
-                activeDiscounts={activeDiscounts.length}
-                inactiveDiscounts={inactiveDiscounts.length}
+                total={discounts.length}
+                fixed={fixedDiscounts.length}
+                percent={percentageDiscounts.length}
+                active={activeDiscounts.length}
+                inactive={inactiveDiscounts.length}
             />
 
-            {/* Discounts List */}
-            <div style={pageStyles.listContainer}>
-                {discounts.length > 0 ? (
-                    <>
-                        <div style={pageStyles.sectionTitle}>
-                            <PercentageOutlined style={{ fontSize: 18, color: '#fa8c16' }} />
-                            <span style={{ fontSize: 16, fontWeight: 600, color: '#1a1a2e' }}>
-                                รายการส่วนลด
-                            </span>
-                            <div style={{
-                                background: 'linear-gradient(135deg, #fa8c16 0%, #d48806 100%)',
-                                color: 'white',
-                                padding: '4px 12px',
-                                borderRadius: 20,
-                                fontSize: 12,
-                                fontWeight: 600
-                            }}>
-                                {discounts.length} รายการ
-                            </div>
-                        </div>
-
-                        {discounts.map((discount, index) => (
-                            <DiscountCard
-                                key={discount.id}
-                                discount={discount}
-                                index={index}
-                                onEdit={handleEdit}
-                                onDelete={handleDelete}
-                            />
-                        ))}
-                    </>
+            <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                gap: 16,
+                paddingBottom: 40
+            }}>
+                {filteredDiscounts.length > 0 ? (
+                    filteredDiscounts.map((discount) => (
+                        <DiscountCard
+                            key={discount.id}
+                            discount={discount}
+                            onEdit={handleEdit}
+                            onDelete={handleDelete}
+                        />
+                    ))
                 ) : (
-                    <EmptyState onAdd={handleAdd} />
+                    <EmptyState onAdd={handleAdd} isSearch={!!searchValue} />
                 )}
             </div>
         </div>

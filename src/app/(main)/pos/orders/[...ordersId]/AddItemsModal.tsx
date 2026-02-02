@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { Modal, Input, Button, Typography, Empty, Divider, message, InputNumber } from 'antd';
+import { Modal, Input, Button, Typography, Empty, Divider, InputNumber, App } from 'antd';
 import { 
     SearchOutlined, 
     PlusOutlined, 
@@ -39,6 +39,7 @@ interface AddItemsModalProps {
 }
 
 export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, onAddItem }) => {
+    const { message } = App.useApp();
     const [products, setProducts] = useState<Products[]>([]);
     const [filteredProducts, setFilteredProducts] = useState<Products[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
@@ -61,7 +62,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
             ]);
             setProducts(productsRes.data);
             setFilteredProducts(productsRes.data);
-            setCategories(categoriesRes);
+            setCategories(Array.isArray(categoriesRes) ? categoriesRes : []);
         } catch {
             message.error("ไม่สามารถโหลดข้อมูลได้");
         } finally {
@@ -173,29 +174,51 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
             onCancel={onClose}
             footer={null}
             width={850}
-            destroyOnClose
+            destroyOnHidden
             centered
         >
             <style jsx global>{ordersResponsiveStyles}</style>
             
-            {/* Modal Header */}
-            <div style={modalStyles.modalHeader}>
+            {/* Modal Header - Enhanced */}
+            <div style={modalStyles.modalHeader} className="modal-header">
                 {selectedProduct ? (
                     <Button 
                         type="text" 
                         icon={<ArrowLeftOutlined />} 
                         onClick={() => setSelectedProduct(null)}
-                        style={{ height: 40, width: 40, borderRadius: '50%' }}
+                        aria-label="กลับ"
+                        style={{ 
+                            height: 44, 
+                            width: 44, 
+                            borderRadius: 12,
+                            background: orderDetailColors.backgroundSecondary,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: `1px solid ${orderDetailColors.border}`,
+                        }}
+                        className="scale-hover"
                     />
                 ) : (
                     <Button 
                         type="text" 
                         icon={<CloseOutlined />} 
                         onClick={onClose}
-                        style={{ height: 40, width: 40, borderRadius: '50%' }}
+                        aria-label="ปิด"
+                        style={{ 
+                            height: 44, 
+                            width: 44, 
+                            borderRadius: 12,
+                            background: orderDetailColors.backgroundSecondary,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            border: `1px solid ${orderDetailColors.border}`,
+                        }}
+                        className="scale-hover"
                     />
                 )}
-                <Text strong style={{ fontSize: 20, flex: 1 }}>
+                <Text strong style={{ fontSize: 18, flex: 1, color: orderDetailColors.text, lineHeight: 1.4 }}>
                     {selectedProduct ? 'ระบุรายละเอียด' : 'เลือกสินค้า'}
                 </Text>
             </div>
@@ -253,7 +276,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                     </div>
 
                     {/* Product Grid */}
-                    <div className="order-detail-content" style={{ maxHeight: 'calc(100vh - 130px)', overflowY: 'auto' }}>
+                    <div className="order-detail-content" style={{ maxHeight: 'calc(100vh - 180px)', overflowY: 'auto', paddingBottom: 20 }}>
                         <div className="product-grid" style={addItemsModalStyles.productGrid}>
                                 {filteredProducts.map(item => (
                                     <div 
@@ -262,7 +285,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                         style={addItemsModalStyles.productCard}
                                         onClick={() => handleSelectProduct(item)}
                                     >
-                                        <div style={{ position: 'relative', width: '100%', height: 120 }}>
+                                        <div style={{ position: 'relative', width: '100%', height: 130, background: orderDetailColors.backgroundSecondary }}>
                                             {item.img_url ? (
                                                 <>
                                                     <Image 
@@ -270,20 +293,20 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                                         src={item.img_url} 
                                                         fill
                                                         style={{ objectFit: 'cover', borderRadius: '12px 12px 0 0' }}
-                                                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                                                        sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
                                                     />
                                                 </>
                                             ) : (
                                                 <div style={addItemsModalStyles.productPlaceholder}>
-                                                    <ShoppingCartOutlined style={{ fontSize: 24, opacity: 0.3 }} />
+                                                    <ShoppingCartOutlined style={{ fontSize: 28, opacity: 0.3 }} />
                                                 </div>
                                             )}
                                         </div>
-                                        <div style={addItemsModalStyles.productInfo}>
-                                            <div style={{...addItemsModalStyles.productName, fontSize: 18, lineHeight: 1.3 }}>
+                                        <div style={addItemsModalStyles.productInfo} className="product-info">
+                                            <div style={{...addItemsModalStyles.productName}} className="product-name">
                                                 {item.display_name}
                                             </div>
-                                            <Text style={{...addItemsModalStyles.productPrice, fontSize: 16 }}>
+                                            <Text style={{...addItemsModalStyles.productPrice}} className="product-price">
                                                 {formatCurrency(item.price)}
                                             </Text>
                                         </div>
@@ -292,15 +315,15 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                             </div>
                         
                         {filteredProducts.length === 0 && (
-                            <Empty description="ไม่พบสินค้าที่คุณต้องการ" style={{ marginTop: 60 }} />
+                            <Empty description="ไม่พบสินค้าที่คุณต้องการ" style={{ marginTop: 60, padding: '40px 20px' }} />
                         )}
                     </div>
                 </>
             ) : (
-                <div style={addItemsModalStyles.detailSection}>
+                <div style={addItemsModalStyles.detailSection} className="detail-section">
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                         {/* Product Large Info */}
-                        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }}>
+                        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }} className="product-info-section">
                             {selectedProduct.img_url ? (
                                 <>
                                     <Image 
@@ -308,7 +331,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                         alt={selectedProduct.display_name}
                                         width={100}
                                         height={100}
-                                        style={{ objectFit: 'cover', borderRadius: 12 }} 
+                                        style={{ objectFit: 'cover', borderRadius: 12, flexShrink: 0 }} 
                                     />
                                 </>
                             ) : (
@@ -316,9 +339,9 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                     <ShoppingCartOutlined style={{ fontSize: 32, opacity: 0.2 }} />
                                 </div>
                             )}
-                            <div>
-                                <Title level={4} style={{ margin: '0 0 4px 0', fontSize: 22 }}>{selectedProduct.display_name}</Title>
-                                <Text style={{ fontSize: 22, fontWeight: 700, color: orderDetailColors.primary }}>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <Title level={4} style={{ margin: '0 0 6px 0', fontSize: 20, lineHeight: 1.3 }}>{selectedProduct.display_name}</Title>
+                                <Text style={{ fontSize: 20, fontWeight: 700, color: orderDetailColors.primary, lineHeight: 1.2 }}>
                                     ฿{Number(selectedProduct.price).toLocaleString()}
                                 </Text>
                             </div>
@@ -326,23 +349,34 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
 
                         <Divider style={{ margin: '0' }} />
 
-                        {/* Quantity Control */}
+                        {/* Quantity Control - Enhanced */}
                         <div>
-                            <Text strong style={{ display: 'block', marginBottom: 12, fontSize: 16 }}>จำนวน</Text>
-                            <div style={modalStyles.quantityControl}>
+                            <Text strong style={{ display: 'block', marginBottom: 14, fontSize: 16, color: orderDetailColors.text }}>จำนวน</Text>
+                            <div style={modalStyles.quantityControl} className="quantity-control">
                                 <Button
                                     type="primary"
                                     icon={<MinusOutlined />}
                                     onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
                                     disabled={quantity <= 1}
-                                    style={{...modalStyles.quantityButton, background: orderDetailColors.white, color: orderDetailColors.primary, border: `1px solid ${orderDetailColors.primary}`}}
+                                    style={{
+                                        ...modalStyles.quantityButton, 
+                                        background: orderDetailColors.white, 
+                                        color: orderDetailColors.primary, 
+                                        border: `2px solid ${orderDetailColors.primary}`,
+                                    }}
+                                    className="scale-hover quantity-button"
                                 />
-                                <div style={modalStyles.quantityDisplay}>{quantity}</div>
+                                <div style={modalStyles.quantityDisplay} className="quantity-display">{quantity}</div>
                                 <Button
                                     type="primary"
                                     icon={<PlusOutlined />}
                                     onClick={() => setQuantity(prev => prev + 1)}
-                                    style={modalStyles.quantityButton}
+                                    style={{
+                                        ...modalStyles.quantityButton,
+                                        background: `linear-gradient(135deg, ${orderDetailColors.primary} 0%, ${orderDetailColors.primaryDark} 100%)`,
+                                        border: 'none',
+                                    }}
+                                    className="scale-hover quantity-button"
                                 />
                             </div>
                         </div>
@@ -361,18 +395,18 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                 </Button>
                             </div>
                             {details.map((detail) => (
-                                <div key={detail.id} style={addItemsModalStyles.detailItemRow}>
+                                <div key={detail.id} style={addItemsModalStyles.detailItemRow} className="detail-item-row">
                                     <Input 
                                         placeholder="ไข่ดาว, พิเศษ..." 
                                         value={detail.name} 
                                         onChange={e => updateDetail(detail.id, 'name', e.target.value)}
-                                        style={{ flex: 1, borderRadius: 8 }}
+                                        style={{ flex: 1, borderRadius: 10, height: 44, fontSize: 15 }}
                                     />
                                     <InputNumber<number> 
                                         placeholder="0.00" 
                                         value={detail.price} 
                                         onChange={v => updateDetail(detail.id, 'price', v || 0)}
-                                        style={{ width: 100, borderRadius: 8, height: 40 }}
+                                        style={{ width: 110, borderRadius: 10, height: 44, fontSize: 15 }}
                                         inputMode="decimal"
                                         controls={false}
                                         min={0}
@@ -394,6 +428,8 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                         danger 
                                         icon={<DeleteOutlined />} 
                                         onClick={() => removeDetail(detail.id)}
+                                        style={{ width: 44, height: 44, borderRadius: 10 }}
+                                        className="scale-hover"
                                     />
                                 </div>
                             ))}
@@ -401,29 +437,30 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
 
                         {/* Notes */}
                         <div>
-                            <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 16 }}>หมายเหตุ</Text>
+                            <Text strong style={{ display: 'block', marginBottom: 10, fontSize: 16, color: orderDetailColors.text }}>หมายเหตุ</Text>
                             <Input.TextArea 
-                                rows={2} 
+                                rows={3} 
                                 value={notes} 
                                 onChange={(e) => setNotes(e.target.value)} 
                                 placeholder="เช่น ไม่ใส่ผัก, เผ็ดน้อย..."
-                                style={{ borderRadius: 12, fontSize: 16, padding: '10px' }}
+                                style={{ borderRadius: 12, fontSize: 15, padding: '12px 14px', lineHeight: 1.5 }}
                             />
                         </div>
 
-                        {/* Total & Action Bar */}
-                        <div style={{ marginTop: 20 }}>
-                            <div style={{...modalStyles.priceCard, marginBottom: 16, padding: '16px'}}>
-                                <Text strong style={{ fontSize: 16 }}>ยอดรวมรายการนี้</Text>
-                                <Text style={{...modalStyles.priceValue, fontSize: 24}}>
+                        {/* Total & Action Bar - Enhanced */}
+                        <div style={{ marginTop: 24 }}>
+                            <div style={modalStyles.priceCard}>
+                                <Text strong style={{ fontSize: 16, color: orderDetailColors.text }}>ยอดรวมรายการนี้</Text>
+                                <Title level={4} style={{ margin: 0, color: orderDetailColors.priceTotal, fontSize: 24 }}>
                                     {formatCurrency(calculateTotalPrice())}
-                                </Text>
+                                </Title>
                             </div>
                             
-                            <div style={{ display: 'flex', gap: 12 }}>
+                            <div style={modalStyles.actionButtons} className="action-buttons">
                                 <Button
                                     onClick={() => setSelectedProduct(null)}
                                     style={modalStyles.secondaryButton}
+                                    className="scale-hover secondary-button"
                                 >
                                     ย้อนกลับ
                                 </Button>
@@ -432,6 +469,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                     onClick={handleConfirmAdd}
                                     icon={<PlusOutlined />}
                                     style={modalStyles.primaryButton}
+                                    className="scale-hover primary-button"
                                 >
                                     เพิ่มลงออเดอร์
                                 </Button>

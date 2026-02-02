@@ -28,8 +28,29 @@ export const productsService = {
         }
 
         const json = await response.json();
-        // Strict Validation: will throw if backend response doesn't match schema
-        return ProductsResponseSchema.parse(json) as unknown as { data: Products[], total: number, page: number, last_page: number };
+        
+        // Transform backend response format to match frontend schema
+        // Backend returns: { success: true, data: [...], meta: { page, limit, total, totalPages } }
+        // Frontend expects: { data: [...], total, page, last_page }
+        let transformedResponse: { data: Products[], total: number, page: number, last_page: number };
+        
+        if (json.success && json.data && json.meta) {
+            // Backend format - transform it
+            transformedResponse = {
+                data: json.data,
+                total: json.meta.total || 0,
+                page: json.meta.page || page,
+                last_page: json.meta.totalPages || Math.ceil((json.meta.total || 0) / limit)
+            };
+        } else if (json.data && typeof json.total === 'number') {
+            // Already in correct format
+            transformedResponse = json;
+        } else {
+            throw new Error("Invalid response format from backend");
+        }
+        
+        // Strict Validation: will throw if transformed response doesn't match schema
+        return ProductsResponseSchema.parse(transformedResponse) as unknown as { data: Products[], total: number, page: number, last_page: number };
     },
 
     findOne: async (id: string, cookie?: string): Promise<Products> => {

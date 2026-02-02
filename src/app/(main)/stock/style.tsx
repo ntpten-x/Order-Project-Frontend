@@ -39,7 +39,7 @@ export const pageStyles = {
   },
 
   gridConfig: {
-    gutter: 24,
+    gutter: [24, 24] as [number, number],
     xs: 1,
     sm: 1,
     md: 2,

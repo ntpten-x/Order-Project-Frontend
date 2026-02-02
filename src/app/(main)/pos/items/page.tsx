@@ -3,11 +3,11 @@
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { Typography, Row, Col, Card, Tag, Button, Empty, Divider, Avatar, Space, Skeleton } from "antd";
-import { CheckCircleOutlined, ShopOutlined, ShoppingOutlined, RocketOutlined, UserOutlined } from "@ant-design/icons";
+import { CheckCircleOutlined, ShopOutlined, ShoppingOutlined, RocketOutlined, UserOutlined, ArrowLeftOutlined } from "@ant-design/icons";
 import { ordersService } from "../../../../services/pos/orders.service";
 import { SalesOrderItem } from "../../../../types/api/pos/salesOrderItem";
 import { OrderStatus, OrderType, SalesOrder } from "../../../../types/api/pos/salesOrder";
-import { paymentPageStyles, paymentColors } from "../../../../theme/pos/payments.theme";
+import { itemsStyles, itemsColors, itemsResponsiveStyles } from "../../../../theme/pos/items/style";
 import { formatCurrency } from "../../../../utils/orders";
 import { useGlobalLoadingDispatch } from "../../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../../hooks/useSocket";
@@ -107,57 +107,88 @@ export default function POSItemsPage() {
     };
 
     return (
-        <div style={paymentPageStyles.container}>
-             <div style={paymentPageStyles.heroSection}>
-                <div style={paymentPageStyles.contentWrapper}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-                        <CheckCircleOutlined style={{ fontSize: 28, color: '#fff' }} />
-                        <div>
-                            <Title level={3} style={paymentPageStyles.pageTitle}>รายการรอชำระเงิน</Title>
-                            <Text style={paymentPageStyles.pageSubtitle}>Waiting For Payment Orders</Text>
+        <>
+            <style jsx global>{itemsResponsiveStyles}</style>
+            <div style={itemsStyles.container}>
+                {/* Hero Header - Enhanced */}
+                <header 
+                    style={itemsStyles.heroSection} 
+                    className="items-hero-mobile"
+                    role="banner"
+                >
+                    <div style={{ ...itemsStyles.contentWrapper, padding: '0 16px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
+                            <Button
+                                type="text"
+                                icon={<ArrowLeftOutlined />}
+                                onClick={() => router.back()}
+                                style={itemsStyles.backButton}
+                                className="items-back-button-mobile scale-hover"
+                                aria-label="กลับ"
+                            />
+                            <div style={{ 
+                                width: 52, 
+                                height: 52, 
+                                borderRadius: 16, 
+                                background: 'rgba(255, 255, 255, 0.2)',
+                                backdropFilter: 'blur(10px)',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                            }}>
+                                <CheckCircleOutlined style={{ fontSize: 26, color: '#fff' }} />
+                            </div>
+                            <div style={{ flex: 1 }}>
+                                <Title level={3} style={itemsStyles.pageTitle} className="items-title-mobile">
+                                    รายการรอชำระเงิน
+                                </Title>
+                                <Text style={itemsStyles.pageSubtitle} className="items-subtitle-mobile">
+                                    Waiting For Payment Orders
+                                </Text>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </div>
+                </header>
 
-             <div style={{ ...paymentPageStyles.contentWrapper, marginTop: -40, padding: '0 24px' }}>
+                <div style={{ ...itemsStyles.contentWrapper, marginTop: -32, padding: '0 16px' }} className="items-content-mobile">
                 {isLoading ? (
                     <Row gutter={[16, 16]}>
                         {Array.from({ length: 6 }).map((_, index) => (
                             <Col xs={24} sm={12} lg={8} key={`skeleton-${index}`}>
-                                <Card style={paymentPageStyles.card}>
+                                <Card style={itemsStyles.card}>
                                     <Skeleton active paragraph={{ rows: 3 }} />
                                 </Card>
                             </Col>
                         ))}
                     </Row>
                 ) : orderGroups.length === 0 ? (
-                    <Card style={{ borderRadius: 12, border: 'none', boxShadow: paymentColors.cardShadow }}>
+                    <Card style={itemsStyles.emptyCard}>
                         <Empty description="ไม่มีรายการรอชำระเงิน" />
                     </Card>
                 ) : (
                     <Row gutter={[16, 16]}>
-                        {orderGroups.map((group) => (
+                        {orderGroups.map((group, index) => (
                             <Col xs={24} sm={12} lg={8} key={group.order.id}>
                                 <Card 
                                     hoverable 
-                                    style={paymentPageStyles.card}
+                                    className={`items-card-mobile items-card-animate items-card-delay-${(index % 3) + 1}`}
+                                    style={itemsStyles.card}
                                     bodyStyle={{ flex: 1, display: 'flex', flexDirection: 'column' }}
                                 >
                                     {/* Card Header */}
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
-                                        <div>
-                                            <Tag color="geekblue" style={{ fontSize: 13, padding: '4px 8px', marginBottom: 6, borderRadius: 6 }}>
+                                    <div style={itemsStyles.cardHeader} className="items-card-header-mobile">
+                                        <div style={itemsStyles.cardHeaderLeft}>
+                                            <Tag color="geekblue" style={itemsStyles.cardTimeTag}>
                                                 {dayjs(group.order.create_date).format('HH:mm')}
                                             </Tag>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                            <div style={itemsStyles.cardOrderInfo}>
                                                 {getOrderIcon(group.order.order_type)}
                                                 <Text strong style={{ fontSize: 16 }}>
                                                     {getOrderTypeUserFriendly(group.order.order_type, group.order.table)}
                                                 </Text>
                                             </div>
-                                            <Space size={4} direction="vertical" style={{ marginTop: 4 }}>
-                                                <Text type="secondary" style={{ fontSize: 12 }}>#{group.order.order_no}</Text>
+                                            <Space size={4} orientation="vertical" style={{ marginTop: 4 }}>
+                                                <Text type="secondary" style={itemsStyles.cardOrderNo}>#{group.order.order_no}</Text>
                                                 {group.order.created_by_id && (
                                                     <Text type="secondary" style={{ fontSize: 11 }}>
                                                         <UserOutlined style={{ marginRight: 4 }} />
@@ -166,7 +197,7 @@ export default function POSItemsPage() {
                                                 )}
                                             </Space>
                                         </div>
-                                        <Text strong style={{ fontSize: 20, color: paymentColors.primary }}>
+                                        <Text strong style={itemsStyles.cardTotal} className="items-card-total-mobile">
                                             {formatCurrency(group.totalAmount)}
                                         </Text>
                                     </div>
@@ -174,35 +205,39 @@ export default function POSItemsPage() {
                                     <Divider style={{ margin: '12px 0' }} />
                                     
                                     {/* Items List */}
-                                    <div style={{ flex: 1 }}>
+                                    <div style={itemsStyles.itemsList}>
                                         {group.items.map((item, idx) => (
-                                            <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 12, alignItems: 'center' }}>
-                                                <div style={{ display: 'flex', gap: 12, alignItems: 'center', flex: 1, minWidth: 0 }}>
+                                            <div key={idx} style={itemsStyles.itemRow} className="items-item-row-mobile">
+                                                <div style={itemsStyles.itemLeft} className="items-item-left-mobile">
                                                     {item.product?.img_url ? (
                                                         <Avatar 
                                                             shape="square" 
                                                             size={40} 
                                                             src={item.product.img_url} 
-                                                            style={{ borderRadius: 8, border: `1px solid ${paymentColors.borderLight}` }}
+                                                            style={itemsStyles.itemImage}
                                                         />
                                                     ) : (
-                                                        <div style={{ width: 40, height: 40, borderRadius: 8, background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', border: `1px solid ${paymentColors.borderLight}` }}>
-                                                            <ShopOutlined style={{ color: paymentColors.textLight }} />
+                                                        <div style={itemsStyles.itemImagePlaceholder}>
+                                                            <ShopOutlined style={{ color: itemsColors.textLight }} />
                                                         </div>
                                                     )}
                                                     
-                                                    <div style={{ minWidth: 0, flex: 1 }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                            <Tag style={{ margin: 0, padding: '0 4px', fontSize: 11 }}>x{item.quantity}</Tag>
-                                                            <Text strong style={{ fontSize: 14 }} ellipsis>{item.product?.display_name}</Text>
+                                                    <div style={itemsStyles.itemInfo}>
+                                                        <div style={itemsStyles.itemNameRow}>
+                                                            <Tag style={itemsStyles.itemQuantityTag}>x{item.quantity}</Tag>
+                                                            <Text strong style={itemsStyles.itemName} ellipsis>{item.product?.display_name}</Text>
                                                         </div>
-                                                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 1 }}>
+                                                        <Text type="secondary" style={itemsStyles.itemPrice}>
                                                             {formatCurrency(item.price)}
                                                         </Text>
-                                                        {item.notes && <Text type="secondary" style={{ fontSize: 11, display: 'block', fontStyle: 'italic' }}>* {item.notes}</Text>}
+                                                        {item.notes && (
+                                                            <Text type="secondary" style={itemsStyles.itemNotes}>
+                                                                * {item.notes}
+                                                            </Text>
+                                                        )}
                                                     </div>
                                                 </div>
-                                                <Text strong style={{ marginLeft: 8 }}>
+                                                <Text strong style={itemsStyles.itemTotal} className="items-item-total-mobile">
                                                     {formatCurrency(Number(item.total_price || (Number(item.price) * item.quantity)))}
                                                 </Text>
                                             </div>
@@ -215,7 +250,8 @@ export default function POSItemsPage() {
                                         type="primary" 
                                         block 
                                         size="large"
-                                        style={{ background: paymentColors.success, borderColor: paymentColors.success, borderRadius: 8, height: 44, fontWeight: 600 }}
+                                        style={itemsStyles.paymentButton}
+                                        className="items-payment-button-mobile"
                                         onClick={() => handlePaymentClick(group.order.id, group.order.order_type as OrderType)}
                                     >
                                         ชำระเงิน
@@ -225,7 +261,8 @@ export default function POSItemsPage() {
                         ))}
                     </Row>
                 )}
+                </div>
             </div>
-        </div>
+        </>
     );
 }

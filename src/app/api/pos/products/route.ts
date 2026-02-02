@@ -13,9 +13,30 @@ export async function GET(request: NextRequest) {
         filters.delete("page");
         filters.delete("limit");
 
-        const data = await productsService.findAll(page, limit, cookie, filters);
-        return NextResponse.json(data);
+        const response = await productsService.findAll(page, limit, cookie, filters);
+        
+        // Transform backend response format to match frontend schema
+        // Backend returns: { success: true, data: [...], meta: { page, limit, total, totalPages } }
+        // Frontend expects: { data: [...], total, page, last_page }
+        if (response && typeof response === 'object' && 'data' in response) {
+            // Already in correct format (from schema validation)
+            return NextResponse.json(response);
+        }
+        
+        // Fallback: if response is in backend format, transform it
+        const backendResponse = response as any;
+        if (backendResponse.success && backendResponse.data && backendResponse.meta) {
+            return NextResponse.json({
+                data: backendResponse.data,
+                total: backendResponse.meta.total || 0,
+                page: backendResponse.meta.page || page,
+                last_page: backendResponse.meta.totalPages || Math.ceil((backendResponse.meta.total || 0) / limit)
+            });
+        }
+        
+        return NextResponse.json(response);
     } catch (error) {
+        console.error('[API] Products fetch error:', error);
         return NextResponse.json(
             { error: error instanceof Error ? error.message : "Failed to fetch products" },
             { status: 500 }

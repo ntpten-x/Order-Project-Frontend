@@ -1,8 +1,14 @@
-import { CreateOrderItemDTO, CreateSalesOrderDTO } from "../../types/api/pos/salesOrder";
+import { CreateOrderItemDTO, CreateSalesOrderDTO, UpdateSalesOrderDTO } from "../../types/api/pos/salesOrder";
+import { QueueStatus } from "../../types/api/pos/orderQueue";
 
 type OfflinePayloadMap = {
     CREATE_ORDER: CreateSalesOrderDTO;
+    UPDATE_ORDER: { orderId: string; data: UpdateSalesOrderDTO };
     ADD_ITEM: { orderId: string; itemData: CreateOrderItemDTO };
+    UPDATE_ITEM: { orderId: string; itemId: string; itemData: Partial<CreateOrderItemDTO> };
+    DELETE_ITEM: { orderId: string; itemId: string };
+    PAYMENT: { orderId: string; paymentData: { payment_method_id: string; amount: number; amount_received?: number } };
+    UPDATE_QUEUE_STATUS: { queueId: string; status: QueueStatus };
 };
 
 type OfflineActionType = keyof OfflinePayloadMap;

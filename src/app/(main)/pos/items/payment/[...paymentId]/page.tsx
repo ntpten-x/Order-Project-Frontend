@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Typography, Row, Col, Card, Button, Empty, Divider, message, InputNumber, Select, Tag, Avatar, Alert } from "antd";
+import { Typography, Row, Col, Card, Button, Empty, Divider, message, InputNumber, Select, Tag, Avatar, Alert, Modal } from "antd";
 import { ArrowLeftOutlined, ShopOutlined, DollarOutlined, CreditCardOutlined, QrcodeOutlined, UndoOutlined, EditOutlined, SettingOutlined } from "@ant-design/icons";
 import { QRCodeSVG } from 'qrcode.react';
 import generatePayload from 'promptpay-qr';
@@ -19,7 +19,7 @@ import { PaymentMethod } from "../../../../../../types/api/pos/paymentMethod";
 import { TableStatus } from "../../../../../../types/api/pos/tables";
 import { Discounts, DiscountType } from "../../../../../../types/api/pos/discounts";
 import { PaymentStatus } from "../../../../../../types/api/pos/payments";
-import { paymentPageStyles, paymentColors } from "../../../../../../theme/pos/payments.theme";
+import { itemsPaymentStyles, itemsColors, itemsResponsiveStyles } from "../../../../../../theme/pos/items/style";
 import { calculatePaymentTotals, isCashMethod, isPromptPayMethod, quickCashAmounts, getPostCancelPaymentRedirect, getEditOrderRedirect, isPaymentMethodConfigured } from "../../../../../../utils/payments";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
@@ -49,8 +49,13 @@ export default function POSPaymentPage() {
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
     const [receivedAmount, setReceivedAmount] = useState<number>(0);
     const [appliedDiscount, setAppliedDiscount] = useState<Discounts | null>(null);
+    const [discountModalVisible, setDiscountModalVisible] = useState(false);
     const { showLoading, hideLoading } = useGlobalLoading();
     const { socket } = useSocket();
+    
+    // Refs for input fields
+    const cashInputRef = useRef<any>(null);
+    const cardInputRef = useRef<any>(null);
 
     // Confirmation Dialog State
     const [confirmConfig, setConfirmConfig] = useState<ConfirmationConfig>({
@@ -63,7 +68,7 @@ export default function POSPaymentPage() {
 
     const closeConfirm = () => setConfirmConfig(prev => ({ ...prev, open: false }));
 
-    const fetchInitialData = useCallback(async (silent = false) => {
+    const fetchInitialData = useCallback(async (silent = false): Promise<void> => {
         if (!paymentId) return;
         try {
             if (!silent) {
@@ -97,7 +102,29 @@ export default function POSPaymentPage() {
             });
 
             setPaymentMethods(filteredMethods);
-            setDiscounts(discountsRes);
+            
+            // Ensure discounts is always an array
+            // discountsService.getAll() should always return Discounts[]
+            // but handle edge cases just in case
+            let discountsArray: Discounts[] = [];
+            if (Array.isArray(discountsRes)) {
+                discountsArray = discountsRes;
+            } else if (discountsRes && typeof discountsRes === 'object') {
+                // Handle single object response
+                const discountObj = discountsRes as any;
+                if (discountObj.id && (discountObj.discount_name || discountObj.display_name)) {
+                    discountsArray = [discountObj as Discounts];
+                } else if (discountObj.data && Array.isArray(discountObj.data)) {
+                    discountsArray = discountObj.data;
+                } else if (discountObj.success && Array.isArray(discountObj.data)) {
+                    discountsArray = discountObj.data;
+                } else if (discountObj.success && discountObj.data && typeof discountObj.data === 'object' && !Array.isArray(discountObj.data)) {
+                    if (discountObj.data.id && (discountObj.data.discount_name || discountObj.data.display_name)) {
+                        discountsArray = [discountObj.data as Discounts];
+                    }
+                }
+            }
+            setDiscounts(discountsArray);
             setShopProfile(shopRes);
             
             // Sync initial discount
@@ -120,23 +147,70 @@ export default function POSPaymentPage() {
         }
     }, [messageApi, paymentId, router, showLoading, hideLoading]);
 
+
+    // Memoize discount options for Select component
+    const discountOptions = useMemo(() => {
+        console.log('[DiscountOptions] Input discounts:', discounts);
+        
+        if (!discounts || !Array.isArray(discounts) || discounts.length === 0) {
+            console.log('[DiscountOptions] No discounts available');
+            return [];
+        }
+        
+        const activeDiscounts = discounts.filter(d => {
+            if (!d) return false;
+            return d.is_active === true || d.is_active === undefined;
+        });
+        
+        console.log('[DiscountOptions] Active discounts:', activeDiscounts);
+        
+        if (activeDiscounts.length === 0) {
+            console.log('[DiscountOptions] No active discounts');
+            return [];
+        }
+        
+        const options = activeDiscounts.map(d => {
+            // Use display_name first, fallback to discount_name
+            const displayName = d.display_name || d.discount_name;
+            if (!displayName || !d.id) {
+                console.log('[DiscountOptions] Skipping item without name/id:', d);
+                return null;
+            }
+            const label = `${displayName} (${d.discount_type === DiscountType.Percentage ? `${d.discount_amount}%` : `-${d.discount_amount}฿`})`;
+            return { label, value: d.id };
+        }).filter((opt): opt is { label: string; value: string } => opt !== null);
+        
+        console.log('[DiscountOptions] Final options:', options);
+        return options;
+    }, [discounts]);
+
     useEffect(() => {
         if (paymentId) {
             fetchInitialData(false);
         }
     }, [fetchInitialData, paymentId]);
 
+    // Temporarily disable realtime refresh to test if it causes dropdown issues
+    /*
     useRealtimeRefresh({
         socket,
         events: ["orders:update", "orders:delete", "payments:create", "payments:update"],
-        onRefresh: () => {
-            if (paymentId) {
-                fetchInitialData(true);
-            }
-        },
-        intervalMs: 15000,
-        enabled: Boolean(paymentId),
+        onRefresh: async () => {
+             // fetchInitialData(true);
+        }
     });
+    */
+    
+    // Prevent auto-scroll when component re-renders
+    useEffect(() => {
+        // Disable Next.js auto-scroll behavior
+        if (typeof window !== 'undefined') {
+            // Prevent scroll restoration
+            if ('scrollRestoration' in window.history) {
+                window.history.scrollRestoration = 'manual';
+            }
+        }
+    }, []);
 
     const { subtotal, discount, vat, total, change } = calculatePaymentTotals(order, receivedAmount);
 
@@ -201,11 +275,11 @@ export default function POSPaymentPage() {
                     <div style={{ fontSize: 16, marginBottom: 8 }}>
                         วิธีการชำระเงิน: <Text strong>{methodName}</Text>
                     </div>
-                    <div style={{ fontSize: 24, fontWeight: 700, color: paymentColors.primary }}>
+                    <div style={{ fontSize: 24, fontWeight: 700, color: itemsColors.primary }}>
                         ยอดสุทธิ {formatCurrency(total)}
                     </div>
                     {change > 0 && (
-                        <div style={{ color: paymentColors.success, fontSize: 18, marginTop: 4 }}>
+                        <div style={{ color: itemsColors.success, fontSize: 18, marginTop: 4 }}>
                             เงินทอน {formatCurrency(change)}
                         </div>
                     )}
@@ -350,12 +424,13 @@ export default function POSPaymentPage() {
     if (!order) return <Empty description="ไม่พบข้อมูลออเดอร์" />;
 
     return (
-        <div style={paymentPageStyles.container}>
+        <div style={itemsPaymentStyles.container}>
+            <style jsx global>{itemsResponsiveStyles}</style>
             {contextHolder}
-            
-            {/* Hero Header */}
-             <div style={paymentPageStyles.heroSection}>
-                <div style={paymentPageStyles.contentWrapper}>
+                
+                {/* Hero Header */}
+                <div style={itemsPaymentStyles.heroSection} className="payment-hero-mobile">
+                <div style={itemsPaymentStyles.contentWrapper} className="payment-content-mobile">
                     <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
                              <Button 
@@ -365,7 +440,7 @@ export default function POSPaymentPage() {
                                 onClick={handleBack}
                               />
                              <div>
-                                <Title level={3} style={paymentPageStyles.pageTitle}>ชำระเงิน</Title>
+                                <Title level={3} style={itemsPaymentStyles.pageTitle}>ชำระเงิน</Title>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
                                     <Tag color="blue" style={{ borderRadius: 4, border: 'none' }}>
                                         {getOrderChannelText(order.order_type)} {getOrderReference(order)}
@@ -397,22 +472,25 @@ export default function POSPaymentPage() {
                 </div>
             </div>
 
-            <div style={{ ...paymentPageStyles.contentWrapper, marginTop: -30, paddingBottom: 40 }}>
+            <div style={{ ...itemsPaymentStyles.contentWrapper, marginTop: -30, paddingBottom: 40 }}>
                 <Row gutter={[24, 24]}>
                     {/* Left: Summary */}
                     <Col xs={24} lg={14}>
-                        <Card style={paymentPageStyles.card} bodyStyle={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+                        <Card 
+                            style={itemsPaymentStyles.card} 
+                            styles={{ body: { height: '100%', display: 'flex', flexDirection: 'column' } }}
+                        >
                              <Title level={4} style={{ marginBottom: 16, marginTop: 0 }}>รายการสรุป (Order Summary)</Title>
                             <div style={{ flex: 1, overflowY: 'auto', paddingRight: 8, minHeight: 300, maxHeight: 500 }}>
                                 {order.items?.filter(item => item.status !== OrderStatus.Cancelled).map((item, idx) => (
-                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${paymentColors.borderLight}` }}>
+                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${itemsColors.borderLight}` }}>
                                          <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 0 }}>
                                             <Avatar 
                                                 shape="square" 
                                                 size={50} 
                                                 src={item.product?.img_url} 
                                                 icon={<ShopOutlined />}
-                                                style={{ backgroundColor: paymentColors.backgroundSecondary, flexShrink: 0, borderRadius: 8 }} 
+                                                style={{ backgroundColor: itemsColors.backgroundSecondary, flexShrink: 0, borderRadius: 8 }} 
                                             />
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <Text strong style={{ display: 'block' }} ellipsis>{item.product?.display_name}</Text>
@@ -443,13 +521,13 @@ export default function POSPaymentPage() {
                                 ))}
                             </div>
                             
-                            <div style={paymentPageStyles.summaryBox}>
+                            <div style={itemsPaymentStyles.summaryBox}>
                                 <Row justify="space-between" style={{ marginBottom: 8 }}>
                                     <Text type="secondary">ยอดรวม (Subtotal)</Text>
                                     <Text>{formatCurrency(subtotal)}</Text>
                                 </Row>
                                 {discount > 0 && (
-                                    <Row justify="space-between" style={{ marginBottom: 8, color: paymentColors.success }}>
+                                    <Row justify="space-between" style={{ marginBottom: 8, color: itemsColors.success }}>
                                         <Text type="success">ส่วนลด (Discount)</Text>
                                         <Text type="success">-{formatCurrency(discount)}</Text>
                                     </Row>
@@ -463,7 +541,7 @@ export default function POSPaymentPage() {
                                 <Divider style={{ margin: '12px 0' }} />
                                 <Row justify="space-between" align="middle">
                                     <Title level={4} style={{ margin: 0 }}>ยอดสุทธิ (Total)</Title>
-                                    <Title level={3} style={{ color: paymentColors.primary, margin: 0 }}>{formatCurrency(total)}</Title>
+                                    <Title level={3} style={{ color: itemsColors.primary, margin: 0 }}>{formatCurrency(total)}</Title>
                                 </Row>
                             </div>
                         </Card>
@@ -471,25 +549,117 @@ export default function POSPaymentPage() {
                     
                     {/* Right: Payment Actions */}
                     <Col xs={24} lg={10}>
-                         <Card style={{ ...paymentPageStyles.card, marginBottom: 12 }} bodyStyle={{ padding: '12px 16px' }}>
+                         <Card 
+                            style={{ ...itemsPaymentStyles.card, height: 'auto', marginBottom: 12, overflow: 'visible' }} 
+                            styles={{ body: { padding: '12px 16px', overflow: 'visible' } }}
+                        >
                             <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 13 }}>ส่วนลด (Discount)</Text>
-                            <Select
-                                placeholder="เลือกส่วนลด (Select Discount)"
-                                style={{ width: '100%' }}
-                                allowClear
-                                size="large"
-                                value={appliedDiscount ? appliedDiscount.id : undefined}
-                                onChange={handleDiscountChange}
+                            {/* Discount Selection - Switched to Modal for better Mobile/Touch experience */}
+                            <div 
+                                style={{ 
+                                    border: `1px solid ${appliedDiscount ? '#4F46E5' : '#d9d9d9'}`,
+                                    borderRadius: 8,
+                                    padding: '8px 12px',
+                                    cursor: 'pointer',
+                                    background: '#fff',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    height: 48, // Touch friendly height
+                                    transition: 'all 0.2s'
+                                }}
+                                onClick={() => {
+                                    if (!isLoading) {
+                                        setDiscountModalVisible(true);
+                                    }
+                                }}
                             >
-                                {discounts.filter(d => d.is_active).map(d => (
-                                    <Select.Option key={d.id} value={d.id}>
-                                        {d.display_name} ({d.discount_type === DiscountType.Percentage ? `${d.discount_amount}%` : `-${d.discount_amount}฿`})
-                                    </Select.Option>
-                                ))}
-                            </Select>
+                                <span style={{ color: appliedDiscount ? '#1f2937' : '#9ca3af' }}>
+                                    {appliedDiscount 
+                                        ? `${appliedDiscount.display_name || appliedDiscount.discount_name} (${appliedDiscount.discount_type === 'Percentage' ? `${appliedDiscount.discount_amount}%` : `-${appliedDiscount.discount_amount}฿`})`
+                                        : "เลือกส่วนลด (Select Discount)"}
+                                </span>
+                                {appliedDiscount ? (
+                                    <span 
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            handleDiscountChange(undefined);
+                                        }}
+                                        style={{ color: '#ef4444', padding: 4 }}
+                                    >
+                                        ✕
+                                    </span>
+                                ) : (
+                                    <span style={{ color: '#9ca3af' }}>▼</span>
+                                )}
+                            </div>
                          </Card>
+                         
+                         {/* Discount Selection Modal */}
+                         <Modal
+                            title="เลือกส่วนลด"
+                            open={discountModalVisible}
+                            onCancel={() => setDiscountModalVisible(false)}
+                            footer={null}
+                            centered
+                            width={400}
+                            zIndex={10001} // Ensure above everything
+                         >
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '60vh', overflowY: 'auto' }}>
+                                {discountOptions.length === 0 ? (
+                                    <div style={{ textAlign: 'center', padding: 24, color: '#9ca3af' }}>
+                                        ไม่มีส่วนลดที่ใช้งานได้
+                                    </div>
+                                ) : (
+                                    discountOptions.map(opt => (
+                                        <div
+                                            key={opt.value}
+                                            onClick={() => {
+                                                handleDiscountChange(opt.value);
+                                                setDiscountModalVisible(false);
+                                            }}
+                                            style={{
+                                                padding: '12px 16px',
+                                                border: '1px solid #e5e7eb',
+                                                borderRadius: 8,
+                                                cursor: 'pointer',
+                                                background: appliedDiscount?.id === opt.value ? '#eff6ff' : '#fff',
+                                                borderColor: appliedDiscount?.id === opt.value ? '#3b82f6' : '#e5e7eb',
+                                                display: 'flex',
+                                                justifyContent: 'space-between',
+                                                alignItems: 'center'
+                                            }}
+                                        >
+                                            <span style={{ fontWeight: appliedDiscount?.id === opt.value ? 500 : 400 }}>
+                                                {opt.label}
+                                            </span>
+                                            {appliedDiscount?.id === opt.value && (
+                                                <span style={{ color: '#3b82f6' }}>✓</span>
+                                            )}
+                                        </div>
+                                    ))
+                                )}
+                                <div
+                                    onClick={() => {
+                                        handleDiscountChange(undefined);
+                                        setDiscountModalVisible(false);
+                                    }}
+                                    style={{
+                                        padding: '12px 16px',
+                                        marginTop: 8,
+                                        textAlign: 'center',
+                                        color: '#ef4444',
+                                        cursor: 'pointer',
+                                        border: '1px dashed #ef4444',
+                                        borderRadius: 8
+                                    }}
+                                >
+                                    ไม่ใช้ส่วนลด
+                                </div>
+                            </div>
+                         </Modal>
 
-                          <Card style={paymentPageStyles.card}>
+                          <Card style={itemsPaymentStyles.card}>
                              <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                                 <Text strong style={{ fontSize: 16 }}>วิธีการชำระเงิน (Payment Method)</Text>
                                 {paymentMethods.length === 0 ? (
@@ -509,25 +679,25 @@ export default function POSPaymentPage() {
                                                     <div 
                                                         onClick={() => {
                                                             setSelectedPaymentMethod(method.id);
-                                                            // Auto-fill amount for digital payments
+                                                            // Auto-fill amount based on payment type
                                                             if (isPromptPayMethod(method.payment_method_name, method.display_name)) {
                                                                 setReceivedAmount(total);
                                                             } else if (isCashMethod(method.payment_method_name, method.display_name)) {
                                                                 setReceivedAmount(0);
                                                             } else {
-                                                                 setReceivedAmount(total); // Default for credit card etc
+                                                                setReceivedAmount(total);
                                                             }
                                                         }}
                                                         style={{ 
-                                                            ...paymentPageStyles.methodCard,
-                                                            ...(isSelected ? paymentPageStyles.methodCardSelected : {})
+                                                            ...itemsPaymentStyles.methodCard,
+                                                            ...(isSelected ? itemsPaymentStyles.methodCardSelected : {})
                                                         }}
                                                     >   
-                                                        <div style={{ fontSize: 24, marginBottom: 8, color: isSelected ? paymentColors.primary : '#595959' }}>
+                                                        <div style={{ fontSize: 24, marginBottom: 8, color: isSelected ? itemsColors.primary : '#595959' }}>
                                                             {isCashMethod(method.payment_method_name, method.display_name) ? <DollarOutlined /> : 
                                                              isPromptPayMethod(method.payment_method_name, method.display_name) ? <QrcodeOutlined /> : <CreditCardOutlined />}
                                                         </div>
-                                                        <Text strong style={{ color: isSelected ? paymentColors.primary : undefined }}>{method.display_name}</Text>
+                                                        <Text strong style={{ color: isSelected ? itemsColors.primary : undefined }}>{method.display_name}</Text>
                                                     </div>
                                                 </Col>
                                             );
@@ -564,13 +734,13 @@ export default function POSPaymentPage() {
                                                 }
                                                 const payload = generatePayload(shopProfile.promptpay_number, { amount: total });
                                                 return (
-                                                    <div style={paymentPageStyles.qrArea}>
+                                                    <div style={itemsPaymentStyles.qrArea}>
                                                         <Text style={{ display: 'block', marginBottom: 16, fontSize: 16 }}>สแกน QR เพื่อชำระเงิน</Text>
                                                         <div style={{ background: 'white', padding: 12, display: 'inline-block', borderRadius: 8 }}>
                                                             <QRCodeSVG value={payload} size={180} level="L" includeMargin />
                                                         </div>
                                                         <div style={{ marginTop: 16 }}>
-                                                            <Title level={3} style={{ color: paymentColors.primary, margin: 0 }}>{formatCurrency(total)}</Title>
+                                                            <Title level={3} style={{ color: itemsColors.primary, margin: 0 }}>{formatCurrency(total)}</Title>
                                                         </div>
                                                         <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
                                                             {shopProfile.promptpay_number}
@@ -582,9 +752,10 @@ export default function POSPaymentPage() {
 
                                             if (isCash) {
                                                 return (
-                                                    <div style={paymentPageStyles.inputArea}>
+                                                    <div style={itemsPaymentStyles.inputArea}>
                                                         <Text style={{ display: 'block', marginBottom: 8 }}>รับเงินมา (Received)</Text>
                                                          <InputNumber 
+                                                            ref={cashInputRef}
                                                             style={{ width: '100%', fontSize: 24, padding: 8, borderRadius: 8, marginBottom: 12 }} 
                                                             size="large"
                                                             min={0}
@@ -593,7 +764,6 @@ export default function POSPaymentPage() {
                                                             formatter={value => `฿ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                                                             parser={value => Number(value!.replace(/฿\s?|(,*)/g, ''))}
                                                             onFocus={(e) => e.target.select()}
-                                                            autoFocus
                                                             controls={false}
                                                             inputMode="decimal"
                                                             onKeyDown={(e) => {
@@ -622,7 +792,7 @@ export default function POSPaymentPage() {
                                                             border: `1px solid ${change >= 0 ? '#b7eb8f' : '#ffa39e'}` 
                                                         }}>
                                                             <Text style={{ fontSize: 16 }}>เงินทอน (Change)</Text>
-                                                            <Text strong style={{ fontSize: 24, color: change >= 0 ? paymentColors.success : paymentColors.cancelled }}>
+                                                            <Text strong style={{ fontSize: 24, color: change >= 0 ? itemsColors.success : itemsColors.cancelled }}>
                                                                 {formatCurrency(Math.max(0, change))}
                                                             </Text>
                                                         </Row>
@@ -636,6 +806,7 @@ export default function POSPaymentPage() {
                                                     <Text type="secondary">ตรวจสอบยอดเงินและชำระผ่านช่องทางที่เลือก</Text>
                                                     <div style={{ marginTop: 16 }}>
                                                          <InputNumber 
+                                                            ref={cardInputRef}
                                                             style={{ width: '100%', fontSize: 24 }} 
                                                             value={receivedAmount} 
                                                             onChange={val => setReceivedAmount(val || 0)} 
@@ -661,7 +832,7 @@ export default function POSPaymentPage() {
                                     type="primary" 
                                     size="large" 
                                     block 
-                                    style={{ height: 56, fontSize: 18, marginTop: 8, background: paymentColors.success, border: `1px solid ${paymentColors.success}`, fontWeight: 700 }}
+                                    style={{ height: 56, fontSize: 18, marginTop: 8, background: itemsColors.success, border: `1px solid ${itemsColors.success}`, fontWeight: 700 }}
                                     onClick={handleConfirmPayment}
                                     disabled={
                                         !selectedPaymentMethod || 

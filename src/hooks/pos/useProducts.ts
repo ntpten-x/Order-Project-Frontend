@@ -17,15 +17,19 @@ interface ProductsResponse {
 export function useProducts(page: number = 1, limit: number = 20, categoryId?: string) {
     const { socket } = useContext(SocketContext);
     const queryClient = useQueryClient();
-    const queryKey = ['products', page, limit, categoryId];
+    // Use 'all' for undefined categoryId to ensure consistent cache key
+    const queryKey = ['products', page, limit, categoryId || 'all'];
 
     const { data, error, isLoading, refetch } = useQuery<ProductsResponse>({
         queryKey,
         queryFn: async () => {
             // Note: productsService.findAll expects page, limit, cookie, searchParams
             // We can pass search params for category_id
+            // When categoryId is undefined, don't add category_id param to show all products
             const searchParams = new URLSearchParams();
-            if (categoryId) searchParams.append("category_id", categoryId);
+            if (categoryId) {
+                searchParams.append("category_id", categoryId);
+            }
 
             const result = await productsService.findAll(page, limit, undefined, searchParams);
             return result;

@@ -51,6 +51,9 @@ import { useNetwork } from "../../../../../hooks/useNetwork";
 import { offlineQueueService } from "../../../../../services/pos/offline.queue.service";
 import { useSocket } from "../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
+import { useOrderQueue } from "../../../../../hooks/pos/useOrderQueue";
+import { QueueStatus, QueuePriority } from "../../../../../types/api/pos/orderQueue";
+import { UnorderedListOutlined } from "@ant-design/icons";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -71,6 +74,10 @@ export default function POSOrderDetailsPage() {
     const { showLoading, hideLoading } = useGlobalLoading();
     const { socket } = useSocket();
     const isOnline = useNetwork();
+    
+    // Queue management
+    const { queue, addToQueue, removeFromQueue, isLoading: isQueueLoading } = useOrderQueue();
+    const currentQueueItem = order ? queue.find(q => q.order_id === order.id) : null;
     
     // Selection State
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
@@ -104,7 +111,6 @@ export default function POSOrderDetailsPage() {
             }
             setOrder(data);
         } catch (error) {
-            console.error("Failed to fetch order:", error);
             message.error("ไม่สามารถโหลดข้อมูลออเดอร์ได้");
         } finally {
             setIsLoading(false);
@@ -249,7 +255,6 @@ export default function POSOrderDetailsPage() {
                     router.push(getCancelOrderNavigationPath(order.order_type));
 
                 } catch (error) {
-                    console.error("Cancel failed:", error);
                     message.error("ไม่สามารถยกเลิกออเดอร์ได้");
                 } finally {
                     setIsUpdating(false);
@@ -292,9 +297,64 @@ export default function POSOrderDetailsPage() {
             setIsUpdating(true);
             showLoading("กำลังบันทึกข้อมูล...");
             const csrfToken = await getCsrfTokenCached();
-            await ordersService.updateItem(itemId, { quantity, notes, details }, undefined, csrfToken);
+            
+            // Validate quantity
+            if (!quantity || quantity < 1) {
+                message.error("จำนวนต้องมากกว่า 0");
+                throw new Error("Invalid quantity");
+            }
+            
+            // Prepare update data - ensure all values are properly formatted
+            const updateData = {
+                quantity: Number(quantity),
+                notes: String(notes || ''),
+                details: Array.isArray(details) ? details.map(d => ({
+                    detail_name: String(d.detail_name || ''),
+                    extra_price: Number(d.extra_price || 0)
+                })) : []
+            };
+            
+            // Send update request
+            const updatedOrder = await ordersService.updateItem(
+                itemId, 
+                updateData, 
+                undefined, 
+                csrfToken
+            );
+            
             message.success("แก้ไขรายการเรียบร้อย");
-            fetchOrder(orderId as string);
+            
+            // Close modal first
+            setEditModalOpen(false);
+            setItemToEdit(null);
+            
+            // Close modal first
+            setEditModalOpen(false);
+            setItemToEdit(null);
+            
+            // Always fetch fresh data after update
+            // Note: Backend might have a bug where it uses old quantity value
+            // So we'll fetch multiple times to ensure we get the updated data
+            
+            // First fetch after short delay
+            await new Promise(resolve => setTimeout(resolve, 600));
+            await fetchOrder(orderId as string);
+            
+            // Second fetch to ensure we have the latest data
+            setTimeout(async () => {
+                const freshOrder = await ordersService.getById(orderId as string);
+                const freshItem = freshOrder?.items?.find((item: SalesOrderItem) => item.id === itemId);
+                if (freshItem) {
+                    if (freshItem.quantity === quantity) {
+                        setOrder(freshOrder);
+                    } else {
+                        // Try one more time after longer delay
+                        setTimeout(async () => {
+                            await fetchOrder(orderId as string);
+                        }, 1000);
+                    }
+                }
+            }, 500);
         } catch (error) {
             message.error("ไม่สามารถแก้ไขรายการได้");
             throw error;
@@ -416,7 +476,7 @@ export default function POSOrderDetailsPage() {
             key: 'product',
             align: 'center' as const,
             render: (_value: unknown, record: SalesOrderItem) => (
-                <Space direction="vertical" size={2} align="center">
+                <Space orientation="vertical" size={2} align="center">
                     <Text strong style={{ fontSize: 15, lineHeight: '1.2' }}>{record.product?.display_name}</Text>
                     {record.details && record.details.length > 0 && (
                         <div style={{ fontSize: 13, color: orderDetailColors.served, textAlign: 'center' }}>
@@ -435,7 +495,7 @@ export default function POSOrderDetailsPage() {
             width: 120,
             align: 'center' as const,
             render: (_value: unknown, record: SalesOrderItem) => (
-                <Space direction="vertical" size={0} align="center">
+                <Space orientation="vertical" size={0} align="center">
                     {record.product?.category?.display_name ? (
                         <Tag color="cyan" style={orderDetailStyles.categoryTag}>
                             {record.product.category.display_name}
@@ -451,7 +511,7 @@ export default function POSOrderDetailsPage() {
             align: 'center' as const,
             render: (_value: unknown, record: SalesOrderItem) => {
                 return (
-                    <Space direction="vertical" size={0} align="center">
+                    <Space orientation="vertical" size={0} align="center">
                         <Text style={{ ...orderDetailStyles.priceTag, fontSize: 18 }}>฿{Number(record.price).toLocaleString()}</Text>
                         {record.details && record.details.length > 0 && record.details.map((d, i) => (
                             <Text key={i} style={{ fontSize: 13, color: orderDetailColors.priceTotal, display: 'block', lineHeight: '1.4' }}>
@@ -543,7 +603,7 @@ export default function POSOrderDetailsPage() {
             key: 'product',
             align: 'center' as const,
             render: (_value: unknown, record: SalesOrderItem) => (
-                <Space direction="vertical" size={2} align="center">
+                <Space orientation="vertical" size={2} align="center">
                     <Text strong style={{ 
                         fontSize: 15, 
                         lineHeight: '1.2',
@@ -569,7 +629,7 @@ export default function POSOrderDetailsPage() {
             width: 120,
             align: 'center' as const,
             render: (_value: unknown, record: SalesOrderItem) => (
-                <Space direction="vertical" size={0} align="center">
+                <Space orientation="vertical" size={0} align="center">
                     {record.product?.category?.display_name ? (
                         <Tag color="cyan" style={{...orderDetailStyles.categoryTag, opacity: 0.7}}>
                             {record.product.category.display_name}
@@ -585,7 +645,7 @@ export default function POSOrderDetailsPage() {
             align: 'center' as const,
             render: (_value: unknown, record: SalesOrderItem) => {
                 return (
-                    <Space direction="vertical" size={0} align="center">
+                    <Space orientation="vertical" size={0} align="center">
                         <Text style={{...orderDetailStyles.priceTag, opacity: 0.7}}>฿{Number(record.price).toLocaleString()}</Text>
                         {record.details && record.details.length > 0 && record.details.map((d, i) => (
                             <Text key={i} style={{ fontSize: 11, opacity: 0.7, color: orderDetailColors.priceTotal, display: 'block', lineHeight: '1.4' }}>
@@ -673,9 +733,10 @@ export default function POSOrderDetailsPage() {
         <div className="order-detail-page" style={orderDetailStyles.container}>
             <style jsx global>{ordersResponsiveStyles}</style>
             
-            {/* Sticky Compact Header */}
+            {/* Sticky Compact Header - Glass Effect */}
             <header className="order-detail-header" style={orderDetailStyles.header}>
-                <div style={orderDetailStyles.headerContent}>
+                <div style={orderDetailStyles.headerContent} className="header-content">
+                    {/* Glass Back Button */}
                     <Button 
                         type="text" 
                         icon={<ArrowLeftOutlined />} 
@@ -686,30 +747,39 @@ export default function POSOrderDetailsPage() {
                                 router.back();
                             }
                         }}
-                        style={{ height: 40, width: 40, borderRadius: '50%' }}
+                        aria-label="กลับ"
+                        style={orderDetailStyles.headerBackButton}
+                        className="scale-hover header-back-button"
                     />
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                            <Title level={4} style={{ margin: 0, fontSize: 18, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
+                            <Title level={4} style={orderDetailStyles.headerTitle} className="header-title">
                                 {order.order_no}
                             </Title>
                             {order.order_type === OrderType.DineIn && order.table && (
                                 <Tag style={orderDetailStyles.tableNameBadge}>
-                                    โต๊ะ {order.table.table_name}
+                                    🪑 โต๊ะ {order.table.table_name}
                                 </Tag>
                             )}
                             {order.order_type === OrderType.Delivery && order.delivery_code && (
                                 <Tag style={orderDetailStyles.tableNameBadge}>
-                                    รหัสออเดอร์ : {order.delivery_code}
+                                    📋 {order.delivery_code}
                                 </Tag>
                             )}
+                            <Tag 
+                                color={getOrderStatusColor(order.status)} 
+                                className="status-badge"
+                                style={{ margin: 0, fontSize: 12, fontWeight: 600, borderRadius: 8, padding: '4px 12px', lineHeight: 1.3 }}
+                            >
+                                {getOrderStatusText(order.status, order.order_type)}
+                            </Tag>
                         </div>
                         <div style={orderDetailStyles.headerMetaRow}>
                             <Tag 
                                 icon={
-                                    order.order_type === OrderType.DineIn ? <ShopOutlined /> :
-                                    order.order_type === OrderType.TakeAway ? <ShoppingOutlined /> :
-                                    <RocketOutlined />
+                                    order.order_type === OrderType.DineIn ? <ShopOutlined style={{ fontSize: 10 }} /> :
+                                    order.order_type === OrderType.TakeAway ? <ShoppingOutlined style={{ fontSize: 10 }} /> :
+                                    <RocketOutlined style={{ fontSize: 10 }} />
                                 }
                                 style={{
                                     ...orderDetailStyles.channelBadge,
@@ -720,20 +790,81 @@ export default function POSOrderDetailsPage() {
                                 {getOrderChannelText(order.order_type)}
                             </Tag>
                             <div style={orderDetailStyles.headerMetaSeparator} />
-                            <Text type="secondary" style={{ fontSize: 13 }}>
+                            <Text type="secondary" style={{ fontSize: 11, lineHeight: 1.2 }}>
                                 {dayjs(order.create_date).format('HH:mm | D MMM YY')}
                             </Text>
+                            {currentQueueItem && (
+                                <>
+                                    <div style={orderDetailStyles.headerMetaSeparator} />
+                                    <Tag 
+                                        color={
+                                            currentQueueItem.status === QueueStatus.Pending ? 'orange' :
+                                            currentQueueItem.status === QueueStatus.Processing ? 'blue' :
+                                            currentQueueItem.status === QueueStatus.Completed ? 'green' : 'red'
+                                        }
+                                        style={{ margin: 0, fontSize: 11, borderRadius: 6, padding: '3px 10px', lineHeight: 1.3 }}
+                                    >
+                                        คิว #{currentQueueItem.queue_position}
+                                    </Tag>
+                                </>
+                            )}
                         </div>
                     </div>
-                    <Tag 
-                        color={getOrderStatusColor(order.status)} 
-                        className="status-badge"
-                        style={{ margin: 0, fontSize: 12 }}
-                    >
-                        {getOrderStatusText(order.status, order.order_type)}
-                    </Tag>
                 </div>
             </header>
+            
+            {/* Queue Management Actions */}
+            {order && order.status !== OrderStatus.Cancelled && order.status !== OrderStatus.Completed && (
+                <div style={{ 
+                    padding: '12px 16px', 
+                    display: 'flex', 
+                    justifyContent: 'flex-end', 
+                    gap: 8,
+                    background: orderDetailColors.backgroundSecondary,
+                    borderBottom: `1px solid ${orderDetailColors.border}`,
+                }}>
+                    {currentQueueItem ? (
+                        <Button
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={() => {
+                                removeFromQueue(currentQueueItem.id);
+                            }}
+                            loading={isQueueLoading}
+                            size="middle"
+                            style={{ borderRadius: 10, height: 36, fontWeight: 500, fontSize: 13 }}
+                            className="scale-hover queue-action-button"
+                        >
+                            ลบออกจากคิว
+                        </Button>
+                    ) : (
+                        <Button
+                            type="primary"
+                            icon={<UnorderedListOutlined />}
+                            onClick={() => {
+                                addToQueue({
+                                    orderId: order.id,
+                                    priority: QueuePriority.Normal
+                                });
+                            }}
+                            loading={isQueueLoading}
+                            size="middle"
+                            style={{ 
+                                borderRadius: 10, 
+                                height: 36, 
+                                fontWeight: 500,
+                                fontSize: 13,
+                                background: `linear-gradient(135deg, ${orderDetailColors.primary} 0%, ${orderDetailColors.primaryDark} 100%)`,
+                                border: 'none',
+                                boxShadow: `0 2px 8px ${orderDetailColors.primary}25`,
+                            }}
+                            className="scale-hover queue-action-button"
+                        >
+                            เพิ่มเข้าคิว
+                        </Button>
+                    )}
+                </div>
+            )}
 
             <main className="order-detail-content" style={orderDetailStyles.contentWrapper}>
                 <Row gutter={[20, 20]}>
@@ -743,66 +874,76 @@ export default function POSOrderDetailsPage() {
                             className="order-detail-card fade-in"
                             style={orderDetailStyles.card}
                             title={
-                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                    <Space align="center" size={12}>
-                                        <div style={orderDetailStyles.masterCheckboxWrapper}>
-                                            <Checkbox 
-                                                indeterminate={selectedRowKeys.length > 0 && selectedRowKeys.length < activeItems.length}
-                                                checked={activeItems.length > 0 && selectedRowKeys.length === activeItems.length}
-                                                onChange={(e) => {
-                                                    if (e.target.checked) {
-                                                        setSelectedRowKeys(activeItems.map(i => i.id));
-                                                    } else {
-                                                        setSelectedRowKeys([]);
-                                                    }
-                                                }}
-                                                style={orderDetailStyles.masterCheckbox}
-                                            />
+                                <div className="card-header-wrapper">
+                                    <div className="card-header-top-row">
+                                        <div className="card-header-left">
+                                            <div style={orderDetailStyles.masterCheckboxWrapper}>
+                                                <Checkbox 
+                                                    indeterminate={selectedRowKeys.length > 0 && selectedRowKeys.length < activeItems.length}
+                                                    checked={activeItems.length > 0 && selectedRowKeys.length === activeItems.length}
+                                                    onChange={(e) => {
+                                                        if (e.target.checked) {
+                                                            setSelectedRowKeys(activeItems.map(i => i.id));
+                                                        } else {
+                                                            setSelectedRowKeys([]);
+                                                        }
+                                                    }}
+                                                    style={orderDetailStyles.masterCheckbox}
+                                                />
+                                            </div>
+                                            <Text strong style={orderDetailTypography.sectionTitle} className="section-title-text">
+                                                กำลังทำอาหาร ({activeItems.length})
+                                            </Text>
                                         </div>
-                                        <Text strong style={orderDetailTypography.sectionTitle}>
-                                            กำลังทำอาหาร ({activeItems.length})
-                                        </Text>
-                                    </Space>
-                                    <Space wrap>
-                                        {selectedRowKeys.length > 0 && (
-                                            <Space style={{ gap: 8 }}>
+                                        <div className="card-header-right">
+                                            {/* Header Actions - แสดงเสมอ อยู่ฝั่งขวา */}
+                                            <div className="header-actions-container">
                                                 <Button 
-                                                    danger 
-                                                    icon={<DeleteOutlined />} 
-                                                    onClick={handleCancelSelected}
-                                                    style={orderDetailStyles.bulkActionButtonDesktop}
-                                                    className="bulk-action-btn"
-                                                >
-                                                    <span className="hide-on-mobile">ยกเลิกรายการ ({selectedRowKeys.length})</span>
-                                                    <span className="show-on-mobile-inline">ยกเลิกรายการ ({selectedRowKeys.length})</span>
-                                                </Button>
+                                                    icon={<ReloadOutlined />} 
+                                                    onClick={() => fetchOrder(orderId as string)}
+                                                    size="small"
+                                                    style={orderDetailStyles.actionButtonSecondary}
+                                                    className="header-action-btn"
+                                                    title="รีเฟรช"
+                                                />
                                                 <Button 
                                                     type="primary" 
-                                                    icon={<CheckOutlined />} 
-                                                    onClick={handleServeSelected} 
-                                                    loading={isUpdating}
-                                                    style={{ ...orderDetailStyles.bulkActionButtonDesktop, background: orderDetailColors.served, borderColor: orderDetailColors.served }}
-                                                    className="bulk-action-btn"
+                                                    icon={<PlusOutlined />} 
+                                                    onClick={() => setIsAddModalOpen(true)}
+                                                    size="small"
+                                                    style={orderDetailStyles.actionButtonPrimary}
+                                                    className="header-action-btn"
                                                 >
-                                                    <span className="hide-on-mobile">{getServeActionText(order.order_type)} ({selectedRowKeys.length})</span>
-                                                    <span className="show-on-mobile-inline">{getServeActionText(order.order_type)} ({selectedRowKeys.length})</span>
+                                                    <span>เพิ่ม</span>
                                                 </Button>
-                                            </Space>
-                                        )}
-                                        <Button 
-                                            icon={<ReloadOutlined />} 
-                                            onClick={() => fetchOrder(orderId as string)}
-                                            style={orderDetailStyles.actionButtonSecondary}
-                                        />
-                                        <Button 
-                                            type="primary" 
-                                            icon={<PlusOutlined />} 
-                                            onClick={() => setIsAddModalOpen(true)}
-                                            style={orderDetailStyles.actionButtonPrimary}
-                                        >
-                                            เพิ่ม
-                                        </Button>
-                                    </Space>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {/* Bulk Actions - แสดงเมื่อเลือกหลายรายการ อยู่ฝั่งซ้าย ข้างล่าง Title */}
+                                    {selectedRowKeys.length > 0 && (
+                                        <div className="bulk-actions-container">
+                                            <Button 
+                                                danger 
+                                                icon={<DeleteOutlined />} 
+                                                onClick={handleCancelSelected}
+                                                size="small"
+                                                className="bulk-action-btn"
+                                            >
+                                                <span>ยกเลิก ({selectedRowKeys.length})</span>
+                                            </Button>
+                                            <Button 
+                                                type="primary" 
+                                                icon={<CheckOutlined />} 
+                                                onClick={handleServeSelected} 
+                                                loading={isUpdating}
+                                                size="small"
+                                                style={{ background: orderDetailColors.served, borderColor: orderDetailColors.served }}
+                                                className="bulk-action-btn"
+                                            >
+                                                <span>{getServeActionText(order.order_type)} ({selectedRowKeys.length})</span>
+                                            </Button>
+                                        </div>
+                                    )}
                                 </div>
                             }
                         >
@@ -832,10 +973,10 @@ export default function POSOrderDetailsPage() {
                                         {activeItems.map(item => (
                                             <div 
                                                 key={item.id} 
-                                                style={{...orderDetailStyles.itemCard, ...orderDetailStyles.itemCardActive, padding: 12}}
+                                                style={{...orderDetailStyles.itemCard, ...orderDetailStyles.itemCardActive}}
                                                 className="order-item-card scale-in"
                                             >
-                                                <div style={{ display: 'flex', gap: 12, marginBottom: 8 }}>
+                                                <div style={{ display: 'flex', gap: 10, marginBottom: 10 }}>
                                                     {/* Product Image */}
                                                     <div style={{ flexShrink: 0 }}>
                                                         {item.product?.img_url ? (
@@ -844,11 +985,11 @@ export default function POSOrderDetailsPage() {
                                                                 <img
                                                                     src={item.product.img_url}
                                                                     alt={item.product?.display_name ?? "สินค้า"}
-                                                                    style={{...orderDetailStyles.productThumb, width: 60, height: 60}}
+                                                                    style={{...orderDetailStyles.productThumb, width: 56, height: 56, borderRadius: 10}}
                                                                 />
                                                             </>
                                                         ) : (
-                                                            <div style={{...orderDetailStyles.productThumbPlaceholder, width: 60, height: 60}}><ShopOutlined /></div>
+                                                            <div style={{...orderDetailStyles.productThumbPlaceholder, width: 56, height: 56, borderRadius: 10}}><ShopOutlined style={{ fontSize: 20 }} /></div>
                                                         )}
                                                     </div>
 
@@ -865,7 +1006,7 @@ export default function POSOrderDetailsPage() {
                                                                         setSelectedRowKeys(newKeys);
                                                                     }}
                                                                 >
-                                                                    <Text strong style={{ fontSize: 16 }}>{item.product?.display_name}</Text>
+                                                                    <Text strong style={{ fontSize: 17, lineHeight: 1.5 }}>{item.product?.display_name}</Text>
                                                                 </Checkbox>
                                                                 <div style={{ paddingLeft: 24, marginTop: 2 }}>
                                                                     {item.product?.category?.display_name && (
@@ -875,35 +1016,54 @@ export default function POSOrderDetailsPage() {
                                                                     )}
                                                                 </div>
                                                             </div>
-                                                            <Text strong style={{ fontSize: 18, color: orderDetailColors.primary, marginLeft: 8 }}>x{item.quantity}</Text>
+                                                            <Text strong style={{ fontSize: 19, color: orderDetailColors.primary, marginLeft: 8, lineHeight: 1.4 }}>x{item.quantity}</Text>
                                                         </div>
                                                         <div style={{ paddingLeft: 24, marginTop: 2 }}>
                                                             {item.details && item.details.length > 0 && (
-                                                                <div style={{ fontSize: 12, color: orderDetailColors.served, marginBottom: 4 }}>
+                                                                <div style={{ fontSize: 13, color: orderDetailColors.served, marginBottom: 4, lineHeight: 1.4 }}>
                                                                     {item.details.map((d: { detail_name: string; extra_price: number }) => `${d.detail_name} (+ ฿${Number(d.extra_price).toLocaleString()})`).join(', ')}
                                                                 </div>
                                                             )}
-                                                            <Space direction="vertical" size={2}>
+                                                            <Space orientation="vertical" size={2}>
                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                                    <Text style={orderDetailStyles.priceTag}>฿{Number(item.price).toLocaleString()}</Text>
-                                                                    <Text strong style={{ color: orderDetailColors.priceTotal }}>
+                                                                    <Text style={{...orderDetailStyles.priceTag, fontSize: 15}}>฿{Number(item.price).toLocaleString()}</Text>
+                                                                    <Text strong style={{ color: orderDetailColors.priceTotal, fontSize: 16 }}>
                                                                         รวม ฿{Number(item.total_price).toLocaleString()}
                                                                     </Text>
                                                                 </div>
                                                             </Space>
                                                             {item.notes && (
                                                                 <div style={{ marginTop: 4 }}>
-                                                                    <Text style={{ fontSize: 12, color: orderDetailColors.cancelled }}>
-                                                                        <InfoCircleOutlined /> {item.notes}
+                                                                    <Text style={{ fontSize: 13, color: orderDetailColors.cancelled, lineHeight: 1.4 }}>
+                                                                        <InfoCircleOutlined style={{ fontSize: 13 }} /> {item.notes}
                                                                     </Text>
                                                                 </div>
                                                             )}
                                                         </div>
                                                     </div>
                                                 </div>
-                                                <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: `1px solid ${orderDetailColors.borderLight}`, paddingTop: 8, gap: 8 }}>
-                                                    <Button size="small" type="text" danger icon={<DeleteOutlined />} onClick={() => handleDeleteItem(item.id)}>ลบ</Button>
-                                                    <Button size="small" type="text" icon={<EditOutlined />} onClick={() => handleEditClick(item)}>แก้ไข</Button>
+                                                <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: `1px solid ${orderDetailColors.border}`, paddingTop: 10, gap: 6, marginTop: 10 }}>
+                                                    <Button 
+                                                        size="small" 
+                                                        type="text" 
+                                                        danger 
+                                                        icon={<DeleteOutlined />} 
+                                                        onClick={() => handleDeleteItem(item.id)}
+                                                        style={{ height: 34, borderRadius: 8, fontSize: 13, padding: '0 12px', fontWeight: 500 }}
+                                                        className="scale-hover"
+                                                    >
+                                                        ลบ
+                                                    </Button>
+                                                    <Button 
+                                                        size="small" 
+                                                        type="text" 
+                                                        icon={<EditOutlined />} 
+                                                        onClick={() => handleEditClick(item)}
+                                                        style={{ height: 34, borderRadius: 8, fontSize: 13, padding: '0 12px', fontWeight: 500 }}
+                                                        className="scale-hover"
+                                                    >
+                                                        แก้ไข
+                                                    </Button>
                                                     <Button 
                                                         size="small" 
                                                         type="primary" 
@@ -911,17 +1071,16 @@ export default function POSOrderDetailsPage() {
                                                         style={{ 
                                                             background: orderDetailColors.served, 
                                                             borderColor: orderDetailColors.served,
-                                                            height: 'auto',
-                                                            padding: '4px 10px',
-                                                            display: 'flex',
-                                                            flexDirection: 'column',
-                                                            alignItems: 'center',
-                                                            gap: 2,
-                                                            borderRadius: 10
+                                                            height: 34,
+                                                            padding: '0 14px',
+                                                            borderRadius: 8,
+                                                            fontSize: 13,
+                                                            fontWeight: 600,
                                                         }}
+                                                        className="scale-hover"
                                                     >
-                                                        <CheckOutlined style={{ fontSize: 16 }} />
-                                                        <span style={{ fontSize: 10, fontWeight: 700 }}>{getServeActionText(order.order_type)}</span>
+                                                        <CheckOutlined style={{ fontSize: 13, marginRight: 4 }} />
+                                                        {getServeActionText(order.order_type)}
                                                     </Button>
                                                 </div>
                                             </div>
@@ -970,20 +1129,19 @@ export default function POSOrderDetailsPage() {
                                                 style={{
                                                     ...orderDetailStyles.itemCard, 
                                                     ...orderDetailStyles.itemCardServed, 
-                                                    padding: 12,
                                                     backgroundColor: item.status === OrderStatus.Cancelled ? orderDetailColors.cancelledLight : orderDetailColors.white,
                                                     borderColor: item.status === OrderStatus.Cancelled ? orderDetailColors.cancelled + '30' : orderDetailColors.border,
                                                     position: 'relative'
                                                 }}
                                             >
                                                 {/* Status Tag in Top Right */}
-                                                <div style={{ position: 'absolute', top: 8, right: 12 }}>
-                                                    <Tag color={getOrderStatusColor(item.status)} style={{ margin: 0 }}>
+                                                <div style={{ position: 'absolute', top: 10, right: 10 }}>
+                                                    <Tag color={getOrderStatusColor(item.status)} style={{ margin: 0, fontSize: 10, padding: '2px 8px', borderRadius: 6, lineHeight: 1.2 }}>
                                                         {getOrderStatusText(item.status, order.order_type)}
                                                     </Tag>
                                                 </div>
 
-                                                <div style={{ display: 'flex', gap: 12 }}>
+                                                <div style={{ display: 'flex', gap: 10 }}>
                                                     {/* Product Image */}
                                                     <div style={{ flexShrink: 0 }}>
                                                         {item.product?.img_url ? (
@@ -992,21 +1150,22 @@ export default function POSOrderDetailsPage() {
                                                                 <img
                                                                     src={item.product.img_url}
                                                                     alt={item.product?.display_name ?? "สินค้า"}
-                                                                    style={{...orderDetailStyles.productThumb, width: 50, height: 50, opacity: 0.7}}
+                                                                    style={{...orderDetailStyles.productThumb, width: 52, height: 52, borderRadius: 10, opacity: 0.7}}
                                                                 />
                                                             </>
                                                         ) : (
-                                                            <div style={{...orderDetailStyles.productThumbPlaceholder, width: 50, height: 50}}><ShopOutlined /></div>
+                                                            <div style={{...orderDetailStyles.productThumbPlaceholder, width: 52, height: 52, borderRadius: 10}}><ShopOutlined style={{ fontSize: 18 }} /></div>
                                                         )}
                                                     </div>
 
-                                                    <div style={{ flex: 1, minWidth: 0, paddingRight: 60 }}>
+                                                    <div style={{ flex: 1, minWidth: 0, paddingRight: 50 }}>
                                                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                                             <div style={{ flex: 1 }}>
                                                                 <Text strong style={{ 
-                                                                    fontSize: 15, 
+                                                                    fontSize: 16, 
                                                                     textDecoration: item.status === OrderStatus.Cancelled ? 'line-through' : 'none',
-                                                                    color: item.status === OrderStatus.Cancelled ? orderDetailColors.textLight : orderDetailColors.text
+                                                                    color: item.status === OrderStatus.Cancelled ? orderDetailColors.textLight : orderDetailColors.text,
+                                                                    lineHeight: 1.5
                                                                 }}>
                                                                     {item.product?.display_name}
                                                                 </Text>
@@ -1018,25 +1177,25 @@ export default function POSOrderDetailsPage() {
                                                                     )}
                                                                 </div>
                                                                 {item.details && item.details.length > 0 && (
-                                                                    <div style={{ fontSize: 12, color: orderDetailColors.served, opacity: 0.7, marginBottom: 4 }}>
+                                                                    <div style={{ fontSize: 13, color: orderDetailColors.served, opacity: 0.7, marginBottom: 4, lineHeight: 1.4 }}>
                                                                         {item.details.map((d: { detail_name: string; extra_price: number }) => `${d.detail_name} (+ ฿${Number(d.extra_price).toLocaleString()})`).join(', ')}
                                                                     </div>
                                                                 )}
-                                                                <Space direction="vertical" size={2} style={{ marginTop: 4, width: '100%' }}>
+                                                                <Space orientation="vertical" size={2} style={{ marginTop: 4, width: '100%' }}>
                                                                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                                         <div>
-                                                                            <Text style={{...orderDetailStyles.priceTag, opacity: 0.7}}>฿{Number(item.price).toLocaleString()}</Text>
-                                                                            <Text strong style={{ marginLeft: 8, color: orderDetailColors.textSecondary, opacity: 0.7 }}>
+                                                                            <Text style={{...orderDetailStyles.priceTag, fontSize: 14, opacity: 0.7}}>฿{Number(item.price).toLocaleString()}</Text>
+                                                                            <Text strong style={{ marginLeft: 8, color: orderDetailColors.textSecondary, opacity: 0.7, fontSize: 15 }}>
                                                                                 รวม ฿{Number(item.total_price).toLocaleString()}
                                                                             </Text>
                                                                         </div>
-                                                                        <Text strong style={{ color: orderDetailColors.textSecondary }}>x{item.quantity}</Text>
+                                                                        <Text strong style={{ color: orderDetailColors.textSecondary, fontSize: 15 }}>x{item.quantity}</Text>
                                                                     </div>
                                                                 </Space>
                                                                 {item.notes && (
                                                                     <div style={{ marginTop: 4 }}>
-                                                                        <Text style={{ fontSize: 12, opacity: 0.7, color: orderDetailColors.cancelled }}>
-                                                                            <InfoCircleOutlined /> {item.notes}
+                                                                        <Text style={{ fontSize: 13, opacity: 0.7, color: orderDetailColors.cancelled, lineHeight: 1.4 }}>
+                                                                            <InfoCircleOutlined style={{ fontSize: 13 }} /> {item.notes}
                                                                         </Text>
                                                                     </div>
                                                                 )}
@@ -1046,12 +1205,12 @@ export default function POSOrderDetailsPage() {
                                                 </div>
 
                                                 {item.status === OrderStatus.Served && (
-                                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 8 }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10, paddingTop: 10, borderTop: `1px solid ${orderDetailColors.border}` }}>
                                                         <Button 
                                                             size="small" 
                                                             className="unserve-button"
-                                                            style={orderDetailStyles.unserveButton}
-                                                            icon={<CloseOutlined />}
+                                                            style={{...orderDetailStyles.unserveButton, height: 34, fontSize: 13, padding: '0 14px', borderRadius: 8, fontWeight: 500}}
+                                                            icon={<CloseOutlined style={{ fontSize: 13 }} />}
                                                             onClick={() => handleUnserveItem(item.id)}
                                                         >
                                                             {order?.order_type === OrderType.DineIn ? 'ยกเลิกเสิร์ฟ' : 'ยกเลิกปรุงเสร็จ'}
@@ -1071,12 +1230,12 @@ export default function POSOrderDetailsPage() {
                     </Col>
                     
                     <Col xs={24} lg={8}>
-                        <Card className="order-detail-card" style={orderDetailStyles.summaryCard}>
-                            <Title level={5} style={{ marginBottom: 16 }}>สรุปการสั่งซื้อ</Title>
+                        <Card className="order-detail-card summary-card" style={orderDetailStyles.summaryCard}>
+                            <Title level={5} style={{ marginBottom: 16, fontSize: 18, fontWeight: 600 }}>สรุปการสั่งซื้อ</Title>
                             
                             {/* Detailed Item List */}
                             <div style={{ ...orderDetailStyles.summaryList, background: 'white' }}>
-                                <Text strong style={{ fontSize: 13, marginBottom: 8, display: 'block', color: orderDetailColors.textSecondary }}>
+                                <Text strong style={{ fontSize: 15, marginBottom: 10, display: 'block', color: orderDetailColors.textSecondary }}>
                                     รายการสินค้า
                                 </Text>
                                 {nonCancelledItems.map((item, index) => (
@@ -1099,13 +1258,13 @@ export default function POSOrderDetailsPage() {
 
                                         <div style={orderDetailStyles.summaryItemContent}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                <Text strong style={{ fontSize: 13, flex: 1 }}>{item.product?.display_name}</Text>
-                                                <Text strong style={{ fontSize: 13, color: orderDetailColors.primary }}>฿{Number(item.total_price).toLocaleString()}</Text>
+                                                <Text strong style={{ fontSize: 15, flex: 1, lineHeight: 1.4 }}>{item.product?.display_name}</Text>
+                                                <Text strong style={{ fontSize: 15, color: orderDetailColors.primary, lineHeight: 1.4 }}>฿{Number(item.total_price).toLocaleString()}</Text>
                                             </div>
                                             
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 2 }}>
-                                                <Text type="secondary" style={{ fontSize: 11 }}>จำนวน : {item.quantity}</Text>
-                                                <Text type="secondary" style={{ fontSize: 11 }}>ราคา : {Number(item.price).toLocaleString()}</Text>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 4 }}>
+                                                <Text type="secondary" style={{ fontSize: 13, lineHeight: 1.4 }}>จำนวน : {item.quantity}</Text>
+                                                <Text type="secondary" style={{ fontSize: 13, lineHeight: 1.4 }}>ราคา : {Number(item.price).toLocaleString()}</Text>
                                             </div>
 
                                             {item.details && item.details.length > 0 && (
@@ -1126,27 +1285,27 @@ export default function POSOrderDetailsPage() {
 
                             {/* Category Summary */}
                             <div style={orderDetailStyles.summaryList}>
-                                <Text strong style={{ fontSize: 13, marginBottom: 8, display: 'block', color: orderDetailColors.textSecondary }}>
+                                <Text strong style={{ fontSize: 15, marginBottom: 10, display: 'block', color: orderDetailColors.textSecondary }}>
                                     แยกตามหมวดหมู่
                                 </Text>
                                 {Object.entries(groupItemsByCategory(order?.items || []) as Record<string, number>).map(([cat, qty]) => (
                                     <div key={cat} style={orderDetailStyles.summaryRow}>
-                                        <Text type="secondary" style={{ fontSize: 13 }}>{cat}</Text>
-                                        <Text strong style={{ fontSize: 13 }}>{String(qty)} รายการ</Text>
+                                        <Text type="secondary" style={{ fontSize: 14, lineHeight: 1.4 }}>{cat}</Text>
+                                        <Text strong style={{ fontSize: 14, lineHeight: 1.4 }}>{String(qty)} รายการ</Text>
                                     </div>
                                 ))}
-                                <Divider style={{ margin: '8px 0' }} />
+                                <Divider style={{ margin: '10px 0' }} />
                                 <div style={orderDetailStyles.summaryRow}>
-                                    <Text type="secondary" style={{ fontSize: 13 }}>จำนวนรายการทั้งหมด</Text>
-                                    <Text strong style={{ fontSize: 13 }}>{nonCancelledItems.length} รายการ</Text>
+                                    <Text type="secondary" style={{ fontSize: 14, lineHeight: 1.4 }}>จำนวนรายการทั้งหมด</Text>
+                                    <Text strong style={{ fontSize: 14, lineHeight: 1.4 }}>{nonCancelledItems.length} รายการ</Text>
                                 </div>
                             </div>
 
                             {/* Total Only */}
                             <div style={{ padding: '0 4px' }}>
                                 <div style={orderDetailStyles.summaryMainRow}>
-                                    <Text strong style={{ fontSize: 18 }}>ยอดรวมทั้งสิ้น</Text>
-                                    <Text strong style={{ fontSize: 26, color: orderDetailColors.primary }}>
+                                    <Text strong style={{ fontSize: 20, lineHeight: 1.3 }}>ยอดรวมทั้งสิ้น</Text>
+                                    <Text strong style={{ fontSize: 28, color: orderDetailColors.primary, lineHeight: 1.2 }}>
                                         ฿{calculatedTotal.toLocaleString()}
                                     </Text>
                                 </div>
@@ -1158,7 +1317,17 @@ export default function POSOrderDetailsPage() {
                                     block 
                                     size="large" 
                                     onClick={handleConfirmServe}
-                                    style={{ marginTop: 24, height: 52, borderRadius: 14, fontWeight: 700, fontSize: 16 }}
+                                    style={{ 
+                                        marginTop: 16, 
+                                        height: 48, 
+                                        borderRadius: 10, 
+                                        fontWeight: 600, 
+                                        fontSize: 16,
+                                        background: `linear-gradient(135deg, ${orderDetailColors.served} 0%, #059669 100%)`,
+                                        border: 'none',
+                                        boxShadow: `0 4px 12px ${orderDetailColors.served}25`,
+                                    }}
+                                    className="scale-hover"
                                 >
                                     {getConfirmServeActionText(order.order_type)}
                                 </Button>
@@ -1169,8 +1338,16 @@ export default function POSOrderDetailsPage() {
                                 block 
                                 size="large" 
                                 onClick={handleCancelOrder}
-                                style={{ marginTop: 12, height: 45, borderRadius: 14, fontWeight: 600, fontSize: 15 }}
+                                style={{ 
+                                    marginTop: 12, 
+                                    height: 44, 
+                                    borderRadius: 10, 
+                                    fontWeight: 500, 
+                                    fontSize: 15,
+                                    border: `1px solid ${orderDetailColors.danger}`,
+                                }}
                                 disabled={isUpdating}
+                                className="scale-hover"
                             >
                                 ยกเลิกออเดอร์
                             </Button>
@@ -1187,15 +1364,18 @@ export default function POSOrderDetailsPage() {
                 onAddItem={handleAddItem} 
             />
             
-            <EditItemModal
-                item={itemToEdit}
-                isOpen={editModalOpen}
-                onClose={() => {
-                    setEditModalOpen(false);
-                    setItemToEdit(null);
-                }}
-                onSave={handleSaveEdit}
-            />
+            {editModalOpen && itemToEdit && (
+                <EditItemModal
+                    key={`edit-modal-${itemToEdit.id}`}
+                    item={itemToEdit}
+                    isOpen={editModalOpen}
+                    onClose={() => {
+                        setEditModalOpen(false);
+                        setItemToEdit(null);
+                    }}
+                    onSave={handleSaveEdit}
+                />
+            )}
 
             <ConfirmationDialog
                 open={confirmConfig.open}

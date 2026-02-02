@@ -243,7 +243,7 @@ export const ordersService = {
 
     updateItem: async (itemId: string, data: { quantity?: number, notes?: string, details?: Record<string, unknown>[] }, cookie?: string, csrfToken?: string): Promise<SalesOrder> => {
         const url = getProxyUrl("PUT", `${BASE_PATH}/items/${itemId}`);
-        const headers = getHeaders(cookie) as Record<string, string>;
+        const headers = getHeaders(cookie, "application/json") as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
         const response = await fetch(url!, {
@@ -252,10 +252,12 @@ export const ordersService = {
             credentials: "include",
             body: JSON.stringify(data)
         });
+        
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || errorData.message || "ไม่สามารถแก้ไขรายการได้");
         }
+        
         return response.json();
     },
 

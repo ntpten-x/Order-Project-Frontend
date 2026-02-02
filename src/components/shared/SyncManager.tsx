@@ -5,6 +5,8 @@ import { message, notification } from 'antd';
 import { useNetwork } from '../../hooks/useNetwork';
 import { offlineQueueService, offlineQueuePolicy } from '../../services/pos/offline.queue.service';
 import { ordersService } from '../../services/pos/orders.service';
+import { paymentsService } from '../../services/pos/payments.service';
+import { orderQueueService } from '../../services/pos/orderQueue.service';
 import { authService } from '../../services/auth.service';
 import { DisconnectOutlined } from '@ant-design/icons';
 
@@ -36,11 +38,26 @@ export const SyncManager: React.FC = () => {
                     const waitMs = offlineQueuePolicy.backoff(action.retryCount);
                     if (waitMs > 0) await sleep(waitMs);
 
-                    if (action.type === 'ADD_ITEM') {
+                    if (action.type === 'CREATE_ORDER') {
+                        await ordersService.create(action.payload, undefined, csrfToken);
+                    } else if (action.type === 'UPDATE_ORDER') {
+                        const { orderId, data } = action.payload;
+                        await ordersService.update(orderId, data, undefined, csrfToken);
+                    } else if (action.type === 'ADD_ITEM') {
                         const { orderId, itemData } = action.payload;
                         await ordersService.addItem(orderId, itemData, undefined, csrfToken);
-                    } else if (action.type === 'CREATE_ORDER') {
-                        await ordersService.create(action.payload, undefined, csrfToken);
+                    } else if (action.type === 'UPDATE_ITEM') {
+                        const { itemId, itemData } = action.payload;
+                        await ordersService.updateItem(itemId, itemData, undefined, csrfToken);
+                    } else if (action.type === 'DELETE_ITEM') {
+                        const { itemId } = action.payload;
+                        await ordersService.deleteItem(itemId, undefined, csrfToken);
+                    } else if (action.type === 'PAYMENT') {
+                        const { orderId, paymentData } = action.payload;
+                        await paymentsService.create({ ...paymentData, order_id: orderId }, undefined, csrfToken);
+                    } else if (action.type === 'UPDATE_QUEUE_STATUS') {
+                        const { queueId, status } = action.payload;
+                        await orderQueueService.updateStatus(queueId, { status }, undefined);
                     }
 
                     offlineQueueService.removeFromQueue(action.id);
