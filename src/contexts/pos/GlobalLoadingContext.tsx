@@ -68,11 +68,29 @@ export const GlobalLoadingProvider = ({ children }: { children: ReactNode }) => 
             <GlobalLoadingStateContext.Provider value={stateValue}>
                 {children}
                 {isLoading && (
-                    <div className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-auto bg-black/10 backdrop-blur-[1px]">
-                        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 10, background: "rgba(255, 255, 255, 0.9)", padding: "20px 40px", borderRadius: 12, boxShadow: "0 4px 12px rgba(0,0,0,0.1)" }}>
+                    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white/10 backdrop-blur-md transition-all duration-300">
+                        <div style={{ 
+                            display: "flex", 
+                            flexDirection: "column", 
+                            alignItems: "center", 
+                            gap: 16, 
+                            background: "rgba(255, 255, 255, 0.8)", 
+                            padding: "32px 48px", 
+                            borderRadius: 24, 
+                            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
+                            backdropFilter: "blur(12px)",
+                            border: "1px solid rgba(255, 255, 255, 0.4)"
+                        }}>
                             <Spin size="large" />
                             {loadingMessage && (
-                                <div style={{ fontSize: 14, color: "#1f1f1f", fontWeight: 500 }}>{loadingMessage}</div>
+                                <div style={{ 
+                                    fontSize: 16, 
+                                    color: "#475569", 
+                                    fontWeight: 500,
+                                    letterSpacing: "0.02em" 
+                                }}>
+                                    {loadingMessage}
+                                </div>
                             )}
                         </div>
                     </div>

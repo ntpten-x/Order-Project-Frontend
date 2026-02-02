@@ -10,7 +10,7 @@ const theme: ThemeConfig = {
     fontSize: 15,
     fontFamily: "'Inter', 'Sarabun', -apple-system, BlinkMacSystemFont, sans-serif",
 
-    // Colors - Soft Modern Palette
+    // Colors - Soft Modern Clarity Palette
     colorPrimary: '#6366F1',      // Indigo-500 - primary actions
     colorSuccess: '#10B981',      // Emerald-500 - success states
     colorWarning: '#F59E0B',      // Amber-500 - warnings
@@ -19,9 +19,9 @@ const theme: ThemeConfig = {
 
     // Text Colors
     colorTextHeading: '#1E293B',  // Slate-800
-    colorText: '#475569',         // Slate-600
-    colorTextSecondary: '#94A3B8', // Slate-400
-    colorTextDescription: '#94A3B8',
+    colorText: '#1E293B',         // Slate-800 (darkened for contrast)
+    colorTextSecondary: '#64748B', // Slate-500
+    colorTextDescription: '#94A3B8', // Slate-400
 
     // Background & Border
     colorBgContainer: '#FFFFFF',

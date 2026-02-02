@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Typography, Tag, Button, Empty, Input, Pagination } from 'antd';
+import { message, Modal, Typography, Button, Empty, Input, Tag } from 'antd';
 import { 
     TableOutlined,
     PlusOutlined,
@@ -10,8 +10,7 @@ import {
     DeleteOutlined,
     CheckCircleFilled,
     CloseCircleFilled,
-    SmileOutlined,
-    StopOutlined
+    SearchOutlined
 } from '@ant-design/icons';
 import { Tables, TableStatus } from "../../../../types/api/pos/tables";
 import { useRouter } from 'next/navigation';
@@ -20,11 +19,9 @@ import { useAsyncAction } from "../../../../hooks/useAsyncAction";
 import { useSocket } from "../../../../hooks/useSocket";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { useRoleGuard } from "../../../../utils/pos/accessControl";
-import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
+import { useRealtimeList } from "../../../../utils/pos/realtime";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
-import { tablesService } from "../../../../services/pos/tables.service";
 import { pageStyles, globalStyles } from '../../../../theme/pos/tables/style';
-import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 
 const { Text, Title } = Typography;
@@ -34,11 +31,10 @@ const { Text, Title } = Typography;
 interface HeaderProps {
     onRefresh: () => void;
     onAdd: () => void;
-    searchValue: string;
-    onSearchChange: (value: string) => void;
+    onSearch: (value: string) => void;
 }
 
-const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange }: HeaderProps) => (
+const PageHeader = ({ onRefresh, onAdd, onSearch }: HeaderProps) => (
     <div style={pageStyles.header}>
         <div style={pageStyles.headerDecoCircle1} />
         <div style={pageStyles.headerDecoCircle2} />
@@ -52,37 +48,34 @@ const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange }: HeaderPro
                     <Text style={{ 
                         color: 'rgba(255,255,255,0.85)', 
                         fontSize: 13,
-                        display: 'block'
+                        display: 'block',
+                        textShadow: '0 1px 2px rgba(0,0,0,0.1)'
                     }}>
-                        จัดการและติดตามสถานะโต๊ะทั้งหมดของคุณ
+                        จัดการและติดตามสถานะโต๊ะทั้งหมด
                     </Text>
                     <Title level={4} style={{ 
                         color: 'white', 
                         margin: 0,
                         fontWeight: 700,
-                        letterSpacing: '0.5px'
+                        letterSpacing: '0.5px',
+                        textShadow: '0 2px 4px rgba(0,0,0,0.1)'
                     }}>
                         รายการโต๊ะ
                     </Title>
                 </div>
             </div>
             <div style={pageStyles.headerActions}>
-                <Input
-                    allowClear
-                    placeholder="ค้นหาโต๊ะ..."
-                    value={searchValue}
-                    onChange={(e) => onSearchChange(e.target.value)}
-                    style={{ width: 220, borderRadius: 10 }}
-                />
                 <Button
                     type="text"
                     icon={<ReloadOutlined style={{ color: 'white' }} />}
                     onClick={onRefresh}
                     style={{
                         background: 'rgba(255,255,255,0.2)',
+                        backdropFilter: 'blur(4px)',
                         borderRadius: 12,
                         height: 40,
-                        width: 40
+                        width: 40,
+                        border: '1px solid rgba(255,255,255,0.3)'
                     }}
                 />
                 <Button
@@ -91,7 +84,7 @@ const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange }: HeaderPro
                     onClick={onAdd}
                     style={{
                         background: 'white',
-                        color: '#722ed1',
+                        color: '#7C3AED',
                         borderRadius: 12,
                         height: 40,
                         fontWeight: 600,
@@ -99,62 +92,62 @@ const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange }: HeaderPro
                         boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                     }}
                 >
-                    เพิ่มโต๊ะใหม่
+                    <span className="hidden sm:inline">เพิ่มโต๊ะใหม่</span>
                 </Button>
             </div>
         </div>
+
+        {/* Search Bar */}
+        <div style={{ marginTop: 24, padding: '0 4px' }}>
+            <Input 
+                prefix={<SearchOutlined style={{ color: '#fff', opacity: 0.7 }} />}
+                placeholder="ค้นหาโต๊ะ (ชื่อ)..."
+                onChange={(e) => onSearch(e.target.value)}
+                bordered={false}
+                style={{
+                    background: 'rgba(255,255,255,0.15)',
+                    backdropFilter: 'blur(8px)',
+                    borderRadius: 14,
+                    padding: '8px 16px',
+                    color: 'white',
+                    fontSize: 15,
+                }}
+                className="search-input-placeholder-white"
+            />
+        </div>
     </div>
-)
-
-type TablesCacheResult = {
-    data: Tables[];
-    total: number;
-    page: number;
-    last_page: number;
-};
-
-const TABLES_LIMIT = 50;
-const TABLES_CACHE_KEY = "pos:tables";
-const TABLES_CACHE_TTL = 5 * 60 * 1000;
+);
 
 // ============ STATS CARD COMPONENT ============
 
 interface StatsCardProps {
-    totalTables: number;
-    availableTables: number;
-    unavailableTables: number;
-    activeTables: number;
-    inactiveTables: number;
+    tables: Tables[];
 }
 
-const StatsCard = ({ totalTables, availableTables, unavailableTables, activeTables, inactiveTables }: StatsCardProps) => (
-    <div style={pageStyles.statsCard}>
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#722ed1' }}>{totalTables}</span>
-            <Text style={pageStyles.statLabel}>ทั้งหมด</Text>
+const StatsCard = ({ tables }: StatsCardProps) => {
+    const total = tables.length;
+    const available = tables.filter(t => t.status === TableStatus.Available).length;
+    const unavailable = tables.filter(t => t.status === TableStatus.Unavailable).length;
+    
+    return (
+        <div style={pageStyles.statsCard}>
+            <div style={pageStyles.statItem}>
+                <span style={{ ...pageStyles.statNumber, color: '#7C3AED' }}>{total}</span>
+                <Text style={pageStyles.statLabel}>ทั้งหมด</Text>
+            </div>
+            <div style={{ width: 1, height: 24, background: '#f0f0f0', alignSelf: 'center' }} />
+            <div style={pageStyles.statItem}>
+                <span style={{ ...pageStyles.statNumber, color: '#10B981' }}>{available}</span>
+                <Text style={pageStyles.statLabel}>ว่าง</Text>
+            </div>
+            <div style={{ width: 1, height: 24, background: '#f0f0f0', alignSelf: 'center' }} />
+            <div style={pageStyles.statItem}>
+                <span style={{ ...pageStyles.statNumber, color: '#F59E0B' }}>{unavailable}</span>
+                <Text style={pageStyles.statLabel}>ไม่ว่าง</Text>
+            </div>
         </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#52c41a' }}>{availableTables}</span>
-            <Text style={pageStyles.statLabel}>ว่าง</Text>
-        </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#fa8c16' }}>{unavailableTables}</span>
-            <Text style={pageStyles.statLabel}>ไม่ว่าง</Text>
-        </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#1890ff' }}>{activeTables}</span>
-            <Text style={pageStyles.statLabel}>ใช้งาน</Text>
-        </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#ff4d4f' }}>{inactiveTables}</span>
-            <Text style={pageStyles.statLabel}>ปิดใช้งาน</Text>
-        </div>
-    </div>
-);
+    );
+};
 
 // ============ TABLE CARD COMPONENT ============
 
@@ -175,67 +168,103 @@ const TableCard = ({ table, index, onEdit, onDelete }: TableCardProps) => {
                 ...pageStyles.tableCard(table.is_active),
                 animationDelay: `${index * 0.03}s`
             }}
+            onClick={() => onEdit(table)}
         >
             <div style={pageStyles.tableCardInner}>
-                {/* Icon */}
+                {/* Icon/Status Ring */}
                 <div style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 14,
-                    border: '2px solid #f0f0f0',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
-                    flexShrink: 0,
-                    overflow: 'hidden',
-                    position: 'relative',
+                    width: 56,
+                    height: 56,
+                    borderRadius: '50%',
                     background: isAvailable 
-                        ? 'linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%)'
-                        : 'linear-gradient(135deg, #fff7e6 0%, #ffe7ba 100%)',
+                        ? 'linear-gradient(135deg, #A7F3D0 0%, #6EE7B7 100%)' 
+                        : 'linear-gradient(135deg, #FDE68A 0%, #FCD34D 100%)',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    flexShrink: 0,
+                    position: 'relative',
+                    boxShadow: isAvailable 
+                        ? '0 4px 10px rgba(16, 185, 129, 0.2)' 
+                        : '0 4px 10px rgba(245, 158, 11, 0.2)'
                 }}>
-                    {isAvailable ? (
-                        <SmileOutlined style={{ fontSize: 28, color: '#52c41a' }} />
-                    ) : (
-                        <StopOutlined style={{ fontSize: 28, color: '#fa8c16' }} />
-                    )}
+                    <div style={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: '50%',
+                        background: 'white',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center'
+                    }}>
+                        <TableOutlined style={{ 
+                            fontSize: 22, 
+                            color: isAvailable ? '#10B981' : '#F59E0B' 
+                        }} />
+                    </div>
+                    {/* Status Dot */}
+                    <div style={{
+                        position: 'absolute',
+                        bottom: 0,
+                        right: 0,
+                        width: 16,
+                        height: 16,
+                        borderRadius: '50%',
+                        background: isAvailable ? '#10B981' : '#F59E0B',
+                        border: '2px solid white',
+                        boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                    }} />
                 </div>
 
                 {/* Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ flex: 1, minWidth: 0, paddingRight: 8, paddingLeft: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                         <Text 
                             strong 
-                            style={{ fontSize: 16, color: '#1a1a2e' }}
+                            style={{ 
+                                fontSize: 16, 
+                                color: table.is_active ? '#1E293B' : '#64748B' 
+                            }}
                         >
                             {table.table_name}
                         </Text>
-                        {table.is_active ? (
-                            <CheckCircleFilled style={{ color: '#52c41a', fontSize: 14 }} />
+                         {table.is_active ? (
+                            <div style={{
+                                padding: '2px 6px',
+                                background: '#F0FDF4',
+                                borderRadius: 6,
+                                border: '1px solid #DCFCE7'
+                            }}>
+                                <CheckCircleFilled style={{ color: '#10B981', fontSize: 10 }} />
+                            </div>
                         ) : (
-                            <CloseCircleFilled style={{ color: '#ff4d4f', fontSize: 14 }} />
+                            <div style={{
+                                padding: '2px 6px',
+                                background: '#F8FAFC',
+                                borderRadius: 6,
+                                border: '1px solid #E2E8F0'
+                            }}>
+                                <CloseCircleFilled style={{ color: '#94A3B8', fontSize: 10 }} />
+                            </div>
                         )}
                     </div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                        <Tag 
-                            color={isAvailable ? 'success' : 'warning'}
+                    
+                    <div style={{ display: 'flex' }}>
+                         <Tag 
                             style={{ 
-                                borderRadius: 8, 
+                                borderRadius: 6, 
                                 margin: 0,
-                                fontSize: 11 
+                                fontSize: 10,
+                                color: isAvailable ? '#10B981' : '#B45309',
+                                background: isAvailable ? '#ECFDF5' : '#FEF3C7',
+                                border: 'none',
+                                fontWeight: 600,
+                                padding: '0 8px',
+                                lineHeight: '18px',
+                                height: 18
                             }}
                         >
                             {isAvailable ? 'ว่าง' : 'ไม่ว่าง'}
-                        </Tag>
-                        <Tag 
-                            color={table.is_active ? 'processing' : 'default'}
-                            style={{ 
-                                borderRadius: 8, 
-                                margin: 0,
-                                fontSize: 11 
-                            }}
-                        >
-                            {table.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
                         </Tag>
                     </div>
                 </div>
@@ -250,9 +279,11 @@ const TableCard = ({ table, index, onEdit, onDelete }: TableCardProps) => {
                             onEdit(table);
                         }}
                         style={{
-                            borderRadius: 10,
-                            color: '#722ed1',
-                            background: '#f9f0ff'
+                            borderRadius: 12,
+                            color: '#7C3AED',
+                            background: '#F5F3FF',
+                            width: 36,
+                            height: 36
                         }}
                     />
                     <Button
@@ -264,8 +295,10 @@ const TableCard = ({ table, index, onEdit, onDelete }: TableCardProps) => {
                             onDelete(table);
                         }}
                         style={{
-                            borderRadius: 10,
-                            background: '#fff2f0'
+                            borderRadius: 12,
+                            background: '#FEF2F2',
+                            width: 36,
+                            height: 36
                         }}
                     />
                 </div>
@@ -276,114 +309,117 @@ const TableCard = ({ table, index, onEdit, onDelete }: TableCardProps) => {
 
 // ============ EMPTY STATE COMPONENT ============
 
-const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
+const EmptyState = ({ onAdd, isSearch }: { onAdd: () => void, isSearch?: boolean }) => (
     <Empty
         image={Empty.PRESENTED_IMAGE_SIMPLE}
         description={
             <div style={{ textAlign: 'center' }}>
                 <Text type="secondary" style={{ fontSize: 15 }}>
-                    ยังไม่มีโต๊ะ
+                    {isSearch ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีโต๊ะ'}
                 </Text>
                 <br />
-                <Text type="secondary" style={{ fontSize: 13 }}>
-                    เริ่มต้นเพิ่มโต๊ะแรกของคุณ
-                </Text>
+                {!isSearch && (
+                    <Text type="secondary" style={{ fontSize: 13 }}>
+                        เริ่มต้นเพิ่มโต๊ะแรกของคุณได้เลย
+                    </Text>
+                )}
             </div>
         }
         style={{
             padding: '60px 20px',
             background: 'white',
-            borderRadius: 20,
-            margin: '0 16px'
+            borderRadius: 24,
+            margin: '24px 16px',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.04)'
         }}
     >
-        <Button 
-            type="primary" 
-            icon={<PlusOutlined />} 
-            onClick={onAdd}
-            style={{
-                background: 'linear-gradient(135deg, #722ed1 0%, #531dab 100%)',
-                border: 'none'
-            }}
-        >
-            เพิ่มโต๊ะ
-        </Button>
+        {!isSearch && (
+            <Button 
+                type="primary" 
+                icon={<PlusOutlined />} 
+                onClick={onAdd} 
+                size="large"
+                style={{ 
+                    background: '#7C3AED', 
+                    borderRadius: 12,
+                    height: 48,
+                    padding: '0 32px',
+                    boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)'
+                }}
+            >
+                เพิ่มโต๊ะใหม่
+            </Button>
+        )}
     </Empty>
 );
+
+// ============ MAIN PAGE ============
 
 export default function TablesPage() {
     const router = useRouter();
     const [tables, setTables] = useState<Tables[]>([]);
-    const [page, setPage] = useState(1);
-    const [total, setTotal] = useState(0);
-    const [lastPage, setLastPage] = useState(1);
-    const [searchValue, setSearchValue] = useState("");
-    const debouncedSearch = useDebouncedValue(searchValue.trim(), 400);
+    const [filteredTables, setFilteredTables] = useState<Tables[]>([]);
+    const [searchText, setSearchText] = useState("");
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
     const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
-
 
     useEffect(() => {
         getCsrfTokenCached();
     }, []);
 
     useEffect(() => {
-        setPage(1);
-    }, [debouncedSearch]);
-
-    useEffect(() => {
-        if (debouncedSearch || page !== 1) return;
-        const cached = readCache<TablesCacheResult>(TABLES_CACHE_KEY, TABLES_CACHE_TTL);
-        if (cached?.data?.length) {
-            setTables(cached.data);
-            setTotal(cached.total);
-            setLastPage(cached.last_page);
+        const cached = readCache<Tables[]>("pos:tables", 10 * 60 * 1000);
+        // Similarly simplifying to client side filtering
+        if (cached && Array.isArray(cached)) {
+             setTables(cached);
         }
-    }, [debouncedSearch, page]);
+    }, []);
 
-    const fetchTables = useCallback(async (silent = false) => {
-        const action = async () => {
-            const params = new URLSearchParams();
-            params.set("page", page.toString());
-            params.set("limit", TABLES_LIMIT.toString());
-            if (debouncedSearch) {
-                params.set("q", debouncedSearch);
+    const fetchTables = useCallback(async () => {
+        execute(async () => {
+            const result = await fetch('/api/pos/tables?limit=100'); 
+            if (!result.ok) throw new Error("Failed to fetch tables");
+            const data = await result.json();
+            
+            const list = data.data || data; 
+            
+            if (Array.isArray(list)) {
+                setTables(list);
+                writeCache("pos:tables", list);
             }
-            const result = await tablesService.getAll(undefined, params);
-            setTables(result.data);
-            setTotal(result.total);
-            setLastPage(result.last_page);
-            if (!debouncedSearch && page === 1) {
-                writeCache(TABLES_CACHE_KEY, result);
-            }
-        };
-
-        if (silent) {
-            try {
-                await action();
-            } catch (error) {
-                console.error("Silent refresh failed:", error);
-            }
-        } else {
-            execute(action, 'กำลังโหลดข้อมูลโต๊ะ...');
-        }
-    }, [debouncedSearch, execute, page]);
+        }, 'กำลังโหลดข้อมูลโต๊ะ...');
+    }, [execute]);
 
     useEffect(() => {
         if (isAuthorized) {
-            fetchTables(false);
+            fetchTables();
         }
     }, [isAuthorized, fetchTables]);
 
-    useRealtimeRefresh({
+    useRealtimeList(
         socket,
-        events: ["tables:create", "tables:update", "tables:delete"],
-        onRefresh: () => fetchTables(true),
-        intervalMs: 20000,
-        debounceMs: 1000,
-    });
+        { create: "tables:create", update: "tables:update", delete: "tables:delete" },
+        setTables
+    );
+
+    // Centralized filtering logic
+    useEffect(() => {
+        if (searchText) {
+            const lower = searchText.toLowerCase();
+            const filtered = tables.filter((t: Tables) => 
+                t.table_name.toLowerCase().includes(lower)
+            );
+            setFilteredTables(filtered);
+        } else {
+            setFilteredTables(tables);
+        }
+    }, [tables, searchText]);
+
+    const handleSearch = (value: string) => {
+        setSearchText(value);
+    };
 
     const handleAdd = () => {
         showLoading("กำลังเปิดหน้าจัดการโต๊ะ...");
@@ -403,6 +439,8 @@ export default function TablesPage() {
             okType: 'danger',
             cancelText: 'ยกเลิก',
             centered: true,
+            icon: <DeleteOutlined style={{ color: '#EF4444' }} />,
+            maskClosable: true,
             onOk: async () => {
                 await execute(async () => {
                     const csrfToken = await getCsrfTokenCached();
@@ -429,54 +467,62 @@ export default function TablesPage() {
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
     }
 
-    const activeTables = tables.filter(t => t.is_active);
-    const inactiveTables = tables.filter(t => !t.is_active);
-    const availableTables = tables.filter(t => t.status === TableStatus.Available);
-    const unavailableTables = tables.filter(t => t.status === TableStatus.Unavailable);
-
     return (
         <div className="tables-page" style={pageStyles.container}>
             <style>{globalStyles}</style>
+            <style jsx global>{`
+                .search-input-placeholder-white input::placeholder {
+                    color: rgba(255, 255, 255, 0.6) !important;
+                }
+                .search-input-placeholder-white input {
+                    color: white !important;
+                }
+                .table-card {
+                    cursor: pointer;
+                    -webkit-tap-highlight-color: transparent;
+                }
+            `}</style>
             
             {/* Header */}
             <PageHeader 
                 onRefresh={fetchTables}
                 onAdd={handleAdd}
-                searchValue={searchValue}
-                onSearchChange={setSearchValue}
+                onSearch={handleSearch}
             />
             
             {/* Stats Card */}
-            <StatsCard 
-                totalTables={tables.length}
-                availableTables={availableTables.length}
-                unavailableTables={unavailableTables.length}
-                activeTables={activeTables.length}
-                inactiveTables={inactiveTables.length}
-            />
+            <div style={{ marginTop: -32, padding: '0 16px', position: 'relative', zIndex: 10 }}>
+                <StatsCard tables={tables} />
+            </div>
 
             {/* Tables List */}
             <div style={pageStyles.listContainer}>
-                {tables.length > 0 ? (
+                {filteredTables.length > 0 ? (
                     <>
                         <div style={pageStyles.sectionTitle}>
-                            <TableOutlined style={{ fontSize: 18, color: '#722ed1' }} />
-                            <span style={{ fontSize: 16, fontWeight: 600, color: '#1a1a2e' }}>
+                            <div style={{ 
+                                width: 4, 
+                                height: 16, 
+                                background: '#7C3AED', 
+                                borderRadius: 2 
+                            }} />
+                            <span style={{ fontSize: 16, fontWeight: 700, color: '#1E293B' }}>
                                 รายการโต๊ะ
                             </span>
                             <div style={{
-                                background: 'linear-gradient(135deg, #722ed1 0%, #531dab 100%)',
-                                color: 'white',
-                                padding: '4px 12px',
-                                borderRadius: 20,
+                                background: '#F5F3FF',
+                                color: '#7C3AED',
+                                padding: '2px 10px',
+                                borderRadius: 12,
                                 fontSize: 12,
-                                fontWeight: 600
+                                fontWeight: 700,
+                                marginLeft: 'auto'
                             }}>
-                                {tables.length} รายการ
+                                {filteredTables.length}
                             </div>
                         </div>
 
-                        {tables.map((table, index) => (
+                        {filteredTables.map((table, index) => (
                             <TableCard
                                 key={table.id}
                                 table={table}
@@ -487,20 +533,12 @@ export default function TablesPage() {
                         ))}
                     </>
                 ) : (
-                    <EmptyState onAdd={handleAdd} />
+                    <EmptyState onAdd={handleAdd} isSearch={!!searchText} />
                 )}
             </div>
-            {lastPage > 1 && (
-                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
-                    <Pagination
-                        current={page}
-                        pageSize={TABLES_LIMIT}
-                        total={total}
-                        onChange={(value) => setPage(value)}
-                        size="small"
-                    />
-                </div>
-            )}
+            
+            {/* Bottom padding */}
+            <div style={{ height: 40 }} />
         </div>
     );
 }

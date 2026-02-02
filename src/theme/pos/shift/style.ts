@@ -154,10 +154,29 @@ export const globalStyles = `
         50% { transform: scale(1.05); }
         100% { transform: scale(1); }
     }
+
+    @keyframes fadeInUp {
+        from {
+            opacity: 0;
+            transform: translateY(20px);
+        }
+        to {
+            opacity: 1;
+            transform: translateY(0);
+        }
+    }
     
     .pulse-animation {
         animation: pulse 2s infinite ease-in-out;
     }
+
+    .shift-card-animate {
+        animation: fadeInUp 0.5s ease forwards;
+        opacity: 0;
+    }
+
+    .shift-card-delay-1 { animation-delay: 0.1s; }
+    .shift-card-delay-2 { animation-delay: 0.2s; }
     
     .shift-modal .ant-modal-content {
         border-radius: 20px;
@@ -167,7 +186,7 @@ export const globalStyles = `
     .shift-modal .ant-modal-header {
         background: transparent;
     }
-    
+
     .stat-card-inner {
         transition: all 0.3s ease;
         padding: 16px;
@@ -179,4 +198,61 @@ export const globalStyles = `
         background: #f1f5f9;
         transform: translateY(-2px);
     }
+
+    /* Mobile-first responsive */
+    .shift-header-mobile {
+        flex-direction: column !important;
+        align-items: flex-start !important;
+        gap: 16px !important;
+    }
+
+    .shift-content-mobile {
+        padding: 0 16px !important;
+    }
+
+    .shift-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 12px;
+    }
+
+    @media (max-width: 576px) {
+        .shift-header-mobile {
+            padding: 16px 16px 40px !important;
+        }
+
+        .shift-stat-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .shift-action-btn {
+            width: 100% !important;
+            height: 52px !important;
+            font-size: 16px !important;
+        }
+
+        .shift-modal .ant-modal {
+            max-width: calc(100vw - 32px) !important;
+            margin: 16px !important;
+        }
+    }
+
+    @media (min-width: 768px) {
+        .shift-stat-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
+    }
+
+    @media (min-width: 1024px) {
+        .shift-stat-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+
+    /* Touch-friendly */
+    .shift-action-btn {
+        -webkit-tap-highlight-color: rgba(16, 185, 129, 0.1);
+        touch-action: manipulation;
+    }
 `;
+

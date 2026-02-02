@@ -10,7 +10,8 @@ import {
     EditOutlined,
     DeleteOutlined,
     CheckCircleFilled,
-    CloseCircleFilled
+    CloseCircleFilled,
+    SearchOutlined
 } from '@ant-design/icons';
 import { Products } from "../../../../types/api/pos/products";
 import { Category } from "../../../../types/api/pos/category";
@@ -28,7 +29,6 @@ import { useCategories } from '../../../../hooks/pos/useCategories';
 import { useProductsUnit } from '../../../../hooks/pos/useProductsUnit';
 import { formatPrice } from '../../../../utils/products/productDisplay.utils';
 import { checkProductSetupState, getSetupMissingMessage } from '../../../../utils/products/productSetup.utils';
-import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 
 const { Text, Title } = Typography;
@@ -38,12 +38,11 @@ const { Text, Title } = Typography;
 interface HeaderProps {
     onRefresh: () => void;
     onAdd: () => void;
-    searchValue: string;
-    onSearchChange: (value: string) => void;
+    onSearch: (value: string) => void;
     disabledAdd?: boolean;
 }
 
-const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange, disabledAdd }: HeaderProps) => (
+const PageHeader = ({ onRefresh, onAdd, onSearch, disabledAdd }: HeaderProps) => (
     <div style={pageStyles.header}>
         <div style={pageStyles.headerDecoCircle1} />
         <div style={pageStyles.headerDecoCircle2} />
@@ -57,7 +56,8 @@ const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange, disabledAdd
                     <Text style={{ 
                         color: 'rgba(255,255,255,0.85)', 
                         fontSize: 13,
-                        display: 'block'
+                        display: 'block',
+                        textShadow: '0 1px 2px rgba(0,0,0,0.1)'
                     }}>
                         จัดการข้อมูล
                     </Text>
@@ -65,31 +65,27 @@ const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange, disabledAdd
                         color: 'white', 
                         margin: 0,
                         fontWeight: 700,
-                        letterSpacing: '0.5px'
+                        letterSpacing: '0.5px',
+                        textShadow: '0 2px 4px rgba(0,0,0,0.1)'
                     }}>
                         สินค้า
                     </Title>
                 </div>
-        </div>
-        <div className="products-header-actions" style={pageStyles.headerActions}>
-            <Input
-                className="products-search-input"
-                allowClear
-                placeholder="ค้นหาสินค้า..."
-                value={searchValue}
-                onChange={(e) => onSearchChange(e.target.value)}
-                style={{ width: 240, borderRadius: 10 }}
-            />
-            <Button
-                type="text"
-                icon={<ReloadOutlined style={{ color: 'white' }} />}
+            </div>
+            
+            <div className="products-header-actions" style={pageStyles.headerActions}>
+                <Button
+                    type="text"
+                    icon={<ReloadOutlined style={{ color: 'white' }} />}
                     onClick={onRefresh}
                     style={{
                         background: 'rgba(255,255,255,0.2)',
+                        backdropFilter: 'blur(4px)',
                         borderRadius: 12,
                         height: 40,
                         width: 40,
-                        flexShrink: 0
+                        flexShrink: 0,
+                        border: '1px solid rgba(255,255,255,0.3)'
                     }}
                 />
                 {!disabledAdd && (
@@ -99,7 +95,7 @@ const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange, disabledAdd
                         onClick={onAdd}
                         style={{
                             background: 'white',
-                            color: '#1890ff',
+                            color: '#4F46E5',
                             borderRadius: 12,
                             height: 40,
                             fontWeight: 600,
@@ -112,6 +108,25 @@ const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange, disabledAdd
                     </Button>
                 )}
             </div>
+        </div>
+
+        {/* Search Bar */}
+        <div style={{ marginTop: 24, padding: '0 4px' }}>
+            <Input 
+                prefix={<SearchOutlined style={{ color: '#fff', opacity: 0.7 }} />}
+                placeholder="ค้นหาสินค้า (ชื่อ, บาร์โค้ด)..."
+                onChange={(e) => onSearch(e.target.value)}
+                bordered={false}
+                style={{
+                    background: 'rgba(255,255,255,0.15)',
+                    backdropFilter: 'blur(8px)',
+                    borderRadius: 14,
+                    padding: '8px 16px',
+                    color: 'white',
+                    fontSize: 15,
+                }}
+                className="search-input-placeholder-white"
+            />
         </div>
     </div>
 );
@@ -127,17 +142,17 @@ interface StatsCardProps {
 const StatsCard = ({ totalProducts, activeProducts, inactiveProducts }: StatsCardProps) => (
     <div style={pageStyles.statsCard}>
         <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#1890ff' }}>{totalProducts}</span>
+            <span style={{ ...pageStyles.statNumber, color: '#4F46E5' }}>{totalProducts}</span>
             <Text style={pageStyles.statLabel}>ทั้งหมด</Text>
         </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
+        <div style={{ width: 1, height: 24, background: '#f0f0f0', alignSelf: 'center' }} />
         <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#52c41a' }}>{activeProducts}</span>
+            <span style={{ ...pageStyles.statNumber, color: '#10B981' }}>{activeProducts}</span>
             <Text style={pageStyles.statLabel}>ใช้งาน</Text>
         </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
+        <div style={{ width: 1, height: 24, background: '#f0f0f0', alignSelf: 'center' }} />
         <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#ff4d4f' }}>{inactiveProducts}</span>
+            <span style={{ ...pageStyles.statNumber, color: '#F59E0B' }}>{inactiveProducts}</span>
             <Text style={pageStyles.statLabel}>ไม่ใช้งาน</Text>
         </div>
     </div>
@@ -160,95 +175,97 @@ const ProductCard = ({ product, index, onEdit, onDelete }: ProductCardProps) => 
                 ...pageStyles.productCard(product.is_active),
                 animationDelay: `${index * 0.03}s`
             }}
+            onClick={() => onEdit(product)}
         >
             <div className="product-card-inner" style={pageStyles.productCardInner}>
                 {/* Image */}
                 <div style={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 14,
-                    border: '2px solid #f0f0f0',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
+                    width: 72,
+                    height: 72,
+                    borderRadius: 16,
+                    border: '1px solid #F1F5F9',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.04)',
                     flexShrink: 0,
                     overflow: 'hidden',
-                    position: 'relative'
+                    position: 'relative',
+                    background: '#F8FAFC'
                 }}>
                     {product.img_url ? (
                         <Image 
                             src={product.img_url} 
-                            alt={product.product_name}
+                            alt={product.display_name || product.product_name}
                             fill
                             style={{ objectFit: 'cover' }}
-                            sizes="64px"
+                            sizes="72px"
                         />
                     ) : (
                         <div style={{
                             width: '100%',
                             height: '100%',
-                            background: 'linear-gradient(135deg, #e6f7ff 0%, #bae7ff 100%)',
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center'
+                            justifyContent: 'center',
+                            background: 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)'
                         }}>
-                            <ShopOutlined style={{ fontSize: 24, color: '#1890ff', opacity: 0.5 }} />
+                            <ShopOutlined style={{ fontSize: 24, color: '#6366F1', opacity: 0.8 }} />
                         </div>
                     )}
                 </div>
 
                 {/* Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                <div style={{ flex: 1, minWidth: 0, padding: '0 4px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 4 }}>
                         <Text 
                             strong 
-                            style={{ fontSize: 16, color: '#1a1a2e' }}
-                            ellipsis={{ tooltip: product.display_name }}
+                            style={{ fontSize: 16, color: '#1E293B', flex: 1 }}
+                            ellipsis
                         >
                             {product.display_name}
                         </Text>
-                        {product.is_active ? (
-                            <CheckCircleFilled style={{ color: '#52c41a', fontSize: 14 }} />
+                         {product.is_active ? (
+                            <CheckCircleFilled style={{ color: '#10B981', fontSize: 14 }} />
                         ) : (
-                            <CloseCircleFilled style={{ color: '#ff4d4f', fontSize: 14 }} />
+                            <CloseCircleFilled style={{ color: '#94A3B8', fontSize: 14 }} />
                         )}
                     </div>
+                    
                     <Text 
                         type="secondary" 
-                        style={{ fontSize: 13, display: 'block', marginBottom: 6 }}
-                        ellipsis={{ tooltip: product.product_name }}
+                        style={{ fontSize: 13, display: 'block', marginBottom: 8, color: '#64748B' }}
+                        ellipsis
                     >
                         {product.product_name}
                     </Text>
+
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                         <Tag 
-                            color="green" 
                             style={{ 
-                                borderRadius: 8, 
+                                borderRadius: 6, 
                                 margin: 0,
-                                fontSize: 11 
+                                fontSize: 11,
+                                fontWeight: 700,
+                                color: '#059669',
+                                background: '#ECFDF5',
+                                border: 'none',
+                                padding: '0 8px'
                             }}
                         >
                             {formatPrice(Number(product.price))}
                         </Tag>
-                        <Tag 
-                            color="blue" 
-                            style={{ 
-                                borderRadius: 8, 
-                                margin: 0,
-                                fontSize: 11 
-                            }}
-                        >
-                            {product.category?.display_name || '-'}
-                        </Tag>
-                        <Tag 
-                            color="cyan" 
-                            style={{ 
-                                borderRadius: 8, 
-                                margin: 0,
-                                fontSize: 11 
-                            }}
-                        >
-                            {product.unit?.display_name || '-'}
-                        </Tag>
+                        {product.category?.display_name && (
+                            <Tag 
+                                style={{ 
+                                    borderRadius: 6, 
+                                    margin: 0,
+                                    fontSize: 10,
+                                    color: '#4F46E5',
+                                    background: '#EEF2FF',
+                                    border: 'none'
+                                }}
+                            >
+                                {product.category.display_name}
+                            </Tag>
+                        )}
                     </div>
                 </div>
 
@@ -262,9 +279,11 @@ const ProductCard = ({ product, index, onEdit, onDelete }: ProductCardProps) => 
                             onEdit(product);
                         }}
                         style={{
-                            borderRadius: 10,
-                            color: '#1890ff',
-                            background: '#e6f7ff'
+                            borderRadius: 12,
+                            color: '#4F46E5',
+                            background: '#F5F3FF',
+                            width: 36,
+                            height: 36
                         }}
                     />
                     <Button
@@ -276,8 +295,10 @@ const ProductCard = ({ product, index, onEdit, onDelete }: ProductCardProps) => 
                             onDelete(product);
                         }}
                         style={{
-                            borderRadius: 10,
-                            background: '#fff2f0'
+                            borderRadius: 12,
+                            background: '#FEF2F2',
+                            width: 36,
+                            height: 36
                         }}
                     />
                 </div>
@@ -288,29 +309,45 @@ const ProductCard = ({ product, index, onEdit, onDelete }: ProductCardProps) => 
 
 // ============ EMPTY STATE COMPONENT ============
 
-const EmptyState = ({ onAdd, showAdd = true }: { onAdd: () => void, showAdd?: boolean }) => (
+const EmptyState = ({ onAdd, showAdd = true, isSearch }: { onAdd: () => void, showAdd?: boolean, isSearch?: boolean }) => (
     <Empty
         image={Empty.PRESENTED_IMAGE_SIMPLE}
         description={
             <div style={{ textAlign: 'center' }}>
                 <Text type="secondary" style={{ fontSize: 15 }}>
-                    ยังไม่มีสินค้า
+                     {isSearch ? 'ไม่พบสินค้าที่ค้นหา' : 'ยังไม่มีสินค้า'}
                 </Text>
                 <br />
-                <Text type="secondary" style={{ fontSize: 13 }}>
-                    เริ่มต้นเพิ่มสินค้าแรกของคุณ
-                </Text>
+                {!isSearch && (
+                    <Text type="secondary" style={{ fontSize: 13 }}>
+                        เริ่มต้นเพิ่มสินค้าแรกของคุณ
+                    </Text>
+                )}
             </div>
         }
         style={{
             padding: '60px 20px',
             background: 'white',
-            borderRadius: 20,
-            margin: '0 16px'
+            borderRadius: 24,
+            margin: '24px 16px',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.04)'
         }}
     >
-        {showAdd && (
-            <Button type="primary" icon={<PlusOutlined />} onClick={onAdd}>
+        {showAdd && !isSearch && (
+            <Button 
+                type="primary" 
+                icon={<PlusOutlined />} 
+                onClick={onAdd}
+                size="large"
+                style={{ 
+                    background: '#4F46E5', 
+                    borderRadius: 12,
+                    height: 48,
+                    padding: '0 32px',
+                    boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)',
+                    border: 'none'
+                }}
+            >
                 เพิ่มสินค้า
             </Button>
         )}
@@ -320,8 +357,8 @@ const EmptyState = ({ onAdd, showAdd = true }: { onAdd: () => void, showAdd?: bo
 export default function ProductsPage() {
     const router = useRouter();
     const [products, setProducts] = useState<Products[]>([]);
-    const [searchValue, setSearchValue] = useState("");
-    const debouncedSearch = useDebouncedValue(searchValue.trim(), 400);
+    const [filteredProducts, setFilteredProducts] = useState<Products[]>([]);
+    const [searchText, setSearchText] = useState("");
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
@@ -349,71 +386,75 @@ export default function ProductsPage() {
         getCsrfTokenCached();
     }, []);
 
+    // Initial Cache Read
     useEffect(() => {
-        if (debouncedSearch) return;
-        const cached = readCache<Products[]>("pos:products", 5 * 60 * 1000);
-        if (cached && cached.length > 0) {
+        const cached = readCache<Products[]>("pos:products", 10 * 60 * 1000);
+        if (cached && Array.isArray(cached)) {
             setProducts(cached);
         }
-    }, [debouncedSearch]);
+    }, []);
 
-    const fetchProducts = useCallback(async (query?: string) => {
+    const fetchProducts = useCallback(async () => {
         execute(async () => {
+            // Fetch all products for client-side filtering support
             const params = new URLSearchParams();
-            params.set("page", "1");
-            params.set("limit", "200");
-            if (query) params.set("q", query);
+            params.set("limit", "500");
+            
             const response = await fetch(`/api/pos/products?${params.toString()}`);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลสินค้าได้');
             }
             const data = await response.json();
-            setProducts(data.data || []);
+            const list = data.data || [];
+            setProducts(list);
+            writeCache("pos:products", list);
         }, 'กำลังโหลดข้อมูลสินค้า...');
     }, [execute]);
 
     useEffect(() => {
         if (isAuthorized) {
-            fetchProducts(debouncedSearch || undefined);
+            fetchProducts();
         }
-    }, [isAuthorized, fetchProducts, debouncedSearch]);
-
-    const normalizedQuery = debouncedSearch.trim().toLowerCase();
-    const shouldIncludeProduct = useCallback((item: Products) => {
-        if (!normalizedQuery) return true;
-        const haystack = `${item.display_name || ""} ${item.product_name || ""} ${item.description || ""}`.toLowerCase();
-        return haystack.includes(normalizedQuery);
-    }, [normalizedQuery]);
+    }, [isAuthorized, fetchProducts]);
 
     useRealtimeList(
         socket,
         { create: "products:create", update: "products:update", delete: "products:delete" },
-        setProducts,
-        (item) => item.id,
-        shouldIncludeProduct
+        setProducts
     );
+
+     // Client-side filtering
+     useEffect(() => {
+        if (searchText) {
+            const lower = searchText.toLowerCase();
+            const filtered = products.filter((p: Products) => 
+                (p.display_name?.toLowerCase().includes(lower)) || 
+                (p.product_name?.toLowerCase().includes(lower))
+            );
+            setFilteredProducts(filtered);
+        } else {
+            setFilteredProducts(products);
+        }
+    }, [products, searchText]);
+
 
     // Real-time Metadata Updates
     useRealtimeList(
         socket,
         { create: "category:create", update: "category:update", delete: "category:delete" },
-        setCategories,
-        (item) => item.id
+        setCategories
     );
 
     useRealtimeList(
         socket,
         { create: "productsUnit:create", update: "productsUnit:update", delete: "productsUnit:delete" },
-        setUnits,
-        (item) => item.id
+        setUnits
     );
 
-    useEffect(() => {
-        if (!debouncedSearch && products.length > 0) {
-            writeCache("pos:products", products);
-        }
-    }, [products, debouncedSearch]);
+    const handleSearch = (value: string) => {
+        setSearchText(value);
+    };
 
     const handleAdd = () => {
         showLoading("กำลังเปิดหน้าจัดการสินค้า...");
@@ -433,6 +474,8 @@ export default function ProductsPage() {
             okType: 'danger',
             cancelText: 'ยกเลิก',
             centered: true,
+            icon: <DeleteOutlined style={{ color: '#EF4444' }} />,
+            maskClosable: true,
             onOk: async () => {
                 await execute(async () => {
                     const csrfToken = await getCsrfTokenCached();
@@ -472,10 +515,9 @@ export default function ProductsPage() {
             <div className="products-page" style={pageStyles.container}>
                 <style>{globalStyles}</style>
                 <PageHeader 
-                    onRefresh={() => fetchProducts(debouncedSearch || undefined)}
+                    onRefresh={fetchProducts}
                     onAdd={handleAdd}
-                    searchValue={searchValue}
-                    onSearchChange={setSearchValue}
+                    onSearch={handleSearch}
                     disabledAdd={!hasMetadata}
                 />
                 <div style={{ ...pageStyles.listContainer, padding: '40px 20px' }}>
@@ -488,10 +530,9 @@ export default function ProductsPage() {
                     }}>
                         <Empty 
                             image={Empty.PRESENTED_IMAGE_SIMPLE}
-                            styles={{ image: { height: 120 } }}
                             description={
                                 <div style={{ marginTop: 20 }}>
-                                    <Title level={4} style={{ marginBottom: 8 }}>ยังไม่พร้อมเพิ่มสินค้า</Title>
+                                    <Title level={4} style={{ marginBottom: 8, color: '#334155' }}>ยังไม่พร้อมเพิ่มสินค้า</Title>
                                     <Text type="secondary" style={{ fontSize: 16 }}>{getSetupMissingMessage(categories, units)}</Text>
                                 </div>
                             }
@@ -502,7 +543,7 @@ export default function ProductsPage() {
                                         type="primary" 
                                         size="large"
                                         onClick={() => router.push("/pos/category")}
-                                        style={{ height: 45, borderRadius: 12, background: '#1890ff', border: 'none' }}
+                                        style={{ height: 45, borderRadius: 12, background: '#4F46E5', border: 'none' }}
                                     >
                                         เพิ่มหมวดหมู่สินค้า
                                     </Button>
@@ -512,7 +553,7 @@ export default function ProductsPage() {
                                         type="primary" 
                                         size="large"
                                         onClick={() => router.push("/pos/productsUnit")}
-                                        style={{ height: 45, borderRadius: 12, background: '#52c41a', border: 'none' }}
+                                        style={{ height: 45, borderRadius: 12, background: '#10B981', border: 'none' }}
                                     >
                                         เพิ่มหน่วยสินค้า
                                     </Button>
@@ -528,23 +569,35 @@ export default function ProductsPage() {
     return (
         <div className="products-page" style={pageStyles.container}>
             <style>{globalStyles}</style>
+            <style jsx global>{`
+                .search-input-placeholder-white input::placeholder {
+                    color: rgba(255, 255, 255, 0.6) !important;
+                }
+                .search-input-placeholder-white input {
+                    color: white !important;
+                }
+                .product-card {
+                    cursor: pointer;
+                    -webkit-tap-highlight-color: transparent;
+                }
+            `}</style>
             
             {/* Header */}
             <PageHeader 
-                onRefresh={() => fetchProducts(debouncedSearch || undefined)}
+                onRefresh={fetchProducts}
                 onAdd={handleAdd}
-                searchValue={searchValue}
-                onSearchChange={setSearchValue}
+                onSearch={handleSearch}
                 disabledAdd={!hasMetadata}
             />
 
             {!isMetadataLoading && !hasMetadata && products.length > 0 && (
-                <div style={{ margin: '0 16px 20px' }}>
+                <div style={{ margin: '0 16px 20px', position: 'relative', zIndex: 10 }}>
                     <Alert
                         message="ตั้งค่าไม่สมบูรณ์"
                         description={getSetupMissingMessage(categories, units)}
                         type="warning"
                         showIcon
+                        style={{ borderRadius: 16, border: 'none', boxShadow: '0 4px 12px rgba(251, 146, 60, 0.1)' }}
                         action={
                             <div style={{ display: 'flex', gap: 8 }}>
                                 {!setupState.hasCategories && (
@@ -564,34 +617,42 @@ export default function ProductsPage() {
             )}
             
             {/* Stats Card */}
-            <StatsCard 
-                totalProducts={products.length}
-                activeProducts={activeProducts.length}
-                inactiveProducts={inactiveProducts.length}
-            />
+            <div style={{ marginTop: -32, padding: '0 16px', position: 'relative', zIndex: 10 }}>
+                <StatsCard 
+                    totalProducts={products.length}
+                    activeProducts={activeProducts.length}
+                    inactiveProducts={inactiveProducts.length}
+                />
+            </div>
 
             {/* Products List */}
             <div style={pageStyles.listContainer}>
-                {products.length > 0 ? (
+                {filteredProducts.length > 0 ? (
                     <>
                         <div style={pageStyles.sectionTitle}>
-                            <ShopOutlined style={{ fontSize: 18, color: '#1890ff' }} />
-                            <span style={{ fontSize: 16, fontWeight: 600, color: '#1a1a2e' }}>
+                            <div style={{ 
+                                width: 4, 
+                                height: 16, 
+                                background: '#4F46E5', 
+                                borderRadius: 2 
+                            }} />
+                            <span style={{ fontSize: 16, fontWeight: 700, color: '#1E293B' }}>
                                 รายการสินค้า
                             </span>
                             <div style={{
-                                background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)',
-                                color: 'white',
-                                padding: '4px 12px',
-                                borderRadius: 20,
+                                background: '#EEF2FF',
+                                color: '#4F46E5',
+                                padding: '2px 10px',
+                                borderRadius: 12,
                                 fontSize: 12,
-                                fontWeight: 600
+                                fontWeight: 700,
+                                marginLeft: 'auto'
                             }}>
-                                {products.length} รายการ
+                                {filteredProducts.length}
                             </div>
                         </div>
 
-                        {products.map((product, index) => (
+                        {filteredProducts.map((product, index) => (
                             <ProductCard
                                 key={product.id}
                                 product={product}
@@ -602,9 +663,11 @@ export default function ProductsPage() {
                         ))}
                     </>
                 ) : (
-                    <EmptyState onAdd={handleAdd} showAdd={hasMetadata} />
+                    <EmptyState onAdd={handleAdd} showAdd={hasMetadata} isSearch={!!searchText} />
                 )}
             </div>
+             {/* Bottom padding */}
+             <div style={{ height: 40 }} />
         </div>
     );
 }

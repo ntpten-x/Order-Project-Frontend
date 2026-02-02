@@ -61,6 +61,7 @@ export interface SalesOrderSummary {
     delivery?: { delivery_name?: string | null } | null;
     items_summary?: Record<string, number>;
     items_count?: number;
+    payment_method?: { payment_method_name?: string | null } | null;
 }
 
 // DTOs for Creating/Updating Orders

@@ -11,6 +11,8 @@ import {
   message, 
   Modal,
   Card,
+  Tag,
+  Input,
 } from "antd";
 import { 
   ShoppingCartOutlined, 
@@ -30,11 +32,16 @@ const { Text, Title } = Typography;
 
 export default function CartDrawer() {
   const [open, setOpen] = useState(false);
-  const { items, updateQuantity, clearCart, itemCount } = useCart();
+  const { items, updateQuantity, clearCart, itemCount, updateItemNote } = useCart();
   const { user } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [csrfToken, setCsrfToken] = useState<string>("");
+  
+  // Note Editing State
+  const [isNoteModalVisible, setIsNoteModalVisible] = useState(false);
+  const [currentNoteItem, setCurrentNoteItem] = useState<{ id: string; name: string; note: string } | null>(null);
+  const [noteInput, setNoteInput] = useState("");
 
   React.useEffect(() => {
     const fetchCsrf = async () => {
@@ -50,6 +57,21 @@ export default function CartDrawer() {
 
   const onClose = () => {
     setOpen(false);
+  };
+
+  const openNoteModal = (id: string, name: string, note: string) => {
+    setCurrentNoteItem({ id, name, note });
+    setNoteInput(note || "");
+    setIsNoteModalVisible(true);
+  };
+
+  const handleSaveNote = () => {
+    if (currentNoteItem) {
+      updateItemNote(currentNoteItem.id, noteInput);
+      setIsNoteModalVisible(false);
+      setCurrentNoteItem(null);
+      message.success("บันทึกโน๊ตเรียบร้อยแล้ว");
+    }
   };
 
   const handlePlaceOrder = async () => {
@@ -254,7 +276,18 @@ export default function CartDrawer() {
             </div>
           ) : (
             <Space direction="vertical" size={12} style={{ width: '100%' }}>
-              {items.map((item) => (
+              {items.map((item) => {
+                // Mock data for display purposes to match the design requirements
+                // In a real scenario, these would come from the item or ingredient data
+                const categoryName = item.ingredient.unit?.display_name || 'หมวดหมู่ทั่วไป';
+                const price = (item.ingredient as any).price || 129; // Mock price
+                const totalPrice = price * item.quantity;
+                const addons = (item as any).details || [
+                    /* Mock addons for visualization if needed, or empty */
+                    // { detail_name: 'ไข่ดาว', extra_price: 10 } 
+                ];
+
+                return (
                 <Card
                   key={item.ingredient.id}
                   size="small"
@@ -263,102 +296,178 @@ export default function CartDrawer() {
                     border: 'none',
                     boxShadow: '0 2px 12px rgba(0,0,0,0.06)',
                     overflow: 'hidden',
+                    marginBottom: 12
                   }}
                   styles={{ body: { padding: '16px' } }}
                 >
-                  <Space align="start" size={16} style={{ width: '100%' }}>
-                    <Avatar 
-                      src={item.ingredient.img_url} 
-                      shape="square" 
-                      size={72}
-                      style={{ 
-                        borderRadius: 12,
-                        boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-                      }}
-                    />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <Text 
-                        strong 
-                        style={{ 
-                          fontSize: 16, 
-                          display: 'block',
-                          marginBottom: 4,
-                          whiteSpace: 'nowrap',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                        }}
-                      >
-                        {item.ingredient.display_name}
-                      </Text>
-                      <Text 
-                        type="secondary" 
-                        style={{ 
-                          fontSize: 13,
-                          display: 'block',
-                          marginBottom: 12,
-                        }}
-                      >
-                        {item.ingredient.unit?.display_name || '-'}
-                      </Text>
-                      
-                      {/* Quantity Controls */}
-                      <Space size={12}>
-                        <Button 
-                          size="small" 
-                          shape="circle"
-                          danger={item.quantity === 1}
-                          icon={item.quantity === 1 ? <DeleteOutlined /> : <MinusOutlined />}
-                          onClick={() => updateQuantity(item.ingredient.id, item.quantity - 1)}
-                          style={{
-                            width: 36,
-                            height: 36,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            border: item.quantity === 1 ? '1px solid #ff4d4f' : '1px solid #d9d9d9',
-                          }}
+                  <div style={{ display: 'flex', gap: 16 }}>
+                    {/* Left: Image */}
+                    <div style={{ flexShrink: 0 }}>
+                        <Avatar 
+                            src={item.ingredient.img_url} 
+                            shape="square" 
+                            size={80}
+                            style={{ 
+                                borderRadius: 12,
+                                boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+                            }}
                         />
-                        <div 
-                          style={{
-                            minWidth: 48,
-                            height: 36,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: 'linear-gradient(135deg, #f5f7fa 0%, #e8ecf1 100%)',
-                            borderRadius: 8,
-                            fontWeight: 700,
-                            fontSize: 16,
-                            color: '#333',
-                          }}
-                        >
-                          {item.quantity}
-                        </div>
-                        <Button 
-                          size="small" 
-                          shape="circle"
-                          icon={<PlusOutlined />}
-                          onClick={() => updateQuantity(item.ingredient.id, item.quantity + 1)}
-                          style={{
-                            width: 36,
-                            height: 36,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                            border: 'none',
-                            color: '#fff',
-                          }}
-                        />
-                      </Space>
                     </div>
-                  </Space>
+
+                    {/* Middle: Info */}
+                    <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 4 }}>
+                             <div style={{ flex: 1 }}>
+                                <Text strong style={{ fontSize: 16, color: '#1F2937', display: 'block', lineHeight: 1.2 }}>
+                                    {item.ingredient.display_name}
+                                </Text>
+                                <Tag 
+                                    style={{ 
+                                        margin: '4px 0 0', 
+                                        border: 'none', 
+                                        background: '#F3F4F6', 
+                                        color: '#6B7280',
+                                        fontSize: 11,
+                                        borderRadius: 6,
+                                        padding: '0 6px'
+                                    }}
+                                >
+                                    {categoryName}
+                                </Tag>
+                             </div>
+                             <Text strong style={{ fontSize: 18, color: '#10B981', lineHeight: 1 }}>
+                                ฿{totalPrice.toLocaleString()}
+                             </Text>
+                        </div>
+
+                        {/* Notes */}
+                        {item.note && (
+                            <div style={{ marginTop: 4, background: "#fef2f2", padding: "2px 6px", borderRadius: 4, display: "inline-block", border: '1px solid #fecaca' }}>
+                                <Text style={{ fontSize: 11, color: "#ef4444" }}>
+                                    📝 {item.note}
+                                </Text>
+                            </div>
+                        )}
+
+                        {/* Addons/Details */}
+                        {addons.length > 0 && (
+                            <div style={{ marginTop: 6, marginBottom: 8 }}>
+                                {addons.map((addon: any, idx: number) => (
+                                    <Text key={idx} style={{ display: 'block', fontSize: 12, color: '#10B981', lineHeight: 1.4 }}>
+                                        + {addon.detail_name} <span style={{ opacity: 0.8 }}>(+฿{addon.extra_price})</span>
+                                    </Text>
+                                ))}
+                            </div>
+                        )}
+                        
+                        {/* Controls Row */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 'auto', paddingTop: 8 }}>
+                             {/* Quantity */}
+                             <div style={{ 
+                                 display: 'flex', 
+                                 alignItems: 'center', 
+                                 gap: 8,
+                                 background: '#F9FAFB',
+                                 padding: '2px',
+                                 borderRadius: 8,
+                                 border: '1px solid #F3F4F6'
+                             }}>
+                                <Button 
+                                  size="small" 
+                                  type="text"
+                                  icon={<MinusOutlined style={{ fontSize: 10 }} />}
+                                  onClick={() => updateQuantity(item.ingredient.id, item.quantity - 1)}
+                                  style={{ width: 24, height: 24, minWidth: 24 }}
+                                />
+                                <Text strong style={{ fontSize: 14, minWidth: 16, textAlign: 'center' }}>{item.quantity}</Text>
+                                <Button 
+                                  size="small" 
+                                  type="text"
+                                  icon={<PlusOutlined style={{ fontSize: 10 }} />}
+                                  onClick={() => updateQuantity(item.ingredient.id, item.quantity + 1)}
+                                  style={{ 
+                                      width: 24, 
+                                      height: 24, 
+                                      minWidth: 24,
+                                      background: '#10B981', 
+                                      color: 'white'
+                                  }}
+                                />
+                             </div>
+
+                             {/* Actions */}
+                             <Space size={4}>
+                                <Button 
+                                    type="text" 
+                                    size="small"
+                                    icon={<span style={{ fontSize: 14 }}>📝</span>}
+                                    onClick={() => openNoteModal(item.ingredient.id, item.ingredient.display_name, item.note || "")}
+                                    style={{ color: '#ef4444', background: '#fef2f2' }}
+                                />
+                                <Button 
+                                    type="text" 
+                                    size="small"
+                                    icon={<PlusOutlined />} 
+                                    style={{ color: '#10B981', background: '#ECQF9' }}
+                                />
+                                <Button 
+                                    type="text" 
+                                    size="small"
+                                    danger
+                                    icon={<DeleteOutlined />}
+                                    onClick={() => updateQuantity(item.ingredient.id, 0)}
+                                    style={{ background: '#FEF2F2' }}
+                                />
+                             </Space>
+                        </div>
+                    </div>
+                  </div>
                 </Card>
-              ))}
+              )})}
             </Space>
           )}
         </div>
       </Drawer>
+      {/* Note Modal */}
+      <Modal
+        title={
+          <Space>
+            <span style={{ fontSize: 20 }}>📝</span>
+            <Text strong style={{ fontSize: 18 }}>เพิ่มโน๊ต: {currentNoteItem?.name}</Text>
+          </Space>
+        }
+        open={isNoteModalVisible}
+        onOk={handleSaveNote}
+        onCancel={() => setIsNoteModalVisible(false)}
+        okText="บันทึก"
+        cancelText="ยกเลิก"
+        okButtonProps={{
+          style: { 
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            border: 'none',
+            height: 40,
+            borderRadius: 8,
+            padding: '0 24px'
+          }
+        }}
+        cancelButtonProps={{
+          style: { 
+            height: 40,
+            borderRadius: 8
+          }
+        }}
+      >
+        <div style={{ paddingTop: 12 }}>
+          <Text type="secondary" style={{ display: 'block', marginBottom: 8 }}>รายละเอียดเพิ่มเติมที่ต้องการแจ้ง</Text>
+          <Input.TextArea
+            rows={4}
+            value={noteInput}
+            onChange={(e) => setNoteInput(e.target.value)}
+            placeholder="เช่น ไม่เผ็ดมาก, แยกน้ำ, ฯลฯ"
+            style={{ borderRadius: 12, padding: 12 }}
+          />
+        </div>
+      </Modal>
     </>
   );
 }

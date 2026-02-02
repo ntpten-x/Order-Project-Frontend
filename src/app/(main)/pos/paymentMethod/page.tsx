@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Typography, Tag, Button, Empty, Input, Pagination } from 'antd';
+import { message, Modal, Typography, Tag, Button, Empty, Input, Pagination, Row, Col } from 'antd';
 import { 
     CreditCardOutlined,
     PlusOutlined,
@@ -9,7 +9,11 @@ import {
     EditOutlined,
     DeleteOutlined,
     CheckCircleFilled,
-    CloseCircleFilled
+    CloseCircleFilled,
+    SearchOutlined,
+    BankOutlined,
+    WalletOutlined,
+    QrcodeOutlined
 } from '@ant-design/icons';
 import { PaymentMethod } from "../../../../types/api/pos/paymentMethod";
 import { useRouter } from 'next/navigation';
@@ -27,6 +31,17 @@ import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 
 const { Text, Title } = Typography;
 
+const PAYMENT_METHOD_LIMIT = 50;
+const PAYMENT_METHOD_CACHE_KEY = "pos:payment-methods";
+const PAYMENT_METHOD_CACHE_TTL = 5 * 60 * 1000;
+
+type PaymentMethodCacheResult = {
+    data: PaymentMethod[];
+    total: number;
+    page: number;
+    last_page: number;
+};
+
 // ============ HEADER COMPONENT ============
 
 interface HeaderProps {
@@ -41,94 +56,102 @@ interface HeaderProps {
 }
 
 const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange, page, total, lastPage, setPage }: HeaderProps) => (
-    <div style={pageStyles.header}>
-        <div style={pageStyles.headerDecoCircle1} />
-        <div style={pageStyles.headerDecoCircle2} />
-        
-        <div style={pageStyles.headerContent}>
-            <div style={pageStyles.headerLeft}>
-                <div style={pageStyles.headerIconBox}>
-                    <CreditCardOutlined style={{ fontSize: 24, color: 'white' }} />
+    <div style={{
+        marginBottom: 16,
+        background: 'white',
+        borderRadius: 16,
+        padding: 16,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
+    }}>
+        {/* Title with Icon */}
+        <div style={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            marginBottom: 14
+        }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <div style={{
+                    width: 40,
+                    height: 40,
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    borderRadius: 10,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    boxShadow: '0 3px 8px rgba(16, 185, 129, 0.3)'
+                }}>
+                    <CreditCardOutlined style={{ fontSize: 20, color: 'white' }} />
                 </div>
                 <div>
-                    <Text style={{ 
-                        color: 'rgba(255,255,255,0.85)', 
-                        fontSize: 13,
-                        display: 'block'
-                    }}>
-                        การจัดการข้อมูล
-                    </Text>
-                    <Title level={4} style={{ 
-                        color: 'white', 
-                        margin: 0,
-                        fontWeight: 700,
-                        letterSpacing: '0.5px'
-                    }}>
-                        วิธีการชำระเงิน
+                    <Title level={5} style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#1E293B' }}>
+                        วิธีชำระเงิน
                     </Title>
+                    <Text style={{ fontSize: 12, color: '#64748B' }}>{total} รายการ</Text>
                 </div>
             </div>
-            <div style={pageStyles.headerActions}>
-                <Input
-                    allowClear
-                    placeholder="ค้นหาวิธีการชำระเงิน..."
-                    value={searchValue}
-                    onChange={(e) => onSearchChange(e.target.value)}
-                    style={{ width: 220, borderRadius: 10 }}
-                />
-                <Button
-                    type="text"
-                    icon={<ReloadOutlined style={{ color: 'white' }} />}
-                    onClick={onRefresh}
-                    style={{
-                        background: 'rgba(255,255,255,0.2)',
-                        borderRadius: 12,
-                        height: 40,
-                        width: 40
-                    }}
-                />
-                <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={onAdd}
-                    style={{
-                        background: 'white',
-                        color: '#10b981',
-                        borderRadius: 12,
-                        height: 40,
-                        fontWeight: 600,
-                        border: 'none',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                    }}
-                >
-                    เพิ่มวิธีการชำระเงิน
-                </Button>
-            </div>
-            {lastPage > 1 && (
-                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
-                    <Pagination
-                        current={page}
-                        pageSize={PAYMENT_METHOD_LIMIT}
-                        total={total}
-                        onChange={(value) => setPage(value)}
-                        size="small"
-                    />
-                </div>
-            )}
+            <Button
+                icon={<ReloadOutlined />}
+                onClick={onRefresh}
+                style={{
+                    borderRadius: 8,
+                    border: '1px solid #E2E8F0',
+                    color: '#64748B'
+                }}
+            />
         </div>
+
+        {/* Search Row */}
+        <div style={{ display: 'flex', gap: 8 }}>
+            <Input
+                allowClear
+                placeholder="ค้นหาวิธีชำระเงิน..."
+                prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
+                value={searchValue}
+                onChange={(e) => onSearchChange(e.target.value)}
+                style={{ 
+                    flex: 1,
+                    height: 42, 
+                    borderRadius: 10,
+                    background: '#F8FAFC',
+                    border: '1px solid #E2E8F0'
+                }}
+            />
+            <Button
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={onAdd}
+                style={{
+                    height: 42,
+                    borderRadius: 10,
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    border: 'none',
+                    fontWeight: 600,
+                    boxShadow: '0 3px 8px rgba(16, 185, 129, 0.25)',
+                    paddingLeft: 14,
+                    paddingRight: 14
+                }}
+            >
+                เพิ่ม
+            </Button>
+        </div>
+
+        {lastPage > 1 && (
+            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
+                <Pagination
+                    current={page}
+                    pageSize={PAYMENT_METHOD_LIMIT}
+                    total={total}
+                    onChange={(value) => setPage(value)}
+                    size="small"
+                    hideOnSinglePage
+                />
+            </div>
+        )}
     </div>
 )
 
-type PaymentMethodCacheResult = {
-    data: PaymentMethod[];
-    total: number;
-    page: number;
-    last_page: number;
-};
 
-const PAYMENT_METHOD_LIMIT = 50;
-const PAYMENT_METHOD_CACHE_KEY = "pos:payment-methods";
-const PAYMENT_METHOD_CACHE_TTL = 5 * 60 * 1000;
 
 // ============ STATS CARD COMPONENT ============
 
@@ -139,21 +162,77 @@ interface StatsCardProps {
 }
 
 const StatsCard = ({ totalPaymentMethods, activePaymentMethods, inactivePaymentMethods }: StatsCardProps) => (
-    <div style={pageStyles.statsCard}>
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#10b981' }}>{totalPaymentMethods}</span>
-            <Text style={pageStyles.statLabel}>ทั้งหมด</Text>
+    <div className="grid grid-cols-3 gap-2 md:gap-4" style={{ 
+        background: 'white',
+        borderRadius: 16,
+        boxShadow: '0 2px 12px rgba(0,0,0,0.04)',
+        padding: '12px 8px',
+        marginBottom: 20
+    }}>
+        <div style={{ textAlign: 'center', padding: '8px 4px' }}>
+            <span style={{ fontSize: 20, fontWeight: 700, color: '#10b981', display: 'block' }}>{totalPaymentMethods}</span>
+            <Text style={{ fontSize: 11, color: '#64748b' }}>ทั้งหมด</Text>
         </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#52c41a' }}>{activePaymentMethods}</span>
-            <Text style={pageStyles.statLabel}>เปิดใช้งาน</Text>
+        <div style={{ textAlign: 'center', padding: '8px 4px', borderLeft: '1px solid #f0f0f0', borderRight: '1px solid #f0f0f0' }}>
+            <span style={{ fontSize: 20, fontWeight: 700, color: '#52c41a', display: 'block' }}>{activePaymentMethods}</span>
+            <Text style={{ fontSize: 11, color: '#64748b' }}>เปิดใช้</Text>
         </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#ff4d4f' }}>{inactivePaymentMethods}</span>
-            <Text style={pageStyles.statLabel}>ปิดใช้งาน</Text>
+        <div style={{ textAlign: 'center', padding: '8px 4px' }}>
+            <span style={{ fontSize: 20, fontWeight: 700, color: '#ff4d4f', display: 'block' }}>{inactivePaymentMethods}</span>
+            <Text style={{ fontSize: 11, color: '#64748b' }}>ปิดใช้</Text>
         </div>
+    </div>
+);
+
+// ============ EMPTY STATE COMPONENT ============
+
+const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
+    <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '400px',
+        width: '100%'
+    }}>
+        <Empty
+            image={Empty.PRESENTED_IMAGE_SIMPLE}
+            description={
+                <div style={{ textAlign: 'center' }}>
+                    <Text type="secondary" style={{ fontSize: 16, fontWeight: 500 }}>
+                        ยังไม่มีวิธีชำระเงิน
+                    </Text>
+                    <br />
+                    <Text type="secondary" style={{ fontSize: 14 }}>
+                        เริ่มต้นเพิ่มวิธีชำระเงินแรกของคุณ
+                    </Text>
+                </div>
+            }
+            style={{
+                padding: '40px',
+                background: 'white',
+                borderRadius: 24,
+                boxShadow: '0 8px 24px rgba(0,0,0,0.04)',
+                width: '100%',
+                maxWidth: 400
+            }}
+        >
+            <Button 
+                type="primary" 
+                size="large"
+                icon={<PlusOutlined />} 
+                onClick={onAdd}
+                style={{
+                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+                    border: 'none',
+                    borderRadius: 12,
+                    marginTop: 16,
+                    height: 44,
+                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
+                }}
+            >
+                เพิ่มวิธีชำระเงิน
+            </Button>
+        </Empty>
     </div>
 );
 
@@ -161,153 +240,129 @@ const StatsCard = ({ totalPaymentMethods, activePaymentMethods, inactivePaymentM
 
 interface PaymentMethodCardProps {
     paymentMethod: PaymentMethod;
-    index: number;
     onEdit: (paymentMethod: PaymentMethod) => void;
     onDelete: (paymentMethod: PaymentMethod) => void;
 }
 
-const PaymentMethodCard = ({ paymentMethod, index, onEdit, onDelete }: PaymentMethodCardProps) => {
+const getPaymentIcon = (name: string) => {
+    const lower = name.toLowerCase();
+    if (lower.includes('cash') || lower.includes('เงินสด')) return <WalletOutlined />;
+    if (lower.includes('promptpay') || lower.includes('พร้อมเพย์') || lower.includes('qr')) return <QrcodeOutlined />;
+    if (lower.includes('bank') || lower.includes('โอน')) return <BankOutlined />;
+    return <CreditCardOutlined />;
+};
+
+const PaymentMethodCard = ({ paymentMethod, onEdit, onDelete }: PaymentMethodCardProps) => {
+    const icon = getPaymentIcon(paymentMethod.payment_method_name);
+    
     return (
-        <div
-            className="payment-method-card"
-            style={{
-                ...pageStyles.paymentMethodCard(paymentMethod.is_active),
-                animationDelay: `${index * 0.03}s`
-            }}
-        >
-            <div style={pageStyles.paymentMethodCardInner}>
-                {/* Icon */}
-                <div style={{
-                    width: 64,
-                    height: 64,
+        <Col xs={24} sm={12} lg={8}>
+            <div
+                style={{
+                    background: 'white',
                     borderRadius: 14,
-                    border: '2px solid #f0f0f0',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.06)',
-                    flexShrink: 0,
-                    overflow: 'hidden',
-                    position: 'relative',
-                    background: paymentMethod.is_active 
-                        ? 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)'
-                        : 'linear-gradient(135deg, #fff1f0 0%, #ffccc7 100%)',
+                    padding: 14,
+                    boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
+                    border: '1px solid #F1F5F9',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    gap: 12,
+                    opacity: paymentMethod.is_active ? 1 : 0.7
+                }}
+                onClick={() => onEdit(paymentMethod)}
+            >
+                {/* Icon */}
+                <div style={{
+                    width: 44,
+                    height: 44,
+                    borderRadius: 10,
+                    background: paymentMethod.is_active 
+                        ? 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)'
+                        : '#F1F5F9',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    flexShrink: 0
                 }}>
-                    <CreditCardOutlined style={{ 
-                        fontSize: 28, 
-                        color: paymentMethod.is_active ? '#10b981' : '#ff4d4f' 
-                    }} />
+                    <div style={{ 
+                        fontSize: 20, 
+                        color: paymentMethod.is_active ? '#059669' : '#94A3B8' 
+                    }}>
+                        {icon}
+                    </div>
                 </div>
 
                 {/* Info */}
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <Text 
                             strong 
-                            style={{ fontSize: 16, color: '#1a1a2e' }}
+                            ellipsis
+                            style={{ fontSize: 14, color: '#1E293B' }}
                         >
                             {paymentMethod.display_name || paymentMethod.payment_method_name}
                         </Text>
                         {paymentMethod.is_active ? (
-                            <CheckCircleFilled style={{ color: '#52c41a', fontSize: 14 }} />
+                            <CheckCircleFilled style={{ color: '#10B981', fontSize: 13, flexShrink: 0 }} />
                         ) : (
-                            <CloseCircleFilled style={{ color: '#ff4d4f', fontSize: 14 }} />
+                            <CloseCircleFilled style={{ color: '#EF4444', fontSize: 13, flexShrink: 0 }} />
                         )}
                     </div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-                        <Tag 
-                            color="green"
-                            style={{ 
-                                borderRadius: 8, 
-                                margin: 0,
-                                fontSize: 11 
-                            }}
-                        >
-                            {paymentMethod.payment_method_name}
-                        </Tag>
-                        <Tag 
-                            color={paymentMethod.is_active ? 'success' : 'default'}
-                            style={{ 
-                                borderRadius: 8, 
-                                margin: 0,
-                                fontSize: 11 
-                            }}
-                        >
-                            {paymentMethod.is_active ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
-                        </Tag>
-                    </div>
+                    <Tag 
+                        style={{ 
+                            borderRadius: 4, 
+                            margin: 0,
+                            marginTop: 4,
+                            fontSize: 10,
+                            padding: '1px 6px',
+                            border: 'none',
+                            background: '#F1F5F9',
+                            color: '#64748B'
+                        }}
+                    >
+                        {paymentMethod.payment_method_name}
+                    </Tag>
                 </div>
 
                 {/* Actions */}
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 4, flexShrink: 0 }}>
                     <Button
                         type="text"
+                        size="small"
                         icon={<EditOutlined />}
                         onClick={(e) => {
                             e.stopPropagation();
                             onEdit(paymentMethod);
                         }}
                         style={{
-                            borderRadius: 10,
-                            color: '#10b981',
-                            background: '#d1fae5'
+                            borderRadius: 6,
+                            color: '#10B981',
+                            width: 32,
+                            height: 32,
+                            padding: 0
                         }}
                     />
                     <Button
                         type="text"
-                        danger
+                        size="small"
                         icon={<DeleteOutlined />}
                         onClick={(e) => {
                             e.stopPropagation();
                             onDelete(paymentMethod);
                         }}
                         style={{
-                            borderRadius: 10,
-                            background: '#fff2f0'
+                            borderRadius: 6,
+                            color: '#EF4444',
+                            width: 32,
+                            height: 32,
+                            padding: 0
                         }}
                     />
                 </div>
             </div>
-        </div>
+        </Col>
     );
 };
-
-// ============ EMPTY STATE COMPONENT ============
-
-const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
-    <Empty
-        image={Empty.PRESENTED_IMAGE_SIMPLE}
-        description={
-            <div style={{ textAlign: 'center' }}>
-                <Text type="secondary" style={{ fontSize: 15 }}>
-                    ยังไม่มีวิธีชำระเงิน
-                </Text>
-                <br />
-                <Text type="secondary" style={{ fontSize: 13 }}>
-                    เริ่มต้นเพิ่มวิธีชำระเงินแรกของคุณ
-                </Text>
-            </div>
-        }
-        style={{
-            padding: '60px 20px',
-            background: 'white',
-            borderRadius: 20,
-            margin: '0 16px'
-        }}
-    >
-        <Button 
-            type="primary" 
-            icon={<PlusOutlined />} 
-            onClick={onAdd}
-            style={{
-                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                border: 'none'
-            }}
-        >
-            เพิ่มวิธีชำระเงิน
-        </Button>
-    </Empty>
-);
 
 export default function PaymentMethodPage() {
     const router = useRouter();
@@ -390,6 +445,7 @@ export default function PaymentMethodPage() {
             okType: 'danger',
             cancelText: 'ยกเลิก',
             centered: true,
+            icon: <DeleteOutlined style={{ color: '#ff4d4f' }} />,
             onOk: async () => {
                 await execute(async () => {
                     const csrfToken = await getCsrfTokenCached();
@@ -420,7 +476,7 @@ export default function PaymentMethodPage() {
     const inactivePaymentMethods = paymentMethods.filter(pm => !pm.is_active);
 
     return (
-        <div className="payment-method-page" style={pageStyles.container}>
+        <div style={{ padding: 16, background: '#F8FAFC', minHeight: '100vh' }}>
             <style>{globalStyles}</style>
             
             {/* Header */}
@@ -443,36 +499,18 @@ export default function PaymentMethodPage() {
             />
 
             {/* Payment Methods List */}
-            <div style={pageStyles.listContainer}>
+            <div>
                 {paymentMethods.length > 0 ? (
-                    <>
-                        <div style={pageStyles.sectionTitle}>
-                            <CreditCardOutlined style={{ fontSize: 18, color: '#10b981' }} />
-                            <span style={{ fontSize: 16, fontWeight: 600, color: '#1a1a2e' }}>
-                                รายการวิธีชำระเงิน
-                            </span>
-                            <div style={{
-                                background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                color: 'white',
-                                padding: '4px 12px',
-                                borderRadius: 20,
-                                fontSize: 12,
-                                fontWeight: 600
-                            }}>
-                                {paymentMethods.length} รายการ
-                            </div>
-                        </div>
-
-                        {paymentMethods.map((paymentMethod, index) => (
+                    <Row gutter={[12, 12]}>
+                        {paymentMethods.map((paymentMethod) => (
                             <PaymentMethodCard
                                 key={paymentMethod.id}
                                 paymentMethod={paymentMethod}
-                                index={index}
                                 onEdit={handleEdit}
                                 onDelete={handleDelete}
                             />
                         ))}
-                    </>
+                    </Row>
                 ) : (
                     <EmptyState onAdd={handleAdd} />
                 )}

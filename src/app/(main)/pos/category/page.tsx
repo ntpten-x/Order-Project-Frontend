@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Typography, Button, Empty } from 'antd';
+import { message, Modal, Typography, Button, Empty, Input } from 'antd';
 import { 
     TagsOutlined,
     PlusOutlined,
@@ -9,7 +9,8 @@ import {
     EditOutlined,
     DeleteOutlined,
     CheckCircleFilled,
-    CloseCircleFilled
+    CloseCircleFilled,
+    SearchOutlined
 } from '@ant-design/icons';
 import { Category } from "../../../../types/api/pos/category";
 import { useRouter } from 'next/navigation';
@@ -30,9 +31,10 @@ const { Text, Title } = Typography;
 interface HeaderProps {
     onRefresh: () => void;
     onAdd: () => void;
+    onSearch: (value: string) => void;
 }
 
-const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
+const PageHeader = ({ onRefresh, onAdd, onSearch }: HeaderProps) => (
     <div style={pageStyles.header}>
         <div style={pageStyles.headerDecoCircle1} />
         <div style={pageStyles.headerDecoCircle2} />
@@ -46,7 +48,8 @@ const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
                     <Text style={{ 
                         color: 'rgba(255,255,255,0.85)', 
                         fontSize: 13,
-                        display: 'block'
+                        display: 'block',
+                        textShadow: '0 1px 2px rgba(0,0,0,0.1)'
                     }}>
                         จัดการข้อมูล
                     </Text>
@@ -54,7 +57,8 @@ const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
                         color: 'white', 
                         margin: 0,
                         fontWeight: 700,
-                        letterSpacing: '0.5px'
+                        letterSpacing: '0.5px',
+                        textShadow: '0 2px 4px rgba(0,0,0,0.1)'
                     }}>
                         หมวดหมู่สินค้า
                     </Title>
@@ -67,9 +71,11 @@ const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
                     onClick={onRefresh}
                     style={{
                         background: 'rgba(255,255,255,0.2)',
+                        backdropFilter: 'blur(4px)',
                         borderRadius: 12,
                         height: 40,
-                        width: 40
+                        width: 40,
+                        border: '1px solid rgba(255,255,255,0.3)'
                     }}
                 />
                 <Button
@@ -78,7 +84,7 @@ const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
                     onClick={onAdd}
                     style={{
                         background: 'white',
-                        color: '#722ed1',
+                        color: '#7C3AED',
                         borderRadius: 12,
                         height: 40,
                         fontWeight: 600,
@@ -86,9 +92,28 @@ const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
                         boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                     }}
                 >
-                    เพิ่มหมวดหมู่
+                    <span className="hidden sm:inline">เพิ่มหมวดหมู่</span>
                 </Button>
             </div>
+        </div>
+        
+        {/* Search Bar */}
+        <div style={{ marginTop: 24, padding: '0 4px' }}>
+            <Input 
+                prefix={<SearchOutlined style={{ color: '#fff', opacity: 0.7 }} />}
+                placeholder="ค้นหาหมวดหมู่..."
+                onChange={(e) => onSearch(e.target.value)}
+                bordered={false}
+                style={{
+                    background: 'rgba(255,255,255,0.15)',
+                    backdropFilter: 'blur(8px)',
+                    borderRadius: 14,
+                    padding: '8px 16px',
+                    color: 'white',
+                    fontSize: 15,
+                }}
+                className="search-input-placeholder-white"
+            />
         </div>
     </div>
 );
@@ -104,17 +129,17 @@ interface StatsCardProps {
 const StatsCard = ({ totalCategories, activeCategories, inactiveCategories }: StatsCardProps) => (
     <div style={pageStyles.statsCard}>
         <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#722ed1' }}>{totalCategories}</span>
+            <span style={{ ...pageStyles.statNumber, color: '#7C3AED' }}>{totalCategories}</span>
             <Text style={pageStyles.statLabel}>ทั้งหมด</Text>
         </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
+        <div style={{ width: 1, height: 24, background: '#f0f0f0', alignSelf: 'center' }} />
         <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#52c41a' }}>{activeCategories}</span>
+            <span style={{ ...pageStyles.statNumber, color: '#10B981' }}>{activeCategories}</span>
             <Text style={pageStyles.statLabel}>ใช้งาน</Text>
         </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
+        <div style={{ width: 1, height: 24, background: '#f0f0f0', alignSelf: 'center' }} />
         <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#ff4d4f' }}>{inactiveCategories}</span>
+            <span style={{ ...pageStyles.statNumber, color: '#EF4444' }}>{inactiveCategories}</span>
             <Text style={pageStyles.statLabel}>ไม่ใช้งาน</Text>
         </div>
     </div>
@@ -135,43 +160,64 @@ const CategoryCard = ({ category, index, onEdit, onDelete }: CategoryCardProps) 
             className="category-card"
             style={{
                 ...pageStyles.categoryCard(category.is_active),
-                animationDelay: `${index * 0.03}s`
+                animationDelay: `${index * 0.05}s`
             }}
+            onClick={() => onEdit(category)}
         >
             <div style={pageStyles.categoryCardInner}>
                 {/* Icon */}
                 <div style={{
                     width: 56,
                     height: 56,
-                    borderRadius: 14,
-                    background: 'linear-gradient(135deg, #f9f0ff 0%, #efdbff 100%)',
+                    borderRadius: 16,
+                    background: category.is_active 
+                        ? 'linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 100%)' 
+                        : '#F1F5F9',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    flexShrink: 0
+                    flexShrink: 0,
+                    boxShadow: category.is_active ? '0 4px 10px rgba(124, 58, 237, 0.1)' : 'none'
                 }}>
-                    <TagsOutlined style={{ fontSize: 24, color: '#722ed1' }} />
+                    <TagsOutlined style={{ 
+                        fontSize: 24, 
+                        color: category.is_active ? '#7C3AED' : '#94A3B8' 
+                    }} />
                 </div>
 
                 {/* Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
                         <Text 
                             strong 
-                            style={{ fontSize: 16, color: '#1a1a2e' }}
+                            style={{ 
+                                fontSize: 16, 
+                                color: category.is_active ? '#1E293B' : '#64748B' 
+                            }}
                             ellipsis={{ tooltip: category.display_name }}
                         >
                             {category.display_name}
                         </Text>
                         {category.is_active ? (
-                            <CheckCircleFilled style={{ color: '#52c41a', fontSize: 14 }} />
+                            <div style={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: '50%',
+                                background: '#10B981',
+                                boxShadow: '0 0 0 2px #ecfdf5'
+                            }} />
                         ) : (
-                            <CloseCircleFilled style={{ color: '#ff4d4f', fontSize: 14 }} />
+                            <div style={{
+                                width: 6,
+                                height: 6,
+                                borderRadius: '50%',
+                                background: '#CBD5E1'
+                            }} />
                         )}
                     </div>
                     <Text 
                         type="secondary" 
-                        style={{ fontSize: 13, display: 'block' }}
+                        style={{ fontSize: 13, display: 'block', color: '#64748B' }}
                         ellipsis={{ tooltip: category.category_name }}
                     >
                         {category.category_name}
@@ -188,9 +234,11 @@ const CategoryCard = ({ category, index, onEdit, onDelete }: CategoryCardProps) 
                             onEdit(category);
                         }}
                         style={{
-                            borderRadius: 10,
-                            color: '#722ed1',
-                            background: '#f9f0ff'
+                            borderRadius: 12,
+                            color: '#7C3AED',
+                            background: '#F3E8FF',
+                            width: 36,
+                            height: 36
                         }}
                     />
                     <Button
@@ -202,8 +250,10 @@ const CategoryCard = ({ category, index, onEdit, onDelete }: CategoryCardProps) 
                             onDelete(category);
                         }}
                         style={{
-                            borderRadius: 10,
-                            background: '#fff2f0'
+                            borderRadius: 12,
+                            background: '#FEF2F2',
+                            width: 36,
+                            height: 36
                         }}
                     />
                 </div>
@@ -214,30 +264,47 @@ const CategoryCard = ({ category, index, onEdit, onDelete }: CategoryCardProps) 
 
 // ============ EMPTY STATE COMPONENT ============
 
-const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
+const EmptyState = ({ onAdd, isSearch }: { onAdd: () => void, isSearch?: boolean }) => (
     <Empty
         image={Empty.PRESENTED_IMAGE_SIMPLE}
         description={
             <div style={{ textAlign: 'center' }}>
                 <Text type="secondary" style={{ fontSize: 15 }}>
-                    ยังไม่มีหมวดหมู่
+                    {isSearch ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีหมวดหมู่'}
                 </Text>
                 <br />
-                <Text type="secondary" style={{ fontSize: 13 }}>
-                    เริ่มต้นเพิ่มหมวดหมู่แรกของคุณ
-                </Text>
+                {!isSearch && (
+                    <Text type="secondary" style={{ fontSize: 13 }}>
+                        เริ่มต้นเพิ่มหมวดหมู่แรกของคุณได้เลย
+                    </Text>
+                )}
             </div>
         }
         style={{
             padding: '60px 20px',
             background: 'white',
-            borderRadius: 20,
-            margin: '0 16px'
+            borderRadius: 24,
+            margin: '24px 16px',
+            boxShadow: '0 4px 24px rgba(0,0,0,0.04)'
         }}
     >
-        <Button type="primary" icon={<PlusOutlined />} onClick={onAdd} style={{ background: '#722ed1' }}>
-            เพิ่มหมวดหมู่
-        </Button>
+        {!isSearch && (
+            <Button 
+                type="primary" 
+                icon={<PlusOutlined />} 
+                onClick={onAdd} 
+                size="large"
+                style={{ 
+                    background: '#7C3AED', 
+                    borderRadius: 12,
+                    height: 48,
+                    padding: '0 32px',
+                    boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)'
+                }}
+            >
+                เพิ่มหมวดหมู่
+            </Button>
+        )}
     </Empty>
 );
 
@@ -245,6 +312,8 @@ const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
 export default function CategoryPage() {
     const router = useRouter();
     const [categories, setCategories] = useState<Category[]>([]);
+    const [filteredCategories, setFilteredCategories] = useState<Category[]>([]);
+    const [searchText, setSearchText] = useState('');
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
@@ -285,11 +354,29 @@ export default function CategoryPage() {
         setCategories
     );
 
+    // Centralized filtering logic
+    useEffect(() => {
+        if (searchText) {
+            const lower = searchText.toLowerCase();
+            const filtered = categories.filter((c: Category) => 
+                c.display_name.toLowerCase().includes(lower) || 
+                c.category_name.toLowerCase().includes(lower)
+            );
+            setFilteredCategories(filtered);
+        } else {
+            setFilteredCategories(categories);
+        }
+    }, [categories, searchText]);
+
     useEffect(() => {
         if (categories.length > 0) {
             writeCache("pos:categories", categories);
         }
     }, [categories]);
+
+    const handleSearch = (value: string) => {
+        setSearchText(value);
+    };
 
     const handleAdd = () => {
         showLoading("กำลังเปิดหน้าจัดการหมวดหมู่...");
@@ -309,6 +396,8 @@ export default function CategoryPage() {
             okType: 'danger',
             cancelText: 'ยกเลิก',
             centered: true,
+            icon: <DeleteOutlined style={{ color: '#EF4444' }} />,
+            maskClosable: true,
             onOk: async () => {
                 await execute(async () => {
                     const csrfToken = await getCsrfTokenCached();
@@ -341,42 +430,63 @@ export default function CategoryPage() {
     return (
         <div className="category-page" style={pageStyles.container}>
             <style>{globalStyles}</style>
+            <style jsx global>{`
+                .search-input-placeholder-white input::placeholder {
+                    color: rgba(255, 255, 255, 0.6) !important;
+                }
+                .search-input-placeholder-white input {
+                    color: white !important;
+                }
+                .category-card {
+                    cursor: pointer;
+                    -webkit-tap-highlight-color: transparent;
+                }
+            `}</style>
             
             {/* Header */}
             <PageHeader 
                 onRefresh={fetchCategories}
                 onAdd={handleAdd}
+                onSearch={handleSearch}
             />
             
             {/* Stats Card */}
-            <StatsCard 
-                totalCategories={categories.length}
-                activeCategories={activeCategories.length}
-                inactiveCategories={inactiveCategories.length}
-            />
+            <div style={{ marginTop: -32, padding: '0 16px', position: 'relative', zIndex: 10 }}>
+                <StatsCard 
+                    totalCategories={categories.length}
+                    activeCategories={activeCategories.length}
+                    inactiveCategories={inactiveCategories.length}
+                />
+            </div>
 
             {/* Categories List */}
             <div style={pageStyles.listContainer}>
-                {categories.length > 0 ? (
+                {filteredCategories.length > 0 ? (
                     <>
                         <div style={pageStyles.sectionTitle}>
-                            <TagsOutlined style={{ fontSize: 18, color: '#722ed1' }} />
-                            <span style={{ fontSize: 16, fontWeight: 600, color: '#1a1a2e' }}>
+                            <div style={{ 
+                                width: 4, 
+                                height: 16, 
+                                background: '#7C3AED', 
+                                borderRadius: 2 
+                            }} />
+                            <span style={{ fontSize: 16, fontWeight: 700, color: '#1E293B' }}>
                                 รายการหมวดหมู่
                             </span>
                             <div style={{
-                                background: 'linear-gradient(135deg, #722ed1 0%, #531dab 100%)',
-                                color: 'white',
-                                padding: '4px 12px',
-                                borderRadius: 20,
+                                background: '#F3E8FF',
+                                color: '#7C3AED',
+                                padding: '2px 10px',
+                                borderRadius: 12,
                                 fontSize: 12,
-                                fontWeight: 600
+                                fontWeight: 700,
+                                marginLeft: 'auto'
                             }}>
-                                {categories.length} รายการ
+                                {filteredCategories.length}
                             </div>
                         </div>
 
-                        {categories.map((category, index) => (
+                        {filteredCategories.map((category, index) => (
                             <CategoryCard
                                 key={category.id}
                                 category={category}
@@ -387,9 +497,12 @@ export default function CategoryPage() {
                         ))}
                     </>
                 ) : (
-                    <EmptyState onAdd={handleAdd} />
+                    <EmptyState onAdd={handleAdd} isSearch={!!searchText} />
                 )}
             </div>
+            
+            {/* Bottom padding for scrolling over floating buttons if any */}
+            <div style={{ height: 40 }} />
         </div>
     );
 }

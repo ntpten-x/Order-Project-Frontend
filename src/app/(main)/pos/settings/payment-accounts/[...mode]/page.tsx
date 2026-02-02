@@ -1,16 +1,16 @@
 ﻿"use client";
 
 import React, { useEffect, useState } from "react";
-import { Typography, Card, Button, Tag, Modal, Form, Input, App, Popconfirm, Divider, Row, Col, Empty, Spin } from "antd";
+import { Typography, Card, Button, Tag, Modal, Form, Input, App, Divider, Row, Col, Empty, Spin } from "antd";
 import { ArrowLeftOutlined, PlusOutlined, QrcodeOutlined, DeleteOutlined, CheckCircleOutlined, EditOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
-import { pageStyles } from "./style";
+import { pageStyles, paymentAccountsResponsiveStyles } from "./style";
 import { paymentAccountService } from "../../../../../../services/pos/paymentAccount.service";
 import { getCsrfTokenCached } from "../../../../../../utils/pos/csrf";
 import { ShopPaymentAccount } from "../../../../../../types/api/pos/shopPaymentAccount";
-import { posColors } from "../../../../../../theme/pos";
 import { useRoleGuard } from "../../../../../../utils/pos/accessControl";
 import { AccessGuardFallback } from "../../../../../../components/pos/AccessGuard";
+import { posColors } from "../../../../../../theme/pos";
 
 const { Title, Text } = Typography;
 
@@ -24,6 +24,7 @@ export default function PaymentAccountManagementPage() {
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [form] = Form.useForm();
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [deleteId, setDeleteId] = useState<string | null>(null);
 
 
     const fetchAccounts = React.useCallback(async () => {
@@ -59,10 +60,12 @@ export default function PaymentAccountManagementPage() {
             const csrfToken = await getCsrfTokenCached();
             await paymentAccountService.delete(id, undefined, undefined, csrfToken);
             message.success("ลบบัญชีสำเร็จ");
+            setDeleteId(null);
             fetchAccounts();
         } catch (error: unknown) {
              const errorMessage = error instanceof Error ? error.message : "ลบไม่สำเร็จ (บัญชีที่ใช้งานอยู่อาจลบไม่ได้)";
              message.error(errorMessage);
+             setDeleteId(null);
         }
     };
 
@@ -108,41 +111,49 @@ export default function PaymentAccountManagementPage() {
     }
 
     return (
-        <div style={{ ...pageStyles.container, background: '#f8fafc', minHeight: '100vh', padding: '40px 24px' }}>
-            <div style={{ maxWidth: 1200, margin: '0 auto' }}>
-                {/* Header Section */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 40 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 24 }}>
-                        <Button 
-                            type="default" 
-                            shape="circle"
-                            icon={<ArrowLeftOutlined />} 
-                            onClick={() => router.back()}
-                            style={{ width: 48, height: 48, border: 'none', background: '#fff', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
-                        />
-                        <div>
-                            <Title level={2} style={{ margin: 0, fontWeight: 700, color: '#1e293b' }}>จัดการพร้อมเพย์ (PromptPay)</Title>
-                            <Text type="secondary" style={{ fontSize: 16 }}>ตั้งค่าและจัดการรายการพร้อมเพย์ทั้งหมดของคุณ</Text>
-                        </div>
-                    </div>
-                    <Button 
-                        type="primary" 
-                        icon={<PlusOutlined />} 
-                        onClick={handleAdd}
-                        size="large"
-                        style={{ 
-                            borderRadius: 12, 
-                            height: 52, 
-                            padding: '0 28px', 
-                            fontWeight: 600, 
-                            background: posColors.primary,
-                            boxShadow: `0 4px 12px ${posColors.primary}40`
-                        }}
-                    >
-                        เพิ่มพร้อมเพย์ใหม่
-                    </Button>
-                </div>
+        <div style={pageStyles.container}>
+            <style>{paymentAccountsResponsiveStyles}</style>
 
+            {/* Gradient Header */}
+            <div style={pageStyles.heroHeader} className="payment-header-mobile">
+                {/* Decorative circles */}
+                <div style={pageStyles.heroDecoCircle1} />
+                <div style={pageStyles.heroDecoCircle2} />
+
+                <div style={pageStyles.headerContent}>
+                    <div style={pageStyles.headerRow} className="payment-header-row-mobile">
+                        <div style={pageStyles.headerLeft}>
+                            <Button
+                                type="text"
+                                icon={<ArrowLeftOutlined style={{ fontSize: 18, color: '#fff' }} />}
+                                onClick={() => router.back()}
+                                style={pageStyles.backButton}
+                                className="payment-touch-btn"
+                            />
+                            <div style={pageStyles.headerIconBox}>
+                                <QrcodeOutlined style={{ fontSize: 26, color: '#fff' }} />
+                            </div>
+                            <div>
+                                <Title level={3} style={{ margin: 0, color: '#fff' }}>จัดการพร้อมเพย์</Title>
+                                <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 14 }}>PromptPay Management</Text>
+                            </div>
+                        </div>
+                        <Button
+                            type="default"
+                            icon={<PlusOutlined />}
+                            onClick={handleAdd}
+                            size="large"
+                            style={pageStyles.addButton}
+                            className="payment-add-btn payment-touch-btn"
+                        >
+                            เพิ่มพร้อมเพย์ใหม่
+                        </Button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Content */}
+            <div style={pageStyles.contentWrapper} className="payment-content-mobile">
                 {/* Content Grid */}
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: '100px 0' }}><Spin size="large" /></div>
@@ -207,16 +218,12 @@ export default function PaymentAccountManagementPage() {
                                             จัดการ
                                         </Button>
                                         {!acc.is_active && (
-                                            <Popconfirm 
-                                                title="ยืนยันการลบ?" 
-                                                description="คุณแน่ใจหรือไม่ว่าต้องการลบบัญชีนี้?"
-                                                onConfirm={() => handleDelete(acc.id)}
-                                                okText="ลบทิ้ง"
-                                                cancelText="ยกเลิก"
-                                                okButtonProps={{ danger: true }}
-                                            >
-                                                <Button danger icon={<DeleteOutlined />} style={{ borderRadius: 10 }} />
-                                            </Popconfirm>
+                                            <Button 
+                                                danger 
+                                                icon={<DeleteOutlined />} 
+                                                style={{ borderRadius: 10 }}
+                                                onClick={() => setDeleteId(acc.id)}
+                                            />
                                         )}
                                     </div>
                                 </Card>
@@ -312,6 +319,25 @@ export default function PaymentAccountManagementPage() {
                             <Input.TextArea rows={2} placeholder="ระบุที่อยู่สำหรับบัญชีนี้" style={{ borderRadius: 8 }} />
                         </Form.Item>
                     </Form>
+                </div>
+            </Modal>
+
+            {/* Delete Confirmation Modal */}
+            <Modal
+                title="ยืนยันการลบ"
+                open={deleteId !== null}
+                onOk={() => deleteId && handleDelete(deleteId)}
+                onCancel={() => setDeleteId(null)}
+                okText="ลบทิ้ง"
+                cancelText="ยกเลิก"
+                okButtonProps={{ danger: true, size: 'large', style: { borderRadius: 8 } }}
+                cancelButtonProps={{ size: 'large', style: { borderRadius: 8 } }}
+                centered
+            >
+                <div style={{ padding: '16px 0', textAlign: 'center' }}>
+                    <DeleteOutlined style={{ fontSize: 48, color: '#ff4d4f', marginBottom: 16 }} />
+                    <p style={{ fontSize: 16, margin: 0 }}>คุณแน่ใจหรือไม่ว่าต้องการลบบัญชีนี้?</p>
+                    <p style={{ fontSize: 13, color: '#888', marginTop: 8 }}>การดำเนินการนี้ไม่สามารถย้อนกลับได้</p>
                 </div>
             </Modal>
         </div>

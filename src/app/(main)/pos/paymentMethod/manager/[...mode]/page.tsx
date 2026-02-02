@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Form, Input, message, Spin, Switch, Modal, Select } from 'antd';
+import { Form, Input, message, Spin, Switch, Modal, Select, Row, Col } from 'antd';
 import { useRouter } from 'next/navigation';
 import {
     ManagePageStyles,
@@ -113,7 +113,7 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onFinish = async (values: any) => {
         // ตรวจสอบว่ามีการเพิ่มซ้ำหรือไม่
-        if (!isEdit && isPaymentMethodExists(values.payment_method_name)) {
+        if (isPaymentMethodExists(values.payment_method_name)) {
             message.error(`วิธีการชำระเงิน "${values.display_name}" มีอยู่ในระบบแล้ว`);
             return;
         }
@@ -211,7 +211,7 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
             />
             
             {/* Form Card */}
-            <div className="manage-form-card" style={pageStyles.formCard}>
+            <div style={pageStyles.formCard}>
                 {loading ? (
                     <div style={{ 
                         display: 'flex', 
@@ -237,166 +237,180 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                             }
                         }}
                     >
-                        <Form.Item
-                            name="payment_method_name"
-                            label="รหัสวิธีการชำระเงิน *"
-                            rules={[
-                                { required: true, message: 'กรุณาเลือกวิธีการชำระเงิน' }
-                            ]}
-                        >
-                            {/* Payment Method Selection - Switched to Modal for better Mobile/Touch experience */}
-                            <>
-                                <div 
-                                    style={{ 
-                                        border: `1px solid ${paymentMethodName ? '#10b981' : '#d9d9d9'}`,
-                                        borderRadius: 12,
-                                        padding: '12px 16px',
-                                        cursor: isEdit ? 'not-allowed' : 'pointer',
-                                        background: isEdit ? '#f5f5f5' : '#fff',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        height: 48,
-                                        transition: 'all 0.2s',
-                                        boxShadow: paymentMethodName ? '0 0 0 2px rgba(16, 185, 129, 0.1)' : 'none'
-                                    }}
-                                    onClick={() => {
-                                        if (!isEdit) {
-                                            setMethodModalVisible(true);
-                                        }
-                                    }}
-                                >
-                                    <span style={{ color: paymentMethodName ? '#1a1a2e' : '#bfbfbf', fontSize: 16 }}>
-                                        {paymentMethodName 
-                                            ? `${displayName} (${paymentMethodName})`
-                                            : "เลือกวิธีการชำระเงิน"}
-                                    </span>
-                                    <span style={{ color: '#bfbfbf' }}>▼</span>
-                                </div>
-                                {/* Hidden Input for Form Validation */}
-                                <Form.Item 
-                                    name="payment_method_name" 
-                                    style={{ display: 'none' }}
-                                    rules={[{ required: true, message: 'กรุณาเลือกวิธีการชำระเงิน' }]}
-                                >
-                                    <Input />
-                                </Form.Item>
-                            </>
-                        </Form.Item>
-
-                        <Modal
-                            title="เลือกวิธีการชำระเงิน"
-                            open={methodModalVisible}
-                            onCancel={() => setMethodModalVisible(false)}
-                            footer={null}
-                            centered
-                            width={400}
-                            zIndex={10001}
-                        >
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                {ALLOWED_PAYMENT_METHODS.map(method => {
-                                    const exists = !isEdit && isPaymentMethodExists(method.payment_method_name);
-                                    const isSelected = paymentMethodName === method.payment_method_name;
-                                    
-                                    return (
-                                        <div
-                                            key={method.payment_method_name}
-                                            onClick={() => {
-                                                if (!exists) {
-                                                    form.setFieldsValue({ 
-                                                        payment_method_name: method.payment_method_name,
-                                                        display_name: method.display_name
-                                                    });
-                                                    setPaymentMethodName(method.payment_method_name);
-                                                    setDisplayName(method.display_name);
-                                                    setMethodModalVisible(false);
-                                                }
-                                            }}
-                                            style={{
-                                                padding: '16px',
-                                                border: `1px solid ${isSelected ? '#10b981' : '#e5e7eb'}`,
-                                                borderRadius: 12,
-                                                cursor: exists ? 'not-allowed' : 'pointer',
-                                                background: isSelected ? '#ecfdf5' : (exists ? '#f5f5f5' : '#fff'),
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                opacity: exists ? 0.6 : 1
-                                            }}
-                                        >
-                                            <div>
-                                                <div style={{ fontWeight: 600, color: isSelected ? '#047857' : '#1f2937', fontSize: 16 }}>
-                                                    {method.display_name}
-                                                </div>
-                                                <div style={{ fontSize: 13, color: isSelected ? '#059669' : '#6b7280' }}>
-                                                    {method.payment_method_name}
-                                                </div>
-                                            </div>
-                                            {exists && <span style={{ fontSize: 12, color: '#ef4444' }}>มีอยู่แล้ว</span>}
-                                            {isSelected && !exists && <span style={{ color: '#10b981', fontSize: 18 }}>✓</span>}
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        </Modal>
-
-                        {/* Spacer to replace Form.Item wrapper since we moved it inside */}
-                        <div style={{ marginBottom: 24 }} />
-
-                        <Form.Item
-                            name="display_name"
-                            label="ชื่อที่แสดง *"
-                            rules={[
-                                { required: true, message: 'กรุณาเลือกชื่อที่แสดง' }
-                            ]}
-                        >
-                            <Select
-                                size="large"
-                                placeholder="ชื่อที่แสดงจะถูกตั้งค่าอัตโนมัติ"
-                                disabled
-                                getPopupContainer={() => document.body}
-                                dropdownStyle={{ zIndex: 9999 }}
-                                virtual={false}
-                            >
-                                {ALLOWED_PAYMENT_METHODS.map(method => (
-                                    <Select.Option 
-                                        key={method.display_name} 
-                                        value={method.display_name}
+                        <Row gutter={[32, 24]}>
+                            {/* Left Column: Form Fields */}
+                            <Col xs={24} lg={14} xl={15}>
+                                <div style={pageStyles.formSection}>
+                                    <Form.Item
+                                        name="payment_method_name"
+                                        label="รหัสวิธีการชำระเงิน *"
+                                        rules={[
+                                            { required: true, message: 'กรุณาเลือกวิธีการชำระเงิน' }
+                                        ]}
                                     >
-                                        {method.display_name}
-                                    </Select.Option>
-                                ))}
-                            </Select>
-                        </Form.Item>
+                                        {/* Payment Method Selection - Switched to Modal for better Mobile/Touch experience */}
+                                        <>
+                                            <div 
+                                                style={{ 
+                                                    border: `1px solid ${paymentMethodName ? '#10b981' : '#d9d9d9'}`,
+                                                    borderRadius: 12,
+                                                    padding: '12px 16px',
+                                                    cursor: isEdit ? 'not-allowed' : 'pointer',
+                                                    background: isEdit ? '#f5f5f5' : '#fff',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    height: 48,
+                                                    transition: 'all 0.2s',
+                                                    boxShadow: paymentMethodName ? '0 0 0 2px rgba(16, 185, 129, 0.1)' : 'none'
+                                                }}
+                                                onClick={() => {
+                                                    if (!isEdit) {
+                                                        setMethodModalVisible(true);
+                                                    }
+                                                }}
+                                            >
+                                                <span style={{ color: paymentMethodName ? '#1a1a2e' : '#bfbfbf', fontSize: 16 }}>
+                                                    {paymentMethodName 
+                                                        ? `${displayName} (${paymentMethodName})`
+                                                        : "เลือกวิธีการชำระเงิน"}
+                                                </span>
+                                                <span style={{ color: '#bfbfbf' }}>▼</span>
+                                            </div>
+                                            {/* Hidden Input for Form Validation */}
+                                            <Form.Item 
+                                                name="payment_method_name" 
+                                                style={{ display: 'none' }}
+                                                rules={[{ required: true, message: 'กรุณาเลือกวิธีการชำระเงิน' }]}
+                                            >
+                                                <Input />
+                                            </Form.Item>
+                                        </>
+                                    </Form.Item>
 
-                        {/* Payment Method Preview */}
-                        <Form.Item noStyle dependencies={['payment_method_name', 'display_name']}>
-                            {({ getFieldValue }) => (
-                                <PaymentMethodPreview 
-                                    name={getFieldValue('payment_method_name')} 
-                                    displayName={getFieldValue('display_name')} 
+                                    <Modal
+                                        title="เลือกวิธีการชำระเงิน"
+                                        open={methodModalVisible}
+                                        onCancel={() => setMethodModalVisible(false)}
+                                        footer={null}
+                                        centered
+                                        width={400}
+                                        zIndex={10001}
+                                    >
+                                        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                            {ALLOWED_PAYMENT_METHODS.map(method => {
+                                                const exists = !isEdit && isPaymentMethodExists(method.payment_method_name);
+                                                const isSelected = paymentMethodName === method.payment_method_name;
+                                                
+                                                return (
+                                                    <div
+                                                        key={method.payment_method_name}
+                                                        onClick={() => {
+                                                            if (!exists) {
+                                                                form.setFieldsValue({ 
+                                                                    payment_method_name: method.payment_method_name,
+                                                                    display_name: method.display_name
+                                                                });
+                                                                setPaymentMethodName(method.payment_method_name);
+                                                                setDisplayName(method.display_name);
+                                                                setMethodModalVisible(false);
+                                                            }
+                                                        }}
+                                                        style={{
+                                                            padding: '16px',
+                                                            border: `1px solid ${isSelected ? '#10b981' : '#e5e7eb'}`,
+                                                            borderRadius: 12,
+                                                            cursor: exists ? 'not-allowed' : 'pointer',
+                                                            background: isSelected ? '#ecfdf5' : (exists ? '#f5f5f5' : '#fff'),
+                                                            display: 'flex',
+                                                            alignItems: 'center',
+                                                            justifyContent: 'space-between',
+                                                            opacity: exists ? 0.6 : 1
+                                                        }}
+                                                    >
+                                                        <div>
+                                                            <div style={{ fontWeight: 600, color: isSelected ? '#047857' : '#1f2937', fontSize: 16 }}>
+                                                                {method.display_name}
+                                                            </div>
+                                                            <div style={{ fontSize: 13, color: isSelected ? '#059669' : '#6b7280' }}>
+                                                                {method.payment_method_name}
+                                                            </div>
+                                                        </div>
+                                                        {exists && <span style={{ fontSize: 12, color: '#ef4444' }}>มีอยู่แล้ว</span>}
+                                                        {isSelected && !exists && <span style={{ color: '#10b981', fontSize: 18 }}>✓</span>}
+                                                    </div>
+                                                );
+                                            })}
+                                        </div>
+                                    </Modal>
+
+                                    <Form.Item
+                                        name="display_name"
+                                        label="ชื่อที่แสดง *"
+                                        rules={[
+                                            { required: true, message: 'กรุณาเลือกชื่อที่แสดง' }
+                                        ]}
+                                    >
+                                        <Select
+                                            size="large"
+                                            placeholder="ชื่อที่แสดงจะถูกตั้งค่าอัตโนมัติ"
+                                            disabled
+                                            getPopupContainer={() => document.body}
+                                            dropdownStyle={{ zIndex: 9999 }}
+                                        >
+                                            {ALLOWED_PAYMENT_METHODS.map(method => (
+                                                <Select.Option 
+                                                    key={method.display_name} 
+                                                    value={method.display_name}
+                                                >
+                                                    {method.display_name}
+                                                </Select.Option>
+                                            ))}
+                                        </Select>
+                                    </Form.Item>
+
+                                    <Form.Item
+                                        name="is_active"
+                                        label="สถานะการใช้งาน"
+                                        valuePropName="checked"
+                                        style={{ marginTop: 24 }}
+                                    >
+                                        <Switch 
+                                            checkedChildren="เปิดใช้งาน" 
+                                            unCheckedChildren="ปิดใช้งาน"
+                                            style={{ transform: 'scale(1.1)' }}
+                                        />
+                                    </Form.Item>
+                                </div>
+
+                                <ActionButtons 
+                                    isEdit={isEdit}
+                                    loading={submitting}
+                                    onCancel={handleBack}
                                 />
-                            )}
-                        </Form.Item>
+                            </Col>
 
-                        <Form.Item
-                            name="is_active"
-                            label="สถานะการใช้งาน"
-                            valuePropName="checked"
-                            style={{ marginTop: 20 }}
-                        >
-                            <Switch 
-                                checkedChildren="เปิดใช้งาน" 
-                                unCheckedChildren="ปิดใช้งาน"
-                            />
-                        </Form.Item>
-
-                        {/* Action Buttons */}
-                        <ActionButtons 
-                            isEdit={isEdit}
-                            loading={submitting}
-                            onCancel={handleBack}
-                        />
+                            {/* Right Column: Preview */}
+                            <Col xs={24} lg={10} xl={9}>
+                                <div style={{ 
+                                    position: 'sticky', 
+                                    top: 24,
+                                    background: 'rgba(250, 250, 250, 0.5)', 
+                                    padding: 24, 
+                                    borderRadius: 20, 
+                                    border: '1px solid #f0f0f0' 
+                                }}>
+                                    <Form.Item noStyle dependencies={['payment_method_name', 'display_name']}>
+                                        {({ getFieldValue }) => (
+                                            <PaymentMethodPreview 
+                                                name={getFieldValue('payment_method_name')} 
+                                                displayName={getFieldValue('display_name')} 
+                                            />
+                                        )}
+                                    </Form.Item>
+                                </div>
+                            </Col>
+                        </Row>
                     </Form>
                 )}
             </div>

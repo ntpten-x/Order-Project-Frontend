@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Modal, Input, Button, Typography, Space, Divider, InputNumber, Tag } from 'antd';
 import Image from 'next/image';
 import { PlusOutlined, MinusOutlined, SaveOutlined, CloseOutlined, InfoCircleOutlined, DeleteOutlined } from '@ant-design/icons';
@@ -21,23 +21,43 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
     const [quantity, setQuantity] = useState(1);
     const [notes, setNotes] = useState('');
     const [details, setDetails] = useState<{ detail_name: string; extra_price: number }[]>([]);
+    const initializedItemIdRef = useRef<string | null>(null);
     const { showLoading, hideLoading } = useGlobalLoading();
 
+    // Initialize state when modal opens with a new item
     useEffect(() => {
         if (item && isOpen) {
-            setQuantity(item.quantity);
-            setNotes(item.notes || '');
-            setDetails(item.details ? [...item.details.map(d => ({ ...d }))] : []);
+            const currentItemId = item.id;
+            // Only initialize if it's a different item (different ID)
+            if (currentItemId !== initializedItemIdRef.current) {
+                setQuantity(item.quantity);
+                setNotes(item.notes || '');
+                setDetails(item.details ? [...item.details.map(d => ({ detail_name: d.detail_name, extra_price: d.extra_price }))] : []);
+                initializedItemIdRef.current = currentItemId;
+            }
         }
-    }, [item, isOpen]);
+    }, [item?.id, isOpen]);
+
+    // Reset when modal closes
+    useEffect(() => {
+        if (!isOpen) {
+            // Reset state when modal closes
+            initializedItemIdRef.current = null;
+            setQuantity(1);
+            setNotes('');
+            setDetails([]);
+        }
+    }, [isOpen]);
 
     const handleSave = async () => {
         if (!item) return;
         try {
             showLoading("กำลังบันทึกแก้ไข...");
-            await onSave(item.id, quantity, notes, details);
-            onClose();
-        } catch {
+            // Filter out empty details before saving
+            const validDetails = details.filter(d => d.detail_name && d.detail_name.trim() !== '');
+            await onSave(item.id, quantity, notes, validDetails);
+            // Don't close immediately - let parent handle it after successful save
+        } catch (error) {
             // Error handled by parent
         } finally {
             hideLoading();
@@ -75,32 +95,48 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
             open={isOpen}
             onCancel={onClose}
             footer={null}
-            width={480}
-            destroyOnClose
+            width={500}
+            destroyOnHidden
             centered
             closable={false}
+            key={item?.id || 'edit-modal'}
         >
             {/* Custom Header */}
-            <div style={{...modalStyles.modalHeader, padding: '12px 16px'}}>
-                <Text strong style={{ fontSize: 18, flex: 1 }}>แก้ไขรายการ</Text>
+            <div style={modalStyles.modalHeader} className="modal-header">
+                <Text strong style={{ fontSize: 18, flex: 1, color: orderDetailColors.text, lineHeight: 1.4 }}>
+                    แก้ไขรายการ
+                </Text>
                 <Button 
                     type="text" 
                     icon={<CloseOutlined />} 
                     onClick={onClose}
+                    aria-label="ปิด"
                     style={{ 
-                        height: 32, 
-                        width: 32, 
+                        height: 44, 
+                        width: 44, 
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        marginRight: -8
+                        borderRadius: 12,
+                        color: orderDetailColors.textSecondary,
+                        background: orderDetailColors.backgroundSecondary,
+                        border: `1px solid ${orderDetailColors.border}`,
                     }}
+                    className="scale-hover"
                 />
             </div>
 
-            <div style={{ padding: '16px', maxHeight: '70vh', overflowY: 'auto' }}>
+            <div style={{ padding: '20px', maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
                 {/* Product Section with Image */}
-                <div style={{ display: 'flex', gap: 16, marginBottom: 20, alignItems: 'center' }}>
+                <div style={{ 
+                    display: 'flex', 
+                    gap: 16, 
+                    marginBottom: 24, 
+                    alignItems: 'center',
+                    background: orderDetailColors.backgroundSecondary,
+                    padding: 16,
+                    borderRadius: 16,
+                }}>
                     <div style={{ flexShrink: 0 }}>
                         {item.product?.img_url ? (
                             <Image
@@ -108,54 +144,59 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                                 alt={item.product?.display_name ?? "สินค้า"}
                                 width={80}
                                 height={80}
-                                style={{ borderRadius: 12, objectFit: 'cover', border: `1px solid ${orderDetailColors.border}` }}
+                                style={{ borderRadius: 14, objectFit: 'cover', border: `1px solid ${orderDetailColors.borderLight}` }}
                             />
                         ) : (
-                            <div style={{ width: 80, height: 80, borderRadius: 12, background: orderDetailColors.backgroundSecondary, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                <InfoCircleOutlined style={{ fontSize: 24, color: orderDetailColors.textSecondary }} />
+                            <div style={{ 
+                                width: 80, 
+                                height: 80, 
+                                borderRadius: 14, 
+                                background: `linear-gradient(135deg, ${orderDetailColors.primaryLight} 0%, #DBEAFE 100%)`, 
+                                display: 'flex', 
+                                alignItems: 'center', 
+                                justifyContent: 'center' 
+                            }}>
+                                <InfoCircleOutlined style={{ fontSize: 28, color: orderDetailColors.primary, opacity: 0.5 }} />
                             </div>
                         )}
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                        <Title level={5} style={{ margin: 0, fontSize: 18 }}>
+                        <Title level={5} style={{ margin: 0, fontSize: 18, color: orderDetailColors.text }}>
                             {item.product?.display_name || 'ไม่ระบุ'}
                         </Title>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
                             {item.product?.category?.display_name && (
-                                <Tag color="cyan" style={{ fontSize: 10, margin: 0, borderRadius: 4 }}>
+                                <Tag color="cyan" style={{ fontSize: 11, margin: 0, borderRadius: 6, fontWeight: 500 }}>
                                     {item.product.category.display_name}
                                 </Tag>
                             )}
-                            <Text type="secondary" style={{ fontSize: 14 }}>
+                            <Text style={{ fontSize: 16, fontWeight: 600, color: orderDetailColors.primary }}>
                                 {formatCurrency(item.price)}
                             </Text>
                         </div>
                     </div>
                 </div>
 
-                <Divider style={{ margin: '16px 0' }} />
-
                 {/* Toppings / Details Section */}
                 <div style={{ marginBottom: 24 }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                        <Text strong style={{ fontSize: 16 }}>รายการเพิ่มเติม (Topping)</Text>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                        <Text strong style={{ fontSize: 16, color: orderDetailColors.text }}>รายการเพิ่มเติม (Topping)</Text>
                         <Button 
                             type="text" 
                             icon={<PlusOutlined style={{ fontSize: 12 }} />} 
                             onClick={handleAddDetail}
                             style={{ 
-                                borderRadius: '30px',
+                                borderRadius: 12,
                                 background: orderDetailColors.primaryLight,
                                 color: orderDetailColors.primary,
-                                fontWeight: 700,
-                                fontSize: '13px',
-                                height: '32px',
+                                fontWeight: 600,
+                                fontSize: 13,
+                                height: 36,
                                 padding: '0 16px',
-                                border: `1px solid ${orderDetailColors.primary}40`,
+                                border: `1px solid ${orderDetailColors.primary}30`,
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
-                                transition: 'all 0.3s ease'
                             }}
                             className="scale-hover"
                         >
@@ -164,24 +205,38 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                     </div>
                     
                     {details.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: '12px', background: '#f9f9f9', borderRadius: 8 }}>
+                        <div style={{ 
+                            textAlign: 'center', 
+                            padding: '16px', 
+                            background: orderDetailColors.backgroundSecondary, 
+                            borderRadius: 12,
+                            border: `1px dashed ${orderDetailColors.border}`,
+                        }}>
                             <Text type="secondary" style={{ fontSize: 13 }}>ไม่มีรายการเพิ่มเติม</Text>
                         </div>
                     ) : (
-                        <Space orientation="vertical" style={{ width: '100%' }} size={10}>
+                        <Space direction="vertical" style={{ width: '100%' }} size={12}>
                             {details.map((detail, index) => (
-                                <div key={index} style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
+                                <div key={index} style={{ 
+                                    display: 'flex', 
+                                    gap: 10, 
+                                    alignItems: 'center',
+                                    padding: '12px 14px',
+                                    background: orderDetailColors.backgroundSecondary,
+                                    borderRadius: 12,
+                                    border: `1px solid ${orderDetailColors.border}`,
+                                }}>
                                     <Input 
                                         placeholder="รายการ" 
                                         value={detail.detail_name}
                                         onChange={(e) => handleUpdateDetail(index, 'detail_name', e.target.value)}
-                                        style={{ flex: 2, borderRadius: 8 }}
+                                        style={{ flex: 2, borderRadius: 10, height: 44, fontSize: 15 }}
                                     />
                                     <InputNumber<number>
                                         placeholder="ราคา"
                                         value={detail.extra_price}
                                         onChange={(val) => handleUpdateDetail(index, 'extra_price', val || 0)}
-                                        style={{ flex: 1, borderRadius: 8, height: 40 }}
+                                        style={{ flex: 1, borderRadius: 10, height: 44, fontSize: 15 }}
                                         inputMode="decimal"
                                         controls={false}
                                         min={0}
@@ -203,7 +258,13 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                                         type="text" 
                                         icon={<DeleteOutlined />} 
                                         onClick={() => handleRemoveDetail(index)}
-                                        style={{ color: orderDetailColors.danger }}
+                                        style={{ 
+                                            color: orderDetailColors.danger,
+                                            borderRadius: 10,
+                                            width: 44,
+                                            height: 44,
+                                        }}
+                                        className="scale-hover"
                                     />
                                 </div>
                             ))}
@@ -211,59 +272,73 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                     )}
                 </div>
 
+                <Divider style={{ margin: '0 0 20px 0' }} />
+
                 {/* Compact Quantity Adjustment */}
                 <div style={{ marginBottom: 24 }}>
-                    <Text strong style={{ display: 'block', marginBottom: 12, fontSize: 16 }}>
+                    <Text strong style={{ display: 'block', marginBottom: 14, fontSize: 16, color: orderDetailColors.text }}>
                         ปรับจำนวน
                     </Text>
-                    <div style={{...modalStyles.quantityControl, padding: '8px', borderRadius: 12}}>
+                    <div style={modalStyles.quantityControl} className="quantity-control">
                         <Button
                             type="primary"
                             icon={<MinusOutlined />}
                             onClick={handleDecrement}
                             disabled={quantity <= 1}
-                            style={{...modalStyles.quantityButton, background: orderDetailColors.white, color: orderDetailColors.primary, border: `1px solid ${orderDetailColors.primary}`}}
+                            style={{
+                                ...modalStyles.quantityButton, 
+                                background: orderDetailColors.white, 
+                                color: orderDetailColors.primary, 
+                                border: `2px solid ${orderDetailColors.primary}`,
+                            }}
+                            className="scale-hover quantity-button"
                         />
-                        <div style={modalStyles.quantityDisplay}>
+                        <div style={modalStyles.quantityDisplay} className="quantity-display">
                             {quantity}
                         </div>
                         <Button
                             type="primary"
                             icon={<PlusOutlined />}
                             onClick={handleIncrement}
-                            style={modalStyles.quantityButton}
+                            style={{
+                                ...modalStyles.quantityButton,
+                                background: `linear-gradient(135deg, ${orderDetailColors.primary} 0%, ${orderDetailColors.primaryDark} 100%)`,
+                                border: 'none',
+                            }}
+                            className="scale-hover quantity-button"
                         />
                     </div>
                 </div>
 
                 {/* Compact Notes */}
                 <div style={{ marginBottom: 24 }}>
-                    <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 16 }}>
+                    <Text strong style={{ display: 'block', marginBottom: 10, fontSize: 16, color: orderDetailColors.text }}>
                         หมายเหตุ / คำแนะนำพิเศษ
                     </Text>
                     <TextArea
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
                         placeholder="เช่น หวานน้อย, ไม่ใส่น้ำตาล..."
-                        rows={2}
-                        style={{ borderRadius: 10, padding: '10px 14px', fontSize: 16 }}
+                        rows={3}
+                        style={{ borderRadius: 12, padding: '12px 14px', fontSize: 15, lineHeight: 1.5 }}
                     />
                 </div>
 
                 {/* Compact Total Price Card */}
-                <div style={{...modalStyles.priceCard, padding: '12px 16px', borderRadius: 12, background: orderDetailColors.primaryLight}}>
-                    <Text strong style={{ fontSize: 16 }}>ยอดรวมรายการนี้</Text>
-                    <Title level={4} style={{ margin: 0, color: orderDetailColors.primary }}>
+                <div style={modalStyles.priceCard}>
+                    <Text strong style={{ fontSize: 16, color: orderDetailColors.text }}>ยอดรวมรายการนี้</Text>
+                    <Title level={4} style={{ margin: 0, color: orderDetailColors.priceTotal, fontSize: 22 }}>
                         ฿{calculateItemTotal(Number(item.price), quantity, details).toLocaleString()}
                     </Title>
                 </div>
             </div>
 
             {/* Footer Actions */}
-            <div style={{...modalStyles.actionButtons, padding: '16px', borderTop: `1px solid ${orderDetailColors.border}`}}>
+            <div style={modalStyles.actionButtons} className="action-buttons">
                 <Button
                     onClick={onClose}
-                    style={{...modalStyles.secondaryButton, flex: 1}}
+                    style={modalStyles.secondaryButton}
+                    className="scale-hover secondary-button"
                 >
                     ยกเลิก
                 </Button>
@@ -271,7 +346,8 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                     type="primary"
                     onClick={handleSave}
                     icon={<SaveOutlined />}
-                    style={{...modalStyles.primaryButton, flex: 2}}
+                    style={modalStyles.primaryButton}
+                    className="scale-hover primary-button"
                 >
                     บันทึกแก้ไข
                 </Button>

@@ -44,6 +44,7 @@ export default function ChannelSelectionPage() {
       id: 'dine-in',
       title: 'หน้าร้าน',
       subtitle: 'Dine In',
+      description: 'รับออเดอร์ลูกค้าที่มานั่งทานที่ร้าน',
       icon: ShopOutlined,
       colors: channelColors.dineIn,
       path: '/pos/channels/dine-in',
@@ -53,6 +54,7 @@ export default function ChannelSelectionPage() {
       id: 'takeaway',
       title: 'สั่งกลับบ้าน',
       subtitle: 'Take Away',
+      description: 'รับออเดอร์ลูกค้าที่สั่งกลับบ้าน',
       icon: ShoppingOutlined,
       colors: channelColors.takeaway,
       path: '/pos/channels/takeaway',
@@ -62,6 +64,7 @@ export default function ChannelSelectionPage() {
       id: 'delivery',
       title: 'เดลิเวอรี่',
       subtitle: 'Delivery',
+      description: 'รับออเดอร์จัดส่งถึงบ้านลูกค้า',
       icon: RocketOutlined,
       colors: channelColors.delivery,
       path: '/pos/channels/delivery',
@@ -69,45 +72,78 @@ export default function ChannelSelectionPage() {
     },
   ];
 
+  const handleChannelClick = (path: string, channelName: string) => {
+    router.push(path);
+  };
+
   return (
     <>
       <POSGlobalStyles />
       <style jsx global>{channelsResponsiveStyles}</style>
       <div style={channelsStyles.channelsContainer}>
-        {/* Header Section */}
-        <div style={channelsStyles.channelsHeader} className="channels-header-mobile">
+        {/* Header Section - Soft gradient with decorative elements */}
+        <header 
+          style={channelsStyles.channelsHeader} 
+          className="channels-header-mobile"
+          role="banner"
+        >
           <div className="header-pattern"></div>
           <div className="header-circle circle-1"></div>
           <div className="header-circle circle-2"></div>
           
           <div style={channelsStyles.channelsHeaderContent}>
             <div className="header-icon-animate">
-              <ShopOutlined style={channelsStyles.channelsHeaderIcon} className="channels-header-icon-mobile" />
+              <ShopOutlined 
+                style={channelsStyles.channelsHeaderIcon} 
+                className="channels-header-icon-mobile" 
+                aria-hidden="true"
+              />
             </div>
-            <Title level={1} style={channelsStyles.channelsHeaderTitle} className="channels-header-title-mobile">
+            <Title 
+              level={1} 
+              style={channelsStyles.channelsHeaderTitle} 
+              className="channels-header-title-mobile"
+            >
               เลือกช่องทางขาย
             </Title>
-            <Text style={channelsStyles.channelsHeaderSubtitle} className="channels-header-subtitle-mobile">
+            <Text 
+              style={channelsStyles.channelsHeaderSubtitle} 
+              className="channels-header-subtitle-mobile"
+            >
               Select Sales Channel
             </Text>
           </div>
-        </div>
+        </header>
 
-        {/* Channel Cards */}
-        <div style={channelsStyles.channelsCardsContainer} className="channels-cards-container-mobile">
-          <Row gutter={[24, 24]} justify="center">
+        {/* Channel Cards - Main content */}
+        <main 
+          style={channelsStyles.channelsCardsContainer} 
+          className="channels-cards-container-mobile"
+          role="main"
+        >
+          <Row gutter={[20, 20]} justify="center">
             {channels.map((channel, index) => {
               const Icon = channel.icon;
               const hasOrders = channel.count > 0;
               
               return (
-                <Col xs={24} sm={12} md={8} key={channel.id}>
-                  <div
+                <Col xs={24} sm={24} md={12} lg={8} key={channel.id}>
+                  <article
                     className={`channel-card-hover fade-in-up card-delay-${index + 1}`}
                     style={channelsStyles.channelCard}
-                    onClick={() => router.push(channel.path)}
+                    onClick={() => handleChannelClick(channel.path, channel.title)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleChannelClick(channel.path, channel.title);
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`${channel.title} - ${channel.subtitle}. ${hasOrders ? `${channel.count} ออเดอร์กำลังดำเนินการ` : 'ไม่มีออเดอร์'}`}
                   >
                     <div style={channelsStyles.channelCardInner} className="channels-card-inner-mobile">
+                      {/* Icon with glow effect */}
                       <div 
                         className="icon-wrapper channels-icon-wrapper-mobile"
                         style={{
@@ -129,25 +165,35 @@ export default function ChannelSelectionPage() {
                             ...channelsStyles.channelIcon,
                             color: channel.colors.primary,
                           }} 
+                          aria-hidden="true"
                         />
                       </div>
                       
-                      <Title level={2} style={channelsStyles.channelCardTitle} className="channels-card-title-mobile">
+                      {/* Channel Title & Subtitle */}
+                      <Title 
+                        level={2} 
+                        style={channelsStyles.channelCardTitle} 
+                        className="channels-card-title-mobile"
+                      >
                         {channel.title}
                       </Title>
-                      <Text style={channelsStyles.channelCardSubtitle} className="channels-card-subtitle-mobile">
+                      <Text 
+                        style={channelsStyles.channelCardSubtitle} 
+                        className="channels-card-subtitle-mobile"
+                      >
                         {channel.subtitle}
                       </Text>
 
-                      {/* Statistics Badge */}
+                      {/* Statistics Badge - Clear order count display */}
                       <div
                         className="channels-stats-badge-mobile"
                         style={{
                           ...channelsStyles.channelStatsBadge,
-                          background: hasOrders ? channel.colors.light : '#fafafa',
-                          color: hasOrders ? channel.colors.primary : '#8c8c8c',
-                          border: `1px solid ${hasOrders ? channel.colors.border : '#f0f0f0'}`,
+                          background: hasOrders ? channel.colors.light : '#F8FAFC',
+                          color: hasOrders ? channel.colors.primary : '#94A3B8',
+                          border: `1.5px solid ${hasOrders ? channel.colors.border : '#E2E8F0'}`,
                         }}
+                        aria-live="polite"
                       >
                         {hasOrders && (
                           <span
@@ -155,18 +201,22 @@ export default function ChannelSelectionPage() {
                             style={{
                               ...channelsStyles.channelActiveIndicator,
                               background: channel.colors.primary,
+                              boxShadow: `0 0 0 2px ${channel.colors.light}`,
                             }}
+                            aria-hidden="true"
                           />
                         )}
-                        <span>{formatOrderCount(channel.count)}</span>
+                        <span style={{ fontWeight: 600 }}>
+                          {formatOrderCount(channel.count)}
+                        </span>
                       </div>
                     </div>
-                  </div>
+                  </article>
                 </Col>
               );
             })}
           </Row>
-        </div>
+        </main>
       </div>
     </>
   );
