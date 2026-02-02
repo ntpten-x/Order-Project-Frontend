@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import { Button, Result } from 'antd';
+import { Button } from 'antd';
 import { useRouter } from 'next/navigation';
 
 export default function Error({

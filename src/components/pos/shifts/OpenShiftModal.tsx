@@ -6,17 +6,24 @@ import { useShift } from '../../../contexts/pos/ShiftContext';
 import { DollarOutlined } from '@ant-design/icons';
 import { usePathname } from 'next/navigation';
 
+
 const { Title, Text } = Typography;
 
-export default function OpenShiftModal() {
+interface OpenShiftModalProps {
+    open?: boolean;
+    onCancel?: () => void;
+}
+
+export default function OpenShiftModal({ open, onCancel }: OpenShiftModalProps = {}) {
     const { currentShift, loading, openShift } = useShift();
     const [submitting, setSubmitting] = useState(false);
     const [form] = Form.useForm();
     const pathname = usePathname();
 
-    // Show modal if not loading and no active shift
-    // But don't show on the shift management page itself as it has its own UI
-    const isVisible = !loading && !currentShift && pathname !== '/pos/shift';
+    // Visibility controlled by parent OR auto-check if global
+    const isVisible = open !== undefined 
+        ? open 
+        : (!loading && !currentShift && pathname !== '/pos/shift');
 
     const handleOpenShift = async (values: { startAmount: number }) => {
         setSubmitting(true);
@@ -34,6 +41,7 @@ export default function OpenShiftModal() {
     return (
         <Modal
             open={isVisible}
+            onCancel={onCancel}
             title={null}
             centered
             closable={false}

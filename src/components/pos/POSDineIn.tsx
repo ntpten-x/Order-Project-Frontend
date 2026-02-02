@@ -41,6 +41,7 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
                 if (token) setCsrfToken(token);
                 
                 // API response is wrapped in { success: true, data: { ... } }
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const table = (tableResponse as any)?.data || tableResponse;
 
                 if (table && table.table_name) {

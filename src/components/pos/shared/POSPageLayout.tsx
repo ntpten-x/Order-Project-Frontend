@@ -14,14 +14,13 @@ import {
   CloseOutlined
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
-import { useCart } from "../../../contexts/pos/CartContext";
+import { useCart, CartItem, CartDetail } from "../../../contexts/pos/CartContext";
 import { useGlobalLoading } from "../../../contexts/pos/GlobalLoadingContext";
 import { useProducts } from "../../../hooks/pos/useProducts";
 import { useCategories } from "../../../hooks/pos/useCategories";
 import { Products } from "../../../types/api/pos/products";
 import { 
   posLayoutStyles, 
-  posCartStyles, 
   posColors, 
   POSSharedStyles 
 } from "./style";
@@ -65,7 +64,6 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
     updateQuantity, 
     updateItemNote,
     clearCart,
-    removeDetailFromItem,
     updateItemDetails,
     getTotalItems, 
     getSubtotal,
@@ -139,7 +137,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
   };
 
   // ==================== RENDER HELPERS ====================
-  const renderCartItem = (item: any) => {
+  const renderCartItem = (item: CartItem) => {
       const originalPrice = Number(item.product.price);
     const discountAmount = item.discount || 0;
     const finalPrice = Math.max(0, originalPrice * item.quantity - discountAmount);
@@ -164,7 +162,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                     {item.product.img_url ? (
                         <div style={{ width: 72, height: 72, borderRadius: 12, overflow: 'hidden', border: '1px solid #f1f5f9' }}>
                            {/* eslint-disable-next-line @next/next/no-img-element */}
-                           <img src={item.product.img_url} alt={item.product.name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                           <img src={item.product.img_url} alt={item.product.display_name || item.product.product_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                         </div>
                     ) : (
                         <div style={{ width: 72, height: 72, borderRadius: 12, background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #f1f5f9' }}>
@@ -192,7 +190,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                     {/* Addons / Details */}
                     {(item.details && item.details.length > 0) && (
                         <div style={{ marginTop: 6, marginBottom: 4 }}>
-                            {item.details.map((d: any, idx: number) => (
+                            {item.details!.map((d: CartDetail, idx: number) => (
                                 <Text key={idx} style={{ display: 'block', fontSize: 12, color: '#10b981', lineHeight: 1.4 }}>
                                     + {d.detail_name} <span style={{ opacity: 0.8 }}>(+฿{d.extra_price})</span>
                                 </Text>
@@ -954,15 +952,15 @@ function CartItemDetailModal({ item, isOpen, onClose, onSave }: CartItemDetailMo
                 <InputNumber<number>
                   placeholder="ราคา"
                   value={detail.extra_price}
-                  onChange={(val) => handleUpdateDetail(index, 'extra_price', val || 0)}
+                  onChange={(val: number | null) => handleUpdateDetail(index, 'extra_price', val || 0)}
                   style={{ flex: 1, height: 42 }}
                   inputMode="decimal"
                   controls={false}
                   min={0}
                   precision={2}
-                  formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                  parser={(value) => value!.replace(/\$\s?|(,*)/g, '') as unknown as number}
-                  onKeyDown={(e) => {
+                  formatter={(value: number | undefined | string) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                  parser={(value: string | undefined) => value!.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                  onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
                     const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', '.'];
                     if (!/^[0-9]$/.test(e.key) && !allowedKeys.includes(e.key)) {
                       e.preventDefault();

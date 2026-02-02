@@ -8,8 +8,6 @@ import {
     ReloadOutlined,
     EditOutlined,
     DeleteOutlined,
-    CheckCircleFilled,
-    CloseCircleFilled,
     SearchOutlined
 } from '@ant-design/icons';
 import { Category } from "../../../../types/api/pos/category";

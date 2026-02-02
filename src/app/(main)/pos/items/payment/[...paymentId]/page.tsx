@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState, useRef, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Typography, Row, Col, Card, Button, Empty, Divider, message, InputNumber, Select, Tag, Avatar, Alert, Modal } from "antd";
+import { Typography, Row, Col, Card, Button, Empty, Divider, message, InputNumber, Tag, Avatar, Alert, Modal } from "antd";
 import { ArrowLeftOutlined, ShopOutlined, DollarOutlined, CreditCardOutlined, QrcodeOutlined, UndoOutlined, EditOutlined, SettingOutlined } from "@ant-design/icons";
 import { QRCodeSVG } from 'qrcode.react';
 import generatePayload from 'promptpay-qr';
@@ -27,7 +27,7 @@ import { getOrderChannelText, getOrderReference, getOrderStatusColor, getOrderSt
 import ConfirmationDialog from "../../../../../../components/dialog/ConfirmationDialog";
 import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../../../../hooks/useSocket";
-import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
+
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -51,11 +51,14 @@ export default function POSPaymentPage() {
     const [appliedDiscount, setAppliedDiscount] = useState<Discounts | null>(null);
     const [discountModalVisible, setDiscountModalVisible] = useState(false);
     const { showLoading, hideLoading } = useGlobalLoading();
-    const { socket } = useSocket();
+    useSocket();
     
     // Refs for input fields
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cashInputRef = useRef<any>(null);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const cardInputRef = useRef<any>(null);
+
 
     // Confirmation Dialog State
     const [confirmConfig, setConfirmConfig] = useState<ConfirmationConfig>({
@@ -111,6 +114,7 @@ export default function POSPaymentPage() {
                 discountsArray = discountsRes;
             } else if (discountsRes && typeof discountsRes === 'object') {
                 // Handle single object response
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 const discountObj = discountsRes as any;
                 if (discountObj.id && (discountObj.discount_name || discountObj.display_name)) {
                     discountsArray = [discountObj as Discounts];

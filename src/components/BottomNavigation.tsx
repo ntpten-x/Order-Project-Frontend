@@ -80,8 +80,7 @@ const BottomNavigation = () => {
     }] : []),
   ];
 
-  const activeColor = '#FCD34D'; // Bright gold/yellow for dark background
-  const inactiveColor = '#D1D5DB'; // Gray-300 for better visibility on dark
+
 
   return (
     <div className="fixed bottom-4 left-4 right-4 md:left-1/2 md:right-auto md:-translate-x-1/2 md:w-auto md:min-w-[320px] md:max-w-md z-50">

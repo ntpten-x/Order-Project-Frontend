@@ -209,7 +209,7 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
             setDisplayName(data.display_name || '');
             setUnitName(data.unit_name || '');
             setIsActive(data.is_active);
-        } catch (error) {
+        } catch (error: unknown) {
             console.error(error);
             message.error('ไม่สามารถดึงข้อมูลหน่วยสินค้าได้');
             router.push('/pos/productsUnit');
@@ -224,6 +224,7 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
         }
     }, [isEdit, id, fetchUnit]);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onFinish = async (values: any) => {
         setSubmitting(true);
         try {
@@ -246,9 +247,9 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
             
             message.success(isEdit ? 'อัปเดตหน่วยสินค้าสำเร็จ' : 'สร้างหน่วยสินค้าสำเร็จ');
             router.push('/pos/productsUnit');
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(error);
-            message.error(error.message);
+            message.error(error instanceof Error ? error.message : 'ไม่สามารถสร้าง/แก้ไขหน่วยสินค้าได้');
         } finally {
             setSubmitting(false);
         }
@@ -275,7 +276,7 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
                     if (!response.ok) throw new Error('ไม่สามารถลบหน่วยสินค้าได้');
                     message.success('ลบหน่วยสินค้าสำเร็จ');
                     router.push('/pos/productsUnit');
-                } catch (error) {
+                } catch (error: unknown) {
                     console.error(error);
                     message.error('ไม่สามารถลบหน่วยสินค้าได้');
                 }

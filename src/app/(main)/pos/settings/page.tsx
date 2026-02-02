@@ -1,13 +1,13 @@
 ﻿'use client';
 
 import React, { useCallback, useEffect, useState } from "react";
-import { Typography, Card, Button, Spin, Divider, Row, Col, App, Tag, Select, Space, Modal } from "antd";
+import { Typography, Button, Spin, App, Modal } from "antd";
 import { SettingOutlined, BankOutlined, CheckCircleOutlined, PlusOutlined, QrcodeOutlined, ArrowLeftOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { paymentAccountService } from "../../../../services/pos/paymentAccount.service";
 import { ShopPaymentAccount } from "../../../../types/api/pos/shopPaymentAccount";
 import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
-import { pageStyles, settingsResponsiveStyles } from "../../../../theme/pos/settings/style";
+import { pageStyles } from "../../../../theme/pos/settings/style";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { useSocket } from "../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
@@ -15,7 +15,6 @@ import { useRoleGuard } from "../../../../utils/pos/accessControl";
 import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
 
 const { Title, Text } = Typography;
-const { Option } = Select;
 
 export default function POSSettingsPage() {
     const { message } = App.useApp();

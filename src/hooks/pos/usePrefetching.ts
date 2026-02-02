@@ -5,7 +5,7 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+
 import { ordersService } from "../../services/pos/orders.service";
 import { productsService } from "../../services/pos/products.service";
 import { categoryService } from "../../services/pos/category.service";
@@ -16,7 +16,7 @@ import { orderQueueService } from "../../services/pos/orderQueue.service";
  */
 export function usePOSPrefetching() {
     const queryClient = useQueryClient();
-    const router = useRouter();
+
 
     useEffect(() => {
         // Prefetch common POS data
@@ -26,7 +26,7 @@ export function usePOSPrefetching() {
                 await Promise.all([
                     queryClient.prefetchQuery({
                         queryKey: ['products', 1, 20],
-                        queryFn: () => productsService.findAll(undefined, 1, 20),
+                        queryFn: () => productsService.findAll(1, 20),
                         staleTime: 5 * 60 * 1000, // 5 minutes
                     }),
                     queryClient.prefetchQuery({

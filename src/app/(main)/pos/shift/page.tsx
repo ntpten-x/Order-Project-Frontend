@@ -2,24 +2,21 @@
 
 import React, { useEffect, useState, useContext } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Typography, Card, Button, Row, Col, InputNumber, Statistic, Tag, Modal, Spin, Divider, App } from "antd";
+import { Typography, Card, Button, Row, Col, Tag, Spin } from "antd";
 import { 
     ClockCircleOutlined, 
-    DollarCircleOutlined, 
     CheckCircleOutlined, 
     PlayCircleOutlined, 
     StopOutlined, 
     ArrowLeftOutlined, 
-    WalletOutlined, 
     RiseOutlined, 
-    FallOutlined,
     SafetyCertificateOutlined
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { SocketContext } from "../../../../contexts/SocketContext";
 import { shiftsService } from "../../../../services/pos/shifts.service";
 import { Shift, ShiftSummary } from "../../../../types/api/pos/shifts";
-import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
+
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import duration from 'dayjs/plugin/duration';
@@ -89,12 +86,9 @@ const PageHeader = ({ currentShift, onBack }: { currentShift: Shift | null, onBa
 // I need to import them dynamically or normally.
 import OpenShiftModal from "../../../../components/pos/shifts/OpenShiftModal";
 import CloseShiftModal from "../../../../components/pos/shifts/CloseShiftModal";
-import ShiftSummaryModal from "../../../../components/pos/shifts/ShiftSummaryModal";
 
 export default function ShiftPage() {
     const router = useRouter();
-    const { message } = App.useApp();
-    const { showLoading, hideLoading } = useGlobalLoading();
     const queryClient = useQueryClient();
     
     // Local state for controlling modal visibility
@@ -139,7 +133,7 @@ export default function ShiftPage() {
     
     const [openShiftVisible, setOpenShiftVisible] = useState(false);
     const [closeShiftVisible, setCloseShiftVisible] = useState(false);
-    const [summaryVisible, setSummaryVisible] = useState(false);
+
     
     const { socket } = useContext(SocketContext);
 
@@ -391,13 +385,11 @@ export default function ShiftPage() {
 
             {/* Imported Modals */}
             <OpenShiftModal 
-                // @ts-ignore - Assuming these props exist or need wrapper if not
                 open={openShiftVisible} 
                 onCancel={() => setOpenShiftVisible(false)}
             />
             
             <CloseShiftModal 
-                 // @ts-ignore
                 open={closeShiftVisible}
                 onCancel={() => setCloseShiftVisible(false)}
                 onSuccess={() => {

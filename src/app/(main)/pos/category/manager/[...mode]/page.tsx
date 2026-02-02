@@ -16,7 +16,7 @@ import { useRoleGuard } from "../../../../../../utils/pos/accessControl";
 import { AccessGuardFallback } from "../../../../../../components/pos/AccessGuard";
 import { pageStyles } from '../../../../../../theme/pos/category/style';
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
 // ============ HEADER COMPONENT ============
 
@@ -224,7 +224,7 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
         }
     }, [isEdit, id, fetchCategory]);
 
-    const onFinish = async (values: any) => {
+    const onFinish = async (values: { category_name: string; display_name: string; img_url?: string; is_active?: boolean }) => {
         setSubmitting(true);
         try {
             const endpoint = isEdit ? `/api/pos/category/update/${id}` : `/api/pos/category/create`;
@@ -246,9 +246,9 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
             
             message.success(isEdit ? 'อัปเดตหมวดหมู่สำเร็จ' : 'สร้างหมวดหมู่สำเร็จ');
             router.push('/pos/category');
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(error);
-            message.error(error.message);
+            message.error((error as Error).message);
         } finally {
             setSubmitting(false);
         }

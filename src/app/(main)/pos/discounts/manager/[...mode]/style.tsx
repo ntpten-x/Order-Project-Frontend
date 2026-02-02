@@ -10,7 +10,7 @@ import {
     ManageActionButtons,
 } from "../../../../../../theme/pos/manage.shared";
 
-const { Text } = Typography;
+
 
 const { pageStyles, ManagePageStyles } = createManagePageStyles({
     focusColor: "#F59E0B",

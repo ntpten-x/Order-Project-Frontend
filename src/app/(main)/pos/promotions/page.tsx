@@ -1,20 +1,19 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
-import { message, Modal, Typography, Tag, Button, Empty, Input, Card, Space, Badge } from 'antd';
+import React, { useState } from 'react';
+import { Typography, Tag, Button, Empty, Input, Card, Space, Badge } from 'antd';
 import {
     GiftOutlined,
     PlusOutlined,
     ReloadOutlined,
     EditOutlined,
-    DeleteOutlined,
     CheckCircleFilled,
     CloseCircleFilled,
     CalendarOutlined,
 } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { usePromotions } from '../../../../hooks/pos/usePromotions';
-import { Promotions, PromotionType } from '../../../../types/api/pos/promotions';
+import { PromotionType } from '../../../../types/api/pos/promotions';
 import { useRoleGuard } from '../../../../utils/pos/accessControl';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
