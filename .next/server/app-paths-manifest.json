@@ -8,6 +8,8 @@
   "/api/pos/shifts/current/route": "app/api/pos/shifts/current/route.js",
   "/api/csrf/route": "app/api/csrf/route.js",
   "/api/pos/queue/route": "app/api/pos/queue/route.js",
+  "/api/pos/paymentMethod/route": "app/api/pos/paymentMethod/route.js",
+  "/api/pos/discounts/route": "app/api/pos/discounts/route.js",
   "/(main)/page": "app/(main)/page.js",
   "/(main)/pos/orders/[...ordersId]/page": "app/(main)/pos/orders/[...ordersId]/page.js",
   "/(main)/pos/channels/page": "app/(main)/pos/channels/page.js",
