@@ -63,25 +63,25 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
         } finally {
             hideLoading();
         }
-    }, [item, quantity, notes, details, onSave, showLoading, hideLoading]); // Added dependencies
+    }, [item, quantity, notes, details, onSave, showLoading, hideLoading]);
 
-    const handleIncrement = useCallback(() => { // Wrapped in useCallback
+    const handleIncrement = useCallback(() => {
         setQuantity(prev => prev + 1);
     }, []);
 
-    const handleDecrement = useCallback(() => { // Wrapped in useCallback
+    const handleDecrement = useCallback(() => {
         setQuantity(prev => Math.max(1, prev - 1));
     }, []);
 
-    const handleAddDetail = useCallback(() => { // Wrapped in useCallback
+    const handleAddDetail = useCallback(() => {
         setDetails(prevDetails => [...prevDetails, { detail_name: '', extra_price: 0 }]);
     }, []);
 
-    const handleRemoveDetail = useCallback((index: number) => { // Wrapped in useCallback
+    const handleRemoveDetail = useCallback((index: number) => {
         setDetails(prevDetails => prevDetails.filter((_, i) => i !== index));
     }, []);
 
-    const handleUpdateDetail = useCallback((index: number, field: string, value: string | number) => { // Wrapped in useCallback
+    const handleUpdateDetail = useCallback((index: number, field: string, value: string | number) => {
         setDetails(prevDetails => {
             const newDetails = [...prevDetails];
             newDetails[index] = { ...newDetails[index], [field]: value };
@@ -103,9 +103,20 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
             centered
             closable={false}
             key={item?.id || 'edit-modal'}
+            styles={{ 
+                body: {
+                    padding: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: '80vh',
+                    maxHeight: '80vh',
+                    overflow: 'hidden',
+                    borderRadius: 16,
+                }
+            }}
         >
             {/* Custom Header */}
-            <div style={modalStyles.modalHeader} className="modal-header">
+            <div style={{ ...modalStyles.modalHeader, flexShrink: 0 }} className="modal-header">
                 <Text strong style={{ fontSize: 18, flex: 1, color: orderDetailColors.text, lineHeight: 1.4 }}>
                     แก้ไขรายการ
                 </Text>
@@ -129,7 +140,8 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                 />
             </div>
 
-            <div style={{ padding: '20px', maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
+            {/* Scrollable Content */}
+            <div style={{ flex: 1, overflowY: 'auto', padding: '20px' }}>
                 {/* Product Section with Image */}
                 <div style={{
                     display: 'flex',
@@ -328,7 +340,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                 </div>
 
                 {/* Compact Total Price Card */}
-                <div style={modalStyles.priceCard}>
+                <div style={{...modalStyles.priceCard, marginBottom: 0}}>
                     <Text strong style={{ fontSize: 16, color: orderDetailColors.text }}>ยอดรวมรายการนี้</Text>
                     <Title level={4} style={{ margin: 0, color: orderDetailColors.priceTotal, fontSize: 22 }}>
                         ฿{calculateItemTotal(Number(item.price), quantity, details).toLocaleString()}
@@ -337,7 +349,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
             </div>
 
             {/* Footer Actions */}
-            <div style={modalStyles.actionButtons} className="action-buttons">
+            <div style={{ ...modalStyles.actionButtons, flexShrink: 0 }} className="action-buttons">
                 <Button
                     onClick={onClose}
                     style={modalStyles.secondaryButton}
