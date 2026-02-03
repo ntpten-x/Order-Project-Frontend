@@ -68,7 +68,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
         } finally {
             hideLoading();
         }
-    }, [showLoading, hideLoading]);
+    }, [showLoading, hideLoading, message]);
 
     const resetForm = useCallback(() => {
         setQuantity(1);

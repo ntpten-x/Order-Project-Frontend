@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useState, useContext, useMemo, useRef } from "react";
+import React, { useEffect, useState, useContext, useMemo, useRef, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Typography, Button, Row, Col, Tag, Badge, Empty, Spin, Switch, message, Space, Tooltip, Divider } from "antd";
+import { Typography, Button, Row, Col, Tag, Empty, Spin, message, Space, Tooltip } from "antd";
 import { 
     CheckOutlined, 
     ClockCircleOutlined, 
@@ -123,12 +123,12 @@ export default function KitchenDisplayPage() {
         audioRef.current.volume = 0.6;
     }, []);
 
-    const playNotificationSound = () => {
+    const playNotificationSound = useCallback(() => {
         if (soundEnabled && audioRef.current) {
             audioRef.current.currentTime = 0;
             audioRef.current.play().catch(console.error);
         }
-    };
+    }, [soundEnabled]);
 
     const { data: allItems = [], isLoading, refetch } = useQuery<SalesOrderItem[]>({
         queryKey: ["orderItems", "kitchen"],
@@ -200,7 +200,7 @@ export default function KitchenDisplayPage() {
             socket.off('orders:create', handleOrderCreate);
             socket.off('orders:update', handleOrderUpdate);
         };
-    }, [socket, refetch, soundEnabled]); // Removed playNotificationSound dependency to avoid recreating effect
+    }, [socket, refetch, playNotificationSound]);
 
     const updateItemStatus = async (itemId: string, newStatus: ItemStatus) => {
         try {
@@ -316,7 +316,7 @@ export default function KitchenDisplayPage() {
                                 <Button
                                     key={status}
                                     type="text"
-                                    onClick={() => setFilterStatus(status as any)}
+                                    onClick={() => setFilterStatus(status as ItemStatus | 'all')}
                                     style={{
                                         color: isActive ? '#fff' : '#64748b',
                                         background: isActive ? activeColor : 'transparent',

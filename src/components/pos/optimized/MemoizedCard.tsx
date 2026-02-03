@@ -1,8 +1,8 @@
 "use client";
 
 import React, { memo, useCallback, CSSProperties, ReactNode } from 'react';
-import { Button, Tag, Typography, ConfigProvider } from 'antd';
-import { EditOutlined, DeleteOutlined, CheckCircleFilled, CloseCircleFilled } from '@ant-design/icons';
+import { Button, Typography } from 'antd';
+import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import Image from 'next/image';
 
 const { Text } = Typography;

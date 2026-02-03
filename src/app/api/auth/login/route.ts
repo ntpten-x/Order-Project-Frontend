@@ -15,8 +15,8 @@ export async function POST(request: NextRequest) {
         // Set the cookie on the response
         nextResponse.cookies.set("token", token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === "production",
-            sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+            secure: false, // Set to false to allow cookies over HTTP (IP login)
+            sameSite: "lax",
             maxAge: 60 * 60 * 10, // 10 hours
             path: "/",
         });

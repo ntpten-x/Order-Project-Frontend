@@ -1,10 +1,10 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Form, Input, InputNumber, message, Spin, Switch, Modal, Radio, DatePicker, Select } from 'antd';
+import { Form, Input, InputNumber, message, Spin, Switch, Radio, DatePicker } from 'antd';
 import { useRouter } from 'next/navigation';
 import { PromotionType, PromotionCondition } from '../../../../../../types/api/pos/promotions';
-import { getCsrfTokenCached } from "../../../../../../utils/pos/csrf";
+
 import { useRoleGuard } from "../../../../../../utils/pos/accessControl";
 import { AccessGuardFallback } from "../../../../../../components/pos/AccessGuard";
 import { GiftOutlined } from '@ant-design/icons';
@@ -38,24 +38,16 @@ export default function PromotionManagePage({ params }: { params: { mode: string
     const [submitting, setSubmitting] = useState(false);
     const [promotionType, setPromotionType] = useState<PromotionType>(PromotionType.PercentageOff);
     const [conditionType, setConditionType] = useState<PromotionCondition>(PromotionCondition.AllProducts);
-    const [csrfToken, setCsrfToken] = useState<string>("");
 
     const mode = params.mode[0];
     const id = params.mode[1] || null;
     const isEdit = mode === 'edit' && !!id;
     const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
 
-    useEffect(() => {
-        const fetchCsrf = async () => {
-            const token = await getCsrfTokenCached();
-            setCsrfToken(token);
-        };
-        fetchCsrf();
-    }, []);
-
     const fetchPromotion = useCallback(async () => {
         setLoading(true);
         try {
+            if (!id) return;
             const { promotionsService } = await import('../../../../../../services/pos/promotions.service');
             const data = await promotionsService.getById(id);
             
@@ -79,7 +71,7 @@ export default function PromotionManagePage({ params }: { params: { mode: string
             });
             setPromotionType(data.promotion_type || PromotionType.PercentageOff);
             setConditionType(data.condition_type || PromotionCondition.AllProducts);
-        } catch (error) {
+        } catch (error: unknown) {
             console.error(error);
             message.error('ไม่สามารถดึงข้อมูลโปรโมชันได้');
             router.push('/pos/promotions');
@@ -93,7 +85,7 @@ export default function PromotionManagePage({ params }: { params: { mode: string
             fetchPromotion();
         }
     }, [isEdit, id, fetchPromotion]);
-
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onFinish = async (values: any) => {
         setSubmitting(true);
         try {
@@ -115,8 +107,8 @@ export default function PromotionManagePage({ params }: { params: { mode: string
             }
             
             router.push('/pos/promotions');
-        } catch (error: any) {
-            message.error(error.message || 'เกิดข้อผิดพลาด');
+        } catch (error: unknown) {
+            message.error(error instanceof Error ? error.message : 'เกิดข้อผิดพลาด');
         } finally {
             setSubmitting(false);
         }

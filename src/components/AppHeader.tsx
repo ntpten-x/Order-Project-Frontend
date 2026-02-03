@@ -1,7 +1,6 @@
 ﻿"use client";
 
-import { Layout, Avatar, Dropdown, Typography, Badge, Space, Popover, Button } from "antd";
-import type { MenuProps } from 'antd';
+import { Layout, Avatar, Typography, Space, Popover, Button } from "antd";
 import { UserOutlined, LogoutOutlined, SettingOutlined, ShoppingOutlined, DownOutlined } from "@ant-design/icons";
 import { useAuth } from "../contexts/AuthContext";
 import { usePathname } from "next/navigation";

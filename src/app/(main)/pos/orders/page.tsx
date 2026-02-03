@@ -22,8 +22,6 @@ import {
   formatCurrency
 } from "../../../../utils/orders";
 import { orderColors, ordersStyles, ordersResponsiveStyles } from "../../../../theme/pos/orders/style";
-// import { useSocket } from "../../../../hooks/useSocket";
-// import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
 import { useDebouncedValue } from "../../../../utils/useDebouncedValue";
 import { useOrdersSummary } from "../../../../hooks/pos/useOrdersSummary";
 import dayjs from "dayjs";
@@ -283,7 +281,7 @@ export default function POSOrdersPage() {
                         <List
                             loading={isLoading}
                             dataSource={orders}
-                            renderItem={(order, index) => {
+                            renderItem={(order) => {
                                 const totalQty = order.items_count || 0;
                                 
                                 return (

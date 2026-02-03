@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from 'react';
-import { Modal, InputNumber, Button, Typography, Form, Descriptions } from 'antd';
+import { Modal, InputNumber, Button, Typography, Form } from 'antd';
 import { useShift } from '../../../contexts/pos/ShiftContext';
 import { DollarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -33,7 +33,7 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
         }
     };
 
-    if (!currentShift) return null;
+    // if (!currentShift) return null; // Removed to allow modal to close properly with animation if needed, but 'open' prop controls visibility.
 
     return (
         <Modal
@@ -58,6 +58,8 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
             </div>
 
             <div style={{ padding: '0 32px 32px 32px' }}>
+                {currentShift && (
+                    <>
                 <div className="info-card">
                     <div className="info-row">
                         <Text type="secondary">เวลาเปิดกะ</Text>
@@ -146,6 +148,8 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
                         </Button>
                     </div>
                 </Form>
+                </>
+                )}
             </div>
 
             <style jsx global>{`

@@ -1,5 +1,5 @@
 import { createSharedPageStyles, sharedGlobalStyles, createCardStyle, cardInnerStyle } from "../sharedStyles";
-import { posColors } from '../index';
+
 
 const base = createSharedPageStyles("linear-gradient(135deg, #4F46E5 0%, #4338CA 100%)");
 

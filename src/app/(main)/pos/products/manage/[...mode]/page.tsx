@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Form, Input, InputNumber, message, Spin, Select, Switch, Modal, Typography } from 'antd';
+import { Form, Input, InputNumber, message, Spin, Switch, Modal, Typography } from 'antd';
 import { useRouter } from 'next/navigation';
 import { Category } from '../../../../../../types/api/pos/category';
 import { ProductsUnit } from '../../../../../../types/api/pos/productsUnit';
@@ -53,7 +53,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                 const data = await response.json();
                 setCategories(data.filter((c: Category) => c.is_active));
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error("Failed to fetch categories", error);
         }
     };
@@ -65,7 +65,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                 const data = await response.json();
                 setUnits(data.filter((u: ProductsUnit) => u.is_active));
             }
-        } catch (error) {
+        } catch (error: unknown) {
             console.error("Failed to fetch units", error);
         }
     };
@@ -88,7 +88,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
             });
             setImageUrl(data.img_url || '');
             setDisplayName(data.display_name || '');
-        } catch (error) {
+        } catch (error: unknown) {
             console.error(error);
             message.error('ไม่สามารถดึงข้อมูลสินค้าได้');
             router.push('/pos/products');
@@ -171,7 +171,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                     if (!response.ok) throw new Error('ไม่สามารถลบสินค้าได้');
                     message.success('ลบสินค้าสำเร็จ');
                     router.push('/pos/products');
-                } catch (error) {
+                } catch (error: unknown) {
                     console.error(error);
                     message.error('ไม่สามารถลบสินค้าได้');
                 }
@@ -225,7 +225,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                             requiredMark={false}
                             autoComplete="off"
                             initialValues={{ is_active: true, price: 0 }}
-                            onValuesChange={(changedValues, allValues) => {
+                            onValuesChange={(changedValues) => {
                                 if (changedValues.img_url !== undefined) setImageUrl(changedValues.img_url);
                                 if (changedValues.display_name !== undefined) setDisplayName(changedValues.display_name);
                                 forceUpdate({});
@@ -271,7 +271,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                     precision={2}
                                     style={{ width: '100%', height: 45, fontSize: 16, borderRadius: 12 }}
                                     formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                                    parser={(value) => value!.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                                    parser={(value) => value ? parseFloat(value.replace(/\$\s?|(,*)/g, '')) : 0}
                                     controls={false}
                                 />
                             </Form.Item>

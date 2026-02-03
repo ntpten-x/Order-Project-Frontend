@@ -1,0 +1,180 @@
+
+> order-frontend@0.1.0 lint
+> next lint
+
+
+./src/app/(main)/page.tsx
+9:5  Warning: 'ArrowRightOutlined' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/(main)/pos/category/manager/[...mode]/page.tsx
+4:89  Warning: 'Image' is defined but never used.  @typescript-eslint/no-unused-vars
+249:25  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/(main)/pos/category/page.tsx
+11:5  Warning: 'CheckCircleFilled' is defined but never used.  @typescript-eslint/no-unused-vars
+12:5  Warning: 'CloseCircleFilled' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/(main)/pos/channels/page.tsx
+75:45  Warning: 'channelName' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/(main)/pos/dashboard/[...id]/page.tsx
+5:78  Warning: 'DollarCircleOutlined' is defined but never used.  @typescript-eslint/no-unused-vars
+5:238  Warning: 'CalendarOutlined' is defined but never used.  @typescript-eslint/no-unused-vars
+10:10  Warning: 'SalesOrderItem' is defined but never used.  @typescript-eslint/no-unused-vars
+421:35  Warning: 'rowStyle' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/(main)/pos/delivery/manager/[...mode]/page.tsx
+4:73  Warning: 'Card' is defined but never used.  @typescript-eslint/no-unused-vars
+119:11  Warning: 'isActive' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/(main)/pos/delivery/page.tsx
+12:5  Warning: 'CheckCircleFilled' is defined but never used.  @typescript-eslint/no-unused-vars
+13:5  Warning: 'CloseCircleFilled' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/(main)/pos/discounts/manager/[...mode]/style.tsx
+13:9  Warning: 'Text' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/(main)/pos/items/payment/[...paymentId]/page.tsx
+5:84  Warning: 'Select' is defined but never used.  @typescript-eslint/no-unused-vars
+30:10  Warning: 'useRealtimeRefresh' is defined but never used.  @typescript-eslint/no-unused-vars
+54:13  Warning: 'socket' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+57:33  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+58:33  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+114:53  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/(main)/pos/kitchen/page.tsx
+319:78  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/(main)/pos/orders/page.tsx
+286:49  Warning: 'index' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/(main)/pos/orders/[...ordersId]/EditItemModal.tsx
+39:8  Warning: React Hook useEffect has a missing dependency: 'item'. Either include it or remove the dependency array.  react-hooks/exhaustive-deps
+
+./src/app/(main)/pos/orders/[...ordersId]/page.tsx
+113:18  Warning: 'error' is defined but never used.  @typescript-eslint/no-unused-vars
+257:26  Warning: 'error' is defined but never used.  @typescript-eslint/no-unused-vars
+318:19  Warning: 'updatedOrder' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/(main)/pos/paymentMethod/manager/[...mode]/style.tsx
+12:9  Warning: 'Text' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/(main)/pos/paymentMethod/page.tsx
+28:10  Warning: 'pageStyles' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/(main)/pos/products/manage/[...mode]/page.tsx
+4:51  Warning: 'Select' is defined but never used.  @typescript-eslint/no-unused-vars
+228:61  Warning: 'allValues' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/(main)/pos/productsUnit/manager/[...mode]/page.tsx
+227:37  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+249:25  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/(main)/pos/promotions/manager/[...mode]/page.tsx
+4:59  Warning: 'Modal' is defined but never used.  @typescript-eslint/no-unused-vars
+4:85  Warning: 'Select' is defined but never used.  @typescript-eslint/no-unused-vars
+41:12  Warning: 'csrfToken' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+98:37  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+119:25  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/(main)/pos/promotions/page.tsx
+3:27  Warning: 'useCallback' is defined but never used.  @typescript-eslint/no-unused-vars
+4:10  Warning: 'message' is defined but never used.  @typescript-eslint/no-unused-vars
+4:19  Warning: 'Modal' is defined but never used.  @typescript-eslint/no-unused-vars
+10:5  Warning: 'DeleteOutlined' is defined but never used.  @typescript-eslint/no-unused-vars
+17:10  Warning: 'Promotions' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/(main)/pos/queue/page.tsx
+3:27  Warning: 'useCallback' is defined but never used.  @typescript-eslint/no-unused-vars
+4:66  Warning: 'Space' is defined but never used.  @typescript-eslint/no-unused-vars
+57:11  Warning: 'router' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+59:31  Warning: 'addToQueue' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/(main)/pos/settings/page.tsx
+4:22  Warning: 'Card' is defined but never used.  @typescript-eslint/no-unused-vars
+4:42  Warning: 'Divider' is defined but never used.  @typescript-eslint/no-unused-vars
+4:51  Warning: 'Row' is defined but never used.  @typescript-eslint/no-unused-vars
+4:56  Warning: 'Col' is defined but never used.  @typescript-eslint/no-unused-vars
+4:66  Warning: 'Tag' is defined but never used.  @typescript-eslint/no-unused-vars
+4:79  Warning: 'Space' is defined but never used.  @typescript-eslint/no-unused-vars
+10:22  Warning: 'settingsResponsiveStyles' is defined but never used.  @typescript-eslint/no-unused-vars
+18:9  Warning: 'Option' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/(main)/pos/shift/page.tsx
+5:46  Warning: 'InputNumber' is defined but never used.  @typescript-eslint/no-unused-vars
+5:59  Warning: 'Statistic' is defined but never used.  @typescript-eslint/no-unused-vars
+5:75  Warning: 'Modal' is defined but never used.  @typescript-eslint/no-unused-vars
+5:88  Warning: 'Divider' is defined but never used.  @typescript-eslint/no-unused-vars
+92:13  Warning: 'message' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+93:13  Warning: 'showLoading' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+93:26  Warning: 'hideLoading' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+138:12  Warning: 'summaryVisible' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+138:28  Warning: 'setSummaryVisible' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/(main)/pos/tables/manager/[...mode]/page.tsx
+121:11  Warning: 'isActive' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/api/csrf/route.ts
+4:10  Warning: 'getProxyUrl' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/api/pos/products/route.ts
+27:45  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/app/error.tsx
+4:18  Warning: 'Result' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/app/offline/page.tsx
+4:10  Warning: 'Result' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/AppHeader.tsx
+3:26  Warning: 'Dropdown' is defined but never used.  @typescript-eslint/no-unused-vars
+3:48  Warning: 'Badge' is defined but never used.  @typescript-eslint/no-unused-vars
+4:15  Warning: 'MenuProps' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/BottomNavigation.tsx
+83:9  Warning: 'activeColor' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+84:9  Warning: 'inactiveColor' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/ErrorBoundary.tsx
+4:18  Warning: 'Result' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/pos/optimized/MemoizedCard.tsx
+4:18  Warning: 'Tag' is defined but never used.  @typescript-eslint/no-unused-vars
+4:35  Warning: 'ConfigProvider' is defined but never used.  @typescript-eslint/no-unused-vars
+5:40  Warning: 'CheckCircleFilled' is defined but never used.  @typescript-eslint/no-unused-vars
+5:59  Warning: 'CloseCircleFilled' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/pos/POSDineIn.tsx
+44:49  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/components/pos/PromotionCodeInput.tsx
+55:25  Warning: Unexpected any. Specify a different type.  @typescript-eslint/no-explicit-any
+
+./src/components/pos/shared/POSPageLayout.tsx
+24:3  Warning: 'posCartStyles' is defined but never used.  @typescript-eslint/no-unused-vars
+68:5  Warning: 'removeDetailFromItem' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/pos/shifts/CloseShiftModal.tsx
+131:25  Error: Parsing error: JSX element 'Button' has no corresponding closing tag.
+
+./src/components/pos/shifts/OpenShiftModal.tsx
+17:13  Warning: 'currentShift' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+20:11  Warning: 'pathname' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/pos/shifts/ShiftSummaryModal.tsx
+4:37  Warning: 'Tag' is defined but never used.  @typescript-eslint/no-unused-vars
+5:44  Warning: 'CheckCircleOutlined' is defined but never used.  @typescript-eslint/no-unused-vars
+5:65  Warning: 'CloseCircleOutlined' is defined but never used.  @typescript-eslint/no-unused-vars
+5:86  Warning: 'DollarOutlined' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/components/ServiceWorkerRegistration.tsx
+10:29  Warning: 'registration' is defined but never used.  @typescript-eslint/no-unused-vars
+13:28  Warning: 'registration' is defined but never used.  @typescript-eslint/no-unused-vars
+
+./src/hooks/pos/usePrefetching.ts
+19:11  Warning: 'router' is assigned a value but never used.  @typescript-eslint/no-unused-vars
+
+./src/theme/pos/products/style.ts
+2:10  Warning: 'posColors' is defined but never used.  @typescript-eslint/no-unused-vars
+
+info  - Need to disable some ESLint rules? Learn more here: https://nextjs.org/docs/basic-features/eslint#disabling-rules

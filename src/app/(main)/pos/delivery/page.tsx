@@ -9,8 +9,6 @@ import {
     ReloadOutlined,
     EditOutlined,
     DeleteOutlined,
-    CheckCircleFilled,
-    CloseCircleFilled,
     SearchOutlined
 } from '@ant-design/icons';
 import { Delivery } from "../../../../types/api/pos/delivery";

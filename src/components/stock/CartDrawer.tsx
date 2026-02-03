@@ -280,9 +280,9 @@ export default function CartDrawer() {
                 // Mock data for display purposes to match the design requirements
                 // In a real scenario, these would come from the item or ingredient data
                 const categoryName = item.ingredient.unit?.display_name || 'หมวดหมู่ทั่วไป';
-                const price = (item.ingredient as any).price || 129; // Mock price
+                const price = (item.ingredient as { price?: number }).price || 129; // Mock price
                 const totalPrice = price * item.quantity;
-                const addons = (item as any).details || [
+                const addons = (item as unknown as { details?: { detail_name: string; extra_price: number }[] }).details || [
                     /* Mock addons for visualization if needed, or empty */
                     // { detail_name: 'ไข่ดาว', extra_price: 10 } 
                 ];
@@ -352,7 +352,7 @@ export default function CartDrawer() {
                         {/* Addons/Details */}
                         {addons.length > 0 && (
                             <div style={{ marginTop: 6, marginBottom: 8 }}>
-                                {addons.map((addon: any, idx: number) => (
+                                {addons.map((addon: { detail_name: string; extra_price: number }, idx: number) => (
                                     <Text key={idx} style={{ display: 'block', fontSize: 12, color: '#10B981', lineHeight: 1.4 }}>
                                         + {addon.detail_name} <span style={{ opacity: 0.8 }}>(+฿{addon.extra_price})</span>
                                     </Text>

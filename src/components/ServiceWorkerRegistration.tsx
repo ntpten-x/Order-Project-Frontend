@@ -7,10 +7,10 @@ export default function ServiceWorkerRegistration() {
     useEffect(() => {
         if (process.env.NODE_ENV === 'production') {
             register({
-                onSuccess: (registration) => {
+                onSuccess: () => {
                     console.log('[SW] Service worker registered successfully');
                 },
-                onUpdate: (registration) => {
+                onUpdate: () => {
                     console.log('[SW] New service worker available');
                     // Optionally show a notification to the user
                 },
