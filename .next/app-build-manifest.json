@@ -178,6 +178,26 @@
       "static/css/common.css",
       "static/chunks/common.js",
       "static/chunks/app/(main)/pos/dashboard/[...id]/page.js"
+    ],
+    "/(main)/pos/products/page": [
+      "static/chunks/webpack.js",
+      "static/css/vendor.css",
+      "static/chunks/vendor.js",
+      "static/chunks/main-app.js",
+      "static/chunks/antd.js",
+      "static/css/common.css",
+      "static/chunks/common.js",
+      "static/chunks/app/(main)/pos/products/page.js"
+    ],
+    "/(main)/pos/tables/page": [
+      "static/chunks/webpack.js",
+      "static/css/vendor.css",
+      "static/chunks/vendor.js",
+      "static/chunks/main-app.js",
+      "static/chunks/antd.js",
+      "static/css/common.css",
+      "static/chunks/common.js",
+      "static/chunks/app/(main)/pos/tables/page.js"
     ]
   }
 }

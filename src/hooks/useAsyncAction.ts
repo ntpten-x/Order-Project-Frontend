@@ -29,9 +29,32 @@ export const useAsyncAction = () => {
             return result;
         } catch (error: unknown) {
             console.error("Async action error:", error);
+            let displayMessage = errorMessage;
+
+            if (typeof error === 'string') {
+                displayMessage = error;
+            } else if (error instanceof Error) {
+                displayMessage = error.message;
+            } else if (typeof error === 'object' && error !== null) {
+                // Check for common API error formats
+                const anyError = error as any;
+                if (anyError.response?.data?.message) {
+                    displayMessage = anyError.response.data.message;
+                } else if (anyError.message) {
+                    displayMessage = anyError.message;
+                } else {
+                    // Fallback to JSON if possible, or generic message to avoid [object Object]
+                    try {
+                        displayMessage = JSON.stringify(error);
+                    } catch (e) {
+                        displayMessage = "เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ (Unknown Error)";
+                    }
+                }
+            }
+
             Modal.error({
                 title: 'ข้อผิดพลาด',
-                content: (error as Error).message || errorMessage,
+                content: displayMessage,
             });
             return undefined;
         } finally {
