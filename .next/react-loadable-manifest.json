@@ -1,33 +1,31 @@
 {
   "..\\node_modules\\jspdf\\dist\\jspdf.es.min.js -> canvg": {
-    "id": 35641,
+    "id": "..\\node_modules\\jspdf\\dist\\jspdf.es.min.js -> canvg",
     "files": [
-      "static/chunks/vendor-1a528f779c7b9693.js"
+      "static/css/vendor.css",
+      "static/chunks/vendor.js"
     ]
   },
   "..\\node_modules\\jspdf\\dist\\jspdf.es.min.js -> dompurify": {
-    "id": 18848,
+    "id": "..\\node_modules\\jspdf\\dist\\jspdf.es.min.js -> dompurify",
     "files": [
-      "static/chunks/vendor-1a528f779c7b9693.js"
+      "static/css/vendor.css",
+      "static/chunks/vendor.js"
     ]
   },
   "..\\node_modules\\jspdf\\dist\\jspdf.es.min.js -> html2canvas": {
-    "id": 6807,
+    "id": "..\\node_modules\\jspdf\\dist\\jspdf.es.min.js -> html2canvas",
     "files": [
-      "static/chunks/vendor-1a528f779c7b9693.js"
-    ]
-  },
-  "app\\(main)\\pos\\promotions\\manager\\[...mode]\\page.tsx -> ../../../../../../services/pos/promotions.service": {
-    "id": 39988,
-    "files": [
-      "static/chunks/common-d07e30afa36edabc.js"
+      "static/css/vendor.css",
+      "static/chunks/vendor.js"
     ]
   },
   "components\\pos\\POSBottomNavigation.tsx -> ./shifts/CloseShiftModal": {
-    "id": 15718,
+    "id": "components\\pos\\POSBottomNavigation.tsx -> ./shifts/CloseShiftModal",
     "files": [
-      "static/chunks/vendor-1a528f779c7b9693.js",
-      "static/chunks/common-d07e30afa36edabc.js"
+      "static/css/vendor.css",
+      "static/chunks/vendor.js",
+      "static/chunks/_app-pages-browser_src_components_pos_shifts_CloseShiftModal_tsx.js"
     ]
   }
 }
