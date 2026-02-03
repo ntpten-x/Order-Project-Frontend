@@ -1,6 +1,12 @@
 {
   "/api/pos/orders/[id]/route": "app/api/pos/orders/[id]/route.js",
   "/_not-found/page": "app/_not-found/page.js",
+  "/api/auth/me/route": "app/api/auth/me/route.js",
+  "/api/pos/queue/route": "app/api/pos/queue/route.js",
+  "/api/pos/shifts/current/route": "app/api/pos/shifts/current/route.js",
+  "/api/pos/products/route": "app/api/pos/products/route.js",
+  "/api/pos/category/route": "app/api/pos/category/route.js",
+  "/api/csrf/route": "app/api/csrf/route.js",
   "/(main)/page": "app/(main)/page.js",
   "/(main)/pos/page": "app/(main)/pos/page.js",
   "/(main)/pos/channels/page": "app/(main)/pos/channels/page.js",
