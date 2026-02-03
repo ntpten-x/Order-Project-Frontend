@@ -1,7 +1,7 @@
 {
   "/(main)/users/page": "app/(main)/users/page.js",
-  "/(main)/users/manage/[...mode]/page": "app/(main)/users/manage/[...mode]/page.js",
   "/(main)/branch/page": "app/(main)/branch/page.js",
+  "/(main)/users/manage/[...mode]/page": "app/(main)/users/manage/[...mode]/page.js",
   "/(main)/pos/page": "app/(main)/pos/page.js",
   "/(main)/pos/channels/page": "app/(main)/pos/channels/page.js"
 }
