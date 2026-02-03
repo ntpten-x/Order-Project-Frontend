@@ -1,13 +1,5 @@
 {
   "/(auth)/login/page": "app/(auth)/login/page.js",
-  "/api/csrf/route": "app/api/csrf/route.js",
-  "/api/auth/me/route": "app/api/auth/me/route.js",
-  "/api/pos/products/route": "app/api/pos/products/route.js",
-  "/api/pos/category/route": "app/api/pos/category/route.js",
-  "/api/users/route": "app/api/users/route.js",
-  "/api/roles/getAll/route": "app/api/roles/getAll/route.js",
-  "/api/branches/route": "app/api/branches/route.js",
-  "/api/users/[id]/route": "app/api/users/[id]/route.js",
   "/(main)/page": "app/(main)/page.js",
   "/(main)/users/page": "app/(main)/users/page.js",
   "/(main)/users/manage/[...mode]/page": "app/(main)/users/manage/[...mode]/page.js"
