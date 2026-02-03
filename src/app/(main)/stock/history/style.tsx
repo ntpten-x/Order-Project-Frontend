@@ -402,7 +402,7 @@ export const OrderCard = ({ order, index, onView, onDelete, isAdmin }: OrderCard
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                         <UserOutlined style={{ color: '#8c8c8c' }} />
                         <Text type="secondary" style={{ fontSize: 13 }}>
-                            {order.ordered_by?.username || 'Unknown'}
+                            {order.ordered_by?.name || order.ordered_by?.username || 'Unknown'}
                         </Text>
                     </div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
