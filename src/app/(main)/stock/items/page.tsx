@@ -154,7 +154,7 @@ export default function ItemsPage() {
             border: '1px solid rgba(255, 77, 79, 0.1)'
           }}>
             <Text type="secondary" style={{ fontSize: 13 }}>
-              ผู้สั่ง: <strong>{order.ordered_by?.username}</strong>
+              ผู้สั่ง: <strong>{order.ordered_by?.name || order.ordered_by?.username}</strong>
             </Text>
           </div>
         </div>
@@ -199,10 +199,12 @@ export default function ItemsPage() {
           <span>ผู้สั่ง</span>
         </Space>
       ),
-      dataIndex: ['ordered_by', 'username'],
+      dataIndex: 'ordered_by',
       key: 'ordered_by',
       width: 140,
-      render: (text: string) => (
+      render: (ordered_by: any) => {
+        const displayName = ordered_by?.name || ordered_by?.username || 'Unknown';
+        return (
         <Space>
           <div style={{
             width: 32,
@@ -216,11 +218,11 @@ export default function ItemsPage() {
             fontWeight: 600,
             fontSize: 14
           }}>
-            {text?.charAt(0)?.toUpperCase() || '?'}
+            {displayName.charAt(0)?.toUpperCase() || '?'}
           </div>
-          <Text strong style={{ fontSize: 14 }}>{text || 'Unknown'}</Text>
+          <Text strong style={{ fontSize: 14 }}>{displayName}</Text>
         </Space>
-      ),
+      )},
     },
     {
       title: (

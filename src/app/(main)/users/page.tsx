@@ -74,7 +74,7 @@ export default function UsersPage() {
     
     socket.on('users:create', (newUser: User) => {
       setUsers((prevUsers) => [...prevUsers, newUser]);
-      message.success(`ผู้ใช้ใหม่ ${newUser.username} ถูกเพิ่มแล้ว`);
+      message.success(`ผู้ใช้ใหม่ ${newUser.name || newUser.username} ถูกเพิ่มแล้ว`);
     });
     socket.on('users:update', (updatedUser: User) => {
       setUsers((prevUsers) =>

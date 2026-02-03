@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { Typography, Button, Spin, message, Image, Modal } from "antd";
 import { ArrowLeftOutlined, UserOutlined, ShopOutlined, ClockCircleOutlined, TableOutlined, CarOutlined, ShoppingOutlined, PrinterOutlined, TagOutlined, CheckCircleOutlined, CloseCircleOutlined, CreditCardOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
@@ -150,7 +150,10 @@ export default function DashboardOrderDetailPage({ params }: Props) {
         );
     }
 
-    const items = sortOrderItems(order.items || []);
+    const items = useMemo(() => {
+        const grouped = groupOrderItems(order.items || []);
+        return sortOrderItems(grouped);
+    }, [order.items]);
     const payments = (order.payments || []) as PaymentWithMethod[];
     
     // Derived Data

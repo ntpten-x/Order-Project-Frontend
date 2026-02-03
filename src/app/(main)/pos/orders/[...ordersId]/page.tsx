@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { groupOrderItems } from "../../../../../utils/orderGrouping";
 import { Typography, Row, Col, Card, Tag, Button, Empty, Table, Checkbox, message, Tooltip, Space, Divider } from "antd";
 import { 
     ArrowLeftOutlined, 
@@ -137,12 +138,40 @@ export default function POSOrderDetailsPage() {
         enabled: Boolean(orderId),
     });
 
+    const activeItems = order?.items?.filter(i => i.status === OrderStatus.Pending || i.status === OrderStatus.Cooking) || [];
+    const servedItems = (order?.items?.filter(i => 
+        i.status === OrderStatus.Served || 
+        i.status === OrderStatus.Cancelled || 
+        i.status === OrderStatus.WaitingForPayment
+    ) || []).sort((a, b) => {
+        if (a.status === OrderStatus.Cancelled && b.status !== OrderStatus.Cancelled) return 1;
+        if (a.status !== OrderStatus.Cancelled && b.status === OrderStatus.Cancelled) return -1;
+        return 0;
+    });
+
+    const groupedActiveItems = useMemo(() => groupOrderItems(activeItems), [activeItems]);
+    const groupedServedItems = useMemo(() => groupOrderItems(servedItems), [servedItems]);
+
+    const nonCancelledItems = getNonCancelledItems(order?.items) as SalesOrderItem[];
+    const groupedNonCancelledItems = useMemo(() => groupOrderItems(nonCancelledItems), [nonCancelledItems]);
+    const calculatedTotal = calculateOrderTotal(order?.items);
+    const isOrderComplete = activeItems.length === 0 && (order?.items?.length || 0) > 0;
+    const shouldVirtualizeActive = groupedActiveItems.length > 12;
+    const shouldVirtualizeServed = groupedServedItems.length > 12;
+
     const handleServeItem = async (itemId: string) => {
         try {
             setIsUpdating(true);
             showLoading("กำลังดำเนินการเสิร์ฟ...");
             const csrfToken = await getCsrfTokenCached();
-            await ordersService.updateItemStatus(itemId, OrderStatus.Served, undefined, csrfToken);
+            
+            // Resolve IDs from group
+            const targetItem = groupedActiveItems.find((i: any) => i.id === itemId);
+            const idsToServe = targetItem?.originalItems?.map((i: any) => i.id) || [itemId];
+
+            await Promise.all(idsToServe.map((id: string) => 
+                ordersService.updateItemStatus(id, OrderStatus.Served, undefined, csrfToken)
+            ));
             message.success("เสิร์ฟรายการเรียบร้อย");
             fetchOrder(orderId as string);
         } catch {
@@ -157,10 +186,17 @@ export default function POSOrderDetailsPage() {
         if (selectedRowKeys.length === 0) return;
         try {
             setIsUpdating(true);
-            showLoading(`กำลังดำเนินการเสิร์ฟ ${selectedRowKeys.length} รายการ...`);
+            showLoading(`กำลังดำเนินการเสิร์ฟ ${selectedRowKeys.length} รายการ (รวมกลุ่ม)...`);
             const csrfToken = await getCsrfTokenCached();
-            await Promise.all(selectedRowKeys.map(key => 
-                ordersService.updateItemStatus(key.toString(), OrderStatus.Served, undefined, csrfToken)
+            
+            // Resolve all IDs from selected groups
+            const allIds = selectedRowKeys.flatMap(key => {
+                const group = groupedActiveItems.find((g: any) => g.id === key);
+                return group?.originalItems?.map((i: any) => i.id) || [key.toString()];
+            });
+
+            await Promise.all(allIds.map((id: string) => 
+                ordersService.updateItemStatus(id, OrderStatus.Served, undefined, csrfToken)
             ));
             message.success("เสิร์ฟรายการที่เลือกเรียบร้อย");
             setSelectedRowKeys([]);
@@ -176,11 +212,17 @@ export default function POSOrderDetailsPage() {
     const handleCancelSelected = async () => {
         if (selectedRowKeys.length === 0) return;
         
+        // Resolve all IDs to count correctly for confirmation
+        const allIds = selectedRowKeys.flatMap(key => {
+                const group = groupedActiveItems.find((g: any) => g.id === key);
+                return group?.originalItems?.map((i: any) => i.id) || [key.toString()];
+        });
+
         setConfirmConfig({
             open: true,
             type: 'danger',
             title: 'ยืนยันการยกเลิก',
-            content: `คุณต้องการยกเลิก ${selectedRowKeys.length} รายการที่เลือกใช่หรือไม่?`,
+            content: `คุณต้องการยกเลิก ${allIds.length} รายการที่เลือกใช่หรือไม่?`,
             okText: 'ยืนยันยกเลิก',
             cancelText: 'ไม่ยกเลิก',
             onOk: async () => {
@@ -189,8 +231,8 @@ export default function POSOrderDetailsPage() {
                     showLoading("กำลังดำเนินการยกเลิก...");
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
-                    await Promise.all(selectedRowKeys.map(key => 
-                        ordersService.updateItemStatus(key.toString(), OrderStatus.Cancelled, undefined, csrfToken)
+                    await Promise.all(allIds.map((id: string) => 
+                        ordersService.updateItemStatus(id, OrderStatus.Cancelled, undefined, csrfToken)
                     ));
                     message.success("ยกเลิกรายการที่เลือกเรียบร้อย");
                     setSelectedRowKeys([]);
@@ -210,7 +252,15 @@ export default function POSOrderDetailsPage() {
             setIsUpdating(true);
             showLoading("กำลังย้อนกลับสถานะ...");
             const csrfToken = await getCsrfTokenCached();
-            await ordersService.updateItemStatus(itemId, OrderStatus.Cooking, undefined, csrfToken);
+
+            // Resolve IDs from group (served items)
+            const targetItem = groupedServedItems.find((i: any) => i.id === itemId);
+            const idsToUnserve = targetItem?.originalItems?.map((i: any) => i.id) || [itemId];
+
+            await Promise.all(idsToUnserve.map((id: string) => 
+                ordersService.updateItemStatus(id, OrderStatus.Cooking, undefined, csrfToken)
+            ));
+
             message.success("ยกเลิกการเสิร์ฟ (กลับไปปรุง)");
             fetchOrder(orderId as string);
         } finally {
@@ -280,8 +330,15 @@ export default function POSOrderDetailsPage() {
                     showLoading("กำลังลบรายการ...");
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
-                    await ordersService.deleteItem(itemId, undefined, csrfToken);
-                    message.success("ลบรายการเรียบร้อย");
+                    
+                    // Resolve IDs from group
+                    const targetItem = groupedActiveItems.find((i: any) => i.id === itemId);
+                    const idsToDelete = targetItem?.originalItems?.map((i: any) => i.id) || [itemId];
+
+                    await Promise.all(idsToDelete.map((id: string) => 
+                           ordersService.deleteItem(id, undefined, csrfToken)
+                    ));
+                    message.success(`ลบรายการเรียบร้อย (${idsToDelete.length} รายการ)`);
                     fetchOrder(orderId as string);
                 } catch {
                     message.error("ไม่สามารถลบรายการได้");
@@ -713,22 +770,7 @@ export default function POSOrderDetailsPage() {
         }
     ];
 
-    const activeItems = order.items?.filter(i => i.status === OrderStatus.Pending || i.status === OrderStatus.Cooking) || [];
-    const servedItems = (order.items?.filter(i => 
-        i.status === OrderStatus.Served || 
-        i.status === OrderStatus.Cancelled || 
-        i.status === OrderStatus.WaitingForPayment
-    ) || []).sort((a, b) => {
-        if (a.status === OrderStatus.Cancelled && b.status !== OrderStatus.Cancelled) return 1;
-        if (a.status !== OrderStatus.Cancelled && b.status === OrderStatus.Cancelled) return -1;
-        return 0;
-    });
 
-    const nonCancelledItems = getNonCancelledItems(order.items) as SalesOrderItem[];
-    const calculatedTotal = calculateOrderTotal(order.items);
-    const isOrderComplete = activeItems.length === 0 && (order.items?.length || 0) > 0;
-    const shouldVirtualizeActive = activeItems.length > 12;
-    const shouldVirtualizeServed = servedItems.length > 12;
 
     return (
         <div className="order-detail-page" style={orderDetailStyles.container}>
@@ -953,7 +995,7 @@ export default function POSOrderDetailsPage() {
                                     {/* Desktop Table */}
                                     <div className="order-detail-table-desktop">
                                         <Table 
-                                            dataSource={activeItems} 
+                                            dataSource={groupedActiveItems} 
                                             columns={desktopColumns} 
                                             rowKey="id" 
                                             virtual={shouldVirtualizeActive}
@@ -971,7 +1013,7 @@ export default function POSOrderDetailsPage() {
 
                                     {/* Mobile Cards */}
                                     <div className="order-detail-cards-mobile">
-                                        {activeItems.map(item => (
+                                        {groupedActiveItems.map((item: any) => (
                                             <div 
                                                 key={item.id} 
                                                 style={{...orderDetailStyles.itemCard, ...orderDetailStyles.itemCardActive}}
@@ -1110,7 +1152,7 @@ export default function POSOrderDetailsPage() {
                                     {/* Desktop Table for Served items */}
                                     <div className="order-detail-table-desktop">
                                         <Table 
-                                            dataSource={servedItems} 
+                                            dataSource={groupedServedItems} 
                                             columns={desktopServedColumns} 
                                             rowKey="id" 
                                             virtual={shouldVirtualizeServed}
@@ -1124,7 +1166,7 @@ export default function POSOrderDetailsPage() {
 
                                     {/* Mobile Cards for Served items */}
                                     <div className="order-detail-cards-mobile">
-                                        {servedItems.map(item => (
+                                        {groupedServedItems.map((item: any) => (
                                             <div 
                                                 key={item.id} 
                                                 style={{
@@ -1239,7 +1281,7 @@ export default function POSOrderDetailsPage() {
                                 <Text strong style={{ fontSize: 15, marginBottom: 10, display: 'block', color: orderDetailColors.textSecondary }}>
                                     รายการสินค้า
                                 </Text>
-                                {nonCancelledItems.map((item, index) => (
+                                {groupedNonCancelledItems.map((item: any, index: number) => (
                                     <div key={item.id || index} style={orderDetailStyles.summaryItemRow}>
                                         {/* Product Image */}
                                         {item.product?.img_url ? (

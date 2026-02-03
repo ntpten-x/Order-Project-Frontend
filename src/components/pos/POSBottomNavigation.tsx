@@ -19,11 +19,9 @@ import {
 import { Badge } from "antd";
 import { useAuth } from "../../contexts/AuthContext";
 import { useShift } from "../../contexts/pos/ShiftContext";
-import dynamic from "next/dynamic";
 
-const CloseShiftModal = dynamic(() => import("./shifts/CloseShiftModal"), {
-  ssr: false,
-});
+
+import CloseShiftModal from "./shifts/CloseShiftModal";
 
 interface MenuItem {
   key: string;
@@ -72,8 +70,12 @@ const POSBottomNavigation = () => {
       { key: 'delivery', label: 'เดลิเวอรี่', icon: CarOutlined, path: '/pos/delivery' },
     ];
     
-    if (user?.role === 'Admin') {
+    // Admin & Manager Access
+    if (user?.role === 'Admin' || user?.role === 'Manager') {
       items.push(
+        { key: 'category', label: 'หมวดหมู่', icon: AppstoreOutlined, path: '/pos/category' },
+        { key: 'products', label: 'สินค้า', icon: ShopOutlined, path: '/pos/products' },
+        { key: 'productsUnit', label: 'หน่วยสินค้า', icon: AppstoreOutlined, path: '/pos/productsUnit' },
         { key: 'discounts', label: 'ส่วนลด', icon: TagsOutlined, path: '/pos/discounts' },
         { key: 'payment', label: 'ชำระเงิน', icon: CreditCardOutlined, path: '/pos/paymentMethod' },
         { key: 'settings', label: 'ตั้งค่า', icon: SettingOutlined, path: '/pos/settings' },

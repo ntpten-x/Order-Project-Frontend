@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Typography, Row, Col, Card, Button, Empty, Divider, message, Tag, Avatar, Space, Alert } from "antd";
 import { ArrowLeftOutlined, ShopOutlined, RocketOutlined, CheckCircleOutlined, EditOutlined, InfoCircleOutlined } from "@ant-design/icons";
@@ -8,6 +8,7 @@ import { ordersService } from "../../../../../../services/pos/orders.service";
 import { paymentMethodService } from "../../../../../../services/pos/paymentMethod.service";
 import { paymentsService } from "../../../../../../services/pos/payments.service";
 import { getCsrfTokenCached } from "../../../../../../utils/pos/csrf";
+import { groupOrderItems } from "../../../../../../utils/orderGrouping";
 import { SalesOrder, OrderStatus, OrderType } from "../../../../../../types/api/pos/salesOrder";
 import { PaymentStatus } from "../../../../../../types/api/pos/payments";
 import { itemsDeliveryStyles, itemsColors, itemsResponsiveStyles } from "../../../../../../theme/pos/items/style";
@@ -97,6 +98,13 @@ export default function POSDeliverySummaryPage() {
     });
 
     const { subtotal, discount, vat, total } = calculatePaymentTotals(order, Number(order?.total_amount || 0));
+
+    // Group items for display
+    const groupedItems = useMemo(() => {
+        if (!order?.items) return [];
+        const activeItems = order.items.filter(item => item.status !== OrderStatus.Cancelled);
+        return groupOrderItems(activeItems);
+    }, [order?.items]);
 
     const handleHandoverToRider = async () => {
         if (!order) return;
@@ -286,7 +294,7 @@ export default function POSDeliverySummaryPage() {
                         <Card style={itemsDeliveryStyles.card}>
                              <Title level={4} style={{ marginBottom: 20 }}>รายการอาหาร</Title>
                             <div style={{ overflowY: 'auto', paddingRight: 8, minHeight: 300, maxHeight: 600 }}>
-                                {order.items?.filter(item => item.status !== OrderStatus.Cancelled).map((item, idx) => (
+                                {groupedItems.map((item: any, idx: number) => (
                                     <div key={item.id || idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${itemsColors.borderLight}` }}>
                                          <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 0 }}>
                                             <Avatar 
