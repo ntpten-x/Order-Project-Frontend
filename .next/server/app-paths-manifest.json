@@ -1,10 +1,7 @@
 {
-  "/api/pos/orders/[id]/route": "app/api/pos/orders/[id]/route.js",
-  "/api/pos/products/route": "app/api/pos/products/route.js",
-  "/api/pos/category/route": "app/api/pos/category/route.js",
+  "/(main)/users/page": "app/(main)/users/page.js",
+  "/(main)/users/manage/[...mode]/page": "app/(main)/users/manage/[...mode]/page.js",
+  "/(main)/branch/page": "app/(main)/branch/page.js",
   "/(main)/pos/page": "app/(main)/pos/page.js",
-  "/(main)/pos/channels/page": "app/(main)/pos/channels/page.js",
-  "/(main)/pos/channels/dine-in/page": "app/(main)/pos/channels/dine-in/page.js",
-  "/(main)/pos/channels/dine-in/[tableId]/page": "app/(main)/pos/channels/dine-in/[tableId]/page.js",
-  "/(main)/pos/orders/[...ordersId]/page": "app/(main)/pos/orders/[...ordersId]/page.js"
+  "/(main)/pos/channels/page": "app/(main)/pos/channels/page.js"
 }
