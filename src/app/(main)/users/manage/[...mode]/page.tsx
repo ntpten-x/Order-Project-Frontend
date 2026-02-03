@@ -1,14 +1,14 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Form, Input, Button, Card, Select, message, Typography, Spin, Popconfirm, Switch } from 'antd';
+import { Form, Input, Button, Card, Select, message, Typography, Spin, Popconfirm, Switch, Modal } from 'antd';
 import { ArrowLeftOutlined, SaveOutlined, DeleteOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import UserManageStyle from './style';
 import { Role } from '@/types/api/roles';
 
 const { Title } = Typography;
-const { Option } = Select;
+
 
 
 import { authService } from "../../../../../services/auth.service";
@@ -24,6 +24,14 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   const [roles, setRoles] = useState<Role[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [csrfToken, setCsrfToken] = useState<string>("");
+  
+  // Modal Visibility State
+  const [roleModalVisible, setRoleModalVisible] = useState(false);
+  const [branchModalVisible, setBranchModalVisible] = useState(false);
+
+  // Watch form values for display in custom Select
+  const selectedRoleId = Form.useWatch('roles_id', form);
+  const selectedBranchId = Form.useWatch('branch_id', form);
 
   const mode = params.mode[0];
   const userId = params.mode[1] || null;
@@ -128,8 +136,11 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
     }
   };
 
+  const currentRole = roles.find(r => r.id === selectedRoleId);
+  const currentBranch = branches.find(b => b.id === selectedBranchId);
+
   return (
-    <div className="p-6 md:p-10 min-h-screen bg-gray-50">
+    <div className="p-6 md:p-10 min-h-screen bg-gray-50 user-manage-page">
       <div className="max-w-2xl mx-auto">
         <div className="mb-6">
           <Button 
@@ -159,7 +170,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
           </div>
         </div>
 
-        <Card className="shadow-sm rounded-2xl border-gray-100">
+        <Card className="shadow-sm rounded-2xl border-gray-100" style={{ overflow: 'visible' }}>
           {loading ? (
             <div className="flex justify-center py-10">
               <Spin size="large" />
@@ -207,13 +218,22 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
                 label="บทบาท"
                 rules={[{ required: true, message: 'กรุณาเลือกบทบาท' }]}
               >
-                <Select size="large" placeholder="เลือกบทบาท">
-                  {roles.map((role) => (
-                    <Option key={role.id} value={role.id}>
-                      {role.display_name}
-                    </Option>
-                  ))}
-                </Select>
+                {/* Custom Select Trigger for Role */}
+                <div 
+                    className="ant-input ant-input-lg cursor-pointer flex items-center justify-between"
+                    onClick={() => setRoleModalVisible(true)}
+                    style={{ 
+                        border: '1px solid #d9d9d9', 
+                        borderRadius: 8,
+                        padding: '7px 11px',
+                        height: 48 
+                    }}
+                >
+                    <span className={currentRole ? 'text-black' : 'text-gray-400'}>
+                        {currentRole ? currentRole.display_name : 'เลือกบทบาท'}
+                    </span>
+                    <span className="text-gray-400">▼</span>
+                </div>
               </Form.Item>
 
               <Form.Item
@@ -221,16 +241,79 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
                 label="สาขา"
                 rules={[{ required: true, message: 'กรุณาเลือกสาขา' }]}
               >
-                <Select size="large" placeholder="เลือกสาขา" allowClear>
-                  {branches.map((branch) => (
-                    <Option key={branch.id} value={branch.id}>
-                      {branch.branch_name} ({branch.branch_code})
-                    </Option>
-                  ))}
-                </Select>
+                 {/* Custom Select Trigger for Branch */}
+                 <div 
+                    className="ant-input ant-input-lg cursor-pointer flex items-center justify-between"
+                    onClick={() => setBranchModalVisible(true)}
+                    style={{ 
+                        border: '1px solid #d9d9d9', 
+                        borderRadius: 8,
+                        padding: '7px 11px',
+                        height: 48 
+                    }}
+                >
+                    <span className={currentBranch ? 'text-black' : 'text-gray-400'}>
+                        {currentBranch ? `${currentBranch.branch_name} (${currentBranch.branch_code})` : 'เลือกสาขา'}
+                    </span>
+                    <span className="text-gray-400">▼</span>
+                </div>
               </Form.Item>
 
+              {/* Role Selection Modal */}
+              <Modal
+                title="เลือกบทบาท"
+                open={roleModalVisible}
+                onCancel={() => setRoleModalVisible(false)}
+                footer={null}
+                centered
+                zIndex={10001} // Ensure above everything
+              >
+                 <div className="flex flex-col gap-2 max-h-[60vh] overflow-y-auto p-1">
+                    {roles.map((role) => (
+                        <div
+                            key={role.id}
+                            onClick={() => {
+                                form.setFieldValue('roles_id', role.id);
+                                setRoleModalVisible(false);
+                            }}
+                            className={`p-3 border rounded-lg cursor-pointer flex justify-between items-center hover:bg-gray-50 transition-colors ${selectedRoleId === role.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
+                        >
+                            <span className={selectedRoleId === role.id ? 'font-medium text-blue-600' : 'text-gray-700'}>
+                                {role.display_name}
+                            </span>
+                            {selectedRoleId === role.id && <span className="text-blue-600">✓</span>}
+                        </div>
+                    ))}
+                 </div>
+              </Modal>
 
+              {/* Branch Selection Modal */}
+              <Modal
+                title="เลือกสาขา"
+                open={branchModalVisible}
+                onCancel={() => setBranchModalVisible(false)}
+                footer={null}
+                centered
+                zIndex={10001} // Ensure above everything
+              >
+                  <div className="flex flex-col gap-2 max-h-[60vh] overflow-y-auto p-1">
+                    {branches.map((branch) => (
+                        <div
+                            key={branch.id}
+                            onClick={() => {
+                                form.setFieldValue('branch_id', branch.id);
+                                setBranchModalVisible(false);
+                            }}
+                            className={`p-3 border rounded-lg cursor-pointer flex justify-between items-center hover:bg-gray-50 transition-colors ${selectedBranchId === branch.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
+                        >
+                            <span className={selectedBranchId === branch.id ? 'font-medium text-blue-600' : 'text-gray-700'}>
+                                {branch.branch_name} ({branch.branch_code})
+                            </span>
+                             {selectedBranchId === branch.id && <span className="text-blue-600">✓</span>}
+                        </div>
+                    ))}
+                  </div>
+              </Modal>
 
               {isEdit && (
                 <div className="flex gap-8 mb-4">
