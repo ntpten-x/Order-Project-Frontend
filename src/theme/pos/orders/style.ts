@@ -1485,18 +1485,45 @@ export const ordersResponsiveStyles = `
       margin: 0 !important;
       padding: 0 !important;
       top: 0 !important;
+      height: 100vh !important;
+      overflow: hidden !important;
     }
 
     .mobile-fullscreen-modal .ant-modal-content {
+      display: flex !important;
+      flex-direction: column !important;
+      height: 100vh !important;
       border-radius: 0 !important;
-      min-height: 100vh !important;
+      padding: 0 !important;
+      overflow: hidden !important;
     }
 
     .mobile-fullscreen-modal .ant-modal-body {
+      flex: 1 !important;
+      display: flex !important;
+      flex-direction: column !important;
       padding: 0 !important;
-      max-height: calc(100vh - 60px) !important;
+      overflow: hidden !important;
+      height: 100% !important;
+    }
+    
+    /* Ensure internal containers take full height/flex properly */
+    .mobile-fullscreen-modal .modal-header {
+      flex-shrink: 0 !important;
+      z-index: 10 !important;
+    }
+    
+    .mobile-fullscreen-modal .custom-scrollbar {
+      flex: 1 !important;
       overflow-y: auto !important;
       -webkit-overflow-scrolling: touch !important;
+      min-height: 0 !important; /* Critical for flex scroll */
+    }
+    
+    .mobile-fullscreen-modal .action-buttons {
+      flex-shrink: 0 !important;
+      z-index: 10 !important;
+      padding-bottom: max(16px, env(safe-area-inset-bottom)) !important; /* Handle iPhone X+ safe area */
     }
 
     /* Better spacing for mobile */
