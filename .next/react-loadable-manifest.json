@@ -1,33 +1,10 @@
 {
-  "..\\node_modules\\jspdf\\dist\\jspdf.es.min.js -> canvg": {
-    "id": 35641,
-    "files": [
-      "static/chunks/vendor-19b82cfcd590eeb8.js"
-    ]
-  },
-  "..\\node_modules\\jspdf\\dist\\jspdf.es.min.js -> dompurify": {
-    "id": 18848,
-    "files": [
-      "static/chunks/vendor-19b82cfcd590eeb8.js"
-    ]
-  },
-  "..\\node_modules\\jspdf\\dist\\jspdf.es.min.js -> html2canvas": {
-    "id": 6807,
-    "files": [
-      "static/chunks/vendor-19b82cfcd590eeb8.js"
-    ]
-  },
-  "app\\(main)\\pos\\promotions\\manager\\[...mode]\\page.tsx -> ../../../../../../services/pos/promotions.service": {
-    "id": 39988,
-    "files": [
-      "static/chunks/common-29a5d5186b303737.js"
-    ]
-  },
   "components\\pos\\POSBottomNavigation.tsx -> ./shifts/CloseShiftModal": {
-    "id": 15718,
+    "id": "components\\pos\\POSBottomNavigation.tsx -> ./shifts/CloseShiftModal",
     "files": [
-      "static/chunks/vendor-19b82cfcd590eeb8.js",
-      "static/chunks/common-29a5d5186b303737.js"
+      "static/css/vendor.css",
+      "static/chunks/vendor.js",
+      "static/chunks/_app-pages-browser_src_components_pos_shifts_CloseShiftModal_tsx.js"
     ]
   }
 }

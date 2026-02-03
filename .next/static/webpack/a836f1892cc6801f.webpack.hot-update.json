@@ -1,0 +1,1 @@
+{"c":["app/layout","app/(main)/pos/layout","app/(main)/pos/channels/dine-in/[tableId]/page","app/(main)/pos/orders/[...ordersId]/page","webpack","vendor","common"],"r":[],"m":["(app-pages-browser)/./src/utils/orderGrouping.ts"]}
