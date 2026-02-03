@@ -10,15 +10,22 @@
       "static/chunks/common.js",
       "static/chunks/app/global-error.js"
     ],
-    "/(auth)/login/page": [
+    "/(main)/page": [
       "static/chunks/webpack.js",
       "static/css/vendor.css",
       "static/chunks/vendor.js",
       "static/chunks/main-app.js",
       "static/chunks/antd.js",
+      "static/chunks/app/(main)/page.js"
+    ],
+    "/(main)/layout": [
+      "static/chunks/webpack.js",
+      "static/css/vendor.css",
+      "static/chunks/vendor.js",
+      "static/chunks/main-app.js",
       "static/css/common.css",
       "static/chunks/common.js",
-      "static/chunks/app/(auth)/login/page.js"
+      "static/chunks/app/(main)/layout.js"
     ],
     "/layout": [
       "static/chunks/webpack.js",
@@ -54,24 +61,14 @@
       "static/chunks/antd.js",
       "static/chunks/app/not-found.js"
     ],
-    "/(main)/page": [
+    "/(main)/pos/page": [
       "static/chunks/webpack.js",
       "static/css/vendor.css",
       "static/chunks/vendor.js",
       "static/chunks/main-app.js",
-      "static/chunks/antd.js",
-      "static/chunks/app/(main)/page.js"
+      "static/chunks/app/(main)/pos/page.js"
     ],
-    "/(main)/layout": [
-      "static/chunks/webpack.js",
-      "static/css/vendor.css",
-      "static/chunks/vendor.js",
-      "static/chunks/main-app.js",
-      "static/css/common.css",
-      "static/chunks/common.js",
-      "static/chunks/app/(main)/layout.js"
-    ],
-    "/(main)/users/page": [
+    "/(main)/pos/layout": [
       "static/chunks/webpack.js",
       "static/css/vendor.css",
       "static/chunks/vendor.js",
@@ -79,25 +76,7 @@
       "static/chunks/antd.js",
       "static/css/common.css",
       "static/chunks/common.js",
-      "static/chunks/app/(main)/users/page.js"
-    ],
-    "/(main)/users/layout": [
-      "static/chunks/webpack.js",
-      "static/css/vendor.css",
-      "static/chunks/vendor.js",
-      "static/chunks/main-app.js",
-      "static/chunks/antd.js",
-      "static/chunks/app/(main)/users/layout.js"
-    ],
-    "/(main)/users/manage/[...mode]/page": [
-      "static/chunks/webpack.js",
-      "static/css/vendor.css",
-      "static/chunks/vendor.js",
-      "static/chunks/main-app.js",
-      "static/chunks/antd.js",
-      "static/css/common.css",
-      "static/chunks/common.js",
-      "static/chunks/app/(main)/users/manage/[...mode]/page.js"
+      "static/chunks/app/(main)/pos/layout.js"
     ]
   }
 }

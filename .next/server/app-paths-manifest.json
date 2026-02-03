@@ -1,6 +1,7 @@
 {
-  "/(auth)/login/page": "app/(auth)/login/page.js",
+  "/api/auth/me/route": "app/api/auth/me/route.js",
+  "/api/pos/products/route": "app/api/pos/products/route.js",
+  "/api/pos/category/route": "app/api/pos/category/route.js",
   "/(main)/page": "app/(main)/page.js",
-  "/(main)/users/page": "app/(main)/users/page.js",
-  "/(main)/users/manage/[...mode]/page": "app/(main)/users/manage/[...mode]/page.js"
+  "/(main)/pos/page": "app/(main)/pos/page.js"
 }

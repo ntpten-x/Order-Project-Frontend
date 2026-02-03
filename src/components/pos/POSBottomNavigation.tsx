@@ -19,11 +19,9 @@ import {
 import { Badge } from "antd";
 import { useAuth } from "../../contexts/AuthContext";
 import { useShift } from "../../contexts/pos/ShiftContext";
-import dynamic from "next/dynamic";
 
-const CloseShiftModal = dynamic(() => import("./shifts/CloseShiftModal"), {
-  ssr: false,
-});
+
+import CloseShiftModal from "./shifts/CloseShiftModal";
 
 interface MenuItem {
   key: string;
