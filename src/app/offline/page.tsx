@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { Result, Button } from 'antd';
+import { Button } from 'antd';
 import { WifiOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 

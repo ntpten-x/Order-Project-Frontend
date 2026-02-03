@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Modal, Input, Button, Typography, Space, Divider, InputNumber, Tag } from 'antd';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { Modal, Input, Button, Typography, Space, Divider, InputNumber, Tag, message } from 'antd';
 import Image from 'next/image';
 import { PlusOutlined, MinusOutlined, SaveOutlined, CloseOutlined, InfoCircleOutlined, DeleteOutlined } from '@ant-design/icons';
 import { SalesOrderItem } from '../../../../../types/api/pos/salesOrderItem';
@@ -36,7 +36,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                 initializedItemIdRef.current = currentItemId;
             }
         }
-    }, [item?.id, isOpen]);
+    }, [item, isOpen]);
 
     // Reset when modal closes
     useEffect(() => {
@@ -49,7 +49,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
         }
     }, [isOpen]);
 
-    const handleSave = async () => {
+    const handleSave = useCallback(async () => {
         if (!item) return;
         try {
             showLoading("กำลังบันทึกแก้ไข...");
@@ -57,34 +57,37 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
             const validDetails = details.filter(d => d.detail_name && d.detail_name.trim() !== '');
             await onSave(item.id, quantity, notes, validDetails);
             // Don't close immediately - let parent handle it after successful save
-        } catch (error) {
-            // Error handled by parent
+        } catch (error: unknown) {
+            console.error(error);
+            message.error("บันทึกรายการไม่สำเร็จ");
         } finally {
             hideLoading();
         }
-    };
+    }, [item, quantity, notes, details, onSave, showLoading, hideLoading]); // Added dependencies
 
-    const handleIncrement = () => {
+    const handleIncrement = useCallback(() => { // Wrapped in useCallback
         setQuantity(prev => prev + 1);
-    };
+    }, []);
 
-    const handleDecrement = () => {
+    const handleDecrement = useCallback(() => { // Wrapped in useCallback
         setQuantity(prev => Math.max(1, prev - 1));
-    };
+    }, []);
 
-    const handleAddDetail = () => {
-        setDetails([...details, { detail_name: '', extra_price: 0 }]);
-    };
+    const handleAddDetail = useCallback(() => { // Wrapped in useCallback
+        setDetails(prevDetails => [...prevDetails, { detail_name: '', extra_price: 0 }]);
+    }, []);
 
-    const handleRemoveDetail = (index: number) => {
-        setDetails(details.filter((_, i) => i !== index));
-    };
+    const handleRemoveDetail = useCallback((index: number) => { // Wrapped in useCallback
+        setDetails(prevDetails => prevDetails.filter((_, i) => i !== index));
+    }, []);
 
-    const handleUpdateDetail = (index: number, field: string, value: string | number) => {
-        const newDetails = [...details];
-        newDetails[index] = { ...newDetails[index], [field]: value };
-        setDetails(newDetails);
-    };
+    const handleUpdateDetail = useCallback((index: number, field: string, value: string | number) => { // Wrapped in useCallback
+        setDetails(prevDetails => {
+            const newDetails = [...prevDetails];
+            newDetails[index] = { ...newDetails[index], [field]: value };
+            return newDetails;
+        });
+    }, []);
 
     if (!item) return null;
 
@@ -106,14 +109,14 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                 <Text strong style={{ fontSize: 18, flex: 1, color: orderDetailColors.text, lineHeight: 1.4 }}>
                     แก้ไขรายการ
                 </Text>
-                <Button 
-                    type="text" 
-                    icon={<CloseOutlined />} 
+                <Button
+                    type="text"
+                    icon={<CloseOutlined />}
                     onClick={onClose}
                     aria-label="ปิด"
-                    style={{ 
-                        height: 44, 
-                        width: 44, 
+                    style={{
+                        height: 44,
+                        width: 44,
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -128,10 +131,10 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
 
             <div style={{ padding: '20px', maxHeight: 'calc(100vh - 200px)', overflowY: 'auto' }}>
                 {/* Product Section with Image */}
-                <div style={{ 
-                    display: 'flex', 
-                    gap: 16, 
-                    marginBottom: 24, 
+                <div style={{
+                    display: 'flex',
+                    gap: 16,
+                    marginBottom: 24,
                     alignItems: 'center',
                     background: orderDetailColors.backgroundSecondary,
                     padding: 16,
@@ -147,14 +150,14 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                                 style={{ borderRadius: 14, objectFit: 'cover', border: `1px solid ${orderDetailColors.borderLight}` }}
                             />
                         ) : (
-                            <div style={{ 
-                                width: 80, 
-                                height: 80, 
-                                borderRadius: 14, 
-                                background: `linear-gradient(135deg, ${orderDetailColors.primaryLight} 0%, #DBEAFE 100%)`, 
-                                display: 'flex', 
-                                alignItems: 'center', 
-                                justifyContent: 'center' 
+                            <div style={{
+                                width: 80,
+                                height: 80,
+                                borderRadius: 14,
+                                background: `linear-gradient(135deg, ${orderDetailColors.primaryLight} 0%, #DBEAFE 100%)`,
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
                             }}>
                                 <InfoCircleOutlined style={{ fontSize: 28, color: orderDetailColors.primary, opacity: 0.5 }} />
                             </div>
@@ -181,11 +184,11 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                 <div style={{ marginBottom: 24 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
                         <Text strong style={{ fontSize: 16, color: orderDetailColors.text }}>รายการเพิ่มเติม (Topping)</Text>
-                        <Button 
-                            type="text" 
-                            icon={<PlusOutlined style={{ fontSize: 12 }} />} 
+                        <Button
+                            type="text"
+                            icon={<PlusOutlined style={{ fontSize: 12 }} />}
                             onClick={handleAddDetail}
-                            style={{ 
+                            style={{
                                 borderRadius: 12,
                                 background: orderDetailColors.primaryLight,
                                 color: orderDetailColors.primary,
@@ -203,12 +206,12 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                             เพิ่มรายการ
                         </Button>
                     </div>
-                    
+
                     {details.length === 0 ? (
-                        <div style={{ 
-                            textAlign: 'center', 
-                            padding: '16px', 
-                            background: orderDetailColors.backgroundSecondary, 
+                        <div style={{
+                            textAlign: 'center',
+                            padding: '16px',
+                            background: orderDetailColors.backgroundSecondary,
                             borderRadius: 12,
                             border: `1px dashed ${orderDetailColors.border}`,
                         }}>
@@ -217,17 +220,17 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                     ) : (
                         <Space direction="vertical" style={{ width: '100%' }} size={12}>
                             {details.map((detail, index) => (
-                                <div key={index} style={{ 
-                                    display: 'flex', 
-                                    gap: 10, 
+                                <div key={index} style={{
+                                    display: 'flex',
+                                    gap: 10,
                                     alignItems: 'center',
                                     padding: '12px 14px',
                                     background: orderDetailColors.backgroundSecondary,
                                     borderRadius: 12,
                                     border: `1px solid ${orderDetailColors.border}`,
                                 }}>
-                                    <Input 
-                                        placeholder="รายการ" 
+                                    <Input
+                                        placeholder="รายการ"
                                         value={detail.detail_name}
                                         onChange={(e) => handleUpdateDetail(index, 'detail_name', e.target.value)}
                                         style={{ flex: 2, borderRadius: 10, height: 44, fontSize: 15 }}
@@ -253,12 +256,12 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                                             }
                                         }}
                                     />
-                                    <Button 
-                                        danger 
-                                        type="text" 
-                                        icon={<DeleteOutlined />} 
+                                    <Button
+                                        danger
+                                        type="text"
+                                        icon={<DeleteOutlined />}
                                         onClick={() => handleRemoveDetail(index)}
-                                        style={{ 
+                                        style={{
                                             color: orderDetailColors.danger,
                                             borderRadius: 10,
                                             width: 44,

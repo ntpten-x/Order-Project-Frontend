@@ -99,3 +99,5 @@ export interface CreateSalesOrderDTO {
 
     items: CreateOrderItemDTO[];
 }
+
+export type UpdateSalesOrderDTO = Partial<CreateSalesOrderDTO>;

@@ -25,7 +25,7 @@ import { useRoleGuard } from "../../../../utils/pos/accessControl";
 import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
 import { paymentMethodService } from "../../../../services/pos/paymentMethod.service";
-import { pageStyles, globalStyles } from '../../../../theme/pos/paymentMethod/style';
+import { globalStyles } from '../../../../theme/pos/paymentMethod/style';
 import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 

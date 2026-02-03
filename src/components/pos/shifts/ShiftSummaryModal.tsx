@@ -1,8 +1,8 @@
 "use client";
 
 import React, { useRef } from 'react';
-import { Modal, Button, Typography, Tag, message } from 'antd';
-import { PrinterOutlined, FilePdfOutlined, CheckCircleOutlined, CloseCircleOutlined, DollarOutlined } from '@ant-design/icons';
+import { Modal, Button, Typography, message } from 'antd';
+import { PrinterOutlined, FilePdfOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
 import 'dayjs/locale/th';
 import { exportShiftSummaryPDF, ShiftSummaryExport } from '../../../utils/export.utils';

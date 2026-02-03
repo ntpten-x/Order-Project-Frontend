@@ -2,19 +2,18 @@
 
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Typography, Button, Spin, message, Image, Modal } from "antd";
-import { ArrowLeftOutlined, UserOutlined, ShopOutlined, ClockCircleOutlined, DollarCircleOutlined, TableOutlined, CarOutlined, ShoppingOutlined, PrinterOutlined, TagOutlined, CheckCircleOutlined, CloseCircleOutlined, CreditCardOutlined, CalendarOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined, UserOutlined, ShopOutlined, ClockCircleOutlined, TableOutlined, CarOutlined, ShoppingOutlined, PrinterOutlined, TagOutlined, CheckCircleOutlined, CloseCircleOutlined, CreditCardOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { ordersService } from "../../../../../services/pos/orders.service";
 import { shopProfileService, ShopProfile } from "../../../../../services/pos/shopProfile.service";
 import { SalesOrder, OrderStatus, OrderType } from "../../../../../types/api/pos/salesOrder";
-import { SalesOrderItem } from "../../../../../types/api/pos/salesOrderItem";
 import { Payments } from "../../../../../types/api/pos/payments";
 import { PaymentMethod } from "../../../../../types/api/pos/paymentMethod";
 import { dashboardColors } from "../../../../../theme/pos/dashboard/style";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import ReceiptTemplate from "../../../../../components/pos/shared/ReceiptTemplate";
-import { sortOrderItems, getItemRowStyle, getStatusTextStyle } from "../../../../../utils/dashboard/orderUtils";
+import { sortOrderItems, getStatusTextStyle } from "../../../../../utils/dashboard/orderUtils";
 import { ItemStatus } from "../../../../../types/api/pos/salesOrderItem";
 import { useSocket } from "../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
@@ -418,7 +417,6 @@ export default function DashboardOrderDetailPage({ params }: Props) {
 
                     <div style={{ padding: '8px 0' }}>
                         {items.map((item, index) => {
-                            const rowStyle = getItemRowStyle(item.status);
                             const textStyle = getStatusTextStyle(item.status);
                             const isCancelled = item.status === ItemStatus.Cancelled;
 

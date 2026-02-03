@@ -42,7 +42,8 @@ export const SyncManager: React.FC = () => {
                         await ordersService.create(action.payload, undefined, csrfToken);
                     } else if (action.type === 'UPDATE_ORDER') {
                         const { orderId, data } = action.payload;
-                        await ordersService.update(orderId, data, undefined, csrfToken);
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                        await ordersService.update(orderId, data as any, undefined, csrfToken);
                     } else if (action.type === 'ADD_ITEM') {
                         const { orderId, itemData } = action.payload;
                         await ordersService.addItem(orderId, itemData, undefined, csrfToken);

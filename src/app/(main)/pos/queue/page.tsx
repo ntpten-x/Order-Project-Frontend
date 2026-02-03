@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useCallback } from 'react';
-import { message, Modal, Typography, Tag, Button, Empty, Select, Space, Badge } from 'antd';
+import React, { useState } from 'react';
+import { message, Modal, Typography, Tag, Button, Empty, Select, Badge } from 'antd';
 import {
     UnorderedListOutlined,
     ReloadOutlined,
@@ -12,7 +12,7 @@ import {
     SortAscendingOutlined,
     ClockCircleOutlined,
 } from '@ant-design/icons';
-import { useRouter } from 'next/navigation';
+
 import { useOrderQueue } from '../../../../hooks/pos/useOrderQueue';
 import { OrderQueue, QueueStatus, QueuePriority } from '../../../../types/api/pos/orderQueue';
 import { useRoleGuard } from '../../../../utils/pos/accessControl';
@@ -54,9 +54,8 @@ const statusLabels: Record<QueueStatus, string> = {
 };
 
 export default function OrderQueuePage() {
-    const router = useRouter();
     const [statusFilter, setStatusFilter] = useState<QueueStatus | undefined>(undefined);
-    const { queue, isLoading, addToQueue, updateStatus, removeFromQueue, reorderQueue, isReordering } = useOrderQueue(statusFilter);
+    const { queue, isLoading, updateStatus, removeFromQueue, reorderQueue, isReordering } = useOrderQueue(statusFilter);
     const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
     
     // Prefetch queue data

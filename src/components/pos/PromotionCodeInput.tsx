@@ -52,8 +52,8 @@ export default function PromotionCodeInput({
             } else {
                 message.error(eligibility.message || 'ไม่สามารถใช้โปรโมชันนี้ได้');
             }
-        } catch (error: any) {
-            message.error(error.message || 'ไม่สามารถตรวจสอบโปรโมชันได้');
+        } catch (error: unknown) {
+            message.error((error as Error).message || 'ไม่สามารถตรวจสอบโปรโมชันได้');
         } finally {
             setIsValidating(false);
         }

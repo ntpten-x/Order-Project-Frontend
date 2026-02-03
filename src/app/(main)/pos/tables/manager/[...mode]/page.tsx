@@ -117,8 +117,6 @@ const PageHeader = ({ isEdit, onBack, onDelete }: PageHeaderProps) => (
 
 // Preview Component
 const TablePreview = ({ name }: { name?: string }) => {
-    // Determine active status for preview (always active visually to look good)
-    const isActive = true;
     
     return (
         <div style={{ 
@@ -303,7 +301,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                 is_active: true
             });
         }
-    }, [isEdit, id, fetchTable, hideLoading]);
+    }, [isEdit, id, fetchTable, hideLoading, form]);
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const onFinish = async (values: any) => {

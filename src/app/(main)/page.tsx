@@ -6,7 +6,6 @@ import {
     AppstoreOutlined, 
     ShopOutlined, 
     SettingOutlined, 
-    ArrowRightOutlined, 
     BranchesOutlined 
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";

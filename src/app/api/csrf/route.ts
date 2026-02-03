@@ -1,7 +1,7 @@
 
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { getProxyUrl } from "../../../lib/proxy-utils";
+
 
 export const dynamic = 'force-dynamic';
 
@@ -44,14 +44,14 @@ export async function GET() {
                 console.error("CSRF token retry failed:", retryError);
             }
             // If retry also fails, return error (don't return empty token)
-            return NextResponse.json({ 
+            return NextResponse.json({
                 error: "Failed to fetch CSRF token",
                 message: "Please refresh the page"
             }, { status: 500 });
         }
 
         const data = await response.json();
-        
+
         // Handle different response formats
         let csrfToken = '';
         if (data.success && data.csrfToken) {
@@ -68,11 +68,11 @@ export async function GET() {
             console.warn('Unexpected CSRF token response format:', data);
             throw new Error('Unexpected response format from CSRF endpoint');
         }
-        
+
         if (!csrfToken) {
             throw new Error('CSRF token is empty');
         }
-        
+
         const nextResponse = NextResponse.json({ csrfToken });
 
         // Forward Set-Cookie headers from Backend to Client
@@ -90,7 +90,7 @@ export async function GET() {
     } catch (error) {
         console.error("CSRF Token Error:", error);
         // Don't return empty token - return error to force proper handling
-        return NextResponse.json({ 
+        return NextResponse.json({
             error: "Failed to fetch CSRF token",
             message: "Please refresh the page and try again"
         }, { status: 500 });

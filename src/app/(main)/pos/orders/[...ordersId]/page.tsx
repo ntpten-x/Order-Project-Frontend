@@ -15,7 +15,8 @@ import {
     ReloadOutlined,
     ShoppingOutlined,
     RocketOutlined,
-    CheckCircleOutlined
+    CheckCircleOutlined,
+    UnorderedListOutlined
 } from "@ant-design/icons";
 import { ordersService } from "../../../../../services/pos/orders.service";
 import { getCsrfTokenCached } from "../../../../../utils/pos/csrf";
@@ -53,7 +54,7 @@ import { useSocket } from "../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
 import { useOrderQueue } from "../../../../../hooks/pos/useOrderQueue";
 import { QueueStatus, QueuePriority } from "../../../../../types/api/pos/orderQueue";
-import { UnorderedListOutlined } from "@ant-design/icons";
+
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -110,7 +111,7 @@ export default function POSOrderDetailsPage() {
                 return;
             }
             setOrder(data);
-        } catch (error) {
+        } catch {
             message.error("ไม่สามารถโหลดข้อมูลออเดอร์ได้");
         } finally {
             setIsLoading(false);
@@ -254,7 +255,7 @@ export default function POSOrderDetailsPage() {
                     message.success("ยกเลิกออเดอร์เรียบร้อย");
                     router.push(getCancelOrderNavigationPath(order.order_type));
 
-                } catch (error) {
+                } catch {
                     message.error("ไม่สามารถยกเลิกออเดอร์ได้");
                 } finally {
                     setIsUpdating(false);
@@ -315,7 +316,7 @@ export default function POSOrderDetailsPage() {
             };
             
             // Send update request
-            const updatedOrder = await ordersService.updateItem(
+            await ordersService.updateItem(
                 itemId, 
                 updateData, 
                 undefined, 
@@ -355,7 +356,7 @@ export default function POSOrderDetailsPage() {
                     }
                 }
             }, 500);
-        } catch (error) {
+        } catch (error: unknown) {
             message.error("ไม่สามารถแก้ไขรายการได้");
             throw error;
         } finally {

@@ -22,9 +22,7 @@ import { useSocket } from "../../../../hooks/useSocket";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { useRoleGuard } from "../../../../utils/pos/accessControl";
 import { useRealtimeList } from "../../../../utils/pos/realtime";
-import { readCache, writeCache } from "../../../../utils/pos/cache";
 import { pageStyles, globalStyles } from '../../../../theme/pos/discounts/style';
-import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 
 const { Text, Title } = Typography;
@@ -336,6 +334,7 @@ const DiscountCard = React.memo(({ discount, onEdit, onDelete }: DiscountCardPro
         </Card>
     );
 });
+DiscountCard.displayName = 'DiscountCard';
 
 // ============ EMPTY STATE COMPONENT ============
 
@@ -381,7 +380,11 @@ const EmptyState = ({ onAdd, isSearch }: { onAdd: () => void, isSearch: boolean 
     </div>
 );
 
-export default function DiscountsPage() {
+export default function POSDiscountsPage() {
+    return <POSDiscountsContent />;
+}
+
+function POSDiscountsContent() {
     const router = useRouter();
     const [discounts, setDiscounts] = useState<Discounts[]>([]);
     const [filteredDiscounts, setFilteredDiscounts] = useState<Discounts[]>([]);

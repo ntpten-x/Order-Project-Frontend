@@ -72,7 +72,7 @@ export default function ChannelSelectionPage() {
     },
   ];
 
-  const handleChannelClick = (path: string, channelName: string) => {
+  const handleChannelClick = (path: string) => {
     router.push(path);
   };
 
@@ -131,11 +131,11 @@ export default function ChannelSelectionPage() {
                   <article
                     className={`channel-card-hover fade-in-up card-delay-${index + 1}`}
                     style={channelsStyles.channelCard}
-                    onClick={() => handleChannelClick(channel.path, channel.title)}
+                    onClick={() => handleChannelClick(channel.path)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter' || e.key === ' ') {
                         e.preventDefault();
-                        handleChannelClick(channel.path, channel.title);
+                        handleChannelClick(channel.path);
                       }
                     }}
                     role="button"
