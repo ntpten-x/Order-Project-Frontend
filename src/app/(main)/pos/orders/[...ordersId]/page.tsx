@@ -153,6 +153,7 @@ export default function POSOrderDetailsPage() {
     const groupedServedItems = useMemo(() => groupOrderItems(servedItems), [servedItems]);
 
     const nonCancelledItems = getNonCancelledItems(order?.items) as SalesOrderItem[];
+    const groupedNonCancelledItems = useMemo(() => groupOrderItems(nonCancelledItems), [nonCancelledItems]);
     const calculatedTotal = calculateOrderTotal(order?.items);
     const isOrderComplete = activeItems.length === 0 && (order?.items?.length || 0) > 0;
     const shouldVirtualizeActive = groupedActiveItems.length > 12;
@@ -1280,7 +1281,7 @@ export default function POSOrderDetailsPage() {
                                 <Text strong style={{ fontSize: 15, marginBottom: 10, display: 'block', color: orderDetailColors.textSecondary }}>
                                     รายการสินค้า
                                 </Text>
-                                {nonCancelledItems.map((item, index) => (
+                                {groupedNonCancelledItems.map((item: any, index: number) => (
                                     <div key={item.id || index} style={orderDetailStyles.summaryItemRow}>
                                         {/* Product Image */}
                                         {item.product?.img_url ? (
