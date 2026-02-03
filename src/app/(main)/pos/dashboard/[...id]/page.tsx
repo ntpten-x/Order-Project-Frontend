@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { Typography, Button, Spin, message, Image, Modal } from "antd";
 import { ArrowLeftOutlined, UserOutlined, ShopOutlined, ClockCircleOutlined, DollarCircleOutlined, TableOutlined, CarOutlined, ShoppingOutlined, PrinterOutlined, TagOutlined, CheckCircleOutlined, CloseCircleOutlined, CreditCardOutlined, CalendarOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
@@ -15,6 +15,7 @@ import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import ReceiptTemplate from "../../../../../components/pos/shared/ReceiptTemplate";
 import { sortOrderItems, getItemRowStyle, getStatusTextStyle } from "../../../../../utils/dashboard/orderUtils";
+import { groupOrderItems } from "../../../../../utils/orderGrouping";
 import { ItemStatus } from "../../../../../types/api/pos/salesOrderItem";
 import { useSocket } from "../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
@@ -151,7 +152,10 @@ export default function DashboardOrderDetailPage({ params }: Props) {
         );
     }
 
-    const items = sortOrderItems(order.items || []);
+    const items = useMemo(() => {
+        const grouped = groupOrderItems(order.items || []);
+        return sortOrderItems(grouped);
+    }, [order.items]);
     const payments = (order.payments || []) as PaymentWithMethod[];
     
     // Derived Data

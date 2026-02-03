@@ -13,6 +13,7 @@ import { paymentsService } from "../../../../../../services/pos/payments.service
 import { tablesService } from "../../../../../../services/pos/tables.service";
 import { shopProfileService, ShopProfile } from "../../../../../../services/pos/shopProfile.service";
 import { getCsrfTokenCached } from "../../../../../../utils/pos/csrf";
+import { groupOrderItems } from "../../../../../../utils/orderGrouping";
 
 import { SalesOrder, OrderStatus, OrderType } from "../../../../../../types/api/pos/salesOrder";
 import { PaymentMethod } from "../../../../../../types/api/pos/paymentMethod";
@@ -213,6 +214,13 @@ export default function POSPaymentPage() {
     }, []);
 
     const { subtotal, discount, vat, total, change } = calculatePaymentTotals(order, receivedAmount);
+    
+    // Group items for display
+    const groupedItems = useMemo(() => {
+        if (!order?.items) return [];
+        const activeItems = order.items.filter(item => item.status !== OrderStatus.Cancelled);
+        return groupOrderItems(activeItems);
+    }, [order?.items]);
 
     const handleDiscountChange = async (value: string | undefined) => {
         if (!order) return;
@@ -482,7 +490,7 @@ export default function POSPaymentPage() {
                         >
                              <Title level={4} style={{ marginBottom: 16, marginTop: 0 }}>รายการสรุป (Order Summary)</Title>
                             <div style={{ flex: 1, overflowY: 'auto', paddingRight: 8, minHeight: 300, maxHeight: 500 }}>
-                                {order.items?.filter(item => item.status !== OrderStatus.Cancelled).map((item, idx) => (
+                                {groupedItems.map((item: any, idx: number) => (
                                     <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${itemsColors.borderLight}` }}>
                                          <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 0 }}>
                                             <Avatar 
