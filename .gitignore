@@ -10,7 +10,8 @@
 /coverage
 
 # next.js
-/.next/
+.next/cache/
+# /.next/ (Commented out to allow pushing build results for deployment)
 /out/
 
 # production
