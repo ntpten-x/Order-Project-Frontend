@@ -1,8 +1,8 @@
 {
   "/(auth)/login/page": "app/(auth)/login/page.js",
-  "/api/pos/tables/route": "app/api/pos/tables/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
   "/(main)/page": "app/(main)/page.js",
-  "/(main)/pos/tables/page": "app/(main)/pos/tables/page.js",
   "/(main)/pos/dashboard/[...id]/page": "app/(main)/pos/dashboard/[...id]/page.js",
-  "/(main)/pos/channels/page": "app/(main)/pos/channels/page.js"
+  "/(main)/pos/channels/page": "app/(main)/pos/channels/page.js",
+  "/(main)/pos/tables/page": "app/(main)/pos/tables/page.js"
 }
