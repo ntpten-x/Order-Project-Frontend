@@ -155,10 +155,7 @@ export default function POSPaymentPage() {
 
     // Memoize discount options for Select component
     const discountOptions = useMemo(() => {
-        console.log('[DiscountOptions] Input discounts:', discounts);
-        
         if (!discounts || !Array.isArray(discounts) || discounts.length === 0) {
-            console.log('[DiscountOptions] No discounts available');
             return [];
         }
         
@@ -167,10 +164,7 @@ export default function POSPaymentPage() {
             return d.is_active === true || d.is_active === undefined;
         });
         
-        console.log('[DiscountOptions] Active discounts:', activeDiscounts);
-        
         if (activeDiscounts.length === 0) {
-            console.log('[DiscountOptions] No active discounts');
             return [];
         }
         
@@ -178,14 +172,12 @@ export default function POSPaymentPage() {
             // Use display_name first, fallback to discount_name
             const displayName = d.display_name || d.discount_name;
             if (!displayName || !d.id) {
-                console.log('[DiscountOptions] Skipping item without name/id:', d);
                 return null;
             }
             const label = `${displayName} (${d.discount_type === DiscountType.Percentage ? `${d.discount_amount}%` : `-${d.discount_amount}฿`})`;
             return { label, value: d.id };
         }).filter((opt): opt is { label: string; value: string } => opt !== null);
         
-        console.log('[DiscountOptions] Final options:', options);
         return options;
     }, [discounts]);
 

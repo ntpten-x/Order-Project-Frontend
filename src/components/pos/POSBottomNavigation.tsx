@@ -33,6 +33,7 @@ interface MenuItem {
 /**
  * POS Bottom Navigation
  * Modern floating navigation bar - 5 fixed buttons with "More" dropdown
+ * Handles navigation and shifts.
  */
 const POSBottomNavigation = () => {
   const router = useRouter();

@@ -30,46 +30,39 @@ export const discountsService = {
             throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลส่วนลดได้");
         }
         const json = await response.json();
-        console.log('[DiscountsService] Raw response from backend:', JSON.stringify(json, null, 2));
-        
+
         // Handle different response formats
         if (Array.isArray(json)) {
-            console.log('[DiscountsService] Response is array, returning:', json.length, 'items');
             return json;
         }
-        
+
         // Backend returns { success: true, data: [...] }
         if (json?.success && Array.isArray(json.data)) {
-            console.log('[DiscountsService] Response is { success: true, data: [...] }, returning:', json.data.length, 'items');
             return json.data;
         }
-        
+
         // Backend returns { data: [...] } without success flag
         if (json?.data && Array.isArray(json.data)) {
-            console.log('[DiscountsService] Response is { data: [...] }, returning:', json.data.length, 'items');
             return json.data;
         }
-        
+
         // Backend returns single object (shouldn't happen but handle it)
         // Check if it's a discount object by checking required fields
         if (json && typeof json === 'object' && !Array.isArray(json)) {
             // Check if it's wrapped in success response but data is object instead of array
             if (json.success && json.data && typeof json.data === 'object' && !Array.isArray(json.data)) {
                 if (json.data.id && (json.data.discount_name || json.data.display_name)) {
-                    console.log('[DiscountsService] Received single discount in success.data, converting to array:', json.data);
                     return [json.data as Discounts];
                 }
             }
-            
+
             // Check if it's a single discount object
             if (json.id && (json.discount_name || json.display_name)) {
                 // Single discount object - convert to array
-                console.log('[DiscountsService] Received single discount object, converting to array:', json);
                 return [json as Discounts];
             }
         }
-        
-        console.error('[DiscountsService] Unexpected discounts response format:', json);
+
         return [];
     },
 
