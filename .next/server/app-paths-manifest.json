@@ -8,6 +8,7 @@
   "/api/pos/category/route": "app/api/pos/category/route.js",
   "/api/pos/products/route": "app/api/pos/products/route.js",
   "/api/csrf/route": "app/api/csrf/route.js",
+  "/api/pos/tables/route": "app/api/pos/tables/route.js",
   "/(main)/page": "app/(main)/page.js",
   "/(main)/pos/dashboard/[...id]/page": "app/(main)/pos/dashboard/[...id]/page.js",
   "/(main)/pos/channels/page": "app/(main)/pos/channels/page.js",
