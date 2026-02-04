@@ -2,6 +2,7 @@
 
 import React from "react";
 import { useParams } from "next/navigation";
+import { Layout } from "antd";
 import POSDineIn from "../../../../../../components/pos/POSDineIn";
 
 export default function DineInPOSPage() {
@@ -9,6 +10,10 @@ export default function DineInPOSPage() {
     const tableId = params.tableId as string;
 
     return (
-        <POSDineIn tableId={tableId} />
+        <Layout style={{ background: "transparent" }}>
+            <Layout.Content style={{ background: "transparent" }}>
+                <POSDineIn tableId={tableId} />
+            </Layout.Content>
+        </Layout>
     );
 }

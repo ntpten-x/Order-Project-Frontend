@@ -1,14 +1,13 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Button, App, Typography, Spin } from 'antd';
+import { Button, App, Typography, Spin, Space } from 'antd';
 import { ShopOutlined } from '@ant-design/icons';
 import { Branch } from "../../../types/api/branch";
 import { useRouter } from 'next/navigation';
 import { 
     BranchPageStyles, 
     pageStyles, 
-    PageHeader, 
     StatsCard, 
     BranchCard 
 } from './style';
@@ -21,6 +20,11 @@ import { authService } from "../../../services/auth.service";
 import { getCsrfTokenCached } from '../../../utils/pos/csrf';
 import { useAsyncAction } from "../../../hooks/useAsyncAction";
 import { readCache, writeCache } from "../../../utils/pos/cache";
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import PageStack from "@/components/ui/page/PageStack";
+import UIPageHeader from "@/components/ui/page/PageHeader";
+import UIEmptyState from "@/components/ui/states/EmptyState";
 
 const { Title, Text } = Typography;
 const BRANCH_CACHE_KEY = "pos:branches";
@@ -136,49 +140,66 @@ export default function BranchPage() {
       <BranchPageStyles />
       
       {/* Header */}
-      <PageHeader 
-        onRefresh={fetchBranches}
-        onAdd={handleAdd}
-      />
-      
-      {/* Stats */}
-      <StatsCard 
-        totalBranches={branches.length}
-        activeBranches={activeBranches}
+      <UIPageHeader
+        title="????"
+        subtitle={`${branches.length} ??????`}
+        icon={<ShopOutlined />}
+        actions={
+          <Space size={8} wrap>
+            <Button onClick={fetchBranches}>??????</Button>
+            <Button type="primary" onClick={handleAdd}>?????????</Button>
+          </Space>
+        }
       />
 
-      {/* Main Content */}
-      <div style={pageStyles.listContainer}>
-          {branches.length > 0 ? (
-             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 24, justifyContent: 'center' }}>
+      <PageContainer>
+        <PageStack>
+          {/* Stats */}
+          <StatsCard totalBranches={branches.length} activeBranches={activeBranches} />
+
+          <PageSection title="??????????" extra={<span style={{ fontWeight: 600 }}>{branches.length}</span>}>
+            {branches.length > 0 ? (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                  gap: 24,
+                  justifyContent: 'center',
+                }}
+              >
                 {branches.map((branch, index) => (
-                    <div key={branch.id} style={{ animation: `fadeInUp 0.6s ease-out forwards`, animationDelay: `${index * 50}ms`, opacity: 0 }}>
-                        <BranchCard 
-                            branch={branch} 
-                            onEdit={handleEdit}
-                            onDelete={handleDelete}
-                            onSwitch={handleSwitchBranch}
-                        />
-                    </div>
+                  <div
+                    key={branch.id}
+                    style={{
+                      animation: `fadeInUp 0.6s ease-out forwards`,
+                      animationDelay: `${index * 50}ms`,
+                      opacity: 0,
+                    }}
+                  >
+                    <BranchCard
+                      branch={branch}
+                      onEdit={handleEdit}
+                      onDelete={handleDelete}
+                      onSwitch={handleSwitchBranch}
+                    />
+                  </div>
                 ))}
-             </div>
-          ) : (
-            <div style={{ 
-                background: 'white', 
-                borderRadius: 20, 
-                padding: '60px 20px', 
-                textAlign: 'center',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.05)'
-            }}>
-                <ShopOutlined style={{ fontSize: 64, color: '#e5e7eb', marginBottom: 16 }} />
-                 <Title level={3} style={{ color: '#374151', margin: 0 }}>ยังไม่มีข้อมูลสาขา</Title>
-                 <Text type="secondary">เริ่มต้นด้วยการเพิ่มสาขาแรกของคุณ</Text>
-                 <div style={{ marginTop: 24 }}>
-                    <Button type="primary" onClick={handleAdd}>เพิ่มสาขา</Button>
-                 </div>
-            </div>
-          )}
-      </div>
+              </div>
+            ) : (
+              <UIEmptyState
+                title="??????????????????"
+                description="?????????????????????????????????"
+                action={
+                  <Button type="primary" onClick={handleAdd}>
+                    ?????????
+                  </Button>
+                }
+              />
+            )}
+          </PageSection>
+        </PageStack>
+      </PageContainer>
     </div>
   );
 }
+

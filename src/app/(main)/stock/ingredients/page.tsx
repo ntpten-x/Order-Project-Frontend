@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Spin, Typography } from 'antd';
+import { message, Modal, Spin, Typography, Button, Space } from 'antd';
 import { ExperimentOutlined } from '@ant-design/icons';
 import { Ingredients } from "../../../../types/api/stock/ingredients";
 import { useRouter } from 'next/navigation';
@@ -12,15 +12,18 @@ import { useAuth } from "../../../../contexts/AuthContext";
 import {
     IngredientsPageStyles,
     pageStyles,
-    PageHeader,
     StatsCard,
     IngredientCard,
-    EmptyState
 } from './style';
 
 const { Text } = Typography;
 
 import { authService } from "../../../../services/auth.service";
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import PageStack from "@/components/ui/page/PageStack";
+import UIPageHeader from "@/components/ui/page/PageHeader";
+import UIEmptyState from "@/components/ui/states/EmptyState";
 
 export default function IngredientsPage() {
     const router = useRouter();

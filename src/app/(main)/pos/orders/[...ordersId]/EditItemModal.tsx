@@ -5,10 +5,12 @@ import { PlusOutlined, MinusOutlined, SaveOutlined, CloseOutlined, InfoCircleOut
 import { SalesOrderItem } from '../../../../../types/api/pos/salesOrderItem';
 import { orderDetailColors, modalStyles } from '../../../../../theme/pos/orders/style';
 import { calculateItemTotal, formatCurrency } from '../../../../../utils/orders';
-import { useGlobalLoading } from '../../../../../contexts/pos/GlobalLoadingContext';
+import { useGlobalLoadingDispatch } from '../../../../../contexts/pos/GlobalLoadingContext';
 
 const { Text, Title } = Typography;
 const { TextArea } = Input;
+
+const ALLOWED_KEYS = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', '.'];
 
 interface EditItemModalProps {
     item: SalesOrderItem | null;
@@ -22,7 +24,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
     const [notes, setNotes] = useState('');
     const [details, setDetails] = useState<{ detail_name: string; extra_price: number }[]>([]);
     const initializedItemIdRef = useRef<string | null>(null);
-    const { showLoading, hideLoading } = useGlobalLoading();
+    const { showLoading, hideLoading } = useGlobalLoadingDispatch();
 
     // Initialize state when modal opens with a new item
     useEffect(() => {
@@ -58,7 +60,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
             await onSave(item.id, quantity, notes, validDetails);
             // Don't close immediately - let parent handle it after successful save
         } catch (error: unknown) {
-            console.error(error);
+            // console.error(error);
             message.error("บันทึกรายการไม่สำเร็จ");
         } finally {
             hideLoading();
@@ -257,10 +259,12 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                                         min={0}
                                         precision={2}
                                         formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                                        parser={(value) => value!.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                                        parser={(value) => {
+                                            const parsed = value!.replace(/\$\s?|(,*)/g, '');
+                                            return parsed as unknown as number;
+                                        }}
                                         onKeyDown={(e) => {
-                                            const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', '.'];
-                                            if (!/^[0-9]$/.test(e.key) && !allowedKeys.includes(e.key)) {
+                                            if (!/^[0-9]$/.test(e.key) && !ALLOWED_KEYS.includes(e.key)) {
                                                 e.preventDefault();
                                             }
                                             if (e.key === '.' && detail.extra_price.toString().includes('.')) {

@@ -53,7 +53,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
       socketInstance.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user?.id]);
 
   return (
     <SocketContext.Provider value={{ socket, isConnected }}>

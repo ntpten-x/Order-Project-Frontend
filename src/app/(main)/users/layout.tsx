@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Layout } from "antd";
 import UsersBottomNavigation from "../../../components/users/UsersBottomNavigation";
 
 export default function UsersLayout({
@@ -10,11 +11,12 @@ export default function UsersLayout({
 }) {
   return (
     <>
-    <div className="min-h-screen pb-24 relative">
-      {children}
+    <Layout style={{ minHeight: "100%", background: "transparent" }}>
+      <Layout.Content style={{ background: "transparent" }}>
+        {children}
+      </Layout.Content>
       <UsersBottomNavigation />
-    </div>
-
+    </Layout>
     </>
   );
 }

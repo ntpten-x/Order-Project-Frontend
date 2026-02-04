@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Typography, Button, Empty, Input } from 'antd';
+import { message, Modal, Typography, Button, Input, Space } from 'antd';
 import { 
     TagsOutlined,
     PlusOutlined,
@@ -21,100 +21,13 @@ import { useRealtimeList } from "../../../../utils/pos/realtime";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
 import { pageStyles, globalStyles } from '../../../../theme/pos/category/style';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import PageStack from "@/components/ui/page/PageStack";
+import UIPageHeader from "@/components/ui/page/PageHeader";
+import UIEmptyState from "@/components/ui/states/EmptyState";
 
 const { Text, Title } = Typography;
-
-// ============ HEADER COMPONENT ============
-
-interface HeaderProps {
-    onRefresh: () => void;
-    onAdd: () => void;
-    onSearch: (value: string) => void;
-}
-
-const PageHeader = ({ onRefresh, onAdd, onSearch }: HeaderProps) => (
-    <div style={pageStyles.header}>
-        <div style={pageStyles.headerDecoCircle1} />
-        <div style={pageStyles.headerDecoCircle2} />
-        
-        <div style={pageStyles.headerContent}>
-            <div style={pageStyles.headerLeft}>
-                <div style={pageStyles.headerIconBox}>
-                    <TagsOutlined style={{ fontSize: 24, color: 'white' }} />
-                </div>
-                <div>
-                    <Text style={{ 
-                        color: 'rgba(255,255,255,0.85)', 
-                        fontSize: 13,
-                        display: 'block',
-                        textShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                    }}>
-                        จัดการข้อมูล
-                    </Text>
-                    <Title level={4} style={{ 
-                        color: 'white', 
-                        margin: 0,
-                        fontWeight: 700,
-                        letterSpacing: '0.5px',
-                        textShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                    }}>
-                        หมวดหมู่สินค้า
-                    </Title>
-                </div>
-            </div>
-            <div style={pageStyles.headerActions}>
-                <Button
-                    type="text"
-                    icon={<ReloadOutlined style={{ color: 'white' }} />}
-                    onClick={onRefresh}
-                    style={{
-                        background: 'rgba(255,255,255,0.2)',
-                        backdropFilter: 'blur(4px)',
-                        borderRadius: 12,
-                        height: 40,
-                        width: 40,
-                        border: '1px solid rgba(255,255,255,0.3)'
-                    }}
-                />
-                <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={onAdd}
-                    style={{
-                        background: 'white',
-                        color: '#7C3AED',
-                        borderRadius: 12,
-                        height: 40,
-                        fontWeight: 600,
-                        border: 'none',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                    }}
-                >
-                    <span className="hidden sm:inline">เพิ่มหมวดหมู่</span>
-                </Button>
-            </div>
-        </div>
-        
-        {/* Search Bar */}
-        <div style={{ marginTop: 24, padding: '0 4px' }}>
-            <Input 
-                prefix={<SearchOutlined style={{ color: '#fff', opacity: 0.7 }} />}
-                placeholder="ค้นหาหมวดหมู่..."
-                onChange={(e) => onSearch(e.target.value)}
-                bordered={false}
-                style={{
-                    background: 'rgba(255,255,255,0.15)',
-                    backdropFilter: 'blur(8px)',
-                    borderRadius: 14,
-                    padding: '8px 16px',
-                    color: 'white',
-                    fontSize: 15,
-                }}
-                className="search-input-placeholder-white"
-            />
-        </div>
-    </div>
-);
 
 // ============ STATS CARD COMPONENT ============
 
@@ -260,53 +173,6 @@ const CategoryCard = ({ category, index, onEdit, onDelete }: CategoryCardProps) 
     );
 };
 
-// ============ EMPTY STATE COMPONENT ============
-
-const EmptyState = ({ onAdd, isSearch }: { onAdd: () => void, isSearch?: boolean }) => (
-    <Empty
-        image={Empty.PRESENTED_IMAGE_SIMPLE}
-        description={
-            <div style={{ textAlign: 'center' }}>
-                <Text type="secondary" style={{ fontSize: 15 }}>
-                    {isSearch ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีหมวดหมู่'}
-                </Text>
-                <br />
-                {!isSearch && (
-                    <Text type="secondary" style={{ fontSize: 13 }}>
-                        เริ่มต้นเพิ่มหมวดหมู่แรกของคุณได้เลย
-                    </Text>
-                )}
-            </div>
-        }
-        style={{
-            padding: '60px 20px',
-            background: 'white',
-            borderRadius: 24,
-            margin: '24px 16px',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.04)'
-        }}
-    >
-        {!isSearch && (
-            <Button 
-                type="primary" 
-                icon={<PlusOutlined />} 
-                onClick={onAdd} 
-                size="large"
-                style={{ 
-                    background: '#7C3AED', 
-                    borderRadius: 12,
-                    height: 48,
-                    padding: '0 32px',
-                    boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)'
-                }}
-            >
-                เพิ่มหมวดหมู่
-            </Button>
-        )}
-    </Empty>
-);
-
-
 export default function CategoryPage() {
     const router = useRouter();
     const [categories, setCategories] = useState<Category[]>([]);
@@ -442,65 +308,74 @@ export default function CategoryPage() {
             `}</style>
             
             {/* Header */}
-            <PageHeader 
-                onRefresh={fetchCategories}
-                onAdd={handleAdd}
-                onSearch={handleSearch}
+            <UIPageHeader
+                title="??????????????"
+                subtitle={`${categories.length} ??????`}
+                icon={<TagsOutlined />}
+                actions={
+                    <Space size={8} wrap>
+                        <Input
+                            prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
+                            allowClear
+                            placeholder="?????????????..."
+                            onChange={(e) => handleSearch(e.target.value)}
+                            style={{ minWidth: 220 }}
+                        />
+                        <Button icon={<ReloadOutlined />} onClick={fetchCategories} />
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                            ?????????????
+                        </Button>
+                    </Space>
+                }
             />
-            
-            {/* Stats Card */}
-            <div style={{ marginTop: -32, padding: '0 16px', position: 'relative', zIndex: 10 }}>
-                <StatsCard 
-                    totalCategories={categories.length}
-                    activeCategories={activeCategories.length}
-                    inactiveCategories={inactiveCategories.length}
-                />
-            </div>
 
-            {/* Categories List */}
-            <div style={pageStyles.listContainer}>
-                {filteredCategories.length > 0 ? (
-                    <>
-                        <div style={pageStyles.sectionTitle}>
-                            <div style={{ 
-                                width: 4, 
-                                height: 16, 
-                                background: '#7C3AED', 
-                                borderRadius: 2 
-                            }} />
-                            <span style={{ fontSize: 16, fontWeight: 700, color: '#1E293B' }}>
-                                รายการหมวดหมู่
-                            </span>
-                            <div style={{
-                                background: '#F3E8FF',
-                                color: '#7C3AED',
-                                padding: '2px 10px',
-                                borderRadius: 12,
-                                fontSize: 12,
-                                fontWeight: 700,
-                                marginLeft: 'auto'
-                            }}>
-                                {filteredCategories.length}
-                            </div>
-                        </div>
+            <PageContainer>
+                <PageStack>
+                    <StatsCard
+                        totalCategories={categories.length}
+                        activeCategories={activeCategories.length}
+                        inactiveCategories={inactiveCategories.length}
+                    />
 
-                        {filteredCategories.map((category, index) => (
-                            <CategoryCard
-                                key={category.id}
-                                category={category}
-                                index={index}
-                                onEdit={handleEdit}
-                                onDelete={handleDelete}
+                    <PageSection
+                        title="??????????????"
+                        extra={<span style={{ fontWeight: 600 }}>{filteredCategories.length}</span>}
+                    >
+                        {filteredCategories.length > 0 ? (
+                            filteredCategories.map((category, index) => (
+                                <CategoryCard
+                                    key={category.id}
+                                    category={category}
+                                    index={index}
+                                    onEdit={handleEdit}
+                                    onDelete={handleDelete}
+                                />
+                            ))
+                        ) : (
+                            <UIEmptyState
+                                title={
+                                    searchText.trim()
+                                        ? "?????????????????????"
+                                        : "??????????????????????"
+                                }
+                                description={
+                                    searchText.trim()
+                                        ? "?????????????????????"
+                                        : "????????????????????????????????"
+                                }
+                                action={
+                                    !searchText.trim() ? (
+                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                                            ?????????????
+                                        </Button>
+                                    ) : null
+                                }
                             />
-                        ))}
-                    </>
-                ) : (
-                    <EmptyState onAdd={handleAdd} isSearch={!!searchText} />
-                )}
-            </div>
-            
-            {/* Bottom padding for scrolling over floating buttons if any */}
-            <div style={{ height: 40 }} />
+                        )}
+                    </PageSection>
+                </PageStack>
+            </PageContainer>
+
         </div>
     );
 }

@@ -57,14 +57,6 @@ export default function POSOrdersPage() {
         query: debouncedSearch || undefined
     });
 
-// Socket logic moved to useOrders hook to prevent double fetching
-    // useRealtimeRefresh({
-    //     socket,
-    //     events: ["orders:create", "orders:update", "orders:delete", "payments:create", "payments:update"],
-    //     onRefresh: () => refetch(),
-    //     intervalMs: 15000,
-    //     debounceMs: 1000,
-    // });
 
     const columns = [
         {

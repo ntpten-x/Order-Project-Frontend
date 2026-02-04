@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { message, Modal, Typography, Tag, Button, Empty, Input, Alert } from 'antd';
+import { message, Modal, Typography, Tag, Button, Input, Alert, Space } from 'antd';
 import Image from "next/image";
 import { 
     ShopOutlined,
@@ -30,109 +30,16 @@ import { useProductsUnit } from '../../../../hooks/pos/useProductsUnit';
 import { formatPrice } from '../../../../utils/products/productDisplay.utils';
 import { checkProductSetupState, getSetupMissingMessage } from '../../../../utils/products/productSetup.utils';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import PageStack from "@/components/ui/page/PageStack";
+import UIPageHeader from "@/components/ui/page/PageHeader";
+import UIEmptyState from "@/components/ui/states/EmptyState";
 
 const { Text, Title } = Typography;
 
 const PAGE_SIZE = 50;
 const SEARCH_DEBOUNCE_MS = 300;
-
-// ============ HEADER COMPONENT ============
-
-interface HeaderProps {
-    onRefresh: () => void;
-    onAdd: () => void;
-    onSearch: (value: string) => void;
-    disabledAdd?: boolean;
-}
-
-const PageHeader = ({ onRefresh, onAdd, onSearch, disabledAdd }: HeaderProps) => (
-    <div style={pageStyles.header}>
-        <div style={pageStyles.headerDecoCircle1} />
-        <div style={pageStyles.headerDecoCircle2} />
-        
-        <div className="products-header-content" style={pageStyles.headerContent}>
-            <div className="products-header-left" style={pageStyles.headerLeft}>
-                <div style={pageStyles.headerIconBox}>
-                    <ShopOutlined style={{ fontSize: 24, color: 'white' }} />
-                </div>
-                <div>
-                    <Text style={{ 
-                        color: 'rgba(255,255,255,0.85)', 
-                        fontSize: 13,
-                        display: 'block',
-                        textShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                    }}>
-                        จัดการข้อมูล
-                    </Text>
-                    <Title level={4} style={{ 
-                        color: 'white', 
-                        margin: 0,
-                        fontWeight: 700,
-                        letterSpacing: '0.5px',
-                        textShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                    }}>
-                        สินค้า
-                    </Title>
-                </div>
-            </div>
-            
-            <div className="products-header-actions" style={pageStyles.headerActions}>
-                <Button
-                    type="text"
-                    icon={<ReloadOutlined style={{ color: 'white' }} />}
-                    onClick={onRefresh}
-                    style={{
-                        background: 'rgba(255,255,255,0.2)',
-                        backdropFilter: 'blur(4px)',
-                        borderRadius: 12,
-                        height: 40,
-                        width: 40,
-                        flexShrink: 0,
-                        border: '1px solid rgba(255,255,255,0.3)'
-                    }}
-                />
-                {!disabledAdd && (
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={onAdd}
-                        style={{
-                            background: 'white',
-                            color: '#4F46E5',
-                            borderRadius: 12,
-                            height: 40,
-                            fontWeight: 600,
-                            border: 'none',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                            flexShrink: 0
-                        }}
-                    >
-                        <span className="products-add-btn-text">เพิ่มสินค้า</span>
-                    </Button>
-                )}
-            </div>
-        </div>
-
-        {/* Search Bar */}
-        <div style={{ marginTop: 24, padding: '0 4px' }}>
-            <Input 
-                prefix={<SearchOutlined style={{ color: '#fff', opacity: 0.7 }} />}
-                placeholder="ค้นหาสินค้า (ชื่อ, บาร์โค้ด)..."
-                onChange={(e) => onSearch(e.target.value)}
-                bordered={false}
-                style={{
-                    background: 'rgba(255,255,255,0.15)',
-                    backdropFilter: 'blur(8px)',
-                    borderRadius: 14,
-                    padding: '8px 16px',
-                    color: 'white',
-                    fontSize: 15,
-                }}
-                className="search-input-placeholder-white"
-            />
-        </div>
-    </div>
-);
 
 // ============ STATS CARD COMPONENT ============
 
@@ -326,53 +233,6 @@ const ProductCard = ({ product, index, onEdit, onDelete }: ProductCardProps) => 
     );
 };
 
-// ============ EMPTY STATE COMPONENT ============
-
-const EmptyState = ({ onAdd, showAdd = true, isSearch }: { onAdd: () => void, showAdd?: boolean, isSearch?: boolean }) => (
-    <Empty
-        image={Empty.PRESENTED_IMAGE_SIMPLE}
-        description={
-            <div style={{ textAlign: 'center' }}>
-                <Text type="secondary" style={{ fontSize: 15 }}>
-                     {isSearch ? 'ไม่พบสินค้าที่ค้นหา' : 'ยังไม่มีสินค้า'}
-                </Text>
-                <br />
-                {!isSearch && (
-                    <Text type="secondary" style={{ fontSize: 13 }}>
-                        เริ่มต้นเพิ่มสินค้าแรกของคุณ
-                    </Text>
-                )}
-            </div>
-        }
-        style={{
-            padding: '60px 20px',
-            background: 'white',
-            borderRadius: 24,
-            margin: '24px 16px',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.04)'
-        }}
-    >
-        {showAdd && !isSearch && (
-            <Button 
-                type="primary" 
-                icon={<PlusOutlined />} 
-                onClick={onAdd}
-                size="large"
-                style={{ 
-                    background: '#4F46E5', 
-                    borderRadius: 12,
-                    height: 48,
-                    padding: '0 32px',
-                    boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)',
-                    border: 'none'
-                }}
-            >
-                เพิ่มสินค้า
-            </Button>
-        )}
-    </Empty>
-);
-
 export default function ProductsPage() {
     const router = useRouter();
     const [products, setProducts] = useState<Products[]>([]);
@@ -460,7 +320,7 @@ export default function ProductsPage() {
             }
             if (!activeResponse.ok) {
                 const errorData = await activeResponse.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเธณเธเธงเธเธชเธดเธเธเนเธฒเนเธ”เน');
+                throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงจำนวนสินค้าได้');
             }
 
             const data = await listResponse.json();
@@ -654,54 +514,40 @@ export default function ProductsPage() {
         return (
             <div className="products-page" style={pageStyles.container}>
                 <style>{globalStyles}</style>
-                <PageHeader 
-                    onRefresh={fetchProducts}
-                    onAdd={handleAdd}
-                    onSearch={handleSearch}
-                    disabledAdd={!hasMetadata}
+
+                <UIPageHeader
+                    title="สินค้า"
+                    subtitle="ตั้งค่าระบบก่อนเพิ่มสินค้า"
+                    icon={<ShopOutlined />}
+                    actions={
+                        <Space size={8} wrap>
+                            <Button icon={<ReloadOutlined />} onClick={fetchProducts} />
+                        </Space>
+                    }
                 />
-                <div style={{ ...pageStyles.listContainer, padding: '40px 20px' }}>
-                    <div style={{ 
-                        background: '#fff', 
-                        borderRadius: 24, 
-                        padding: '80px 24px', 
-                        textAlign: 'center',
-                        boxShadow: '0 4px 24px rgba(0,0,0,0.04)'
-                    }}>
-                        <Empty 
-                            image={Empty.PRESENTED_IMAGE_SIMPLE}
-                            description={
-                                <div style={{ marginTop: 20 }}>
-                                    <Title level={4} style={{ marginBottom: 8, color: '#334155' }}>ยังไม่พร้อมเพิ่มสินค้า</Title>
-                                    <Text type="secondary" style={{ fontSize: 16 }}>{getSetupMissingMessage(categories, units)}</Text>
-                                </div>
+
+                <PageContainer>
+                    <PageStack>
+                        <UIEmptyState
+                            title="ยังไม่พร้อมเพิ่มสินค้า"
+                            description={getSetupMissingMessage(categories, units)}
+                            action={
+                                <Space size={12} wrap>
+                                    {!setupState.hasCategories && (
+                                        <Button type="primary" onClick={() => router.push("/pos/category")}>
+                                            เพิ่มหมวดหมู่สินค้า
+                                        </Button>
+                                    )}
+                                    {!setupState.hasUnits && (
+                                        <Button type="primary" onClick={() => router.push("/pos/productsUnit")}>
+                                            เพิ่มหน่วยสินค้า
+                                        </Button>
+                                    )}
+                                </Space>
                             }
-                        >
-                            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 24, flexWrap: 'wrap' }}>
-                                {!setupState.hasCategories && (
-                                    <Button 
-                                        type="primary" 
-                                        size="large"
-                                        onClick={() => router.push("/pos/category")}
-                                        style={{ height: 45, borderRadius: 12, background: '#4F46E5', border: 'none' }}
-                                    >
-                                        เพิ่มหมวดหมู่สินค้า
-                                    </Button>
-                                )}
-                                {!setupState.hasUnits && (
-                                    <Button 
-                                        type="primary" 
-                                        size="large"
-                                        onClick={() => router.push("/pos/productsUnit")}
-                                        style={{ height: 45, borderRadius: 12, background: '#10B981', border: 'none' }}
-                                    >
-                                        เพิ่มหน่วยสินค้า
-                                    </Button>
-                                )}
-                            </div>
-                        </Empty>
-                    </div>
-                </div>
+                        />
+                    </PageStack>
+                </PageContainer>
             </div>
         );
     }
@@ -725,108 +571,132 @@ export default function ProductsPage() {
             `}</style>
             
             {/* Header */}
-            <PageHeader 
-                onRefresh={fetchProducts}
-                onAdd={handleAdd}
-                onSearch={handleSearch}
-                disabledAdd={!hasMetadata}
+            <UIPageHeader
+                title="??????"
+                subtitle={`${totalProducts || products.length} ??????`}
+                icon={<ShopOutlined />}
+                actions={
+                    <Space size={8} wrap>
+                        <Input
+                            prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
+                            allowClear
+                            placeholder="??????????? (????, ????????)..."
+                            onChange={(e) => handleSearch(e.target.value)}
+                            style={{ minWidth: 240 }}
+                        />
+                        <Button icon={<ReloadOutlined />} onClick={fetchProducts} />
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={handleAdd}
+                            disabled={!hasMetadata}
+                        >
+                            ???????????
+                        </Button>
+                    </Space>
+                }
             />
 
-            {!isMetadataLoading && !hasMetadata && products.length > 0 && (
-                <div style={{ margin: '0 16px 20px', position: 'relative', zIndex: 10 }}>
-                    <Alert
-                        message="ตั้งค่าไม่สมบูรณ์"
-                        description={getSetupMissingMessage(categories, units)}
-                        type="warning"
-                        showIcon
-                        style={{ borderRadius: 16, border: 'none', boxShadow: '0 4px 12px rgba(251, 146, 60, 0.1)' }}
-                        action={
-                            <div style={{ display: 'flex', gap: 8 }}>
-                                {!setupState.hasCategories && (
-                                    <Button size="small" type="primary" ghost onClick={() => router.push("/pos/category")}>
-                                        เพิ่มหมวดหมู่
-                                    </Button>
-                                )}
-                                {!setupState.hasUnits && (
-                                    <Button size="small" type="primary" ghost onClick={() => router.push("/pos/productsUnit")}>
-                                        เพิ่มหน่วยสินค้า
-                                    </Button>
-                                )}
-                            </div>
-                        }
-                    />
-                </div>
-            )}
-            
-            {/* Stats Card */}
-            <div style={{ marginTop: -32, padding: '0 16px', position: 'relative', zIndex: 10 }}>
-                <StatsCard 
-                    totalProducts={totalProducts || products.length}
-                    activeProducts={activeCount}
-                    inactiveProducts={inactiveCount}
-                />
-            </div>
-
-            {/* Products List */}
-            <div style={pageStyles.listContainer}>
-                {products.length > 0 ? (
-                    <>
-                        <div style={pageStyles.sectionTitle}>
-                            <div style={{ 
-                                width: 4, 
-                                height: 16, 
-                                background: '#4F46E5', 
-                                borderRadius: 2 
-                            }} />
-                            <span style={{ fontSize: 16, fontWeight: 700, color: '#1E293B' }}>
-                                รายการสินค้า
-                            </span>
-                            <div style={{
-                                background: '#EEF2FF',
-                                color: '#4F46E5',
-                                padding: '2px 10px',
-                                borderRadius: 12,
-                                fontSize: 12,
-                                fontWeight: 700,
-                                marginLeft: 'auto'
-                            }}>
-                                {totalProducts ? `${products.length}/${totalProducts}` : products.length}
-                            </div>
-                        </div>
-
-                        {products.map((product, index) => (
-                            <ProductCard
-                                key={product.id}
-                                product={product}
-                                index={index}
-                                onEdit={handleEdit}
-                                onDelete={handleDelete}
+            <PageContainer>
+                <PageStack>
+                    {!isMetadataLoading && !hasMetadata && products.length > 0 && (
+                        <PageSection title="????????????????????">
+                            <Alert
+                                message="?????????????????"
+                                description={getSetupMissingMessage(categories, units)}
+                                type="warning"
+                                showIcon
+                                action={
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        {!setupState.hasCategories && (
+                                            <Button size="small" type="primary" ghost onClick={() => router.push("/pos/category")}> 
+                                                ?????????????
+                                            </Button>
+                                        )}
+                                        {!setupState.hasUnits && (
+                                            <Button size="small" type="primary" ghost onClick={() => router.push("/pos/productsUnit")}> 
+                                                ????????????????
+                                            </Button>
+                                        )}
+                                    </div>
+                                }
                             />
-                        ))}
+                        </PageSection>
+                    )}
 
-                        <div style={{ display: "flex", justifyContent: "center", padding: "16px 0 4px" }}>
-                            {page < lastPage ? (
-                                <Button
-                                    onClick={fetchMoreProducts}
-                                    loading={isLoadingMore}
-                                    style={{ borderRadius: 12 }}
-                                >
-                                    โหลดเพิ่มเติม
-                                </Button>
-                            ) : (
-                                <Text type="secondary" style={{ fontSize: 12 }}>
-                                    แสดงครบแล้ว
-                                </Text>
-                            )}
-                        </div>
-                        <div ref={loadMoreRef} style={{ height: 1 }} />
-                    </>
-                ) : (
-                    <EmptyState onAdd={handleAdd} showAdd={hasMetadata} isSearch={!!searchText} />
-                )}
-            </div>
-             {/* Bottom padding */}
-             <div style={{ height: 40 }} />
+                    <StatsCard
+                        totalProducts={totalProducts || products.length}
+                        activeProducts={activeCount}
+                        inactiveProducts={inactiveCount}
+                    />
+
+                    <PageSection
+                        title="????????????"
+                        extra={
+                            <span style={{ fontWeight: 600 }}>
+                                {totalProducts ? `${products.length}/${totalProducts}` : products.length}
+                            </span>
+                        }
+                    >
+                        {products.length > 0 ? (
+                            <>
+                                {products.map((product, index) => (
+                                    <ProductCard
+                                        key={product.id}
+                                        product={product}
+                                        index={index}
+                                        onEdit={handleEdit}
+                                        onDelete={handleDelete}
+                                    />
+                                ))}
+
+                                <div style={{ display: "flex", justifyContent: "center", padding: "16px 0 4px" }}>
+                                    {page < lastPage ? (
+                                        <Button
+                                            onClick={fetchMoreProducts}
+                                            loading={isLoadingMore}
+                                            style={{ borderRadius: 12 }}
+                                        >
+                                            ?????????????
+                                        </Button>
+                                    ) : (
+                                        <Text type="secondary" style={{ fontSize: 12 }}>
+                                            ???????????
+                                        </Text>
+                                    )}
+                                </div>
+                                <div ref={loadMoreRef} style={{ height: 1 }} />
+                            </>
+                        ) : (
+                            <UIEmptyState
+                                title={
+                                    searchText.trim()
+                                        ? "???????????????????"
+                                        : "??????????????"
+                                }
+                                description={
+                                    searchText.trim()
+                                        ? "?????????????????????"
+                                        : "??????????????????????????????"
+                                }
+                                action={
+                                    !searchText.trim() ? (
+                                        <Button
+                                            type="primary"
+                                            icon={<PlusOutlined />}
+                                            onClick={handleAdd}
+                                            disabled={!hasMetadata}
+                                        >
+                                            ???????????
+                                        </Button>
+                                    ) : null
+                                }
+                            />
+                        )}
+                    </PageSection>
+                </PageStack>
+            </PageContainer>
+
         </div>
     );
 }

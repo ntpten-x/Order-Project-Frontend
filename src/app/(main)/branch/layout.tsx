@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Layout } from "antd";
 import BranchBottomNavigation from "../../../components/branch/BranchBottomNavigation";
 
 export default function BranchLayout({
@@ -10,11 +11,12 @@ export default function BranchLayout({
 }) {
   return (
     <>
-    <div className="min-h-screen pb-24 relative">
-      {children}
+    <Layout style={{ minHeight: "100%", background: "transparent" }}>
+      <Layout.Content style={{ background: "transparent" }}>
+        {children}
+      </Layout.Content>
       <BranchBottomNavigation />
-    </div>
-
+    </Layout>
     </>
   );
 }

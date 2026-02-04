@@ -1,36 +1,36 @@
-import { Spin } from "antd";
+﻿import { Flex, Spin, Typography, theme } from "antd";
 
 export default function Loading() {
-    return (
-        <div 
-            className="fixed inset-0 z-[9999] flex items-center justify-center pointer-events-auto"
-            style={{
-                background: 'rgba(255, 255, 255, 0.6)',
-                backdropFilter: 'blur(12px)',
-                WebkitBackdropFilter: 'blur(12px)',
-            }}
-        >
-            <div style={{
-                padding: 32,
-                background: 'rgba(255, 255, 255, 0.8)',
-                borderRadius: 24,
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.08)',
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                gap: 16,
-                border: '1px solid rgba(255, 255, 255, 0.6)',
-            }}>
-                <Spin size="large" />
-                <span style={{ 
-                    color: '#64748b', 
-                    fontWeight: 500, 
-                    fontSize: 14,
-                    letterSpacing: '0.02em',
-                }}>
-                    กำลังโหลด...
-                </span>
-            </div>
-        </div>
-    );
+  const { token } = theme.useToken();
+
+  return (
+    <div
+      style={{
+        position: "fixed",
+        inset: 0,
+        zIndex: 9999,
+        display: "grid",
+        placeItems: "center",
+        pointerEvents: "auto",
+        background: "rgba(255, 255, 255, 0.6)",
+        backdropFilter: "blur(12px)",
+        WebkitBackdropFilter: "blur(12px)",
+      }}
+    >
+      <div
+        style={{
+          padding: 24,
+          borderRadius: 20,
+          background: "rgba(255, 255, 255, 0.9)",
+          border: `1px solid ${token.colorBorderSecondary}`,
+          boxShadow: token.boxShadowSecondary,
+        }}
+      >
+        <Flex vertical align="center" gap={12}>
+          <Spin size="large" />
+          <Typography.Text type="secondary">กำลังโหลด...</Typography.Text>
+        </Flex>
+      </div>
+    </div>
+  );
 }
