@@ -37,6 +37,5 @@ export const API_ROUTES = {
         PAYMENT_DETAILS: '/pos/paymentDetails',
         BRANCH: '/branches',
         ORDER_QUEUE: '/pos/queue',
-        PROMOTIONS: '/pos/promotions',
     },
 };
