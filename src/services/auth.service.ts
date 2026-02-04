@@ -1,7 +1,7 @@
 import { LoginCredentials, LoginResponse, User } from "../types/api/auth";
 import { API_ROUTES, API_PREFIX } from "../config/api";
 import { getProxyUrl } from "../lib/proxy-utils";
-import { unwrapBackendData } from "../utils/api/backendResponse";
+import { getBackendErrorMessage, unwrapBackendData } from "../utils/api/backendResponse";
 
 // 4000 is the usual backend port if not specified
 // const BACKEND_API = process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:4000";
@@ -62,7 +62,7 @@ export const authService = {
             */
             // It seems LOGOUT is missing from API_ROUTES in config/api.ts. I should probably add it or just use the string for now but getProxyUrl requires a path.
             // Let's use the string "/auth/logout" for now with getProxyUrl
-            const url = getProxyUrl("POST", "/auth/logout");
+            const url = getProxyUrl("POST", API_ROUTES.AUTH.LOGOUT);
 
             const headers: Record<string, string> = {
                 "Content-Type": "application/json"
@@ -79,6 +79,31 @@ export const authService = {
         } catch (error) {
             console.error("Logout failed", error);
         }
+    },
+
+    switchBranch: async (
+        branchId: string | null,
+        csrfToken?: string,
+        cookieHeader?: string
+    ): Promise<{ active_branch_id: string | null }> => {
+        const url = getProxyUrl("POST", API_ROUTES.AUTH.SWITCH_BRANCH);
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+        if (cookieHeader) headers["Cookie"] = cookieHeader;
+
+        const response = await fetch(url!, {
+            method: "POST",
+            headers,
+            credentials: "include",
+            body: JSON.stringify({ branch_id: branchId }),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(getBackendErrorMessage(errorData, "Failed to switch branch"));
+        }
+
+        return unwrapBackendData(await response.json()) as { active_branch_id: string | null };
     },
 
     getMe: async (token?: string): Promise<User> => {
