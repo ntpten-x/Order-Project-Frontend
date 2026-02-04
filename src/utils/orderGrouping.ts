@@ -8,7 +8,6 @@ export type OrderItemLike = {
   status?: unknown;
   product?: { id?: string } | null;
   product_id?: string;
-  [key: string]: unknown;
 };
 
 export type GroupedOrderItem<T extends OrderItemLike> = T & {
@@ -55,5 +54,5 @@ export const groupOrderItems = <T extends OrderItemLike>(items: T[]): GroupedOrd
     groups.set(key, grouped);
   }
 
-  return [...groups.values()];
+  return Array.from(groups.values());
 };

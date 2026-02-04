@@ -132,6 +132,7 @@ const StockBottomNavigation = () => {
         placement="bottom"
         height="auto"
         title="เมนูเพิ่มเติม"
+        zIndex={2000}
       >
         <div style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom))" }}>
           <List

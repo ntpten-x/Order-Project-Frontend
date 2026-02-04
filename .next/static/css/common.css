@@ -969,12 +969,6 @@ body {
   --tw-text-opacity: 1;
   color: rgb(37 99 235 / var(--tw-text-opacity, 1));
 }
-@media (min-width: 640px) {
-
-  .sm\:inline {
-    display: inline;
-  }
-}
 @media (min-width: 768px) {
 
   .md\:col-span-1 {

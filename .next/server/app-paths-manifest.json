@@ -1,10 +1,13 @@
 {
-  "/_not-found/page": "app/_not-found/page.js",
-  "/api/auth/me/route": "app/api/auth/me/route.js",
-  "/api/branches/route": "app/api/branches/route.js",
-  "/api/pos/products/route": "app/api/pos/products/route.js",
-  "/api/pos/category/route": "app/api/pos/category/route.js",
-  "/api/csrf/route": "app/api/csrf/route.js",
-  "/(main)/page": "app/(main)/page.js",
-  "/(main)/branch/page": "app/(main)/branch/page.js"
+  "/api/pos/shopProfile/route": "app/api/pos/shopProfile/route.js",
+  "/api/pos/paymentMethod/route": "app/api/pos/paymentMethod/route.js",
+  "/api/pos/discounts/route": "app/api/pos/discounts/route.js",
+  "/api/pos/orders/[id]/route": "app/api/pos/orders/[id]/route.js",
+  "/(main)/pos/delivery/page": "app/(main)/pos/delivery/page.js",
+  "/(main)/pos/channels/dine-in/page": "app/(main)/pos/channels/dine-in/page.js",
+  "/(main)/pos/channels/dine-in/[tableId]/page": "app/(main)/pos/channels/dine-in/[tableId]/page.js",
+  "/(main)/pos/orders/[...ordersId]/page": "app/(main)/pos/orders/[...ordersId]/page.js",
+  "/(main)/pos/items/payment/[...paymentId]/page": "app/(main)/pos/items/payment/[...paymentId]/page.js",
+  "/(main)/pos/paymentMethod/page": "app/(main)/pos/paymentMethod/page.js",
+  "/(main)/pos/paymentMethod/manager/[...mode]/page": "app/(main)/pos/paymentMethod/manager/[...mode]/page.js"
 }
