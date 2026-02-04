@@ -17,6 +17,7 @@ import { useSocket } from "../../../hooks/useSocket";
 import { useRealtimeList } from "../../../utils/pos/realtime";
 import { useAuth } from "../../../contexts/AuthContext";
 import { branchService } from "../../../services/branch.service";
+import { authService } from "../../../services/auth.service";
 import { getCsrfTokenCached } from '../../../utils/pos/csrf';
 import { useAsyncAction } from "../../../hooks/useAsyncAction";
 import { readCache, writeCache } from "../../../utils/pos/cache";
@@ -104,6 +105,15 @@ export default function BranchPage() {
     });
   };
 
+  const handleSwitchBranch = (branch: Branch) => {
+    execute(async () => {
+      const csrfToken = await getCsrfTokenCached();
+      await authService.switchBranch(branch.id, csrfToken);
+      message.success(`สลับไปสาขา "${branch.branch_name}" แล้ว`);
+      router.push("/pos");
+    }, "กำลังสลับสาขา...");
+  };
+
   if (authLoading) {
     return (
         <div style={{ 
@@ -147,6 +157,7 @@ export default function BranchPage() {
                             branch={branch} 
                             onEdit={handleEdit}
                             onDelete={handleDelete}
+                            onSwitch={handleSwitchBranch}
                         />
                     </div>
                 ))}
@@ -171,4 +182,3 @@ export default function BranchPage() {
     </div>
   );
 }
-

@@ -8,6 +8,7 @@ import {
     ReloadOutlined, 
     EditOutlined, 
     DeleteOutlined, 
+    SwapOutlined,
     PhoneOutlined,
     EnvironmentOutlined
 } from '@ant-design/icons';
@@ -204,15 +205,25 @@ interface BranchCardProps {
     branch: Branch;
     onEdit: (branch: Branch) => void;
     onDelete: (branch: Branch) => void;
+    onSwitch: (branch: Branch) => void;
 }
 
-export const BranchCard = ({ branch, onEdit, onDelete }: BranchCardProps) => {
+export const BranchCard = ({ branch, onEdit, onDelete, onSwitch }: BranchCardProps) => {
     return (
         <Card 
             hoverable 
             style={pageStyles.branchCard(branch.is_active)}
             styles={{ body: { padding: 20 } }}
             actions={[
+                <Tooltip title="สลับไปสาขานี้" key="switch">
+                    <Button
+                        type="text"
+                        icon={<SwapOutlined style={{ color: '#3b82f6' }} />}
+                        onClick={() => onSwitch(branch)}
+                    >
+                        สลับ
+                    </Button>
+                </Tooltip>,
                 <Tooltip title="แก้ไขข้อมูล" key="edit">
                     <Button type="text" icon={<EditOutlined style={{ color: '#8b5cf6' }} />} onClick={() => onEdit(branch)}>แก้ไข</Button>
                 </Tooltip>,
