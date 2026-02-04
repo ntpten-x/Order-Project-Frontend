@@ -1,6 +1,7 @@
 import { Delivery } from "../../types/api/pos/delivery";
 import { getProxyUrl } from "../../lib/proxy-utils";
 import { API_ROUTES } from "../../config/api";
+import { normalizeBackendPaginated, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = API_ROUTES.POS.DELIVERY;
 
@@ -30,9 +31,9 @@ export const deliveryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to fetch delivery providers");
+            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to fetch delivery providers");
         }
-        return response.json();
+        return normalizeBackendPaginated<Delivery>(await response.json());
     },
 
     getById: async (id: string, cookie?: string): Promise<Delivery> => {
@@ -46,9 +47,9 @@ export const deliveryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to fetch delivery provider");
+            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to fetch delivery provider");
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Delivery;
     },
 
     getByName: async (name: string, cookie?: string): Promise<Delivery> => {
@@ -62,9 +63,9 @@ export const deliveryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to fetch delivery provider");
+            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to fetch delivery provider");
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Delivery;
     },
 
     create: async (data: Partial<Delivery>, cookie?: string, csrfToken?: string): Promise<Delivery> => {
@@ -80,9 +81,9 @@ export const deliveryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to create delivery provider");
+            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to create delivery provider");
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Delivery;
     },
 
     update: async (id: string, data: Partial<Delivery>, cookie?: string, csrfToken?: string): Promise<Delivery> => {
@@ -98,9 +99,9 @@ export const deliveryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to update delivery provider");
+            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to update delivery provider");
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Delivery;
     },
 
     delete: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
@@ -115,7 +116,7 @@ export const deliveryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to delete delivery provider");
+            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to delete delivery provider");
         }
     }
 };

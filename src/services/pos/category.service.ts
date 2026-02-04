@@ -1,5 +1,6 @@
 import { Category } from "../../types/api/pos/category";
 import { getProxyUrl } from "../../lib/proxy-utils";
+import { getBackendErrorMessage, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = "/pos/category";
 
@@ -20,15 +21,12 @@ export const categoryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to fetch categories");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch categories"));
         }
+
         const json = await response.json();
-        if (Array.isArray(json)) {
-            return json;
-        }
-        if (json?.success && Array.isArray(json.data)) {
-            return json.data;
-        }
+        const data = unwrapBackendData(json) as unknown;
+        if (Array.isArray(data)) return data as Category[];
         throw new Error("Invalid categories response format");
     },
 
@@ -44,13 +42,9 @@ export const categoryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to fetch category");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch category"));
         }
-        const json = await response.json();
-        if (json?.success && json.data) {
-            return json.data;
-        }
-        return json;
+        return unwrapBackendData(await response.json()) as Category;
     },
 
     findOneByName: async (name: string, cookie?: string): Promise<Category> => {
@@ -65,13 +59,9 @@ export const categoryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to fetch category by name");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch category by name"));
         }
-        const json = await response.json();
-        if (json?.success && json.data) {
-            return json.data;
-        }
-        return json;
+        return unwrapBackendData(await response.json()) as Category;
     },
 
     create: async (data: Partial<Category>, cookie?: string, csrfToken?: string): Promise<Category> => {
@@ -88,9 +78,9 @@ export const categoryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to create category");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to create category"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Category;
     },
 
     update: async (id: string, data: Partial<Category>, cookie?: string, csrfToken?: string): Promise<Category> => {
@@ -107,9 +97,9 @@ export const categoryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to update category");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to update category"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Category;
     },
 
     delete: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
@@ -125,7 +115,7 @@ export const categoryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to delete category");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to delete category"));
         }
     },
 };

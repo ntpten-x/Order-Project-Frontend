@@ -1,5 +1,6 @@
 import { Shift } from "../../types/api/pos/shifts";
 import { getCsrfTokenCached } from "../../utils/pos/csrf";
+import { unwrapBackendData } from "../../utils/api/backendResponse";
 
 export const shiftsService = {
     getCurrentShift: async (): Promise<Shift | null> => {
@@ -17,7 +18,7 @@ export const shiftsService = {
             throw new Error("Failed to fetch current shift");
         }
 
-        return response.json();
+        return unwrapBackendData(await response.json()) as Shift;
     },
 
     openShift: async (startAmount: number): Promise<Shift> => {
@@ -35,10 +36,10 @@ export const shiftsService = {
 
         if (!response.ok) {
             const error = await response.json().catch(() => ({}));
-            throw new Error(error.message || "Failed to open shift");
+            throw new Error(error?.error?.message || error.message || "Failed to open shift");
         }
 
-        return response.json();
+        return unwrapBackendData(await response.json()) as Shift;
     },
 
     closeShift: async (endAmount: number): Promise<Shift> => {
@@ -56,10 +57,10 @@ export const shiftsService = {
 
         if (!response.ok) {
             const error = await response.json().catch(() => ({}));
-            throw new Error(error.message || "Failed to close shift");
+            throw new Error(error?.error?.message || error.message || "Failed to close shift");
         }
 
-        return response.json();
+        return unwrapBackendData(await response.json()) as Shift;
     },
 
     getCurrentSummary: async (): Promise<unknown> => {
@@ -73,7 +74,7 @@ export const shiftsService = {
             throw new Error("Failed to fetch shift summary");
         }
 
-        return response.json();
+        return unwrapBackendData(await response.json());
     },
 
     getSummary: async (id: string): Promise<unknown> => {
@@ -87,6 +88,6 @@ export const shiftsService = {
             throw new Error("Failed to fetch shift summary");
         }
 
-        return response.json();
+        return unwrapBackendData(await response.json());
     }
 };

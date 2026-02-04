@@ -1,6 +1,7 @@
 import { LoginCredentials, LoginResponse, User } from "../types/api/auth";
 import { API_ROUTES, API_PREFIX } from "../config/api";
 import { getProxyUrl } from "../lib/proxy-utils";
+import { unwrapBackendData } from "../utils/api/backendResponse";
 
 // 4000 is the usual backend port if not specified
 // const BACKEND_API = process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:4000";
@@ -29,10 +30,16 @@ export const authService = {
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
+                const message =
+                    errorData?.error?.message ||
+                    errorData.message ||
+                    errorData.detail ||
+                    "Login failed";
+                throw new Error(message);
                 throw new Error(errorData.message || errorData.detail || "เข้าสู่ระบบไม่สำเร็จ");
             }
 
-            const data: LoginResponse = await response.json();
+            const data = unwrapBackendData<LoginResponse>(await response.json());
             // Return both user and token so the API route can handle the cookie
             // Note: If using credentials: include, the backend Set-Cookie should be handled by browser automatically.
             return { ...data.user, token: data.token };
@@ -94,8 +101,7 @@ export const authService = {
                 throw new Error("Unauthorized");
             }
 
-            const user: User = await response.json();
-            return user;
+            return unwrapBackendData(await response.json()) as User;
         } catch (error) {
             throw error;
         }

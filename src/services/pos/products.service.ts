@@ -2,6 +2,7 @@ import { Products } from "../../types/api/pos/products";
 import { getProxyUrl } from "../../lib/proxy-utils";
 import { API_ROUTES } from "../../config/api";
 import { ProductSchema, ProductsResponseSchema } from "../../schemas/api/pos/products.schema";
+import { getBackendErrorMessage, normalizeBackendPaginated, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = API_ROUTES.POS.PRODUCTS;
 
@@ -24,30 +25,11 @@ export const productsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to fetch products");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch products"));
         }
 
         const json = await response.json();
-        
-        // Transform backend response format to match frontend schema
-        // Backend returns: { success: true, data: [...], meta: { page, limit, total, totalPages } }
-        // Frontend expects: { data: [...], total, page, last_page }
-        let transformedResponse: { data: Products[], total: number, page: number, last_page: number };
-        
-        if (json.success && json.data && json.meta) {
-            // Backend format - transform it
-            transformedResponse = {
-                data: json.data,
-                total: json.meta.total || 0,
-                page: json.meta.page || page,
-                last_page: json.meta.totalPages || Math.ceil((json.meta.total || 0) / limit)
-            };
-        } else if (json.data && typeof json.total === 'number') {
-            // Already in correct format
-            transformedResponse = json;
-        } else {
-            throw new Error("Invalid response format from backend");
-        }
+        const transformedResponse = normalizeBackendPaginated<Products>(json);
         
         // Strict Validation: will throw if transformed response doesn't match schema
         return ProductsResponseSchema.parse(transformedResponse) as unknown as { data: Products[], total: number, page: number, last_page: number };
@@ -65,11 +47,11 @@ export const productsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to fetch product");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch product"));
         }
 
         const json = await response.json();
-        return ProductSchema.parse(json) as unknown as Products;
+        return ProductSchema.parse(unwrapBackendData(json)) as unknown as Products;
     },
 
     findOneByName: async (name: string, cookie?: string): Promise<Products> => {
@@ -84,11 +66,11 @@ export const productsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to fetch product by name");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch product by name"));
         }
 
         const json = await response.json();
-        return ProductSchema.parse(json) as unknown as Products;
+        return ProductSchema.parse(unwrapBackendData(json)) as unknown as Products;
     },
 
     create: async (data: Partial<Products>, cookie?: string, csrfToken?: string): Promise<Products> => {
@@ -105,9 +87,10 @@ export const productsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to create product");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to create product"));
         }
-        return response.json();
+        const json = await response.json();
+        return unwrapBackendData(json) as Products;
     },
 
     update: async (id: string, data: Partial<Products>, cookie?: string, csrfToken?: string): Promise<Products> => {
@@ -124,9 +107,10 @@ export const productsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to update product");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to update product"));
         }
-        return response.json();
+        const json = await response.json();
+        return unwrapBackendData(json) as Products;
     },
 
     delete: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
@@ -142,7 +126,7 @@ export const productsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to delete product");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to delete product"));
         }
     },
 };

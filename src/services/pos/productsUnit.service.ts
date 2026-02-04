@@ -1,5 +1,6 @@
 import { ProductsUnit } from "../../types/api/pos/productsUnit";
 import { getProxyUrl } from "../../lib/proxy-utils";
+import { unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = "/pos/productsUnit";
 
@@ -20,9 +21,9 @@ export const productsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to fetch products units");
+            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to fetch products units");
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as ProductsUnit[];
     },
 
     findOne: async (id: string, cookie?: string): Promise<ProductsUnit> => {
@@ -37,9 +38,9 @@ export const productsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to fetch products unit");
+            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to fetch products unit");
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as ProductsUnit;
     },
 
     findOneByName: async (name: string, cookie?: string): Promise<ProductsUnit> => {
@@ -54,9 +55,9 @@ export const productsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to fetch products unit by name");
+            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to fetch products unit by name");
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as ProductsUnit;
     },
 
     create: async (data: Partial<ProductsUnit>, cookie?: string, csrfToken?: string): Promise<ProductsUnit> => {
@@ -73,9 +74,9 @@ export const productsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to create products unit");
+            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to create products unit");
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as ProductsUnit;
     },
 
     update: async (id: string, data: Partial<ProductsUnit>, cookie?: string, csrfToken?: string): Promise<ProductsUnit> => {
@@ -92,9 +93,9 @@ export const productsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to update products unit");
+            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to update products unit");
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as ProductsUnit;
     },
 
     delete: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
@@ -110,7 +111,7 @@ export const productsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to delete products unit");
+            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to delete products unit");
         }
     },
 };
