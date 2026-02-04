@@ -6,6 +6,7 @@ export const ProductSchema = z.object({
     display_name: z.string(),
     description: z.string().optional().or(z.string()), // Accept empty string or undefined as leniently as possible
     price: z.number().or(z.string().transform(val => Number(val))), // Handle potential string numbers
+    price_delivery: z.number().or(z.string().transform(val => Number(val))).optional(), // Delivery price (fallback handled below)
     category_id: z.string(),
     unit_id: z.string(),
     img_url: z.string().nullable().optional(),
@@ -15,7 +16,10 @@ export const ProductSchema = z.object({
     // Relations (optional for basic list)
     category: z.any().optional(),
     unit: z.any().optional(),
-});
+}).transform((value) => ({
+    ...value,
+    price_delivery: value.price_delivery ?? value.price,
+}));
 
 export const ProductsResponseSchema = z.object({
     data: z.array(ProductSchema),

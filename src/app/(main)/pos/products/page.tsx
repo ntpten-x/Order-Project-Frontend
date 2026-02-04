@@ -255,6 +255,22 @@ const ProductCard = ({ product, index, onEdit, onDelete }: ProductCardProps) => 
                         >
                             {formatPrice(Number(product.price))}
                         </Tag>
+                        {Number(product.price_delivery ?? product.price) !== Number(product.price) && (
+                            <Tag
+                                style={{
+                                    borderRadius: 6,
+                                    margin: 0,
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    color: '#db2777',
+                                    background: '#fdf2f8',
+                                    border: 'none',
+                                    padding: '0 8px'
+                                }}
+                            >
+                                Delivery {formatPrice(Number(product.price_delivery ?? product.price))}
+                            </Tag>
+                        )}
                         {product.category?.display_name && (
                             <Tag 
                                 style={{ 

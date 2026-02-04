@@ -428,12 +428,16 @@ export default function POSOrderDetailsPage() {
     };
 
     const handleAddItem = async (product: Products, quantity: number, notes: string, details: ItemDetailInput[] = []) => {
-        const totalPrice = (Number(product.price) + details.reduce((sum, d) => sum + d.extra_price, 0)) * quantity;
+        const unitPrice =
+            order?.order_type === OrderType.Delivery
+                ? Number(product.price_delivery ?? product.price)
+                : Number(product.price);
+        const totalPrice = (unitPrice + details.reduce((sum, d) => sum + d.extra_price, 0)) * quantity;
 
         if (!isOnline) {
             offlineQueueService.addToQueue('ADD_ITEM', { 
                 orderId: orderId as string, 
-                itemData: { product_id: product.id, quantity, price: product.price, notes, discount_amount: 0, total_price: totalPrice, details } 
+                itemData: { product_id: product.id, quantity, price: unitPrice, notes, discount_amount: 0, total_price: totalPrice, details } 
             });
             message.warning("บันทึกข้อมูลแบบ Offline แล้ว");
             fetchOrder(orderId as string); // Refresh from cache/local
@@ -447,7 +451,7 @@ export default function POSOrderDetailsPage() {
             await ordersService.addItem(orderId as string, {
                 product_id: product.id,
                 quantity: quantity,
-                price: product.price,
+                price: unitPrice,
                 notes: notes,
                 discount_amount: 0,
                 total_price: totalPrice,
@@ -1405,6 +1409,7 @@ export default function POSOrderDetailsPage() {
                 isOpen={isAddModalOpen} 
                 onClose={() => setIsAddModalOpen(false)} 
                 onAddItem={handleAddItem} 
+                orderType={order?.order_type}
             />
             
             {editModalOpen && itemToEdit && (

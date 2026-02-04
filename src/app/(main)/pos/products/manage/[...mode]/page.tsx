@@ -82,6 +82,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                 description: data.description,
                 img_url: data.img_url,
                 price: parseFloat(data.price),
+                price_delivery: Number(data.price_delivery ?? data.price ?? 0),
                 category_id: data.category_id,
                 unit_id: data.unit_id,
                 is_active: data.is_active,
@@ -224,10 +225,17 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                             onFinish={onFinish}
                             requiredMark={false}
                             autoComplete="off"
-                            initialValues={{ is_active: true, price: 0 }}
+                            initialValues={{ is_active: true, price: 0, price_delivery: 0 }}
                             onValuesChange={(changedValues) => {
                                 if (changedValues.img_url !== undefined) setImageUrl(changedValues.img_url);
                                 if (changedValues.display_name !== undefined) setDisplayName(changedValues.display_name);
+                                if (
+                                    !isEdit &&
+                                    changedValues.price !== undefined &&
+                                    !form.isFieldTouched("price_delivery")
+                                ) {
+                                    form.setFieldsValue({ price_delivery: changedValues.price });
+                                }
                                 forceUpdate({});
                             }}
                         >
@@ -256,25 +264,47 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                 </Form.Item>
                             </div>
 
-                            <Form.Item
-                                name="price"
-                                label="ราคา (บาท) *"
-                                rules={[
-                                    { required: true, message: 'กรุณากรอกราคา' },
-                                    { type: 'number', min: 0, message: 'ราคาต้องไม่ติดลบ' }
-                                ]}
-                            >
-                                <InputNumber<number> 
-                                    size="large" 
-                                    placeholder="0.00"
-                                    min={0}
-                                    precision={2}
-                                    style={{ width: '100%', height: 45, fontSize: 16, borderRadius: 12 }}
-                                    formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                                    parser={(value) => value ? parseFloat(value.replace(/\$\s?|(,*)/g, '')) : 0}
-                                    controls={false}
-                                />
-                            </Form.Item>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                                <Form.Item
+                                    name="price"
+                                    label="ราคา (หน้าร้าน) *"
+                                    rules={[
+                                        { required: true, message: 'กรุณากรอกราคา' },
+                                        { type: 'number', min: 0, message: 'ราคาต้องไม่ติดลบ' }
+                                    ]}
+                                >
+                                    <InputNumber<number>
+                                        size="large"
+                                        placeholder="0.00"
+                                        min={0}
+                                        precision={2}
+                                        style={{ width: '100%', height: 45, fontSize: 16, borderRadius: 12 }}
+                                        formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                        parser={(value) => value ? parseFloat(value.replace(/\$\s?|(,*)/g, '')) : 0}
+                                        controls={false}
+                                    />
+                                </Form.Item>
+
+                                <Form.Item
+                                    name="price_delivery"
+                                    label="ราคา (Delivery) *"
+                                    rules={[
+                                        { required: true, message: 'กรุณากรอกราคา Delivery' },
+                                        { type: 'number', min: 0, message: 'ราคาต้องไม่ติดลบ' }
+                                    ]}
+                                >
+                                    <InputNumber<number>
+                                        size="large"
+                                        placeholder="0.00"
+                                        min={0}
+                                        precision={2}
+                                        style={{ width: '100%', height: 45, fontSize: 16, borderRadius: 12 }}
+                                        formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                        parser={(value) => value ? parseFloat(value.replace(/\$\s?|(,*)/g, '')) : 0}
+                                        controls={false}
+                                    />
+                                </Form.Item>
+                            </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                                 <Form.Item
@@ -360,6 +390,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                             productName={form.getFieldValue('product_name')}
                             imageUrl={imageUrl}
                             price={form.getFieldValue('price')}
+                            priceDelivery={form.getFieldValue('price_delivery')}
                             category={categories.find(c => c.id === form.getFieldValue('category_id'))?.display_name}
                             unit={units.find(u => u.id === form.getFieldValue('unit_id'))?.display_name}
                         />
@@ -456,4 +487,3 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
         </div>
     );
 }
-

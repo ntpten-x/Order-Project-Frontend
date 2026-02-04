@@ -23,7 +23,7 @@ export default function PromotionCodeInput({
     const [code, setCode] = useState('');
     const [isValidating, setIsValidating] = useState(false);
     const { validatePromotion } = usePromotions();
-    const { cartItems, getSubtotal } = useCart();
+    const { cartItems, getSubtotal, orderMode } = useCart();
 
     const handleValidate = async () => {
         if (!code.trim()) {
@@ -36,7 +36,10 @@ export default function PromotionCodeInput({
             const orderItems = cartItems.map(item => ({
                 product_id: item.product.id,
                 quantity: item.quantity,
-                price: Number(item.product.price),
+                price:
+                    orderMode === 'DELIVERY'
+                        ? Number(item.product.price_delivery ?? item.product.price)
+                        : Number(item.product.price),
             }));
 
             const eligibility = await validatePromotion({

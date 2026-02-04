@@ -17,6 +17,7 @@ import { Products } from '../../../../../types/api/pos/products';
 import { orderDetailColors, modalStyles, addItemsModalStyles, ordersResponsiveStyles } from '../../../../../theme/pos/orders/style';
 import { formatCurrency, calculateItemTotal } from "../../../../../utils/orders";
 import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
+import { OrderType } from "../../../../../types/api/pos/salesOrder";
 
 const { Text, Title } = Typography;
 
@@ -36,9 +37,10 @@ interface AddItemsModalProps {
     isOpen: boolean;
     onClose: () => void;
     onAddItem: (product: Products, quantity: number, notes: string, details: ItemDetailInput[]) => Promise<void>;
+    orderType?: OrderType;
 }
 
-export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, onAddItem }) => {
+export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, onAddItem, orderType }) => {
     const { message } = App.useApp();
     const [products, setProducts] = useState<Products[]>([]);
     const [filteredProducts, setFilteredProducts] = useState<Products[]>([]);
@@ -159,11 +161,15 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
 
     const calculateTotalPrice = () => {
         if (!selectedProduct) return 0;
+        const basePrice =
+            orderType === OrderType.Delivery
+                ? (selectedProduct.price_delivery ?? selectedProduct.price)
+                : selectedProduct.price;
         const formattedDetails = details.map(d => ({
             detail_name: d.name,
             extra_price: d.price
         }));
-        return calculateItemTotal(selectedProduct.price, quantity, formattedDetails);
+        return calculateItemTotal(basePrice, quantity, formattedDetails);
     };
 
     return (
@@ -361,7 +367,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                 <div style={{ flex: 1, minWidth: 0 }}>
                                     <Title level={4} style={{ margin: '0 0 6px 0', fontSize: 20, lineHeight: 1.3 }}>{selectedProduct.display_name}</Title>
                                     <Text style={{ fontSize: 20, fontWeight: 700, color: orderDetailColors.primary, lineHeight: 1.2 }}>
-                                        ฿{Number(selectedProduct.price).toLocaleString()}
+                                        ฿{Number(orderType === OrderType.Delivery ? (selectedProduct.price_delivery ?? selectedProduct.price) : selectedProduct.price).toLocaleString()}
                                     </Text>
                                 </div>
                             </div>

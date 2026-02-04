@@ -196,7 +196,10 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const getSubtotal = () => {
         return cartItems.reduce((total, item) => {
-            const productBasePrice = Number(item.product.price);
+            const productBasePrice =
+                orderMode === 'DELIVERY'
+                    ? Number(item.product.price_delivery ?? item.product.price)
+                    : Number(item.product.price);
             const detailsPrice = (item.details || []).reduce((sum, d) => sum + Number(d.extra_price), 0);
             return total + (productBasePrice + detailsPrice) * item.quantity;
         }, 0);
