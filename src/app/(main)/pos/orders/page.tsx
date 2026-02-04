@@ -3,11 +3,10 @@
 import { useOrderListPrefetching } from "../../../../hooks/pos/usePrefetching";
 
 import React, { useEffect, useState } from "react";
-import { Typography, Card, Table, Tag, Button, Empty, Divider, Grid, List, Input } from "antd";
+import { Typography, Card, Tag, Button, Divider, Grid, List, Input, Space } from "antd";
 import { 
   ReloadOutlined, 
   EyeOutlined,
-  ArrowLeftOutlined,
   ClockCircleOutlined,
   ContainerOutlined
 } from "@ant-design/icons";
@@ -26,8 +25,13 @@ import { useDebouncedValue } from "../../../../utils/useDebouncedValue";
 import { useOrdersSummary } from "../../../../hooks/pos/useOrdersSummary";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import UIPageHeader from "@/components/ui/page/PageHeader";
+import UIEmptyState from "@/components/ui/states/EmptyState";
+import PageTable from "@/components/ui/table/PageTable";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const { useBreakpoint } = Grid;
 dayjs.locale('th');
 
@@ -57,14 +61,6 @@ export default function POSOrdersPage() {
         query: debouncedSearch || undefined
     });
 
-// Socket logic moved to useOrders hook to prevent double fetching
-    // useRealtimeRefresh({
-    //     socket,
-    //     events: ["orders:create", "orders:update", "orders:delete", "payments:create", "payments:update"],
-    //     onRefresh: () => refetch(),
-    //     intervalMs: 15000,
-    //     debounceMs: 1000,
-    // });
 
     const columns = [
         {
@@ -182,74 +178,29 @@ export default function POSOrdersPage() {
         <div style={ordersStyles.container}>
             <style jsx global>{ordersResponsiveStyles}</style>
 
-            {/* Header with softer gradient */}
-            <header style={ordersStyles.header} className="orders-header" role="banner">
-                <div style={ordersStyles.headerContent} className="orders-content orders-header-content-mobile">
-                    {/* Glass Back Button */}
-                    <Button 
-                        icon={<ArrowLeftOutlined />} 
-                        onClick={() => router.push('/pos')}
-                        type="text"
-                        className="orders-back-button-mobile"
-                        aria-label="กลับไปหน้า POS"
-                        style={{ 
-                            color: '#fff', 
-                            fontSize: 18, 
-                            marginRight: 12,
-                            width: 44,
-                            height: 44,
-                            borderRadius: 14,
-                            background: 'rgba(255,255,255,0.15)',
-                            backdropFilter: 'blur(8px)',
-                            border: '1px solid rgba(255,255,255,0.25)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                        }}
-                    />
-                    <div style={ordersStyles.headerIcon} className="orders-header-icon">
-                        <ContainerOutlined style={{ color: '#fff', fontSize: 24 }} />
-                    </div>
-                    <div style={ordersStyles.headerTextContainer} className="orders-header-text-mobile">
-                        <Title level={2} style={ordersStyles.headerTitle} className="orders-page-title">
-                            รายการออเดอร์ปัจจุบัน
-                        </Title>
-                        <Text style={ordersStyles.headerSubtitle} className="orders-page-subtitle">
-                            จัดการและติดตามสถานะออเดอร์ที่กำลังดำเนินการ
-                        </Text>
-                    </div>
-                    <div className="orders-header-actions-mobile" style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <UIPageHeader
+                title="ออเดอร์"
+                subtitle="รายการออเดอร์ที่กำลังดำเนินการ"
+                onBack={() => router.push('/pos')}
+                icon={<ContainerOutlined style={{ fontSize: 20 }} />}
+                actions={
+                    <Space size={8} wrap>
                         <Input
                             allowClear
                             placeholder="ค้นหาออเดอร์..."
                             value={searchValue}
                             onChange={(e) => setSearchValue(e.target.value)}
-                            size={isMobile ? "middle" : "large"}
-                            className="orders-search-input-mobile"
-                            style={{ 
-                                width: isMobile ? 140 : 280, 
-                                minWidth: 120,
-                                borderRadius: 12,
-                            }}
+                            style={{ minWidth: isMobile ? 200 : 280 }}
                         />
-                        <Button 
-                            icon={<ReloadOutlined />} 
-                            onClick={() => refetch()} 
-                            size={isMobile ? 'middle' : 'large'} 
-                            ghost
-                            className="orders-refresh-button-mobile scale-hover"
-                            style={{
-                                borderRadius: 12,
-                                border: '1px solid rgba(255,255,255,0.4)',
-                            }}
-                        >
-                            <span className="hide-on-mobile">รีเฟรช</span>
+                        <Button icon={<ReloadOutlined />} onClick={() => refetch()}>
+                            รีเฟรช
                         </Button>
-                    </div>
-                </div>
-            </header>
+                    </Space>
+                }
+            />
 
-            {/* Content with Card */}
+            <PageContainer>
+                <PageSection>
             <main style={ordersStyles.contentWrapper} className="orders-content-wrapper">
                 <Card 
                     bordered={false} 
@@ -261,7 +212,7 @@ export default function POSOrdersPage() {
                     styles={{ body: ordersStyles.cardBody }}
                 >
                     {!isMobile ? (
-                        <Table
+                        <PageTable
                             columns={columns}
                             dataSource={orders}
                             loading={isLoading}
@@ -275,12 +226,19 @@ export default function POSOrdersPage() {
                                 onChange: (p) => setPage(p),
                                 showTotal: (total) => `ทั้งหมด ${total} รายการ`
                             }}
-                            locale={{ emptyText: <Empty description="ไม่พบรายการออเดอร์" /> }}
+                            emptyTitle="ไม่พบรายการออเดอร์"
                         />
                     ) : (
                         <List
                             loading={isLoading}
                             dataSource={orders}
+                            locale={{
+                                emptyText: (
+                                    <div style={{ padding: 12 }}>
+                                        <UIEmptyState title="ไม่พบรายการออเดอร์" />
+                                    </div>
+                                ),
+                            }}
                             renderItem={(order) => {
                                 const totalQty = order.items_count || 0;
                                 
@@ -382,6 +340,8 @@ export default function POSOrdersPage() {
                     )}
                 </Card>
             </main>
+                </PageSection>
+            </PageContainer>
         </div>
     );
 }

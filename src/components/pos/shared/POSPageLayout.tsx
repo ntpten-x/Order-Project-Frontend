@@ -24,6 +24,7 @@ import {
   posColors, 
   POSSharedStyles 
 } from "./style";
+import { groupOrderItems, type GroupedOrderItem } from "../../../utils/orderGrouping";
 import { 
   formatPrice, 
   hasProductImage, 
@@ -65,10 +66,17 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
     updateItemNote,
     clearCart,
     updateItemDetails,
+    orderMode,
     getTotalItems, 
     getSubtotal,
     getFinalPrice,
   } = useCart();
+
+  const getProductUnitPrice = (product: Products): number => {
+    return orderMode === 'DELIVERY'
+      ? Number(product.price_delivery ?? product.price)
+      : Number(product.price);
+  };
 
   // Clear cart when leaving the specific page (navigation) but NOT on refresh
   React.useEffect(() => {
@@ -138,7 +146,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
 
   // ==================== RENDER HELPERS ====================
   const renderCartItem = (item: CartItem) => {
-      const originalPrice = Number(item.product.price);
+    const originalPrice = getProductUnitPrice(item.product);
     const discountAmount = item.discount || 0;
     const finalPrice = Math.max(0, originalPrice * item.quantity - discountAmount);
     
@@ -467,7 +475,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                       </Tag>
                       <div style={posLayoutStyles.productFooter} className="pos-product-footer-mobile">
                         <Text style={posLayoutStyles.productPrice} className="pos-product-price-mobile">
-                          {formatPrice(Number(product.price))}
+                          {formatPrice(getProductUnitPrice(product))}
                         </Text>
                         <Button
                           type="primary"
@@ -685,9 +693,9 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                   <Title level={5} style={{ marginBottom: 16, color: posColors.text }}>รายการที่สั่ง</Title>
                   <List
                     itemLayout="horizontal"
-                    dataSource={cartItems}
-                    renderItem={(item) => (
-                      <div key={item.cart_item_id} style={{ 
+                    dataSource={groupOrderItems(cartItems)}
+                    renderItem={(item: GroupedOrderItem<CartItem>) => (
+                      <div key={item.id} style={{ 
                         display: 'flex', 
                         gap: 12, 
                         padding: '14px 0', 
@@ -717,7 +725,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                               <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                   <Text type="secondary" style={{ fontSize: 12 }}>ราคาอาหาร</Text>
-                                  <Text type="secondary" style={{ fontSize: 12 }}>{formatPrice(Number(item.product.price))}</Text>
+                                  <Text type="secondary" style={{ fontSize: 12 }}>{formatPrice(getProductUnitPrice(item.product))}</Text>
                                 </div>
                                 
                                 {item.details && item.details.map((d: { detail_name: string; extra_price: number }, idx: number) => (
@@ -742,7 +750,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                             
                             {/* Line Total */}
                             <Text strong style={{ fontSize: 15, marginLeft: 12, color: posColors.primary }}>
-                              {formatPrice((Number(item.product.price) + (item.details || []).reduce((sum, d) => sum + Number(d.extra_price), 0)) * item.quantity)}
+                              {formatPrice((getProductUnitPrice(item.product) + (item.details || []).reduce((sum: number, d: CartDetail) => sum + Number(d.extra_price), 0)) * item.quantity)}
                             </Text>
                           </div>
                         </div>

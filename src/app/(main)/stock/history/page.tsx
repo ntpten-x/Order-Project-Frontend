@@ -1,20 +1,22 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useState } from "react";
-import { message, Modal, Spin, Pagination } from "antd";
+import { Button, message, Modal, Pagination, Spin } from "antd";
 import { HistoryOutlined } from "@ant-design/icons";
 import { Order, OrderStatus } from "../../../../types/api/stock/orders";
 import OrderDetailModal from "../../../../components/stock/OrderDetailModal";
 import { useSocket } from "../../../../hooks/useSocket";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { authService } from "../../../../services/auth.service";
+import PageContainer from "@/components/ui/page/PageContainer";
+import UIPageHeader from "@/components/ui/page/PageHeader";
+import PageSection from "@/components/ui/page/PageSection";
+import UIEmptyState from "@/components/ui/states/EmptyState";
 import {
     HistoryPageStyles,
     pageStyles,
-    PageHeader,
     StatsCard,
     OrderCard,
-    EmptyState
 } from "./style";
 
 export default function HistoryPage() {
@@ -117,15 +119,25 @@ export default function HistoryPage() {
 
     if (loading && orders.length === 0) {
         return (
-            <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                minHeight: '100vh',
-                flexDirection: 'column',
-                gap: 16
-            }}>
-                <Spin size="large" />
+            <div style={{ minHeight: "100vh", background: pageStyles.container.backgroundColor as string }}>
+                <HistoryPageStyles />
+                <UIPageHeader
+                    title="ประวัติออเดอร์สต็อก"
+                    subtitle="รายการที่เสร็จสิ้น/ยกเลิก"
+                    icon={<HistoryOutlined />}
+                    actions={
+                        <Button onClick={() => fetchOrders(page, pageSize)} loading={loading}>
+                            รีเฟรช
+                        </Button>
+                    }
+                />
+                <PageContainer>
+                    <PageSection>
+                        <div style={{ display: "flex", justifyContent: "center", padding: "60px 0" }}>
+                            <Spin size="large" />
+                        </div>
+                    </PageSection>
+                </PageContainer>
             </div>
         );
     }
@@ -134,74 +146,70 @@ export default function HistoryPage() {
         <div className="history-page" style={pageStyles.container}>
             <HistoryPageStyles />
             
-            {/* Header */}
-            <PageHeader onRefresh={() => fetchOrders(page, pageSize)} loading={loading} />
-            
-            {/* Stats Card (Might need separate API for true totals if pagination is on, but for now using current page stats or we can remove/update logic later) */}
-            <StatsCard 
-                totalOrders={total}
-                completedOrders={completedOrders.length} // Note: This only counts current page! Ideally backend should return stats.
-                cancelledOrders={cancelledOrders.length} // Note: This only counts current page!
+            <UIPageHeader
+                title="ประวัติออเดอร์สต็อก"
+                subtitle="รายการที่เสร็จสิ้น/ยกเลิก"
+                icon={<HistoryOutlined />}
+                actions={
+                    <Button onClick={() => fetchOrders(page, pageSize)} loading={loading}>
+                        รีเฟรช
+                    </Button>
+                }
             />
-
-            {/* Orders List */}
-            <div style={pageStyles.listContainer}>
-                {orders.length > 0 ? (
-                    <>
-                        <div style={pageStyles.sectionTitle}>
-                            <HistoryOutlined style={{ fontSize: 18, color: '#667eea' }} />
-                            <span style={{ fontSize: 16, fontWeight: 600, color: '#1a1a2e' }}>
-                                ประวัติทั้งหมด
-                            </span>
-                            <div style={{
-                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                color: 'white',
-                                padding: '4px 12px',
-                                borderRadius: 20,
-                                fontSize: 12,
-                                fontWeight: 600
-                            }}>
-                                {total} รายการ
-                            </div>
-                        </div>
-
-                        {orders.map((order, index) => (
-                            <OrderCard
-                                key={order.id}
-                                order={order}
-                                index={index}
-                                onView={setViewingOrder}
-                                onDelete={handleDeleteOrder}
-                                isAdmin={isAdmin}
-                            />
-                        ))}
-
-                        {/* Pagination */}
-                        <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
-                            <Pagination
-                                current={page}
-                                pageSize={pageSize}
-                                total={total}
-                                onChange={(p, s) => {
-                                    setPage(p);
-                                    setPageSize(s);
-                                }}
-                                showSizeChanger
-                                showTotal={(total) => `ทั้งหมด ${total} รายการ`}
-                            />
-                        </div>
-                    </>
-                ) : (
-                    <EmptyState />
-                )}
-            </div>
             
-            {/* Order Detail Modal */}
-            <OrderDetailModal
-                open={!!viewingOrder}
-                order={viewingOrder}
-                onClose={() => setViewingOrder(null)}
-            />
+            <PageContainer>
+                <PageSection>
+                    <StatsCard
+                        totalOrders={total}
+                        completedOrders={completedOrders.length}
+                        cancelledOrders={cancelledOrders.length}
+                    />
+                </PageSection>
+
+                <PageSection
+                    title="ประวัติทั้งหมด"
+                    extra={<span style={{ fontWeight: 600 }}>{total} รายการ</span>}
+                >
+                    <div style={pageStyles.listContainer}>
+                        {orders.length > 0 ? (
+                            <>
+                                {orders.map((order, index) => (
+                                    <OrderCard
+                                        key={order.id}
+                                        order={order}
+                                        index={index}
+                                        onView={setViewingOrder}
+                                        onDelete={handleDeleteOrder}
+                                        isAdmin={isAdmin}
+                                    />
+                                ))}
+
+                                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
+                                    <Pagination
+                                        current={page}
+                                        pageSize={pageSize}
+                                        total={total}
+                                        onChange={(p, s) => {
+                                            setPage(p);
+                                            setPageSize(s);
+                                        }}
+                                        showSizeChanger
+                                        showTotal={(t) => `ทั้งหมด ${t} รายการ`}
+                                    />
+                                </div>
+                            </>
+                        ) : (
+                            <UIEmptyState title="ยังไม่มีประวัติออเดอร์" description="เมื่อมีรายการเสร็จสิ้น/ยกเลิก จะแสดงที่หน้านี้" />
+                        )}
+                    </div>
+                </PageSection>
+            
+                <OrderDetailModal
+                    open={!!viewingOrder}
+                    order={viewingOrder}
+                    onClose={() => setViewingOrder(null)}
+                />
+            </PageContainer>
         </div>
     );
 }

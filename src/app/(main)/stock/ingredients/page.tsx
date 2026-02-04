@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Spin, Typography } from 'antd';
-import { ExperimentOutlined } from '@ant-design/icons';
+import { message, Modal, Spin, Typography, Button, Space } from 'antd';
+import { ExperimentOutlined, ReloadOutlined, PlusOutlined } from '@ant-design/icons';
 import { Ingredients } from "../../../../types/api/stock/ingredients";
 import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
@@ -12,15 +12,18 @@ import { useAuth } from "../../../../contexts/AuthContext";
 import {
     IngredientsPageStyles,
     pageStyles,
-    PageHeader,
     StatsCard,
     IngredientCard,
-    EmptyState
 } from './style';
 
 const { Text } = Typography;
 
 import { authService } from "../../../../services/auth.service";
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import PageStack from "@/components/ui/page/PageStack";
+import UIPageHeader from "@/components/ui/page/PageHeader";
+import UIEmptyState from "@/components/ui/states/EmptyState";
 
 export default function IngredientsPage() {
     const router = useRouter();
@@ -173,54 +176,58 @@ export default function IngredientsPage() {
         <div className="ingredients-page" style={pageStyles.container}>
             <IngredientsPageStyles />
             
-            {/* Header */}
-            <PageHeader 
-                onRefresh={fetchIngredients}
-                onAdd={handleAdd}
+            <UIPageHeader
+                title="วัตถุดิบ"
+                subtitle={`${ingredients.length} รายการ`}
+                icon={<ExperimentOutlined />}
+                actions={
+                    <Space size={8} wrap>
+                        <Button icon={<ReloadOutlined />} onClick={fetchIngredients}>รีเฟรช</Button>
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>เพิ่มวัตถุดิบ</Button>
+                    </Space>
+                }
             />
             
-            {/* Stats Card */}
-            <StatsCard 
-                totalIngredients={ingredients.length}
-                activeIngredients={activeIngredients.length}
-                inactiveIngredients={inactiveIngredients.length}
-            />
+            <PageContainer>
+                <PageStack>
+                    {/* Stats Card */}
+                    <StatsCard 
+                        totalIngredients={ingredients.length}
+                        activeIngredients={activeIngredients.length}
+                        inactiveIngredients={inactiveIngredients.length}
+                    />
 
-            {/* Ingredients List */}
-            <div style={pageStyles.listContainer}>
-                {ingredients.length > 0 ? (
-                    <>
-                        <div style={pageStyles.sectionTitle}>
-                            <ExperimentOutlined style={{ fontSize: 18, color: '#1890ff' }} />
-                            <span style={{ fontSize: 16, fontWeight: 600, color: '#1a1a2e' }}>
-                                รายการวัตถุดิบ
-                            </span>
-                            <div style={{
-                                background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)',
-                                color: 'white',
-                                padding: '4px 12px',
-                                borderRadius: 20,
-                                fontSize: 12,
-                                fontWeight: 600
-                            }}>
-                                {ingredients.length} รายการ
+                    {/* Ingredients List */}
+                    <PageSection
+                        title="รายการวัตถุดิบ"
+                        extra={<span style={{ fontWeight: 600 }}>{ingredients.length}</span>}
+                    >
+                        {ingredients.length > 0 ? (
+                            <div style={pageStyles.listContainer}>
+                                {ingredients.map((ingredient, index) => (
+                                    <IngredientCard
+                                        key={ingredient.id}
+                                        ingredient={ingredient}
+                                        index={index}
+                                        onEdit={handleEdit}
+                                        onDelete={handleDelete}
+                                    />
+                                ))}
                             </div>
-                        </div>
-
-                        {ingredients.map((ingredient, index) => (
-                            <IngredientCard
-                                key={ingredient.id}
-                                ingredient={ingredient}
-                                index={index}
-                                onEdit={handleEdit}
-                                onDelete={handleDelete}
+                        ) : (
+                            <UIEmptyState
+                                title="ยังไม่มีวัตถุดิบ"
+                                description="เริ่มต้นด้วยการเพิ่มวัตถุดิบแรกของคุณ"
+                                action={
+                                    <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                                        เพิ่มวัตถุดิบ
+                                    </Button>
+                                }
                             />
-                        ))}
-                    </>
-                ) : (
-                    <EmptyState onAdd={handleAdd} />
-                )}
-            </div>
+                        )}
+                    </PageSection>
+                </PageStack>
+            </PageContainer>
         </div>
     );
 }

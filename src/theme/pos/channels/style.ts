@@ -13,7 +13,8 @@ export const channelsStyles = {
   channelsContainer: {
     minHeight: '100dvh',
     background: '#F8FAFC',
-    fontFamily: "'Sarabun', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif",
+    fontFamily:
+        "var(--font-sans), 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     paddingBottom: 100,
   } as CSSProperties,
 

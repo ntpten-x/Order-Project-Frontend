@@ -28,7 +28,7 @@ export const dashboardStyles = {
     container: {
         minHeight: '100vh',
         background: dashboardColors.background,
-        fontFamily: "'Inter', 'Sarabun', sans-serif",
+        fontFamily: "var(--font-sans), 'Sarabun', sans-serif",
         paddingBottom: 60,
     } as CSSProperties,
 

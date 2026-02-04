@@ -1,6 +1,4 @@
-import { useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import { useContext, useEffect } from "react";
-import { SocketContext } from "../../contexts/SocketContext";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import { ordersService } from "../../services/pos/orders.service";
 import { SalesOrderSummary } from "../../types/api/pos/salesOrder";
 
@@ -19,9 +17,9 @@ interface UseOrdersSummaryParams {
     query?: string;
 }
 
+
+
 export function useOrdersSummary({ page = 1, limit = 50, status, type, query }: UseOrdersSummaryParams) {
-    const { socket } = useContext(SocketContext);
-    const queryClient = useQueryClient();
     const queryKey = ["ordersSummary", page, limit, status || "all", type || "all", query || ""];
 
     const { data, error, isLoading, isFetching, refetch } = useQuery<OrdersSummaryResponse>({
@@ -33,27 +31,9 @@ export function useOrdersSummary({ page = 1, limit = 50, status, type, query }: 
         staleTime: 3000,
     });
 
-    useEffect(() => {
-        if (!socket) return;
-
-        const handleOrderUpdate = () => {
-            queryClient.invalidateQueries({ queryKey: ["ordersSummary"] });
-        };
-
-        socket.on("orders:create", handleOrderUpdate);
-        socket.on("orders:update", handleOrderUpdate);
-        socket.on("orders:delete", handleOrderUpdate);
-        socket.on("payments:create", handleOrderUpdate);
-        socket.on("payments:update", handleOrderUpdate);
-
-        return () => {
-            socket.off("orders:create", handleOrderUpdate);
-            socket.off("orders:update", handleOrderUpdate);
-            socket.off("orders:delete", handleOrderUpdate);
-            socket.off("payments:create", handleOrderUpdate);
-            socket.off("payments:update", handleOrderUpdate);
-        };
-    }, [socket, queryClient]);
+    // Socket logic moved to global useOrderSocketEvents hook
+    // to prevent code duplication and multiple listeners
+    // The query cache 'ordersSummary' is invalidated centrally there.
 
     return {
         orders: data?.data || [],

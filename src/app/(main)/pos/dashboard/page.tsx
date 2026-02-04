@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useState, useCallback } from "react";
 import { Typography, Button, Avatar, Dropdown, message, Spin } from "antd";
@@ -21,6 +21,9 @@ import { useSocket } from "../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
 import { dashboardStyles, dashboardColors, dashboardResponsiveStyles } from "../../../../theme/pos/dashboard/style";
 import { DatePicker } from "antd";
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import UIPageHeader from "@/components/ui/page/PageHeader";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -112,14 +115,24 @@ export default function DashboardPage() {
 
     if (isLoading) {
         return (
-            <div style={{ 
-                minHeight: '100vh', 
-                background: dashboardColors.background || '#F8FAFC', 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center' 
-            }}>
-                <Spin size="large" tip="กำลังโหลดข้อมูล..." />
+            <div style={{ minHeight: "100vh", background: dashboardColors.background || "#F8FAFC" }}>
+                <UIPageHeader
+                    title="Dashboard"
+                    subtitle="ภาพรวมยอดขาย"
+                    icon={<RiseOutlined />}
+                    actions={
+                        <Button icon={<ReloadOutlined />} onClick={() => fetchData(false)}>
+                            รีเฟรช
+                        </Button>
+                    }
+                />
+                <PageContainer maxWidth={1400}>
+                    <PageSection>
+                        <div style={{ display: "flex", justifyContent: "center", padding: "60px 0" }}>
+                            <Spin size="large" tip="กำลังโหลดข้อมูล..." />
+                        </div>
+                    </PageSection>
+                </PageContainer>
             </div>
         );
     }
@@ -134,49 +147,38 @@ export default function DashboardPage() {
                 <div style={dashboardStyles.heroDecoCircle2} />
                 
                 <div style={dashboardStyles.heroContent}>
-                    {/* Header Row */}
-                    <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'space-between', 
-                        marginBottom: 20 
-                    }}>
-                        <div style={dashboardStyles.heroHeader}>
-                            <div style={dashboardStyles.heroIconBox}>
-                                <RiseOutlined style={{ fontSize: 24, color: 'white' }} />
-                            </div>
-                            <div>
-                                <Title level={4} style={dashboardStyles.heroTitle} className="dashboard-title-mobile">
-                                    Dashboard
-                                </Title>
-                                <Text style={dashboardStyles.heroSubtitle}>ภาพรวมยอดขาย</Text>
-                            </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <Button 
-                                icon={<ReloadOutlined />} 
-                                onClick={() => fetchData(false)}
-                                style={dashboardStyles.refreshButton}
-                                className="scale-hover"
-                            />
-                            <Dropdown
-                                menu={{
-                                    items: [
-                                        { key: 'pdf', icon: <FilePdfOutlined />, label: 'PDF', onClick: handleExportPDF },
-                                        { key: 'excel', icon: <FileExcelOutlined />, label: 'Excel', onClick: handleExportExcel }
-                                    ]
-                                }}
-                                trigger={['click']}
-                                disabled={salesData.length === 0}
-                            >
+                    <UIPageHeader
+                        title={<span style={{ color: "white" }}>Dashboard</span>}
+                        subtitle={<span style={{ color: "rgba(255,255,255,0.85)" }}>ภาพรวมยอดขาย</span>}
+                        icon={<RiseOutlined style={{ color: "white" }} />}
+                        style={{ background: "transparent", borderBottom: "none", padding: 0, marginBottom: 20 }}
+                        actions={
+                            <div style={{ display: 'flex', gap: 8 }}>
                                 <Button 
-                                    icon={<DownloadOutlined />} 
-                                    style={dashboardStyles.exportButton}
+                                    icon={<ReloadOutlined />} 
+                                    onClick={() => fetchData(false)}
+                                    style={dashboardStyles.refreshButton}
                                     className="scale-hover"
                                 />
-                            </Dropdown>
-                        </div>
-                    </div>
+                                <Dropdown
+                                    menu={{
+                                        items: [
+                                            { key: 'pdf', icon: <FilePdfOutlined />, label: 'PDF', onClick: handleExportPDF },
+                                            { key: 'excel', icon: <FileExcelOutlined />, label: 'Excel', onClick: handleExportExcel }
+                                        ]
+                                    }}
+                                    trigger={['click']}
+                                    disabled={salesData.length === 0}
+                                >
+                                    <Button 
+                                        icon={<DownloadOutlined />} 
+                                        style={dashboardStyles.exportButton}
+                                        className="scale-hover"
+                                    />
+                                </Dropdown>
+                            </div>
+                        }
+                    />
 
                     {/* Date Picker */}
                     <div style={dashboardStyles.datePickerWrapper}>
@@ -192,7 +194,9 @@ export default function DashboardPage() {
             </div>
 
             {/* Main Content */}
-            <div style={dashboardStyles.contentWrapper} className="dashboard-content-mobile">
+            <PageContainer maxWidth={1400}>
+                <PageSection style={{ background: "transparent", border: "none" }}>
+                    <div style={dashboardStyles.contentWrapper} className="dashboard-content-mobile">
                 
                 {/* Main Sales Card */}
                 <div 
@@ -602,7 +606,9 @@ export default function DashboardPage() {
                     </div>
                 )}
 
-            </div>
+                    </div>
+                </PageSection>
+            </PageContainer>
         </div>
     );
 }

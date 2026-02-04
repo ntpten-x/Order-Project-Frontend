@@ -5,7 +5,7 @@ export const queueStyles = {
     container: {
         minHeight: '100vh',
         background: '#f5f7fa',
-        fontFamily: "'Inter', 'Sarabun', sans-serif",
+        fontFamily: "var(--font-sans), 'Sarabun', sans-serif",
         paddingBottom: 100,
     } as CSSProperties,
 

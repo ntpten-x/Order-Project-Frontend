@@ -15,6 +15,8 @@ export async function POST(request: NextRequest) {
 
     // Clear the token cookie
     nextResponse.cookies.delete("token");
+    // Clear any selected admin branch context
+    nextResponse.cookies.delete("active_branch_id");
 
     return nextResponse;
 }

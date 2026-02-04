@@ -1,24 +1,28 @@
-"use client";
+﻿"use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Typography, Row, Col, Card, Button, Empty, Divider, message, Tag, Avatar, Space, Alert } from "antd";
-import { ArrowLeftOutlined, ShopOutlined, RocketOutlined, CheckCircleOutlined, EditOutlined, InfoCircleOutlined } from "@ant-design/icons";
+import { ShopOutlined, RocketOutlined, CheckCircleOutlined, EditOutlined, InfoCircleOutlined } from "@ant-design/icons";
 import { ordersService } from "../../../../../../services/pos/orders.service";
 import { paymentMethodService } from "../../../../../../services/pos/paymentMethod.service";
 import { paymentsService } from "../../../../../../services/pos/payments.service";
 import { getCsrfTokenCached } from "../../../../../../utils/pos/csrf";
+import { groupOrderItems } from "../../../../../../utils/orderGrouping";
 import { SalesOrder, OrderStatus, OrderType } from "../../../../../../types/api/pos/salesOrder";
 import { PaymentStatus } from "../../../../../../types/api/pos/payments";
 import { itemsDeliveryStyles, itemsColors, itemsResponsiveStyles } from "../../../../../../theme/pos/items/style";
 import { calculatePaymentTotals } from "../../../../../../utils/payments";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
-import { getOrderStatusColor, getOrderStatusText, getEditOrderNavigationPath, getCancelOrderNavigationPath, ConfirmationConfig, formatCurrency } from "../../../../../../utils/orders";
+import { getEditOrderNavigationPath, getCancelOrderNavigationPath, ConfirmationConfig, formatCurrency } from "../../../../../../utils/orders";
 import ConfirmationDialog from "../../../../../../components/dialog/ConfirmationDialog";
 import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import UIPageHeader from "@/components/ui/page/PageHeader";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -97,6 +101,13 @@ export default function POSDeliverySummaryPage() {
     });
 
     const { subtotal, discount, vat, total } = calculatePaymentTotals(order, Number(order?.total_amount || 0));
+
+    // Group items for display
+    const groupedItems = useMemo(() => {
+        if (!order?.items) return [];
+        const activeItems = order.items.filter(item => item.status !== OrderStatus.Cancelled);
+        return groupOrderItems(activeItems);
+    }, [order?.items]);
 
     const handleHandoverToRider = async () => {
         if (!order) return;
@@ -236,57 +247,32 @@ export default function POSDeliverySummaryPage() {
             <style jsx global>{itemsResponsiveStyles}</style>
             {contextHolder}
             
-            {/* Hero Header */}
-             <div style={{ ...itemsDeliveryStyles.heroSection, background: 'linear-gradient(135deg, #eb2f96 0%, #c41d7f 100%)' }} className="payment-hero-mobile">
-                <div style={itemsDeliveryStyles.contentWrapper} className="payment-content-mobile">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-                             <Button 
-                                type="text" 
-                                icon={<ArrowLeftOutlined style={{ fontSize: 20 }} />} 
-                                style={{ color: '#fff', padding: 0, height: 'auto', marginTop: 4 }} 
-                                onClick={() => router.back()}
-                              />
-                             <div>
-                                <Title level={3} style={itemsDeliveryStyles.pageTitle}>สรุปออเดอร์เดลิเวอรี่</Title>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                                    <Tag color="magenta" style={{ borderRadius: 6, border: 'none', fontWeight: 600 }}>
-                                        <RocketOutlined /> {order.delivery?.delivery_name || 'Delivery'} {order.delivery_code ? `#${order.delivery_code}` : ''}
-                                    </Tag>
-                                    <Tag color={getOrderStatusColor(order.status)} style={{ borderRadius: 6, border: 'none' }}>
-                                        {getOrderStatusText(order.status)}
-                                    </Tag>
-                                    <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13 }}>#{order.order_no}</Text>
-                                </div>
-                            </div>
-                        </div>
+            <UIPageHeader
+                title="สรุปออเดอร์เดลิเวอรี่"
+                subtitle={`#${order.order_no}`}
+                icon={<RocketOutlined />}
+                onBack={() => router.back()}
+                actions={
+                    <>
+                        <Button icon={<EditOutlined />} onClick={handleEditOrder}>
+                            แก้ไขออเดอร์
+                        </Button>
+                        <Button danger onClick={handleCancelOrder}>
+                            ยกเลิกออเดอร์
+                        </Button>
+                    </>
+                }
+            />
 
-                         <div style={{ display: 'flex', gap: 8 }}>
-                            <Button 
-                                icon={<EditOutlined />} 
-                                onClick={handleEditOrder}
-                                style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff' }}
-                            >
-                                แก้ไขออเดอร์
-                            </Button>
-                            <Button 
-                                danger
-                                onClick={handleCancelOrder}
-                            >
-                                ยกเลิกออเดอร์
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div style={{ ...itemsDeliveryStyles.contentWrapper, marginTop: -30, paddingBottom: 40 }}>
+            <PageContainer maxWidth={1400}>
+                <PageSection style={{ background: "transparent", border: "none" }}>
+                    <div style={{ ...itemsDeliveryStyles.contentWrapper, marginTop: 0, paddingBottom: 40 }}>
                 <Row gutter={[24, 24]}>
                     <Col xs={24} lg={14}>
                         <Card style={itemsDeliveryStyles.card}>
                              <Title level={4} style={{ marginBottom: 20 }}>รายการอาหาร</Title>
                             <div style={{ overflowY: 'auto', paddingRight: 8, minHeight: 300, maxHeight: 600 }}>
-                                {order.items?.filter(item => item.status !== OrderStatus.Cancelled).map((item, idx) => (
+                                {groupedItems.map((item, idx) => (
                                     <div key={item.id || idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${itemsColors.borderLight}` }}>
                                          <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 0 }}>
                                             <Avatar 
@@ -414,7 +400,9 @@ export default function POSDeliverySummaryPage() {
                          </Card>
                     </Col>
                 </Row>
-            </div>
+                    </div>
+                </PageSection>
+            </PageContainer>
             
             <ConfirmationDialog
                 open={confirmConfig.open}
@@ -429,3 +417,4 @@ export default function POSDeliverySummaryPage() {
         </div>
     );
 }
+

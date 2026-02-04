@@ -18,7 +18,7 @@ export const paymentPageStyles = {
     container: {
         minHeight: '100vh',
         background: paymentColors.background,
-        fontFamily: "'Inter', 'Sarabun', sans-serif",
+        fontFamily: "var(--font-sans), 'Sarabun', sans-serif",
     } as CSSProperties,
 
     heroSection: {

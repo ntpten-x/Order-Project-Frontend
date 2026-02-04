@@ -1,12 +1,14 @@
 ﻿'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Form, Input, message, Spin, Switch, Modal, Select, Row, Col } from 'antd';
+import { Button, Col, Form, Input, message, Modal, Row, Select, Spin, Switch } from 'antd';
 import { useRouter } from 'next/navigation';
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import UIPageHeader from "@/components/ui/page/PageHeader";
 import {
     ManagePageStyles,
     pageStyles,
-    PageHeader,
     PaymentMethodPreview,
     ActionButtons
 } from './style';
@@ -202,16 +204,22 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
     return (
         <div className="manage-page" style={pageStyles.container as React.CSSProperties}>
             <ManagePageStyles />
-            
-            {/* Header */}
-            <PageHeader 
-                isEdit={isEdit}
+
+            <UIPageHeader
+                title={isEdit ? "แก้ไขวิธีการชำระเงิน" : "เพิ่มวิธีการชำระเงิน"}
+                subtitle={isEdit ? "แก้ไขข้อมูลวิธีการชำระเงิน" : "สร้างวิธีการชำระเงินใหม่"}
                 onBack={handleBack}
-                onDelete={isEdit ? handleDelete : undefined}
+                actions={
+                    isEdit ? (
+                        <Button danger onClick={handleDelete}>
+                            ลบ
+                        </Button>
+                    ) : null
+                }
             />
-            
-            {/* Form Card */}
-            <div style={pageStyles.formCard}>
+
+            <PageContainer maxWidth={1000}>
+                <PageSection>
                 {loading ? (
                     <div style={{ 
                         display: 'flex', 
@@ -413,8 +421,8 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                         </Row>
                     </Form>
                 )}
-            </div>
+                </PageSection>
+            </PageContainer>
         </div>
     );
 }
-

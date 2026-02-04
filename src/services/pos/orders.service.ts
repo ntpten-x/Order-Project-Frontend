@@ -4,6 +4,7 @@ import { getProxyUrl } from "../../lib/proxy-utils";
 import { SalesOrderItem } from "../../types/api/pos/salesOrderItem";
 import { API_ROUTES } from "../../config/api";
 import { OrdersResponseSchema, OrdersSummaryResponseSchema, SalesOrderSchema } from "../../schemas/api/pos/orders.schema";
+import { getBackendErrorMessage, normalizeBackendPaginated, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = API_ROUTES.POS.ORDERS;
 
@@ -35,12 +36,12 @@ export const ordersService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลออเดอร์ได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลออเดอร์ได้"));
         }
 
         const json = await response.json();
         try {
-            return OrdersResponseSchema.parse(json) as unknown as { data: SalesOrder[], total: number, page: number, last_page: number };
+            return OrdersResponseSchema.parse(normalizeBackendPaginated<SalesOrder>(json)) as unknown as { data: SalesOrder[], total: number, page: number, last_page: number };
         } catch (error) {
             console.error("Zod Validation Error in ordersService.getAll:", error);
             if (error instanceof ZodError) {
@@ -76,12 +77,12 @@ export const ordersService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลออเดอร์ได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลออเดอร์ได้"));
         }
 
         const json = await response.json();
         try {
-            return OrdersSummaryResponseSchema.parse(json) as unknown as { data: SalesOrderSummary[], total: number, page: number, last_page?: number };
+            return OrdersSummaryResponseSchema.parse(normalizeBackendPaginated<SalesOrderSummary>(json)) as unknown as { data: SalesOrderSummary[], total: number, page: number, last_page?: number };
         } catch (error) {
             console.error("Zod Validation Error in ordersService.getAllSummary:", error);
             if (error instanceof ZodError) {
@@ -104,10 +105,10 @@ export const ordersService = {
             const errorText = await response.text();
             console.error("Order Stats Backend Error:", errorText);
             const errorData = await JSON.parse(errorText).catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลสถิติได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลสถิติได้"));
         }
         const json = await response.json();
-        return json;
+        return unwrapBackendData(json) as { dineIn: number; takeaway: number; delivery: number; total: number };
     },
 
 
@@ -122,12 +123,12 @@ export const ordersService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลออเดอร์ได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลออเดอร์ได้"));
         }
 
         const json = await response.json();
         try {
-            return SalesOrderSchema.parse(json) as unknown as SalesOrder;
+            return SalesOrderSchema.parse(unwrapBackendData(json)) as unknown as SalesOrder;
         } catch (error) {
             console.error("Zod Validation Error in ordersService.getById:", error);
             if (error instanceof ZodError) {
@@ -150,9 +151,9 @@ export const ordersService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถสร้างออเดอร์ได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถสร้างออเดอร์ได้"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as SalesOrder;
     },
 
     update: async (id: string, data: Partial<SalesOrder>, cookie?: string, csrfToken?: string): Promise<SalesOrder> => {
@@ -168,9 +169,9 @@ export const ordersService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถแก้ไขออเดอร์ได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถแก้ไขออเดอร์ได้"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as SalesOrder;
     },
 
     delete: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
@@ -185,7 +186,7 @@ export const ordersService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถลบออเดอร์ได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถลบออเดอร์ได้"));
         }
     },
 
@@ -202,7 +203,7 @@ export const ordersService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถอัปเดตสถานะรายการได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถอัปเดตสถานะรายการได้"));
         }
     },
 
@@ -218,9 +219,9 @@ export const ordersService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลรายการได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลรายการได้"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as SalesOrderItem[];
     },
 
     addItem: async (orderId: string, itemData: CreateOrderItemDTO, cookie?: string, csrfToken?: string): Promise<SalesOrder> => {
@@ -236,9 +237,9 @@ export const ordersService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถเพิ่มรายการได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถเพิ่มรายการได้"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as SalesOrder;
     },
 
     updateItem: async (itemId: string, data: { quantity?: number, notes?: string, details?: Record<string, unknown>[] }, cookie?: string, csrfToken?: string): Promise<SalesOrder> => {
@@ -255,10 +256,10 @@ export const ordersService = {
         
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถแก้ไขรายการได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถแก้ไขรายการได้"));
         }
         
-        return response.json();
+        return unwrapBackendData(await response.json()) as SalesOrder;
     },
 
     deleteItem: async (itemId: string, cookie?: string, csrfToken?: string): Promise<SalesOrder> => {
@@ -273,9 +274,9 @@ export const ordersService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถลบรายการได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถลบรายการได้"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as SalesOrder;
     },
 
     updateStatus: async (orderId: string, status: string, csrfToken?: string): Promise<void> => {

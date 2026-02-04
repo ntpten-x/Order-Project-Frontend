@@ -9,7 +9,8 @@ export const pageStyles = {
         paddingBottom: 100,
         backgroundColor: posColors.background,
         minHeight: '100vh',
-        fontFamily: "'Inter', 'Sarabun', -apple-system, BlinkMacSystemFont, sans-serif",
+        fontFamily:
+            "var(--font-sans), 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     } as CSSProperties,
 
     header: {
@@ -255,4 +256,3 @@ export const globalStyles = `
         touch-action: manipulation;
     }
 `;
-

@@ -3,8 +3,10 @@ export const API_PREFIX = '/api';
 export const API_ROUTES = {
     AUTH: {
         LOGIN: '/auth/login',
+        LOGOUT: '/auth/logout',
         ME: '/auth/me',
         CSRF: '/csrf',
+        SWITCH_BRANCH: '/auth/switch-branch',
     },
     POS: {
         PRODUCTS: '/pos/products',
@@ -35,6 +37,5 @@ export const API_ROUTES = {
         PAYMENT_DETAILS: '/pos/paymentDetails',
         BRANCH: '/branches',
         ORDER_QUEUE: '/pos/queue',
-        PROMOTIONS: '/pos/promotions',
     },
 };

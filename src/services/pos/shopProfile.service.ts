@@ -1,4 +1,5 @@
 import { getProxyUrl } from "../../lib/proxy-utils";
+import { getBackendErrorMessage, unwrapBackendData } from "../../utils/api/backendResponse";
 
 export interface ShopProfile {
     id: string;
@@ -30,9 +31,9 @@ export const shopProfileService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลร้านค้าได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลร้านค้าได้"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as ShopProfile;
     },
 
     updateProfile: async (data: Partial<ShopProfile>, cookie?: string, csrfToken?: string): Promise<ShopProfile> => {
@@ -48,8 +49,8 @@ export const shopProfileService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถอัปเดตข้อมูลร้านค้าได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถอัปเดตข้อมูลร้านค้าได้"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as ShopProfile;
     }
 };

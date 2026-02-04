@@ -38,8 +38,13 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { authService } from "../../../../services/auth.service";
 import ItemsPageStyle from "./style";
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import PageStack from "@/components/ui/page/PageStack";
+import UIPageHeader from "@/components/ui/page/PageHeader";
+import UIEmptyState from "@/components/ui/states/EmptyState";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 export default function ItemsPage() {
   const [orders, setOrders] = useState<Order[]>([]);
@@ -154,7 +159,7 @@ export default function ItemsPage() {
             border: '1px solid rgba(255, 77, 79, 0.1)'
           }}>
             <Text type="secondary" style={{ fontSize: 13 }}>
-              ผู้สั่ง: <strong>{order.ordered_by?.username}</strong>
+              ผู้สั่ง: <strong>{order.ordered_by?.name || order.ordered_by?.username}</strong>
             </Text>
           </div>
         </div>
@@ -199,10 +204,12 @@ export default function ItemsPage() {
           <span>ผู้สั่ง</span>
         </Space>
       ),
-      dataIndex: ['ordered_by', 'username'],
+      dataIndex: 'ordered_by',
       key: 'ordered_by',
       width: 140,
-      render: (text: string) => (
+      render: (ordered_by: { name?: string; username?: string } | null) => {
+        const displayName = ordered_by?.name || ordered_by?.username || 'Unknown';
+        return (
         <Space>
           <div style={{
             width: 32,
@@ -216,11 +223,11 @@ export default function ItemsPage() {
             fontWeight: 600,
             fontSize: 14
           }}>
-            {text?.charAt(0)?.toUpperCase() || '?'}
+            {displayName.charAt(0)?.toUpperCase() || '?'}
           </div>
-          <Text strong style={{ fontSize: 14 }}>{text || 'Unknown'}</Text>
+          <Text strong style={{ fontSize: 14 }}>{displayName}</Text>
         </Space>
-      ),
+      )},
     },
     {
       title: (
@@ -408,53 +415,6 @@ export default function ItemsPage() {
     </div>
   );
 
-  // Empty State
-  const EmptyState = () => (
-    <div 
-      className="empty-state-card"
-      style={{ 
-        padding: '60px 24px',
-        textAlign: 'center'
-      }}
-    >
-      <div style={{
-        width: 100,
-        height: 100,
-        margin: '0 auto 24px',
-        borderRadius: '50%',
-        background: 'linear-gradient(135deg, #f0f5ff 0%, #e8f0ff 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <InboxOutlined style={{ fontSize: 48, color: '#667eea' }} />
-      </div>
-      <Title level={4} style={{ color: '#262626', marginBottom: 8 }}>
-        ไม่มีรายการรอดำเนินการ
-      </Title>
-      <Text type="secondary" style={{ fontSize: 15, display: 'block', marginBottom: 24 }}>
-        ยังไม่มีออเดอร์ที่รอการสั่งซื้อในขณะนี้
-      </Text>
-      <Button 
-        type="primary"
-        icon={<ShoppingCartOutlined />}
-        size="large"
-        onClick={() => router.push('/')}
-        style={{
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          borderColor: 'transparent',
-          borderRadius: 10,
-          height: 48,
-          paddingInline: 32,
-          fontWeight: 600,
-          boxShadow: '0 4px 16px rgba(102, 126, 234, 0.4)'
-        }}
-      >
-        เลือกวัตถุดิบเพื่อสั่งซื้อ
-      </Button>
-    </div>
-  );
-
   return (
     <div style={{ 
       padding: '24px', 
@@ -463,143 +423,122 @@ export default function ItemsPage() {
       background: 'linear-gradient(180deg, #f8f9fc 0%, #f0f2f5 100%)'
     }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-        {/* Header Section */}
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column',
-          gap: 24,
-          marginBottom: 24
-        }}>
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'flex-start',
-            flexWrap: 'wrap',
-            gap: 16
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div style={{
-                width: 56,
-                height: 56,
-                borderRadius: 16,
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 8px 24px rgba(102, 126, 234, 0.35)'
-              }}>
-                <ClockCircleOutlined style={{ fontSize: 28, color: '#fff' }} />
-              </div>
-              <div>
-                <Title level={2} style={{ 
-                  margin: 0, 
-                  marginBottom: 4,
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  fontWeight: 700
-                }}>
-                  รายการรอสั่งซื้อ
-                </Title>
-                <Text type="secondary" style={{ fontSize: 14 }}>
-                  จัดการออเดอร์ที่รอการดำเนินการ
-                </Text>
-              </div>
-            </div>
-            
-            <Button 
-              icon={<ReloadOutlined />} 
-              onClick={fetchOrders}
-              loading={loading}
-              size="large"
-              style={{
-                borderRadius: 10,
-                height: 44,
-                paddingInline: 20,
-                fontWeight: 500
+        <UIPageHeader
+        title="รายการรอสั่งซื้อ"
+        subtitle={`${orders.length} รายการ`}
+        icon={<ClockCircleOutlined />}
+        actions={
+          <Button 
+            icon={<ReloadOutlined />} 
+            onClick={fetchOrders}
+            loading={loading}
+          >
+            รีเฟรช
+          </Button>
+        }
+      />
+
+      <PageContainer>
+        <PageStack>
+          <PageSection title="สรุป">
+            <Row gutter={[16, 16]}>
+              <Col xs={12} sm={8} md={6}>
+                <Card 
+                  className="status-card"
+                  size="small"
+                  styles={{ body: { padding: 16 } }}
+                >
+                  <Statistic 
+                    title={<Text type="secondary" style={{ fontSize: 13 }}>ออเดอร์ทั้งหมด</Text>}
+                    value={loading ? '-' : orders.length}
+                    prefix={<Badge status="processing" />}
+                    styles={{ content: { 
+                      color: '#667eea', 
+                      fontWeight: 700,
+                      fontSize: 28
+                    }}}
+                  />
+                </Card>
+              </Col>
+              <Col xs={12} sm={8} md={6}>
+                <Card 
+                  className="status-card"
+                  size="small"
+                  styles={{ body: { padding: 16 } }}
+                >
+                  <Statistic 
+                    title={<Text type="secondary" style={{ fontSize: 13 }}>รายการสินค้า</Text>}
+                    value={loading ? '-' : totalItems}
+                    prefix={<Badge status="success" />}
+                    styles={{ content: { 
+                      color: '#52c41a', 
+                      fontWeight: 700,
+                      fontSize: 28
+                    }}}
+                  />
+                </Card>
+              </Col>
+            </Row>
+          </PageSection>
+
+          <PageSection title="รายการรอสั่งซื้อ">
+            <Card 
+              variant="borderless"
+              style={{ 
+                borderRadius: 20,
+                boxShadow: '0 4px 24px rgba(0, 0, 0, 0.06)',
+                overflow: 'hidden'
               }}
+              styles={{ body: { padding: 0 } }}
             >
-              รีเฟรช
-            </Button>
-          </div>
-
-          {/* Stats Cards */}
-          <Row gutter={[16, 16]}>
-            <Col xs={12} sm={8} md={6}>
-              <Card 
-                className="status-card"
-                size="small"
-                styles={{ body: { padding: 16 } }}
-              >
-                <Statistic 
-                  title={<Text type="secondary" style={{ fontSize: 13 }}>ออเดอร์ทั้งหมด</Text>}
-                  value={loading ? '-' : orders.length}
-                  prefix={<Badge status="processing" />}
-                  styles={{ content: { 
-                    color: '#667eea', 
-                    fontWeight: 700,
-                    fontSize: 28
-                  }}}
+              {loading ? (
+                <LoadingSkeleton />
+              ) : orders.length === 0 ? (
+                <UIEmptyState
+                  title="ยังไม่มีรายการรอสั่งซื้อ"
+                  description="ยังไม่มีออเดอร์ที่รอการสั่งซื้อในขณะนี้"
+                  action={
+                    <Button 
+                      type="primary"
+                      icon={<ShoppingCartOutlined />}
+                      size="large"
+                      onClick={() => router.push('/')}
+                      style={{
+                        borderRadius: 10,
+                        height: 48,
+                        paddingInline: 32,
+                        fontWeight: 600
+                      }}
+                    >
+                      เลือกวัตถุดิบเพื่อสั่งซื้อ
+                    </Button>
+                  }
                 />
-              </Card>
-            </Col>
-            <Col xs={12} sm={8} md={6}>
-              <Card 
-                className="status-card"
-                size="small"
-                styles={{ body: { padding: 16 } }}
-              >
-                <Statistic 
-                  title={<Text type="secondary" style={{ fontSize: 13 }}>รายการสินค้า</Text>}
-                  value={loading ? '-' : totalItems}
-                  prefix={<Badge status="success" />}
-                  styles={{ content: { 
-                    color: '#52c41a', 
-                    fontWeight: 700,
-                    fontSize: 28
-                  }}}
+              ) : (
+                <Table 
+                  dataSource={orders} 
+                  columns={columns} 
+                  rowKey="id" 
+                  scroll={{ x: 900 }}
+                  pagination={{ 
+                    pageSize: 10,
+                    showSizeChanger: true,
+                    showTotal: (total, range) => (
+                      <Text type="secondary">
+                        แสดง {range[0]}-{range[1]} จาก {total} รายการ
+                      </Text>
+                    )
+                  }}
+                  className="items-table"
+                  locale={{
+                    emptyText: <Empty description="ไม่มีข้อมูล" />
+                  }}
                 />
-              </Card>
-            </Col>
-          </Row>
-        </div>
-
-        {/* Table Card */}
-        <Card 
-          variant="borderless"
-          style={{ 
-            borderRadius: 20,
-            boxShadow: '0 4px 24px rgba(0, 0, 0, 0.06)',
-            overflow: 'hidden'
-          }}
-          styles={{ body: { padding: 0 } }}
-        >
-          {loading ? (
-            <LoadingSkeleton />
-          ) : orders.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <Table 
-              dataSource={orders} 
-              columns={columns} 
-              rowKey="id" 
-              scroll={{ x: 900 }}
-              pagination={{ 
-                pageSize: 10,
-                showSizeChanger: true,
-                showTotal: (total, range) => (
-                  <Text type="secondary">
-                    แสดง {range[0]}-{range[1]} จาก {total} รายการ
-                  </Text>
-                )
-              }}
-              className="items-table"
-              locale={{
-                emptyText: <Empty description="ไม่มีข้อมูล" />
-              }}
-            />
-          )}
-        </Card>
+              )}
+            </Card>
+          </PageSection>
+        </PageStack>
+      </PageContainer>
       </div>
 
       {/* Modals */}

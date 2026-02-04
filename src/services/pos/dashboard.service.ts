@@ -1,5 +1,6 @@
 import { SalesSummary, TopItem } from "../../types/api/pos/dashboard";
 import { API_ROUTES, API_PREFIX } from "../../config/api";
+import { unwrapBackendData } from "../../utils/api/backendResponse";
 
 export const dashboardService = {
     getSalesSummary: async (startDate: string, endDate: string): Promise<SalesSummary[]> => {
@@ -14,7 +15,7 @@ export const dashboardService = {
             throw new Error("Failed to fetch sales summary");
         }
 
-        return response.json();
+        return unwrapBackendData(await response.json()) as SalesSummary[];
     },
 
     getTopSellingItems: async (limit: number = 10): Promise<TopItem[]> => {
@@ -29,6 +30,6 @@ export const dashboardService = {
             throw new Error("Failed to fetch top selling items");
         }
 
-        return response.json();
+        return unwrapBackendData(await response.json()) as TopItem[];
     }
 };

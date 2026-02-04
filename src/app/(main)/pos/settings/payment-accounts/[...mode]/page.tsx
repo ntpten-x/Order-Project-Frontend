@@ -1,8 +1,8 @@
 ﻿"use client";
 
 import React, { useEffect, useState } from "react";
-import { Typography, Card, Button, Tag, Modal, Form, Input, App, Divider, Row, Col, Empty, Spin } from "antd";
-import { ArrowLeftOutlined, PlusOutlined, QrcodeOutlined, DeleteOutlined, CheckCircleOutlined, EditOutlined } from "@ant-design/icons";
+import { Typography, Card, Button, Tag, Modal, Form, Input, App, Divider, Row, Col, Spin } from "antd";
+import { PlusOutlined, QrcodeOutlined, DeleteOutlined, CheckCircleOutlined, EditOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { pageStyles, paymentAccountsResponsiveStyles } from "./style";
 import { paymentAccountService } from "../../../../../../services/pos/paymentAccount.service";
@@ -11,6 +11,10 @@ import { ShopPaymentAccount } from "../../../../../../types/api/pos/shopPaymentA
 import { useRoleGuard } from "../../../../../../utils/pos/accessControl";
 import { AccessGuardFallback } from "../../../../../../components/pos/AccessGuard";
 import { posColors } from "../../../../../../theme/pos";
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import UIPageHeader from "@/components/ui/page/PageHeader";
+import UIEmptyState from "@/components/ui/states/EmptyState";
 
 const { Title, Text } = Typography;
 
@@ -114,46 +118,21 @@ export default function PaymentAccountManagementPage() {
         <div style={pageStyles.container}>
             <style>{paymentAccountsResponsiveStyles}</style>
 
-            {/* Gradient Header */}
-            <div style={pageStyles.heroHeader} className="payment-header-mobile">
-                {/* Decorative circles */}
-                <div style={pageStyles.heroDecoCircle1} />
-                <div style={pageStyles.heroDecoCircle2} />
+            <UIPageHeader
+                title="จัดการพร้อมเพย์"
+                subtitle="PromptPay Management"
+                icon={<QrcodeOutlined />}
+                onBack={() => router.back()}
+                actions={
+                    <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                        เพิ่มพร้อมเพย์ใหม่
+                    </Button>
+                }
+            />
 
-                <div style={pageStyles.headerContent}>
-                    <div style={pageStyles.headerRow} className="payment-header-row-mobile">
-                        <div style={pageStyles.headerLeft}>
-                            <Button
-                                type="text"
-                                icon={<ArrowLeftOutlined style={{ fontSize: 18, color: '#fff' }} />}
-                                onClick={() => router.back()}
-                                style={pageStyles.backButton}
-                                className="payment-touch-btn"
-                            />
-                            <div style={pageStyles.headerIconBox}>
-                                <QrcodeOutlined style={{ fontSize: 26, color: '#fff' }} />
-                            </div>
-                            <div>
-                                <Title level={3} style={{ margin: 0, color: '#fff' }}>จัดการพร้อมเพย์</Title>
-                                <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 14 }}>PromptPay Management</Text>
-                            </div>
-                        </div>
-                        <Button
-                            type="default"
-                            icon={<PlusOutlined />}
-                            onClick={handleAdd}
-                            size="large"
-                            style={pageStyles.addButton}
-                            className="payment-add-btn payment-touch-btn"
-                        >
-                            เพิ่มพร้อมเพย์ใหม่
-                        </Button>
-                    </div>
-                </div>
-            </div>
-
-            {/* Content */}
-            <div style={pageStyles.contentWrapper} className="payment-content-mobile">
+            <PageContainer maxWidth={1100}>
+                <PageSection style={{ background: "transparent", border: "none" }}>
+                    <div style={pageStyles.contentWrapper} className="payment-content-mobile">
                 {/* Content Grid */}
                 {loading ? (
                     <div style={{ textAlign: 'center', padding: '100px 0' }}><Spin size="large" /></div>
@@ -232,17 +211,20 @@ export default function PaymentAccountManagementPage() {
                     </Row>
                 ) : (
                     <Card style={{ borderRadius: 24, padding: '80px 0', textAlign: 'center' }}>
-                        <Empty 
-                            description={<Text type="secondary" style={{ fontSize: 16 }}>ยังไม่มีข้อมูลบัญชีรับเงินในระบบ</Text>}
-                            image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        >
-                            <Button type="primary" size="large" onClick={handleAdd} icon={<PlusOutlined />} style={{ borderRadius: 10, height: 48, marginTop: 16 }}>
-                                เริ่มต้นเพิ่มบัญชีแรก
-                            </Button>
-                        </Empty>
+                        <UIEmptyState
+                            title="ยังไม่มีข้อมูลบัญชีรับเงินในระบบ"
+                            description="กดปุ่มเพื่อเริ่มต้นเพิ่มบัญชีแรก"
+                            action={
+                                <Button type="primary" size="large" onClick={handleAdd} icon={<PlusOutlined />} style={{ borderRadius: 10, height: 48 }}>
+                                    เริ่มต้นเพิ่มบัญชีแรก
+                                </Button>
+                            }
+                        />
                     </Card>
                 )}
-            </div>
+                    </div>
+                </PageSection>
+            </PageContainer>
 
             <Modal
                 title={editingId ? "แก้ไขข้อมูลพร้อมเพย์" : "เพิ่มพร้อมเพย์ใหม่"}

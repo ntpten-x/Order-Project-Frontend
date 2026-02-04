@@ -1,5 +1,6 @@
 import { SalesOrderDetail } from "../../types/api/pos/salesOrderDetail";
 import { getProxyUrl } from "../../lib/proxy-utils";
+import { getBackendErrorMessage, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = "/pos/salesOrderDetail";
 
@@ -21,9 +22,9 @@ export const salesOrderDetailService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลรายละเอียดเพิ่มเติมได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลรายละเอียดเพิ่มเติมได้"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as SalesOrderDetail[];
     },
 
     getById: async (id: string, cookie?: string): Promise<SalesOrderDetail> => {
@@ -36,9 +37,9 @@ export const salesOrderDetailService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลรายละเอียดเพิ่มเติมได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลรายละเอียดเพิ่มเติมได้"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as SalesOrderDetail;
     },
 
     create: async (data: Partial<SalesOrderDetail>, cookie?: string, csrfToken?: string): Promise<SalesOrderDetail> => {
@@ -53,9 +54,9 @@ export const salesOrderDetailService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถสร้างรายละเอียดเพิ่มเติมได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถสร้างรายละเอียดเพิ่มเติมได้"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as SalesOrderDetail;
     },
 
     update: async (id: string, data: Partial<SalesOrderDetail>, cookie?: string, csrfToken?: string): Promise<SalesOrderDetail> => {
@@ -70,9 +71,9 @@ export const salesOrderDetailService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถแก้ไขรายละเอียดเพิ่มเติมได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถแก้ไขรายละเอียดเพิ่มเติมได้"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as SalesOrderDetail;
     },
 
     delete: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
@@ -86,7 +87,7 @@ export const salesOrderDetailService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถลบรายละเอียดเพิ่มเติมได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถลบรายละเอียดเพิ่มเติมได้"));
         }
     }
 };

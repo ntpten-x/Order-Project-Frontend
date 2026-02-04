@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState, useContext } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -8,7 +8,6 @@ import {
     CheckCircleOutlined, 
     PlayCircleOutlined, 
     StopOutlined, 
-    ArrowLeftOutlined, 
     RiseOutlined, 
     SafetyCertificateOutlined
 } from "@ant-design/icons";
@@ -16,6 +15,11 @@ import { useRouter } from "next/navigation";
 import { SocketContext } from "../../../../contexts/SocketContext";
 import { shiftsService } from "../../../../services/pos/shifts.service";
 import { Shift, ShiftSummary } from "../../../../types/api/pos/shifts";
+import OpenShiftModal from "@/components/pos/shifts/OpenShiftModal";
+import CloseShiftModal from "@/components/pos/shifts/CloseShiftModal";
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import UIPageHeader from "@/components/ui/page/PageHeader";
 
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
@@ -27,110 +31,10 @@ dayjs.locale('th');
 
 const { Title, Text } = Typography;
 
-// ============ HEADER COMPONENT ============
-
-const PageHeader = ({ currentShift, onBack }: { currentShift: Shift | null, onBack: () => void }) => (
-    <div style={pageStyles.header}>
-        <div style={pageStyles.headerDecoCircle1} />
-        <div style={pageStyles.headerDecoCircle2} />
-        
-        <div style={pageStyles.headerContent}>
-            <div style={pageStyles.headerLeft}>
-                <Button 
-                    type="text" 
-                    icon={<ArrowLeftOutlined style={{ fontSize: 20, color: 'white' }} />} 
-                    onClick={onBack}
-                    style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: 'white', borderRadius: 12 }}
-                />
-                <div style={pageStyles.headerIconBox}>
-                    <ClockCircleOutlined style={{ fontSize: 28, color: 'white' }} />
-                </div>
-                <div style={pageStyles.headerTitleBox}>
-                    <Text style={pageStyles.headerSubtitle}>
-                        จัดการข้อมูล
-                    </Text>
-                    <Title level={4} style={pageStyles.headerTitle}>
-                        กะการทำงาน (Shift)
-                    </Title>
-                </div>
-            </div>
-            
-            <Tag style={{ 
-                fontSize: 14, 
-                padding: '6px 16px', 
-                borderRadius: 20, 
-                border: 'none',
-                background: currentShift ? 'white' : 'rgba(255,255,255,0.9)',
-                color: currentShift ? '#10b981' : '#f59e0b',
-                fontWeight: 600,
-                boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-            }}>
-                {currentShift ? (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span className="pulse-animation" style={{ width: 8, height: 8, borderRadius: '50%', background: '#10b981' }}></span>
-                        เปิดใช้งานอยู่
-                    </span>
-                ) : (
-                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ width: 8, height: 8, borderRadius: '50%', background: '#f59e0b' }}></span>
-                        ปิดใช้งาน
-                    </span>
-                )}
-            </Tag>
-        </div>
-    </div>
-);
-
-// Import new modals (Assuming paths based on previous context, user needs to verify if paths are correct or I created them)
-// Wait, I see from previous context that modals are in `src/components/pos/shifts/OpenShiftModal.tsx` etc.
-// I need to import them dynamically or normally.
-import OpenShiftModal from "../../../../components/pos/shifts/OpenShiftModal";
-import CloseShiftModal from "../../../../components/pos/shifts/CloseShiftModal";
-
 export default function ShiftPage() {
     const router = useRouter();
     const queryClient = useQueryClient();
-    
-    // Local state for controlling modal visibility
-    // Note: The new modals might handle visibility internally via context or props.
-    // However, looking at the previous specific Modal implementations, they seem to be driven by context `currentShift` often, 
-    // but here we might want to manually trigger them.
-    // Let's check how the new modals were implemented. 
-    // `OpenShiftModal` uses `useShift` and checks `!loading && !currentShift`.
-    // `CloseShiftModal` likely needs to be triggered.
-    // Let's assume standard prop controlling if they accept `open` or similar, OR we use the context methods directly.
-    
-    // BUT, the `OpenShiftModal` I saw earlier had `isVisible` logic built-in based on context status.
-    // If I use the *component*, it might auto-show. Ideally, I should control it.
-    // Let's stick to the cleanest integration: 
-    // 1. Logic for Open/Close stays here or in context? 
-    // The previous `OpenShiftModal` implementation viewed in context was:
-    // `const isVisible = !loading && !currentShift && pathname !== '/pos/shift';`
-    // This `ShiftPage` IS `/pos/shift`, so that auto-modal won't show here by default which is good.
-    // We want to trigger it manually.
 
-    // Let's use internal state for visibility control for cleaner separation if the modals support it.
-    // If the imported modals are 'smart' and self-controlled, we might need to adjust.
-    // Assuming we can pass `open` prop or wrapped them.
-    
-    // Since I can't see the *exact* final code of the modals right now (I only saw the plan/partial), 
-    // I will implement assuming standard prop passing `open={visible} onCancel={...}` 
-    // OR if they are self-contained, I will wrap them.
-    
-    // Re-reading `OpenShiftModal` snippet from history:
-    // `export default function OpenShiftModal() { ... return <Modal open={isVisible} ...`
-    // It seems self-driven by context. This is tricky for a "Management Page".
-    // I will use `useShift` context here to simply call `openShift` / `closeShift` and let the UI reflect state.
-    // BUT the user wants *UI* redesign.
-    
-    // I will act as if I am integrating the *newly redesigned* components which hopefully have props.
-    // If not, I will add local state to control them if I can edit them, or just use them as is.
-    // Actually, best practice is lift state up.
-    
-    // Let's replace the INLINE modals with the IMPORTED ones. 
-    // If the imported ones are context-aware, they might conflict with this page unless handled.
-    // I will assume I can pass control props `open`.
-    
     const [openShiftVisible, setOpenShiftVisible] = useState(false);
     const [closeShiftVisible, setCloseShiftVisible] = useState(false);
 
@@ -185,8 +89,23 @@ export default function ShiftPage() {
 
     if (isLoading) {
         return (
-            <div style={{ ...pageStyles.container, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                <Spin size="large" tip="กำลังโหลดข้อมูล..." />
+            <div style={pageStyles.container}>
+                <style>{globalStyles}</style>
+                <UIPageHeader
+                    title="กะการทำงาน"
+                    subtitle="กำลังโหลดข้อมูล..."
+                    onBack={() => router.back()}
+                    icon={<ClockCircleOutlined style={{ fontSize: 20 }} />}
+                />
+                <PageContainer style={{ display: "flex", alignItems: "center", minHeight: "70vh" }}>
+                    <div style={{ width: "100%", maxWidth: 520, margin: "0 auto" }}>
+                        <PageSection>
+                            <div style={{ display: "flex", justifyContent: "center" }}>
+                                <Spin size="large" />
+                            </div>
+                        </PageSection>
+                    </div>
+                </PageContainer>
             </div>
         );
     }
@@ -194,12 +113,23 @@ export default function ShiftPage() {
     return (
         <div style={pageStyles.container}>
             <style>{globalStyles}</style>
-            
-            {/* Header */}
-            <PageHeader currentShift={currentShift} onBack={() => router.back()} />
 
-            {/* Main Content */}
-            <div style={pageStyles.contentContainer}>
+            <UIPageHeader
+                title="กะการทำงาน"
+                subtitle={
+                    currentShift ? (
+                        <Tag color="success">เปิดใช้งานอยู่</Tag>
+                    ) : (
+                        <Tag color="warning">ปิดใช้งาน</Tag>
+                    )
+                }
+                onBack={() => router.back()}
+                icon={<ClockCircleOutlined style={{ fontSize: 20 }} />}
+            />
+
+            <PageContainer>
+                <PageSection style={{ background: "transparent", border: "none" }}>
+                <div style={pageStyles.contentContainer}>
                 <Row gutter={[24, 24]}>
                     {currentShift ? (
                         <>
@@ -381,7 +311,9 @@ export default function ShiftPage() {
                         </Col>
                     )}
                 </Row>
-            </div>
+                </div>
+                </PageSection>
+            </PageContainer>
 
             {/* Imported Modals */}
             <OpenShiftModal 

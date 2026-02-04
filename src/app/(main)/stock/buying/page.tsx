@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Typography, Button, message, Modal, Spin } from "antd";
+import { Button, message, Modal, Spin } from "antd";
 import { ShoppingCartOutlined, CloseOutlined } from "@ant-design/icons";
 import { Order } from "../../../../types/api/stock/orders";
 import { useAuth } from "../../../../contexts/AuthContext";
@@ -11,15 +11,17 @@ import { authService } from "../../../../services/auth.service";
 import { 
     BuyingPageStyles,
     pageStyles,
-    PageHeader,
     StatsCard,
     PurchaseItemCard,
     ModalHeader,
     ModalItemCard,
     WarningBanner
 } from "./style";
-
-const { Text } = Typography;
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import PageStack from "@/components/ui/page/PageStack";
+import UIPageHeader from "@/components/ui/page/PageHeader";
+import UIEmptyState from "@/components/ui/states/EmptyState";
 
 interface PurchaseItemState {
     ingredient_id: string;
@@ -48,7 +50,7 @@ export default function BuyingPage() {
         try {
             setLoading(true);
             const response = await fetch(`/api/stock/orders/${orderId}`, { cache: "no-store" });
-            if (!response.ok) throw new Error("Failed to load order");
+            if (!response.ok) throw new Error("ไม่สามารถโหลดออเดอร์ได้");
             const data = await response.json();
             
             setOrder(data);
@@ -77,7 +79,7 @@ export default function BuyingPage() {
             }) || [];
             setItems(initialItems);
         } catch {
-            message.error("Failed to load order");
+            message.error("ไม่สามารถโหลดออเดอร์ได้");
         } finally {
             setLoading(false);
         }
@@ -159,7 +161,7 @@ export default function BuyingPage() {
 
     const confirmPurchase = async () => {
         if (!user) {
-            message.error("User not found");
+            message.error("ไม่พบผู้ใช้งาน");
             return;
         }
         try {
@@ -179,14 +181,14 @@ export default function BuyingPage() {
                 body: JSON.stringify({ items: payload, purchased_by_id: user.id })
             });
 
-            if (!response.ok) throw new Error("Failed to confirm purchase");
+            if (!response.ok) throw new Error("ไม่สามารถยืนยันการสั่งซื้อได้");
 
             message.success("บันทึกการสั่งซื้อเรียบร้อย");
             setConfirmModalOpen(false);
             router.push("/stock/history");
         } catch (error) {
             console.error(error);
-            message.error("Failed to confirm purchase");
+            message.error("ไม่สามารถยืนยันการสั่งซื้อได้");
         } finally {
             setLoading(false);
         }
@@ -195,36 +197,52 @@ export default function BuyingPage() {
     const purchasedItems = items.filter(i => i.is_purchased);
     const notPurchasedItems = items.filter(i => !i.is_purchased);
     const hasSelectedItems = purchasedItems.length > 0;
+    const orderCode = order?.id ? order.id.substring(0, 8).toUpperCase() : undefined;
 
     if (!orderId) {
         return (
-            <div style={{ 
-                padding: 24, 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                minHeight: '100vh',
-                flexDirection: 'column',
-                gap: 16
-            }}>
-                <ShoppingCartOutlined style={{ fontSize: 48, color: '#d9d9d9' }} />
-                <Text type="secondary">กรุณาเลือกออเดอร์ก่อน</Text>
-                <Button type="primary" onClick={() => router.push('/stock/items')}>
-                    กลับหน้าหลัก
-                </Button>
+            <div className="buying-page" style={pageStyles.container}>
+                <BuyingPageStyles />
+                <UIPageHeader
+                    title="รายละเอียดการสั่งซื้อสินค้า"
+                    subtitle="ไม่พบออเดอร์"
+                    icon={<ShoppingCartOutlined />}
+                    onBack={() => router.back()}
+                />
+                <PageContainer>
+                    <PageSection>
+                        <UIEmptyState
+                            title="กรุณาเลือกออเดอร์ก่อน"
+                            description="เลือกออเดอร์จากหน้ารายการเพื่อดำเนินการสั่งซื้อ"
+                            action={(
+                                <Button type="primary" onClick={() => router.push('/stock/items')}>
+                                    กลับหน้ารายการออเดอร์
+                                </Button>
+                            )}
+                        />
+                    </PageSection>
+                </PageContainer>
             </div>
         );
     }
 
     if (loading && !order) {
         return (
-            <div style={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                minHeight: '100vh'
-            }}>
-                <Spin size="large" />
+            <div className="buying-page" style={pageStyles.container}>
+                <BuyingPageStyles />
+                <UIPageHeader
+                    title="รายละเอียดการสั่งซื้อสินค้า"
+                    subtitle="กำลังโหลด"
+                    icon={<ShoppingCartOutlined />}
+                    onBack={() => router.back()}
+                />
+                <PageContainer>
+                    <PageSection>
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}>
+                            <Spin size="large" />
+                        </div>
+                    </PageSection>
+                </PageContainer>
             </div>
         );
     }
@@ -233,46 +251,46 @@ export default function BuyingPage() {
         <div className="buying-page" style={pageStyles.container}>
             <BuyingPageStyles />
             
-            {/* Header */}
-            <PageHeader orderId={order?.id} onBack={() => router.back()} />
-            
-            {/* Stats Card */}
-            <StatsCard 
-                totalItems={items.length}
-                purchasedItems={purchasedItems.length}
-                notPurchasedItems={notPurchasedItems.length}
+            <UIPageHeader
+                title="รายละเอียดการสั่งซื้อสินค้า"
+                subtitle={orderCode ? `ออเดอร์ #${orderCode}` : undefined}
+                icon={<ShoppingCartOutlined />}
+                onBack={() => router.back()}
             />
+            
+            <PageContainer>
+                <PageStack>
+                    <PageSection title="สรุป">
+                        <StatsCard 
+                            totalItems={items.length}
+                            purchasedItems={purchasedItems.length}
+                            notPurchasedItems={notPurchasedItems.length}
+                        />
+                    </PageSection>
 
-            {/* Items List */}
-            <div style={pageStyles.listContainer}>
-                <div style={pageStyles.sectionTitle}>
-                    <ShoppingCartOutlined style={{ fontSize: 18, color: '#52c41a' }} />
-                    <Text strong style={{ fontSize: 16, color: '#1a1a2e' }}>
-                        รายการสินค้า
-                    </Text>
-                    <div style={{
-                        background: 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)',
-                        color: 'white',
-                        padding: '4px 12px',
-                        borderRadius: 20,
-                        fontSize: 12,
-                        fontWeight: 600
-                    }}>
-                        {items.length} รายการ
-                    </div>
-                </div>
-
-                {items.map((item, index) => (
-                    <PurchaseItemCard
-                        key={item.ingredient_id}
-                        item={item}
-                        index={index}
-                        onCheck={handleCheck}
-                        onQuantityChange={handleQuantityChange}
-                        onSetFullAmount={handleSetFullAmount}
-                    />
-                ))}
-            </div>
+                    <PageSection title="รายการสินค้า" extra={<span style={{ fontWeight: 600 }}>{items.length}</span>}>
+                        <div style={pageStyles.listContainer}>
+                            {items.length > 0 ? (
+                                items.map((item, index) => (
+                                    <PurchaseItemCard
+                                        key={item.ingredient_id}
+                                        item={item}
+                                        index={index}
+                                        onCheck={handleCheck}
+                                        onQuantityChange={handleQuantityChange}
+                                        onSetFullAmount={handleSetFullAmount}
+                                    />
+                                ))
+                            ) : (
+                                <UIEmptyState
+                                    title="ยังไม่มีรายการสินค้า"
+                                    description="ยังไม่มีรายการสินค้าในออเดอร์นี้"
+                                />
+                            )}
+                        </div>
+                    </PageSection>
+                </PageStack>
+            </PageContainer>
 
             {/* Floating Footer */}
             <div style={pageStyles.floatingFooter}>

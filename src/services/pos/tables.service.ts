@@ -1,6 +1,7 @@
 import { Tables } from "../../types/api/pos/tables";
 import { getProxyUrl } from "../../lib/proxy-utils";
 import { API_ROUTES } from "../../config/api";
+import { getBackendErrorMessage, normalizeBackendPaginated, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = API_ROUTES.POS.TABLES;
 
@@ -30,9 +31,9 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to fetch tables");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch tables"));
         }
-        return response.json();
+        return normalizeBackendPaginated<Tables>(await response.json());
     },
 
     getById: async (id: string, cookie?: string): Promise<Tables> => {
@@ -46,9 +47,9 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to fetch tables");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch tables"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Tables;
     },
 
     getByName: async (name: string, cookie?: string): Promise<Tables> => {
@@ -62,9 +63,9 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to fetch tables");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch tables"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Tables;
     },
 
     create: async (data: Partial<Tables>, cookie?: string, csrfToken?: string): Promise<Tables> => {
@@ -80,9 +81,9 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to create table");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to create table"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Tables;
     },
 
     update: async (id: string, data: Partial<Tables>, cookie?: string, csrfToken?: string): Promise<Tables> => {
@@ -98,9 +99,9 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to update table");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to update table"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Tables;
     },
 
     delete: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
@@ -115,7 +116,7 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to delete table");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to delete table"));
         }
     }
 };

@@ -1,16 +1,18 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Form, Input, message, Spin, Switch, Modal } from 'antd';
+import { Button, Form, Input, message, Modal, Spin, Switch } from 'antd';
 import { useRouter } from 'next/navigation';
 import {
     ManagePageStyles,
     pageStyles,
-    PageHeader,
     ActionButtons
 } from './style';
 
 import { authService } from '../../../../../../services/auth.service';
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import UIPageHeader from "@/components/ui/page/PageHeader";
 
 export default function IngredientsUnitManagePage({ params }: { params: { mode: string[] } }) {
     const router = useRouter();
@@ -123,7 +125,7 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
                     });
                     if (!response.ok) throw new Error('ไม่สามารถลบหน่วยวัตถุดิบได้');
                     message.success('ลบหน่วยวัตถุดิบสำเร็จ');
-                    router.push('/ingredientsUnit');
+                    router.push('/stock/ingredientsUnit');
                 } catch (error) {
                     console.error(error);
                     message.error('ไม่สามารถลบหน่วยวัตถุดิบได้');
@@ -138,37 +140,40 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
         <div className="manage-page" style={pageStyles.container}>
             <ManagePageStyles />
             
-            {/* Header */}
-            <PageHeader 
-                isEdit={isEdit}
+            <UIPageHeader
+                title={isEdit ? "แก้ไขหน่วยวัตถุดิบ" : "เพิ่มหน่วยวัตถุดิบ"}
+                subtitle="หน่วยสำหรับวัตถุดิบในคลัง"
                 onBack={handleBack}
-                onDelete={isEdit ? handleDelete : undefined}
+                actions={
+                    isEdit ? (
+                        <Button danger onClick={handleDelete}>
+                            ลบ
+                        </Button>
+                    ) : undefined
+                }
             />
-            
-            {/* Form Card */}
-            <div className="manage-form-card" style={pageStyles.formCard}>
-                {loading ? (
-                    <div style={{ 
-                        display: 'flex', 
-                        justifyContent: 'center', 
-                        padding: '60px 0' 
-                    }}>
-                        <Spin size="large" />
-                    </div>
-                ) : (
-                    <Form
-                        form={form}
-                        layout="vertical"
-                        onFinish={onFinish}
-                        requiredMark={false}
-                        autoComplete="off"
-                        initialValues={{ is_active: true }}
-                        onValuesChange={(changedValues: Record<string, unknown>) => {
-                            if (typeof changedValues.display_name === 'string') {
-                                setDisplayName(changedValues.display_name);
-                            }
-                        }}
-                    >
+
+            <PageContainer maxWidth={900}>
+                <div className="manage-form-card">
+                    <PageSection>
+                        {loading ? (
+                            <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
+                                <Spin size="large" />
+                            </div>
+                        ) : (
+                            <Form
+                                form={form}
+                                layout="vertical"
+                                onFinish={onFinish}
+                                requiredMark={false}
+                                autoComplete="off"
+                                initialValues={{ is_active: true }}
+                                onValuesChange={(changedValues: Record<string, unknown>) => {
+                                    if (typeof changedValues.display_name === 'string') {
+                                        setDisplayName(changedValues.display_name);
+                                    }
+                                }}
+                            >
                         <Form.Item
                             name="unit_name"
                             label="ชื่อหน่วย (ภาษาอังกฤษ) *"
@@ -217,9 +222,11 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
                             loading={submitting}
                             onCancel={handleBack}
                         />
-                    </Form>
-                )}
-            </div>
+                            </Form>
+                        )}
+                    </PageSection>
+                </div>
+            </PageContainer>
         </div>
     );
 }

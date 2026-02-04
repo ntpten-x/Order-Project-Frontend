@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState, useContext, useMemo, useRef, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -17,11 +17,12 @@ import {
 import { SocketContext } from "../../../../contexts/SocketContext";
 import { ordersService } from "../../../../services/pos/orders.service";
 import { SalesOrderItem, ItemStatus } from "../../../../types/api/pos/salesOrderItem";
-import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
+import { useGlobalLoadingDispatch } from "../../../../contexts/pos/GlobalLoadingContext";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import PageContainer from "@/components/ui/page/PageContainer";
 
 dayjs.extend(relativeTime);
 dayjs.locale('th');
@@ -35,7 +36,7 @@ const kdsStyles = {
         background: '#0f172a', // Slate 900
         padding: '24px',
         color: '#f8fafc',
-        fontFamily: "'Inter', 'Sarabun', sans-serif"
+        fontFamily: "var(--font-sans), 'Sarabun', sans-serif"
     },
     header: {
         marginBottom: 32,
@@ -111,7 +112,7 @@ interface GroupedOrder {
 
 export default function KitchenDisplayPage() {
     const { socket, isConnected } = useContext(SocketContext);
-    const { showLoading, hideLoading } = useGlobalLoading();
+    const { showLoading, hideLoading } = useGlobalLoadingDispatch();
     const queryClient = useQueryClient();
     const [soundEnabled, setSoundEnabled] = useState(true);
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -248,6 +249,7 @@ export default function KitchenDisplayPage() {
     const cookingCount = allItems.filter(i => i.status === ItemStatus.Cooking).length;
 
     return (
+        <PageContainer maxWidth={99999} style={{ padding: 0 }}>
         <div style={kdsStyles.container}>
             <style jsx global>{`
                 @keyframes pulse-border {
@@ -533,5 +535,6 @@ export default function KitchenDisplayPage() {
                 </Row>
             )}
         </div>
+        </PageContainer>
     );
 }

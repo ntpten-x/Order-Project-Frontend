@@ -1,4 +1,5 @@
 import axios from "axios";
+import { getBackendErrorMessage } from "../utils/api/backendResponse";
 
 const api = axios.create({
     baseURL: typeof window !== "undefined"
@@ -62,7 +63,7 @@ api.interceptors.response.use((response) => response, async (error) => {
     
     // Handle CSRF token errors (403 Forbidden)
     if (error.response?.status === 403) {
-        const errorMessage = error.response?.data?.message || error.response?.data?.error || '';
+        const errorMessage = getBackendErrorMessage(error.response?.data, '');
         const isCsrfError = errorMessage.toLowerCase().includes('csrf') || 
                            errorMessage.toLowerCase().includes('token required');
         

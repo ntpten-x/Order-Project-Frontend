@@ -3,8 +3,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Form, Input, message, Spin, Switch, Modal, Button, Card, Row, Col, Typography } from 'antd';
 import { useRouter } from 'next/navigation';
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import UIPageHeader from "@/components/ui/page/PageHeader";
 import { 
-    ArrowLeftOutlined, 
     DeleteOutlined, 
     SaveOutlined, 
     TagsOutlined,
@@ -17,80 +19,6 @@ import { AccessGuardFallback } from "../../../../../../components/pos/AccessGuar
 import { pageStyles } from '../../../../../../theme/pos/category/style';
 
 const { Title, Text } = Typography;
-
-// ============ HEADER COMPONENT ============
-
-interface HeaderProps {
-    isEdit: boolean;
-    onBack: () => void;
-    onDelete?: () => void;
-}
-
-const PageHeader = ({ isEdit, onBack, onDelete }: HeaderProps) => (
-    <div style={{
-        ...pageStyles.header,
-        minHeight: 180, // Slightly taller for detail page
-    }}>
-        <div style={pageStyles.headerDecoCircle1} />
-        <div style={pageStyles.headerDecoCircle2} />
-        
-        <div style={pageStyles.headerContent}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-                <Button 
-                    type="text" 
-                    icon={<ArrowLeftOutlined style={{ fontSize: 20, color: 'white' }} />} 
-                    onClick={onBack}
-                    style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 14,
-                        background: 'rgba(255,255,255,0.2)',
-                        backdropFilter: 'blur(10px)',
-                        border: '1px solid rgba(255,255,255,0.3)',
-                        color: 'white'
-                    }}
-                />
-                <div>
-                    <Text style={{ 
-                        color: 'rgba(255,255,255,0.85)', 
-                        fontSize: 13,
-                        display: 'block',
-                        textShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                    }}>
-                        {isEdit ? 'แก้ไขข้อมูล' : 'สร้างรายการใหม่'}
-                    </Text>
-                    <Title level={4} style={{ 
-                        color: 'white', 
-                        margin: 0,
-                        fontWeight: 700,
-                        textShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                    }}>
-                        {isEdit ? 'แก้ไขหมวดหมู่' : 'เพิ่มหมวดหมู่'}
-                    </Title>
-                </div>
-            </div>
-            
-            {isEdit && onDelete && (
-                <Button
-                    type="text"
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={onDelete}
-                    style={{
-                        background: '#FEF2F2',
-                        color: '#EF4444',
-                        borderRadius: 12,
-                        height: 40,
-                        padding: '0 16px',
-                        fontWeight: 600
-                    }}
-                >
-                    <span className="hidden sm:inline">ลบหมวดหมู่</span>
-                </Button>
-            )}
-        </div>
-    </div>
-);
 
 // ============ PREVIEW CARD COMPONENT ============
 
@@ -294,20 +222,21 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
 
     return (
         <div className="manage-page" style={pageStyles.container}>
-            {/* Header */}
-            <PageHeader 
-                isEdit={isEdit}
+            <UIPageHeader
+                title={isEdit ? "แก้ไขหมวดหมู่" : "เพิ่มหมวดหมู่"}
+                subtitle={isEdit ? "แก้ไขข้อมูลหมวดหมู่" : "สร้างหมวดหมู่ใหม่"}
                 onBack={handleBack}
-                onDelete={isEdit ? handleDelete : undefined}
+                actions={
+                    isEdit ? (
+                        <Button danger onClick={handleDelete} icon={<DeleteOutlined />}>
+                            ลบ
+                        </Button>
+                    ) : null
+                }
             />
-            
-            <div style={{ 
-                maxWidth: 1000, 
-                margin: '-60px auto 40px', 
-                padding: '0 16px', 
-                position: 'relative', 
-                zIndex: 10 
-            }}>
+
+            <PageContainer maxWidth={1000}>
+                <PageSection style={{ background: "transparent", border: "none" }}>
                 {loading ? (
                     <div style={{ display: 'flex', justifyContent: 'center', padding: '100px 0', background: 'rgba(255,255,255,0.8)', borderRadius: 24, backdropFilter: 'blur(10px)' }}>
                         <Spin size="large" tip="กำลังโหลดข้อมูล..." />
@@ -429,7 +358,8 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
                         </Col>
                     </Row>
                 )}
-            </div>
+                </PageSection>
+            </PageContainer>
         </div>
     );
 }

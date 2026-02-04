@@ -8,7 +8,10 @@ const theme: ThemeConfig = {
   token: {
     // Typography
     fontSize: 15,
-    fontFamily: "'Inter', 'Sarabun', -apple-system, BlinkMacSystemFont, sans-serif",
+    fontFamily:
+      "var(--font-sans), 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+    fontFamilyCode:
+      "var(--font-mono), ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace",
 
     // Colors - Soft Modern Clarity Palette
     colorPrimary: '#6366F1',      // Indigo-500 - primary actions

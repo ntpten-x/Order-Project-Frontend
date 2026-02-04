@@ -1,16 +1,19 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Form, Input, Button, Spin, Switch, App, Row, Col } from 'antd';
+import { Button, Col, Form, Input, Row, Spin, Switch, App } from 'antd';
 import { useRouter } from 'next/navigation';
 import { 
     ManagePageStyles, 
     pageStyles, 
-    PageHeader 
 } from './style';
 import { branchService } from "../../../../../services/branch.service";
 import { useAuth } from "../../../../../contexts/AuthContext";
 import { getCsrfTokenCached } from '../../../../../utils/pos/csrf';
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import UIPageHeader from "@/components/ui/page/PageHeader";
+import type { CreateBranchInput } from "@/types/api/branch";
 
 const { TextArea } = Input;
 
@@ -60,8 +63,9 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
         }
     }, [authLoading, user, isEdit, fetchBranch, router]);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const onFinish = async (values: any) => {
+    type BranchFormValues = CreateBranchInput & { is_active: boolean };
+
+    const onFinish = async (values: BranchFormValues) => {
         setSubmitting(true);
         try {
             const csrfToken = await getCsrfTokenCached();
@@ -118,102 +122,99 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
         <div style={pageStyles.container}>
             <ManagePageStyles />
             
-            {/* Header */}
-            <PageHeader 
-                isEdit={isEdit}
+            <UIPageHeader
+                title={isEdit ? "แก้ไขสาขา" : "เพิ่มสาขา"}
+                subtitle="ข้อมูลสาขาสำหรับระบบ POS"
                 onBack={handleBack}
-                onDelete={isEdit ? handleDelete : undefined}
+                actions={
+                    isEdit ? (
+                        <Button danger onClick={handleDelete}>
+                            ลบ
+                        </Button>
+                    ) : undefined
+                }
             />
             
             {/* Form */}
-            <div className="manage-form-card" style={pageStyles.formCard}>
-                <Form
-                    form={form}
-                    layout="vertical"
-                    onFinish={onFinish}
-                    requiredMark={false}
-                    autoComplete="off"
-                    initialValues={{ is_active: true }}
-                >
-                    <Row gutter={24}>
-                        <Col xs={24} md={12}>
-                            <Form.Item
-                                name="branch_name"
-                                label="ชื่อสาขา *"
-                                rules={[{ required: true, message: 'กรุณากรอกชื่อสาขา' }]}
-                            >
-                                <Input size="large" placeholder="ระบุชื่อสาขา" maxLength={100} />
-                            </Form.Item>
-                        </Col>
-                        <Col xs={24} md={12}>
-                             <Form.Item
-                                name="branch_code"
-                                label="รหัสสาขา *"
-                                rules={[
-                                    { required: true, message: 'กรุณากรอกรหัสสาขา' },
-                                    { pattern: /^[A-Za-z0-9]+$/, message: 'รหัสสาขาต้องเป็นตัวอักษรภาษาอังกฤษหรือตัวเลข' }
-                                ]}
-                            >
-                                <Input size="large" placeholder="เช่น B001" maxLength={20} />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Form.Item
-                        name="address"
-                        label="ที่อยู่"
-                    >
-                        <TextArea rows={3} placeholder="ที่อยู่สาขา" style={{ borderRadius: 12 }} />
-                    </Form.Item>
-
-                    <Row gutter={24}>
-                        <Col xs={24} md={12}>
-                            <Form.Item
-                                name="phone"
-                                label="เบอร์โทรศัพท์"
-                            >
-                                <Input size="large" placeholder="02xxxxxxx" maxLength={20} />
-                            </Form.Item>
-                        </Col>
-                        <Col xs={24} md={12}>
-                            <Form.Item
-                                name="tax_id"
-                                label="เลขประจำตัวผู้เสียภาษี (Tax ID)"
-                            >
-                                <Input size="large" placeholder="ระบุเลขผู้เสียภาษี" maxLength={50} />
-                            </Form.Item>
-                        </Col>
-                    </Row>
-
-                    <Form.Item
-                        name="is_active"
-                        label="สถานะ"
-                        valuePropName="checked"
-                    >
-                        <Switch checkedChildren="เปิดใช้งาน" unCheckedChildren="ปิดปรับปรุง" />
-                    </Form.Item>
-
-                    <div style={{ marginTop: 32, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
-                        <Button size="large" onClick={handleBack} style={{ borderRadius: 12, minWidth: 100 }}>
-                            ยกเลิก
-                        </Button>
-                        <Button 
-                            type="primary" 
-                            htmlType="submit" 
-                            loading={submitting} 
-                            size="large"
-                            style={{ 
-                                borderRadius: 12, 
-                                minWidth: 120,
-                                background: '#7c3aed',
-                                border: 'none'
-                             }}
+            <PageContainer maxWidth={900}>
+                <div className="manage-form-card">
+                    <PageSection>
+                        <Form
+                            form={form}
+                            layout="vertical"
+                            onFinish={onFinish}
+                            requiredMark={false}
+                            autoComplete="off"
+                            initialValues={{ is_active: true }}
                         >
-                            {isEdit ? 'บันทึกการแก้ไข' : 'สร้างสาขา'}
-                        </Button>
-                    </div>
-                </Form>
-            </div>
+                            <Row gutter={24}>
+                                <Col xs={24} md={12}>
+                                    <Form.Item
+                                        name="branch_name"
+                                        label="ชื่อสาขา *"
+                                        rules={[{ required: true, message: 'กรุณากรอกชื่อสาขา' }]}
+                                    >
+                                        <Input size="large" placeholder="ระบุชื่อสาขา" maxLength={100} />
+                                    </Form.Item>
+                                </Col>
+                                <Col xs={24} md={12}>
+                                    <Form.Item
+                                        name="branch_code"
+                                        label="รหัสสาขา *"
+                                        rules={[
+                                            { required: true, message: 'กรุณากรอกรหัสสาขา' },
+                                            { pattern: /^[A-Za-z0-9]+$/, message: 'รหัสสาขาต้องเป็นตัวอักษรภาษาอังกฤษหรือตัวเลข' }
+                                        ]}
+                                    >
+                                        <Input size="large" placeholder="เช่น B001" maxLength={20} />
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+
+                            <Form.Item name="address" label="ที่อยู่">
+                                <TextArea rows={3} placeholder="ที่อยู่สาขา" style={{ borderRadius: 12 }} />
+                            </Form.Item>
+
+                            <Row gutter={24}>
+                                <Col xs={24} md={12}>
+                                    <Form.Item name="phone" label="เบอร์โทรศัพท์">
+                                        <Input size="large" placeholder="02xxxxxxx" maxLength={20} />
+                                    </Form.Item>
+                                </Col>
+                                <Col xs={24} md={12}>
+                                    <Form.Item name="tax_id" label="เลขประจำตัวผู้เสียภาษี (Tax ID)">
+                                        <Input size="large" placeholder="ระบุเลขผู้เสียภาษี" maxLength={50} />
+                                    </Form.Item>
+                                </Col>
+                            </Row>
+
+                            <Form.Item name="is_active" label="สถานะ" valuePropName="checked">
+                                <Switch checkedChildren="เปิดใช้งาน" unCheckedChildren="ปิดปรับปรุง" />
+                            </Form.Item>
+
+                            <div style={{ marginTop: 32, display: 'flex', justifyContent: 'flex-end', gap: 12 }}>
+                                <Button size="large" onClick={handleBack} style={{ borderRadius: 12, minWidth: 100 }}>
+                                    ยกเลิก
+                                </Button>
+                                <Button
+                                    type="primary"
+                                    htmlType="submit"
+                                    loading={submitting}
+                                    size="large"
+                                    style={{
+                                        borderRadius: 12,
+                                        minWidth: 120,
+                                        background: '#7c3aed',
+                                        border: 'none'
+                                    }}
+                                >
+                                    {isEdit ? 'บันทึกการแก้ไข' : 'สร้างสาขา'}
+                                </Button>
+                            </div>
+                        </Form>
+                    </PageSection>
+                </div>
+            </PageContainer>
         </div>
     );
 }

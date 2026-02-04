@@ -31,7 +31,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
     }
 
     // connect to backend
-    const socketUrl = process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:4000";
+    const socketUrl = process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:3001";
     const socketInstance = io(socketUrl, {
         transports: ["websocket"],
         withCredentials: true, // Important: Send cookies for auth
@@ -53,7 +53,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
       socketInstance.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [user]);
+  }, [user?.id]);
 
   return (
     <SocketContext.Provider value={{ socket, isConnected }}>
