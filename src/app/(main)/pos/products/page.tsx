@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { message, Modal, Typography, Tag, Button, Empty, Input, Alert } from 'antd';
 import Image from "next/image";
 import { 
@@ -22,7 +22,7 @@ import { useAsyncAction } from "../../../../hooks/useAsyncAction";
 import { useSocket } from "../../../../hooks/useSocket";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { useRoleGuard } from "../../../../utils/pos/accessControl";
-import { useRealtimeList } from "../../../../utils/pos/realtime";
+import { useRealtimeList, useRealtimeRefresh } from "../../../../utils/pos/realtime";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
 import { pageStyles, globalStyles } from '../../../../theme/pos/products/style';
 import { useCategories } from '../../../../hooks/pos/useCategories';
@@ -32,6 +32,9 @@ import { checkProductSetupState, getSetupMissingMessage } from '../../../../util
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 
 const { Text, Title } = Typography;
+
+const PAGE_SIZE = 50;
+const SEARCH_DEBOUNCE_MS = 300;
 
 // ============ HEADER COMPONENT ============
 
@@ -357,12 +360,18 @@ const EmptyState = ({ onAdd, showAdd = true, isSearch }: { onAdd: () => void, sh
 export default function ProductsPage() {
     const router = useRouter();
     const [products, setProducts] = useState<Products[]>([]);
-    const [filteredProducts, setFilteredProducts] = useState<Products[]>([]);
+    const [totalProducts, setTotalProducts] = useState(0);
+    const [activeProductsTotal, setActiveProductsTotal] = useState<number | null>(null);
+    const [page, setPage] = useState(1);
+    const [lastPage, setLastPage] = useState(1);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [searchText, setSearchText] = useState("");
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
     const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
+    const loadMoreRef = useRef<HTMLDivElement | null>(null);
+    const initialLoadRef = useRef(false);
     
     // Metadata State
     const [categories, setCategories] = useState<Category[]>([]);
@@ -388,55 +397,170 @@ export default function ProductsPage() {
 
     // Initial Cache Read
     useEffect(() => {
+        const cachedV2 = readCache<{
+            items: Products[];
+            total?: number;
+            last_page?: number;
+            active_total?: number;
+        }>("pos:products:v2", 10 * 60 * 1000);
+
+        if (cachedV2?.items && Array.isArray(cachedV2.items)) {
+            setProducts(cachedV2.items);
+            setTotalProducts(typeof cachedV2.total === "number" ? cachedV2.total : cachedV2.items.length);
+            setPage(1);
+            setLastPage(typeof cachedV2.last_page === "number" ? cachedV2.last_page : 1);
+            setActiveProductsTotal(typeof cachedV2.active_total === "number" ? cachedV2.active_total : null);
+            return;
+        }
+
         const cached = readCache<Products[]>("pos:products", 10 * 60 * 1000);
         if (cached && Array.isArray(cached)) {
             setProducts(cached);
+            setTotalProducts(cached.length);
+            setPage(1);
+            setLastPage(1);
         }
     }, []);
 
     const fetchProducts = useCallback(async () => {
         execute(async () => {
-            // Fetch all products for client-side filtering support
+            // Fetch paginated products (server-side search)
             const params = new URLSearchParams();
-            params.set("limit", "500");
-            
+            params.set("page", "1");
+            params.set("limit", PAGE_SIZE.toString());
+            if (searchText.trim()) params.set("q", searchText.trim());
+
+            const activeParams = new URLSearchParams(params);
+            activeParams.set("limit", "1");
+            activeParams.set("is_active", "true");
+
+            const [listResponse, activeResponse] = await Promise.all([
+                fetch(`/api/pos/products?${params.toString()}`),
+                fetch(`/api/pos/products?${activeParams.toString()}`),
+            ]);
+            if (!listResponse.ok) {
+                const errorData = await listResponse.json().catch(() => ({}));
+                throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลสินค้าได้');
+            }
+            if (!activeResponse.ok) {
+                const errorData = await activeResponse.json().catch(() => ({}));
+                throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเธณเธเธงเธเธชเธดเธเธเนเธฒเนเธ”เน');
+            }
+
+            const data = await listResponse.json();
+            const activeData = await activeResponse.json();
+            const list: Products[] = data.data || [];
+            const total = typeof data.total === "number" ? data.total : list.length;
+            const currentPage = typeof data.page === "number" ? data.page : 1;
+            const last = typeof data.last_page === "number" ? data.last_page : 1;
+
+            setProducts(list);
+            setTotalProducts(total);
+            setPage(currentPage);
+            setLastPage(last);
+            setActiveProductsTotal(typeof activeData.total === "number" ? activeData.total : null);
+
+            if (!searchText.trim()) {
+                writeCache("pos:products:v2", {
+                    items: list,
+                    total,
+                    last_page: last,
+                    active_total: typeof activeData.total === "number" ? activeData.total : undefined,
+                });
+            }
+        }, 'กำลังโหลดข้อมูลสินค้า...');
+    }, [execute, searchText]);
+
+    useEffect(() => {
+        if (!isAuthorized) return;
+
+        if (!initialLoadRef.current) {
+            initialLoadRef.current = true;
+            fetchProducts();
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            fetchProducts();
+        }, SEARCH_DEBOUNCE_MS);
+
+        return () => clearTimeout(timer);
+    }, [isAuthorized, fetchProducts, searchText]);
+
+    useRealtimeRefresh({
+        socket,
+        events: ["products:create", "products:update", "products:delete"],
+        onRefresh: fetchProducts,
+        enabled: isAuthorized,
+        debounceMs: 400,
+    });
+
+    const fetchMoreProducts = useCallback(async () => {
+        if (isLoadingMore) return;
+        if (page >= lastPage) return;
+
+        setIsLoadingMore(true);
+        try {
+            const q = searchText.trim();
+            const nextPage = page + 1;
+            const params = new URLSearchParams();
+            params.set("page", nextPage.toString());
+            params.set("limit", PAGE_SIZE.toString());
+            if (q) params.set("q", q);
+
             const response = await fetch(`/api/pos/products?${params.toString()}`);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลสินค้าได้');
+                throw new Error(errorData.error || errorData.message || "โหลดข้อมูลเพิ่มเติมไม่สำเร็จ");
             }
+
             const data = await response.json();
-            const list = data.data || [];
-            setProducts(list);
-            writeCache("pos:products", list);
-        }, 'กำลังโหลดข้อมูลสินค้า...');
-    }, [execute]);
+            const incoming: Products[] = data.data || [];
+            const total = typeof data.total === "number" ? data.total : totalProducts;
+            const currentPage = typeof data.page === "number" ? data.page : nextPage;
+            const last = typeof data.last_page === "number" ? data.last_page : lastPage;
+
+            setProducts((prev) => {
+                if (incoming.length === 0) return prev;
+                const indexById = new Map(prev.map((p, idx) => [p.id, idx]));
+                const next = [...prev];
+                for (const item of incoming) {
+                    const idx = indexById.get(item.id);
+                    if (idx === undefined) {
+                        next.push(item);
+                    } else {
+                        next[idx] = item;
+                    }
+                }
+                return next;
+            });
+
+            setTotalProducts(total);
+            setPage(currentPage);
+            setLastPage(last);
+        } catch (err) {
+            message.error(err instanceof Error ? err.message : "โหลดข้อมูลเพิ่มเติมไม่สำเร็จ");
+        } finally {
+            setIsLoadingMore(false);
+        }
+    }, [isLoadingMore, page, lastPage, searchText, totalProducts]);
 
     useEffect(() => {
-        if (isAuthorized) {
-            fetchProducts();
-        }
-    }, [isAuthorized, fetchProducts]);
+        const el = loadMoreRef.current;
+        if (!el) return;
 
-    useRealtimeList(
-        socket,
-        { create: "products:create", update: "products:update", delete: "products:delete" },
-        setProducts
-    );
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const entry = entries[0];
+                if (!entry?.isIntersecting) return;
+                fetchMoreProducts();
+            },
+            { root: null, rootMargin: "400px 0px", threshold: 0 }
+        );
 
-     // Client-side filtering
-     useEffect(() => {
-        if (searchText) {
-            const lower = searchText.toLowerCase();
-            const filtered = products.filter((p: Products) => 
-                (p.display_name?.toLowerCase().includes(lower)) || 
-                (p.product_name?.toLowerCase().includes(lower))
-            );
-            setFilteredProducts(filtered);
-        } else {
-            setFilteredProducts(products);
-        }
-    }, [products, searchText]);
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [fetchMoreProducts]);
 
 
     // Real-time Metadata Updates
@@ -502,8 +626,8 @@ export default function ProductsPage() {
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
     }
 
-    const activeProducts = products.filter(p => p.is_active);
-    const inactiveProducts = products.filter(p => !p.is_active);
+    const activeCount = activeProductsTotal ?? products.filter((p) => p.is_active).length;
+    const inactiveCount = Math.max((totalProducts || products.length) - activeCount, 0);
 
     // Initial Setup Check using Utility
     const setupState = checkProductSetupState(categories, units);
@@ -579,6 +703,8 @@ export default function ProductsPage() {
                 .product-card {
                     cursor: pointer;
                     -webkit-tap-highlight-color: transparent;
+                    content-visibility: auto;
+                    contain-intrinsic-size: 160px 120px;
                 }
             `}</style>
             
@@ -619,15 +745,15 @@ export default function ProductsPage() {
             {/* Stats Card */}
             <div style={{ marginTop: -32, padding: '0 16px', position: 'relative', zIndex: 10 }}>
                 <StatsCard 
-                    totalProducts={products.length}
-                    activeProducts={activeProducts.length}
-                    inactiveProducts={inactiveProducts.length}
+                    totalProducts={totalProducts || products.length}
+                    activeProducts={activeCount}
+                    inactiveProducts={inactiveCount}
                 />
             </div>
 
             {/* Products List */}
             <div style={pageStyles.listContainer}>
-                {filteredProducts.length > 0 ? (
+                {products.length > 0 ? (
                     <>
                         <div style={pageStyles.sectionTitle}>
                             <div style={{ 
@@ -648,11 +774,11 @@ export default function ProductsPage() {
                                 fontWeight: 700,
                                 marginLeft: 'auto'
                             }}>
-                                {filteredProducts.length}
+                                {totalProducts ? `${products.length}/${totalProducts}` : products.length}
                             </div>
                         </div>
 
-                        {filteredProducts.map((product, index) => (
+                        {products.map((product, index) => (
                             <ProductCard
                                 key={product.id}
                                 product={product}
@@ -661,6 +787,23 @@ export default function ProductsPage() {
                                 onDelete={handleDelete}
                             />
                         ))}
+
+                        <div style={{ display: "flex", justifyContent: "center", padding: "16px 0 4px" }}>
+                            {page < lastPage ? (
+                                <Button
+                                    onClick={fetchMoreProducts}
+                                    loading={isLoadingMore}
+                                    style={{ borderRadius: 12 }}
+                                >
+                                    โหลดเพิ่มเติม
+                                </Button>
+                            ) : (
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                    แสดงครบแล้ว
+                                </Text>
+                            )}
+                        </div>
+                        <div ref={loadMoreRef} style={{ height: 1 }} />
                     </>
                 ) : (
                     <EmptyState onAdd={handleAdd} showAdd={hasMetadata} isSearch={!!searchText} />

@@ -1,6 +1,7 @@
 import { User } from "../types/api/users";
 import { getProxyUrl } from "../lib/proxy-utils";
 import { UserSchema, UsersResponseSchema } from "../schemas/api/users.schema";
+import { getBackendErrorMessage, unwrapBackendData } from "../utils/api/backendResponse";
 
 const BASE_PATH = "/users";
 
@@ -23,11 +24,11 @@ export const userService = {
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             const detailedError = errorData.errors?.map((e: { message: string }) => e.message).join(", ");
-            throw new Error(detailedError || errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลผู้ใช้ได้");
+            throw new Error(detailedError || getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลผู้ใช้ได้"));
         }
 
         const json = await response.json();
-        return UsersResponseSchema.parse(json) as unknown as User[];
+        return UsersResponseSchema.parse(unwrapBackendData(json)) as unknown as User[];
     },
 
     getUserById: async (id: string, cookie?: string): Promise<User> => {
@@ -44,11 +45,11 @@ export const userService = {
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             const detailedError = errorData.errors?.map((e: { message: string }) => e.message).join(", ");
-            throw new Error(detailedError || errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลผู้ใช้ได้");
+            throw new Error(detailedError || getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลผู้ใช้ได้"));
         }
 
         const json = await response.json();
-        return UserSchema.parse(json) as unknown as User;
+        return UserSchema.parse(unwrapBackendData(json)) as unknown as User;
     },
 
     createUser: async (data: Partial<User>, cookie?: string, csrfToken?: string): Promise<User> => {
@@ -69,9 +70,9 @@ export const userService = {
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             const detailedError = errorData.errors?.map((e: { message: string }) => e.message).join(", ");
-            throw new Error(detailedError || errorData.error || errorData.message || "ไม่สามารถสร้างผู้ใช้ได้");
+            throw new Error(detailedError || getBackendErrorMessage(errorData, "ไม่สามารถสร้างผู้ใช้ได้"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as User;
     },
 
     updateUser: async (id: string, data: Partial<User>, cookie?: string, csrfToken?: string): Promise<User> => {
@@ -92,9 +93,9 @@ export const userService = {
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             const detailedError = errorData.errors?.map((e: { message: string }) => e.message).join(", ");
-            throw new Error(detailedError || errorData.error || errorData.message || "ไม่สามารถอัปเดตผู้ใช้ได้");
+            throw new Error(detailedError || getBackendErrorMessage(errorData, "ไม่สามารถอัปเดตผู้ใช้ได้"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as User;
     },
 
     deleteUser: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
@@ -112,7 +113,7 @@ export const userService = {
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             const detailedError = errorData.errors?.map((e: { message: string }) => e.message).join(", ");
-            throw new Error(detailedError || errorData.error || errorData.message || "ไม่สามารถลบผู้ใช้ได้");
+            throw new Error(detailedError || getBackendErrorMessage(errorData, "ไม่สามารถลบผู้ใช้ได้"));
         }
     },
 };

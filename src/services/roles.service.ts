@@ -1,5 +1,6 @@
 import { Role } from "../types/api/roles";
 import { getProxyUrl } from "../lib/proxy-utils";
+import { unwrapBackendData } from "../utils/api/backendResponse";
 
 const BASE_PATH = "/roles";
 
@@ -18,7 +19,7 @@ export const roleService = {
             cache: "no-store",
         });
         if (!response.ok) throw new Error("Failed to fetch roles");
-        return response.json();
+        return unwrapBackendData(await response.json()) as Role[];
     },
 
     getRoleById: async (id: string, cookie?: string): Promise<Role> => {
@@ -35,7 +36,7 @@ export const roleService = {
             cache: "no-store"
         });
         if (!response.ok) throw new Error("Failed to fetch role");
-        return response.json();
+        return unwrapBackendData(await response.json()) as Role;
     },
 
     createRole: async (data: Partial<Role>, csrfToken?: string, cookie?: string): Promise<Role> => {
@@ -56,7 +57,7 @@ export const roleService = {
             const error = await response.json().catch(() => ({}));
             throw new Error(error.message || "Failed to create role");
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Role;
     },
 
     updateRole: async (id: string, data: Partial<Role>, csrfToken?: string, cookie?: string): Promise<Role> => {
@@ -77,7 +78,7 @@ export const roleService = {
             const error = await response.json().catch(() => ({}));
             throw new Error(error.message || "Failed to update role");
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Role;
     },
 
     deleteRole: async (id: string, csrfToken?: string, cookie?: string): Promise<void> => {

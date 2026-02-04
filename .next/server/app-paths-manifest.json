@@ -1,8 +1,11 @@
 {
+<<<<<<< HEAD
   "/api/pos/shopProfile/route": "app/api/pos/shopProfile/route.js",
   "/api/pos/paymentMethod/route": "app/api/pos/paymentMethod/route.js",
   "/api/pos/discounts/route": "app/api/pos/discounts/route.js",
   "/api/pos/orders/[id]/route": "app/api/pos/orders/[id]/route.js",
+=======
+>>>>>>> cursor
   "/(main)/page": "app/(main)/page.js",
   "/(main)/pos/page": "app/(main)/pos/page.js",
   "/(main)/pos/channels/page": "app/(main)/pos/channels/page.js",

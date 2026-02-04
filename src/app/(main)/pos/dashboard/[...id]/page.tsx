@@ -14,6 +14,7 @@ import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import ReceiptTemplate from "../../../../../components/pos/shared/ReceiptTemplate";
 import { sortOrderItems, getStatusTextStyle } from "../../../../../utils/dashboard/orderUtils";
+import { groupOrderItems } from "../../../../../utils/orderGrouping";
 import { ItemStatus } from "../../../../../types/api/pos/salesOrderItem";
 import { useSocket } from "../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
@@ -124,6 +125,11 @@ export default function DashboardOrderDetailPage({ params }: Props) {
         }, 500);
     };
 
+    const items = useMemo(() => {
+        const grouped = groupOrderItems(order?.items || []);
+        return sortOrderItems(grouped);
+    }, [order?.items]);
+
     if (isLoading) {
         return (
             <div style={{ 
@@ -150,10 +156,6 @@ export default function DashboardOrderDetailPage({ params }: Props) {
         );
     }
 
-    const items = useMemo(() => {
-        const grouped = groupOrderItems(order.items || []);
-        return sortOrderItems(grouped);
-    }, [order.items]);
     const payments = (order.payments || []) as PaymentWithMethod[];
     
     // Derived Data
