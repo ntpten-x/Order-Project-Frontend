@@ -36,7 +36,7 @@ import PageStack from "@/components/ui/page/PageStack";
 import UIPageHeader from "@/components/ui/page/PageHeader";
 import UIEmptyState from "@/components/ui/states/EmptyState";
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 const PAGE_SIZE = 50;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -572,15 +572,15 @@ export default function ProductsPage() {
             
             {/* Header */}
             <UIPageHeader
-                title="??????"
-                subtitle={`${totalProducts || products.length} ??????`}
+                title="สินค้า"
+                subtitle={`${totalProducts || products.length} รายการ`}
                 icon={<ShopOutlined />}
                 actions={
                     <Space size={8} wrap>
                         <Input
                             prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
                             allowClear
-                            placeholder="??????????? (????, ????????)..."
+                            placeholder="ค้นหาสินค้า (ชื่อ, หมวดหมู่)..."
                             onChange={(e) => handleSearch(e.target.value)}
                             style={{ minWidth: 240 }}
                         />
@@ -591,7 +591,7 @@ export default function ProductsPage() {
                             onClick={handleAdd}
                             disabled={!hasMetadata}
                         >
-                            ???????????
+                            เพิ่มสินค้า
                         </Button>
                     </Space>
                 }
@@ -600,9 +600,9 @@ export default function ProductsPage() {
             <PageContainer>
                 <PageStack>
                     {!isMetadataLoading && !hasMetadata && products.length > 0 && (
-                        <PageSection title="????????????????????">
+                        <PageSection title="ต้องตั้งค่าก่อนเพิ่มสินค้า">
                             <Alert
-                                message="?????????????????"
+                                message="ยังตั้งค่าระบบไม่ครบ"
                                 description={getSetupMissingMessage(categories, units)}
                                 type="warning"
                                 showIcon
@@ -610,12 +610,12 @@ export default function ProductsPage() {
                                     <div style={{ display: 'flex', gap: 8 }}>
                                         {!setupState.hasCategories && (
                                             <Button size="small" type="primary" ghost onClick={() => router.push("/pos/category")}> 
-                                                ?????????????
+                                                เพิ่มหมวดหมู่
                                             </Button>
                                         )}
                                         {!setupState.hasUnits && (
                                             <Button size="small" type="primary" ghost onClick={() => router.push("/pos/productsUnit")}> 
-                                                ????????????????
+                                                เพิ่มหน่วยสินค้า
                                             </Button>
                                         )}
                                     </div>
@@ -631,7 +631,7 @@ export default function ProductsPage() {
                     />
 
                     <PageSection
-                        title="????????????"
+                        title="รายการสินค้า"
                         extra={
                             <span style={{ fontWeight: 600 }}>
                                 {totalProducts ? `${products.length}/${totalProducts}` : products.length}
@@ -657,11 +657,11 @@ export default function ProductsPage() {
                                             loading={isLoadingMore}
                                             style={{ borderRadius: 12 }}
                                         >
-                                            ?????????????
+                                            โหลดเพิ่ม
                                         </Button>
                                     ) : (
                                         <Text type="secondary" style={{ fontSize: 12 }}>
-                                            ???????????
+                                            ไม่มีสินค้าเพิ่มเติม
                                         </Text>
                                     )}
                                 </div>
@@ -671,13 +671,13 @@ export default function ProductsPage() {
                             <UIEmptyState
                                 title={
                                     searchText.trim()
-                                        ? "???????????????????"
-                                        : "??????????????"
+                                        ? "ไม่พบสินค้าที่ค้นหา"
+                                        : "ยังไม่มีสินค้า"
                                 }
                                 description={
                                     searchText.trim()
-                                        ? "?????????????????????"
-                                        : "??????????????????????????????"
+                                        ? "ลองค้นหาด้วยคำอื่นหรือล้างการค้นหา"
+                                        : "เพิ่มสินค้ารายการแรกเพื่อเริ่มต้นขาย"
                                 }
                                 action={
                                     !searchText.trim() ? (
@@ -687,7 +687,7 @@ export default function ProductsPage() {
                                             onClick={handleAdd}
                                             disabled={!hasMetadata}
                                         >
-                                            ???????????
+                                            เพิ่มสินค้า
                                         </Button>
                                     ) : null
                                 }

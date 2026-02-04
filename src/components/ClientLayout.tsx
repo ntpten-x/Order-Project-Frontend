@@ -40,7 +40,7 @@ const ClientLayout: React.FC<ClientLayoutProps> = ({ children }) => {
   return (
     <main 
       style={{ 
-        paddingTop: headerHeight,
+        paddingTop: isLoginPage ? 0 : `calc(${headerHeight}px + env(safe-area-inset-top))`,
         paddingBottom: bottomNavOffset
           ? `calc(${bottomNavOffset}px + env(safe-area-inset-bottom))`
           : 0,

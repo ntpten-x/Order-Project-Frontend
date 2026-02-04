@@ -27,7 +27,7 @@ import PageStack from "@/components/ui/page/PageStack";
 import UIPageHeader from "@/components/ui/page/PageHeader";
 import UIEmptyState from "@/components/ui/states/EmptyState";
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 // ============ STATS CARD COMPONENT ============
 
@@ -309,21 +309,21 @@ export default function CategoryPage() {
             
             {/* Header */}
             <UIPageHeader
-                title="??????????????"
-                subtitle={`${categories.length} ??????`}
+                title="หมวดหมู่สินค้า"
+                subtitle={`${categories.length} รายการ`}
                 icon={<TagsOutlined />}
                 actions={
                     <Space size={8} wrap>
                         <Input
                             prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
                             allowClear
-                            placeholder="?????????????..."
+                            placeholder="ค้นหาหมวดหมู่..."
                             onChange={(e) => handleSearch(e.target.value)}
                             style={{ minWidth: 220 }}
                         />
                         <Button icon={<ReloadOutlined />} onClick={fetchCategories} />
                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                            ?????????????
+                            เพิ่มหมวดหมู่
                         </Button>
                     </Space>
                 }
@@ -338,7 +338,7 @@ export default function CategoryPage() {
                     />
 
                     <PageSection
-                        title="??????????????"
+                        title="รายการหมวดหมู่"
                         extra={<span style={{ fontWeight: 600 }}>{filteredCategories.length}</span>}
                     >
                         {filteredCategories.length > 0 ? (
@@ -355,18 +355,18 @@ export default function CategoryPage() {
                             <UIEmptyState
                                 title={
                                     searchText.trim()
-                                        ? "?????????????????????"
-                                        : "??????????????????????"
+                                        ? "ไม่พบหมวดหมู่ที่ค้นหา"
+                                        : "ยังไม่มีหมวดหมู่"
                                 }
                                 description={
                                     searchText.trim()
-                                        ? "?????????????????????"
-                                        : "????????????????????????????????"
+                                        ? "ลองค้นหาด้วยคำอื่นหรือล้างการค้นหา"
+                                        : "เพิ่มหมวดหมู่แรกเพื่อเริ่มต้นใช้งาน"
                                 }
                                 action={
                                     !searchText.trim() ? (
                                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                            ?????????????
+                                            เพิ่มหมวดหมู่
                                         </Button>
                                     ) : null
                                 }

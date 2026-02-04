@@ -27,7 +27,7 @@ import PageStack from "@/components/ui/page/PageStack";
 import UIPageHeader from "@/components/ui/page/PageHeader";
 import UIEmptyState from "@/components/ui/states/EmptyState";
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 // ============ STATS CARD COMPONENT ============
 
@@ -309,21 +309,21 @@ export default function ProductsUnitPage() {
             
             {/* Header */}
             <UIPageHeader
-                title="???????????"
-                subtitle={`${units.length} ??????`}
+                title="หน่วยสินค้า"
+                subtitle={`${units.length} รายการ`}
                 icon={<UnorderedListOutlined />}
                 actions={
                     <Space size={8} wrap>
                         <Input
                             prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
                             allowClear
-                            placeholder="????????????????..."
+                            placeholder="ค้นหาหน่วยสินค้า..."
                             onChange={(e) => handleSearch(e.target.value)}
                             style={{ minWidth: 220 }}
                         />
                         <Button icon={<ReloadOutlined />} onClick={fetchUnits} />
                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                            ??????????
+                            เพิ่มหน่วยสินค้า
                         </Button>
                     </Space>
                 }
@@ -338,7 +338,7 @@ export default function ProductsUnitPage() {
                     />
 
                     <PageSection
-                        title="?????????????????"
+                        title="รายการหน่วยสินค้า"
                         extra={<span style={{ fontWeight: 600 }}>{filteredUnits.length}</span>}
                     >
                         {filteredUnits.length > 0 ? (
@@ -355,18 +355,18 @@ export default function ProductsUnitPage() {
                             <UIEmptyState
                                 title={
                                     searchText.trim()
-                                        ? "????????????????????????"
-                                        : "???????????????????"
+                                        ? "ไม่พบหน่วยสินค้าที่ค้นหา"
+                                        : "ยังไม่มีหน่วยสินค้า"
                                 }
                                 description={
                                     searchText.trim()
-                                        ? "?????????????????????"
-                                        : "???????????????????????????????????"
+                                        ? "ลองค้นหาด้วยคำอื่นหรือล้างการค้นหา"
+                                        : "เพิ่มหน่วยสินค้าตัวแรกเพื่อเริ่มต้นใช้งาน"
                                 }
                                 action={
                                     !searchText.trim() ? (
                                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                            ??????????
+                                            เพิ่มหน่วยสินค้า
                                         </Button>
                                     ) : null
                                 }

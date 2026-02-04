@@ -29,7 +29,7 @@ import PageStack from "@/components/ui/page/PageStack";
 import UIPageHeader from "@/components/ui/page/PageHeader";
 import UIEmptyState from "@/components/ui/states/EmptyState";
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 // ============ STATS CARD COMPONENT ============
 
@@ -350,21 +350,21 @@ export default function TablesPage() {
             
             {/* Header */}
             <UIPageHeader
-                title="????"
-                subtitle={`${tables.length} ??????`}
+                title="โต๊ะ"
+                subtitle={`${tables.length} รายการ`}
                 icon={<TableOutlined />}
                 actions={
                     <Space size={8} wrap>
                         <Input
                             prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
                             allowClear
-                            placeholder="?????????..."
+                            placeholder="ค้นหาโต๊ะ..."
                             onChange={(e) => handleSearch(e.target.value)}
                             style={{ minWidth: 220 }}
                         />
                         <Button icon={<ReloadOutlined />} onClick={fetchTables} />
                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                            ?????????
+                            เพิ่มโต๊ะ
                         </Button>
                     </Space>
                 }
@@ -375,7 +375,7 @@ export default function TablesPage() {
                     <StatsCard tables={tables} />
 
                     <PageSection
-                        title="??????????"
+                        title="รายการโต๊ะ"
                         extra={<span style={{ fontWeight: 600 }}>{filteredTables.length}</span>}
                     >
                         {filteredTables.length > 0 ? (
@@ -391,17 +391,17 @@ export default function TablesPage() {
                         ) : (
                             <UIEmptyState
                                 title={
-                                    searchText.trim() ? "?????????????????" : "????????????"
+                                    searchText.trim() ? "ไม่พบโต๊ะที่ค้นหา" : "ยังไม่มีโต๊ะในระบบ"
                                 }
                                 description={
                                     searchText.trim()
-                                        ? "?????????????????????"
-                                        : "????????????????????????????"
+                                        ? "ลองค้นหาด้วยคำอื่นหรือล้างการค้นหา"
+                                        : "เริ่มต้นด้วยการเพิ่มโต๊ะแรกเพื่อใช้งาน"
                                 }
                                 action={
                                     !searchText.trim() ? (
                                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                            ?????????
+                                            เพิ่มโต๊ะ
                                         </Button>
                                     ) : null
                                 }

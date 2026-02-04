@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState } from "react";
 import { Typography, Button, Spin, App, Modal } from "antd";
-import { SettingOutlined, BankOutlined, CheckCircleOutlined, PlusOutlined, QrcodeOutlined, ArrowLeftOutlined } from "@ant-design/icons";
+import { SettingOutlined, BankOutlined, CheckCircleOutlined, PlusOutlined, QrcodeOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { paymentAccountService } from "../../../../services/pos/paymentAccount.service";
 import { ShopPaymentAccount } from "../../../../types/api/pos/shopPaymentAccount";
@@ -13,8 +13,11 @@ import { useSocket } from "../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
 import { useRoleGuard } from "../../../../utils/pos/accessControl";
 import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import UIPageHeader from "@/components/ui/page/PageHeader";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 export default function POSSettingsPage() {
     const { message } = App.useApp();
@@ -84,8 +87,20 @@ export default function POSSettingsPage() {
 
     if (loading) {
         return (
-            <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh', background: pageStyles.container.background as string }}>
-                <Spin size="large" tip="กำลังโหลด..." />
+            <div style={{ minHeight: "100vh", background: pageStyles.container.background as string }}>
+                <UIPageHeader
+                    title="ตั้งค่าบัญชีรับเงิน"
+                    subtitle="Payment Settings"
+                    icon={<SettingOutlined />}
+                    onBack={() => router.back()}
+                />
+                <PageContainer maxWidth={900}>
+                    <PageSection>
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
+                            <Spin size="large" tip="กำลังโหลด..." />
+                        </div>
+                    </PageSection>
+                </PageContainer>
             </div>
         );
     }
@@ -94,50 +109,22 @@ export default function POSSettingsPage() {
         <div style={{ 
             minHeight: '100vh', 
             background: '#F8FAFC', 
-            padding: 16,
             paddingBottom: 80
         }}>
-            {/* Header Card */}
-            <div style={{
-                background: 'white',
-                borderRadius: 16,
-                padding: 16,
-                marginBottom: 16,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                    <Button
-                        type="text"
-                        icon={<ArrowLeftOutlined />}
-                        onClick={() => router.back()}
-                        style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 10,
-                            border: '1px solid #E2E8F0',
-                            color: '#64748B'
-                        }}
-                    />
-                    <div style={{
-                        width: 44,
-                        height: 44,
-                        background: 'linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)',
-                        borderRadius: 12,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        boxShadow: '0 4px 8px rgba(99, 102, 241, 0.3)'
-                    }}>
-                        <SettingOutlined style={{ fontSize: 20, color: 'white' }} />
-                    </div>
-                    <div>
-                        <Title level={5} style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#1E293B' }}>
-                            ตั้งค่าบัญชีรับเงิน
-                        </Title>
-                        <Text style={{ fontSize: 12, color: '#64748B' }}>Payment Settings</Text>
-                    </div>
-                </div>
-            </div>
+            <UIPageHeader
+                title="ตั้งค่าบัญชีรับเงิน"
+                subtitle="Payment Settings"
+                icon={<SettingOutlined />}
+                onBack={() => router.back()}
+                actions={
+                    <Button onClick={() => fetchData(false)} loading={loading}>
+                        รีเฟรช
+                    </Button>
+                }
+            />
+
+            <PageContainer maxWidth={900}>
+                <PageSection style={{ background: "transparent", border: "none" }}>
 
             {/* Account Selection Card */}
             <div style={{
@@ -251,6 +238,8 @@ export default function POSSettingsPage() {
             >
                 จัดการบัญชีทั้งหมด
             </Button>
+                </PageSection>
+            </PageContainer>
 
             {/* Account Selection Modal */}
             <Modal

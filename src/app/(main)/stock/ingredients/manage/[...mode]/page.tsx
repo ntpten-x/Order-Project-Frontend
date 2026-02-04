@@ -1,13 +1,12 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Form, Input, message, Spin, Select, Switch, Modal } from 'antd';
+import { Button, Form, Input, message, Modal, Select, Spin, Switch } from 'antd';
 import { useRouter } from 'next/navigation';
 import { IngredientsUnit } from '../../../../../../types/api/stock/ingredientsUnit';
 import {
     ManagePageStyles,
     pageStyles,
-    PageHeader,
     ImagePreview,
     ActionButtons
 } from './style';
@@ -15,6 +14,9 @@ import {
 const { TextArea } = Input;
 
 import { authService } from '../../../../../../services/auth.service';
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import UIPageHeader from "@/components/ui/page/PageHeader";
 
 export default function IngredientsManagePage({ params }: { params: { mode: string[] } }) {
     const router = useRouter();
@@ -82,8 +84,7 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
         }
     }, [isEdit, id, fetchIngredient]);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const onFinish = async (values: any) => {
+    const onFinish = async (values: Record<string, unknown>) => {
         setSubmitting(true);
         try {
             if (isEdit) {
@@ -147,7 +148,7 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                     });
                     if (!response.ok) throw new Error('ไม่สามารถลบวัตถุดิบได้');
                     message.success('ลบวัตถุดิบสำเร็จ');
-                    router.push('/ingredients');
+                    router.push('/stock/ingredients');
                 } catch (error) {
                     console.error(error);
                     message.error('ไม่สามารถลบวัตถุดิบได้');
@@ -156,141 +157,123 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
         });
     };
 
-    const handleBack = () => router.push('/ingredients');
+    const handleBack = () => router.push('/stock/ingredients');
 
     return (
         <div className="manage-page" style={pageStyles.container}>
             <ManagePageStyles />
             
-            {/* Header */}
-            <PageHeader 
-                isEdit={isEdit}
+            <UIPageHeader
+                title={isEdit ? "แก้ไขวัตถุดิบ" : "เพิ่มวัตถุดิบ"}
+                subtitle="ข้อมูลวัตถุดิบในคลัง"
                 onBack={handleBack}
-                onDelete={isEdit ? handleDelete : undefined}
+                actions={
+                    isEdit ? (
+                        <Button danger onClick={handleDelete}>
+                            ลบ
+                        </Button>
+                    ) : undefined
+                }
             />
-            
-            {/* Form Card */}
-            <div className="manage-form-card" style={pageStyles.formCard}>
-                {loading ? (
-                    <div style={{ 
-                        display: 'flex', 
-                        justifyContent: 'center', 
-                        padding: '60px 0' 
-                    }}>
-                        <Spin size="large" />
-                    </div>
-                ) : (
-                    <Form
-                        form={form}
-                        layout="vertical"
-                        onFinish={onFinish}
-                        requiredMark={false}
-                        autoComplete="off"
-                        initialValues={{ is_active: true }}
-                        onValuesChange={(changedValues) => {
-                            if (changedValues.img_url !== undefined) {
-                                setImageUrl(changedValues.img_url);
-                            }
-                            if (changedValues.display_name !== undefined) {
-                                setDisplayName(changedValues.display_name);
-                            }
-                        }}
-                    >
-                        <Form.Item
-                            name="ingredient_name"
-                            label="ชื่อวัตถุดิบ (ภาษาอังกฤษ) *"
-                            rules={[
-                                { required: true, message: 'กรุณากรอกชื่อวัตถุดิบ' },
-                                { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'กรุณากรอกภาษาอังกฤษเท่านั้น' },
-                                { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
-                            ]}
-                        >
-                            <Input 
-                                size="large" 
-                                placeholder="เช่น Sugar, Salt, Flour" 
-                                maxLength={100}
-                            />
-                        </Form.Item>
 
-                        <Form.Item
-                            name="display_name"
-                            label="ชื่อที่แสดง (ภาษาไทย) *"
-                            rules={[
-                                { required: true, message: 'กรุณากรอกชื่อที่แสดง' },
-                                { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
-                            ]}
-                        >
-                            <Input 
-                                size="large" 
-                                placeholder="เช่น น้ำตาล, เกลือ, แป้ง" 
-                                maxLength={100}
-                            />
-                        </Form.Item>
-
-                        <Form.Item
-                            name="unit_id"
-                            label="หน่วยวัตถุดิบ *"
-                            rules={[{ required: true, message: 'กรุณาเลือกหน่วยวัตถุดิบ' }]}
-                        >
-                            <Select 
-                                size="large" 
-                                placeholder="เลือกหน่วย"
-                                showSearch
-                                optionFilterProp="children"
+            <PageContainer maxWidth={900}>
+                <div className="manage-form-card">
+                    <PageSection>
+                        {loading ? (
+                            <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
+                                <Spin size="large" />
+                            </div>
+                        ) : (
+                            <Form
+                                form={form}
+                                layout="vertical"
+                                onFinish={onFinish}
+                                requiredMark={false}
+                                autoComplete="off"
+                                initialValues={{ is_active: true }}
+                                onValuesChange={(changedValues: Record<string, unknown>) => {
+                                    if (typeof changedValues.img_url === "string") {
+                                        setImageUrl(changedValues.img_url);
+                                    }
+                                    if (typeof changedValues.display_name === "string") {
+                                        setDisplayName(changedValues.display_name);
+                                    }
+                                }}
                             >
-                                {units.map((unit) => (
-                                    <Select.Option key={unit.id} value={unit.id}>
-                                        {unit.display_name} ({unit.unit_name})
-                                    </Select.Option>
-                                ))}
-                            </Select>
-                        </Form.Item>
+                                <Form.Item
+                                    name="ingredient_name"
+                                    label="ชื่อวัตถุดิบ (ภาษาอังกฤษ) *"
+                                    rules={[
+                                        { required: true, message: 'กรุณากรอกชื่อวัตถุดิบ' },
+                                        { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'กรุณากรอกภาษาอังกฤษเท่านั้น' },
+                                        { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
+                                    ]}
+                                >
+                                    <Input
+                                        size="large"
+                                        placeholder="เช่น Sugar, Salt, Flour"
+                                        maxLength={100}
+                                    />
+                                </Form.Item>
 
-                        <Form.Item
-                            name="img_url"
-                            label="รูปภาพ URL"
-                        >
-                            <Input 
-                                size="large" 
-                                placeholder="https://example.com/image.jpg" 
-                            />
-                        </Form.Item>
+                                <Form.Item
+                                    name="display_name"
+                                    label="ชื่อที่แสดง (ภาษาไทย) *"
+                                    rules={[
+                                        { required: true, message: 'กรุณากรอกชื่อที่แสดง' },
+                                        { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
+                                    ]}
+                                >
+                                    <Input
+                                        size="large"
+                                        placeholder="เช่น น้ำตาล, เกลือ, แป้ง"
+                                        maxLength={100}
+                                    />
+                                </Form.Item>
 
-                        {/* Image Preview */}
-                        <ImagePreview url={imageUrl} name={displayName} />
+                                <Form.Item
+                                    name="unit_id"
+                                    label="หน่วยวัตถุดิบ *"
+                                    rules={[{ required: true, message: 'กรุณาเลือกหน่วยวัตถุดิบ' }]}
+                                >
+                                    <Select
+                                        size="large"
+                                        placeholder="เลือกหน่วย"
+                                        showSearch
+                                        optionFilterProp="children"
+                                    >
+                                        {units.map((unit) => (
+                                            <Select.Option key={unit.id} value={unit.id}>
+                                                {unit.display_name} ({unit.unit_name})
+                                            </Select.Option>
+                                        ))}
+                                    </Select>
+                                </Form.Item>
 
-                        <Form.Item
-                            name="description"
-                            label="รายละเอียด"
-                            style={{ marginTop: 20 }}
-                        >
-                            <TextArea 
-                                rows={4} 
-                                placeholder="รายละเอียดเพิ่มเติม..." 
-                                style={{ borderRadius: 12 }}
-                            />
-                        </Form.Item>
+                                <Form.Item name="img_url" label="รูปภาพ URL">
+                                    <Input size="large" placeholder="https://example.com/image.jpg" />
+                                </Form.Item>
 
-                        <Form.Item
-                            name="is_active"
-                            label="สถานะการใช้งาน"
-                            valuePropName="checked"
-                        >
-                            <Switch 
-                                checkedChildren="ใช้งาน" 
-                                unCheckedChildren="ไม่ใช้งาน"
-                            />
-                        </Form.Item>
+                                <ImagePreview url={imageUrl} name={displayName} />
 
-                        {/* Action Buttons */}
-                        <ActionButtons 
-                            isEdit={isEdit}
-                            loading={submitting}
-                            onCancel={handleBack}
-                        />
-                    </Form>
-                )}
-            </div>
+                                <Form.Item name="description" label="รายละเอียด" style={{ marginTop: 20 }}>
+                                    <TextArea
+                                        rows={4}
+                                        placeholder="รายละเอียดเพิ่มเติม..."
+                                        style={{ borderRadius: 12 }}
+                                    />
+                                </Form.Item>
+
+                                <Form.Item name="is_active" label="สถานะการใช้งาน" valuePropName="checked">
+                                    <Switch checkedChildren="ใช้งาน" unCheckedChildren="ไม่ใช้งาน" />
+                                </Form.Item>
+
+                                <ActionButtons isEdit={isEdit} loading={submitting} onCancel={handleBack} />
+                            </Form>
+                        )}
+                    </PageSection>
+                </div>
+            </PageContainer>
         </div>
     );
 }

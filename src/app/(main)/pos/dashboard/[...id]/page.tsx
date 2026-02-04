@@ -18,6 +18,7 @@ import { groupOrderItems } from "../../../../../utils/orderGrouping";
 import { ItemStatus } from "../../../../../types/api/pos/salesOrderItem";
 import { useSocket } from "../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
+import PageContainer from "@/components/ui/page/PageContainer";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -132,27 +133,31 @@ export default function DashboardOrderDetailPage({ params }: Props) {
 
     if (isLoading) {
         return (
-            <div style={{ 
-                minHeight: '100vh', 
-                background: '#F8FAFC',
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center' 
-            }}>
-                <Spin size="large" />
-            </div>
+            <PageContainer maxWidth={99999} style={{ padding: 0 }}>
+                <div style={{ 
+                    minHeight: '100vh', 
+                    background: '#F8FAFC',
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    alignItems: 'center' 
+                }}>
+                    <Spin size="large" />
+                </div>
+            </PageContainer>
         );
     }
 
     if (!order) {
         return (
-            <div style={{ minHeight: '100vh', background: '#F8FAFC', padding: 24 }}>
-                <div style={{ textAlign: 'center', paddingTop: 60 }}>
-                    <ShopOutlined style={{ fontSize: 48, color: '#CBD5E1', marginBottom: 16 }} />
-                    <Title level={4} style={{ color: '#64748B' }}>ไม่พบข้อมูลออเดอร์</Title>
-                    <Button type="primary" onClick={() => router.back()}>ย้อนกลับ</Button>
+            <PageContainer maxWidth={99999} style={{ padding: 0 }}>
+                <div style={{ minHeight: '100vh', background: '#F8FAFC', padding: 24 }}>
+                    <div style={{ textAlign: 'center', paddingTop: 60 }}>
+                        <ShopOutlined style={{ fontSize: 48, color: '#CBD5E1', marginBottom: 16 }} />
+                        <Title level={4} style={{ color: '#64748B' }}>ไม่พบข้อมูลออเดอร์</Title>
+                        <Button type="primary" onClick={() => router.back()}>ย้อนกลับ</Button>
+                    </div>
                 </div>
-            </div>
+            </PageContainer>
         );
     }
 
@@ -186,6 +191,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
     const statusInfo = getStatusInfo(order.status);
 
     return (
+        <PageContainer maxWidth={99999} style={{ padding: 0 }}>
         <div style={{ 
             minHeight: '100vh', 
             background: '#F8FAFC',
@@ -657,5 +663,6 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                 />
             </div>
         </div>
+        </PageContainer>
     );
 }

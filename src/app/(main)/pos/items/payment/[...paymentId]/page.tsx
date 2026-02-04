@@ -1,6 +1,6 @@
-"use client";
+﻿"use client";
 
-import React, { useCallback, useEffect, useState, useRef, useMemo } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Typography, Row, Col, Card, Button, Empty, Divider, message, InputNumber, Tag, Avatar, Alert, Modal } from "antd";
 import { ArrowLeftOutlined, ShopOutlined, DollarOutlined, CreditCardOutlined, QrcodeOutlined, UndoOutlined, EditOutlined, SettingOutlined } from "@ant-design/icons";
@@ -28,6 +28,7 @@ import { getOrderChannelText, getOrderReference, getOrderStatusColor, getOrderSt
 import ConfirmationDialog from "../../../../../../components/dialog/ConfirmationDialog";
 import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../../../../hooks/useSocket";
+import PageContainer from "@/components/ui/page/PageContainer";
 
 
 const { Title, Text } = Typography;
@@ -54,13 +55,6 @@ export default function POSPaymentPage() {
     const { showLoading, hideLoading } = useGlobalLoading();
     useSocket();
     
-    // Refs for input fields
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const cashInputRef = useRef<any>(null);
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const cardInputRef = useRef<any>(null);
-
-
     // Confirmation Dialog State
     const [confirmConfig, setConfirmConfig] = useState<ConfirmationConfig>({
         open: false,
@@ -114,18 +108,26 @@ export default function POSPaymentPage() {
             if (Array.isArray(discountsRes)) {
                 discountsArray = discountsRes;
             } else if (discountsRes && typeof discountsRes === 'object') {
+                const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object";
+                const record = discountsRes as Record<string, unknown>;
+
                 // Handle single object response
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const discountObj = discountsRes as any;
-                if (discountObj.id && (discountObj.discount_name || discountObj.display_name)) {
-                    discountsArray = [discountObj as Discounts];
-                } else if (discountObj.data && Array.isArray(discountObj.data)) {
-                    discountsArray = discountObj.data;
-                } else if (discountObj.success && Array.isArray(discountObj.data)) {
-                    discountsArray = discountObj.data;
-                } else if (discountObj.success && discountObj.data && typeof discountObj.data === 'object' && !Array.isArray(discountObj.data)) {
-                    if (discountObj.data.id && (discountObj.data.discount_name || discountObj.data.display_name)) {
-                        discountsArray = [discountObj.data as Discounts];
+                if (
+                    "id" in record &&
+                    (typeof record.discount_name === "string" || typeof record.display_name === "string")
+                ) {
+                    discountsArray = [record as unknown as Discounts];
+                } else if (Array.isArray(record.data)) {
+                    discountsArray = record.data as Discounts[];
+                } else if (record.success === true && Array.isArray(record.data)) {
+                    discountsArray = record.data as Discounts[];
+                } else if (record.success === true && isRecord(record.data)) {
+                    const data = record.data as Record<string, unknown>;
+                    if (
+                        "id" in data &&
+                        (typeof data.discount_name === "string" || typeof data.display_name === "string")
+                    ) {
+                        discountsArray = [data as unknown as Discounts];
                     }
                 }
             }
@@ -428,6 +430,7 @@ export default function POSPaymentPage() {
     if (!order) return <Empty description="ไม่พบข้อมูลออเดอร์" />;
 
     return (
+        <PageContainer maxWidth={99999} style={{ padding: 0 }}>
         <div style={itemsPaymentStyles.container}>
             <style jsx global>{itemsResponsiveStyles}</style>
             {contextHolder}
@@ -486,7 +489,7 @@ export default function POSPaymentPage() {
                         >
                              <Title level={4} style={{ marginBottom: 16, marginTop: 0 }}>รายการสรุป (Order Summary)</Title>
                             <div style={{ flex: 1, overflowY: 'auto', paddingRight: 8, minHeight: 300, maxHeight: 500 }}>
-                                {groupedItems.map((item: any, idx: number) => (
+                                {groupedItems.map((item, idx) => (
                                     <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${itemsColors.borderLight}` }}>
                                          <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 0 }}>
                                             <Avatar 
@@ -758,8 +761,7 @@ export default function POSPaymentPage() {
                                                 return (
                                                     <div style={itemsPaymentStyles.inputArea}>
                                                         <Text style={{ display: 'block', marginBottom: 8 }}>รับเงินมา (Received)</Text>
-                                                         <InputNumber 
-                                                            ref={cashInputRef}
+                                                        <InputNumber
                                                             style={{ width: '100%', fontSize: 24, padding: 8, borderRadius: 8, marginBottom: 12 }} 
                                                             size="large"
                                                             min={0}
@@ -809,8 +811,7 @@ export default function POSPaymentPage() {
                                                 <div style={{ textAlign: 'center', padding: 20 }}>
                                                     <Text type="secondary">ตรวจสอบยอดเงินและชำระผ่านช่องทางที่เลือก</Text>
                                                     <div style={{ marginTop: 16 }}>
-                                                         <InputNumber 
-                                                            ref={cardInputRef}
+                                                        <InputNumber
                                                             style={{ width: '100%', fontSize: 24 }} 
                                                             value={receivedAmount} 
                                                             onChange={val => setReceivedAmount(val || 0)} 
@@ -868,5 +869,8 @@ export default function POSPaymentPage() {
                 onCancel={closeConfirm}
             />
         </div>
+        </PageContainer>
     );
 }
+
+

@@ -1,11 +1,10 @@
-"use client";
+﻿"use client";
 
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { groupOrderItems } from "../../../../../utils/orderGrouping";
 import { Typography, Row, Col, Card, Tag, Button, Empty, Table, Checkbox, message, Tooltip, Space, Divider } from "antd";
 import { 
-    ArrowLeftOutlined, 
     ShopOutlined, 
     PlusOutlined, 
     DeleteOutlined, 
@@ -55,6 +54,7 @@ import { useSocket } from "../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
 import { useOrderQueue } from "../../../../../hooks/pos/useOrderQueue";
 import { QueueStatus, QueuePriority } from "../../../../../types/api/pos/orderQueue";
+import UIPageHeader from "@/components/ui/page/PageHeader";
 
 
 const { Title, Text } = Typography;
@@ -138,21 +138,31 @@ export default function POSOrderDetailsPage() {
         enabled: Boolean(orderId),
     });
 
-    const activeItems = order?.items?.filter(i => i.status === OrderStatus.Pending || i.status === OrderStatus.Cooking) || [];
-    const servedItems = (order?.items?.filter(i => 
-        i.status === OrderStatus.Served || 
-        i.status === OrderStatus.Cancelled || 
-        i.status === OrderStatus.WaitingForPayment
-    ) || []).sort((a, b) => {
-        if (a.status === OrderStatus.Cancelled && b.status !== OrderStatus.Cancelled) return 1;
-        if (a.status !== OrderStatus.Cancelled && b.status === OrderStatus.Cancelled) return -1;
-        return 0;
-    });
+    const activeItems = useMemo<SalesOrderItem[]>(
+        () => order?.items?.filter((i) => i.status === OrderStatus.Pending || i.status === OrderStatus.Cooking) || [],
+        [order?.items],
+    );
+
+    const servedItems = useMemo<SalesOrderItem[]>(() => {
+        const items =
+            order?.items?.filter(
+                (i) =>
+                    i.status === OrderStatus.Served ||
+                    i.status === OrderStatus.Cancelled ||
+                    i.status === OrderStatus.WaitingForPayment,
+            ) || [];
+
+        return items.sort((a, b) => {
+            if (a.status === OrderStatus.Cancelled && b.status !== OrderStatus.Cancelled) return 1;
+            if (a.status !== OrderStatus.Cancelled && b.status === OrderStatus.Cancelled) return -1;
+            return 0;
+        });
+    }, [order?.items]);
 
     const groupedActiveItems = useMemo(() => groupOrderItems(activeItems), [activeItems]);
     const groupedServedItems = useMemo(() => groupOrderItems(servedItems), [servedItems]);
 
-    const nonCancelledItems = getNonCancelledItems(order?.items) as SalesOrderItem[];
+    const nonCancelledItems = useMemo<SalesOrderItem[]>(() => getNonCancelledItems(order?.items) as SalesOrderItem[], [order?.items]);
     const groupedNonCancelledItems = useMemo(() => groupOrderItems(nonCancelledItems), [nonCancelledItems]);
     const calculatedTotal = calculateOrderTotal(order?.items);
     const isOrderComplete = activeItems.length === 0 && (order?.items?.length || 0) > 0;
@@ -166,8 +176,8 @@ export default function POSOrderDetailsPage() {
             const csrfToken = await getCsrfTokenCached();
             
             // Resolve IDs from group
-            const targetItem = groupedActiveItems.find((i: any) => i.id === itemId);
-            const idsToServe = targetItem?.originalItems?.map((i: any) => i.id) || [itemId];
+            const targetItem = groupedActiveItems.find((i) => i.id === itemId);
+            const idsToServe = targetItem?.originalItems?.map((i) => i.id) || [itemId];
 
             await Promise.all(idsToServe.map((id: string) => 
                 ordersService.updateItemStatus(id, OrderStatus.Served, undefined, csrfToken)
@@ -191,8 +201,8 @@ export default function POSOrderDetailsPage() {
             
             // Resolve all IDs from selected groups
             const allIds = selectedRowKeys.flatMap(key => {
-                const group = groupedActiveItems.find((g: any) => g.id === key);
-                return group?.originalItems?.map((i: any) => i.id) || [key.toString()];
+                const group = groupedActiveItems.find((g) => g.id === key);
+                return group?.originalItems?.map((i) => i.id) || [key.toString()];
             });
 
             await Promise.all(allIds.map((id: string) => 
@@ -214,8 +224,8 @@ export default function POSOrderDetailsPage() {
         
         // Resolve all IDs to count correctly for confirmation
         const allIds = selectedRowKeys.flatMap(key => {
-                const group = groupedActiveItems.find((g: any) => g.id === key);
-                return group?.originalItems?.map((i: any) => i.id) || [key.toString()];
+                const group = groupedActiveItems.find((g) => g.id === key);
+                return group?.originalItems?.map((i) => i.id) || [key.toString()];
         });
 
         setConfirmConfig({
@@ -254,8 +264,8 @@ export default function POSOrderDetailsPage() {
             const csrfToken = await getCsrfTokenCached();
 
             // Resolve IDs from group (served items)
-            const targetItem = groupedServedItems.find((i: any) => i.id === itemId);
-            const idsToUnserve = targetItem?.originalItems?.map((i: any) => i.id) || [itemId];
+            const targetItem = groupedServedItems.find((i) => i.id === itemId);
+            const idsToUnserve = targetItem?.originalItems?.map((i) => i.id) || [itemId];
 
             await Promise.all(idsToUnserve.map((id: string) => 
                 ordersService.updateItemStatus(id, OrderStatus.Cooking, undefined, csrfToken)
@@ -332,8 +342,8 @@ export default function POSOrderDetailsPage() {
                     const csrfToken = await getCsrfTokenCached();
                     
                     // Resolve IDs from group
-                    const targetItem = groupedActiveItems.find((i: any) => i.id === itemId);
-                    const idsToDelete = targetItem?.originalItems?.map((i: any) => i.id) || [itemId];
+                    const targetItem = groupedActiveItems.find((i) => i.id === itemId);
+                    const idsToDelete = targetItem?.originalItems?.map((i) => i.id) || [itemId];
 
                     await Promise.all(idsToDelete.map((id: string) => 
                            ordersService.deleteItem(id, undefined, csrfToken)
@@ -780,49 +790,12 @@ export default function POSOrderDetailsPage() {
         <div className="order-detail-page" style={orderDetailStyles.container}>
             <style jsx global>{ordersResponsiveStyles}</style>
             
-            {/* Sticky Compact Header - Glass Effect */}
-            <header className="order-detail-header" style={orderDetailStyles.header}>
-                <div style={orderDetailStyles.headerContent} className="header-content">
-                    {/* Glass Back Button */}
-                    <Button 
-                        type="text" 
-                        icon={<ArrowLeftOutlined />} 
-                        onClick={() => {
-                            if (order?.order_type === OrderType.DineIn) {
-                                router.push('/pos/channels/dine-in');
-                            } else {
-                                router.back();
-                            }
-                        }}
-                        aria-label="กลับ"
-                        style={orderDetailStyles.headerBackButton}
-                        className="scale-hover header-back-button"
-                    />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-                            <Title level={4} style={orderDetailStyles.headerTitle} className="header-title">
-                                {order.order_no}
-                            </Title>
-                            {order.order_type === OrderType.DineIn && order.table && (
-                                <Tag style={orderDetailStyles.tableNameBadge}>
-                                    🪑 โต๊ะ {order.table.table_name}
-                                </Tag>
-                            )}
-                            {order.order_type === OrderType.Delivery && order.delivery_code && (
-                                <Tag style={orderDetailStyles.tableNameBadge}>
-                                    📋 {order.delivery_code}
-                                </Tag>
-                            )}
-                            <Tag 
-                                color={getOrderStatusColor(order.status)} 
-                                className="status-badge"
-                                style={{ margin: 0, fontSize: 12, fontWeight: 600, borderRadius: 8, padding: '4px 12px', lineHeight: 1.3 }}
-                            >
-                                {getOrderStatusText(order.status, order.order_type)}
-                            </Tag>
-                        </div>
-                        <div style={orderDetailStyles.headerMetaRow}>
-                            <Tag 
+            <UIPageHeader
+                title={order?.order_no ?? "รายละเอียดออเดอร์"}
+                subtitle={
+                    order ? (
+                        <Space size={8} wrap>
+                            <Tag
                                 icon={
                                     order.order_type === OrderType.DineIn ? <ShopOutlined style={{ fontSize: 10 }} /> :
                                     order.order_type === OrderType.TakeAway ? <ShoppingOutlined style={{ fontSize: 10 }} /> :
@@ -830,35 +803,54 @@ export default function POSOrderDetailsPage() {
                                 }
                                 style={{
                                     ...orderDetailStyles.channelBadge,
-                                    background: getOrderChannelColor(order.order_type) + '15',
+                                    background: getOrderChannelColor(order.order_type) + "15",
                                     color: getOrderChannelColor(order.order_type),
                                 }}
                             >
                                 {getOrderChannelText(order.order_type)}
                             </Tag>
-                            <div style={orderDetailStyles.headerMetaSeparator} />
-                            <Text type="secondary" style={{ fontSize: 11, lineHeight: 1.2 }}>
-                                {dayjs(order.create_date).format('HH:mm | D MMM YY')}
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                {dayjs(order.create_date).format("HH:mm | D MMM YY")}
                             </Text>
+                            <Tag
+                                color={getOrderStatusColor(order.status)}
+                                style={{ margin: 0, borderRadius: 8, fontWeight: 600 }}
+                            >
+                                {getOrderStatusText(order.status, order.order_type)}
+                            </Tag>
                             {currentQueueItem && (
-                                <>
-                                    <div style={orderDetailStyles.headerMetaSeparator} />
-                                    <Tag 
-                                        color={
-                                            currentQueueItem.status === QueueStatus.Pending ? 'orange' :
-                                            currentQueueItem.status === QueueStatus.Processing ? 'blue' :
-                                            currentQueueItem.status === QueueStatus.Completed ? 'green' : 'red'
-                                        }
-                                        style={{ margin: 0, fontSize: 11, borderRadius: 6, padding: '3px 10px', lineHeight: 1.3 }}
-                                    >
-                                        คิว #{currentQueueItem.queue_position}
-                                    </Tag>
-                                </>
+                                <Tag
+                                    color={
+                                        currentQueueItem.status === QueueStatus.Pending ? "orange" :
+                                        currentQueueItem.status === QueueStatus.Processing ? "blue" :
+                                        currentQueueItem.status === QueueStatus.Completed ? "green" : "red"
+                                    }
+                                    style={{ margin: 0, borderRadius: 8, fontWeight: 600 }}
+                                >
+                                    คิว #{currentQueueItem.queue_position}
+                                </Tag>
                             )}
-                        </div>
-                    </div>
-                </div>
-            </header>
+                        </Space>
+                    ) : undefined
+                }
+                onBack={() => {
+                    if (order?.order_type === OrderType.DineIn) {
+                        router.push("/pos/channels/dine-in");
+                    } else {
+                        router.back();
+                    }
+                }}
+                icon={<UnorderedListOutlined style={{ fontSize: 20 }} />}
+                actions={
+                    <Button
+                        icon={<ReloadOutlined />}
+                        onClick={() => orderId && fetchOrder(orderId as string)}
+                        loading={isUpdating || isLoading}
+                    >
+                        รีเฟรช
+                    </Button>
+                }
+            />
             
             {/* Queue Management Actions */}
             {order && order.status !== OrderStatus.Cancelled && order.status !== OrderStatus.Completed && (
@@ -1017,7 +1009,7 @@ export default function POSOrderDetailsPage() {
 
                                     {/* Mobile Cards */}
                                     <div className="order-detail-cards-mobile">
-                                        {groupedActiveItems.map((item: any) => (
+                                        {groupedActiveItems.map((item) => (
                                             <div 
                                                 key={item.id} 
                                                 style={{...orderDetailStyles.itemCard, ...orderDetailStyles.itemCardActive}}
@@ -1170,7 +1162,7 @@ export default function POSOrderDetailsPage() {
 
                                     {/* Mobile Cards for Served items */}
                                     <div className="order-detail-cards-mobile">
-                                        {groupedServedItems.map((item: any) => (
+                                        {groupedServedItems.map((item) => (
                                             <div 
                                                 key={item.id} 
                                                 style={{
@@ -1285,7 +1277,7 @@ export default function POSOrderDetailsPage() {
                                 <Text strong style={{ fontSize: 15, marginBottom: 10, display: 'block', color: orderDetailColors.textSecondary }}>
                                     รายการสินค้า
                                 </Text>
-                                {groupedNonCancelledItems.map((item: any, index: number) => (
+                                {groupedNonCancelledItems.map((item, index: number) => (
                                     <div key={item.id || index} style={orderDetailStyles.summaryItemRow}>
                                         {/* Product Image */}
                                         {item.product?.img_url ? (

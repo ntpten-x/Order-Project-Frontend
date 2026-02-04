@@ -1,9 +1,13 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Typography, Row, Col, Empty, Button, Tag } from "antd";
-import { ShoppingOutlined, ArrowLeftOutlined, PlusOutlined, ClockCircleOutlined } from "@ant-design/icons";
+import { Button, Col, Row, Space, Tag, Typography } from "antd";
+import { ShoppingOutlined, PlusOutlined, ClockCircleOutlined } from "@ant-design/icons";
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import UIPageHeader from "@/components/ui/page/PageHeader";
+import UIEmptyState from "@/components/ui/states/EmptyState";
 import { OrderType, SalesOrderSummary } from "../../../../../types/api/pos/salesOrder";
 import { posPageStyles, channelColors, tableColors } from "../../../../../theme/pos";
 import { channelPageStyles, channelsResponsiveStyles } from "../../../../../theme/pos/channels/style";
@@ -16,7 +20,7 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import 'dayjs/locale/th';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 dayjs.extend(relativeTime);
 dayjs.locale('th');
 
@@ -104,74 +108,25 @@ export default function TakeawayPage() {
             `}</style>
             
             <div style={posPageStyles.container}>
-                {/* Header Section */}
-                <header
-                    style={{ ...channelPageStyles.channelHeader, background: channelColors.takeaway.gradient }}
-                    className="takeaway-header-mobile"
-                    role="banner"
-                >
-                    <div className="header-pattern"></div>
-                    <div className="header-circle circle-1"></div>
-                    <div className="header-circle circle-2"></div>
-
-                    <div style={channelPageStyles.channelHeaderContent} className="takeaway-header-content-mobile">
-                        {/* Back Button */}
-                        <button
-                            className="back-button-hover takeaway-back-button-mobile"
-                            style={channelPageStyles.channelBackButton}
-                            onClick={handleBack}
-                            aria-label="กลับไปหน้าเลือกช่องทาง"
-                        >
-                            <ArrowLeftOutlined />
-                            <span>กลับ</span>
-                        </button>
-
-                        {/* Title Section */}
-                        <div style={channelPageStyles.channelTitleSection} className="takeaway-title-section-mobile">
-                            <ShoppingOutlined style={channelPageStyles.channelHeaderIcon} className="takeaway-header-icon-mobile" aria-hidden="true" />
-                            <div>
-                                <Title level={3} style={channelPageStyles.channelHeaderTitle} className="takeaway-header-title-mobile">
-                                    สั่งกลับบ้าน
-                                </Title>
-                                <Text style={channelPageStyles.channelHeaderSubtitle}>Take Away</Text>
-                            </div>
-                        </div>
-
-                        {/* Statistics Bar */}
-                        <div style={channelPageStyles.channelStatsBar} className="takeaway-stats-bar-mobile">
-                            <div style={channelPageStyles.statItem}>
-                                <span style={{ ...channelPageStyles.statDot, background: '#fff' }} />
-                                <Text style={channelPageStyles.statText}>ทั้งหมด {stats.total}</Text>
-                            </div>
-                            <div style={channelPageStyles.statItem}>
-                                <span style={{ ...channelPageStyles.statDot, background: tableColors.occupied.primary }} />
-                                <Text style={channelPageStyles.statText}>กำลังปรุง {stats.cooking}</Text>
-                            </div>
-                        </div>
-                    </div>
-                </header>
-
-                {/* Content Section */}
-                <main style={{ maxWidth: 1400, margin: '0 auto', padding: '0 16px 32px' }} className="takeaway-content-mobile" role="main">
-                    {/* Add Order Button */}
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
-                        <Button
-                            type="primary"
-                            size="large"
-                            icon={<PlusOutlined />}
-                            onClick={handleCreateOrder}
-                            className="add-button-hover takeaway-add-button-mobile"
-                            style={{
-                                ...channelPageStyles.addOrderButton,
-                                background: channelColors.takeaway.primary,
-                                boxShadow: `0 8px 20px ${channelColors.takeaway.primary}40`,
-                            }}
-                        >
-                            <span className="hide-on-mobile">เพิ่มออเดอร์ใหม่</span>
-                            <span className="show-on-mobile-inline">เพิ่ม</span>
+                <UIPageHeader
+                    title="สั่งกลับบ้าน"
+                    subtitle={
+                        <Space size={8} wrap>
+                            <Tag>ทั้งหมด {stats.total}</Tag>
+                            <Tag color="orange">กำลังปรุง {stats.cooking}</Tag>
+                        </Space>
+                    }
+                    onBack={handleBack}
+                    icon={<ShoppingOutlined style={{ fontSize: 20 }} />}
+                    actions={
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateOrder}>
+                            เพิ่มออเดอร์
                         </Button>
-                    </div>
+                    }
+                />
 
+                <PageContainer>
+                    <PageSection title="ออเดอร์">
                     {orders.length > 0 ? (
                         <Row gutter={[16, 16]}>
                             {orders.map((order: SalesOrderSummary, index) => {
@@ -265,37 +220,18 @@ export default function TakeawayPage() {
                             })}
                         </Row>
                     ) : (
-                        <div style={channelPageStyles.emptyStateContainer}>
-                            <Empty
-                                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                description={
-                                    <div style={{ marginTop: 16 }}>
-                                        <Title level={4} style={{ marginBottom: 8, color: '#1E293B' }}>ไม่มีออเดอร์ในขณะนี้</Title>
-                                        <Text type="secondary" style={{ fontSize: 15 }}>เริ่มรับออเดอร์สั่งกลับบ้านโดยกดปุ่ม &quot;เพิ่มออเดอร์&quot;</Text>
-                                    </div>
-                                }
-                            />
-                            <Button
-                                type="primary"
-                                size="large"
-                                icon={<PlusOutlined />}
-                                onClick={handleCreateOrder}
-                                style={{
-                                    marginTop: 24,
-                                    background: channelColors.takeaway.primary,
-                                    height: 52,
-                                    borderRadius: 16,
-                                    padding: '0 32px',
-                                    fontWeight: 600,
-                                    border: 'none',
-                                    boxShadow: `0 8px 20px ${channelColors.takeaway.primary}40`,
-                                }}
-                            >
-                                สร้างออเดอร์ใหม่
-                            </Button>
-                        </div>
+                        <UIEmptyState
+                            title="ไม่มีออเดอร์ในขณะนี้"
+                            description="เริ่มรับออเดอร์สั่งกลับบ้านโดยกดปุ่ม “เพิ่มออเดอร์”"
+                            action={
+                                <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateOrder}>
+                                    สร้างออเดอร์ใหม่
+                                </Button>
+                            }
+                        />
                     )}
-                </main>
+                    </PageSection>
+                </PageContainer>
             </div>
         </>
     );

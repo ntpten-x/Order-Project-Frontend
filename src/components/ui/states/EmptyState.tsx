@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React from "react";
 import { Card, Empty, Typography } from "antd";
@@ -30,9 +30,7 @@ export default function EmptyState({
         description={
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             <Typography.Text strong>{title}</Typography.Text>
-            {description ? (
-              <Typography.Text type="secondary">{description}</Typography.Text>
-            ) : null}
+            {description ? <Typography.Text type="secondary">{description}</Typography.Text> : null}
           </div>
         }
       >

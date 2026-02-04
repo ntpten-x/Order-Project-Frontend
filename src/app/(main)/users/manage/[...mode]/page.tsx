@@ -15,6 +15,9 @@ import { authService } from "../../../../../services/auth.service";
 import { userService } from "../../../../../services/users.service";
 import { branchService } from "../../../../../services/branch.service";
 import { Branch } from '@/types/api/branch';
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import UIPageHeader from "@/components/ui/page/PageHeader";
 
 export default function UserManagePage({ params }: { params: { mode: string[] } }) {
   const router = useRouter();
@@ -140,6 +143,12 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   const currentBranch = branches.find(b => b.id === selectedBranchId);
 
   return (
+      <>
+      <UIPageHeader title="จัดการผู้ใช้" />
+      <PageContainer>
+        <PageSection>
+      <>
+    <>
     <div className="p-6 md:p-10 min-h-screen bg-gray-50 user-manage-page">
       <div className="max-w-2xl mx-auto">
         <div className="mb-6">
@@ -356,5 +365,10 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
       </div>
       <UserManageStyle />
     </div>
+    </>
+      </>
+        </PageSection>
+      </PageContainer>
+      </>
   );
 }

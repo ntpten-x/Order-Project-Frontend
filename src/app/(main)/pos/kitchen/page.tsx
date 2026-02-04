@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState, useContext, useMemo, useRef, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -22,6 +22,7 @@ import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import PageContainer from "@/components/ui/page/PageContainer";
 
 dayjs.extend(relativeTime);
 dayjs.locale('th');
@@ -248,6 +249,7 @@ export default function KitchenDisplayPage() {
     const cookingCount = allItems.filter(i => i.status === ItemStatus.Cooking).length;
 
     return (
+        <PageContainer maxWidth={99999} style={{ padding: 0 }}>
         <div style={kdsStyles.container}>
             <style jsx global>{`
                 @keyframes pulse-border {
@@ -533,5 +535,6 @@ export default function KitchenDisplayPage() {
                 </Row>
             )}
         </div>
+        </PageContainer>
     );
 }

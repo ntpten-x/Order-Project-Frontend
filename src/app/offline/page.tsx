@@ -6,7 +6,9 @@ import { Button, Space, theme } from "antd";
 import { useRouter } from "next/navigation";
 
 import PageContainer from "@/components/ui/page/PageContainer";
-import EmptyState from "@/components/ui/states/EmptyState";
+import PageSection from "@/components/ui/page/PageSection";
+import UIPageHeader from "@/components/ui/page/PageHeader";
+import UIEmptyState from "@/components/ui/states/EmptyState";
 
 export default function OfflinePage() {
   const router = useRouter();
@@ -21,15 +23,20 @@ export default function OfflinePage() {
   };
 
   return (
-    <PageContainer
-      style={{
-        minHeight: "100vh",
-        display: "flex",
-        alignItems: "center",
-      }}
-    >
-      <div style={{ width: "100%" }}>
-        <EmptyState
+    <>
+      <UIPageHeader
+        title="ออฟไลน์"
+        subtitle="ไม่มีการเชื่อมต่ออินเทอร์เน็ต"
+      />
+      <PageContainer
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+        }}
+      >
+        <PageSection style={{ width: "100%" }}>
+          <UIEmptyState
           image={
             <div
               style={{
@@ -83,8 +90,9 @@ export default function OfflinePage() {
               </Button>
             </Space>
           }
-        />
-      </div>
-    </PageContainer>
+          />
+        </PageSection>
+      </PageContainer>
+    </>
   );
 }

@@ -24,7 +24,7 @@ import {
   posColors, 
   POSSharedStyles 
 } from "./style";
-import { groupOrderItems } from "../../../utils/orderGrouping";
+import { groupOrderItems, type GroupedOrderItem } from "../../../utils/orderGrouping";
 import { 
   formatPrice, 
   hasProductImage, 
@@ -694,8 +694,8 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                   <List
                     itemLayout="horizontal"
                     dataSource={groupOrderItems(cartItems)}
-                    renderItem={(item: any) => (
-                      <div key={item.cart_item_id} style={{ 
+                    renderItem={(item: GroupedOrderItem<CartItem>) => (
+                      <div key={item.id} style={{ 
                         display: 'flex', 
                         gap: 12, 
                         padding: '14px 0', 
@@ -750,7 +750,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                             
                             {/* Line Total */}
                             <Text strong style={{ fontSize: 15, marginLeft: 12, color: posColors.primary }}>
-                              {formatPrice((getProductUnitPrice(item.product) + (item.details || []).reduce((sum: number, d: any) => sum + Number(d.extra_price), 0)) * item.quantity)}
+                              {formatPrice((getProductUnitPrice(item.product) + (item.details || []).reduce((sum: number, d: CartDetail) => sum + Number(d.extra_price), 0)) * item.quantity)}
                             </Text>
                           </div>
                         </div>

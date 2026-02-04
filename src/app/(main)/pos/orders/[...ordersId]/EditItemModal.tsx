@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Modal, Input, Button, Typography, Space, Divider, InputNumber, Tag, message } from 'antd';
 import Image from 'next/image';
 import { PlusOutlined, MinusOutlined, SaveOutlined, CloseOutlined, InfoCircleOutlined, DeleteOutlined } from '@ant-design/icons';
@@ -54,14 +54,14 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
     const handleSave = useCallback(async () => {
         if (!item) return;
         try {
-            showLoading("กำลังบันทึกแก้ไข...");
+            showLoading("เธเธณเธฅเธฑเธเธเธฑเธเธ—เธถเธเนเธเนเนเธ...");
             // Filter out empty details before saving
             const validDetails = details.filter(d => d.detail_name && d.detail_name.trim() !== '');
             await onSave(item.id, quantity, notes, validDetails);
             // Don't close immediately - let parent handle it after successful save
-        } catch (error: unknown) {
+        } catch {
             // console.error(error);
-            message.error("บันทึกรายการไม่สำเร็จ");
+            message.error("เธเธฑเธเธ—เธถเธเธฃเธฒเธขเธเธฒเธฃเนเธกเนเธชเธณเน€เธฃเนเธ");
         } finally {
             hideLoading();
         }
@@ -120,13 +120,13 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
             {/* Custom Header */}
             <div style={{ ...modalStyles.modalHeader, flexShrink: 0 }} className="modal-header">
                 <Text strong style={{ fontSize: 18, flex: 1, color: orderDetailColors.text, lineHeight: 1.4 }}>
-                    แก้ไขรายการ
+                    เนเธเนเนเธเธฃเธฒเธขเธเธฒเธฃ
                 </Text>
                 <Button
                     type="text"
                     icon={<CloseOutlined />}
                     onClick={onClose}
-                    aria-label="ปิด"
+                    aria-label="เธเธดเธ”"
                     style={{
                         height: 44,
                         width: 44,
@@ -158,7 +158,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                         {item.product?.img_url ? (
                             <Image
                                 src={item.product.img_url}
-                                alt={item.product?.display_name ?? "สินค้า"}
+                                alt={item.product?.display_name ?? "เธชเธดเธเธเนเธฒ"}
                                 width={80}
                                 height={80}
                                 style={{ borderRadius: 14, objectFit: 'cover', border: `1px solid ${orderDetailColors.borderLight}` }}
@@ -179,7 +179,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                     </div>
                     <div style={{ flex: 1, minWidth: 0 }}>
                         <Title level={5} style={{ margin: 0, fontSize: 18, color: orderDetailColors.text }}>
-                            {item.product?.display_name || 'ไม่ระบุ'}
+                            {item.product?.display_name || 'เนเธกเนเธฃเธฐเธเธธ'}
                         </Title>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 6 }}>
                             {item.product?.category?.display_name && (
@@ -197,7 +197,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                 {/* Toppings / Details Section */}
                 <div style={{ marginBottom: 24 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                        <Text strong style={{ fontSize: 16, color: orderDetailColors.text }}>รายการเพิ่มเติม (Topping)</Text>
+                        <Text strong style={{ fontSize: 16, color: orderDetailColors.text }}>เธฃเธฒเธขเธเธฒเธฃเน€เธเธดเนเธกเน€เธ•เธดเธก (Topping)</Text>
                         <Button
                             type="text"
                             icon={<PlusOutlined style={{ fontSize: 12 }} />}
@@ -217,7 +217,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                             }}
                             className="scale-hover"
                         >
-                            เพิ่มรายการ
+                            เน€เธเธดเนเธกเธฃเธฒเธขเธเธฒเธฃ
                         </Button>
                     </div>
 
@@ -229,7 +229,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                             borderRadius: 12,
                             border: `1px dashed ${orderDetailColors.border}`,
                         }}>
-                            <Text type="secondary" style={{ fontSize: 13 }}>ไม่มีรายการเพิ่มเติม</Text>
+                            <Text type="secondary" style={{ fontSize: 13 }}>เนเธกเนเธกเธตเธฃเธฒเธขเธเธฒเธฃเน€เธเธดเนเธกเน€เธ•เธดเธก</Text>
                         </div>
                     ) : (
                         <Space direction="vertical" style={{ width: '100%' }} size={12}>
@@ -244,13 +244,13 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                                     border: `1px solid ${orderDetailColors.border}`,
                                 }}>
                                     <Input
-                                        placeholder="รายการ"
+                                        placeholder="เธฃเธฒเธขเธเธฒเธฃ"
                                         value={detail.detail_name}
                                         onChange={(e) => handleUpdateDetail(index, 'detail_name', e.target.value)}
                                         style={{ flex: 2, borderRadius: 10, height: 44, fontSize: 15 }}
                                     />
                                     <InputNumber<number>
-                                        placeholder="ราคา"
+                                        placeholder="เธฃเธฒเธเธฒ"
                                         value={detail.extra_price}
                                         onChange={(val) => handleUpdateDetail(index, 'extra_price', val || 0)}
                                         style={{ flex: 1, borderRadius: 10, height: 44, fontSize: 15 }}
@@ -296,7 +296,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                 {/* Compact Quantity Adjustment */}
                 <div style={{ marginBottom: 24 }}>
                     <Text strong style={{ display: 'block', marginBottom: 14, fontSize: 16, color: orderDetailColors.text }}>
-                        ปรับจำนวน
+                        เธเธฃเธฑเธเธเธณเธเธงเธ
                     </Text>
                     <div style={modalStyles.quantityControl} className="quantity-control">
                         <Button
@@ -332,12 +332,12 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                 {/* Compact Notes */}
                 <div style={{ marginBottom: 24 }}>
                     <Text strong style={{ display: 'block', marginBottom: 10, fontSize: 16, color: orderDetailColors.text }}>
-                        หมายเหตุ / คำแนะนำพิเศษ
+                        เธซเธกเธฒเธขเน€เธซเธ•เธธ / เธเธณเนเธเธฐเธเธณเธเธดเน€เธจเธฉ
                     </Text>
                     <TextArea
                         value={notes}
                         onChange={(e) => setNotes(e.target.value)}
-                        placeholder="เช่น หวานน้อย, ไม่ใส่น้ำตาล..."
+                        placeholder="เน€เธเนเธ เธซเธงเธฒเธเธเนเธญเธข, เนเธกเนเนเธชเนเธเนเธณเธ•เธฒเธฅ..."
                         rows={3}
                         style={{ borderRadius: 12, padding: '12px 14px', fontSize: 15, lineHeight: 1.5 }}
                     />
@@ -345,9 +345,9 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
 
                 {/* Compact Total Price Card */}
                 <div style={{...modalStyles.priceCard, marginBottom: 0}}>
-                    <Text strong style={{ fontSize: 16, color: orderDetailColors.text }}>ยอดรวมรายการนี้</Text>
+                    <Text strong style={{ fontSize: 16, color: orderDetailColors.text }}>เธขเธญเธ”เธฃเธงเธกเธฃเธฒเธขเธเธฒเธฃเธเธตเน</Text>
                     <Title level={4} style={{ margin: 0, color: orderDetailColors.priceTotal, fontSize: 22 }}>
-                        ฿{calculateItemTotal(Number(item.price), quantity, details).toLocaleString()}
+                        เธฟ{calculateItemTotal(Number(item.price), quantity, details).toLocaleString()}
                     </Title>
                 </div>
             </div>
@@ -359,7 +359,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                     style={modalStyles.secondaryButton}
                     className="scale-hover secondary-button"
                 >
-                    ยกเลิก
+                    เธขเธเน€เธฅเธดเธ
                 </Button>
                 <Button
                     type="primary"
@@ -368,9 +368,10 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                     style={modalStyles.primaryButton}
                     className="scale-hover primary-button"
                 >
-                    บันทึกแก้ไข
+                    เธเธฑเธเธ—เธถเธเนเธเนเนเธ
                 </Button>
             </div>
         </Modal>
     );
 };
+

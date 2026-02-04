@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Sarabun, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { App } from "antd";
 
 const sarabun = Sarabun({
   subsets: ["thai", "latin"],
@@ -40,17 +41,19 @@ export default function RootLayout({
         className={`${sarabun.variable} ${jetbrainsMono.variable}`}
       >
         <AntdRegistry>
-          <GlobalLoadingProvider>
-            <QueryProvider>
-              <AuthProvider>
-                <SocketProvider>
-                  <ServiceWorkerRegistration />
-                  <AppHeader />
-                  <ClientLayout>{children}</ClientLayout>
-                </SocketProvider>
-              </AuthProvider>
-            </QueryProvider>
-          </GlobalLoadingProvider>
+          <App>
+            <GlobalLoadingProvider>
+              <QueryProvider>
+                <AuthProvider>
+                  <SocketProvider>
+                    <ServiceWorkerRegistration />
+                    <AppHeader />
+                    <ClientLayout>{children}</ClientLayout>
+                  </SocketProvider>
+                </AuthProvider>
+              </QueryProvider>
+            </GlobalLoadingProvider>
+          </App>
         </AntdRegistry>
       </body>
     </html>

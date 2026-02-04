@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Button, Typography, message, Modal, Space } from 'antd';
+import { Button, message, Modal, Space } from 'antd';
 import { TeamOutlined } from '@ant-design/icons';
 import { User } from "../../../types/api/users";
 import { useRouter } from 'next/navigation';
@@ -14,8 +14,6 @@ import {
 import { useSocket } from "../../../hooks/useSocket";
 import { useAsyncAction } from "../../../hooks/useAsyncAction";
 import { useGlobalLoading } from "../../../contexts/pos/GlobalLoadingContext";
-
-const { Title, Text } = Typography;
 
 import { useAuth } from "../../../contexts/AuthContext";
 
@@ -152,13 +150,13 @@ export default function UsersPage() {
       
       {/* Header */}
       <UIPageHeader
-        title="??????"
-        subtitle={`${users.length} ??????`}
+        title="ผู้ใช้"
+        subtitle={`${users.length} รายการ`}
         icon={<TeamOutlined />}
         actions={
           <Space size={8} wrap>
-            <Button onClick={fetchUsers}>??????</Button>
-            <Button type="primary" onClick={handleAdd}>???????????</Button>
+            <Button onClick={fetchUsers}>รีเฟรช</Button>
+            <Button type="primary" onClick={handleAdd}>เพิ่มผู้ใช้</Button>
           </Space>
         }
       />
@@ -172,7 +170,7 @@ export default function UsersPage() {
             onlineUsers={adminUsers}
           />
 
-          <PageSection title="????????????" extra={<span style={{ fontWeight: 600 }}>{users.length}</span>}>
+          <PageSection title="รายการผู้ใช้" extra={<span style={{ fontWeight: 600 }}>{users.length}</span>}>
             {users.length > 0 ? (
               <div
                 style={{
@@ -197,11 +195,11 @@ export default function UsersPage() {
               </div>
             ) : (
               <UIEmptyState
-                title="?????????????????"
-                description="??????????????????????????????????"
+                title="ยังไม่มีผู้ใช้งาน"
+                description="เริ่มต้นด้วยการเพิ่มผู้ใช้งานคนแรก"
                 action={
                   <Button type="primary" onClick={handleAdd}>
-                    ???????????
+                    เพิ่มผู้ใช้
                   </Button>
                 }
               />

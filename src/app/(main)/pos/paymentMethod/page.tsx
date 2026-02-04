@@ -34,7 +34,7 @@ import PageStack from "@/components/ui/page/PageStack";
 import UIPageHeader from "@/components/ui/page/PageHeader";
 import UIEmptyState from "@/components/ui/states/EmptyState";
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 const PAYMENT_METHOD_LIMIT = 50;
 const PAYMENT_METHOD_CACHE_KEY = "pos:payment-methods";

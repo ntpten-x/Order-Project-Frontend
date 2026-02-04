@@ -28,7 +28,7 @@ import PageStack from "@/components/ui/page/PageStack";
 import UIPageHeader from "@/components/ui/page/PageHeader";
 import UIEmptyState from "@/components/ui/states/EmptyState";
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 // ============ STATS CARD COMPONENT ============
 
@@ -344,21 +344,21 @@ export default function DeliveryPage() {
             
             {/* Header */}
             <UIPageHeader
-                title="????????????????"
-                subtitle={`${deliveries.length} ??????`}
+                title="ช่องทางจัดส่ง"
+                subtitle={`${deliveries.length} รายการ`}
                 icon={<CarOutlined />}
                 actions={
                     <Space size={8} wrap>
                         <Input
                             prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
                             allowClear
-                            placeholder="??????????????..."
+                            placeholder="ค้นหาช่องทางจัดส่ง..."
                             onChange={(e) => handleSearch(e.target.value)}
                             style={{ minWidth: 220 }}
                         />
                         <Button icon={<ReloadOutlined />} onClick={fetchDeliveries} />
                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                            ??????????????
+                            เพิ่มช่องทางจัดส่ง
                         </Button>
                     </Space>
                 }
@@ -373,7 +373,7 @@ export default function DeliveryPage() {
                     />
 
                     <PageSection
-                        title="???????????????"
+                        title="รายการช่องทางจัดส่ง"
                         extra={<span style={{ fontWeight: 600 }}>{filteredDeliveries.length}</span>}
                     >
                         {filteredDeliveries.length > 0 ? (
@@ -390,18 +390,18 @@ export default function DeliveryPage() {
                             <UIEmptyState
                                 title={
                                     searchText.trim()
-                                        ? "??????????????????????"
-                                        : "?????????????????"
+                                        ? "ไม่พบช่องทางจัดส่งที่ค้นหา"
+                                        : "ยังไม่มีช่องทางจัดส่ง"
                                 }
                                 description={
                                     searchText.trim()
-                                        ? "?????????????????????"
-                                        : "?????????????????????????????????"
+                                        ? "ลองค้นหาด้วยคำอื่นหรือล้างการค้นหา"
+                                        : "เพิ่มช่องทางจัดส่งตัวแรกเพื่อเริ่มต้นใช้งาน"
                                 }
                                 action={
                                     !searchText.trim() ? (
                                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                            ??????????????
+                                            เพิ่มช่องทางจัดส่ง
                                         </Button>
                                     ) : null
                                 }

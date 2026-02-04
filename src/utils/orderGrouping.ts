@@ -1,49 +1,59 @@
-export interface OrderItem {
-    id: string; // Keep the ID of the *first* item in the group, or a generated group ID
-    product?: any;
-    quantity: number;
-    details?: { detail_name: string; extra_price: number }[];
-    notes?: string;
-    status?: string | any;
-    price?: number | string;
-    total_price?: number | string;
-    originalItems?: any[]; // To keep track of the original items in this group
-    [key: string]: any;
-}
+﻿export type OrderItemDetail = { detail_name: string; extra_price: number };
 
-export const groupOrderItems = (items: any[]): any[] => {
-    if (!items || items.length === 0) return [];
+export type OrderItemLike = {
+  quantity: number | string;
+  total_price?: number | string;
+  details?: OrderItemDetail[];
+  notes?: string;
+  status?: unknown;
+  product?: { id?: string } | null;
+  product_id?: string;
+  [key: string]: unknown;
+};
 
-    const groups: { [key: string]: any } = {};
+export type GroupedOrderItem<T extends OrderItemLike> = T & {
+  id: string;
+  quantity: number;
+  total_price: number;
+  originalItems: T[];
+};
 
-    items.forEach(item => {
-        // Create a unique key based on product ID, details, and notes
-        // We sort details to ensure order doesn't matter
-        const detailsKey = item.details
-            ? JSON.stringify(item.details.sort((a: any, b: any) => a.detail_name.localeCompare(b.detail_name)))
-            : '[]';
+export const groupOrderItems = <T extends OrderItemLike>(items: T[]): GroupedOrderItem<T>[] => {
+  if (!items?.length) return [];
 
-        const noteKey = item.notes ? item.notes.trim() : '';
-        const statusKey = item.status || '';
-        const productId = item.product?.id || item.product_id || 'unknown';
+  const groups = new Map<string, GroupedOrderItem<T>>();
 
-        const key = `${productId}|${detailsKey}|${noteKey}|${statusKey}`;
+  for (const item of items) {
+    const detailsKey = item.details?.length
+      ? JSON.stringify(
+          [...item.details].sort((a, b) => a.detail_name.localeCompare(b.detail_name)),
+        )
+      : "[]";
 
-        if (groups[key]) {
-            // Group exists, update quantity and total price
-            groups[key].quantity += Number(item.quantity);
-            groups[key].total_price = Number(groups[key].total_price) + Number(item.total_price);
-            groups[key].originalItems.push(item);
-        } else {
-            // Create new group
-            groups[key] = {
-                ...item,
-                quantity: Number(item.quantity),
-                total_price: Number(item.total_price),
-                originalItems: [item]
-            };
-        }
-    });
+    const noteKey = (item.notes ?? "").trim();
+    const statusKey = String(item.status ?? "");
+    const productId = item.product?.id ?? item.product_id ?? "unknown";
 
-    return Object.values(groups);
+    const key = `${productId}|${detailsKey}|${noteKey}|${statusKey}`;
+
+    const existing = groups.get(key);
+    if (existing) {
+      existing.quantity += Number(item.quantity);
+      existing.total_price += Number(item.total_price ?? 0);
+      existing.originalItems.push(item);
+      continue;
+    }
+
+    const grouped: GroupedOrderItem<T> = {
+      ...(item as T),
+      id: String((item as { id?: unknown })?.id ?? key),
+      quantity: Number(item.quantity),
+      total_price: Number(item.total_price ?? 0),
+      originalItems: [item],
+    };
+
+    groups.set(key, grouped);
+  }
+
+  return [...groups.values()];
 };

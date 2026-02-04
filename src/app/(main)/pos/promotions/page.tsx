@@ -1,12 +1,7 @@
+﻿"use client";
+
 import RedirectPage from "@/components/navigation/RedirectPage";
-import { Layout } from "antd";
 
 export default function PromotionsPage() {
-  return (
-    <Layout style={{ minHeight: "100%", background: "transparent" }}>
-      <Layout.Content style={{ background: "transparent" }}>
-        <RedirectPage to="/pos/discounts" label="กำลังไปหน้าส่วนลด..." />
-      </Layout.Content>
-    </Layout>
-  );
+  return <RedirectPage to="/pos/discounts" label="กำลังไปหน้าส่วนลด..." title="โปรโมชัน" />;
 }

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React from "react";
 import { ArrowLeftOutlined } from "@ant-design/icons";
@@ -25,7 +25,9 @@ export default function PageHeader({
 }: PageHeaderProps) {
   const { token } = theme.useToken();
   const screens = Grid.useBreakpoint();
-  const paddingX = screens.md ? UI_TOKENS.pagePaddingXDesktop : UI_TOKENS.pagePaddingXMobile;
+  const paddingX = screens.md
+    ? UI_TOKENS.pagePaddingXDesktop
+    : UI_TOKENS.pagePaddingXMobile;
 
   return (
     <div
@@ -72,9 +74,7 @@ export default function PageHeader({
             <Typography.Title level={4} style={{ margin: 0 }}>
               {title}
             </Typography.Title>
-            {subtitle && (
-              <Typography.Text type="secondary">{subtitle}</Typography.Text>
-            )}
+            {subtitle && <Typography.Text type="secondary">{subtitle}</Typography.Text>}
           </div>
         </Flex>
 
@@ -83,4 +83,3 @@ export default function PageHeader({
     </div>
   );
 }
-

@@ -47,6 +47,7 @@ const AppHeader: React.FC = () => {
   }
 
   const isMobile = !screens.md; // Mobile if screen is smaller than md (768px)
+  const headerBaseHeight = isMobile ? 56 : 64;
 
   return (
     <Header
@@ -56,7 +57,9 @@ const AppHeader: React.FC = () => {
         left: 0,
         width: '100%',
         zIndex: 1000,
-        height: isMobile ? '56px' : '64px', // Reduced height for mobile
+        boxSizing: "border-box",
+        paddingTop: "env(safe-area-inset-top)",
+        height: `calc(${headerBaseHeight}px + env(safe-area-inset-top))`,
         padding: isMobile ? '0 16px' : '0 24px',
         display: 'flex',
         alignItems: 'center',

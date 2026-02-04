@@ -152,7 +152,6 @@ const POSBottomNavigation = () => {
         open={moreOpen}
         onClose={() => setMoreOpen(false)}
         placement="bottom"
-        height="auto"
         title="เมนูเพิ่มเติม"
       >
         <div style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom))" }}>

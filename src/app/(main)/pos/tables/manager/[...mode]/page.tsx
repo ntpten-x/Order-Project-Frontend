@@ -3,8 +3,10 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Form, Input, message, Spin, Switch, Modal, Typography, Button, Select } from 'antd';
 import { useRouter } from 'next/navigation';
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import UIPageHeader from "@/components/ui/page/PageHeader";
 import {
-    LeftOutlined,
     DeleteOutlined,
     SaveOutlined,
     TableOutlined,
@@ -50,69 +52,6 @@ const ManagePageStyles = () => (
             }
         `}</style>
     </>
-);
-
-interface PageHeaderProps {
-    isEdit: boolean;
-    onBack: () => void;
-    onDelete?: () => void;
-}
-
-const PageHeader = ({ isEdit, onBack, onDelete }: PageHeaderProps) => (
-    <div style={{ 
-        marginBottom: 32, 
-        display: 'flex', 
-        alignItems: 'center', 
-        justifyContent: 'space-between',
-        position: 'relative',
-        zIndex: 10
-    }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-            <Button 
-                icon={<LeftOutlined />} 
-                onClick={onBack}
-                style={{ 
-                    borderRadius: '50%', 
-                    width: 44, 
-                    height: 44, 
-                    border: 'none',
-                    background: 'white',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                    color: '#64748B',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                }} 
-            />
-            <div>
-                <Title level={3} style={{ margin: 0, fontWeight: 700, color: '#1E293B', fontSize: 24 }}>
-                    {isEdit ? 'แก้ไขข้อมูลโต๊ะ' : 'เพิ่มโต๊ะใหม่'}
-                </Title>
-                <Text type="secondary" style={{ fontSize: 14 }}>
-                    {isEdit ? 'แก้ไขชื่อหรือสถานะของโต๊ะอาหาร' : 'สร้างโต๊ะใหม่ในร้านของคุณ'}
-                </Text>
-            </div>
-        </div>
-        
-        {isEdit && onDelete && (
-            <Button 
-                danger 
-                type="text" 
-                icon={<DeleteOutlined />} 
-                onClick={onDelete}
-                style={{ 
-                    borderRadius: 12, 
-                    height: 44, 
-                    padding: '0 20px', 
-                    background: '#FEF2F2',
-                    color: '#EF4444',
-                    fontWeight: 600
-                }}
-            >
-                ลบโต๊ะ
-            </Button>
-        )}
-    </div>
 );
 
 // Preview Component
@@ -394,15 +333,22 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
     return (
         <div className="manage-page" style={pageStyles.container}>
             <ManagePageStyles />
-            
-            <div style={{ maxWidth: 1000, margin: '0 auto', position: 'relative', zIndex: 1, paddingBottom: 40 }}>
-                {/* Header */}
-                <PageHeader 
-                    isEdit={isEdit}
-                    onBack={handleBack}
-                    onDelete={isEdit ? handleDelete : undefined}
-                />
-                
+
+            <UIPageHeader
+                title={isEdit ? "แก้ไขข้อมูลโต๊ะ" : "เพิ่มโต๊ะ"}
+                subtitle={isEdit ? "แก้ไขชื่อหรือสถานะของโต๊ะอาหาร" : "สร้างโต๊ะใหม่ในร้านของคุณ"}
+                onBack={handleBack}
+                actions={
+                    isEdit ? (
+                        <Button danger onClick={handleDelete} icon={<DeleteOutlined />}>
+                            ลบ
+                        </Button>
+                    ) : null
+                }
+            />
+
+            <PageContainer maxWidth={1000}>
+                <PageSection style={{ background: "transparent", border: "none" }}>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                     {/* Left Column: Form */}
                     <div className="md:col-span-2">
@@ -505,7 +451,8 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                         </div>
                     </div>
                 </div>
-            </div>
+                </PageSection>
+            </PageContainer>
         </div>
     );
 }

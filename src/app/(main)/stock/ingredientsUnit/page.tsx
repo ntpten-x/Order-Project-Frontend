@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Spin, Typography } from 'antd';
-import { ExperimentOutlined } from '@ant-design/icons';
+import { message, Modal, Spin, Typography, Button, Space } from 'antd';
+import { ExperimentOutlined, ReloadOutlined, PlusOutlined } from '@ant-design/icons';
 import { IngredientsUnit } from "../../../../types/api/stock/ingredientsUnit";
 import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
@@ -12,11 +12,14 @@ import { useAuth } from "../../../../contexts/AuthContext";
 import {
     IngredientsUnitPageStyles,
     pageStyles,
-    PageHeader,
     StatsCard,
     UnitCard,
-    EmptyState
 } from './style';
+import PageContainer from "@/components/ui/page/PageContainer";
+import PageSection from "@/components/ui/page/PageSection";
+import PageStack from "@/components/ui/page/PageStack";
+import UIPageHeader from "@/components/ui/page/PageHeader";
+import UIEmptyState from "@/components/ui/states/EmptyState";
 
 const { Text } = Typography;
 
@@ -112,7 +115,7 @@ export default function IngredientsUnitPage() {
         Modal.confirm({
             title: 'ยืนยันการลบหน่วยวัตถุดิบ',
             content: `คุณต้องการลบหน่วยวัตถุดิบ "${unit.display_name}" หรือไม่?`,
-            okText: 'ลบ',
+            okText: '??',
             okType: 'danger',
             cancelText: 'ยกเลิก',
             centered: true,
@@ -172,54 +175,56 @@ export default function IngredientsUnitPage() {
         <div className="ingredients-unit-page" style={pageStyles.container}>
             <IngredientsUnitPageStyles />
             
-            {/* Header */}
-            <PageHeader 
-                onRefresh={fetchIngredientsUnits}
-                onAdd={handleAdd}
+            <UIPageHeader
+                title="หน่วยวัตถุดิบ"
+                subtitle={`${ingredientsUnits.length} รายการ`}
+                icon={<ExperimentOutlined />}
+                actions={
+                    <Space size={8} wrap>
+                        <Button icon={<ReloadOutlined />} onClick={fetchIngredientsUnits}>รีเฟรช</Button>
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>เพิ่มหน่วยวัตถุดิบ</Button>
+                    </Space>
+                }
             />
             
-            {/* Stats Card */}
-            <StatsCard 
-                totalUnits={ingredientsUnits.length}
-                activeUnits={activeUnits.length}
-                inactiveUnits={inactiveUnits.length}
-            />
+            <PageContainer>
+                <PageStack>
+                    <StatsCard 
+                        totalUnits={ingredientsUnits.length}
+                        activeUnits={activeUnits.length}
+                        inactiveUnits={inactiveUnits.length}
+                    />
 
-            {/* Units List */}
-            <div style={pageStyles.listContainer}>
-                {ingredientsUnits.length > 0 ? (
-                    <>
-                        <div style={pageStyles.sectionTitle}>
-                            <ExperimentOutlined style={{ fontSize: 18, color: '#722ed1' }} />
-                            <span style={{ fontSize: 16, fontWeight: 600, color: '#1a1a2e' }}>
-                                รายการหน่วยวัตถุดิบ
-                            </span>
-                            <div style={{
-                                background: 'linear-gradient(135deg, #722ed1 0%, #531dab 100%)',
-                                color: 'white',
-                                padding: '4px 12px',
-                                borderRadius: 20,
-                                fontSize: 12,
-                                fontWeight: 600
-                            }}>
-                                {ingredientsUnits.length} รายการ
+                    <PageSection
+                        title="รายการหน่วยวัตถุดิบ"
+                        extra={<span style={{ fontWeight: 600 }}>{ingredientsUnits.length}</span>}
+                    >
+                        {ingredientsUnits.length > 0 ? (
+                            <div style={pageStyles.listContainer}>
+                                {ingredientsUnits.map((unit, index) => (
+                                    <UnitCard
+                                        key={unit.id}
+                                        unit={unit}
+                                        index={index}
+                                        onEdit={handleEdit}
+                                        onDelete={handleDelete}
+                                    />
+                                ))}
                             </div>
-                        </div>
-
-                        {ingredientsUnits.map((unit, index) => (
-                            <UnitCard
-                                key={unit.id}
-                                unit={unit}
-                                index={index}
-                                onEdit={handleEdit}
-                                onDelete={handleDelete}
+                        ) : (
+                            <UIEmptyState
+                                title="ยังไม่มีหน่วยวัตถุดิบ"
+                                description="เริ่มต้นด้วยการเพิ่มหน่วยวัตถุดิบแรกของคุณ"
+                                action={
+                                    <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                                        เพิ่มหน่วยวัตถุดิบ
+                                    </Button>
+                                }
                             />
-                        ))}
-                    </>
-                ) : (
-                    <EmptyState onAdd={handleAdd} />
-                )}
-            </div>
+                        )}
+                    </PageSection>
+                </PageStack>
+            </PageContainer>
         </div>
     );
 }

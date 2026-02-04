@@ -1,4 +1,4 @@
-import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { SalesOrder } from '../../types/api/pos/salesOrder';
 import { ordersService } from '../../services/pos/orders.service';
 
@@ -16,8 +16,6 @@ interface UseOrdersParams {
 }
 
 export function useOrders({ page = 1, limit = 50, status }: UseOrdersParams) {
-    const queryClient = useQueryClient();
-
     // Construct query string for key
     const queryKey = ['orders', page, limit, status || 'all'];
 

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { Button, App, Typography, Spin, Space } from 'antd';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { Button, App, Typography, Spin, Badge, Grid } from 'antd';
 import { ShopOutlined } from '@ant-design/icons';
 import { Branch } from "../../../types/api/branch";
 import { useRouter } from 'next/navigation';
@@ -9,7 +9,8 @@ import {
     BranchPageStyles, 
     pageStyles, 
     StatsCard, 
-    BranchCard 
+    BranchCard,
+    SearchBar
 } from './style';
 import { useGlobalLoading } from "../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../hooks/useSocket";
@@ -23,16 +24,20 @@ import { readCache, writeCache } from "../../../utils/pos/cache";
 import PageContainer from "@/components/ui/page/PageContainer";
 import PageSection from "@/components/ui/page/PageSection";
 import PageStack from "@/components/ui/page/PageStack";
-import UIPageHeader from "@/components/ui/page/PageHeader";
 import UIEmptyState from "@/components/ui/states/EmptyState";
+import UIPageHeader from "@/components/ui/page/PageHeader";
 
 const { Title, Text } = Typography;
 const BRANCH_CACHE_KEY = "pos:branches";
 const BRANCH_CACHE_TTL = 5 * 60 * 1000;
 
+type FilterType = 'all' | 'active' | 'inactive';
+
 export default function BranchPage() {
   const router = useRouter();
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filter, setFilter] = useState<FilterType>('all');
   const { showLoading, hideLoading } = useGlobalLoading();
   const { socket } = useSocket();
   const { user, loading: authLoading } = useAuth();
@@ -118,6 +123,36 @@ export default function BranchPage() {
     }, "กำลังสลับสาขา...");
   };
 
+  // Filter and search branches
+  const filteredBranches = useMemo(() => {
+    let result = branches;
+
+    // Apply status filter
+    if (filter === 'active') {
+      result = result.filter(b => b.is_active);
+    } else if (filter === 'inactive') {
+      result = result.filter(b => !b.is_active);
+    }
+
+    // Apply search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      result = result.filter(b => 
+        b.branch_name.toLowerCase().includes(query) ||
+        b.branch_code.toLowerCase().includes(query) ||
+        (b.address && b.address.toLowerCase().includes(query)) ||
+        (b.phone && b.phone.includes(query))
+      );
+    }
+
+    return result;
+  }, [branches, filter, searchQuery]);
+
+  const activeBranches = branches.filter(b => b.is_active).length;
+  const { useBreakpoint } = Grid;
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
+
   if (authLoading) {
     return (
         <div style={{ 
@@ -133,32 +168,59 @@ export default function BranchPage() {
     );
   }
 
-  const activeBranches = branches.filter(b => b.is_active).length;
-
   return (
     <div style={pageStyles.container}>
       <BranchPageStyles />
       
-      {/* Header */}
       <UIPageHeader
-        title="????"
-        subtitle={`${branches.length} ??????`}
+        title="สาขา"
+        subtitle={`${branches.length} รายการ`}
         icon={<ShopOutlined />}
         actions={
-          <Space size={8} wrap>
-            <Button onClick={fetchBranches}>??????</Button>
-            <Button type="primary" onClick={handleAdd}>?????????</Button>
-          </Space>
+          <>
+            <Button onClick={fetchBranches}>รีเฟรช</Button>
+            <Button type="primary" onClick={handleAdd}>เพิ่มสาขา</Button>
+          </>
         }
       />
 
-      <PageContainer>
-        <PageStack>
+      <div style={pageStyles.listContainer}>
+        <PageContainer>
+        <PageStack gap={isMobile ? 16 : 12}>
           {/* Stats */}
           <StatsCard totalBranches={branches.length} activeBranches={activeBranches} />
 
-          <PageSection title="??????????" extra={<span style={{ fontWeight: 600 }}>{branches.length}</span>}>
-            {branches.length > 0 ? (
+          {/* Search and Filter */}
+          <SearchBar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            filter={filter}
+            onFilterChange={setFilter}
+            resultCount={filteredBranches.length}
+            totalCount={branches.length}
+          />
+
+          {/* Branch List */}
+          <PageSection 
+            title={
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <Title level={4} style={{ margin: 0, fontWeight: 700 }}>สาขาทั้งหมด</Title>
+                {searchQuery || filter !== 'all' ? (
+                  <Badge 
+                    count={filteredBranches.length} 
+                    showZero 
+                    style={{ backgroundColor: '#6366f1' }}
+                  />
+                ) : null}
+              </div>
+            } 
+            extra={
+              <Text strong style={{ color: '#6366f1', background: '#eef2ff', padding: '4px 12px', borderRadius: 10 }}>
+                {filteredBranches.length} / {branches.length} สาขา
+              </Text>
+            }
+          >
+            {filteredBranches.length > 0 ? (
               <div
                 style={{
                   display: 'grid',
@@ -167,12 +229,12 @@ export default function BranchPage() {
                   justifyContent: 'center',
                 }}
               >
-                {branches.map((branch, index) => (
+                {filteredBranches.map((branch, index) => (
                   <div
                     key={branch.id}
                     style={{
-                      animation: `fadeInUp 0.6s ease-out forwards`,
-                      animationDelay: `${index * 50}ms`,
+                      animation: `fadeInUp 0.5s ease-out forwards`,
+                      animationDelay: `${Math.min(index * 30, 300)}ms`,
                       opacity: 0,
                     }}
                   >
@@ -187,18 +249,29 @@ export default function BranchPage() {
               </div>
             ) : (
               <UIEmptyState
-                title="??????????????????"
-                description="?????????????????????????????????"
+                title={searchQuery || filter !== 'all' ? "ไม่พบสาขาที่ค้นหา" : "ไม่พบข้อมูลสาขาในระบบ"}
+                description={
+                  searchQuery || filter !== 'all' 
+                    ? "ลองเปลี่ยนคำค้นหาหรือตัวกรองเพื่อดูผลลัพธ์อื่น" 
+                    : "กรุณาเพิ่มสาขาเพื่อให้สามารถเริ่มต้นการจัดการข้อมูลหรือเข้าสู่ระบบ POS ได้"
+                }
                 action={
-                  <Button type="primary" onClick={handleAdd}>
-                    ?????????
-                  </Button>
+                  searchQuery || filter !== 'all' ? (
+                    <Button onClick={() => { setSearchQuery(''); setFilter('all'); }}>
+                      ล้างตัวกรอง
+                    </Button>
+                  ) : (
+                    <Button type="primary" onClick={handleAdd}>
+                      เพิ่มสาขาใหม่
+                    </Button>
+                  )
                 }
               />
             )}
           </PageSection>
         </PageStack>
-      </PageContainer>
+        </PageContainer>
+      </div>
     </div>
   );
 }

@@ -21,6 +21,10 @@ type BackendSuccessPayload<T> = {
 
 type BackendPayload<T> = BackendSuccessPayload<T> | BackendErrorPayload | T;
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+    return !!value && typeof value === "object";
+}
+
 export function unwrapBackendData<T>(payload: BackendPayload<T>): T {
     if (payload && typeof payload === "object" && "success" in payload) {
         const record = payload as BackendSuccessPayload<T> | BackendErrorPayload;
@@ -31,25 +35,27 @@ export function unwrapBackendData<T>(payload: BackendPayload<T>): T {
 
 export function getBackendErrorMessage(payload: unknown, fallback: string = "Request failed"): string {
     if (typeof payload === "string") return payload;
-    if (!payload || typeof payload !== "object") return fallback;
-
-    const anyPayload = payload as any;
+    if (!isRecord(payload)) return fallback;
 
     // Standardized backend error: { success:false, error:{ message } }
-    if ("success" in anyPayload && anyPayload.success === false) {
-        const message = anyPayload?.error?.message;
-        if (typeof message === "string" && message.trim()) return message;
+    if (payload.success === false) {
+        const error = payload.error;
+        if (isRecord(error) && typeof error.message === "string" && error.message.trim()) {
+            return error.message;
+        }
     }
 
     // Some routes may return { error: "..." } or { error:{ message:"..." } }
-    if ("error" in anyPayload) {
-        if (typeof anyPayload.error === "string" && anyPayload.error.trim()) return anyPayload.error;
-        const message = anyPayload?.error?.message;
-        if (typeof message === "string" && message.trim()) return message;
+    if ("error" in payload) {
+        const error = payload.error;
+        if (typeof error === "string" && error.trim()) return error;
+        if (isRecord(error) && typeof error.message === "string" && error.message.trim()) {
+            return error.message;
+        }
     }
 
     // Fallback legacy: { message:"..." }
-    if (typeof anyPayload.message === "string" && anyPayload.message.trim()) return anyPayload.message;
+    if (typeof payload.message === "string" && payload.message.trim()) return payload.message;
 
     return fallback;
 }
