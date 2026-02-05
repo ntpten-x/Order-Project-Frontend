@@ -6,7 +6,8 @@ import {
     AppstoreOutlined, 
     ShopOutlined, 
     SettingOutlined, 
-    BranchesOutlined 
+    BranchesOutlined,
+    SafetyCertificateOutlined 
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { pageStyles, DashboardStyles } from "./style";
@@ -46,6 +47,13 @@ export default function LandingPage() {
             icon: BranchesOutlined,
             iconColor: "#8b5cf6",
             path: "/branch",
+            enabled: true,
+        },
+        {
+            title: "Audit Logs",
+            icon: SafetyCertificateOutlined,
+            iconColor: "#ef4444",
+            path: "/audit",
             enabled: true,
         },
     ];

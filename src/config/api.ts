@@ -8,6 +8,9 @@ export const API_ROUTES = {
         CSRF: '/csrf',
         SWITCH_BRANCH: '/auth/switch-branch',
     },
+    AUDIT: {
+        LOGS: '/audit/logs',
+    },
     POS: {
         PRODUCTS: '/pos/products',
         ORDERS: '/pos/orders',
