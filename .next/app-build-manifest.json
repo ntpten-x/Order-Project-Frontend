@@ -78,16 +78,6 @@
       "static/chunks/common.js",
       "static/chunks/app/(main)/layout.js"
     ],
-    "/(main)/audit/page": [
-      "static/chunks/webpack.js",
-      "static/css/vendor.css",
-      "static/chunks/vendor.js",
-      "static/chunks/main-app.js",
-      "static/chunks/antd.js",
-      "static/css/common.css",
-      "static/chunks/common.js",
-      "static/chunks/app/(main)/audit/page.js"
-    ],
     "/(main)/pos/page": [
       "static/chunks/webpack.js",
       "static/css/vendor.css",
@@ -147,6 +137,13 @@
       "static/css/common.css",
       "static/chunks/common.js",
       "static/chunks/app/(main)/pos/orders/[...ordersId]/page.js"
+    ],
+    "/_not-found/page": [
+      "static/chunks/webpack.js",
+      "static/css/vendor.css",
+      "static/chunks/vendor.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/_not-found/page.js"
     ]
   }
 }
