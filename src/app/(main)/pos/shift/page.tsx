@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import { SocketContext } from "../../../../contexts/SocketContext";
 import { shiftsService } from "../../../../services/pos/shifts.service";
 import { Shift, ShiftSummary } from "../../../../types/api/pos/shifts";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import OpenShiftModal from "@/components/pos/shifts/OpenShiftModal";
 import CloseShiftModal from "@/components/pos/shifts/CloseShiftModal";
 import PageContainer from "@/components/ui/page/PageContainer";
@@ -73,9 +74,9 @@ export default function ShiftPage() {
             queryClient.invalidateQueries({ queryKey: ["shiftCurrent"] });
             queryClient.invalidateQueries({ queryKey: ["shiftSummary"] });
         };
-        socket.on("shifts:update", handleUpdate);
+        socket.on(RealtimeEvents.shifts.update, handleUpdate);
         return () => {
-            socket.off("shifts:update", handleUpdate);
+            socket.off(RealtimeEvents.shifts.update, handleUpdate);
         };
     }, [socket, queryClient]);
 

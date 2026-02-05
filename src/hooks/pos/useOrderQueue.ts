@@ -4,6 +4,7 @@ import { SocketContext } from '../../contexts/SocketContext';
 import { orderQueueService } from '../../services/pos/orderQueue.service';
 import { OrderQueue, QueueStatus, CreateOrderQueueDTO, UpdateOrderQueueStatusDTO } from '../../types/api/pos/orderQueue';
 import { message } from 'antd';
+import { RealtimeEvents } from '../../utils/realtimeEvents';
 
 export function useOrderQueue(status?: QueueStatus) {
     const { socket } = useContext(SocketContext);
@@ -89,16 +90,16 @@ export function useOrderQueue(status?: QueueStatus) {
             });
         };
 
-        socket.on('order-queue:added', handleAdded);
-        socket.on('order-queue:updated', handleUpdated);
-        socket.on('order-queue:removed', handleRemoved);
-        socket.on('order-queue:reordered', handleReordered);
+        socket.on(RealtimeEvents.orderQueue.added, handleAdded);
+        socket.on(RealtimeEvents.orderQueue.updated, handleUpdated);
+        socket.on(RealtimeEvents.orderQueue.removed, handleRemoved);
+        socket.on(RealtimeEvents.orderQueue.reordered, handleReordered);
 
         return () => {
-            socket.off('order-queue:added', handleAdded);
-            socket.off('order-queue:updated', handleUpdated);
-            socket.off('order-queue:removed', handleRemoved);
-            socket.off('order-queue:reordered', handleReordered);
+            socket.off(RealtimeEvents.orderQueue.added, handleAdded);
+            socket.off(RealtimeEvents.orderQueue.updated, handleUpdated);
+            socket.off(RealtimeEvents.orderQueue.removed, handleRemoved);
+            socket.off(RealtimeEvents.orderQueue.reordered, handleReordered);
         };
     }, [socket, queryClient, status]);
 

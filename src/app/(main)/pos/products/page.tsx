@@ -29,6 +29,7 @@ import { useCategories } from '../../../../hooks/pos/useCategories';
 import { useProductsUnit } from '../../../../hooks/pos/useProductsUnit';
 import { formatPrice } from '../../../../utils/products/productDisplay.utils';
 import { checkProductSetupState, getSetupMissingMessage } from '../../../../utils/products/productSetup.utils';
+import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 import PageContainer from "@/components/ui/page/PageContainer";
 import PageSection from "@/components/ui/page/PageSection";
@@ -365,7 +366,7 @@ export default function ProductsPage() {
 
     useRealtimeRefresh({
         socket,
-        events: ["products:create", "products:update", "products:delete"],
+        events: [RealtimeEvents.products.create, RealtimeEvents.products.update, RealtimeEvents.products.delete],
         onRefresh: fetchProducts,
         enabled: isAuthorized,
         debounceMs: 400,
@@ -442,13 +443,13 @@ export default function ProductsPage() {
     // Real-time Metadata Updates
     useRealtimeList(
         socket,
-        { create: "category:create", update: "category:update", delete: "category:delete" },
+        { create: RealtimeEvents.categories.create, update: RealtimeEvents.categories.update, delete: RealtimeEvents.categories.delete },
         setCategories
     );
 
     useRealtimeList(
         socket,
-        { create: "productsUnit:create", update: "productsUnit:update", delete: "productsUnit:delete" },
+        { create: RealtimeEvents.productsUnit.create, update: RealtimeEvents.productsUnit.update, delete: RealtimeEvents.productsUnit.delete },
         setUnits
     );
 

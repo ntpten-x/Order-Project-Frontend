@@ -19,6 +19,7 @@ import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { useRoleGuard } from "../../../../utils/pos/accessControl";
 import { useRealtimeList } from "../../../../utils/pos/realtime";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { pageStyles, globalStyles } from '../../../../theme/pos/productsUnit/style';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 import PageContainer from "@/components/ui/page/PageContainer";
@@ -214,7 +215,7 @@ export default function ProductsUnitPage() {
 
     useRealtimeList(
         socket,
-        { create: "productsUnit:create", update: "productsUnit:update", delete: "productsUnit:delete" },
+        { create: RealtimeEvents.productsUnit.create, update: RealtimeEvents.productsUnit.update, delete: RealtimeEvents.productsUnit.delete },
         setUnits
     );
 

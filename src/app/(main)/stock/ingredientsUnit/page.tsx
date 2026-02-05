@@ -8,6 +8,8 @@ import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
 import { useAsyncAction } from "../../../../hooks/useAsyncAction";
 import { useSocket } from "../../../../hooks/useSocket";
+import { useRealtimeList } from "../../../../utils/pos/realtime";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { useAuth } from "../../../../contexts/AuthContext";
 import {
     IngredientsUnitPageStyles,
@@ -77,25 +79,25 @@ export default function IngredientsUnitPage() {
     useEffect(() => {
         if (!socket) return;
 
-        socket.on('ingredientsUnit:create', (newItem: IngredientsUnit) => {
+        socket.on(RealtimeEvents.ingredientsUnit.create, (newItem: IngredientsUnit) => {
             setIngredientsUnits((prev) => [...prev, newItem]);
             message.success(`เพิ่มหน่วยวัตถุดิบ ${newItem.unit_name} แล้ว`);
         });
 
-        socket.on('ingredientsUnit:update', (updatedItem: IngredientsUnit) => {
+        socket.on(RealtimeEvents.ingredientsUnit.update, (updatedItem: IngredientsUnit) => {
             setIngredientsUnits((prev) =>
                 prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
             );
         });
 
-        socket.on('ingredientsUnit:delete', ({ id }: { id: string }) => {
+        socket.on(RealtimeEvents.ingredientsUnit.delete, ({ id }: { id: string }) => {
             setIngredientsUnits((prev) => prev.filter((item) => item.id !== id));
         });
 
         return () => {
-            socket.off('ingredientsUnit:create');
-            socket.off('ingredientsUnit:update');
-            socket.off('ingredientsUnit:delete');
+            socket.off(RealtimeEvents.ingredientsUnit.create);
+            socket.off(RealtimeEvents.ingredientsUnit.update);
+            socket.off(RealtimeEvents.ingredientsUnit.delete);
         };
     }, [socket]);
 

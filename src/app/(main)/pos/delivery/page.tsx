@@ -19,6 +19,7 @@ import { useSocket } from "../../../../hooks/useSocket";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { useRoleGuard } from "../../../../utils/pos/accessControl";
 import { useRealtimeList } from "../../../../utils/pos/realtime";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
 import { pageStyles, globalStyles } from '../../../../theme/pos/delivery/style';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
@@ -255,7 +256,7 @@ export default function DeliveryPage() {
 
     useRealtimeList(
         socket,
-        { create: "delivery:create", update: "delivery:update", delete: "delivery:delete" },
+        { create: RealtimeEvents.delivery.create, update: RealtimeEvents.delivery.update, delete: RealtimeEvents.delivery.delete },
         setDeliveries
     );
 

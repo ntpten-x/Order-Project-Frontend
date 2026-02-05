@@ -20,6 +20,7 @@ import ConfirmationDialog from "../../../../../../components/dialog/Confirmation
 import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
+import { RealtimeEvents } from "../../../../../../utils/realtimeEvents";
 import PageContainer from "@/components/ui/page/PageContainer";
 import PageSection from "@/components/ui/page/PageSection";
 import UIPageHeader from "@/components/ui/page/PageHeader";
@@ -90,7 +91,18 @@ export default function POSDeliverySummaryPage() {
 
     useRealtimeRefresh({
         socket,
-        events: ["orders:update", "orders:delete", "payments:create", "payments:update"],
+        events: [
+            RealtimeEvents.orders.update,
+            RealtimeEvents.orders.delete,
+            RealtimeEvents.payments.create,
+            RealtimeEvents.payments.update,
+            RealtimeEvents.salesOrderItem.create,
+            RealtimeEvents.salesOrderItem.update,
+            RealtimeEvents.salesOrderItem.delete,
+            RealtimeEvents.salesOrderDetail.create,
+            RealtimeEvents.salesOrderDetail.update,
+            RealtimeEvents.salesOrderDetail.delete,
+        ],
         onRefresh: () => {
             if (deliveryId) {
                 fetchInitialData();
@@ -417,4 +429,3 @@ export default function POSDeliverySummaryPage() {
         </div>
     );
 }
-

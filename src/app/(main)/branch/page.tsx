@@ -21,6 +21,7 @@ import { authService } from "../../../services/auth.service";
 import { getCsrfTokenCached } from '../../../utils/pos/csrf';
 import { useAsyncAction } from "../../../hooks/useAsyncAction";
 import { readCache, writeCache } from "../../../utils/pos/cache";
+import { RealtimeEvents } from "../../../utils/realtimeEvents";
 import PageContainer from "@/components/ui/page/PageContainer";
 import PageSection from "@/components/ui/page/PageSection";
 import PageStack from "@/components/ui/page/PageStack";
@@ -53,7 +54,7 @@ export default function BranchPage() {
 
   useRealtimeList(
     socket,
-    { create: "branches:create", update: "branches:update", delete: "branches:delete" },
+    { create: RealtimeEvents.branches.create, update: RealtimeEvents.branches.update, delete: RealtimeEvents.branches.delete },
     setBranches,
     (item) => item.id,
     (item) => item.is_active !== false
@@ -275,4 +276,3 @@ export default function BranchPage() {
     </div>
   );
 }
-

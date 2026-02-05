@@ -16,6 +16,7 @@ import { formatCurrency } from "../../../../utils/orders";
 import { useGlobalLoadingDispatch } from "../../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import { isEqual } from "lodash";
@@ -77,7 +78,17 @@ export default function POSItemsPage() {
 
     useRealtimeRefresh({
         socket,
-        events: ["orders:update", "orders:create", "orders:delete"],
+        events: [
+            RealtimeEvents.orders.update,
+            RealtimeEvents.orders.create,
+            RealtimeEvents.orders.delete,
+            RealtimeEvents.salesOrderItem.create,
+            RealtimeEvents.salesOrderItem.update,
+            RealtimeEvents.salesOrderItem.delete,
+            RealtimeEvents.salesOrderDetail.create,
+            RealtimeEvents.salesOrderDetail.update,
+            RealtimeEvents.salesOrderDetail.delete,
+        ],
         onRefresh: () => fetchServedItems(false),
         intervalMs: 15000,
         debounceMs: 1000,

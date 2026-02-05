@@ -19,6 +19,7 @@ import { ordersService } from "../../../../services/pos/orders.service";
 import { SalesOrderItem, ItemStatus } from "../../../../types/api/pos/salesOrderItem";
 import { useGlobalLoadingDispatch } from "../../../../contexts/pos/GlobalLoadingContext";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -194,12 +195,24 @@ export default function KitchenDisplayPage() {
             refetch();
         };
 
-        socket.on('orders:create', handleOrderCreate);
-        socket.on('orders:update', handleOrderUpdate);
+        socket.on(RealtimeEvents.orders.create, handleOrderCreate);
+        socket.on(RealtimeEvents.orders.update, handleOrderUpdate);
+        socket.on(RealtimeEvents.salesOrderItem.create, handleOrderUpdate);
+        socket.on(RealtimeEvents.salesOrderItem.update, handleOrderUpdate);
+        socket.on(RealtimeEvents.salesOrderItem.delete, handleOrderUpdate);
+        socket.on(RealtimeEvents.salesOrderDetail.create, handleOrderUpdate);
+        socket.on(RealtimeEvents.salesOrderDetail.update, handleOrderUpdate);
+        socket.on(RealtimeEvents.salesOrderDetail.delete, handleOrderUpdate);
 
         return () => {
-            socket.off('orders:create', handleOrderCreate);
-            socket.off('orders:update', handleOrderUpdate);
+            socket.off(RealtimeEvents.orders.create, handleOrderCreate);
+            socket.off(RealtimeEvents.orders.update, handleOrderUpdate);
+            socket.off(RealtimeEvents.salesOrderItem.create, handleOrderUpdate);
+            socket.off(RealtimeEvents.salesOrderItem.update, handleOrderUpdate);
+            socket.off(RealtimeEvents.salesOrderItem.delete, handleOrderUpdate);
+            socket.off(RealtimeEvents.salesOrderDetail.create, handleOrderUpdate);
+            socket.off(RealtimeEvents.salesOrderDetail.update, handleOrderUpdate);
+            socket.off(RealtimeEvents.salesOrderDetail.delete, handleOrderUpdate);
         };
     }, [socket, refetch, playNotificationSound]);
 

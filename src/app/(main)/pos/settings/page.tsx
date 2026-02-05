@@ -16,6 +16,7 @@ import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
 import PageContainer from "@/components/ui/page/PageContainer";
 import PageSection from "@/components/ui/page/PageSection";
 import UIPageHeader from "@/components/ui/page/PageHeader";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 
 const { Text } = Typography;
 
@@ -50,7 +51,11 @@ export default function POSSettingsPage() {
 
     useRealtimeRefresh({
         socket,
-        events: ["payment-accounts:update", "payment-accounts:create", "payment-accounts:delete"],
+        events: [
+            RealtimeEvents.paymentAccounts.update,
+            RealtimeEvents.paymentAccounts.create,
+            RealtimeEvents.paymentAccounts.delete,
+        ],
         onRefresh: () => fetchData(true),
         intervalMs: 20000,
     });
