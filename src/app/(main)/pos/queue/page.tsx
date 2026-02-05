@@ -62,7 +62,7 @@ const statusLabels: Record<QueueStatus, string> = {
 export default function OrderQueuePage() {
     const [statusFilter, setStatusFilter] = useState<QueueStatus | undefined>(undefined);
     const { queue, isLoading, error, updateStatus, removeFromQueue, reorderQueue, isReordering, refetch } = useOrderQueue(statusFilter);
-    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
+    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ["Admin", "Manager", "Employee"] });
     
     // Prefetch queue data
     useQueuePrefetching();

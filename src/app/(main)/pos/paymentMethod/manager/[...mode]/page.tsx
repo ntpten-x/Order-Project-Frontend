@@ -40,7 +40,7 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
     const mode = params.mode[0];
     const id = params.mode[1] || null;
     const isEdit = mode === 'edit' && !!id;
-    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
+    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ["Admin", "Manager"] });
 
     useEffect(() => {
         const fetchCsrf = async () => {

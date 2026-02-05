@@ -81,7 +81,7 @@ const BottomNavigation = () => {
       icon: <FileTextOutlined />,
       path: '/stock/items',
     },
-    ...(user?.role === 'Admin' ? [{
+    ...((user?.role === 'Admin' || user?.role === 'Manager') ? [{
       key: 'manage',
       label: 'Users',
       icon: <UserOutlined />,

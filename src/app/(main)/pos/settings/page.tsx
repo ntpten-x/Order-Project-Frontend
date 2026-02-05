@@ -29,7 +29,7 @@ export default function POSSettingsPage() {
     const [modalVisible, setModalVisible] = useState(false);
     const { showLoading, hideLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
+    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ["Admin", "Manager"] });
 
     const fetchData = useCallback(async (silent = false) => {
         try {

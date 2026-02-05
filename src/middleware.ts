@@ -1,72 +1,84 @@
-import { NextResponse } from 'next/server'
-import type { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from "next/server";
+import { asRole, requiredRolesForPath } from "./lib/rbac/policy";
 
-const BACKEND_API = process.env.NEXT_PUBLIC_BACKEND_API || 'http://localhost:4000'
+type JwtPayload = { role?: unknown; user?: { role?: unknown } };
 
-async function verifySession(request: NextRequest) {
-    const cookie = request.headers.get('cookie') || ''
-    try {
-        const res = await fetch(`${BACKEND_API}/auth/me`, {
-            method: 'GET',
-            headers: {
-                cookie,
-                'content-type': 'application/json',
-            },
-            cache: 'no-store',
-        })
-        if (!res.ok) return null
-        const data = await res.json().catch(() => null)
-        return data?.data || data || null
-    } catch {
-        return null
-    }
+function decodeJwtPayload(token: string): JwtPayload | null {
+  const parts = token.split(".");
+  if (parts.length < 2) return null;
+  let payload = parts[1].replace(/-/g, "+").replace(/_/g, "/");
+  const pad = payload.length % 4;
+  if (pad) payload += "=".repeat(4 - pad);
+  try {
+    const json = atob(payload);
+    const parsed: unknown = JSON.parse(json);
+    if (!parsed || typeof parsed !== "object") return null;
+    return parsed as JwtPayload;
+  } catch {
+    return null;
+  }
 }
 
-export async function middleware(request: NextRequest) {
-    const { pathname } = request.nextUrl
+function jsonError(status: number, message: string) {
+  return NextResponse.json({ error: message }, { status });
+}
 
-    const publicPaths = [
-        '/login',
-        '/register',
-        '/_next',
-        '/static',
-        '/favicon.ico',
-        '/public',
-        '/api/auth/login',
-        '/api/csrf'
-    ]
+export function middleware(req: NextRequest) {
+  const { pathname } = req.nextUrl;
 
-    const isPublicPath = publicPaths.some(path => pathname.startsWith(path))
-    const token = request.cookies.get('token')?.value
+  // Skip static assets
+  if (
+    pathname.startsWith("/_next") ||
+    pathname.startsWith("/favicon.ico") ||
+    pathname.startsWith("/robots.txt") ||
+    pathname.startsWith("/sitemap.xml")
+  ) {
+    return NextResponse.next();
+  }
 
-    if (!token) {
-        if (!isPublicPath) {
-            if (pathname.startsWith('/api')) {
-                return NextResponse.json({ message: 'Authentication required' }, { status: 401 })
-            }
-            return NextResponse.redirect(new URL('/login', request.url))
-        }
-        return NextResponse.next()
-    }
+  const policy = requiredRolesForPath(pathname, req.method);
+  if (!policy) return NextResponse.next();
 
-    // Validate session with backend
-    const user = await verifySession(request)
-    if (!user) {
-        if (pathname.startsWith('/api')) {
-            return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
-        }
-        return NextResponse.redirect(new URL('/login', request.url))
-    }
+  const token = req.cookies.get("token")?.value;
 
-    if (pathname === '/login') {
-        return NextResponse.redirect(new URL('/', request.url))
-    }
+  // Public access (no token required) only for login + csrf + auth login
+  const isPublic =
+    pathname === "/login" ||
+    pathname.startsWith("/offline") ||
+    pathname === "/api/csrf" ||
+    pathname.startsWith("/api/auth/login") ||
+    pathname.startsWith("/api/auth/logout");
 
-    return NextResponse.next()
+  if (!token) {
+    if (isPublic) return NextResponse.next();
+    if (pathname.startsWith("/api")) return jsonError(401, "Unauthorized");
+    const url = req.nextUrl.clone();
+    url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
+
+  // Authenticated: determine role from JWT payload (UI gate only; backend is source of truth)
+  const payload = decodeJwtPayload(token);
+  const role = asRole(payload?.role) ?? asRole(payload?.user?.role);
+
+  if (!role) {
+    if (pathname.startsWith("/api")) return jsonError(401, "Unauthorized");
+    const url = req.nextUrl.clone();
+    url.pathname = "/login";
+    return NextResponse.redirect(url);
+  }
+
+  const allowed = policy.allowed;
+  const ok = allowed.includes(role) || role === "Admin";
+  if (ok) return NextResponse.next();
+
+  if (pathname.startsWith("/api")) return jsonError(403, "Forbidden");
+
+  const url = req.nextUrl.clone();
+  url.pathname = policy.redirectTo || "/pos";
+  return NextResponse.redirect(url);
 }
 
 export const config = {
-    matcher: [
-        '/((?!_next/static|_next/image|favicon.ico|.well-known).*)',
-    ],
-}
+  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+};

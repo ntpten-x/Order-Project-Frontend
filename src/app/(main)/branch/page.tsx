@@ -43,6 +43,7 @@ export default function BranchPage() {
   const { showLoading, hideLoading } = useGlobalLoading();
   const { socket } = useSocket();
   const { user, loading: authLoading } = useAuth();
+  const isAdmin = user?.role === "Admin";
   const { message, modal } = App.useApp();
   const { execute } = useAsyncAction();
 
@@ -76,7 +77,7 @@ export default function BranchPage() {
 
   useEffect(() => {
     if (!authLoading && user) {
-        if (user.role !== 'Admin') {
+        if (!["Admin", "Manager"].includes(user.role)) {
             message.error(t("branch.noPermission"));
             router.push('/');
             return;
@@ -86,16 +87,19 @@ export default function BranchPage() {
   }, [user, authLoading, router, fetchBranches, message]);
   
   const handleAdd = () => {
+    if (!isAdmin) return;
     showLoading();
     router.push('/branch/manager/add');
     setTimeout(() => hideLoading(), 500);
   };
 
   const handleEdit = (branch: Branch) => {
+    if (!isAdmin) return;
     router.push(`/branch/manager/edit/${branch.id}`);
   };
 
   const handleDelete = (branch: Branch) => {
+    if (!isAdmin) return;
     modal.confirm({
         title: t("branch.delete.title"),
         content: t("branch.delete.content", { name: branch.branch_name }),
@@ -117,6 +121,10 @@ export default function BranchPage() {
   };
 
   const handleSwitchBranch = (branch: Branch) => {
+    if (!isAdmin) {
+      message.error(t("branch.noPermission"));
+      return;
+    }
     execute(async () => {
       const csrfToken = await getCsrfTokenCached();
       await authService.switchBranch(branch.id, csrfToken);
@@ -181,7 +189,7 @@ export default function BranchPage() {
         actions={
           <>
             <Button onClick={fetchBranches}>{t("branch.actions.refresh")}</Button>
-            <Button type="primary" onClick={handleAdd}>{t("branch.actions.add")}</Button>
+            {isAdmin && <Button type="primary" onClick={handleAdd}>{t("branch.actions.add")}</Button>}
           </>
         }
       />
@@ -242,9 +250,9 @@ export default function BranchPage() {
                   >
                     <BranchCard
                       branch={branch}
-                      onEdit={handleEdit}
-                      onDelete={handleDelete}
-                      onSwitch={handleSwitchBranch}
+                      onEdit={isAdmin ? handleEdit : undefined}
+                      onDelete={isAdmin ? handleDelete : undefined}
+                      onSwitch={isAdmin ? handleSwitchBranch : undefined}
                     />
                   </div>
                 ))}

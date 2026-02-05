@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { Form, Input, Button, Card, message, Typography, Spin, Popconfirm, Switch, Modal } from 'antd';
-import { ArrowLeftOutlined, SaveOutlined, DeleteOutlined } from '@ant-design/icons';
+import { ArrowLeftOutlined, SaveOutlined, DeleteOutlined, DownOutlined, CheckOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import UserManageStyle from './style';
 import { Role } from '@/types/api/roles';
@@ -15,6 +15,7 @@ import { authService } from "../../../../../services/auth.service";
 import { userService } from "../../../../../services/users.service";
 import { branchService } from "../../../../../services/branch.service";
 import { Branch } from '@/types/api/branch';
+import { useAuth } from "../../../../../contexts/AuthContext";
 import PageContainer from "@/components/ui/page/PageContainer";
 import PageSection from "@/components/ui/page/PageSection";
 import UIPageHeader from "@/components/ui/page/PageHeader";
@@ -23,6 +24,9 @@ import { t } from "@/utils/i18n";
 export default function UserManagePage({ params }: { params: { mode: string[] } }) {
   const router = useRouter();
   const [form] = Form.useForm();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "Admin";
+  const isManager = user?.role === "Manager";
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -40,6 +44,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   const mode = params.mode[0];
   const userId = params.mode[1] || null;
   const isEdit = mode === 'edit' && !!userId;
+  const isEditingSelf = isEdit && !!userId && userId === user?.id;
 
   useEffect(() => {
     const fetchCsrf = async () => {
@@ -54,8 +59,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
       const response = await fetch('/api/roles/getAll');
       if (!response.ok) throw new Error(t("users.manage.loadRolesError"));
       const data: Role[] = await response.json();
-      const filteredRoles = data.filter(role => !['Admin', 'Manager', 'Employee'].includes(role.display_name));
-      setRoles(filteredRoles.length > 0 ? filteredRoles : data);
+      setRoles(data);
     } catch (error) {
       console.error(error);
       message.error(t("users.manage.loadRolesError"));
@@ -96,12 +100,19 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   }, [userId, form, router]);
 
   useEffect(() => {
-    fetchRoles();
-    fetchBranches();
+    if (isAdmin) {
+      fetchRoles();
+      fetchBranches();
+    }
+
+    if (isManager && user?.branch_id) {
+      form.setFieldValue('branch_id', user.branch_id);
+    }
+
     if (isEdit) {
       fetchUser();
     }
-  }, [isEdit, userId, fetchRoles, fetchBranches, fetchUser]);
+  }, [isEdit, userId, fetchRoles, fetchBranches, fetchUser, isAdmin, isManager, user?.branch_id, form]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onFinish = async (values: any) => {
@@ -111,12 +122,25 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
         // Edit Mode
         const payload = { ...values };
         if (!payload.password) delete payload.password;
+        if (isManager) {
+          delete payload.roles_id;
+          delete payload.branch_id;
+          if (isEditingSelf) {
+            delete payload.is_use;
+            delete payload.is_active;
+          }
+        }
 
         await userService.updateUser(userId, payload, undefined, csrfToken);
         message.success(t("users.manage.updateSuccess"));
       } else {
         // Create mode
-        await userService.createUser(values, undefined, csrfToken);
+        const payload = { ...values };
+        if (isManager) {
+          delete payload.roles_id;
+          delete payload.branch_id;
+        }
+        await userService.createUser(payload, undefined, csrfToken);
         message.success(t("users.manage.createSuccess"));
       }
       router.push('/users');
@@ -142,6 +166,9 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
 
   const currentRole = roles.find(r => r.id === selectedRoleId);
   const currentBranch = branches.find(b => b.id === selectedBranchId);
+  const managerRoleLabel = "Employee";
+  const managerBranchLabel =
+    user?.branch ? `${user.branch.branch_name} (${user.branch.branch_code})` : (user?.branch_id || "-");
 
   return (
       <>
@@ -226,12 +253,12 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
               <Form.Item
                 name="roles_id"
                 label={t("users.manage.form.roleLabel")}
-                rules={[{ required: true, message: t("users.manage.form.roleRequired") }]}
+                rules={[{ required: isAdmin, message: t("users.manage.form.roleRequired") }]}
               >
                 {/* Custom Select Trigger for Role */}
                 <div 
-                    className="ant-input ant-input-lg cursor-pointer flex items-center justify-between"
-                    onClick={() => setRoleModalVisible(true)}
+                    className={`ant-input ant-input-lg flex items-center justify-between ${isAdmin ? 'cursor-pointer' : ''}`}
+                    onClick={() => isAdmin && setRoleModalVisible(true)}
                     style={{ 
                         border: '1px solid #d9d9d9', 
                         borderRadius: 8,
@@ -240,21 +267,21 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
                     }}
                 >
                     <span className={currentRole ? 'text-black' : 'text-gray-400'}>
-                        {currentRole ? currentRole.display_name : t("users.manage.form.rolePlaceholder")}
+                        {isAdmin ? (currentRole ? currentRole.display_name : t("users.manage.form.rolePlaceholder")) : managerRoleLabel}
                     </span>
-                    <span className="text-gray-400">▼</span>
+                    <DownOutlined className="text-gray-400" />
                 </div>
               </Form.Item>
 
               <Form.Item
                 name="branch_id"
                 label={t("users.manage.form.branchLabel")}
-                rules={[{ required: true, message: t("users.manage.form.branchRequired") }]}
+                rules={[{ required: isAdmin, message: t("users.manage.form.branchRequired") }]}
               >
                  {/* Custom Select Trigger for Branch */}
                  <div 
-                    className="ant-input ant-input-lg cursor-pointer flex items-center justify-between"
-                    onClick={() => setBranchModalVisible(true)}
+                    className={`ant-input ant-input-lg flex items-center justify-between ${isAdmin ? 'cursor-pointer' : ''}`}
+                    onClick={() => isAdmin && setBranchModalVisible(true)}
                     style={{ 
                         border: '1px solid #d9d9d9', 
                         borderRadius: 8,
@@ -263,13 +290,14 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
                     }}
                 >
                     <span className={currentBranch ? 'text-black' : 'text-gray-400'}>
-                        {currentBranch ? `${currentBranch.branch_name} (${currentBranch.branch_code})` : t("users.manage.form.branchPlaceholder")}
+                        {isAdmin ? (currentBranch ? `${currentBranch.branch_name} (${currentBranch.branch_code})` : t("users.manage.form.branchPlaceholder")) : managerBranchLabel}
                     </span>
-                    <span className="text-gray-400">▼</span>
+                    <DownOutlined className="text-gray-400" />
                 </div>
               </Form.Item>
 
               {/* Role Selection Modal */}
+              {isAdmin && (
               <Modal
                 title={t("users.manage.form.roleModalTitle")}
                 open={roleModalVisible}
@@ -291,13 +319,15 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
                             <span className={selectedRoleId === role.id ? 'font-medium text-blue-600' : 'text-gray-700'}>
                                 {role.display_name}
                             </span>
-                            {selectedRoleId === role.id && <span className="text-blue-600">✓</span>}
+                            {selectedRoleId === role.id && <CheckOutlined className="text-blue-600" />}
                         </div>
                     ))}
                  </div>
               </Modal>
+              )}
 
               {/* Branch Selection Modal */}
+              {isAdmin && (
               <Modal
                 title={t("users.manage.form.branchModalTitle")}
                 open={branchModalVisible}
@@ -319,13 +349,14 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
                             <span className={selectedBranchId === branch.id ? 'font-medium text-blue-600' : 'text-gray-700'}>
                                 {branch.branch_name} ({branch.branch_code})
                             </span>
-                             {selectedBranchId === branch.id && <span className="text-blue-600">✓</span>}
+                             {selectedBranchId === branch.id && <CheckOutlined className="text-blue-600" />}
                         </div>
                     ))}
                   </div>
               </Modal>
+              )}
 
-              {isEdit && (
+              {isEdit && (!isManager || !isEditingSelf) && (
                 <div className="flex gap-8 mb-4">
                   <Form.Item
                     name="is_active"

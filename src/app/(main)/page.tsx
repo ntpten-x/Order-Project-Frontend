@@ -10,6 +10,7 @@ import {
     SafetyCertificateOutlined 
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 import { pageStyles, DashboardStyles } from "./style";
 import PageContainer from "@/components/ui/page/PageContainer";
 import PageSection from "@/components/ui/page/PageSection";
@@ -19,6 +20,8 @@ const { Title, Text } = Typography;
 
 export default function LandingPage() {
     const router = useRouter();
+    const { user } = useAuth();
+    const isAdmin = user?.role === "Admin";
 
     const modules = [
         {
@@ -54,7 +57,7 @@ export default function LandingPage() {
             icon: SafetyCertificateOutlined,
             iconColor: "#ef4444",
             path: "/audit",
-            enabled: true,
+            enabled: isAdmin,
         },
     ];
 
