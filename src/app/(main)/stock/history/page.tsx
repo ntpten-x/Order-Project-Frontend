@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import { Button, message, Modal, Pagination, Spin } from "antd";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { HistoryOutlined } from "@ant-design/icons";
 import { Order, OrderStatus } from "../../../../types/api/stock/orders";
 import OrderDetailModal from "../../../../components/stock/OrderDetailModal";
@@ -12,6 +13,7 @@ import PageContainer from "@/components/ui/page/PageContainer";
 import UIPageHeader from "@/components/ui/page/PageHeader";
 import PageSection from "@/components/ui/page/PageSection";
 import UIEmptyState from "@/components/ui/states/EmptyState";
+import { t } from "@/utils/i18n";
 import { LegacyRealtimeEvents, RealtimeEvents } from "../../../../utils/realtimeEvents";
 import {
     HistoryPageStyles,
@@ -21,92 +23,80 @@ import {
 } from "./style";
 
 export default function HistoryPage() {
-    const [orders, setOrders] = useState<Order[]>([]);
-    const [loading, setLoading] = useState(true);
     const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
     const { socket } = useSocket();
     const { user } = useAuth();
+    const queryClient = useQueryClient();
     
     // Pagination State
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
-    const [total, setTotal] = useState(0);
 
-    const [csrfToken, setCsrfToken] = useState<string>("");
+    const { data: csrfToken = "" } = useQuery({
+        queryKey: ['csrfToken'],
+        queryFn: () => authService.getCsrfToken(),
+        staleTime: 10 * 60 * 1000,
+    });
 
-    useEffect(() => {
-        const fetchCsrf = async () => {
-             try {
-                const token = await authService.getCsrfToken();
-                setCsrfToken(token);
-             } catch (error) {
-                console.error("Failed to fetch CSRF token", error);
-             }
-        };
-        fetchCsrf();
-    }, []);
-
-    const fetchOrders = async (currentPage = 1, limit = 10) => {
-        try {
-            setLoading(true);
-            const response = await fetch(`/api/stock/orders?status=completed,cancelled&page=${currentPage}&limit=${limit}`, { cache: "no-store" });
-            if (!response.ok) throw new Error("Failed to fetch orders");
+    const { data: ordersResult, isLoading, isFetching } = useQuery<{ data: Order[]; total: number }, Error>({
+        queryKey: ['stockHistory', page, pageSize],
+        queryFn: async () => {
+            const response = await fetch(`/api/stock/orders?status=completed,cancelled&page=${page}&limit=${pageSize}`, { cache: "no-store" });
+            if (!response.ok) throw new Error(t('stockHistory.fetch.error'));
             const result = await response.json();
-            
-            // Handle both legacy array response (if API not updated yet) and new paginated response
             if (Array.isArray(result)) {
-                setOrders(result);
-                setTotal(result.length);
-            } else {
-                setOrders(result.data);
-                setTotal(result.total);
+                return { data: result, total: result.length };
             }
-        } catch {
-            console.error("Failed to fetch orders");
-            message.error("ไม่สามารถโหลดประวัติออเดอร์ได้");
-        } finally {
-            setLoading(false);
+            return { data: result.data, total: result.total };
+        },
+        placeholderData: (prev) => prev,
+        staleTime: 60 * 1000,
+    });
+
+    const orders: Order[] = ordersResult?.data ?? [];
+    const total = ordersResult?.total ?? 0;
+
+    const deleteMutation = useMutation({
+        mutationFn: async (orderId: string) => {
+            const token = csrfToken || await authService.getCsrfToken();
+            const response = await fetch(`/api/stock/orders/${orderId}`, { 
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-Token': token || ''
+                }
+            });
+            if (!response.ok) throw new Error(t('stockHistory.delete.error'));
+            return orderId;
+        },
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: ['stockHistory'] });
+            message.success(t('stockHistory.delete.success'));
+        },
+        onError: () => {
+            message.error(t('stockHistory.delete.error'));
         }
-    };
+    });
 
     const handleDeleteOrder = (order: Order) => {
         Modal.confirm({
-            title: 'ยืนยันการลบ',
-            content: `คุณต้องการลบประวัติออเดอร์ #${order.id.substring(0, 8).toUpperCase()} หรือไม่? ข้อมูลที่เกี่ยวข้องทั้งหมดจะถูกลบด้วย`,
-            okText: 'ลบ',
+            title: t('stockHistory.delete.title'),
+            content: t('stockHistory.delete.content', { code: order.id.substring(0, 8).toUpperCase() }),
+            okText: t('stockHistory.delete.ok'),
             okType: 'danger',
-            cancelText: 'ยกเลิก',
+            cancelText: t('stockHistory.delete.cancel'),
             centered: true,
             onOk: async () => {
-                try {
-                    const response = await fetch(`/api/stock/orders/${order.id}`, { 
-                        method: 'DELETE',
-                        headers: {
-                            'X-CSRF-Token': csrfToken
-                        }
-                    });
-                    if (!response.ok) throw new Error("Failed to delete order");
-                    
-                    message.success("ลบประวัติออเดอร์สำเร็จ");
-                    // Refresh current page
-                    fetchOrders(page, pageSize);
-                } catch {
-                    message.error("ลบประวัติออเดอร์ล้มเหลว");
-                }
+                await deleteMutation.mutateAsync(order.id);
             }
         });
     };
 
-    useEffect(() => {
-        fetchOrders(page, pageSize);
-    }, [page, pageSize]);
-
-    // Listen for updates but only refresh if we are on the first page or it's a general update
+    // Listen for updates and refetch list
     useEffect(() => {
         if (!socket) return;
 
         const handleRefresh = () => {
-             fetchOrders(page, pageSize);
+             queryClient.invalidateQueries({ queryKey: ['stockHistory'] });
         };
 
         socket.on(RealtimeEvents.stockOrders.create, handleRefresh);
@@ -124,23 +114,23 @@ export default function HistoryPage() {
             socket.off(RealtimeEvents.stockOrders.detailUpdate, handleRefresh);
             socket.off(LegacyRealtimeEvents.stockOrdersUpdated, handleRefresh);
         };
-    }, [socket, page, pageSize]);
+    }, [socket, queryClient]);
 
     const completedOrders = orders.filter(o => o.status === OrderStatus.COMPLETED);
     const cancelledOrders = orders.filter(o => o.status === OrderStatus.CANCELLED);
     const isAdmin = user?.role === 'Admin';
 
-    if (loading && orders.length === 0) {
+    if (isLoading && orders.length === 0) {
         return (
             <div style={{ minHeight: "100vh", background: pageStyles.container.backgroundColor as string }}>
                 <HistoryPageStyles />
                 <UIPageHeader
-                    title="ประวัติออเดอร์สต็อก"
-                    subtitle="รายการที่เสร็จสิ้น/ยกเลิก"
+                    title={t('stockHistory.title')}
+                    subtitle={t('stockHistory.subtitle')}
                     icon={<HistoryOutlined />}
                     actions={
-                        <Button onClick={() => fetchOrders(page, pageSize)} loading={loading}>
-                            รีเฟรช
+                        <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['stockHistory'] })} loading={isFetching}>
+                            {t('stockHistory.refresh')}
                         </Button>
                     }
                 />
@@ -160,12 +150,12 @@ export default function HistoryPage() {
             <HistoryPageStyles />
             
             <UIPageHeader
-                title="ประวัติออเดอร์สต็อก"
-                subtitle="รายการที่เสร็จสิ้น/ยกเลิก"
+                title={t('stockHistory.title')}
+                subtitle={t('stockHistory.subtitle')}
                 icon={<HistoryOutlined />}
                 actions={
-                    <Button onClick={() => fetchOrders(page, pageSize)} loading={loading}>
-                        รีเฟรช
+                    <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['stockHistory'] })} loading={isFetching}>
+                        {t('stockHistory.refresh')}
                     </Button>
                 }
             />
@@ -180,13 +170,13 @@ export default function HistoryPage() {
                 </PageSection>
 
                 <PageSection
-                    title="ประวัติทั้งหมด"
-                    extra={<span style={{ fontWeight: 600 }}>{total} รายการ</span>}
+                    title={t('stockHistory.sectionAll')}
+                    extra={<span style={{ fontWeight: 600 }}>{t('stockHistory.count', { total })}</span>}
                 >
                     <div style={pageStyles.listContainer}>
                         {orders.length > 0 ? (
                             <>
-                                {orders.map((order, index) => (
+                                {orders.map((order: Order, index: number) => (
                                     <OrderCard
                                         key={order.id}
                                         order={order}
@@ -207,12 +197,12 @@ export default function HistoryPage() {
                                             setPageSize(s);
                                         }}
                                         showSizeChanger
-                                        showTotal={(t) => `ทั้งหมด ${t} รายการ`}
+                                        showTotal={(tCount) => t('stockHistory.paginationTotal', { total: tCount })}
                                     />
                                 </div>
                             </>
                         ) : (
-                            <UIEmptyState title="ยังไม่มีประวัติออเดอร์" description="เมื่อมีรายการเสร็จสิ้น/ยกเลิก จะแสดงที่หน้านี้" />
+                            <UIEmptyState title={t('stockHistory.empty.title')} description={t('stockHistory.empty.desc')} />
                         )}
                     </div>
                 </PageSection>

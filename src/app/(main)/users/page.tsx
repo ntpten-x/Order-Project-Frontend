@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Button, message, Modal, Space } from 'antd';
+import { Button, message, Modal, Space, Grid } from 'antd';
 import { TeamOutlined } from '@ant-design/icons';
 import { User } from "../../../types/api/users";
 import { useRouter } from 'next/navigation';
@@ -27,6 +27,7 @@ import PageSection from "@/components/ui/page/PageSection";
 import PageStack from "@/components/ui/page/PageStack";
 import UIPageHeader from "@/components/ui/page/PageHeader";
 import UIEmptyState from "@/components/ui/states/EmptyState";
+import { t } from "@/utils/i18n";
 
 export default function UsersPage() {
   const router = useRouter();
@@ -36,6 +37,8 @@ export default function UsersPage() {
   const { showLoading, hideLoading } = useGlobalLoading();
   const { user, loading: authLoading } = useAuth();
   const [csrfToken, setCsrfToken] = useState<string>("");
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
 
   useEffect(() => {
     const fetchCsrf = async () => {
@@ -151,8 +154,8 @@ export default function UsersPage() {
       
       {/* Header */}
       <UIPageHeader
-        title="ผู้ใช้"
-        subtitle={`${users.length} รายการ`}
+        title={t("users.title")}
+        subtitle={t("users.subtitle", { count: users.length })}
         icon={<TeamOutlined />}
         actions={
           <Space size={8} wrap>
@@ -176,7 +179,7 @@ export default function UsersPage() {
               <div
                 style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
                   gap: 24,
                   justifyContent: 'center',
                 }}
@@ -196,11 +199,10 @@ export default function UsersPage() {
               </div>
             ) : (
               <UIEmptyState
-                title="ยังไม่มีผู้ใช้งาน"
-                description="เริ่มต้นด้วยการเพิ่มผู้ใช้งานคนแรก"
+                title={t("users.empty")}
                 action={
                   <Button type="primary" onClick={handleAdd}>
-                    เพิ่มผู้ใช้
+                    {t("users.add")}
                   </Button>
                 }
               />

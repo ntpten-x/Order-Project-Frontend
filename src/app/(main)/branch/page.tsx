@@ -27,6 +27,7 @@ import PageSection from "@/components/ui/page/PageSection";
 import PageStack from "@/components/ui/page/PageStack";
 import UIEmptyState from "@/components/ui/states/EmptyState";
 import UIPageHeader from "@/components/ui/page/PageHeader";
+import { t } from "@/utils/i18n";
 
 const { Title, Text } = Typography;
 const BRANCH_CACHE_KEY = "pos:branches";
@@ -49,7 +50,7 @@ export default function BranchPage() {
     execute(async () => {
       const data = await branchService.getAll();
       setBranches(data);
-    }, 'กำลังโหลดข้อมูลสาขา...');
+    }, t("branch.loading"));
   }, [execute]);
 
   useRealtimeList(
@@ -76,7 +77,7 @@ export default function BranchPage() {
   useEffect(() => {
     if (!authLoading && user) {
         if (user.role !== 'Admin') {
-            message.error("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
+            message.error(t("branch.noPermission"));
             router.push('/');
             return;
         }
@@ -96,20 +97,20 @@ export default function BranchPage() {
 
   const handleDelete = (branch: Branch) => {
     modal.confirm({
-        title: 'ยืนยันการลบสาขา',
-        content: `คุณต้องการลบสาขา "${branch.branch_name}" หรือไม่?`,
-        okText: 'ลบ',
+        title: t("branch.delete.title"),
+        content: t("branch.delete.content", { name: branch.branch_name }),
+        okText: t("branch.delete.ok"),
         okType: 'danger',
-        cancelText: 'ยกเลิก',
+        cancelText: t("branch.delete.cancel"),
         centered: true,
         onOk: async () => {
             try {
                 const csrfToken = await getCsrfTokenCached();
                 await branchService.delete(branch.id, undefined, csrfToken);
-                message.success(`ลบสาขา "${branch.branch_name}" สำเร็จ`);
+                message.success(t("branch.delete.success", { name: branch.branch_name }));
                 fetchBranches();
             } catch {
-                message.error('ไม่สามารถลบสาขาได้');
+                message.error(t("branch.delete.error"));
             }
         },
     });
@@ -119,9 +120,9 @@ export default function BranchPage() {
     execute(async () => {
       const csrfToken = await getCsrfTokenCached();
       await authService.switchBranch(branch.id, csrfToken);
-      message.success(`สลับไปสาขา "${branch.branch_name}" แล้ว`);
+      message.success(t("branch.switch.success", { name: branch.branch_name }));
       router.push("/pos");
-    }, "กำลังสลับสาขา...");
+    }, t("branch.switch.loading"));
   };
 
   // Filter and search branches
@@ -174,13 +175,13 @@ export default function BranchPage() {
       <BranchPageStyles />
       
       <UIPageHeader
-        title="สาขา"
-        subtitle={`${branches.length} รายการ`}
+        title={t("branch.page.title")}
+        subtitle={t("branch.page.subtitle", { count: branches.length })}
         icon={<ShopOutlined />}
         actions={
           <>
-            <Button onClick={fetchBranches}>รีเฟรช</Button>
-            <Button type="primary" onClick={handleAdd}>เพิ่มสาขา</Button>
+            <Button onClick={fetchBranches}>{t("branch.actions.refresh")}</Button>
+            <Button type="primary" onClick={handleAdd}>{t("branch.actions.add")}</Button>
           </>
         }
       />
@@ -205,7 +206,7 @@ export default function BranchPage() {
           <PageSection 
             title={
               <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <Title level={4} style={{ margin: 0, fontWeight: 700 }}>สาขาทั้งหมด</Title>
+                <Title level={4} style={{ margin: 0, fontWeight: 700 }}>{t("branch.section.listTitle")}</Title>
                 {searchQuery || filter !== 'all' ? (
                   <Badge 
                     count={filteredBranches.length} 
@@ -217,7 +218,7 @@ export default function BranchPage() {
             } 
             extra={
               <Text strong style={{ color: '#6366f1', background: '#eef2ff', padding: '4px 12px', borderRadius: 10 }}>
-                {filteredBranches.length} / {branches.length} สาขา
+                {t("branch.section.countTag", { filtered: filteredBranches.length, total: branches.length })}
               </Text>
             }
           >
@@ -250,20 +251,20 @@ export default function BranchPage() {
               </div>
             ) : (
               <UIEmptyState
-                title={searchQuery || filter !== 'all' ? "ไม่พบสาขาที่ค้นหา" : "ไม่พบข้อมูลสาขาในระบบ"}
+                title={t(searchQuery || filter !== 'all' ? "branch.empty.filtered.title" : "branch.empty.default.title")}
                 description={
                   searchQuery || filter !== 'all' 
-                    ? "ลองเปลี่ยนคำค้นหาหรือตัวกรองเพื่อดูผลลัพธ์อื่น" 
-                    : "กรุณาเพิ่มสาขาเพื่อให้สามารถเริ่มต้นการจัดการข้อมูลหรือเข้าสู่ระบบ POS ได้"
+                    ? t("branch.empty.filtered.description")
+                    : t("branch.empty.default.description")
                 }
                 action={
                   searchQuery || filter !== 'all' ? (
                     <Button onClick={() => { setSearchQuery(''); setFilter('all'); }}>
-                      ล้างตัวกรอง
+                      {t("branch.empty.reset")}
                     </Button>
                   ) : (
                     <Button type="primary" onClick={handleAdd}>
-                      เพิ่มสาขาใหม่
+                      {t("branch.empty.add")}
                     </Button>
                   )
                 }

@@ -1,10 +1,30 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+const BACKEND_API = process.env.NEXT_PUBLIC_BACKEND_API || 'http://localhost:4000'
+
+async function verifySession(request: NextRequest) {
+    const cookie = request.headers.get('cookie') || ''
+    try {
+        const res = await fetch(`${BACKEND_API}/auth/me`, {
+            method: 'GET',
+            headers: {
+                cookie,
+                'content-type': 'application/json',
+            },
+            cache: 'no-store',
+        })
+        if (!res.ok) return null
+        const data = await res.json().catch(() => null)
+        return data?.data || data || null
+    } catch {
+        return null
+    }
+}
+
 export async function middleware(request: NextRequest) {
     const { pathname } = request.nextUrl
 
-    // 1. Define public paths that don't require authentication
     const publicPaths = [
         '/login',
         '/register',
@@ -16,13 +36,9 @@ export async function middleware(request: NextRequest) {
         '/api/csrf'
     ]
 
-    // Check if the current path is public
     const isPublicPath = publicPaths.some(path => pathname.startsWith(path))
-
-    // 2. Get token from cookies (presence check only to avoid FE/BE secret drift)
     const token = request.cookies.get('token')?.value
 
-    // 3. Redirect Logic without edge-side JWT verify
     if (!token) {
         if (!isPublicPath) {
             if (pathname.startsWith('/api')) {
@@ -30,11 +46,20 @@ export async function middleware(request: NextRequest) {
             }
             return NextResponse.redirect(new URL('/login', request.url))
         }
-    } else {
-        // Logged-in users shouldn't see login page
-        if (pathname === '/login') {
-            return NextResponse.redirect(new URL('/', request.url))
+        return NextResponse.next()
+    }
+
+    // Validate session with backend
+    const user = await verifySession(request)
+    if (!user) {
+        if (pathname.startsWith('/api')) {
+            return NextResponse.json({ message: 'Unauthorized' }, { status: 401 })
         }
+        return NextResponse.redirect(new URL('/login', request.url))
+    }
+
+    if (pathname === '/login') {
+        return NextResponse.redirect(new URL('/', request.url))
     }
 
     return NextResponse.next()
@@ -42,13 +67,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
     matcher: [
-        /*
-         * Match all request paths except for the ones starting with:
-         * - _next/static (static files)
-         * - _next/image (image optimization files)
-         * - favicon.ico (favicon file)
-         * - .well-known (internal/dev-tool paths)
-         */
         '/((?!_next/static|_next/image|favicon.ico|.well-known).*)',
     ],
 }

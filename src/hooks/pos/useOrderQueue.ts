@@ -5,13 +5,14 @@ import { orderQueueService } from '../../services/pos/orderQueue.service';
 import { OrderQueue, QueueStatus, CreateOrderQueueDTO, UpdateOrderQueueStatusDTO } from '../../types/api/pos/orderQueue';
 import { message } from 'antd';
 import { RealtimeEvents } from '../../utils/realtimeEvents';
+import { t } from '../../utils/i18n';
 
 export function useOrderQueue(status?: QueueStatus) {
     const { socket } = useContext(SocketContext);
     const queryClient = useQueryClient();
     const queryKey = ['orderQueue', status || 'all'];
 
-    const { data = [], isLoading, refetch } = useQuery<OrderQueue[]>({
+    const { data = [], isLoading, error, refetch } = useQuery<OrderQueue[]>({
         queryKey,
         queryFn: async () => {
             return await orderQueueService.getAll(undefined, status);
@@ -107,10 +108,10 @@ export function useOrderQueue(status?: QueueStatus) {
         mutationFn: (data: CreateOrderQueueDTO) => orderQueueService.addToQueue(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey, exact: true });
-            message.success('เพิ่มออเดอร์เข้าคิวสำเร็จ');
+            message.success(t('queue.addSuccess'));
         },
         onError: (error: Error) => {
-            message.error(error.message || 'ไม่สามารถเพิ่มออเดอร์เข้าคิวได้');
+            message.error(error.message || t('queue.addError'));
         },
     });
 
@@ -119,10 +120,10 @@ export function useOrderQueue(status?: QueueStatus) {
             orderQueueService.updateStatus(id, data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey, exact: true });
-            message.success('อัปเดตสถานะสำเร็จ');
+            message.success(t('queue.updateStatusSuccess'));
         },
         onError: (error: Error) => {
-            message.error(error.message || 'ไม่สามารถอัปเดตสถานะได้');
+            message.error(error.message || t('queue.updateStatusError'));
         },
     });
 
@@ -130,10 +131,10 @@ export function useOrderQueue(status?: QueueStatus) {
         mutationFn: (id: string) => orderQueueService.removeFromQueue(id),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey, exact: true });
-            message.success('ลบออกจากคิวสำเร็จ');
+            message.success(t('queue.removeSuccess'));
         },
         onError: (error: Error) => {
-            message.error(error.message || 'ไม่สามารถลบออกจากคิวได้');
+            message.error(error.message || t('queue.removeError'));
         },
     });
 
@@ -141,16 +142,17 @@ export function useOrderQueue(status?: QueueStatus) {
         mutationFn: () => orderQueueService.reorderQueue(),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey, exact: true });
-            message.success('จัดเรียงคิวใหม่สำเร็จ');
+            message.success(t('queue.reorderSuccess'));
         },
         onError: (error: Error) => {
-            message.error(error.message || 'ไม่สามารถจัดเรียงคิวใหม่ได้');
+            message.error(error.message || t('queue.reorderError'));
         },
     });
 
     return {
         queue: data,
         isLoading,
+        error,
         refetch,
         addToQueue: addToQueueMutation.mutate,
         updateStatus: updateStatusMutation.mutate,

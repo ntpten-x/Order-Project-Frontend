@@ -7,6 +7,7 @@ import { offlineQueueService } from "../services/pos/offline.queue.service";
 import { User, LoginCredentials } from "../types/api/auth";
 import { Spin } from "antd";
 import { useGlobalLoading } from "./pos/GlobalLoadingContext";
+import { t } from "../utils/i18n";
 
 interface AuthContextType {
     user: User | null;
@@ -49,7 +50,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const login = async (credentials: LoginCredentials) => {
         try {
-            showLoading("กำลังเข้าสู่ระบบ...");
+            showLoading(t("auth.loadingLogin"));
             
             // Get CSRF Token first
             const csrfToken = await authService.getCsrfToken();
@@ -67,7 +68,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     const logout = async () => {
         try {
-            showLoading("กำลังออกจากระบบ...");
+            showLoading(t("auth.loadingLogout"));
             
             await authService.logout();
             offlineQueueService.clearQueue();

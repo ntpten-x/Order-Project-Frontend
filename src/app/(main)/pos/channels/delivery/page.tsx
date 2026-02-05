@@ -8,6 +8,8 @@ import PageContainer from "@/components/ui/page/PageContainer";
 import PageSection from "@/components/ui/page/PageSection";
 import UIPageHeader from "@/components/ui/page/PageHeader";
 import UIEmptyState from "@/components/ui/states/EmptyState";
+import PageState from "@/components/ui/states/PageState";
+import { t } from "@/utils/i18n";
 import { useDelivery } from "../../../../../hooks/pos/useDelivery";
 import { OrderType, SalesOrderSummary } from "../../../../../types/api/pos/salesOrder";
 import { Delivery } from "../../../../../types/api/pos/delivery";
@@ -29,7 +31,7 @@ dayjs.locale('th');
 export default function DeliverySelectionPage() {
     const router = useRouter();
     const { showLoading, hideLoading } = useGlobalLoading();
-    const { deliveryProviders, isLoading: isLoadingProviders } = useDelivery();
+    const { deliveryProviders, isLoading: isLoadingProviders, isError: deliveryError, mutate: refetchProviders } = useDelivery();
     const { orders, isLoading } = useChannelOrders({ orderType: OrderType.Delivery });
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -44,7 +46,7 @@ export default function DeliverySelectionPage() {
 
     useEffect(() => {
         if (isLoading || isLoadingProviders) {
-            showLoading("กำลังโหลดออเดอร์...");
+            showLoading(t("delivery.loadingOrders"));
         } else {
             hideLoading();
         }
@@ -175,8 +177,15 @@ export default function DeliverySelectionPage() {
                     }
                 />
 
-                <PageContainer>
-                    <PageSection title="ออเดอร์">
+        <PageContainer>
+            {deliveryError ? (
+                <PageState status="error" title={t("page.error")} onRetry={() => refetchProviders()} />
+            ) : !isLoadingProviders && deliveryProviders.length === 0 ? (
+                <PageState status="empty" title={t("delivery.noProviders")} action={
+                    <Button onClick={() => refetchProviders()}>{t("delivery.retry")}</Button>
+                } />
+            ) : (
+            <PageSection title="ออเดอร์">
                     {orders.length > 0 ? (
                         <Row gutter={[16, 16]}>
                             {orders.map((order: SalesOrderSummary, index) => {
@@ -275,16 +284,17 @@ export default function DeliverySelectionPage() {
                         </Row>
                     ) : (
                         <UIEmptyState
-                            title="ไม่มีออเดอร์เดลิเวอรี่"
+                            title={t("delivery.noOrders")}
                             description="เริ่มรับออเดอร์โดยกดปุ่ม “เพิ่มออเดอร์”"
                             action={
                                 <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateOrderClick}>
-                                    สร้างออเดอร์ใหม่
+                                    {t("delivery.createNewOrder")}
                                 </Button>
                             }
                         />
                     )}
                     </PageSection>
+                )}
                 </PageContainer>
 
                 {/* Create Order Modal */}
@@ -303,8 +313,8 @@ export default function DeliverySelectionPage() {
                                 <RocketOutlined style={{ color: channelColors.delivery.primary, fontSize: 20 }} />
                             </div>
                             <div>
-                                <div style={{ fontSize: 18, fontWeight: 700, color: '#1E293B' }}>เปิดออเดอร์เดลิเวอรี่</div>
-                                <div style={{ fontSize: 13, fontWeight: 400, color: '#94A3B8' }}>กรอกข้อมูลเพื่อสร้างออเดอร์ใหม่</div>
+                                <div style={{ fontSize: 18, fontWeight: 700, color: '#1E293B' }}>{t("delivery.createOrder")}</div>
+                                <div style={{ fontSize: 13, fontWeight: 400, color: '#94A3B8' }}>{t("delivery.createOrderSubtitle")}</div>
                             </div>
                         </div>
                     }
@@ -324,7 +334,7 @@ export default function DeliverySelectionPage() {
                             fontWeight: 600,
                             padding: '0 24px',
                         },
-                        disabled: !selectedProviderId || !deliveryCode.trim()
+                        disabled: isLoadingProviders || !selectedProviderId || !deliveryCode.trim()
                     }}
                     cancelButtonProps={{
                         style: {
@@ -338,10 +348,10 @@ export default function DeliverySelectionPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                         <div>
                             <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 14, color: '#475569' }}>
-                                เลือกผู้ให้บริการ (Delivery Provider)
+                                {t("delivery.selectProvider")}
                             </Text>
                             <Select
-                                placeholder="เลือกผู้ให้บริการ"
+                                placeholder={t("delivery.selectProviderPlaceholder")}
                                 style={{ width: '100%' }}
                                 size="large"
                                 value={selectedProviderId}
@@ -351,15 +361,15 @@ export default function DeliverySelectionPage() {
                                 dropdownStyle={{ borderRadius: 12, padding: 8 }}
                                 dropdownMatchSelectWidth
                                 getPopupContainer={(trigger) => trigger?.closest('.delivery-modal') || trigger?.parentElement || document.body}
-                                notFoundContent={isLoadingProviders ? "กำลังโหลด..." : "ไม่พบผู้ให้บริการ"}
+                                notFoundContent={isLoadingProviders ? t("delivery.loadingOrders") : t("delivery.noProviders")}
                             />
                         </div>
                         <div>
                             <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 14, color: '#475569' }}>
-                                รหัสเดลิเวอรี่ / Order Code
+                                {t("delivery.orderCode")}
                             </Text>
                             <Input
-                                placeholder="ระบุรหัสออเดอร์ (เช่น 123)"
+                                placeholder={t("delivery.enterOrderCode")}
                                 addonBefore={selectedProvider?.delivery_prefix ? `${selectedProvider.delivery_prefix}-` : undefined}
                                 value={deliveryCode}
                                 onChange={(e) => setDeliveryCode(e.target.value)}

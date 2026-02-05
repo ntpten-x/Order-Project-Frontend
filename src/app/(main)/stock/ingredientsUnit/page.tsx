@@ -1,14 +1,13 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { message, Modal, Spin, Typography, Button, Space } from 'antd';
 import { ExperimentOutlined, ReloadOutlined, PlusOutlined } from '@ant-design/icons';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { IngredientsUnit } from "../../../../types/api/stock/ingredientsUnit";
 import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
-import { useAsyncAction } from "../../../../hooks/useAsyncAction";
 import { useSocket } from "../../../../hooks/useSocket";
-import { useRealtimeList } from "../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { useAuth } from "../../../../contexts/AuthContext";
 import {
@@ -22,6 +21,7 @@ import PageSection from "@/components/ui/page/PageSection";
 import PageStack from "@/components/ui/page/PageStack";
 import UIPageHeader from "@/components/ui/page/PageHeader";
 import UIEmptyState from "@/components/ui/states/EmptyState";
+import { t } from "@/utils/i18n";
 
 const { Text } = Typography;
 
@@ -30,33 +30,10 @@ import { authService } from "../../../../services/auth.service";
 export default function IngredientsUnitPage() {
     const router = useRouter();
     const { user, loading: authLoading } = useAuth();
-    const [ingredientsUnits, setIngredientsUnits] = useState<IngredientsUnit[]>([]);
-    const { execute } = useAsyncAction();
+    const queryClient = useQueryClient();
     const { showLoading, hideLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const [csrfToken, setCsrfToken] = useState<string>("");
-
     const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
-
-    useEffect(() => {
-        const fetchCsrf = async () => {
-             const token = await authService.getCsrfToken();
-             setCsrfToken(token);
-        };
-        fetchCsrf();
-    }, []);
-
-    const fetchIngredientsUnits = useCallback(async () => {
-        execute(async () => {
-            const response = await fetch('/api/stock/ingredientsUnit/getAll');
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลหน่วยวัตถุดิบได้');
-            }
-            const data = await response.json();
-            setIngredientsUnits(data);
-        }, 'กำลังโหลดข้อมูลหน่วยวัตถุดิบ...');
-    }, [execute]);
 
     useEffect(() => {
         if (!authLoading) {
@@ -67,31 +44,75 @@ export default function IngredientsUnitPage() {
                 }, 1000); 
             } else {
                 setIsAuthorized(true);
-                fetchIngredientsUnits();
             }
         }
-    }, [user, authLoading, router, fetchIngredientsUnits]);
+    }, [user, authLoading, router]);
+
+    const { data: csrfToken = "" } = useQuery({
+        queryKey: ['csrfToken'],
+        queryFn: () => authService.getCsrfToken(),
+        staleTime: 10 * 60 * 1000,
+    });
+
+    const { data: ingredientsData = [], isLoading, isFetching } = useQuery<IngredientsUnit[]>({
+        queryKey: ['ingredientsUnits'],
+        queryFn: async () => {
+            const response = await fetch('/api/stock/ingredientsUnit/getAll', { cache: 'no-store' });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || errorData.message || t('ingredientsUnit.fetch.error'));
+            }
+            return await response.json();
+        },
+        staleTime: 60 * 1000,
+        enabled: isAuthorized === true,
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: async (unit: IngredientsUnit) => {
+            const token = csrfToken || await authService.getCsrfToken();
+            const response = await fetch(`/api/stock/ingredientsUnit/delete/${unit.id}`, {
+                method: 'DELETE',
+                headers: {
+                    'X-CSRF-Token': token || '',
+                },
+            });
+            if (!response.ok) {
+                throw new Error(t('ingredientsUnit.fetch.error'));
+            }
+            return unit.id;
+        },
+        onSuccess: (_id, unit) => {
+            queryClient.invalidateQueries({ queryKey: ['ingredientsUnits'] });
+            message.success(t('ingredientsUnit.delete.success', { name: unit.display_name }));
+        },
+        onError: (error: unknown) => {
+            const errMsg = error instanceof Error ? error.message : t('ingredientsUnit.fetch.error');
+            message.error(errMsg);
+        },
+    });
 
     useEffect(() => {
-        fetchIngredientsUnits();
-    }, [fetchIngredientsUnits]);
-
-    useEffect(() => {
-        if (!socket) return;
+        if (!socket || isAuthorized !== true) return;
 
         socket.on(RealtimeEvents.ingredientsUnit.create, (newItem: IngredientsUnit) => {
-            setIngredientsUnits((prev) => [...prev, newItem]);
-            message.success(`เพิ่มหน่วยวัตถุดิบ ${newItem.unit_name} แล้ว`);
+            queryClient.setQueryData<IngredientsUnit[]>(['ingredientsUnits'], (prev = []) => {
+                if (prev.some((item) => item.id === newItem.id)) return prev;
+                return [...prev, newItem];
+            });
+            message.success(t('ingredientsUnit.create.toast', { name: newItem.unit_name }));
         });
 
         socket.on(RealtimeEvents.ingredientsUnit.update, (updatedItem: IngredientsUnit) => {
-            setIngredientsUnits((prev) =>
+            queryClient.setQueryData<IngredientsUnit[]>(['ingredientsUnits'], (prev = []) =>
                 prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
             );
         });
 
         socket.on(RealtimeEvents.ingredientsUnit.delete, ({ id }: { id: string }) => {
-            setIngredientsUnits((prev) => prev.filter((item) => item.id !== id));
+            queryClient.setQueryData<IngredientsUnit[]>(['ingredientsUnits'], (prev = []) =>
+                prev.filter((item) => item.id !== id)
+            );
         });
 
         return () => {
@@ -99,7 +120,7 @@ export default function IngredientsUnitPage() {
             socket.off(RealtimeEvents.ingredientsUnit.update);
             socket.off(RealtimeEvents.ingredientsUnit.delete);
         };
-    }, [socket]);
+    }, [socket, queryClient, isAuthorized]);
 
     const handleAdd = () => {
         showLoading();
@@ -115,25 +136,14 @@ export default function IngredientsUnitPage() {
 
     const handleDelete = (unit: IngredientsUnit) => {
         Modal.confirm({
-            title: 'ยืนยันการลบหน่วยวัตถุดิบ',
-            content: `คุณต้องการลบหน่วยวัตถุดิบ "${unit.display_name}" หรือไม่?`,
-            okText: '??',
+            title: t('ingredientsUnit.delete.title'),
+            content: t('ingredientsUnit.delete.content', { name: unit.display_name }),
+            okText: t('ingredientsUnit.delete.ok'),
             okType: 'danger',
-            cancelText: 'ยกเลิก',
+            cancelText: t('ingredientsUnit.delete.cancel'),
             centered: true,
             onOk: async () => {
-                await execute(async () => {
-                    const response = await fetch(`/api/stock/ingredientsUnit/delete/${unit.id}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'X-CSRF-Token': csrfToken
-                        }
-                    });
-                    if (!response.ok) {
-                        throw new Error('ไม่สามารถลบหน่วยวัตถุดิบได้');
-                    }
-                    message.success(`ลบหน่วยวัตถุดิบ "${unit.display_name}" สำเร็จ`);
-                }, "กำลังลบหน่วยวัตถุดิบ...");
+                await deleteMutation.mutateAsync(unit);
             },
         });
     };
@@ -149,7 +159,7 @@ export default function IngredientsUnitPage() {
                 gap: 16 
             }}>
                 <Spin size="large" />
-                <Text type="secondary">กำลังตรวจสอบสิทธิ์การใช้งาน...</Text>
+                <Text type="secondary">{t('common.checkingAuth')}</Text>
             </div>
         );
     }
@@ -165,26 +175,34 @@ export default function IngredientsUnitPage() {
                 gap: 16 
             }}>
                 <Spin size="large" />
-                <Text type="danger">คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับหน้าแรก...</Text>
+                <Text type="danger">{t('common.noPermissionRedirect')}</Text>
             </div>
         );
     }
 
-    const activeUnits = ingredientsUnits.filter(u => u.is_active);
-    const inactiveUnits = ingredientsUnits.filter(u => !u.is_active);
+    const activeUnits = ingredientsData.filter(u => u.is_active);
+    const inactiveUnits = ingredientsData.filter(u => !u.is_active);
 
     return (
         <div className="ingredients-unit-page" style={pageStyles.container}>
             <IngredientsUnitPageStyles />
             
             <UIPageHeader
-                title="หน่วยวัตถุดิบ"
-                subtitle={`${ingredientsUnits.length} รายการ`}
+                title={t('ingredientsUnit.title')}
+                subtitle={t('ingredientsUnit.subtitle', { count: ingredientsData.length })}
                 icon={<ExperimentOutlined />}
                 actions={
                     <Space size={8} wrap>
-                        <Button icon={<ReloadOutlined />} onClick={fetchIngredientsUnits}>รีเฟรช</Button>
-                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>เพิ่มหน่วยวัตถุดิบ</Button>
+                        <Button
+                            icon={<ReloadOutlined />}
+                            onClick={() => queryClient.invalidateQueries({ queryKey: ['ingredientsUnits'] })}
+                            loading={isFetching}
+                        >
+                            {t('ingredientsUnit.button.refresh')}
+                        </Button>
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                            {t('ingredientsUnit.button.add')}
+                        </Button>
                     </Space>
                 }
             />
@@ -192,18 +210,22 @@ export default function IngredientsUnitPage() {
             <PageContainer>
                 <PageStack>
                     <StatsCard 
-                        totalUnits={ingredientsUnits.length}
+                        totalUnits={ingredientsData.length}
                         activeUnits={activeUnits.length}
                         inactiveUnits={inactiveUnits.length}
                     />
 
                     <PageSection
-                        title="รายการหน่วยวัตถุดิบ"
-                        extra={<span style={{ fontWeight: 600 }}>{ingredientsUnits.length}</span>}
+                        title={t('ingredientsUnit.section.list')}
+                        extra={<span style={{ fontWeight: 600 }}>{ingredientsData.length}</span>}
                     >
-                        {ingredientsUnits.length > 0 ? (
+                        {isLoading ? (
+                            <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
+                                <Spin tip={t('ingredientsUnit.loading')} />
+                            </div>
+                        ) : ingredientsData.length > 0 ? (
                             <div style={pageStyles.listContainer}>
-                                {ingredientsUnits.map((unit, index) => (
+                                {ingredientsData.map((unit, index) => (
                                     <UnitCard
                                         key={unit.id}
                                         unit={unit}
@@ -215,11 +237,11 @@ export default function IngredientsUnitPage() {
                             </div>
                         ) : (
                             <UIEmptyState
-                                title="ยังไม่มีหน่วยวัตถุดิบ"
-                                description="เริ่มต้นด้วยการเพิ่มหน่วยวัตถุดิบแรกของคุณ"
+                                title={t('ingredientsUnit.empty.title')}
+                                description={t('ingredientsUnit.empty.desc')}
                                 action={
                                     <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                        เพิ่มหน่วยวัตถุดิบ
+                                        {t('ingredientsUnit.button.add')}
                                     </Button>
                                 }
                             />

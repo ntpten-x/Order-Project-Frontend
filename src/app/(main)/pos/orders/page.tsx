@@ -30,6 +30,8 @@ import PageSection from "@/components/ui/page/PageSection";
 import UIPageHeader from "@/components/ui/page/PageHeader";
 import UIEmptyState from "@/components/ui/states/EmptyState";
 import PageTable from "@/components/ui/table/PageTable";
+import PageState from "@/components/ui/states/PageState";
+import { t } from "@/utils/i18n";
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -54,7 +56,7 @@ export default function POSOrdersPage() {
         setPage(1);
     }, [debouncedSearch]);
 
-    const { orders, total, isLoading, refetch } = useOrdersSummary({
+    const { orders, total, isLoading, isFetching, isError, refetch } = useOrdersSummary({
         page,
         limit: LIMIT,
         status: activeStatuses,
@@ -182,6 +184,37 @@ export default function POSOrdersPage() {
         }
     ];
 
+    if (isError) {
+        return (
+            <div style={{ 
+                ...ordersStyles.container, 
+                background: 'radial-gradient(circle at 20% 10%, rgba(99,102,241,0.06), transparent 26%), radial-gradient(circle at 80% 0%, rgba(16,185,129,0.05), transparent 20%), #f8fafc',
+                minHeight: '100vh'
+            }}>
+                <UIPageHeader
+                    title="ออเดอร์"
+                    subtitle="มอนิเตอร์ทุกช่องทาง • เน้นงานที่ต้องเร่งก่อน"
+                    onBack={() => router.push('/pos')}
+                    icon={<ContainerOutlined style={{ fontSize: 20 }} />}
+                    actions={
+                        <Space size={8} wrap>
+                            <Button icon={<ReloadOutlined />} onClick={() => refetch()}>
+                                {t("orders.loading")}
+                            </Button>
+                        </Space>
+                    }
+                />
+                <PageContainer>
+                    <PageSection>
+                        <PageState status="error" title={t("orders.error")} onRetry={() => refetch()} />
+                    </PageSection>
+                </PageContainer>
+            </div>
+        );
+    }
+
+    const isInitialLoading = isLoading && orders.length === 0 && !isFetching;
+
     return (
         <div style={{ 
             ...ordersStyles.container, 
@@ -213,6 +246,9 @@ export default function POSOrdersPage() {
 
             <PageContainer>
                 <PageSection>
+            {isInitialLoading ? (
+                <PageState status="loading" title={t("orders.loading")} />
+            ) : (
             <main style={ordersStyles.contentWrapper} className="orders-content-wrapper">
                 <div style={{
                     display: 'grid',
@@ -383,6 +419,7 @@ export default function POSOrdersPage() {
                     )}
                 </Card>
             </main>
+            )}
                 </PageSection>
             </PageContainer>
         </div>

@@ -114,6 +114,12 @@ const AppHeader: React.FC = () => {
       <div ref={dropdownRef} style={{ position: 'relative' }}>
         <div
           onClick={() => setDropdownOpen(!dropdownOpen)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setDropdownOpen((prev) => !prev);
+            }
+          }}
           style={{
             display: 'flex',
             alignItems: 'center',
@@ -126,6 +132,10 @@ const AppHeader: React.FC = () => {
             transition: 'all 0.2s ease',
           }}
           className="user-profile-trigger"
+          role="button"
+          tabIndex={0}
+          aria-expanded={dropdownOpen}
+          aria-label="User menu"
         >
           <Avatar
             size={isMobile ? 32 : 36}
