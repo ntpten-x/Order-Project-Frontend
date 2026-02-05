@@ -2,7 +2,7 @@
 
 import { useOrderListPrefetching } from "../../../../hooks/pos/usePrefetching";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Typography, Card, Tag, Button, Divider, Grid, List, Input, Space } from "antd";
 import { 
   ReloadOutlined, 
@@ -60,6 +60,14 @@ export default function POSOrdersPage() {
         status: activeStatuses,
         query: debouncedSearch || undefined
     });
+
+    const stats = useMemo(() => {
+        const pending = orders.filter(o => o.status === OrderStatus.Pending).length;
+        const cooking = orders.filter(o => o.status === OrderStatus.Cooking).length;
+        const waitingPayment = orders.filter(o => o.status === OrderStatus.WaitingForPayment).length;
+        const sumAmount = orders.reduce((acc, cur) => acc + Number(cur.total_amount || 0), 0);
+        return { pending, cooking, waitingPayment, sumAmount };
+    }, [orders]);
 
 
     const columns = [
@@ -175,19 +183,23 @@ export default function POSOrdersPage() {
     ];
 
     return (
-        <div style={ordersStyles.container}>
+        <div style={{ 
+            ...ordersStyles.container, 
+            background: 'radial-gradient(circle at 20% 10%, rgba(99,102,241,0.06), transparent 26%), radial-gradient(circle at 80% 0%, rgba(16,185,129,0.05), transparent 20%), #f8fafc',
+            minHeight: '100vh'
+        }}>
             <style jsx global>{ordersResponsiveStyles}</style>
 
             <UIPageHeader
                 title="ออเดอร์"
-                subtitle="รายการออเดอร์ที่กำลังดำเนินการ"
+                subtitle="มอนิเตอร์ทุกช่องทาง • เน้นงานที่ต้องเร่งก่อน"
                 onBack={() => router.push('/pos')}
                 icon={<ContainerOutlined style={{ fontSize: 20 }} />}
                 actions={
                     <Space size={8} wrap>
                         <Input
                             allowClear
-                            placeholder="ค้นหาออเดอร์..."
+                            placeholder="ค้นหาเลขที่ออเดอร์ โต๊ะ หรือรหัสอ้างอิง"
                             value={searchValue}
                             onChange={(e) => setSearchValue(e.target.value)}
                             style={{ minWidth: isMobile ? 200 : 280 }}
@@ -202,6 +214,34 @@ export default function POSOrdersPage() {
             <PageContainer>
                 <PageSection>
             <main style={ordersStyles.contentWrapper} className="orders-content-wrapper">
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: 16,
+                    marginBottom: 20
+                }}>
+                    {[
+                        { label: 'รอทำ', value: stats.pending, color: '#f59e0b', bg: '#fffbeb' },
+                        { label: 'กำลังทำ', value: stats.cooking, color: '#0ea5e9', bg: '#e0f2fe' },
+                        { label: 'รอชำระ', value: stats.waitingPayment, color: '#6366f1', bg: '#eef2ff' },
+                        { label: 'ยอดต่อหน้า', value: formatCurrency(stats.sumAmount), color: '#0f172a', bg: '#e2e8f0' },
+                    ].map((card) => (
+                        <div key={card.label} style={{
+                            background: card.bg,
+                            borderRadius: 16,
+                            padding: '14px 16px',
+                            border: '1px solid rgba(148,163,184,0.3)',
+                            boxShadow: '0 10px 20px rgba(15, 23, 42, 0.06)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 6
+                        }}>
+                            <Text style={{ color: '#475569', fontWeight: 600 }}>{card.label}</Text>
+                            <Text strong style={{ color: card.color, fontSize: 22 }}>{card.value}</Text>
+                        </div>
+                    ))}
+                </div>
+
                 <Card 
                     bordered={false} 
                     style={{ 
@@ -247,6 +287,9 @@ export default function POSOrdersPage() {
                                         style={{
                                             ...ordersStyles.orderCard,
                                             marginBottom: 14,
+                                            background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                                            border: '1px solid #e2e8f0',
+                                            boxShadow: '0 10px 30px rgba(15,23,42,0.06)'
                                         }} 
                                         className={`orders-card fade-in`}
                                         onClick={() => router.push(`/pos/orders/${order.id}`)}

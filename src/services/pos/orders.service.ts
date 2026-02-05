@@ -128,7 +128,12 @@ export const ordersService = {
 
         const json = await response.json();
         try {
-            return SalesOrderSchema.parse(unwrapBackendData(json)) as unknown as SalesOrder;
+            const payload = unwrapBackendData(json) as unknown;
+            if (Array.isArray(payload)) {
+                if (payload.length === 0) throw new Error("Order not found");
+                return SalesOrderSchema.parse(payload[0]) as unknown as SalesOrder;
+            }
+            return SalesOrderSchema.parse(payload) as unknown as SalesOrder;
         } catch (error) {
             console.error("Zod Validation Error in ordersService.getById:", error);
             if (error instanceof ZodError) {
@@ -221,7 +226,13 @@ export const ordersService = {
             const errorData = await response.json().catch(() => ({}));
             throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลรายการได้"));
         }
-        return unwrapBackendData(await response.json()) as SalesOrderItem[];
+        const payload = unwrapBackendData(await response.json()) as unknown;
+        if (Array.isArray(payload)) return payload as SalesOrderItem[];
+        if (payload && typeof payload === "object" && "data" in (payload as Record<string, unknown>)) {
+            const data = (payload as { data: unknown }).data;
+            if (Array.isArray(data)) return data as SalesOrderItem[];
+        }
+        return payload as SalesOrderItem[];
     },
 
     addItem: async (orderId: string, itemData: CreateOrderItemDTO, cookie?: string, csrfToken?: string): Promise<SalesOrder> => {

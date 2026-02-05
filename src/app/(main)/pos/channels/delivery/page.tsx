@@ -348,6 +348,10 @@ export default function DeliverySelectionPage() {
                                 onChange={setSelectedProviderId}
                                 options={(deliveryProviders as Delivery[]).map((p: Delivery) => ({ label: p.delivery_name, value: p.id }))}
                                 loading={isLoadingProviders}
+                                dropdownStyle={{ borderRadius: 12, padding: 8 }}
+                                dropdownMatchSelectWidth
+                                getPopupContainer={(trigger) => trigger?.closest('.delivery-modal') || trigger?.parentElement || document.body}
+                                notFoundContent={isLoadingProviders ? "กำลังโหลด..." : "ไม่พบผู้ให้บริการ"}
                             />
                         </div>
                         <div>
