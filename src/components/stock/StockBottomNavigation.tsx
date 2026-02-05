@@ -17,6 +17,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useSocket } from "../../hooks/useSocket";
 import { ordersService } from "../../services/stock/orders.service";
 import FloatingBottomNav from "../navigation/FloatingBottomNav";
+import { LegacyRealtimeEvents, RealtimeEvents } from "../../utils/realtimeEvents";
 
 const StockBottomNavigation = () => {
   const router = useRouter();
@@ -46,18 +47,25 @@ const StockBottomNavigation = () => {
   useEffect(() => {
     if (!socket) return;
 
-    const handleUpdate = (payload: { action: string }) => {
+    const scheduleRefresh = () => setTimeout(checkPendingOrders, 500);
+    const handleLegacyUpdate = (payload: { action?: string }) => {
       if (payload?.action === "create" || payload?.action === "update_status") {
-        setTimeout(checkPendingOrders, 500);
+        scheduleRefresh();
       }
     };
 
-    socket.on("orders_updated", handleUpdate);
+    socket.on(RealtimeEvents.stockOrders.create, scheduleRefresh);
+    socket.on(RealtimeEvents.stockOrders.status, scheduleRefresh);
+    socket.on(RealtimeEvents.stockOrders.delete, scheduleRefresh);
+    socket.on(LegacyRealtimeEvents.stockOrdersUpdated, handleLegacyUpdate);
     const onFocus = () => checkPendingOrders();
     window.addEventListener("focus", onFocus);
 
     return () => {
-      socket.off("orders_updated", handleUpdate);
+      socket.off(RealtimeEvents.stockOrders.create, scheduleRefresh);
+      socket.off(RealtimeEvents.stockOrders.status, scheduleRefresh);
+      socket.off(RealtimeEvents.stockOrders.delete, scheduleRefresh);
+      socket.off(LegacyRealtimeEvents.stockOrdersUpdated, handleLegacyUpdate);
       window.removeEventListener("focus", onFocus);
     };
   }, [socket, checkPendingOrders]);

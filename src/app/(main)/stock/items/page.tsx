@@ -43,6 +43,7 @@ import PageSection from "@/components/ui/page/PageSection";
 import PageStack from "@/components/ui/page/PageStack";
 import UIPageHeader from "@/components/ui/page/PageHeader";
 import UIEmptyState from "@/components/ui/states/EmptyState";
+import { LegacyRealtimeEvents, RealtimeEvents } from "../../../../utils/realtimeEvents";
 
 const { Text } = Typography;
 
@@ -81,14 +82,52 @@ export default function ItemsPage() {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on("orders_updated", (payload: { action: string, data?: Order, id?: string, orderId?: string }) => {
+    const handleCreate = (data: Order) => {
+      if (data && data.status === OrderStatus.PENDING) {
+        setOrders(prev => [data, ...prev]);
+        message.success("New stock order received.");
+      }
+    };
+
+    const handleUpdate = (data: Order) => {
+      if (!data) return;
+      if (data.status === OrderStatus.PENDING) {
+        setOrders(prev => prev.map(order => order.id === data.id ? data : order));
+      } else {
+        setOrders(prev => prev.filter(order => order.id !== data.id));
+      }
+    };
+
+    const handleStatus = (data: Order) => {
+      if (!data) return;
+      if (data.status === OrderStatus.PENDING) {
+        setOrders(prev => prev.map(order => order.id === data.id ? data : order));
+      } else {
+        setOrders(prev => prev.filter(order => order.id !== data.id));
+      }
+      message.info("Order status updated.");
+    };
+
+    const handleDelete = (payload: { id?: string }) => {
+      if (payload?.id) {
+        setOrders(prev => prev.filter(order => order.id !== payload.id));
+        message.warning("Order deleted.");
+      }
+    };
+
+    const handleDetailUpdate = (payload: { orderId?: string }) => {
+      if (payload?.orderId) {
+        fetchOrders();
+      }
+    };
+
+    const handleLegacyUpdate = (payload: { action: string; data?: Order; id?: string; orderId?: string }) => {
       const { action, data, id, orderId } = payload;
-      
       switch (action) {
         case "create":
           if (data && data.status === OrderStatus.PENDING) {
             setOrders(prev => [data, ...prev]);
-            message.success("🆕 มีออเดอร์ใหม่เข้ามา");
+            message.success("New stock order received.");
           }
           break;
         case "update_status":
@@ -98,28 +137,40 @@ export default function ItemsPage() {
             } else {
               setOrders(prev => prev.filter(order => order.id !== data.id));
             }
-            message.info(`อัปเดตสถานะออเดอร์`);
+            message.info("Order status updated.");
           }
           break;
         case "delete":
           if (id) {
             setOrders(prev => prev.filter(order => order.id !== id));
-            message.warning("ลบออเดอร์แล้ว");
+            message.warning("Order deleted.");
           }
           break;
         case "update_item_detail":
           if (orderId) {
-            fetchOrders(); 
+            fetchOrders();
           }
           break;
         default:
           fetchOrders();
           break;
       }
-    });
+    };
+
+    socket.on(RealtimeEvents.stockOrders.create, handleCreate);
+    socket.on(RealtimeEvents.stockOrders.update, handleUpdate);
+    socket.on(RealtimeEvents.stockOrders.status, handleStatus);
+    socket.on(RealtimeEvents.stockOrders.delete, handleDelete);
+    socket.on(RealtimeEvents.stockOrders.detailUpdate, handleDetailUpdate);
+    socket.on(LegacyRealtimeEvents.stockOrdersUpdated, handleLegacyUpdate);
 
     return () => {
-      socket.off("orders_updated");
+      socket.off(RealtimeEvents.stockOrders.create, handleCreate);
+      socket.off(RealtimeEvents.stockOrders.update, handleUpdate);
+      socket.off(RealtimeEvents.stockOrders.status, handleStatus);
+      socket.off(RealtimeEvents.stockOrders.delete, handleDelete);
+      socket.off(RealtimeEvents.stockOrders.detailUpdate, handleDetailUpdate);
+      socket.off(LegacyRealtimeEvents.stockOrdersUpdated, handleLegacyUpdate);
     };
   }, [socket, fetchOrders]);
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import Image from "next/image";
 import { Typography, Button, Spin, Empty, Badge, Drawer, List, message, Pagination, Input, Modal, Tag, InputNumber } from "antd";
 import { 
@@ -23,7 +23,8 @@ import { Products } from "../../../types/api/pos/products";
 import { 
   posLayoutStyles, 
   posColors, 
-  POSSharedStyles 
+  POSSharedStyles,
+  posComponentStyles
 } from "./style";
 import { groupOrderItems, type GroupedOrderItem } from "../../../utils/orderGrouping";
 import { 
@@ -84,21 +85,49 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
     clearCart,
     updateItemDetails,
     orderMode,
-    getTotalItems, 
-    getSubtotal,
-    getFinalPrice,
+    selectedDiscount,
   } = useCart();
 
-  const totalItems = getTotalItems();
-  const subtotal = getSubtotal();
-  const finalPrice = getFinalPrice();
-  const discountAmount = Math.max(0, subtotal - finalPrice);
+  const cartTotals = useMemo(() => {
+    let totalItems = 0;
+    let subtotal = 0;
 
-  const getProductUnitPrice = (product: Products): number => {
-    return orderMode === 'DELIVERY'
-      ? Number(product.price_delivery ?? product.price)
-      : Number(product.price);
-  };
+    for (const item of cartItems) {
+      totalItems += item.quantity;
+      const unitPrice =
+        orderMode === "DELIVERY"
+          ? Number(item.product.price_delivery ?? item.product.price)
+          : Number(item.product.price);
+      const detailsTotal = (item.details || []).reduce(
+        (sum: number, d: CartDetail) => sum + Number(d.extra_price || 0),
+        0
+      );
+      subtotal += (unitPrice + detailsTotal) * item.quantity;
+    }
+
+    let discountAmount = 0;
+    if (selectedDiscount) {
+      if (selectedDiscount.discount_type === "Percentage") {
+        discountAmount = (subtotal * selectedDiscount.discount_amount) / 100;
+      } else {
+        discountAmount = Math.min(selectedDiscount.discount_amount, subtotal);
+      }
+    }
+
+    const finalPrice = Math.max(0, subtotal - discountAmount);
+    return { totalItems, subtotal, discountAmount, finalPrice };
+  }, [cartItems, orderMode, selectedDiscount]);
+
+  const { totalItems, subtotal, discountAmount, finalPrice } = cartTotals;
+
+  const getProductUnitPrice = useCallback(
+    (product: Products): number => {
+      return orderMode === "DELIVERY"
+        ? Number(product.price_delivery ?? product.price)
+        : Number(product.price);
+    },
+    [orderMode]
+  );
 
   // Clear cart when leaving the specific page (navigation) but NOT on refresh
   React.useEffect(() => {
@@ -120,27 +149,30 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
   const [currentDetailItem, setCurrentDetailItem] = useState<{ id: string; name: string; details: { detail_name: string; extra_price: number }[] } | null>(null);
 
-  const openDetailModal = (id: string, name: string, details?: { detail_name: string; extra_price: number }[]) => {
-    setCurrentDetailItem({ id, name, details: details || [] });
-    setIsDetailModalVisible(true);
-  };
+  const openDetailModal = useCallback(
+    (id: string, name: string, details?: { detail_name: string; extra_price: number }[]) => {
+      setCurrentDetailItem({ id, name, details: details || [] });
+      setIsDetailModalVisible(true);
+    },
+    []
+  );
 
-  const openNoteModal = (id: string, name: string, note: string) => {
+  const openNoteModal = useCallback((id: string, name: string, note: string) => {
     setCurrentNoteItem({ id, name, note });
     setNoteInput(note || "");
     setIsNoteModalVisible(true);
-  };
+  }, []);
 
-  const handleSaveNote = () => {
+  const handleSaveNote = useCallback(() => {
     if (currentNoteItem) {
       updateItemNote(currentNoteItem.id, noteInput);
       setIsNoteModalVisible(false);
       setCurrentNoteItem(null);
       message.success("บันทึกโน้ตเรียบร้อยแล้ว");
     }
-  };
+  }, [currentNoteItem, noteInput, updateItemNote]);
 
-  const handleAddToCart = (product: Products) => {
+  const handleAddToCart = useCallback((product: Products) => {
     const cartItemId = addToCart(product);
     const productName = product.display_name || product.product_name || "สินค้า";
     message.open({
@@ -165,7 +197,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
       key: "cart-add",
       duration: 2.5,
     });
-  };
+  }, [addToCart, removeFromCart]);
 
   const openProductModal = (product: Products) => {
     setSelectedProduct(product);
@@ -177,15 +209,15 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
     setSelectedProduct(null);
   };
 
-  const handleCheckout = () => {
+  const handleCheckout = useCallback(() => {
     if (cartItems.length === 0) {
       message.warning("กรุณาเพิ่มสินค้าลงตะกร้าก่อน");
       return;
     }
     setCheckoutVisible(true);
-  };
+  }, [cartItems.length]);
 
-  const handleConfirm = async () => {
+  const handleConfirm = useCallback(async () => {
     try {
       setIsProcessing(true);
       await onConfirmOrder();
@@ -196,154 +228,33 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [onConfirmOrder]);
+
+  const groupedCartItems = useMemo(() => groupOrderItems(cartItems), [cartItems]);
+
+  const categorySummary = useMemo(() => {
+    const categoriesMap: Record<string, number> = {};
+    cartItems.forEach((item) => {
+      const catName = item.product.category?.display_name || "อื่นๆ";
+      categoriesMap[catName] = (categoriesMap[catName] || 0) + item.quantity;
+    });
+    return Object.entries(categoriesMap).map(([name, count]) => ({ name, count }));
+  }, [cartItems]);
 
   // ==================== RENDER HELPERS ====================
-  const renderCartItem = (item: CartItem) => {
-    const unitPrice = getProductUnitPrice(item.product);
-    const detailsTotal = (item.details || []).reduce((sum: number, d: CartDetail) => sum + Number(d.extra_price || 0), 0);
-    const itemDiscountAmount = Number(item.discount || 0);
-    const lineTotal = Math.max(0, (unitPrice + detailsTotal) * item.quantity - itemDiscountAmount);
-    
-    return (
-        <List.Item
-            key={item.cart_item_id}
-            style={{
-                padding: "12px",
-                marginBottom: "12px",
-                background: "#fff",
-                borderRadius: "16px",
-                border: "none",
-                transition: "all 0.2s",
-                boxShadow: "0 2px 8px rgba(0,0,0,0.04)"
-            }}
-            className="cart-item-hover"
-        >
-            <div style={{ display: "flex", gap: 12, width: "100%" }}>
-                {/* Image */}
-                <div style={{ flexShrink: 0 }}>
-                    {item.product.img_url ? (
-                        <div style={{ width: 72, height: 72, borderRadius: 12, overflow: 'hidden', border: '1px solid #f1f5f9' }}>
-                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                           <img src={item.product.img_url} alt={item.product.display_name || item.product.product_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        </div>
-                    ) : (
-                        <div style={{ width: 72, height: 72, borderRadius: 12, background: '#f8fafc', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #f1f5f9' }}>
-                           <ShopOutlined style={{ fontSize: 24, color: '#94a3b8' }} />
-                        </div>
-                    )}
-                </div>
-
-                {/* Content */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-                        <div style={{ flex: 1 }}>
-                            <Text style={{ fontWeight: 600, fontSize: 15, color: "#1e293b", display: "block", lineHeight: 1.2, marginBottom: 4 }}>
-                                {item.product.display_name || item.product.product_name}
-                            </Text>
-                            <Tag style={{ border: 'none', background: '#f1f5f9', color: '#64748b', fontSize: 11, padding: '0 6px', margin: 0, borderRadius: 6 }}>
-                                {item.product.category?.display_name || 'ทั่วไป'}
-                            </Tag>
-                        </div>
-                        <Text style={{ fontWeight: 700, fontSize: 16, color: "#10b981", whiteSpace: 'nowrap', marginLeft: 8 }}>
-                            {formatPrice(lineTotal)}
-                        </Text>
-                    </div>
-
-                    {/* Addons / Details */}
-                    {(item.details && item.details.length > 0) && (
-                        <div style={{ marginTop: 6, marginBottom: 4 }}>
-                            {item.details!.map((d: CartDetail, idx: number) => (
-                                <Text key={idx} style={{ display: 'block', fontSize: 12, color: '#10b981', lineHeight: 1.4 }}>
-                                    + {d.detail_name} <span style={{ opacity: 0.8 }}>(+{formatPrice(Number(d.extra_price || 0))})</span>
-                                </Text>
-                            ))}
-                        </div>
-                    )}
-
-                    {/* Notes */}
-                    {item.notes && (
-                        <div style={{ marginTop: 4, background: "#fef2f2", padding: "2px 6px", borderRadius: 4, display: "inline-block", border: '1px solid #fecaca' }}>
-                            <Text style={{ fontSize: 11, color: "#ef4444" }}>
-                                โน้ต: {item.notes}
-                            </Text>
-                        </div>
-                    )}
-
-                    {/* Controls */}
-                    <div
-                      className="pos-cart-item-controls"
-                      style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}
-                    >
-                         {/* Quantity */}
-                         <div
-                           className="pos-cart-qty-control"
-                           style={{ display: "flex", alignItems: "center", background: "#f8fafc", borderRadius: 10, padding: "4px", border: '1px solid #e2e8f0' }}
-                         >
-                               <Button
-                                   type="text"
-                                   size="small"
-                                   icon={<MinusOutlined style={{ fontSize: 10 }} />}
-                                   className="pos-cart-icon-btn pos-cart-qty-btn"
-                                   aria-label="ลดจำนวน"
-                                   onClick={() => updateQuantity(item.cart_item_id, item.quantity - 1)}
-                                   style={{ borderRadius: 10, background: "white", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}
-                               />
-                               <Text style={{ margin: "0 8px", fontWeight: 600, minWidth: 16, textAlign: "center", fontSize: 13 }}>
-                                   {item.quantity}
-                               </Text>
-                               <Button
-                                   type="text"
-                                   size="small"
-                                   icon={<PlusOutlined style={{ fontSize: 10 }} />}
-                                   className="pos-cart-icon-btn pos-cart-qty-btn"
-                                   aria-label="เพิ่มจำนวน"
-                                   onClick={() => updateQuantity(item.cart_item_id, item.quantity + 1)}
-                                   style={{ borderRadius: 10, background: "#10b981", color: "white" }}
-                               />
-                         </div>
-
-                         {/* Actions */}
-                         <div className="pos-cart-action-row" style={{ display: "flex", gap: 6 }}>
-                               <Button
-                                   type="text"
-                                   icon={<EditOutlined />}
-                                   size="small"
-                                   className="pos-cart-icon-btn pos-cart-action-btn"
-                                   aria-label="แก้ไขโน้ต"
-                                   onClick={() => {
-                                       openNoteModal(item.cart_item_id, item.product.display_name, item.notes || "");
-                                   }}
-                                   style={{ color: "#64748b", background: "#f1f5f9", borderRadius: 10 }}
-                               />
-                               <Button
-                                   type="text"
-                                   icon={<PlusOutlined />}
-                                   size="small"
-                                   className="pos-cart-icon-btn pos-cart-action-btn"
-                                   aria-label="เพิ่มรายละเอียด"
-                                   onClick={() => {
-                                       openDetailModal(item.cart_item_id, item.product.display_name, item.details);
-                                   }}
-                                   style={{ color: "#10b981", background: "#ecfdf5", borderRadius: 10 }}
-                               />
-                               <Button
-                                   type="text"
-                                   danger
-                                   icon={<DeleteOutlined />}
-                                   size="small"
-                                   className="pos-cart-icon-btn pos-cart-action-btn"
-                                   aria-label="ลบออกจากตะกร้า"
-                                   onClick={() => removeFromCart(item.cart_item_id)}
-                                   style={{ background: "#fef2f2", borderRadius: 10 }}
-                               />
-                         </div>
-                    </div>
-                </div>
-            </div>
-        </List.Item>
-    );
-  };
+  const renderCartItem = useCallback(
+    (item: CartItem) => (
+      <CartItemRow
+        item={item}
+        getProductUnitPrice={getProductUnitPrice}
+        onUpdateQuantity={updateQuantity}
+        onRemove={removeFromCart}
+        onOpenNote={openNoteModal}
+        onOpenDetail={openDetailModal}
+      />
+    ),
+    [getProductUnitPrice, updateQuantity, removeFromCart, openNoteModal, openDetailModal]
+  );
 
   return (
     <>
@@ -647,8 +558,8 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
         {/* Cart Drawer */}
         <Drawer
             title={
-                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-                    <div style={{ width: 40, height: 40, background: "#ecfdf5", borderRadius: 12, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <div style={posComponentStyles.drawerTitleRow}>
+                    <div style={posComponentStyles.drawerTitleIcon}>
                         <ShoppingCartOutlined style={{ fontSize: 20, color: "#10b981" }} />
                     </div>
                     <div>
@@ -749,7 +660,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
           {cartVisible && (
             <Drawer
               title={
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, color: '#fff' }}>
+                <div style={{ ...posComponentStyles.modalTitleRow, color: '#fff' }}>
                   <ShoppingCartOutlined style={{ fontSize: 20 }} />
                   <span style={{ fontWeight: 700, fontSize: 18 }}>สรุปรายการออเดอร์</span>
                 </div>
@@ -793,68 +704,9 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                   <Title level={5} style={{ marginBottom: 16, color: posColors.text }}>รายการที่สั่ง</Title>
                   <List
                     itemLayout="horizontal"
-                    dataSource={groupOrderItems(cartItems)}
+                    dataSource={groupedCartItems}
                     renderItem={(item: GroupedOrderItem<CartItem>) => (
-                      <div key={item.id} style={{ 
-                        display: 'flex', 
-                        gap: 12, 
-                        padding: '14px 0', 
-                        borderBottom: '1px dashed #E2E8F0' 
-                      }}>
-                        {/* Image */}
-                        <div style={{ width: 44, height: 44, borderRadius: 10, overflow: 'hidden', flexShrink: 0, border: '1px solid #E2E8F0' }}>
-                          {item.product.img_url ? (
-                            /* eslint-disable-next-line @next/next/no-img-element */
-                            <img src={item.product.img_url} alt={item.product.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                          ) : (
-                            <div style={{ width: '100%', height: '100%', background: posColors.primaryLight, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                              <ShopOutlined style={{ fontSize: 16, color: posColors.primary, opacity: 0.5 }} />
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Details */}
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                              <Text strong style={{ fontSize: 14, display: 'block', marginBottom: 4 }}>{item.product.display_name}</Text>
-                              
-                              {/* Actions - Removed as per user request */}
-
-                              {/* Price Breakdown */}
-                              <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                  <Text type="secondary" style={{ fontSize: 12 }}>ราคาอาหาร</Text>
-                                  <Text type="secondary" style={{ fontSize: 12 }}>{formatPrice(getProductUnitPrice(item.product))}</Text>
-                                </div>
-                                
-                                {item.details && item.details.map((d: { detail_name: string; extra_price: number }, idx: number) => (
-                                  <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                    <Text style={{ fontSize: 12, color: posColors.success }}>+ {d.detail_name}</Text>
-                                    <Text style={{ fontSize: 12, color: posColors.success }}>{formatPrice(Number(d.extra_price))}</Text>
-                                  </div>
-                                ))}
-
-                                <div style={{ marginTop: 4 }}>
-                                  <Text style={{ fontSize: 12, fontWeight: 700, color: '#B45309' }}>จำนวน : ☓ {item.quantity}</Text>
-                                </div>
-                              </div>
-
-                              {/* Note Display */}
-                              {item.notes && (
-                                <div style={{ marginTop: 8, padding: '6px 10px', background: '#fef2f2', borderRadius: 8, borderLeft: `3px solid #ef4444` }}>
-                                  <Text italic style={{ fontSize: 12, color: '#ef4444' }}>โน้ต: {item.notes}</Text>
-                                </div>
-                              )}
-                            </div>
-                            
-                            {/* Line Total */}
-                            <Text strong style={{ fontSize: 15, marginLeft: 12, color: posColors.primary }}>
-                              {formatPrice((getProductUnitPrice(item.product) + (item.details || []).reduce((sum: number, d: CartDetail) => sum + Number(d.extra_price), 0)) * item.quantity)}
-                            </Text>
-                          </div>
-                        </div>
-                      </div>
+                      <CheckoutItemRow item={item} getProductUnitPrice={getProductUnitPrice} />
                     )}
                   />
                 </section>
@@ -862,19 +714,12 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                 {/* Category Summary */}
                 <section style={{ background: '#F8FAFC', padding: 16, borderRadius: 14, border: '1px solid #E2E8F0' }}>
                   <Text strong style={{ fontSize: 14, marginBottom: 12, display: 'block', color: posColors.textSecondary }}>สรุปตามหมวดหมู่</Text>
-                  {(() => {
-                    const categoriesMap: Record<string, number> = {};
-                    cartItems.forEach(item => {
-                      const catName = item.product.category?.display_name || 'อื่นๆ';
-                      categoriesMap[catName] = (categoriesMap[catName] || 0) + item.quantity;
-                    });
-                    return Object.entries(categoriesMap).map(([name, count]) => (
-                      <div key={name} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                        <Text type="secondary" style={{ fontSize: 13 }}>{name}</Text>
-                        <Text strong style={{ fontSize: 13 }}>{count} รายการ</Text>
-                      </div>
-                    ));
-                  })()}
+                  {categorySummary.map(({ name, count }) => (
+                    <div key={name} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
+                      <Text type="secondary" style={{ fontSize: 13 }}>{name}</Text>
+                      <Text strong style={{ fontSize: 13 }}>{count} รายการ</Text>
+                    </div>
+                  ))}
                 </section>
 
                 {/* Totals */}
@@ -903,16 +748,8 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
           {/* Note Modal */}
           <Modal
             title={
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  background: posColors.warningLight,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
+              <div style={posComponentStyles.modalTitleRow}>
+                <div style={{ ...posComponentStyles.modalIconBase, background: posColors.warningLight }}>
                   <EditOutlined style={{ color: posColors.warning, fontSize: 16 }} />
                 </div>
                 <span>ระบุรายละเอียด: {currentNoteItem?.name}</span>
@@ -927,8 +764,8 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
             okText="บันทึก"
             cancelText="ยกเลิก"
             centered
-            okButtonProps={{ style: { background: posColors.primary, borderRadius: 10, height: 42 } }}
-            cancelButtonProps={{ style: { borderRadius: 10, height: 42 } }}
+            okButtonProps={{ style: { ...posComponentStyles.modalButton, background: posColors.primary } }}
+            cancelButtonProps={{ style: posComponentStyles.modalButton }}
           >
             <div style={{ padding: '16px 0' }}>
               <Text style={{ display: 'block', marginBottom: 10, color: posColors.textSecondary }}>รายละเอียด / หมายเหตุ</Text>
@@ -947,16 +784,8 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
           {/* Product Detail Modal */}
           <Modal
             title={
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{
-                  width: 36,
-                  height: 36,
-                  borderRadius: 10,
-                  background: posColors.primaryLight,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                }}>
+              <div style={posComponentStyles.modalTitleRow}>
+                <div style={{ ...posComponentStyles.modalIconBase, background: posColors.primaryLight }}>
                   <ShopOutlined style={{ color: posColors.primary, fontSize: 16 }} />
                 </div>
                 <span style={{ fontWeight: 700 }}>{selectedProduct?.display_name}</span>
@@ -967,7 +796,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
             centered
             width={560}
             footer={[
-              <Button key="close" onClick={closeProductModal} style={{ borderRadius: 10, height: 44 }}>
+              <Button key="close" onClick={closeProductModal} style={posComponentStyles.modalButtonLarge}>
                 ปิด
               </Button>,
               <Button
@@ -980,8 +809,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                   closeProductModal();
                 }}
                 style={{
-                  borderRadius: 10,
-                  height: 44,
+                  ...posComponentStyles.modalButtonLarge,
                   background: `linear-gradient(135deg, ${posColors.success} 0%, #059669 100%)`,
                   border: 'none',
                   fontWeight: 700,
@@ -1077,6 +905,227 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
   );
 }
 
+type CartItemRowProps = {
+  item: CartItem;
+  getProductUnitPrice: (product: Products) => number;
+  onUpdateQuantity: (cartItemId: string, quantity: number) => void;
+  onRemove: (cartItemId: string) => void;
+  onOpenNote: (id: string, name: string, note: string) => void;
+  onOpenDetail: (id: string, name: string, details?: { detail_name: string; extra_price: number }[]) => void;
+};
+
+const CartItemRow = React.memo(function CartItemRow({
+  item,
+  getProductUnitPrice,
+  onUpdateQuantity,
+  onRemove,
+  onOpenNote,
+  onOpenDetail,
+}: CartItemRowProps) {
+  const unitPrice = getProductUnitPrice(item.product);
+  const detailsTotal = (item.details || []).reduce(
+    (sum: number, d: CartDetail) => sum + Number(d.extra_price || 0),
+    0
+  );
+  const itemDiscountAmount = Number(item.discount || 0);
+  const lineTotal = Math.max(0, (unitPrice + detailsTotal) * item.quantity - itemDiscountAmount);
+  const productName = item.product.display_name || item.product.product_name || "สินค้า";
+  const categoryName = item.product.category?.display_name || "ทั่วไป";
+
+  return (
+    <List.Item key={item.cart_item_id} style={posComponentStyles.cartItemContainer} className="cart-item-hover">
+      <div style={posComponentStyles.cartItemRow}>
+        {/* Image */}
+        <div style={{ flexShrink: 0 }}>
+          {item.product.img_url ? (
+            <div style={posComponentStyles.cartItemImage}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={item.product.img_url}
+                alt={productName}
+                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+              />
+            </div>
+          ) : (
+            <div style={posComponentStyles.cartItemImagePlaceholder}>
+              <ShopOutlined style={{ fontSize: 24, color: '#94a3b8' }} />
+            </div>
+          )}
+        </div>
+
+        {/* Content */}
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+            <div style={{ flex: 1 }}>
+              <Text style={{ fontWeight: 600, fontSize: 15, color: "#1e293b", display: "block", lineHeight: 1.2, marginBottom: 4 }}>
+                {productName}
+              </Text>
+              <Tag style={posComponentStyles.cartItemTag}>{categoryName}</Tag>
+            </div>
+            <Text style={{ fontWeight: 700, fontSize: 16, color: "#10b981", whiteSpace: 'nowrap', marginLeft: 8 }}>
+              {formatPrice(lineTotal)}
+            </Text>
+          </div>
+
+          {/* Addons / Details */}
+          {item.details && item.details.length > 0 && (
+            <div style={{ marginTop: 6, marginBottom: 4 }}>
+              {item.details.map((d: CartDetail, idx: number) => (
+                <Text key={idx} style={{ display: 'block', fontSize: 12, color: '#10b981', lineHeight: 1.4 }}>
+                  + {d.detail_name} <span style={{ opacity: 0.8 }}>(+{formatPrice(Number(d.extra_price || 0))})</span>
+                </Text>
+              ))}
+            </div>
+          )}
+
+          {/* Notes */}
+          {item.notes && (
+            <div style={posComponentStyles.cartItemNote}>
+              <Text style={{ fontSize: 11, color: "#ef4444" }}>โน้ต: {item.notes}</Text>
+            </div>
+          )}
+
+          {/* Controls */}
+          <div
+            className="pos-cart-item-controls"
+            style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}
+          >
+            {/* Quantity */}
+            <div className="pos-cart-qty-control" style={posComponentStyles.cartItemQtyControl}>
+              <Button
+                type="text"
+                size="small"
+                icon={<MinusOutlined style={{ fontSize: 10 }} />}
+                className="pos-cart-icon-btn pos-cart-qty-btn"
+                aria-label="ลดจำนวน"
+                onClick={() => onUpdateQuantity(item.cart_item_id, item.quantity - 1)}
+                style={{ borderRadius: 10, background: "white", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}
+              />
+              <Text style={{ margin: "0 8px", fontWeight: 600, minWidth: 16, textAlign: "center", fontSize: 13 }}>
+                {item.quantity}
+              </Text>
+              <Button
+                type="text"
+                size="small"
+                icon={<PlusOutlined style={{ fontSize: 10 }} />}
+                className="pos-cart-icon-btn pos-cart-qty-btn"
+                aria-label="เพิ่มจำนวน"
+                onClick={() => onUpdateQuantity(item.cart_item_id, item.quantity + 1)}
+                style={{ borderRadius: 10, background: "#10b981", color: "white" }}
+              />
+            </div>
+
+            {/* Actions */}
+            <div className="pos-cart-action-row" style={{ display: "flex", gap: 6 }}>
+              <Button
+                type="text"
+                icon={<EditOutlined />}
+                size="small"
+                className="pos-cart-icon-btn pos-cart-action-btn"
+                aria-label="แก้ไขโน้ต"
+                onClick={() => onOpenNote(item.cart_item_id, productName, item.notes || "")}
+                style={{ color: "#64748b", background: "#f1f5f9", borderRadius: 10 }}
+              />
+              <Button
+                type="text"
+                icon={<PlusOutlined />}
+                size="small"
+                className="pos-cart-icon-btn pos-cart-action-btn"
+                aria-label="เพิ่มรายละเอียด"
+                onClick={() => onOpenDetail(item.cart_item_id, productName, item.details)}
+                style={{ color: "#10b981", background: "#ecfdf5", borderRadius: 10 }}
+              />
+              <Button
+                type="text"
+                danger
+                icon={<DeleteOutlined />}
+                size="small"
+                className="pos-cart-icon-btn pos-cart-action-btn"
+                aria-label="ลบออกจากตะกร้า"
+                onClick={() => onRemove(item.cart_item_id)}
+                style={{ background: "#fef2f2", borderRadius: 10 }}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </List.Item>
+  );
+});
+
+type CheckoutItemRowProps = {
+  item: GroupedOrderItem<CartItem>;
+  getProductUnitPrice: (product: Products) => number;
+};
+
+const CheckoutItemRow = React.memo(function CheckoutItemRow({
+  item,
+  getProductUnitPrice,
+}: CheckoutItemRowProps) {
+  const unitPrice = getProductUnitPrice(item.product);
+  const detailsTotal = (item.details || []).reduce(
+    (sum: number, d: CartDetail) => sum + Number(d.extra_price || 0),
+    0
+  );
+  const lineTotal = (unitPrice + detailsTotal) * item.quantity;
+
+  return (
+    <div key={item.id} style={posComponentStyles.checkoutItemRow}>
+      {/* Image */}
+      <div style={posComponentStyles.checkoutItemImage}>
+        {item.product.img_url ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img src={item.product.img_url} alt={item.product.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+        ) : (
+          <div style={posComponentStyles.checkoutItemImagePlaceholder}>
+            <ShopOutlined style={{ fontSize: 16, color: posColors.primary, opacity: 0.5 }} />
+          </div>
+        )}
+      </div>
+
+      {/* Details */}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <Text strong style={{ fontSize: 14, display: 'block', marginBottom: 4 }}>{item.product.display_name}</Text>
+
+            {/* Price Breakdown */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Text type="secondary" style={{ fontSize: 12 }}>ราคาอาหาร</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>{formatPrice(unitPrice)}</Text>
+              </div>
+
+              {item.details && item.details.map((d: { detail_name: string; extra_price: number }, idx: number) => (
+                <div key={idx} style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <Text style={{ fontSize: 12, color: posColors.success }}>+ {d.detail_name}</Text>
+                  <Text style={{ fontSize: 12, color: posColors.success }}>{formatPrice(Number(d.extra_price))}</Text>
+                </div>
+              ))}
+
+              <div style={{ marginTop: 4 }}>
+                <Text style={{ fontSize: 12, fontWeight: 700, color: '#B45309' }}>จำนวน : {item.quantity}</Text>
+              </div>
+            </div>
+
+            {/* Note Display */}
+            {item.notes && (
+              <div style={{ marginTop: 8, padding: '6px 10px', background: '#fef2f2', borderRadius: 8, borderLeft: `3px solid #ef4444` }}>
+                <Text italic style={{ fontSize: 12, color: '#ef4444' }}>โน้ต: {item.notes}</Text>
+              </div>
+            )}
+          </div>
+
+          {/* Line Total */}
+          <Text strong style={{ fontSize: 15, marginLeft: 12, color: posColors.primary }}>
+            {formatPrice(lineTotal)}
+          </Text>
+        </div>
+      </div>
+    </div>
+  );
+});
+
 // ============================================
 // Detail/Topping Modal Component
 // ============================================
@@ -1118,16 +1167,8 @@ function CartItemDetailModal({ item, isOpen, onClose, onSave }: CartItemDetailMo
   return (
     <Modal
       title={
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <div style={{
-            width: 36,
-            height: 36,
-            borderRadius: 10,
-            background: posColors.successLight,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}>
+        <div style={posComponentStyles.modalTitleRow}>
+          <div style={{ ...posComponentStyles.modalIconBase, background: posColors.successLight }}>
             <PlusOutlined style={{ color: posColors.success, fontSize: 16 }} />
           </div>
           <span>รายละเอียดเพิ่มเติม: {item?.name}</span>
