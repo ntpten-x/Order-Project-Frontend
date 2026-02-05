@@ -15,13 +15,20 @@ type Config = {
 
 export function register(config?: Config) {
     if ('serviceWorker' in navigator) {
-        const publicUrl = new URL(process.env.NEXT_PUBLIC_BACKEND_API || '', window.location.href);
-        if (publicUrl.origin !== window.location.origin) {
-            return;
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API;
+        if (backendUrl) {
+            try {
+                const backendOrigin = new URL(backendUrl, window.location.origin).origin;
+                if (backendOrigin !== window.location.origin) {
+                    console.warn('[SW] Backend and frontend are on different origins. Service worker must be served from the frontend origin.');
+                }
+            } catch {
+                console.warn('[SW] Invalid NEXT_PUBLIC_BACKEND_API value. Service worker will use the frontend origin.');
+            }
         }
 
         window.addEventListener('load', () => {
-            const swUrl = `${process.env.NEXT_PUBLIC_BACKEND_API || window.location.origin}/sw.js`;
+            const swUrl = new URL('/sw.js', window.location.origin).toString();
 
             if (isLocalhost) {
                 checkValidServiceWorker(swUrl, config);

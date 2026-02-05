@@ -22,6 +22,7 @@ import PageSection from "@/components/ui/page/PageSection";
 import PageStack from "@/components/ui/page/PageStack";
 import UIPageHeader from "@/components/ui/page/PageHeader";
 import UIEmptyState from "@/components/ui/states/EmptyState";
+import { LegacyRealtimeEvents, RealtimeEvents } from "../../../../utils/realtimeEvents";
 
 interface PurchaseItemState {
     ingredient_id: string;
@@ -103,32 +104,71 @@ export default function BuyingPage() {
     useEffect(() => {
         if (!socket || !orderId) return;
 
-        socket.on("orders_updated", (event) => {
-            if (event.action === "update_order" && event.data.id === orderId) {
-                fetchOrder();
-                message.info("ออเดอร์มีการเปลี่ยนแปลงข้อมูล");
+        const handleOrderUpdate = (updated: Order) => {
+            if (updated?.id !== orderId) return;
+            fetchOrder();
+            message.info("Order updated.");
+        };
+
+        const handleStatusUpdate = (updated: Order) => {
+            if (updated?.id !== orderId) return;
+            if (updated.status && updated.status !== "pending") {
+                if (updated.status === "completed") {
+                    message.success("Purchase completed.");
+                } else {
+                    message.warning("Order was cancelled.");
+                }
+                router.push("/stock/items");
             }
-            
-            if ((event.action === "update_status" || event.action === "delete") && 
+        };
+
+        const handleDelete = (payload: { id?: string }) => {
+            if (payload?.id !== orderId) return;
+            message.warning("Order was deleted.");
+            router.push("/stock/items");
+        };
+
+        const handleDetailUpdate = (payload: { orderId?: string }) => {
+            if (payload?.orderId !== orderId) return;
+            fetchOrder();
+        };
+
+        const handleLegacyUpdate = (event: { action?: string; data?: Order; id?: string }) => {
+            if (event.action === "update_order" && event.data?.id === orderId) {
+                fetchOrder();
+                message.info("Order updated.");
+            }
+
+            if ((event.action === "update_status" || event.action === "delete") &&
                 (event.data?.id === orderId || event.id === orderId)) {
-                
+
                 const status = event.data?.status;
                 if (event.action === "delete") {
-                    message.warning("ออเดอร์นี้ถูกยกเลิกเสร็จสิ้นแล้ว");
+                    message.warning("Order was deleted.");
                     router.push("/stock/items");
                 } else if (status && status !== "pending") {
                      if (status === "completed") {
-                        message.success("การสั่งซื้อดำเนินการเสร็จสิ้นแล้ว");
+                        message.success("Purchase completed.");
                      } else {
-                        message.warning("ออเดอร์นี้ถูกยกเลิกเสร็จสิ้นแล้ว");
+                        message.warning("Order was cancelled.");
                      }
                      router.push("/stock/items");
                 }
             }
-        });
+        };
+
+        socket.on(RealtimeEvents.stockOrders.update, handleOrderUpdate);
+        socket.on(RealtimeEvents.stockOrders.status, handleStatusUpdate);
+        socket.on(RealtimeEvents.stockOrders.delete, handleDelete);
+        socket.on(RealtimeEvents.stockOrders.detailUpdate, handleDetailUpdate);
+        socket.on(LegacyRealtimeEvents.stockOrdersUpdated, handleLegacyUpdate);
 
         return () => {
-            socket.off("orders_updated");
+            socket.off(RealtimeEvents.stockOrders.update, handleOrderUpdate);
+            socket.off(RealtimeEvents.stockOrders.status, handleStatusUpdate);
+            socket.off(RealtimeEvents.stockOrders.delete, handleDelete);
+            socket.off(RealtimeEvents.stockOrders.detailUpdate, handleDetailUpdate);
+            socket.off(LegacyRealtimeEvents.stockOrdersUpdated, handleLegacyUpdate);
         };
     }, [socket, orderId, fetchOrder, router]);
 

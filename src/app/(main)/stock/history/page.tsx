@@ -12,6 +12,7 @@ import PageContainer from "@/components/ui/page/PageContainer";
 import UIPageHeader from "@/components/ui/page/PageHeader";
 import PageSection from "@/components/ui/page/PageSection";
 import UIEmptyState from "@/components/ui/states/EmptyState";
+import { LegacyRealtimeEvents, RealtimeEvents } from "../../../../utils/realtimeEvents";
 import {
     HistoryPageStyles,
     pageStyles,
@@ -103,13 +104,25 @@ export default function HistoryPage() {
     // Listen for updates but only refresh if we are on the first page or it's a general update
     useEffect(() => {
         if (!socket) return;
-        
-        socket.on("orders_updated", () => {
+
+        const handleRefresh = () => {
              fetchOrders(page, pageSize);
-        });
+        };
+
+        socket.on(RealtimeEvents.stockOrders.create, handleRefresh);
+        socket.on(RealtimeEvents.stockOrders.update, handleRefresh);
+        socket.on(RealtimeEvents.stockOrders.status, handleRefresh);
+        socket.on(RealtimeEvents.stockOrders.delete, handleRefresh);
+        socket.on(RealtimeEvents.stockOrders.detailUpdate, handleRefresh);
+        socket.on(LegacyRealtimeEvents.stockOrdersUpdated, handleRefresh);
 
         return () => {
-            socket.off("orders_updated");
+            socket.off(RealtimeEvents.stockOrders.create, handleRefresh);
+            socket.off(RealtimeEvents.stockOrders.update, handleRefresh);
+            socket.off(RealtimeEvents.stockOrders.status, handleRefresh);
+            socket.off(RealtimeEvents.stockOrders.delete, handleRefresh);
+            socket.off(RealtimeEvents.stockOrders.detailUpdate, handleRefresh);
+            socket.off(LegacyRealtimeEvents.stockOrdersUpdated, handleRefresh);
         };
     }, [socket, page, pageSize]);
 
