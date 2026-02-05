@@ -7,10 +7,10 @@ import { CSSProperties } from 'react';
 // ============================================
 export const posColors = {
   // Primary Colors - Softer blues
-  primary: '#3B82F6',
-  primaryDark: '#2563EB',
-  primaryLight: '#EFF6FF',
-  primaryBorder: '#BFDBFE',
+  primary: 'var(--color-primary)',
+  primaryDark: 'var(--color-primary-hover)',
+  primaryLight: 'var(--color-primary-light)',
+  primaryBorder: 'var(--color-primary-border)',
   
   // Success (Cart & Actions) - Softer greens
   success: '#10B981',
@@ -89,9 +89,9 @@ export const posLayoutStyles = {
 
   // Header - Softer gradient
   header: {
-    background: 'linear-gradient(145deg, #3B82F6 0%, #60A5FA 50%, #93C5FD 100%)',
+    background: 'linear-gradient(145deg, var(--color-primary-hover) 0%, var(--color-primary) 55%, var(--color-primary-soft) 100%)',
     padding: '20px 24px',
-    boxShadow: '0 4px 20px rgba(59, 130, 246, 0.15)',
+    boxShadow: '0 4px 20px rgb(var(--color-primary-rgb) / 0.18)',
     position: 'sticky' as CSSProperties['position'],
     top: 0,
     zIndex: 100,
@@ -178,16 +178,15 @@ export const posLayoutStyles = {
     position: 'sticky' as CSSProperties['position'],
     top: 84,
     zIndex: 99,
-    overflowX: 'auto' as CSSProperties['overflowX'],
-    whiteSpace: 'nowrap' as CSSProperties['whiteSpace'],
+    overflow: 'hidden' as CSSProperties['overflow'],
   },
 
   categoryScroll: {
-    maxWidth: 1400,
-    margin: '0 auto',
     display: 'flex',
     gap: 10,
-  },
+    overflowX: 'auto' as CSSProperties['overflowX'],
+    paddingBottom: 2,
+  } as CSSProperties,
 
   // Content Area
   content: {
@@ -286,7 +285,7 @@ export const posLayoutStyles = {
     height: 64,
     borderRadius: 20,
     background: `linear-gradient(145deg, ${posColors.primary} 0%, ${posColors.primaryDark} 100%)`,
-    boxShadow: `0 8px 24px ${posColors.primary}50`,
+    boxShadow: '0 8px 24px rgb(var(--color-primary-rgb) / 0.32)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -444,15 +443,18 @@ export const POSSharedStyles = () => (
     .pos-delay-3 { animation-delay: 0.15s; opacity: 0; }
     .pos-delay-4 { animation-delay: 0.2s; opacity: 0; }
 
-    /* Category Bar Scrollbar */
+    /* Category Scroll Row Scrollbar */
+    .pos-category-scroll-row::-webkit-scrollbar,
     .pos-category-bar::-webkit-scrollbar {
       height: 4px;
     }
 
+    .pos-category-scroll-row::-webkit-scrollbar-track,
     .pos-category-bar::-webkit-scrollbar-track {
       background: transparent;
     }
 
+    .pos-category-scroll-row::-webkit-scrollbar-thumb,
     .pos-category-bar::-webkit-scrollbar-thumb {
       background: #CBD5E1;
       border-radius: 4px;
@@ -473,6 +475,28 @@ export const POSSharedStyles = () => (
       color: ${posColors.primary} !important;
     }
 
+    /* Cart - Touch Targets (Mobile First) */
+    .pos-cart-icon-btn {
+      padding: 0 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      line-height: 1 !important;
+      min-width: 32px !important;
+      width: 32px !important;
+      height: 32px !important;
+    }
+
+    .pos-cart-qty-btn {
+      width: 32px !important;
+      height: 32px !important;
+    }
+
+    .pos-cart-action-btn {
+      width: 36px !important;
+      height: 36px !important;
+    }
+
     /* Header Back Button */
     .pos-header-back:hover {
       background: rgba(255, 255, 255, 0.3) !important;
@@ -490,8 +514,8 @@ export const POSSharedStyles = () => (
 
     /* Pulse Animation for Cart */
     @keyframes pos-pulse {
-      0%, 100% { box-shadow: 0 8px 24px ${posColors.primary}50; }
-      50% { box-shadow: 0 12px 32px ${posColors.primary}70; }
+      0%, 100% { box-shadow: 0 8px 24px rgb(var(--color-primary-rgb) / 0.32); }
+      50% { box-shadow: 0 12px 32px rgb(var(--color-primary-rgb) / 0.45); }
     }
     
     .pos-cart-pulse {
@@ -502,6 +526,22 @@ export const POSSharedStyles = () => (
        Mobile Responsive Styles
        ============================================ */
     @media (max-width: 768px) {
+      .pos-cart-qty-btn,
+      .pos-cart-action-btn {
+        width: 44px !important;
+        height: 44px !important;
+      }
+
+      .pos-cart-item-controls {
+        gap: 8px !important;
+        flex-wrap: wrap !important;
+      }
+
+      .pos-cart-action-row {
+        flex: 1 1 auto;
+        justify-content: flex-end !important;
+      }
+
       .pos-header-mobile {
         padding: 16px 16px 20px !important;
         border-radius: 0 0 20px 20px !important;
@@ -570,6 +610,19 @@ export const POSSharedStyles = () => (
     }
 
     @media (max-width: 480px) {
+      .pos-cart-item-controls {
+        flex-direction: column !important;
+        align-items: stretch !important;
+      }
+
+      .pos-cart-qty-control {
+        justify-content: space-between !important;
+      }
+
+      .pos-cart-action-row {
+        justify-content: flex-end !important;
+      }
+
       .pos-product-grid-mobile {
         gap: 10px !important;
       }

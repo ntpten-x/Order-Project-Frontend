@@ -23,7 +23,7 @@ export type OrderMode = 'DINE_IN' | 'TAKEAWAY' | 'DELIVERY';
 
 interface CartContextType {
     cartItems: CartItem[];
-    addToCart: (product: Products, quantity?: number, notes?: string) => void;
+    addToCart: (product: Products, quantity?: number, notes?: string) => string;
     removeFromCart: (cartItemId: string) => void;
     updateQuantity: (cartItemId: string, quantity: number) => void;
     updateItemNote: (cartItemId: string, notes: string) => void;
@@ -114,10 +114,11 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }, [cartItems, orderMode, referenceId, referenceCode, selectedDiscount, selectedPaymentMethod, isInitialized]);
 
     const addToCart = (product: Products, quantity: number = 1, notes?: string) => {
+        const cartItemId = `item-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
         setCartItems((prevItems) => {
             // Create new entry for every addition to ensure customization isolation
             const newItem: CartItem = {
-                cart_item_id: `item-${Date.now()}-${prevItems.length}-${Math.random().toString(36).substr(2, 9)}`,
+                cart_item_id: cartItemId,
                 product,
                 quantity,
                 notes,
@@ -125,6 +126,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             };
             return [...prevItems, newItem];
         });
+        return cartItemId;
     };
 
     const removeFromCart = (cartItemId: string) => {
