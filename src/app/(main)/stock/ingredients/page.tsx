@@ -66,7 +66,7 @@ export default function IngredientsPage() {
                 setTimeout(() => {
                     router.replace('/login');
                 }, 1000); 
-            } else if (user.role !== 'Admin') {
+            } else if (!['Admin', 'Manager'].includes(user.role)) {
                 setIsAuthorized(false);
                 message.error(t("stock.ingredients.noPermission"));
                 setTimeout(() => {

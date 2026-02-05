@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Button, message, Modal, Space, Grid } from 'antd';
+import { Button, message, Modal, Space } from 'antd';
 import { TeamOutlined } from '@ant-design/icons';
 import { User } from "../../../types/api/users";
 import { useRouter } from 'next/navigation';
@@ -37,8 +37,6 @@ export default function UsersPage() {
   const { showLoading, hideLoading } = useGlobalLoading();
   const { user, loading: authLoading } = useAuth();
   const [csrfToken, setCsrfToken] = useState<string>("");
-  const screens = Grid.useBreakpoint();
-  const isMobile = !screens.md;
 
   useEffect(() => {
     const fetchCsrf = async () => {
@@ -51,7 +49,7 @@ export default function UsersPage() {
   // Protect Route
   useEffect(() => {
     if (!authLoading) {
-      if (!user || user.role !== 'Admin') {
+      if (!user || !['Admin', 'Manager'].includes(user.role)) {
         const timer = setTimeout(() => {
             message.error("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
             router.push('/');
@@ -70,7 +68,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (user?.role === 'Admin') {
+    if (user?.role === 'Admin' || user?.role === 'Manager') {
       fetchUsers();
     }
   }, [authLoading, user, fetchUsers]);
@@ -130,7 +128,7 @@ export default function UsersPage() {
         },
     });
   };
-  if (authLoading || !user || user.role !== 'Admin') {
+  if (authLoading || !user || !['Admin', 'Manager'].includes(user.role)) {
     return (
         <div style={{ 
             height: '100vh', 

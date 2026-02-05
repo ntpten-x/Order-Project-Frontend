@@ -24,7 +24,7 @@ export default function PaymentAccountManagementPage() {
     const router = useRouter();
     const [accounts, setAccounts] = useState<ShopPaymentAccount[]>([]);
     const [loading, setLoading] = useState(false);
-    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
+    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ["Admin", "Manager"] });
     const [isModalVisible, setIsModalVisible] = useState(false);
     const [form] = Form.useForm();
     const [editingId, setEditingId] = useState<string | null>(null);
@@ -325,4 +325,3 @@ export default function PaymentAccountManagementPage() {
         </div>
     );
 }
-

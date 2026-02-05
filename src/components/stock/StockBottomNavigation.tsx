@@ -80,7 +80,7 @@ const StockBottomNavigation = () => {
       path: "/stock/items",
     },
     { key: "history", label: "ประวัติ", icon: <HistoryOutlined />, path: "/stock/history" },
-    ...(user?.role === "Admin"
+    ...((user?.role === "Admin" || user?.role === "Manager")
       ? [
           {
             key: "ingredients",

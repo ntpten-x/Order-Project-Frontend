@@ -449,27 +449,16 @@ export const StatsCard = ({ totalBranches, activeBranches }: StatsCardProps) => 
 
 interface BranchCardProps {
     branch: Branch;
-    onEdit: (branch: Branch) => void;
-    onDelete: (branch: Branch) => void;
-    onSwitch: (branch: Branch) => void;
+    onEdit?: (branch: Branch) => void;
+    onDelete?: (branch: Branch) => void;
+    onSwitch?: (branch: Branch) => void;
 }
 
 export const BranchCard = ({ branch, onEdit, onDelete, onSwitch }: BranchCardProps) => {
     const { token } = useToken();
-    
-    return (
-        <Card 
-            hoverable 
-            className="branch-card-hover"
-            style={pageStyles.branchCard(branch.is_active)}
-            styles={{ 
-                body: { padding: 24 },
-                actions: {
-                    background: token.colorFillTertiary,
-                    borderTop: `1px solid ${token.colorBorderSecondary}`
-                }
-            }}
-            actions={[
+    const actions = [
+        onSwitch
+            ? (
                 <Tooltip title={t("branch.card.switchTooltip")} key="switch">
                     <Button
                         type="text"
@@ -482,7 +471,11 @@ export const BranchCard = ({ branch, onEdit, onDelete, onSwitch }: BranchCardPro
                     >
                         {t("branch.card.switch")}
                     </Button>
-                </Tooltip>,
+                </Tooltip>
+            )
+            : null,
+        onEdit
+            ? (
                 <Tooltip title={t("branch.card.editTooltip")} key="edit">
                     <Button 
                         type="text" 
@@ -495,7 +488,11 @@ export const BranchCard = ({ branch, onEdit, onDelete, onSwitch }: BranchCardPro
                     >
                         {t("branch.card.edit")}
                     </Button>
-                </Tooltip>,
+                </Tooltip>
+            )
+            : null,
+        onDelete
+            ? (
                 <Tooltip title={t("branch.card.deleteTooltip")} key="delete">
                     <Button 
                         type="text" 
@@ -510,7 +507,23 @@ export const BranchCard = ({ branch, onEdit, onDelete, onSwitch }: BranchCardPro
                         {t("branch.card.delete")}
                     </Button>
                 </Tooltip>
-            ]}
+            )
+            : null,
+    ].filter(Boolean) as React.ReactNode[];
+    
+    return (
+        <Card 
+            hoverable 
+            className="branch-card-hover"
+            style={pageStyles.branchCard(branch.is_active)}
+            styles={{ 
+                body: { padding: 24 },
+                actions: {
+                    background: token.colorFillTertiary,
+                    borderTop: `1px solid ${token.colorBorderSecondary}`
+                }
+            }}
+            actions={actions.length ? actions : undefined}
         >
             <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16, marginBottom: 20 }}>
                 <div style={{ 

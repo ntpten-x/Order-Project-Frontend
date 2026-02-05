@@ -246,7 +246,7 @@ export default function ProductsPage() {
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
+    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ["Admin", "Manager"] });
     const loadMoreRef = useRef<HTMLDivElement | null>(null);
     const initialLoadRef = useRef(false);
     
