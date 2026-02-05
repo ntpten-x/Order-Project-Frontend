@@ -240,6 +240,8 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                                         size="large"
                                         placeholder="เลือกหน่วย"
                                         showSearch
+                                        dropdownMatchSelectWidth
+                                        getPopupContainer={(trigger) => trigger?.parentElement || document.body}
                                         optionFilterProp="children"
                                     >
                                         {units.map((unit) => (
@@ -277,3 +279,4 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
         </div>
     );
 }
+

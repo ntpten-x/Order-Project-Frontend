@@ -405,7 +405,11 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                                                 label="สถานะเริ่มต้น"
                                                 rules={[{ required: true, message: 'กรุณาเลือกสถานะ' }]}
                                             >
-                                                <Select size="large">
+                                                <Select
+                                                    size="large"
+                                                    dropdownMatchSelectWidth
+                                                    getPopupContainer={(trigger) => trigger?.parentElement || document.body}
+                                                >
                                                     <Select.Option value={TableStatus.Available}>ว่าง (Available)</Select.Option>
                                                     <Select.Option value={TableStatus.Unavailable}>ไม่ว่าง (Unavailable)</Select.Option>
                                                 </Select>

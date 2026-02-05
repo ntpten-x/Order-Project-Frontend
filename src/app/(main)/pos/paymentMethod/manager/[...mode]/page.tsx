@@ -363,6 +363,7 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                                             size="large"
                                             placeholder="ชื่อที่แสดงจะถูกตั้งค่าอัตโนมัติ"
                                             disabled
+                                            dropdownMatchSelectWidth
                                             getPopupContainer={() => document.body}
                                             dropdownStyle={{ zIndex: 9999 }}
                                         >

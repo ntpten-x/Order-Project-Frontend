@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Form, notification } from "antd";
+import { Form, notification, Typography } from "antd";
 import { UserOutlined, LockOutlined } from "@ant-design/icons";
 import { useAuth } from "../../../contexts/AuthContext";
 import { LoginCredentials } from "../../../types/api/auth";
@@ -18,6 +18,8 @@ import {
     StyledPasswordInput,
     GradientButton,
 } from "./style";
+
+const { Text } = Typography;
 
 export default function LoginPage() {
     const { login } = useAuth();
@@ -54,6 +56,9 @@ export default function LoginPage() {
                     <LoginContainer>
                         <StyledCard>
                             <LoginTitle>เข้าสู่ระบบ</LoginTitle>
+                            <div style={{ textAlign: "center", marginBottom: 18 }}>
+                                <Text style={{ color: "#475569" }}>ศูนย์ควบคุมร้านค้า POS • ปลอดภัยและรวดเร็ว</Text>
+                            </div>
                             
                             <FormContainer>
                                 <Form

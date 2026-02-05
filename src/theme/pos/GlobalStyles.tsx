@@ -45,6 +45,7 @@ export const POSGlobalStyles = () => (
     /* Force Select Dropdown Z-Index */
     :global(.ant-select-dropdown) {
       z-index: 10000 !important;
+      pointer-events: auto !important;
     }
 
     /* ===========================================

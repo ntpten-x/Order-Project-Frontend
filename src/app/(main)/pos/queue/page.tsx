@@ -145,6 +145,8 @@ export default function OrderQueuePage() {
                                 style={{ width: 160 }}
                                 size="middle"
                                 onChange={setStatusFilter}
+                                dropdownMatchSelectWidth
+                                getPopupContainer={(trigger) => trigger?.parentElement || document.body}
                             >
                                 {Object.values(QueueStatus).map((status) => (
                                     <Select.Option key={status} value={status}>

@@ -7,21 +7,47 @@ export const LoginContainer = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  padding: 1rem;
+  background: radial-gradient(circle at 20% 20%, rgba(56, 189, 248, 0.14), transparent 25%),
+              radial-gradient(circle at 80% 0%, rgba(99, 102, 241, 0.12), transparent 22%),
+              linear-gradient(135deg, #0f172a 0%, #0b1224 50%, #0f172a 100%);
+  padding: 1.5rem;
   position: relative;
   overflow: hidden;
+
+  &::before, &::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(60px);
+    opacity: 0.4;
+  }
+
+  &::before {
+    width: 380px;
+    height: 380px;
+    background: #22d3ee;
+    top: -120px;
+    left: -80px;
+  }
+
+  &::after {
+    width: 320px;
+    height: 320px;
+    background: #6366f1;
+    bottom: -120px;
+    right: -100px;
+  }
 `;
 
 // Styled card with clean white background
 export const StyledCard = styled(Card)`
   width: 100%;
   max-width: 420px;
-  background: #ffffff !important;
-  border-radius: 16px !important;
-  border: none !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
-  padding: 3rem 2.5rem !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+  border-radius: 20px !important;
+  border: 1px solid rgba(148, 163, 184, 0.25) !important;
+  box-shadow: 0 28px 80px rgba(0, 0, 0, 0.28) !important;
+  padding: 3rem 2.5rem 2.5rem !important;
   position: relative;
   z-index: 10;
 
@@ -39,7 +65,7 @@ export const StyledCard = styled(Card)`
 export const LoginTitle = styled.h1`
   font-size: 36px;
   font-weight: 700;
-  color: #2d3748;
+  color: #0f172a;
   text-align: center;
   margin-bottom: 2.5rem;
   margin-top: 0;
@@ -152,17 +178,17 @@ export const GradientButton = styled(Button)`
   border-radius: 8px !important;
   font-size: 16px !important;
   font-weight: 600 !important;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  background: linear-gradient(135deg, #22d3ee 0%, #6366f1 100%) !important;
   border: none !important;
   color: white !important;
   margin-top: 1.5rem !important;
-  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4) !important;
+  box-shadow: 0 8px 24px rgba(99, 102, 241, 0.35) !important;
   transition: all 0.3s ease !important;
 
   &:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5) !important;
-    opacity: 0.95;
+    box-shadow: 0 12px 30px rgba(99, 102, 241, 0.45) !important;
+    opacity: 0.96;
   }
 
   &:active:not(:disabled) {
@@ -171,7 +197,7 @@ export const GradientButton = styled(Button)`
 
   &:disabled {
     opacity: 0.7;
-    background: linear-gradient(135deg, #a5b4fc 0%, #c4b5fd 100%) !important;
+    background: linear-gradient(135deg, #bae6fd 0%, #c7d2fe 100%) !important;
   }
 
   span {

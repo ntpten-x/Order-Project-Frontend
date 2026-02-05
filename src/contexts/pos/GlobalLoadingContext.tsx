@@ -68,26 +68,43 @@ export const GlobalLoadingProvider = ({ children }: { children: ReactNode }) => 
             <GlobalLoadingStateContext.Provider value={stateValue}>
                 {children}
                 {isLoading && (
-                    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white/10 backdrop-blur-md transition-all duration-300">
-                        <div style={{ 
-                            display: "flex", 
-                            flexDirection: "column", 
-                            alignItems: "center", 
-                            gap: 16, 
-                            background: "rgba(255, 255, 255, 0.8)", 
-                            padding: "32px 48px", 
-                            borderRadius: 24, 
-                            boxShadow: "0 8px 32px rgba(0, 0, 0, 0.1)",
-                            backdropFilter: "blur(12px)",
-                            border: "1px solid rgba(255, 255, 255, 0.4)"
+                    <div
+                        role="status"
+                        aria-live="polite"
+                        className="global-loading-overlay"
+                        style={{
+                            position: "fixed",
+                            inset: 0,
+                            zIndex: 13000,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            background: "rgba(255, 255, 255, 0.6)",
+                            backdropFilter: "blur(8px)",
+                            WebkitBackdropFilter: "blur(8px)",
+                            transition: "opacity 0.25s ease",
+                        }}
+                    >
+                        <div style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                            gap: 16,
+                            background: "rgba(255, 255, 255, 0.92)",
+                            padding: "28px 40px",
+                            borderRadius: 20,
+                            boxShadow: "0 10px 32px rgba(15, 23, 42, 0.14)",
+                            border: "1px solid rgba(148, 163, 184, 0.35)",
+                            minWidth: 240
                         }}>
                             <Spin size="large" />
                             {loadingMessage && (
-                                <div style={{ 
-                                    fontSize: 16, 
-                                    color: "#475569", 
-                                    fontWeight: 500,
-                                    letterSpacing: "0.02em" 
+                                <div style={{
+                                    fontSize: 16,
+                                    color: "#334155",
+                                    fontWeight: 600,
+                                    letterSpacing: "0.01em",
+                                    textAlign: "center"
                                 }}>
                                     {loadingMessage}
                                 </div>
