@@ -28,6 +28,7 @@ import PageSection from "@/components/ui/page/PageSection";
 import PageStack from "@/components/ui/page/PageStack";
 import UIPageHeader from "@/components/ui/page/PageHeader";
 import UIEmptyState from "@/components/ui/states/EmptyState";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 
 const { Text } = Typography;
 
@@ -265,7 +266,7 @@ export default function TablesPage() {
 
     useRealtimeList(
         socket,
-        { create: "tables:create", update: "tables:update", delete: "tables:delete" },
+        { create: RealtimeEvents.tables.create, update: RealtimeEvents.tables.update, delete: RealtimeEvents.tables.delete },
         setTables
     );
 

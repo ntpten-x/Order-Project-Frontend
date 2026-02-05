@@ -9,6 +9,8 @@ import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext"
 import { useAsyncAction } from "../../../../hooks/useAsyncAction";
 import { useSocket } from "../../../../hooks/useSocket";
 import { useAuth } from "../../../../contexts/AuthContext";
+import { useRealtimeList } from "../../../../utils/pos/realtime";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import {
     IngredientsPageStyles,
     pageStyles,
@@ -76,29 +78,15 @@ export default function IngredientsPage() {
         }
     }, [user, authLoading, router, fetchIngredients]);
 
-    useEffect(() => {
-        if (!socket) return;
-
-        socket.on('ingredients:create', (newItem: Ingredients) => {
-            setIngredients((prev) => [...prev, newItem]);
-        });
-
-        socket.on('ingredients:update', (updatedItem: Ingredients) => {
-            setIngredients((prev) =>
-                prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
-            );
-        });
-
-        socket.on('ingredients:delete', ({ id }: { id: string }) => {
-            setIngredients((prev) => prev.filter((item) => item.id !== id));
-        });
-
-        return () => {
-            socket.off('ingredients:create');
-            socket.off('ingredients:update');
-            socket.off('ingredients:delete');
-        };
-    }, [socket]);
+    useRealtimeList(
+        socket,
+        {
+            create: RealtimeEvents.ingredients.create,
+            update: RealtimeEvents.ingredients.update,
+            delete: RealtimeEvents.ingredients.delete,
+        },
+        setIngredients
+    );
 
     const handleAdd = () => {
         showLoading();

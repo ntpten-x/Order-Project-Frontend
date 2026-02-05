@@ -18,6 +18,7 @@ import { groupOrderItems } from "../../../../../utils/orderGrouping";
 import { ItemStatus } from "../../../../../types/api/pos/salesOrderItem";
 import { useSocket } from "../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
+import { RealtimeEvents } from "../../../../../utils/realtimeEvents";
 import PageContainer from "@/components/ui/page/PageContainer";
 
 const { Title, Text } = Typography;
@@ -77,7 +78,12 @@ export default function DashboardOrderDetailPage({ params }: Props) {
 
     useRealtimeRefresh({
         socket,
-        events: ["orders:update", "orders:delete", "payments:create", "payments:update"],
+        events: [
+            RealtimeEvents.orders.update,
+            RealtimeEvents.orders.delete,
+            RealtimeEvents.payments.create,
+            RealtimeEvents.payments.update,
+        ],
         onRefresh: () => fetchOrderDetail(),
         intervalMs: 20000,
     });
@@ -94,6 +100,13 @@ export default function DashboardOrderDetailPage({ params }: Props) {
     useEffect(() => {
         fetchShopProfile();
     }, [fetchShopProfile]);
+
+    useRealtimeRefresh({
+        socket,
+        events: [RealtimeEvents.shopProfile.update],
+        onRefresh: () => fetchShopProfile(),
+        debounceMs: 800,
+    });
 
     const handlePrint = () => {
         setIsPrintModalVisible(true);

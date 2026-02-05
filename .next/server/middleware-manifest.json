@@ -10,18 +10,15 @@
       "page": "/",
       "matchers": [
         {
-          "regexp": "^(?:\\/(_next\\/data\\/[^/]{1,}))?(?:\\/((?!_next\\/static|_next\\/image|favicon.ico|.well-known).*))(.json)?[\\/#\\?]?$",
-          "originalSource": "/((?!_next/static|_next/image|favicon.ico|.well-known).*)"
+          "regexp": "^/.*$",
+          "originalSource": "/:path*"
         }
       ],
       "wasm": [],
       "assets": [],
       "env": {
-        "__NEXT_BUILD_ID": "Bw6FpCShYsRwQYEkMU9fL",
-        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "J5EMvCVGjUHOAsU1B23Zsi+nlxORrWJqFPmJWABzmzc=",
-        "__NEXT_PREVIEW_MODE_ID": "4e206d10c5f40c0eff599f441009adbc",
-        "__NEXT_PREVIEW_MODE_ENCRYPTION_KEY": "cfeb5f2112af44b6ccdb11d3f39565fbf2e6c4a4d7d130beb25d27c4b3f4d893",
-        "__NEXT_PREVIEW_MODE_SIGNING_KEY": "f93ec35e243879d26337a4068c7bbb30edc8dce49d7b8b910e7c997537495625"
+        "__NEXT_BUILD_ID": "development",
+        "NEXT_SERVER_ACTIONS_ENCRYPTION_KEY": "dhYoNxrlqd7A34Odhqu8ja1ankzrFZfVc6B2SIENtus="
       }
     }
   },

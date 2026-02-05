@@ -19,6 +19,7 @@ import { SalesOrderSummary, OrderStatus, OrderType } from "../../../../types/api
 import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { dashboardStyles, dashboardColors, dashboardResponsiveStyles } from "../../../../theme/pos/dashboard/style";
 import { DatePicker } from "antd";
 import PageContainer from "@/components/ui/page/PageContainer";
@@ -67,7 +68,12 @@ export default function DashboardPage() {
 
     useRealtimeRefresh({
         socket,
-        events: ["orders:update", "orders:create", "orders:delete", "payments:create"],
+        events: [
+            RealtimeEvents.orders.update,
+            RealtimeEvents.orders.create,
+            RealtimeEvents.orders.delete,
+            RealtimeEvents.payments.create,
+        ],
         onRefresh: () => fetchData(true),
         intervalMs: 20000,
         debounceMs: 1000,

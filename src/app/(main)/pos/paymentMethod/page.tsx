@@ -24,6 +24,7 @@ import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { useRoleGuard } from "../../../../utils/pos/accessControl";
 import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { paymentMethodService } from "../../../../services/pos/paymentMethod.service";
 import { globalStyles } from '../../../../theme/pos/paymentMethod/style';
 import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
@@ -263,7 +264,7 @@ export default function PaymentMethodPage() {
 
     useRealtimeRefresh({
         socket,
-        events: ["paymentMethod:create", "paymentMethod:update", "paymentMethod:delete"],
+        events: [RealtimeEvents.paymentMethods.create, RealtimeEvents.paymentMethods.update, RealtimeEvents.paymentMethods.delete],
         onRefresh: () => fetchPaymentMethods(),
         intervalMs: 20000,
         debounceMs: 1000,

@@ -3,6 +3,7 @@ import { useContext, useEffect } from "react";
 import { SocketContext } from "../../contexts/SocketContext";
 import { deliveryService } from "../../services/pos/delivery.service";
 import { Delivery } from "../../types/api/pos/delivery";
+import { RealtimeEvents } from "../../utils/realtimeEvents";
 
 export function useDelivery() {
     const { socket } = useContext(SocketContext);
@@ -23,14 +24,14 @@ export function useDelivery() {
             queryClient.invalidateQueries({ queryKey: ['delivery'] });
         };
 
-        socket.on("delivery:create", handleUpdate);
-        socket.on("delivery:update", handleUpdate);
-        socket.on("delivery:delete", handleUpdate);
+        socket.on(RealtimeEvents.delivery.create, handleUpdate);
+        socket.on(RealtimeEvents.delivery.update, handleUpdate);
+        socket.on(RealtimeEvents.delivery.delete, handleUpdate);
 
         return () => {
-            socket.off("delivery:create", handleUpdate);
-            socket.off("delivery:update", handleUpdate);
-            socket.off("delivery:delete", handleUpdate);
+            socket.off(RealtimeEvents.delivery.create, handleUpdate);
+            socket.off(RealtimeEvents.delivery.update, handleUpdate);
+            socket.off(RealtimeEvents.delivery.delete, handleUpdate);
         };
     }, [socket, queryClient]);
 

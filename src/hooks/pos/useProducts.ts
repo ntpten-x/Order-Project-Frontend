@@ -3,6 +3,7 @@ import { useContext, useEffect } from 'react';
 import { SocketContext } from '../../contexts/SocketContext';
 import { Products } from '../../types/api/pos/products';
 import { productsService } from '../../services/pos/products.service';
+import { RealtimeEvents } from '../../utils/realtimeEvents';
 
 // Define the response type matches the API
 interface ProductsResponse {
@@ -117,18 +118,18 @@ export function useProducts(page: number = 1, limit: number = 20, categoryId?: s
         const handleStockUpdate = () => invalidatePageOne();
 
         // Listen for product events
-        socket.on("products:create", handleCreate);
-        socket.on("products:update", handleUpdate);
-        socket.on("products:delete", handleDelete);
+        socket.on(RealtimeEvents.products.create, handleCreate);
+        socket.on(RealtimeEvents.products.update, handleUpdate);
+        socket.on(RealtimeEvents.products.delete, handleDelete);
 
         // Listen for stock updates if applicable (optional, depending on backend events)
-        socket.on("stock:update", handleStockUpdate);
+        socket.on(RealtimeEvents.stock.update, handleStockUpdate);
 
         return () => {
-            socket.off("products:create", handleCreate);
-            socket.off("products:update", handleUpdate);
-            socket.off("products:delete", handleDelete);
-            socket.off("stock:update", handleStockUpdate);
+            socket.off(RealtimeEvents.products.create, handleCreate);
+            socket.off(RealtimeEvents.products.update, handleUpdate);
+            socket.off(RealtimeEvents.products.delete, handleDelete);
+            socket.off(RealtimeEvents.stock.update, handleStockUpdate);
         };
     }, [socket, queryClient]);
 

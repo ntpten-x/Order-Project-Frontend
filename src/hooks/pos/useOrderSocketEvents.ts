@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { SocketContext } from '../../contexts/SocketContext';
 import { useContext } from 'react';
+import { RealtimeEvents } from '../../utils/realtimeEvents';
 
 export const useOrderSocketEvents = () => {
     const { socket } = useContext(SocketContext);
@@ -31,20 +32,33 @@ export const useOrderSocketEvents = () => {
         };
 
         // Channel listeners
-        socket.on('orders:create', handleCreate);
-        socket.on('orders:update', handleUpdate);
-        socket.on('orders:delete', handleDelete);
+        socket.on(RealtimeEvents.orders.create, handleCreate);
+        socket.on(RealtimeEvents.orders.update, handleUpdate);
+        socket.on(RealtimeEvents.orders.delete, handleDelete);
 
         // Also listen for payment updates as they affect order status
-        socket.on('payments:create', handleUpdate);
-        socket.on('payments:update', handleUpdate);
+        socket.on(RealtimeEvents.payments.create, handleUpdate);
+        socket.on(RealtimeEvents.payments.update, handleUpdate);
+        // Sales order item/detail changes affect order totals and views
+        socket.on(RealtimeEvents.salesOrderItem.create, handleUpdate);
+        socket.on(RealtimeEvents.salesOrderItem.update, handleUpdate);
+        socket.on(RealtimeEvents.salesOrderItem.delete, handleUpdate);
+        socket.on(RealtimeEvents.salesOrderDetail.create, handleUpdate);
+        socket.on(RealtimeEvents.salesOrderDetail.update, handleUpdate);
+        socket.on(RealtimeEvents.salesOrderDetail.delete, handleUpdate);
 
         return () => {
-            socket.off('orders:create', handleCreate);
-            socket.off('orders:update', handleUpdate);
-            socket.off('orders:delete', handleDelete);
-            socket.off('payments:create', handleUpdate);
-            socket.off('payments:update', handleUpdate);
+            socket.off(RealtimeEvents.orders.create, handleCreate);
+            socket.off(RealtimeEvents.orders.update, handleUpdate);
+            socket.off(RealtimeEvents.orders.delete, handleDelete);
+            socket.off(RealtimeEvents.payments.create, handleUpdate);
+            socket.off(RealtimeEvents.payments.update, handleUpdate);
+            socket.off(RealtimeEvents.salesOrderItem.create, handleUpdate);
+            socket.off(RealtimeEvents.salesOrderItem.update, handleUpdate);
+            socket.off(RealtimeEvents.salesOrderItem.delete, handleUpdate);
+            socket.off(RealtimeEvents.salesOrderDetail.create, handleUpdate);
+            socket.off(RealtimeEvents.salesOrderDetail.update, handleUpdate);
+            socket.off(RealtimeEvents.salesOrderDetail.delete, handleUpdate);
         };
     }, [socket, queryClient]);
 };

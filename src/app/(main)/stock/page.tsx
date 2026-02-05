@@ -16,6 +16,7 @@ import CartDrawer from "../../../components/stock/CartDrawer";
 import { Ingredients } from "../../../types/api/stock/ingredients";
 import { useSocket } from "../../../hooks/useSocket";
 import { DashboardStyles, pageStyles } from "./style";
+import { RealtimeEvents } from "../../../utils/realtimeEvents";
 import PageContainer from "@/components/ui/page/PageContainer";
 import PageSection from "@/components/ui/page/PageSection";
 import PageStack from "@/components/ui/page/PageStack";
@@ -79,14 +80,14 @@ export default function HomePage() {
       setIngredients((prev) => prev.filter((item) => item.id !== id));
     };
 
-    socket.on('ingredients:create', onIngredientCreate);
-    socket.on('ingredients:update', onIngredientUpdate);
-    socket.on('ingredients:delete', onIngredientDelete);
+    socket.on(RealtimeEvents.ingredients.create, onIngredientCreate);
+    socket.on(RealtimeEvents.ingredients.update, onIngredientUpdate);
+    socket.on(RealtimeEvents.ingredients.delete, onIngredientDelete);
 
     return () => {
-      socket.off('ingredients:create', onIngredientCreate);
-      socket.off('ingredients:update', onIngredientUpdate);
-      socket.off('ingredients:delete', onIngredientDelete);
+      socket.off(RealtimeEvents.ingredients.create, onIngredientCreate);
+      socket.off(RealtimeEvents.ingredients.update, onIngredientUpdate);
+      socket.off(RealtimeEvents.ingredients.delete, onIngredientDelete);
     };
   }, [socket]);
 

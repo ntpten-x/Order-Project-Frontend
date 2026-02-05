@@ -1,9 +1,15 @@
 {
-  "/api/pos/orders/stats/route": "app/api/pos/orders/stats/route.js",
+  "/api/pos/orders/summary/route": "app/api/pos/orders/summary/route.js",
+  "/api/pos/dashboard/sales/route": "app/api/pos/dashboard/sales/route.js",
+  "/api/pos/dashboard/top-items/route": "app/api/pos/dashboard/top-items/route.js",
   "/api/pos/orders/[id]/route": "app/api/pos/orders/[id]/route.js",
+  "/api/pos/shifts/current/route": "app/api/pos/shifts/current/route.js",
+  "/api/pos/orders/stats/route": "app/api/pos/orders/stats/route.js",
   "/(main)/page": "app/(main)/page.js",
+  "/(main)/pos/orders/[...ordersId]/page": "app/(main)/pos/orders/[...ordersId]/page.js",
   "/(main)/pos/orders/page": "app/(main)/pos/orders/page.js",
   "/(main)/pos/dashboard/page": "app/(main)/pos/dashboard/page.js",
   "/(main)/pos/kitchen/page": "app/(main)/pos/kitchen/page.js",
+  "/(main)/pos/page": "app/(main)/pos/page.js",
   "/(main)/pos/channels/page": "app/(main)/pos/channels/page.js"
 }

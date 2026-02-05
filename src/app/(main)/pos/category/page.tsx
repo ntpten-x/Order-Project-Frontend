@@ -26,6 +26,7 @@ import PageSection from "@/components/ui/page/PageSection";
 import PageStack from "@/components/ui/page/PageStack";
 import UIPageHeader from "@/components/ui/page/PageHeader";
 import UIEmptyState from "@/components/ui/states/EmptyState";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 
 const { Text } = Typography;
 
@@ -214,7 +215,7 @@ export default function CategoryPage() {
 
     useRealtimeList(
         socket,
-        { create: "category:create", update: "category:update", delete: "category:delete" },
+        { create: RealtimeEvents.categories.create, update: RealtimeEvents.categories.update, delete: RealtimeEvents.categories.delete },
         setCategories
     );
 

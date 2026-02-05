@@ -28,6 +28,8 @@ import { getOrderChannelText, getOrderReference, getOrderStatusColor, getOrderSt
 import ConfirmationDialog from "../../../../../../components/dialog/ConfirmationDialog";
 import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../../../../hooks/useSocket";
+import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
+import { RealtimeEvents } from "../../../../../../utils/realtimeEvents";
 import PageContainer from "@/components/ui/page/PageContainer";
 
 
@@ -189,16 +191,36 @@ export default function POSPaymentPage() {
         }
     }, [fetchInitialData, paymentId]);
 
-    // Temporarily disable realtime refresh to test if it causes dropdown issues
-    /*
+    const realtimeEnabled = !discountModalVisible && !confirmConfig.open;
+
     useRealtimeRefresh({
         socket,
-        events: ["orders:update", "orders:delete", "payments:create", "payments:update"],
+        events: [
+            RealtimeEvents.orders.update,
+            RealtimeEvents.orders.delete,
+            RealtimeEvents.payments.create,
+            RealtimeEvents.payments.update,
+            RealtimeEvents.paymentMethods.create,
+            RealtimeEvents.paymentMethods.update,
+            RealtimeEvents.discounts.create,
+            RealtimeEvents.discounts.update,
+            RealtimeEvents.discounts.delete,
+            RealtimeEvents.shopProfile.update,
+            RealtimeEvents.salesOrderItem.create,
+            RealtimeEvents.salesOrderItem.update,
+            RealtimeEvents.salesOrderItem.delete,
+            RealtimeEvents.salesOrderDetail.create,
+            RealtimeEvents.salesOrderDetail.update,
+            RealtimeEvents.salesOrderDetail.delete,
+        ],
         onRefresh: async () => {
-             // fetchInitialData(true);
-        }
+            if (paymentId) {
+                await fetchInitialData(true);
+            }
+        },
+        enabled: Boolean(paymentId) && realtimeEnabled,
+        debounceMs: 800,
     });
-    */
     
     // Prevent auto-scroll when component re-renders
     useEffect(() => {
@@ -872,5 +894,3 @@ export default function POSPaymentPage() {
         </PageContainer>
     );
 }
-
-

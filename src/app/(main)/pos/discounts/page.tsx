@@ -22,6 +22,7 @@ import { useSocket } from "../../../../hooks/useSocket";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { useRoleGuard } from "../../../../utils/pos/accessControl";
 import { useRealtimeList } from "../../../../utils/pos/realtime";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { pageStyles, globalStyles } from '../../../../theme/pos/discounts/style';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 import PageContainer from "@/components/ui/page/PageContainer";
@@ -298,7 +299,7 @@ function POSDiscountsContent() {
 
     useRealtimeList(
         socket,
-        { create: "discounts:create", update: "discounts:update", delete: "discounts:delete" },
+        { create: RealtimeEvents.discounts.create, update: RealtimeEvents.discounts.update, delete: RealtimeEvents.discounts.delete },
         setDiscounts
     );
 

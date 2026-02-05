@@ -52,6 +52,7 @@ import { useNetwork } from "../../../../../hooks/useNetwork";
 import { offlineQueueService } from "../../../../../services/pos/offline.queue.service";
 import { useSocket } from "../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
+import { RealtimeEvents } from "../../../../../utils/realtimeEvents";
 import { useOrderQueue } from "../../../../../hooks/pos/useOrderQueue";
 import { QueueStatus, QueuePriority } from "../../../../../types/api/pos/orderQueue";
 import UIPageHeader from "@/components/ui/page/PageHeader";
@@ -128,7 +129,19 @@ export default function POSOrderDetailsPage() {
 
     useRealtimeRefresh({
         socket,
-        events: ["orders:update", "orders:delete", "orders:create", "payments:create", "payments:update"],
+        events: [
+            RealtimeEvents.orders.update,
+            RealtimeEvents.orders.delete,
+            RealtimeEvents.orders.create,
+            RealtimeEvents.payments.create,
+            RealtimeEvents.payments.update,
+            RealtimeEvents.salesOrderItem.create,
+            RealtimeEvents.salesOrderItem.update,
+            RealtimeEvents.salesOrderItem.delete,
+            RealtimeEvents.salesOrderDetail.create,
+            RealtimeEvents.salesOrderDetail.update,
+            RealtimeEvents.salesOrderDetail.delete,
+        ],
         onRefresh: () => {
             if (orderId) {
                 fetchOrder(orderId as string);

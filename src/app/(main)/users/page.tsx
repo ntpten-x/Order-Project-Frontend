@@ -21,6 +21,7 @@ import { Spin } from 'antd';
 
 import { authService } from "../../../services/auth.service";
 import { userService } from "../../../services/users.service";
+import { RealtimeEvents } from "../../../utils/realtimeEvents";
 import PageContainer from "@/components/ui/page/PageContainer";
 import PageSection from "@/components/ui/page/PageSection";
 import PageStack from "@/components/ui/page/PageStack";
@@ -74,29 +75,29 @@ export default function UsersPage() {
   useEffect(() => {
     if (!socket) return;
     
-    socket.on('users:create', (newUser: User) => {
+    socket.on(RealtimeEvents.users.create, (newUser: User) => {
       setUsers((prevUsers) => [...prevUsers, newUser]);
       message.success(`ผู้ใช้ใหม่ ${newUser.name || newUser.username} ถูกเพิ่มแล้ว`);
     });
-    socket.on('users:update', (updatedUser: User) => {
+    socket.on(RealtimeEvents.users.update, (updatedUser: User) => {
       setUsers((prevUsers) =>
         prevUsers.map((user) => (user.id === updatedUser.id ? updatedUser : user))
       );
     });
-    socket.on('users:delete', ({ id }: { id: string }) => {
+    socket.on(RealtimeEvents.users.delete, ({ id }: { id: string }) => {
       setUsers((prevUsers) => prevUsers.filter((user) => user.id !== id));
     });
-    socket.on('users:update-status', ({ id, is_active }: { id: string, is_active: boolean }) => {
+    socket.on(RealtimeEvents.users.status, ({ id, is_active }: { id: string, is_active: boolean }) => {
         setUsers((prevUsers) =>
             prevUsers.map((user) => (user.id === id ? { ...user, is_active } : user))
         );
     });
 
     return () => {
-      socket.off('users:create');
-      socket.off('users:update');
-      socket.off('users:delete');
-      socket.off('users:update-status');
+      socket.off(RealtimeEvents.users.create);
+      socket.off(RealtimeEvents.users.update);
+      socket.off(RealtimeEvents.users.delete);
+      socket.off(RealtimeEvents.users.status);
     };
   }, [socket]);
   
