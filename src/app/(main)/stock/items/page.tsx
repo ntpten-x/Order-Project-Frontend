@@ -17,7 +17,8 @@ import {
   Row,
   Col,
   Statistic,
-  Avatar
+  Avatar,
+  Grid,
 } from "antd";
 import { 
   ReloadOutlined, 
@@ -43,20 +44,26 @@ import PageSection from "@/components/ui/page/PageSection";
 import PageStack from "@/components/ui/page/PageStack";
 import UIPageHeader from "@/components/ui/page/PageHeader";
 import UIEmptyState from "@/components/ui/states/EmptyState";
+import PageState from "@/components/ui/states/PageState";
 import { LegacyRealtimeEvents, RealtimeEvents } from "../../../../utils/realtimeEvents";
+import { t } from "@/utils/i18n";
 
 const { Text } = Typography;
 
 export default function ItemsPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { socket } = useSocket();
   const router = useRouter();
   const { user } = useAuth();
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
 
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await fetch("/api/stock/orders?status=pending", { 
         cache: "no-store", 
         headers: { 'Content-Type': 'application/json' } 
@@ -68,8 +75,8 @@ export default function ItemsPage() {
       // Handle paginated response format: { data: [...], total, page, limit }
       setOrders(Array.isArray(data) ? data : (data.data || []));
     } catch {
-      console.error("Failed to fetch orders");
-      message.error("ไม่สามารถโหลดรายการออเดอร์ได้");
+      setError(t("stock.error"));
+      message.error(t("stock.error"));
     } finally {
       setLoading(false);
     }
@@ -475,23 +482,23 @@ export default function ItemsPage() {
     }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
         <UIPageHeader
-        title="รายการรอสั่งซื้อ"
-        subtitle={`${orders.length} รายการ`}
-        icon={<ClockCircleOutlined />}
-        actions={
-          <Button 
-            icon={<ReloadOutlined />} 
-            onClick={fetchOrders}
-            loading={loading}
-          >
-            รีเฟรช
-          </Button>
-        }
-      />
+          title={t("stock.title")}
+          subtitle={t("stock.subtitleCount", { count: orders.length })}
+          icon={<ClockCircleOutlined />}
+          actions={
+            <Button 
+              icon={<ReloadOutlined />} 
+              onClick={fetchOrders}
+              loading={loading}
+            >
+              {t("queue.refresh")}
+            </Button>
+          }
+        />
 
       <PageContainer>
         <PageStack>
-          <PageSection title="สรุป">
+          <PageSection title={t("stock.title")}>
             <Row gutter={[16, 16]}>
               <Col xs={12} sm={8} md={6}>
                 <Card 
@@ -500,7 +507,7 @@ export default function ItemsPage() {
                   styles={{ body: { padding: 16 } }}
                 >
                   <Statistic 
-                    title={<Text type="secondary" style={{ fontSize: 13 }}>ออเดอร์ทั้งหมด</Text>}
+                    title={<Text type="secondary" style={{ fontSize: 13 }}>{t("stock.title")}</Text>}
                     value={loading ? '-' : orders.length}
                     prefix={<Badge status="processing" />}
                     styles={{ content: { 
@@ -518,7 +525,7 @@ export default function ItemsPage() {
                   styles={{ body: { padding: 16 } }}
                 >
                   <Statistic 
-                    title={<Text type="secondary" style={{ fontSize: 13 }}>รายการสินค้า</Text>}
+                    title={<Text type="secondary" style={{ fontSize: 13 }}>{t("stock.totalItems")}</Text>}
                     value={loading ? '-' : totalItems}
                     prefix={<Badge status="success" />}
                     styles={{ content: { 
@@ -532,7 +539,7 @@ export default function ItemsPage() {
             </Row>
           </PageSection>
 
-          <PageSection title="รายการรอสั่งซื้อ">
+          <PageSection title={t("stock.title")}>
             <Card 
               variant="borderless"
               style={{ 
@@ -544,10 +551,12 @@ export default function ItemsPage() {
             >
               {loading ? (
                 <LoadingSkeleton />
+              ) : error ? (
+                <PageState status="error" title={error} onRetry={fetchOrders} />
               ) : orders.length === 0 ? (
-                <UIEmptyState
-                  title="ยังไม่มีรายการรอสั่งซื้อ"
-                  description="ยังไม่มีออเดอร์ที่รอการสั่งซื้อในขณะนี้"
+                <PageState
+                  status="empty"
+                  title={t("stock.empty")}
                   action={
                     <Button 
                       type="primary"
@@ -561,30 +570,54 @@ export default function ItemsPage() {
                         fontWeight: 600
                       }}
                     >
-                      เลือกวัตถุดิบเพื่อสั่งซื้อ
+                      {t("stock.emptyAction")}
                     </Button>
                   }
                 />
               ) : (
-                <Table 
-                  dataSource={orders} 
-                  columns={columns} 
-                  rowKey="id" 
-                  scroll={{ x: 900 }}
-                  pagination={{ 
-                    pageSize: 10,
-                    showSizeChanger: true,
-                    showTotal: (total, range) => (
-                      <Text type="secondary">
-                        แสดง {range[0]}-{range[1]} จาก {total} รายการ
-                      </Text>
-                    )
-                  }}
-                  className="items-table"
-                  locale={{
-                    emptyText: <Empty description="ไม่มีข้อมูล" />
-                  }}
-                />
+                <>
+                  {isMobile ? (
+                    <div style={{ padding: 16, display: 'grid', gap: 12 }}>
+                      {orders.map((order) => (
+                        <Card key={order.id} size="small" style={{ borderRadius: 16, boxShadow: '0 6px 18px rgba(0,0,0,0.05)' }}>
+                          <Space direction="vertical" size={6} style={{ width: '100%' }}>
+                            <Text strong>#{order.id.slice(0, 6)}</Text>
+                            <Text type="secondary">{order.ordered_by?.name || order.ordered_by?.username || '-'}</Text>
+                            <Text>{t("stock.itemsLabel")}: {order.ordersItems?.length || 0}</Text>
+                            <Text type="secondary">{new Date(order.create_date).toLocaleString('th-TH')}</Text>
+                            <Tag color={order.status === OrderStatus.PENDING ? "warning" : order.status === OrderStatus.COMPLETED ? "success" : "error"}>
+                              {order.status === OrderStatus.PENDING ? t("stock.status.pending") : order.status === OrderStatus.COMPLETED ? t("stock.status.completed") : t("stock.status.cancelled")}
+                            </Tag>
+                            <Space wrap>
+                              <Button size="small" icon={<EyeOutlined />} onClick={() => setViewingOrder(order)}>{t("stock.view")}</Button>
+                              <Button size="small" type="primary" icon={<ShoppingCartOutlined />} disabled={order.status !== OrderStatus.PENDING} onClick={() => router.push(f`/stock/buying?orderId=${order.id}`)}>{t("stock.buy")}</Button>
+                            </Space>
+                          </Space>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <Table 
+                      dataSource={orders} 
+                      columns={columns} 
+                      rowKey="id" 
+                      scroll={{ x: 900 }}
+                      pagination={{ 
+                        pageSize: 10,
+                        showSizeChanger: true,
+                        showTotal: (total, range) => (
+                          <Text type="secondary">
+                            {range[0]}-{range[1]} / {total}
+                          </Text>
+                        )
+                      }}
+                      className="items-table"
+                      locale={{
+                        emptyText: <Empty description={t("stock.empty")} />
+                      }}
+                    />
+                  )}
+                </>
               )}
             </Card>
           </PageSection>
@@ -610,3 +643,8 @@ export default function ItemsPage() {
     </div>
   );
 }
+
+
+
+
+

@@ -107,6 +107,7 @@ const BottomNavigation = () => {
           onClick: () => router.push(item.path),
           active: isActive,
           badgeDot: item.key === "items" && pendingCount > 0,
+          ariaLabel: item.label,
         };
       })}
     />

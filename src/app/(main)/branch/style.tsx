@@ -17,6 +17,7 @@ import {
 import { Branch } from "../../../types/api/branch";
 import { CSSProperties } from 'react';
 import { theme } from 'antd';
+import { t } from "@/utils/i18n";
 
 const { Title, Text } = Typography;
 const { useToken } = theme;
@@ -172,11 +173,11 @@ export const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => {
                                  <Title level={2} style={{ 
                                      margin: 0, 
                                      color: '#fff', 
-                                     fontWeight: 800, 
-                                     fontSize: isMobile ? 22 : 28, 
-                                     lineHeight: 1.2 
-                                 }}>
-                                    จัดการสาขา
+                                 fontWeight: 800, 
+                                 fontSize: isMobile ? 22 : 28, 
+                                 lineHeight: 1.2 
+                             }}>
+                                    {t("branch.hero.title")}
                                  </Title>
                                  <Text style={{ 
                                      color: 'rgba(255,255,255,0.95)', 
@@ -185,7 +186,7 @@ export const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => {
                                      marginTop: 4,
                                      fontWeight: 400
                                  }}>
-                                    บริหารจัดการข้อมูลสาขาในระบบ
+                                    {t("branch.hero.subtitle")}
                                  </Text>
                              </div>
                         </div>
@@ -217,7 +218,7 @@ export const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => {
                                 e.currentTarget.style.transform = 'translateY(0)';
                             }}
                         >
-                            รีเฟรช
+                            {t("branch.actions.refresh")}
                         </Button>
                         <Button 
                             type="primary" 
@@ -245,7 +246,7 @@ export const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => {
                                 e.currentTarget.style.boxShadow = '0 6px 20px rgba(0,0,0,0.25)';
                             }}
                         >
-                            เพิ่มสาขา
+                            {t("branch.actions.add")}
                         </Button>
                     </div>
                 </div>
@@ -302,15 +303,15 @@ export const StatsCard = ({ totalBranches, activeBranches }: StatsCardProps) => 
                     title={
                         <Text 
                             type="secondary" 
-                            style={{ 
-                                fontSize: isMobile ? 10 : 13, 
-                                fontWeight: 500,
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.5px',
-                                lineHeight: 1.2
-                            }}
-                        >
-                            สาขาทั้งหมด
+                        style={{ 
+                            fontSize: isMobile ? 10 : 13, 
+                            fontWeight: 500,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                            lineHeight: 1.2
+                        }}
+                    >
+                            {t("branch.stats.total")}
                         </Text>
                     }
                     value={totalBranches} 
@@ -357,15 +358,15 @@ export const StatsCard = ({ totalBranches, activeBranches }: StatsCardProps) => 
                     title={
                         <Text 
                             type="secondary" 
-                            style={{ 
-                                fontSize: isMobile ? 10 : 13, 
-                                fontWeight: 500,
-                                textTransform: 'uppercase',
-                                letterSpacing: '0.5px',
-                                lineHeight: 1.2
-                            }}
-                        >
-                            เปิดให้บริการ
+                        style={{ 
+                            fontSize: isMobile ? 10 : 13, 
+                            fontWeight: 500,
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.5px',
+                            lineHeight: 1.2
+                        }}
+                    >
+                            {t("branch.stats.active")}
                         </Text>
                     }
                     value={activeBranches} 
@@ -422,11 +423,11 @@ export const StatsCard = ({ totalBranches, activeBranches }: StatsCardProps) => 
                                     fontSize: isMobile ? 10 : 13, 
                                     fontWeight: 500,
                                     textTransform: 'uppercase',
-                                    letterSpacing: '0.5px',
-                                    lineHeight: 1.2
-                                }}
-                            >
-                                ปิดปรับปรุง
+                                letterSpacing: '0.5px',
+                                lineHeight: 1.2
+                            }}
+                        >
+                                {t("branch.stats.inactive")}
                             </Text>
                         }
                         value={inactiveBranches} 
@@ -469,7 +470,7 @@ export const BranchCard = ({ branch, onEdit, onDelete, onSwitch }: BranchCardPro
                 }
             }}
             actions={[
-                <Tooltip title="สลับไปสาขานี้" key="switch">
+                <Tooltip title={t("branch.card.switchTooltip")} key="switch">
                     <Button
                         type="text"
                         icon={<SwapOutlined style={{ color: '#3b82f6', fontSize: 16 }} />}
@@ -479,10 +480,10 @@ export const BranchCard = ({ branch, onEdit, onDelete, onSwitch }: BranchCardPro
                         }}
                         style={{ height: '100%', borderRadius: 0 }}
                     >
-                        สลับ
+                        {t("branch.card.switch")}
                     </Button>
                 </Tooltip>,
-                <Tooltip title="แก้ไขข้อมูล" key="edit">
+                <Tooltip title={t("branch.card.editTooltip")} key="edit">
                     <Button 
                         type="text" 
                         icon={<EditOutlined style={{ color: '#8b5cf6', fontSize: 16 }} />} 
@@ -492,10 +493,10 @@ export const BranchCard = ({ branch, onEdit, onDelete, onSwitch }: BranchCardPro
                         }}
                         style={{ height: '100%', borderRadius: 0 }}
                     >
-                        แก้ไข
+                        {t("branch.card.edit")}
                     </Button>
                 </Tooltip>,
-                <Tooltip title="ลบสาขา" key="delete">
+                <Tooltip title={t("branch.card.deleteTooltip")} key="delete">
                     <Button 
                         type="text" 
                         danger 
@@ -506,7 +507,7 @@ export const BranchCard = ({ branch, onEdit, onDelete, onSwitch }: BranchCardPro
                         }}
                         style={{ height: '100%', borderRadius: 0 }}
                     >
-                        ลบ
+                        {t("branch.card.delete")}
                     </Button>
                 </Tooltip>
             ]}
@@ -567,7 +568,7 @@ export const BranchCard = ({ branch, onEdit, onDelete, onSwitch }: BranchCardPro
                                 {branch.branch_code}
                             </Tag>
                         </div>
-                        <Tooltip title={branch.is_active ? "เปิดดำเนินการ" : "ปิดปรับปรุง"}>
+                        <Tooltip title={branch.is_active ? t("branch.card.active") : t("branch.card.inactive")}>
                             <div style={{ 
                                 width: 14, 
                                 height: 14, 
@@ -602,13 +603,13 @@ export const BranchCard = ({ branch, onEdit, onDelete, onSwitch }: BranchCardPro
                             lineHeight: 1.5
                         }}
                     >
-                        {branch.address || 'ไม่ระบุที่อยู่'}
+                        {branch.address || t("branch.card.addressFallback")}
                     </Text>
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                     <PhoneOutlined style={{ color: '#6b7280', fontSize: 16, flexShrink: 0 }} />
                     <Text style={{ color: '#374151', fontSize: 13, fontWeight: 500 }}>
-                        {branch.phone || 'ไม่ระบุเบอร์โทร'}
+                        {branch.phone || t("branch.card.phoneFallback")}
                     </Text>
                 </div>
             </div>
@@ -621,7 +622,7 @@ export const BranchCard = ({ branch, onEdit, onDelete, onSwitch }: BranchCardPro
                 borderTop: `1px solid ${token.colorBorderSecondary}`
             }}>
                  <Text type="secondary" style={{ fontSize: 12, fontWeight: 500 }}>
-                     Tax ID: {branch.tax_id || '-'}
+                     {t("branch.card.taxId")}: {branch.tax_id || '-'}
                  </Text>
                  {branch.is_active ? (
                     <Tag 
@@ -635,7 +636,7 @@ export const BranchCard = ({ branch, onEdit, onDelete, onSwitch }: BranchCardPro
                             padding: '2px 10px'
                         }}
                     >
-                        เปิดใช้งาน
+                        {t("branch.stats.active")}
                     </Tag>
                  ) : (
                     <Tag 
@@ -650,7 +651,7 @@ export const BranchCard = ({ branch, onEdit, onDelete, onSwitch }: BranchCardPro
                             padding: '2px 10px'
                         }}
                     >
-                        ปิดใช้งาน
+                        {t("branch.stats.inactive")}
                     </Tag>
                  )}
             </div>
@@ -696,7 +697,7 @@ export const SearchBar = ({
             <Flex vertical gap={isMobile ? 12 : 16}>
                 <Input
                     size="large"
-                    placeholder="ค้นหาสาขา (ชื่อ, รหัส, ที่อยู่, เบอร์โทร)"
+                    placeholder={t("branch.search.placeholder")}
                     prefix={<SearchOutlined style={{ color: token.colorTextSecondary }} />}
                     suffix={
                         searchQuery ? (
@@ -730,9 +731,9 @@ export const SearchBar = ({
                         value={filter}
                         onChange={(value) => onFilterChange(value as 'all' | 'active' | 'inactive')}
                         options={[
-                            { label: 'ทั้งหมด', value: 'all' },
-                            { label: 'เปิดใช้งาน', value: 'active' },
-                            { label: 'ปิดใช้งาน', value: 'inactive' },
+                            { label: t("branch.search.filter.all"), value: 'all' },
+                            { label: t("branch.search.filter.active"), value: 'active' },
+                            { label: t("branch.search.filter.inactive"), value: 'inactive' },
                         ]}
                         style={{
                             borderRadius: 10,
@@ -742,7 +743,7 @@ export const SearchBar = ({
                     
                     {(searchQuery || filter !== 'all') && (
                         <Text type="secondary" style={{ fontSize: 13 }}>
-                            พบ <Text strong style={{ color: token.colorPrimary }}>{resultCount}</Text> จาก {totalCount} สาขา
+                            {t("branch.search.result", { count: resultCount, total: totalCount })}
                         </Text>
                     )}
                 </Flex>

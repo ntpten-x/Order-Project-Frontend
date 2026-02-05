@@ -24,6 +24,7 @@ import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import PageContainer from "@/components/ui/page/PageContainer";
+import { t } from "@/utils/i18n";
 
 dayjs.extend(relativeTime);
 dayjs.locale('th');
@@ -133,7 +134,10 @@ export default function KitchenDisplayPage() {
     const playNotificationSound = useCallback(() => {
         if (soundEnabled && audioRef.current) {
             audioRef.current.currentTime = 0;
-            audioRef.current.play().catch(console.error);
+            audioRef.current.play().catch((err) => {
+                console.error(err);
+                message.warning(t("kitchen.soundBlocked"));
+            });
         }
     }, [soundEnabled]);
 
@@ -443,7 +447,7 @@ export default function KitchenDisplayPage() {
                         const progress = Math.min(1, Math.max(0.1, dayjs().diff(dayjs(order.created_at), 'minute') / 25));
 
                         return (
-                            <Col xs={24} sm={12} lg={8} xl={6} key={order.order_id}>
+                            <Col xs={24} sm={24} md={12} lg={8} xl={6} key={order.order_id}>
                                 <div style={kdsStyles.card(urgency.color, isHighUrgency)}>
                                     
                                     {/* Card Header */}

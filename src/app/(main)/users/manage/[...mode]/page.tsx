@@ -18,6 +18,7 @@ import { Branch } from '@/types/api/branch';
 import PageContainer from "@/components/ui/page/PageContainer";
 import PageSection from "@/components/ui/page/PageSection";
 import UIPageHeader from "@/components/ui/page/PageHeader";
+import { t } from "@/utils/i18n";
 
 export default function UserManagePage({ params }: { params: { mode: string[] } }) {
   const router = useRouter();
@@ -51,13 +52,13 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   const fetchRoles = useCallback(async () => {
     try {
       const response = await fetch('/api/roles/getAll');
-      if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลบทบาทได้');
+      if (!response.ok) throw new Error(t("users.manage.loadRolesError"));
       const data: Role[] = await response.json();
       const filteredRoles = data.filter(role => !['Admin', 'Manager', 'Employee'].includes(role.display_name));
       setRoles(filteredRoles.length > 0 ? filteredRoles : data);
     } catch (error) {
       console.error(error);
-      message.error('ไม่สามารถดึงข้อมูลบทบาทได้');
+      message.error(t("users.manage.loadRolesError"));
     }
   }, []);
 
@@ -67,7 +68,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
       setBranches(data);
     } catch (error) {
       console.error(error);
-      message.error('ไม่สามารถดึงข้อมูลสาขาได้');
+      message.error(t("users.manage.loadBranchesError"));
     }
   }, []);
 
@@ -87,7 +88,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
 
     } catch (error) {
       console.error(error);
-      message.error('ไม่สามารถดึงข้อมูลผู้ใช้ได้');
+      message.error(t("users.manage.loadUserError"));
       router.push('/users');
     } finally {
       setLoading(false);
@@ -112,16 +113,16 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
         if (!payload.password) delete payload.password;
 
         await userService.updateUser(userId, payload, undefined, csrfToken);
-        message.success('อัปเดตผู้ใช้สำเร็จ');
+        message.success(t("users.manage.updateSuccess"));
       } else {
         // Create mode
         await userService.createUser(values, undefined, csrfToken);
-        message.success('สร้างผู้ใช้สำเร็จ');
+        message.success(t("users.manage.createSuccess"));
       }
       router.push('/users');
     } catch (error: unknown) {
       console.error(error);
-      message.error((error as { message: string }).message || (isEdit ? 'ไม่สามารถอัปเดตผู้ใช้ได้' : 'ไม่สามารถสร้างผู้ใช้ได้'));
+      message.error((error as { message: string }).message || (isEdit ? t("users.manage.saveErrorUpdate") : t("users.manage.saveErrorCreate")));
     } finally {
       setSubmitting(false);
     }
@@ -131,11 +132,11 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
     if (!userId) return;
     try {
       await userService.deleteUser(userId, undefined, csrfToken);
-      message.success('ลบผู้ใช้สำเร็จ');
+      message.success(t("users.manage.deleteSuccess"));
       router.push('/users');
     } catch (error) {
         console.error(error);
-        message.error('ไม่สามารถลบผู้ใช้ได้');
+        message.error(t("users.manage.deleteError"));
     }
   };
 
@@ -144,7 +145,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
 
   return (
       <>
-      <UIPageHeader title="จัดการผู้ใช้" />
+      <UIPageHeader title={t("users.headerTitle")} />
       <PageContainer>
         <PageSection>
       <>
@@ -158,22 +159,22 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
             onClick={() => router.push('/users')}
             className="mb-2 pl-0 hover:bg-transparent hover:text-blue-600"
           >
-            กลับไปหน้าผู้ใช้
+            {t("users.manage.backToList")}
           </Button>
           <div className="flex justify-between items-center">
             <Title level={2} style={{ margin: 0 }}>
-                {isEdit ? 'แก้ไขผู้ใช้' : 'เพิ่มผู้ใช้'}
+                {isEdit ? t("users.manage.headingEdit") : t("users.manage.headingCreate")}
             </Title>
             {isEdit && (
                 <Popconfirm
-                    title="ลบผู้ใช้"
-                    description="คุณต้องการลบผู้ใช้หรือไม่?"
+                    title={t("users.manage.deleteTitle")}
+                    description={t("users.manage.deleteDescription")}
                     onConfirm={handleDelete}
-                    okText="ใช่"
-                    cancelText="No"
+                    okText={t("users.manage.deleteOk")}
+                    cancelText={t("users.manage.deleteCancel")}
                     okButtonProps={{ danger: true }}
                 >
-                    <Button danger icon={<DeleteOutlined />}>ลบผู้ใช้</Button>
+                    <Button danger icon={<DeleteOutlined />}>{t("users.manage.deleteButton")}</Button>
                 </Popconfirm>
             )}
           </div>
@@ -194,38 +195,38 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
             >
               <Form.Item
                 name="username"
-                label="ชื่อผู้ใช้"
+                label={t("users.manage.form.usernameLabel")}
                 rules={[
-                  { required: true, message: 'กรุณากรอกชื่อผู้ใช้' },
-                  { pattern: /^[a-zA-Z0-9\-_@.]*$/, message: 'กรุณากรอกภาษาอังกฤษ ตัวเลข หรืออักขระพิเศษ (- _ @ .)' }
+                  { required: true, message: t("users.manage.form.usernameRequired") },
+                  { pattern: /^[a-zA-Z0-9\-_@.]*$/, message: t("users.manage.form.usernamePattern") }
                 ]}
               >
-                <Input size="large" placeholder="กรุณากรอกชื่อผู้ใช้" autoComplete="off" />
+                <Input size="large" placeholder={t("users.manage.form.usernamePlaceholder")} autoComplete="off" />
               </Form.Item>
 
               <Form.Item
                 name="name"
-                label="ชื่อ-นามสกุล / ชื่อเล่น"
-                rules={[{ required: true, message: 'กรุณากรอกชื่อ-นามสกุล หรือ ชื่อเล่น' }]}
+                label={t("users.manage.form.nameLabel")}
+                rules={[{ required: true, message: t("users.manage.form.nameRequired") }]}
               >
-                <Input size="large" placeholder="ระบุชื่อ (เช่น สมชาย หรือ น้องบี)" autoComplete="off" />
+                <Input size="large" placeholder={t("users.manage.form.namePlaceholder")} autoComplete="off" />
               </Form.Item>
 
               <Form.Item
                 name="password"
-                label={isEdit ? "รหัสผ่านใหม่ (ปล่อยว่างเพื่อไม่เปลี่ยนรหัสผ่าน)" : "รหัสผ่าน"}
+                label={isEdit ? t("users.manage.form.passwordLabelEdit") : t("users.manage.form.passwordLabel")}
                 rules={[
-                  { required: !isEdit, message: 'กรุณากรอกรหัสผ่าน' },
-                  { pattern: /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]*$/, message: 'กรุณากรอกภาษาอังกฤษ ตัวเลข หรืออักขระพิเศษเท่านั้น' }
+                  { required: !isEdit, message: t("users.manage.form.passwordRequired") },
+                  { pattern: /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]*$/, message: t("users.manage.form.passwordPattern") }
                 ]}
               >
-                <Input.Password size="large" placeholder="กรุณากรอกรหัสผ่าน" autoComplete="new-password" />
+                <Input.Password size="large" placeholder={t("users.manage.form.passwordPlaceholder")} autoComplete="new-password" />
               </Form.Item>
 
               <Form.Item
                 name="roles_id"
-                label="บทบาท"
-                rules={[{ required: true, message: 'กรุณาเลือกบทบาท' }]}
+                label={t("users.manage.form.roleLabel")}
+                rules={[{ required: true, message: t("users.manage.form.roleRequired") }]}
               >
                 {/* Custom Select Trigger for Role */}
                 <div 
@@ -239,7 +240,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
                     }}
                 >
                     <span className={currentRole ? 'text-black' : 'text-gray-400'}>
-                        {currentRole ? currentRole.display_name : 'เลือกบทบาท'}
+                        {currentRole ? currentRole.display_name : t("users.manage.form.rolePlaceholder")}
                     </span>
                     <span className="text-gray-400">▼</span>
                 </div>
@@ -247,8 +248,8 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
 
               <Form.Item
                 name="branch_id"
-                label="สาขา"
-                rules={[{ required: true, message: 'กรุณาเลือกสาขา' }]}
+                label={t("users.manage.form.branchLabel")}
+                rules={[{ required: true, message: t("users.manage.form.branchRequired") }]}
               >
                  {/* Custom Select Trigger for Branch */}
                  <div 
@@ -262,7 +263,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
                     }}
                 >
                     <span className={currentBranch ? 'text-black' : 'text-gray-400'}>
-                        {currentBranch ? `${currentBranch.branch_name} (${currentBranch.branch_code})` : 'เลือกสาขา'}
+                        {currentBranch ? `${currentBranch.branch_name} (${currentBranch.branch_code})` : t("users.manage.form.branchPlaceholder")}
                     </span>
                     <span className="text-gray-400">▼</span>
                 </div>
@@ -270,7 +271,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
 
               {/* Role Selection Modal */}
               <Modal
-                title="เลือกบทบาท"
+                title={t("users.manage.form.roleModalTitle")}
                 open={roleModalVisible}
                 onCancel={() => setRoleModalVisible(false)}
                 footer={null}
@@ -298,7 +299,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
 
               {/* Branch Selection Modal */}
               <Modal
-                title="เลือกสาขา"
+                title={t("users.manage.form.branchModalTitle")}
                 open={branchModalVisible}
                 onCancel={() => setBranchModalVisible(false)}
                 footer={null}
@@ -328,7 +329,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
                 <div className="flex gap-8 mb-4">
                   <Form.Item
                     name="is_active"
-                    label="สถานะ (Active)"
+                    label={t("users.manage.form.activeLabel")}
                     valuePropName="checked"
                   >
                     <Switch />
@@ -336,7 +337,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
 
                   <Form.Item
                     name="is_use"
-                    label="การใช้งาน (In Use)"
+                    label={t("users.manage.form.useLabel")}
                     valuePropName="checked"
                   >
                     <Switch />
@@ -346,7 +347,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
 
               <div className="flex justify-end gap-3 pt-4 border-t border-gray-50 mt-6">
                 <Button size="large" onClick={() => router.push('/users')}>
-                  ยกเลิก
+                  {t("users.manage.cancel")}
                 </Button>
                 <Button 
                   type="primary" 
@@ -356,7 +357,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
                   icon={<SaveOutlined />}
                   className="bg-blue-600 hover:bg-blue-700"
                 >
-                  {isEdit ? 'อัปเดตผู้ใช้' : 'สร้างผู้ใช้'}
+                  {isEdit ? t("users.manage.updateSubmit") : t("users.manage.createSubmit")}
                 </Button>
               </div>
             </Form>

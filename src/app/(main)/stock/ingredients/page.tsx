@@ -26,6 +26,7 @@ import PageSection from "@/components/ui/page/PageSection";
 import PageStack from "@/components/ui/page/PageStack";
 import UIPageHeader from "@/components/ui/page/PageHeader";
 import UIEmptyState from "@/components/ui/states/EmptyState";
+import { t } from "@/utils/i18n";
 
 export default function IngredientsPage() {
     const router = useRouter();
@@ -51,11 +52,11 @@ export default function IngredientsPage() {
             const response = await fetch('/api/stock/ingredients');
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลวัตถุดิบได้');
+                throw new Error(errorData.error || errorData.message || t("stock.ingredients.loadError"));
             }
             const data = await response.json();
             setIngredients(data);
-        }, 'กำลังโหลดข้อมูลวัตถุดิบ...');
+        }, t("stock.ingredients.loading"));
     }, [execute]);
 
     useEffect(() => {
@@ -67,7 +68,7 @@ export default function IngredientsPage() {
                 }, 1000); 
             } else if (user.role !== 'Admin') {
                 setIsAuthorized(false);
-                message.error("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
+                message.error(t("stock.ingredients.noPermission"));
                 setTimeout(() => {
                     router.replace('/stock/items');
                 }, 1000); 
@@ -102,11 +103,11 @@ export default function IngredientsPage() {
 
     const handleDelete = (ingredient: Ingredients) => {
         Modal.confirm({
-            title: 'ยืนยันการลบวัตถุดิบ',
-            content: `คุณต้องการลบวัตถุดิบ "${ingredient.display_name}" หรือไม่?`,
-            okText: 'ลบ',
+            title: t("stock.ingredients.deleteTitle"),
+            content: t("stock.ingredients.deleteContent", { name: ingredient.display_name }),
+            okText: t("branch.delete.ok"),
             okType: 'danger',
-            cancelText: 'ยกเลิก',
+            cancelText: t("branch.delete.cancel"),
             centered: true,
             onOk: async () => {
                 await execute(async () => {
@@ -117,10 +118,10 @@ export default function IngredientsPage() {
                         }
                     });
                     if (!response.ok) {
-                        throw new Error('ไม่สามารถลบวัตถุดิบได้');
+                        throw new Error(t("stock.ingredients.deleteError"));
                     }
-                    message.success(`ลบวัตถุดิบ "${ingredient.display_name}" สำเร็จ`);
-                }, "กำลังลบวัตถุดิบ...");
+                    message.success(t("stock.ingredients.deleteSuccess", { name: ingredient.display_name }));
+                }, t("stock.ingredients.deleting"));
             },
         });
     };
@@ -136,7 +137,7 @@ export default function IngredientsPage() {
                 gap: 16 
             }}>
                 <Spin size="large" />
-                <Text type="secondary">กำลังตรวจสอบสิทธิ์การใช้งาน...</Text>
+                <Text type="secondary">{t("stock.ingredients.checkingAuth")}</Text>
             </div>
         );
     }
@@ -152,7 +153,7 @@ export default function IngredientsPage() {
                 gap: 16 
             }}>
                 <Spin size="large" />
-                <Text type="danger">คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับหน้าแรก...</Text>
+                <Text type="danger">{t("stock.ingredients.redirecting")}</Text>
             </div>
         );
     }
@@ -165,13 +166,13 @@ export default function IngredientsPage() {
             <IngredientsPageStyles />
             
             <UIPageHeader
-                title="วัตถุดิบ"
-                subtitle={`${ingredients.length} รายการ`}
+                title={t("stock.ingredients.title")}
+                subtitle={t("stock.ingredients.subtitle", { count: ingredients.length })}
                 icon={<ExperimentOutlined />}
                 actions={
                     <Space size={8} wrap>
-                        <Button icon={<ReloadOutlined />} onClick={fetchIngredients}>รีเฟรช</Button>
-                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>เพิ่มวัตถุดิบ</Button>
+                        <Button icon={<ReloadOutlined />} onClick={fetchIngredients}>{t("stock.ingredients.refresh")}</Button>
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>{t("stock.ingredients.add")}</Button>
                     </Space>
                 }
             />
@@ -187,7 +188,7 @@ export default function IngredientsPage() {
 
                     {/* Ingredients List */}
                     <PageSection
-                        title="รายการวัตถุดิบ"
+                        title={t("stock.ingredients.listTitle")}
                         extra={<span style={{ fontWeight: 600 }}>{ingredients.length}</span>}
                     >
                         {ingredients.length > 0 ? (
@@ -204,11 +205,11 @@ export default function IngredientsPage() {
                             </div>
                         ) : (
                             <UIEmptyState
-                                title="ยังไม่มีวัตถุดิบ"
-                                description="เริ่มต้นด้วยการเพิ่มวัตถุดิบแรกของคุณ"
+                                title={t("stock.ingredients.emptyTitle")}
+                                description={t("stock.ingredients.emptyDescription")}
                                 action={
                                     <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                        เพิ่มวัตถุดิบ
+                                        {t("stock.ingredients.emptyAction")}
                                     </Button>
                                 }
                             />

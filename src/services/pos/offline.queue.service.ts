@@ -26,11 +26,17 @@ export type OfflineAction = {
 
 const QUEUE_KEY = 'pos_offline_queue';
 const MAX_RETRY = 5;
+const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 const readQueue = (): OfflineAction[] => {
     if (typeof window === 'undefined') return [];
     const queueString = localStorage.getItem(QUEUE_KEY);
     return queueString ? JSON.parse(queueString) : [];
+};
+
+const pruneOld = (items: OfflineAction[]) => {
+    const now = Date.now();
+    return items.filter(item => now - item.timestamp <= MAX_AGE_MS);
 };
 
 const writeQueue = (data: OfflineAction[]) => {
@@ -40,7 +46,7 @@ const writeQueue = (data: OfflineAction[]) => {
 
 export const offlineQueueService = {
     addToQueue: <T extends OfflineActionType>(type: T, payload: OfflinePayloadMap[T]) => {
-        const currentQueue = readQueue();
+        const currentQueue = pruneOld(readQueue());
         const newAction = {
             id: `offline-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
             type,
@@ -76,7 +82,7 @@ export const offlineQueueService = {
     },
 
     pruneExceeded: () => {
-        const remaining = readQueue().filter(a => a.retryCount <= MAX_RETRY);
+        const remaining = pruneOld(readQueue()).filter(a => a.retryCount <= MAX_RETRY);
         writeQueue(remaining);
     },
 };

@@ -23,6 +23,8 @@ import PageContainer from "@/components/ui/page/PageContainer";
 import PageSection from "@/components/ui/page/PageSection";
 import UIPageHeader from "@/components/ui/page/PageHeader";
 import UIEmptyState from "@/components/ui/states/EmptyState";
+import PageState from "@/components/ui/states/PageState";
+import { t } from "@/utils/i18n";
 import dayjs from 'dayjs';
 import 'dayjs/locale/th';
 
@@ -59,7 +61,7 @@ const statusLabels: Record<QueueStatus, string> = {
 
 export default function OrderQueuePage() {
     const [statusFilter, setStatusFilter] = useState<QueueStatus | undefined>(undefined);
-    const { queue, isLoading, updateStatus, removeFromQueue, reorderQueue, isReordering } = useOrderQueue(statusFilter);
+    const { queue, isLoading, error, updateStatus, removeFromQueue, reorderQueue, isReordering, refetch } = useOrderQueue(statusFilter);
     const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
     
     // Prefetch queue data
@@ -140,7 +142,7 @@ export default function OrderQueuePage() {
                         <>
                             <Select
                                 value={statusFilter}
-                                placeholder="กรองสถานะ"
+                                placeholder={t("queue.filter")}
                                 allowClear
                                 style={{ width: 160 }}
                                 size="middle"
@@ -154,8 +156,8 @@ export default function OrderQueuePage() {
                                     </Select.Option>
                                 ))}
                             </Select>
-                            <Button icon={<ReloadOutlined />} onClick={() => window.location.reload()}>
-                                รีเฟรช
+                            <Button icon={<ReloadOutlined />} onClick={() => refetch()}>
+                                {t("queue.refresh")}
                             </Button>
                             <Button
                                 icon={<SortAscendingOutlined />}
@@ -201,13 +203,11 @@ export default function OrderQueuePage() {
 
                     {/* Queue List */}
                     {isLoading ? (
-                        <div style={queueStyles.emptyCard}>
-                            <UIEmptyState title="กำลังโหลด..." />
-                        </div>
+                        <PageState status="loading" title={t("queue.loading")} />
+                    ) : error ? (
+                        <PageState status="error" title={t("queue.error")} onRetry={() => refetch()} />
                     ) : queue.length === 0 ? (
-                        <div style={queueStyles.emptyCard}>
-                            <UIEmptyState title="ยังไม่มีออเดอร์ในคิว" />
-                        </div>
+                        <PageState status="empty" title={t("queue.empty")} />
                     ) : (
                         <div style={queueStyles.queueList}>
                             {queue.map((item, index) => (
