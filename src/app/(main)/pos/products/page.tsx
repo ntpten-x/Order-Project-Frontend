@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
-import { message, Modal, Typography, Tag, Button, Input, Alert, Space } from 'antd';
+import { message, Modal, Typography, Tag, Button, Input, Alert, Space, Tooltip } from 'antd';
 import Image from "next/image";
 import { 
     ShopOutlined,
@@ -522,6 +522,11 @@ export default function ProductsPage() {
                     actions={
                         <Space size={8} wrap>
                             <Button icon={<ReloadOutlined />} onClick={fetchProducts} />
+                            <Tooltip title="ต้องเพิ่มหมวดหมู่สินค้าและหน่วยสินค้าก่อน">
+                                <Button type="primary" icon={<PlusOutlined />} disabled>
+                                    เพิ่มสินค้า
+                                </Button>
+                            </Tooltip>
                         </Space>
                     }
                 />
@@ -543,6 +548,11 @@ export default function ProductsPage() {
                                             เพิ่มหน่วยสินค้า
                                         </Button>
                                     )}
+                                    <Tooltip title="ต้องเพิ่มหมวดหมู่สินค้าและหน่วยสินค้าก่อน">
+                                        <Button type="primary" icon={<PlusOutlined />} disabled>
+                                            เพิ่มสินค้า
+                                        </Button>
+                                    </Tooltip>
                                 </Space>
                             }
                         />

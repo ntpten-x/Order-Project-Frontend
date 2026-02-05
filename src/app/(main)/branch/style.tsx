@@ -51,7 +51,7 @@ export const pageStyles = {
         position: 'relative' as CSSProperties['position'],
         zIndex: 2,
         width: '100%',
-        boxSizing: 'border-box',
+        boxSizing: 'border-box' as const,
     },
 
     branchCard: (isActive: boolean) => ({

@@ -25,11 +25,11 @@ const resolveDeleteId = (payload: DeletePayload): string | undefined => {
 
 
 
-export function useProducts(page: number = 1, limit: number = 20, categoryId?: string) {
+export function useProducts(page: number = 1, limit: number = 20, categoryId?: string, query?: string) {
     const { socket } = useContext(SocketContext);
     const queryClient = useQueryClient();
     // Use 'all' for undefined categoryId to ensure consistent cache key
-    const queryKey = ['products', page, limit, categoryId || 'all'];
+    const queryKey = ['products', page, limit, categoryId || 'all', query || ''];
 
     const { data, error, isLoading, refetch } = useQuery<ProductsResponse>({
         queryKey,
@@ -40,6 +40,10 @@ export function useProducts(page: number = 1, limit: number = 20, categoryId?: s
             const searchParams = new URLSearchParams();
             if (categoryId) {
                 searchParams.append("category_id", categoryId);
+            }
+            const normalizedQuery = query?.trim();
+            if (normalizedQuery) {
+                searchParams.append("q", normalizedQuery);
             }
 
             const result = await productsService.findAll(page, limit, undefined, searchParams);

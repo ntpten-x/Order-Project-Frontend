@@ -32,6 +32,12 @@
   /* Accent Colors */
   --color-primary: #6366f1;         /* Indigo - Primary actions */
   --color-primary-hover: #4f46e5;
+  --color-primary-rgb: 99 102 241;
+  --color-primary-hover-rgb: 79 70 229;
+  --color-primary-soft: #818cf8;
+  --color-primary-soft-rgb: 129 140 248;
+  --color-primary-light: #eef2ff;
+  --color-primary-border: #c7d2fe;
   --color-success: #10b981;         /* Emerald - Success/Active */
   --color-success-glow: rgba(16, 185, 129, 0.3);
   --color-warning: #f59e0b;         /* Amber - Warnings */

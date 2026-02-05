@@ -139,7 +139,7 @@ export const ProductPreview = ({ name, productName, imageUrl, price, priceDelive
                             ฿{(price || 0).toLocaleString()}
                         </Tag>
                         <Tag style={{ borderRadius: 6, margin: 0, fontSize: 11, fontWeight: 700, color: '#db2777', background: '#fdf2f8', border: 'none', padding: '0 8px' }}>
-                            Delivery ฿{(priceDelivery ?? price || 0).toLocaleString()}
+                            Delivery ฿{Number(priceDelivery ?? price ?? 0).toLocaleString()}
                         </Tag>
                         {category && <Tag style={{ borderRadius: 6, margin: 0, fontSize: 10, color: '#4F46E5', background: '#EEF2FF', border: 'none' }}>{category}</Tag>}
                         {unit && <Tag style={{ borderRadius: 6, margin: 0, fontSize: 10, color: '#0891B2', background: '#CFFAFE', border: 'none' }}>{unit}</Tag>}

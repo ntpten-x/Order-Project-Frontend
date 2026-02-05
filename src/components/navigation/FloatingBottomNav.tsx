@@ -41,7 +41,7 @@ export default function FloatingBottomNav({
     bottom: `calc(${bottomOffset}px + env(safe-area-inset-bottom))`,
     width: "calc(100% - 24px)",
     maxWidth,
-    zIndex: 1100,
+    zIndex: 900,
   };
 
   return (
