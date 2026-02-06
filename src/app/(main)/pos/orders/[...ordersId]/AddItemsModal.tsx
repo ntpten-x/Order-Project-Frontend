@@ -17,6 +17,7 @@ import { Products } from '../../../../../types/api/pos/products';
 import { orderDetailColors, modalStyles, addItemsModalStyles, ordersResponsiveStyles } from '../../../../../theme/pos/orders/style';
 import { formatCurrency, calculateItemTotal } from "../../../../../utils/orders";
 import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
+import { OrderType } from "../../../../../types/api/pos/salesOrder";
 
 const { Text, Title } = Typography;
 
@@ -36,9 +37,10 @@ interface AddItemsModalProps {
     isOpen: boolean;
     onClose: () => void;
     onAddItem: (product: Products, quantity: number, notes: string, details: ItemDetailInput[]) => Promise<void>;
+    orderType?: OrderType;
 }
 
-export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, onAddItem }) => {
+export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, onAddItem, orderType }) => {
     const { message } = App.useApp();
     const [products, setProducts] = useState<Products[]>([]);
     const [filteredProducts, setFilteredProducts] = useState<Products[]>([]);
@@ -159,11 +161,15 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
 
     const calculateTotalPrice = () => {
         if (!selectedProduct) return 0;
+        const basePrice =
+            orderType === OrderType.Delivery
+                ? (selectedProduct.price_delivery ?? selectedProduct.price)
+                : selectedProduct.price;
         const formattedDetails = details.map(d => ({
             detail_name: d.name,
             extra_price: d.price
         }));
-        return calculateItemTotal(selectedProduct.price, quantity, formattedDetails);
+        return calculateItemTotal(basePrice, quantity, formattedDetails);
     };
 
     return (
@@ -176,11 +182,22 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
             width={850}
             destroyOnHidden
             centered
+            styles={{ 
+                body: {
+                    padding: 0,
+                    display: 'flex',
+                    flexDirection: 'column',
+                    height: '90vh',
+                    maxHeight: '90vh',
+                    overflow: 'hidden',
+                    borderRadius: 16,
+                }
+            }}
         >
             <style jsx global>{ordersResponsiveStyles}</style>
             
             {/* Modal Header - Enhanced */}
-            <div style={modalStyles.modalHeader} className="modal-header">
+            <div style={{ ...modalStyles.modalHeader, flexShrink: 0 }} className="modal-header">
                 {selectedProduct ? (
                     <Button 
                         type="text" 
@@ -226,7 +243,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
             {!selectedProduct ? (
                 <>
                     {/* Sticky Search & Filter Bar */}
-                    <div style={{...addItemsModalStyles.searchBar, paddingBottom: 8}}>
+                    <div style={{...addItemsModalStyles.searchBar, paddingBottom: 8, flexShrink: 0}}>
                         <Input 
                             placeholder="ค้นหาสินค้าหรือรหัส..." 
                             prefix={<SearchOutlined style={{ color: orderDetailColors.textSecondary }} />} 
@@ -275,8 +292,8 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                         </div>
                     </div>
 
-                    {/* Product Grid */}
-                    <div className="order-detail-content" style={{ maxHeight: 'calc(100vh - 180px)', overflowY: 'auto', paddingBottom: 20 }}>
+                    {/* Product Grid - Scrollable */}
+                    <div className="order-detail-content" style={{ flex: 1, overflowY: 'auto', paddingBottom: 20 }}>
                         <div className="product-grid" style={addItemsModalStyles.productGrid}>
                                 {filteredProducts.map(item => (
                                     <div 
@@ -320,163 +337,175 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                     </div>
                 </>
             ) : (
-                <div style={addItemsModalStyles.detailSection} className="detail-section">
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                        {/* Product Large Info */}
-                        <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }} className="product-info-section">
-                            {selectedProduct.img_url ? (
-                                <>
-                                    <Image 
-                                        src={selectedProduct.img_url} 
-                                        alt={selectedProduct.display_name}
-                                        width={100}
-                                        height={100}
-                                        style={{ objectFit: 'cover', borderRadius: 12, flexShrink: 0 }} 
-                                    />
-                                </>
-                            ) : (
-                                <div style={{ width: 100, height: 100, background: orderDetailColors.backgroundSecondary, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                    <ShoppingCartOutlined style={{ fontSize: 32, opacity: 0.2 }} />
+                <>
+                    {/* Detail View - Scrollable Content */}
+                    <div style={{ 
+                        flex: 1, 
+                        overflowY: 'auto', 
+                        padding: '20px', 
+                        display: 'flex', 
+                        flexDirection: 'column' 
+                    }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+                            {/* Product Large Info */}
+                            <div style={{ display: 'flex', gap: 16, alignItems: 'flex-start' }} className="product-info-section">
+                                {selectedProduct.img_url ? (
+                                    <>
+                                        <Image 
+                                            src={selectedProduct.img_url} 
+                                            alt={selectedProduct.display_name}
+                                            width={100}
+                                            height={100}
+                                            style={{ objectFit: 'cover', borderRadius: 12, flexShrink: 0 }} 
+                                        />
+                                    </>
+                                ) : (
+                                    <div style={{ width: 100, height: 100, background: orderDetailColors.backgroundSecondary, borderRadius: 12, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                        <ShoppingCartOutlined style={{ fontSize: 32, opacity: 0.2 }} />
+                                    </div>
+                                )}
+                                <div style={{ flex: 1, minWidth: 0 }}>
+                                    <Title level={4} style={{ margin: '0 0 6px 0', fontSize: 20, lineHeight: 1.3 }}>{selectedProduct.display_name}</Title>
+                                    <Text style={{ fontSize: 20, fontWeight: 700, color: orderDetailColors.primary, lineHeight: 1.2 }}>
+                                        ฿{Number(orderType === OrderType.Delivery ? (selectedProduct.price_delivery ?? selectedProduct.price) : selectedProduct.price).toLocaleString()}
+                                    </Text>
                                 </div>
-                            )}
-                            <div style={{ flex: 1, minWidth: 0 }}>
-                                <Title level={4} style={{ margin: '0 0 6px 0', fontSize: 20, lineHeight: 1.3 }}>{selectedProduct.display_name}</Title>
-                                <Text style={{ fontSize: 20, fontWeight: 700, color: orderDetailColors.primary, lineHeight: 1.2 }}>
-                                    ฿{Number(selectedProduct.price).toLocaleString()}
-                                </Text>
                             </div>
-                        </div>
 
-                        <Divider style={{ margin: '0' }} />
+                            <Divider style={{ margin: '0' }} />
 
-                        {/* Quantity Control - Enhanced */}
-                        <div>
-                            <Text strong style={{ display: 'block', marginBottom: 14, fontSize: 16, color: orderDetailColors.text }}>จำนวน</Text>
-                            <div style={modalStyles.quantityControl} className="quantity-control">
-                                <Button
-                                    type="primary"
-                                    icon={<MinusOutlined />}
-                                    onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
-                                    disabled={quantity <= 1}
-                                    style={{
-                                        ...modalStyles.quantityButton, 
-                                        background: orderDetailColors.white, 
-                                        color: orderDetailColors.primary, 
-                                        border: `2px solid ${orderDetailColors.primary}`,
-                                    }}
-                                    className="scale-hover quantity-button"
-                                />
-                                <div style={modalStyles.quantityDisplay} className="quantity-display">{quantity}</div>
-                                <Button
-                                    type="primary"
-                                    icon={<PlusOutlined />}
-                                    onClick={() => setQuantity(prev => prev + 1)}
-                                    style={{
-                                        ...modalStyles.quantityButton,
-                                        background: `linear-gradient(135deg, ${orderDetailColors.primary} 0%, ${orderDetailColors.primaryDark} 100%)`,
-                                        border: 'none',
-                                    }}
-                                    className="scale-hover quantity-button"
-                                />
-                            </div>
-                        </div>
-
-                        {/* Extras Section */}
-                        <div>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                                <Text strong style={{ fontSize: 16 }}>ตัวเลือกเพิ่มเติม (Optional)</Text>
-                                <Button 
-                                    size="small" 
-                                    type="dashed" 
-                                    onClick={addDetail} 
-                                    icon={<PlusOutlined />}
-                                >
-                                    เพิ่ม
-                                </Button>
-                            </div>
-                            {details.map((detail) => (
-                                <div key={detail.id} style={addItemsModalStyles.detailItemRow} className="detail-item-row">
-                                    <Input 
-                                        placeholder="ไข่ดาว, พิเศษ..." 
-                                        value={detail.name} 
-                                        onChange={e => updateDetail(detail.id, 'name', e.target.value)}
-                                        style={{ flex: 1, borderRadius: 10, height: 44, fontSize: 15 }}
-                                    />
-                                    <InputNumber<number> 
-                                        placeholder="0.00" 
-                                        value={detail.price} 
-                                        onChange={v => updateDetail(detail.id, 'price', v || 0)}
-                                        style={{ width: 110, borderRadius: 10, height: 44, fontSize: 15 }}
-                                        inputMode="decimal"
-                                        controls={false}
-                                        min={0}
-                                        precision={2}
-                                        formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                                        parser={(value) => value!.replace(/\$\s?|(,*)/g, '') as unknown as number}
-                                        onKeyDown={(e) => {
-                                            const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', '.'];
-                                            if (!/^[0-9]$/.test(e.key) && !allowedKeys.includes(e.key)) {
-                                                e.preventDefault();
-                                            }
-                                            if (e.key === '.' && detail.price.toString().includes('.')) {
-                                                e.preventDefault();
-                                            }
+                            {/* Quantity Control - Enhanced */}
+                            <div>
+                                <Text strong style={{ display: 'block', marginBottom: 14, fontSize: 16, color: orderDetailColors.text }}>จำนวน</Text>
+                                <div style={modalStyles.quantityControl} className="quantity-control">
+                                    <Button
+                                        type="primary"
+                                        icon={<MinusOutlined />}
+                                        onClick={() => setQuantity(prev => Math.max(1, prev - 1))}
+                                        disabled={quantity <= 1}
+                                        style={{
+                                            ...modalStyles.quantityButton, 
+                                            background: orderDetailColors.white, 
+                                            color: orderDetailColors.primary, 
+                                            border: `2px solid ${orderDetailColors.primary}`,
                                         }}
+                                        className="scale-hover quantity-button"
                                     />
-                                    <Button 
-                                        type="text" 
-                                        danger 
-                                        icon={<DeleteOutlined />} 
-                                        onClick={() => removeDetail(detail.id)}
-                                        style={{ width: 44, height: 44, borderRadius: 10 }}
-                                        className="scale-hover"
+                                    <div style={modalStyles.quantityDisplay} className="quantity-display">{quantity}</div>
+                                    <Button
+                                        type="primary"
+                                        icon={<PlusOutlined />}
+                                        onClick={() => setQuantity(prev => prev + 1)}
+                                        style={{
+                                            ...modalStyles.quantityButton,
+                                            background: `linear-gradient(135deg, ${orderDetailColors.primary} 0%, ${orderDetailColors.primaryDark} 100%)`,
+                                            border: 'none',
+                                        }}
+                                        className="scale-hover quantity-button"
                                     />
                                 </div>
-                            ))}
-                        </div>
-
-                        {/* Notes */}
-                        <div>
-                            <Text strong style={{ display: 'block', marginBottom: 10, fontSize: 16, color: orderDetailColors.text }}>หมายเหตุ</Text>
-                            <Input.TextArea 
-                                rows={3} 
-                                value={notes} 
-                                onChange={(e) => setNotes(e.target.value)} 
-                                placeholder="เช่น ไม่ใส่ผัก, เผ็ดน้อย..."
-                                style={{ borderRadius: 12, fontSize: 15, padding: '12px 14px', lineHeight: 1.5 }}
-                            />
-                        </div>
-
-                        {/* Total & Action Bar - Enhanced */}
-                        <div style={{ marginTop: 24 }}>
-                            <div style={modalStyles.priceCard}>
-                                <Text strong style={{ fontSize: 16, color: orderDetailColors.text }}>ยอดรวมรายการนี้</Text>
-                                <Title level={4} style={{ margin: 0, color: orderDetailColors.priceTotal, fontSize: 24 }}>
-                                    {formatCurrency(calculateTotalPrice())}
-                                </Title>
                             </div>
-                            
-                            <div style={modalStyles.actionButtons} className="action-buttons">
-                                <Button
-                                    onClick={() => setSelectedProduct(null)}
-                                    style={modalStyles.secondaryButton}
-                                    className="scale-hover secondary-button"
-                                >
-                                    ย้อนกลับ
-                                </Button>
-                                <Button
-                                    type="primary"
-                                    onClick={handleConfirmAdd}
-                                    icon={<PlusOutlined />}
-                                    style={modalStyles.primaryButton}
-                                    className="scale-hover primary-button"
-                                >
-                                    เพิ่มลงออเดอร์
-                                </Button>
+
+                            {/* Extras Section */}
+                            <div>
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                                    <Text strong style={{ fontSize: 16 }}>ตัวเลือกเพิ่มเติม (Optional)</Text>
+                                    <Button 
+                                        size="small" 
+                                        type="dashed" 
+                                        onClick={addDetail} 
+                                        icon={<PlusOutlined />}
+                                    >
+                                        เพิ่ม
+                                    </Button>
+                                </div>
+                                {details.map((detail) => (
+                                    <div key={detail.id} style={addItemsModalStyles.detailItemRow} className="detail-item-row">
+                                        <Input 
+                                            placeholder="ไข่ดาว, พิเศษ..." 
+                                            value={detail.name} 
+                                            onChange={e => updateDetail(detail.id, 'name', e.target.value)}
+                                            style={{ flex: 1, borderRadius: 10, height: 44, fontSize: 15 }}
+                                        />
+                                        <InputNumber<number> 
+                                            placeholder="0.00" 
+                                            value={detail.price} 
+                                            onChange={v => updateDetail(detail.id, 'price', v || 0)}
+                                            style={{ width: 110, borderRadius: 10, height: 44, fontSize: 15 }}
+                                            inputMode="decimal"
+                                            controls={false}
+                                            min={0}
+                                            precision={2}
+                                            formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                            parser={(value) => value!.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                                            onKeyDown={(e) => {
+                                                const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', '.'];
+                                                if (!/^[0-9]$/.test(e.key) && !allowedKeys.includes(e.key)) {
+                                                    e.preventDefault();
+                                                }
+                                                if (e.key === '.' && detail.price.toString().includes('.')) {
+                                                    e.preventDefault();
+                                                }
+                                            }}
+                                        />
+                                        <Button 
+                                            type="text" 
+                                            danger 
+                                            icon={<DeleteOutlined />} 
+                                            onClick={() => removeDetail(detail.id)}
+                                            style={{ width: 44, height: 44, borderRadius: 10 }}
+                                            className="scale-hover"
+                                        />
+                                    </div>
+                                ))}
                             </div>
+
+                            {/* Notes */}
+                            <div>
+                                <Text strong style={{ display: 'block', marginBottom: 10, fontSize: 16, color: orderDetailColors.text }}>หมายเหตุ</Text>
+                                <Input.TextArea 
+                                    rows={3} 
+                                    value={notes} 
+                                    onChange={(e) => setNotes(e.target.value)} 
+                                    placeholder="เช่น ไม่ใส่ผัก, เผ็ดน้อย..."
+                                    style={{ borderRadius: 12, fontSize: 15, padding: '12px 14px', lineHeight: 1.5 }}
+                                />
+                            </div>
+
+                            {/* Spacing for bottom footer */}
+                            <div style={{ height: 10 }} />
                         </div>
                     </div>
-                </div>
+
+                    {/* Sticky Footer */}
+                    <div style={{ marginTop: 0 }}>
+                        <div style={{...modalStyles.priceCard, margin: '0 20px', borderRadius: '12px 12px 0 0', borderBottom: 'none'}}>
+                            <Text strong style={{ fontSize: 16, color: orderDetailColors.text }}>ยอดรวมรายการนี้</Text>
+                            <Title level={4} style={{ margin: 0, color: orderDetailColors.priceTotal, fontSize: 24 }}>
+                                {formatCurrency(calculateTotalPrice())}
+                            </Title>
+                        </div>
+                        
+                        <div style={{ ...modalStyles.actionButtons, flexShrink: 0 }} className="action-buttons">
+                            <Button
+                                onClick={() => setSelectedProduct(null)}
+                                style={modalStyles.secondaryButton}
+                                className="scale-hover secondary-button"
+                            >
+                                ย้อนกลับ
+                            </Button>
+                            <Button
+                                type="primary"
+                                onClick={handleConfirmAdd}
+                                icon={<PlusOutlined />}
+                                style={modalStyles.primaryButton}
+                                className="scale-hover primary-button"
+                            >
+                                เพิ่มลงออเดอร์
+                            </Button>
+                        </div>
+                    </div>
+                </>
             )}
         </Modal>
     );

@@ -7,6 +7,7 @@ import {
     DeleteOutlined
 } from '@ant-design/icons';
 import { CSSProperties } from 'react';
+import { t } from "../../../../../utils/i18n";
 
 const { Title, Text } = Typography;
 
@@ -79,7 +80,7 @@ export const PageHeader = ({ isEdit, onBack, onDelete }: HeaderProps) => (
             <div>
                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Title level={4} style={{ margin: 0 }}>
-                        {isEdit ? 'แก้ไขข้อมูลสาขา' : 'เพิ่มสาขาใหม่'}
+                        {isEdit ? t("branch.form.titleEdit") : t("branch.form.titleCreate")}
                     </Title>
                     {isEdit && (
                         <div style={{ 
@@ -90,9 +91,9 @@ export const PageHeader = ({ isEdit, onBack, onDelete }: HeaderProps) => (
                         </div>
                     )}
                  </div>
-                 <Text type="secondary" style={{ fontSize: 13 }}>
-                    {isEdit ? 'ปรับปรุงข้อมูลสาขาที่มีอยู่' : 'กรอกข้อมูลเพื่อสร้างสาขาใหม่'}
-                 </Text>
+                <Text type="secondary" style={{ fontSize: 13 }}>
+                   {t("branch.form.subtitle")}
+                </Text>
             </div>
         </div>
 
@@ -103,7 +104,7 @@ export const PageHeader = ({ isEdit, onBack, onDelete }: HeaderProps) => (
                 onClick={onDelete}
                 style={{ borderRadius: 12, height: 40 }}
             >
-                ลบสาขา
+                {t("branch.delete.ok")}
             </Button>
         )}
     </div>

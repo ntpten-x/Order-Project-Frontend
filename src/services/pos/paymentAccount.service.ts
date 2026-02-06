@@ -1,5 +1,6 @@
 import { ShopPaymentAccount, CreatePaymentAccountDto } from "../../types/api/pos/shopPaymentAccount";
 import { getProxyUrl } from "../../lib/proxy-utils";
+import { getBackendErrorMessage, unwrapBackendData } from "../../utils/api/backendResponse";
 // import { API_ROUTES } from "../../config/api";
 
 // Assuming we add a new route constant or just use a hardcoded path for now if not in config
@@ -25,12 +26,12 @@ export const paymentAccountService = {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const err: Error & { status?: number } = new Error(errorData.error || errorData.message || "Failed to fetch accounts");
+            const err: Error & { status?: number } = new Error(getBackendErrorMessage(errorData, "Failed to fetch accounts"));
             err.status = response.status;
             throw err;
         }
 
-        return response.json();
+        return unwrapBackendData(await response.json()) as ShopPaymentAccount[];
     },
 
     create: async (data: CreatePaymentAccountDto, shopId?: string, cookie?: string, csrfToken?: string): Promise<ShopPaymentAccount> => {
@@ -50,11 +51,11 @@ export const paymentAccountService = {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const err: Error & { status?: number } = new Error(errorData.error || errorData.message || "Failed to create account");
+            const err: Error & { status?: number } = new Error(getBackendErrorMessage(errorData, "Failed to create account"));
             err.status = response.status;
             throw err;
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as ShopPaymentAccount;
     },
 
     update: async (id: string, data: Partial<CreatePaymentAccountDto>, shopId?: string, cookie?: string, csrfToken?: string): Promise<ShopPaymentAccount> => {
@@ -74,11 +75,11 @@ export const paymentAccountService = {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const err: Error & { status?: number } = new Error(errorData.error || errorData.message || "Failed to update account");
+            const err: Error & { status?: number } = new Error(getBackendErrorMessage(errorData, "Failed to update account"));
             err.status = response.status;
             throw err;
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as ShopPaymentAccount;
     },
 
     activate: async (id: string, shopId?: string, cookie?: string, csrfToken?: string): Promise<ShopPaymentAccount> => {
@@ -98,11 +99,11 @@ export const paymentAccountService = {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const err: Error & { status?: number } = new Error(errorData.error || errorData.message || "Failed to activate account");
+            const err: Error & { status?: number } = new Error(getBackendErrorMessage(errorData, "Failed to activate account"));
             err.status = response.status;
             throw err;
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as ShopPaymentAccount;
     },
 
     delete: async (id: string, shopId?: string, cookie?: string, csrfToken?: string): Promise<void> => {
@@ -121,7 +122,7 @@ export const paymentAccountService = {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const err: Error & { status?: number } = new Error(errorData.error || errorData.message || "Failed to delete account");
+            const err: Error & { status?: number } = new Error(getBackendErrorMessage(errorData, "Failed to delete account"));
             err.status = response.status;
             throw err;
         }

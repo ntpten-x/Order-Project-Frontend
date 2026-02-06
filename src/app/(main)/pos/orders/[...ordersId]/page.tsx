@@ -1,10 +1,10 @@
-"use client";
+﻿"use client";
 
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
+import { groupOrderItems } from "../../../../../utils/orderGrouping";
 import { Typography, Row, Col, Card, Tag, Button, Empty, Table, Checkbox, message, Tooltip, Space, Divider } from "antd";
 import { 
-    ArrowLeftOutlined, 
     ShopOutlined, 
     PlusOutlined, 
     DeleteOutlined, 
@@ -52,8 +52,10 @@ import { useNetwork } from "../../../../../hooks/useNetwork";
 import { offlineQueueService } from "../../../../../services/pos/offline.queue.service";
 import { useSocket } from "../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
+import { RealtimeEvents } from "../../../../../utils/realtimeEvents";
 import { useOrderQueue } from "../../../../../hooks/pos/useOrderQueue";
 import { QueueStatus, QueuePriority } from "../../../../../types/api/pos/orderQueue";
+import UIPageHeader from "../../../../../components/ui/page/PageHeader";
 
 
 const { Title, Text } = Typography;
@@ -127,7 +129,19 @@ export default function POSOrderDetailsPage() {
 
     useRealtimeRefresh({
         socket,
-        events: ["orders:update", "orders:delete", "orders:create", "payments:create", "payments:update"],
+        events: [
+            RealtimeEvents.orders.update,
+            RealtimeEvents.orders.delete,
+            RealtimeEvents.orders.create,
+            RealtimeEvents.payments.create,
+            RealtimeEvents.payments.update,
+            RealtimeEvents.salesOrderItem.create,
+            RealtimeEvents.salesOrderItem.update,
+            RealtimeEvents.salesOrderItem.delete,
+            RealtimeEvents.salesOrderDetail.create,
+            RealtimeEvents.salesOrderDetail.update,
+            RealtimeEvents.salesOrderDetail.delete,
+        ],
         onRefresh: () => {
             if (orderId) {
                 fetchOrder(orderId as string);
@@ -137,12 +151,50 @@ export default function POSOrderDetailsPage() {
         enabled: Boolean(orderId),
     });
 
+    const activeItems = useMemo<SalesOrderItem[]>(
+        () => order?.items?.filter((i) => i.status === OrderStatus.Pending || i.status === OrderStatus.Cooking) || [],
+        [order?.items],
+    );
+
+    const servedItems = useMemo<SalesOrderItem[]>(() => {
+        const items =
+            order?.items?.filter(
+                (i) =>
+                    i.status === OrderStatus.Served ||
+                    i.status === OrderStatus.Cancelled ||
+                    i.status === OrderStatus.WaitingForPayment,
+            ) || [];
+
+        return items.sort((a, b) => {
+            if (a.status === OrderStatus.Cancelled && b.status !== OrderStatus.Cancelled) return 1;
+            if (a.status !== OrderStatus.Cancelled && b.status === OrderStatus.Cancelled) return -1;
+            return 0;
+        });
+    }, [order?.items]);
+
+    const groupedActiveItems = useMemo(() => groupOrderItems(activeItems), [activeItems]);
+    const groupedServedItems = useMemo(() => groupOrderItems(servedItems), [servedItems]);
+
+    const nonCancelledItems = useMemo<SalesOrderItem[]>(() => getNonCancelledItems(order?.items) as SalesOrderItem[], [order?.items]);
+    const groupedNonCancelledItems = useMemo(() => groupOrderItems(nonCancelledItems), [nonCancelledItems]);
+    const calculatedTotal = calculateOrderTotal(order?.items);
+    const isOrderComplete = activeItems.length === 0 && (order?.items?.length || 0) > 0;
+    const shouldVirtualizeActive = groupedActiveItems.length > 12;
+    const shouldVirtualizeServed = groupedServedItems.length > 12;
+
     const handleServeItem = async (itemId: string) => {
         try {
             setIsUpdating(true);
             showLoading("กำลังดำเนินการเสิร์ฟ...");
             const csrfToken = await getCsrfTokenCached();
-            await ordersService.updateItemStatus(itemId, OrderStatus.Served, undefined, csrfToken);
+            
+            // Resolve IDs from group
+            const targetItem = groupedActiveItems.find((i) => i.id === itemId);
+            const idsToServe = targetItem?.originalItems?.map((i) => i.id) || [itemId];
+
+            await Promise.all(idsToServe.map((id: string) => 
+                ordersService.updateItemStatus(id, OrderStatus.Served, undefined, csrfToken)
+            ));
             message.success("เสิร์ฟรายการเรียบร้อย");
             fetchOrder(orderId as string);
         } catch {
@@ -157,10 +209,17 @@ export default function POSOrderDetailsPage() {
         if (selectedRowKeys.length === 0) return;
         try {
             setIsUpdating(true);
-            showLoading(`กำลังดำเนินการเสิร์ฟ ${selectedRowKeys.length} รายการ...`);
+            showLoading(`กำลังดำเนินการเสิร์ฟ ${selectedRowKeys.length} รายการ (รวมกลุ่ม)...`);
             const csrfToken = await getCsrfTokenCached();
-            await Promise.all(selectedRowKeys.map(key => 
-                ordersService.updateItemStatus(key.toString(), OrderStatus.Served, undefined, csrfToken)
+            
+            // Resolve all IDs from selected groups
+            const allIds = selectedRowKeys.flatMap(key => {
+                const group = groupedActiveItems.find((g) => g.id === key);
+                return group?.originalItems?.map((i) => i.id) || [key.toString()];
+            });
+
+            await Promise.all(allIds.map((id: string) => 
+                ordersService.updateItemStatus(id, OrderStatus.Served, undefined, csrfToken)
             ));
             message.success("เสิร์ฟรายการที่เลือกเรียบร้อย");
             setSelectedRowKeys([]);
@@ -176,11 +235,17 @@ export default function POSOrderDetailsPage() {
     const handleCancelSelected = async () => {
         if (selectedRowKeys.length === 0) return;
         
+        // Resolve all IDs to count correctly for confirmation
+        const allIds = selectedRowKeys.flatMap(key => {
+                const group = groupedActiveItems.find((g) => g.id === key);
+                return group?.originalItems?.map((i) => i.id) || [key.toString()];
+        });
+
         setConfirmConfig({
             open: true,
             type: 'danger',
             title: 'ยืนยันการยกเลิก',
-            content: `คุณต้องการยกเลิก ${selectedRowKeys.length} รายการที่เลือกใช่หรือไม่?`,
+            content: `คุณต้องการยกเลิก ${allIds.length} รายการที่เลือกใช่หรือไม่?`,
             okText: 'ยืนยันยกเลิก',
             cancelText: 'ไม่ยกเลิก',
             onOk: async () => {
@@ -189,8 +254,8 @@ export default function POSOrderDetailsPage() {
                     showLoading("กำลังดำเนินการยกเลิก...");
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
-                    await Promise.all(selectedRowKeys.map(key => 
-                        ordersService.updateItemStatus(key.toString(), OrderStatus.Cancelled, undefined, csrfToken)
+                    await Promise.all(allIds.map((id: string) => 
+                        ordersService.updateItemStatus(id, OrderStatus.Cancelled, undefined, csrfToken)
                     ));
                     message.success("ยกเลิกรายการที่เลือกเรียบร้อย");
                     setSelectedRowKeys([]);
@@ -210,7 +275,15 @@ export default function POSOrderDetailsPage() {
             setIsUpdating(true);
             showLoading("กำลังย้อนกลับสถานะ...");
             const csrfToken = await getCsrfTokenCached();
-            await ordersService.updateItemStatus(itemId, OrderStatus.Cooking, undefined, csrfToken);
+
+            // Resolve IDs from group (served items)
+            const targetItem = groupedServedItems.find((i) => i.id === itemId);
+            const idsToUnserve = targetItem?.originalItems?.map((i) => i.id) || [itemId];
+
+            await Promise.all(idsToUnserve.map((id: string) => 
+                ordersService.updateItemStatus(id, OrderStatus.Cooking, undefined, csrfToken)
+            ));
+
             message.success("ยกเลิกการเสิร์ฟ (กลับไปปรุง)");
             fetchOrder(orderId as string);
         } finally {
@@ -280,8 +353,15 @@ export default function POSOrderDetailsPage() {
                     showLoading("กำลังลบรายการ...");
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
-                    await ordersService.deleteItem(itemId, undefined, csrfToken);
-                    message.success("ลบรายการเรียบร้อย");
+                    
+                    // Resolve IDs from group
+                    const targetItem = groupedActiveItems.find((i) => i.id === itemId);
+                    const idsToDelete = targetItem?.originalItems?.map((i) => i.id) || [itemId];
+
+                    await Promise.all(idsToDelete.map((id: string) => 
+                           ordersService.deleteItem(id, undefined, csrfToken)
+                    ));
+                    message.success(`ลบรายการเรียบร้อย (${idsToDelete.length} รายการ)`);
                     fetchOrder(orderId as string);
                 } catch {
                     message.error("ไม่สามารถลบรายการได้");
@@ -371,12 +451,16 @@ export default function POSOrderDetailsPage() {
     };
 
     const handleAddItem = async (product: Products, quantity: number, notes: string, details: ItemDetailInput[] = []) => {
-        const totalPrice = (Number(product.price) + details.reduce((sum, d) => sum + d.extra_price, 0)) * quantity;
+        const unitPrice =
+            order?.order_type === OrderType.Delivery
+                ? Number(product.price_delivery ?? product.price)
+                : Number(product.price);
+        const totalPrice = (unitPrice + details.reduce((sum, d) => sum + d.extra_price, 0)) * quantity;
 
         if (!isOnline) {
             offlineQueueService.addToQueue('ADD_ITEM', { 
                 orderId: orderId as string, 
-                itemData: { product_id: product.id, quantity, price: product.price, notes, discount_amount: 0, total_price: totalPrice, details } 
+                itemData: { product_id: product.id, quantity, price: unitPrice, notes, discount_amount: 0, total_price: totalPrice, details } 
             });
             message.warning("บันทึกข้อมูลแบบ Offline แล้ว");
             fetchOrder(orderId as string); // Refresh from cache/local
@@ -390,7 +474,7 @@ export default function POSOrderDetailsPage() {
             await ordersService.addItem(orderId as string, {
                 product_id: product.id,
                 quantity: quantity,
-                price: product.price,
+                price: unitPrice,
                 notes: notes,
                 discount_amount: 0,
                 total_price: totalPrice,
@@ -713,70 +797,18 @@ export default function POSOrderDetailsPage() {
         }
     ];
 
-    const activeItems = order.items?.filter(i => i.status === OrderStatus.Pending || i.status === OrderStatus.Cooking) || [];
-    const servedItems = (order.items?.filter(i => 
-        i.status === OrderStatus.Served || 
-        i.status === OrderStatus.Cancelled || 
-        i.status === OrderStatus.WaitingForPayment
-    ) || []).sort((a, b) => {
-        if (a.status === OrderStatus.Cancelled && b.status !== OrderStatus.Cancelled) return 1;
-        if (a.status !== OrderStatus.Cancelled && b.status === OrderStatus.Cancelled) return -1;
-        return 0;
-    });
 
-    const nonCancelledItems = getNonCancelledItems(order.items) as SalesOrderItem[];
-    const calculatedTotal = calculateOrderTotal(order.items);
-    const isOrderComplete = activeItems.length === 0 && (order.items?.length || 0) > 0;
-    const shouldVirtualizeActive = activeItems.length > 12;
-    const shouldVirtualizeServed = servedItems.length > 12;
 
     return (
         <div className="order-detail-page" style={orderDetailStyles.container}>
             <style jsx global>{ordersResponsiveStyles}</style>
             
-            {/* Sticky Compact Header - Glass Effect */}
-            <header className="order-detail-header" style={orderDetailStyles.header}>
-                <div style={orderDetailStyles.headerContent} className="header-content">
-                    {/* Glass Back Button */}
-                    <Button 
-                        type="text" 
-                        icon={<ArrowLeftOutlined />} 
-                        onClick={() => {
-                            if (order?.order_type === OrderType.DineIn) {
-                                router.push('/pos/channels/dine-in');
-                            } else {
-                                router.back();
-                            }
-                        }}
-                        aria-label="กลับ"
-                        style={orderDetailStyles.headerBackButton}
-                        className="scale-hover header-back-button"
-                    />
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', marginBottom: 4 }}>
-                            <Title level={4} style={orderDetailStyles.headerTitle} className="header-title">
-                                {order.order_no}
-                            </Title>
-                            {order.order_type === OrderType.DineIn && order.table && (
-                                <Tag style={orderDetailStyles.tableNameBadge}>
-                                    🪑 โต๊ะ {order.table.table_name}
-                                </Tag>
-                            )}
-                            {order.order_type === OrderType.Delivery && order.delivery_code && (
-                                <Tag style={orderDetailStyles.tableNameBadge}>
-                                    📋 {order.delivery_code}
-                                </Tag>
-                            )}
-                            <Tag 
-                                color={getOrderStatusColor(order.status)} 
-                                className="status-badge"
-                                style={{ margin: 0, fontSize: 12, fontWeight: 600, borderRadius: 8, padding: '4px 12px', lineHeight: 1.3 }}
-                            >
-                                {getOrderStatusText(order.status, order.order_type)}
-                            </Tag>
-                        </div>
-                        <div style={orderDetailStyles.headerMetaRow}>
-                            <Tag 
+            <UIPageHeader
+                title={order?.order_no ?? "รายละเอียดออเดอร์"}
+                subtitle={
+                    order ? (
+                        <Space size={8} wrap>
+                            <Tag
                                 icon={
                                     order.order_type === OrderType.DineIn ? <ShopOutlined style={{ fontSize: 10 }} /> :
                                     order.order_type === OrderType.TakeAway ? <ShoppingOutlined style={{ fontSize: 10 }} /> :
@@ -784,35 +816,54 @@ export default function POSOrderDetailsPage() {
                                 }
                                 style={{
                                     ...orderDetailStyles.channelBadge,
-                                    background: getOrderChannelColor(order.order_type) + '15',
+                                    background: getOrderChannelColor(order.order_type) + "15",
                                     color: getOrderChannelColor(order.order_type),
                                 }}
                             >
                                 {getOrderChannelText(order.order_type)}
                             </Tag>
-                            <div style={orderDetailStyles.headerMetaSeparator} />
-                            <Text type="secondary" style={{ fontSize: 11, lineHeight: 1.2 }}>
-                                {dayjs(order.create_date).format('HH:mm | D MMM YY')}
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                {dayjs(order.create_date).format("HH:mm | D MMM YY")}
                             </Text>
+                            <Tag
+                                color={getOrderStatusColor(order.status)}
+                                style={{ margin: 0, borderRadius: 8, fontWeight: 600 }}
+                            >
+                                {getOrderStatusText(order.status, order.order_type)}
+                            </Tag>
                             {currentQueueItem && (
-                                <>
-                                    <div style={orderDetailStyles.headerMetaSeparator} />
-                                    <Tag 
-                                        color={
-                                            currentQueueItem.status === QueueStatus.Pending ? 'orange' :
-                                            currentQueueItem.status === QueueStatus.Processing ? 'blue' :
-                                            currentQueueItem.status === QueueStatus.Completed ? 'green' : 'red'
-                                        }
-                                        style={{ margin: 0, fontSize: 11, borderRadius: 6, padding: '3px 10px', lineHeight: 1.3 }}
-                                    >
-                                        คิว #{currentQueueItem.queue_position}
-                                    </Tag>
-                                </>
+                                <Tag
+                                    color={
+                                        currentQueueItem.status === QueueStatus.Pending ? "orange" :
+                                        currentQueueItem.status === QueueStatus.Processing ? "blue" :
+                                        currentQueueItem.status === QueueStatus.Completed ? "green" : "red"
+                                    }
+                                    style={{ margin: 0, borderRadius: 8, fontWeight: 600 }}
+                                >
+                                    คิว #{currentQueueItem.queue_position}
+                                </Tag>
                             )}
-                        </div>
-                    </div>
-                </div>
-            </header>
+                        </Space>
+                    ) : undefined
+                }
+                onBack={() => {
+                    if (order?.order_type === OrderType.DineIn) {
+                        router.push("/pos/channels/dine-in");
+                    } else {
+                        router.back();
+                    }
+                }}
+                icon={<UnorderedListOutlined style={{ fontSize: 20 }} />}
+                actions={
+                    <Button
+                        icon={<ReloadOutlined />}
+                        onClick={() => orderId && fetchOrder(orderId as string)}
+                        loading={isUpdating || isLoading}
+                    >
+                        รีเฟรช
+                    </Button>
+                }
+            />
             
             {/* Queue Management Actions */}
             {order && order.status !== OrderStatus.Cancelled && order.status !== OrderStatus.Completed && (
@@ -953,7 +1004,7 @@ export default function POSOrderDetailsPage() {
                                     {/* Desktop Table */}
                                     <div className="order-detail-table-desktop">
                                         <Table 
-                                            dataSource={activeItems} 
+                                            dataSource={groupedActiveItems} 
                                             columns={desktopColumns} 
                                             rowKey="id" 
                                             virtual={shouldVirtualizeActive}
@@ -971,7 +1022,7 @@ export default function POSOrderDetailsPage() {
 
                                     {/* Mobile Cards */}
                                     <div className="order-detail-cards-mobile">
-                                        {activeItems.map(item => (
+                                        {groupedActiveItems.map((item) => (
                                             <div 
                                                 key={item.id} 
                                                 style={{...orderDetailStyles.itemCard, ...orderDetailStyles.itemCardActive}}
@@ -1110,7 +1161,7 @@ export default function POSOrderDetailsPage() {
                                     {/* Desktop Table for Served items */}
                                     <div className="order-detail-table-desktop">
                                         <Table 
-                                            dataSource={servedItems} 
+                                            dataSource={groupedServedItems} 
                                             columns={desktopServedColumns} 
                                             rowKey="id" 
                                             virtual={shouldVirtualizeServed}
@@ -1124,7 +1175,7 @@ export default function POSOrderDetailsPage() {
 
                                     {/* Mobile Cards for Served items */}
                                     <div className="order-detail-cards-mobile">
-                                        {servedItems.map(item => (
+                                        {groupedServedItems.map((item) => (
                                             <div 
                                                 key={item.id} 
                                                 style={{
@@ -1239,7 +1290,7 @@ export default function POSOrderDetailsPage() {
                                 <Text strong style={{ fontSize: 15, marginBottom: 10, display: 'block', color: orderDetailColors.textSecondary }}>
                                     รายการสินค้า
                                 </Text>
-                                {nonCancelledItems.map((item, index) => (
+                                {groupedNonCancelledItems.map((item, index: number) => (
                                     <div key={item.id || index} style={orderDetailStyles.summaryItemRow}>
                                         {/* Product Image */}
                                         {item.product?.img_url ? (
@@ -1363,6 +1414,7 @@ export default function POSOrderDetailsPage() {
                 isOpen={isAddModalOpen} 
                 onClose={() => setIsAddModalOpen(false)} 
                 onAddItem={handleAddItem} 
+                orderType={order?.order_type}
             />
             
             {editModalOpen && itemToEdit && (

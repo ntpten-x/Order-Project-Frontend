@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Typography, Tag, Button, Empty, Input, Pagination, Row, Col } from 'antd';
+import { message, Modal, Typography, Tag, Button, Input, Pagination, Row, Col, Space } from 'antd';
 import { 
     CreditCardOutlined,
     PlusOutlined,
@@ -24,12 +24,18 @@ import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { useRoleGuard } from "../../../../utils/pos/accessControl";
 import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { paymentMethodService } from "../../../../services/pos/paymentMethod.service";
 import { globalStyles } from '../../../../theme/pos/paymentMethod/style';
 import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../components/ui/page/PageSection";
+import PageStack from "../../../../components/ui/page/PageStack";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import UIEmptyState from "../../../../components/ui/states/EmptyState";
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 const PAYMENT_METHOD_LIMIT = 50;
 const PAYMENT_METHOD_CACHE_KEY = "pos:payment-methods";
@@ -41,117 +47,6 @@ type PaymentMethodCacheResult = {
     page: number;
     last_page: number;
 };
-
-// ============ HEADER COMPONENT ============
-
-interface HeaderProps {
-    onRefresh: () => void;
-    onAdd: () => void;
-    searchValue: string;
-    onSearchChange: (value: string) => void;
-    page: number;
-    total: number;
-    lastPage: number;
-    setPage: (page: number) => void;
-}
-
-const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange, page, total, lastPage, setPage }: HeaderProps) => (
-    <div style={{
-        marginBottom: 16,
-        background: 'white',
-        borderRadius: 16,
-        padding: 16,
-        boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
-    }}>
-        {/* Title with Icon */}
-        <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'space-between',
-            marginBottom: 14
-        }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <div style={{
-                    width: 40,
-                    height: 40,
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    borderRadius: 10,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    boxShadow: '0 3px 8px rgba(16, 185, 129, 0.3)'
-                }}>
-                    <CreditCardOutlined style={{ fontSize: 20, color: 'white' }} />
-                </div>
-                <div>
-                    <Title level={5} style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#1E293B' }}>
-                        วิธีชำระเงิน
-                    </Title>
-                    <Text style={{ fontSize: 12, color: '#64748B' }}>{total} รายการ</Text>
-                </div>
-            </div>
-            <Button
-                icon={<ReloadOutlined />}
-                onClick={onRefresh}
-                style={{
-                    borderRadius: 8,
-                    border: '1px solid #E2E8F0',
-                    color: '#64748B'
-                }}
-            />
-        </div>
-
-        {/* Search Row */}
-        <div style={{ display: 'flex', gap: 8 }}>
-            <Input
-                allowClear
-                placeholder="ค้นหาวิธีชำระเงิน..."
-                prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
-                value={searchValue}
-                onChange={(e) => onSearchChange(e.target.value)}
-                style={{ 
-                    flex: 1,
-                    height: 42, 
-                    borderRadius: 10,
-                    background: '#F8FAFC',
-                    border: '1px solid #E2E8F0'
-                }}
-            />
-            <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={onAdd}
-                style={{
-                    height: 42,
-                    borderRadius: 10,
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    border: 'none',
-                    fontWeight: 600,
-                    boxShadow: '0 3px 8px rgba(16, 185, 129, 0.25)',
-                    paddingLeft: 14,
-                    paddingRight: 14
-                }}
-            >
-                เพิ่ม
-            </Button>
-        </div>
-
-        {lastPage > 1 && (
-            <div style={{ display: 'flex', justifyContent: 'center', marginTop: 12 }}>
-                <Pagination
-                    current={page}
-                    pageSize={PAYMENT_METHOD_LIMIT}
-                    total={total}
-                    onChange={(value) => setPage(value)}
-                    size="small"
-                    hideOnSinglePage
-                />
-            </div>
-        )}
-    </div>
-)
-
-
 
 // ============ STATS CARD COMPONENT ============
 
@@ -181,58 +76,6 @@ const StatsCard = ({ totalPaymentMethods, activePaymentMethods, inactivePaymentM
             <span style={{ fontSize: 20, fontWeight: 700, color: '#ff4d4f', display: 'block' }}>{inactivePaymentMethods}</span>
             <Text style={{ fontSize: 11, color: '#64748b' }}>ปิดใช้</Text>
         </div>
-    </div>
-);
-
-// ============ EMPTY STATE COMPONENT ============
-
-const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
-    <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        height: '400px',
-        width: '100%'
-    }}>
-        <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={
-                <div style={{ textAlign: 'center' }}>
-                    <Text type="secondary" style={{ fontSize: 16, fontWeight: 500 }}>
-                        ยังไม่มีวิธีชำระเงิน
-                    </Text>
-                    <br />
-                    <Text type="secondary" style={{ fontSize: 14 }}>
-                        เริ่มต้นเพิ่มวิธีชำระเงินแรกของคุณ
-                    </Text>
-                </div>
-            }
-            style={{
-                padding: '40px',
-                background: 'white',
-                borderRadius: 24,
-                boxShadow: '0 8px 24px rgba(0,0,0,0.04)',
-                width: '100%',
-                maxWidth: 400
-            }}
-        >
-            <Button 
-                type="primary" 
-                size="large"
-                icon={<PlusOutlined />} 
-                onClick={onAdd}
-                style={{
-                    background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                    border: 'none',
-                    borderRadius: 12,
-                    marginTop: 16,
-                    height: 44,
-                    boxShadow: '0 4px 12px rgba(16, 185, 129, 0.3)'
-                }}
-            >
-                เพิ่มวิธีชำระเงิน
-            </Button>
-        </Empty>
     </div>
 );
 
@@ -375,7 +218,7 @@ export default function PaymentMethodPage() {
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
+    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ["Admin", "Manager"] });
 
 
     useEffect(() => {
@@ -421,7 +264,7 @@ export default function PaymentMethodPage() {
 
     useRealtimeRefresh({
         socket,
-        events: ["paymentMethod:create", "paymentMethod:update", "paymentMethod:delete"],
+        events: [RealtimeEvents.paymentMethods.create, RealtimeEvents.paymentMethods.update, RealtimeEvents.paymentMethods.delete],
         onRefresh: () => fetchPaymentMethods(),
         intervalMs: 20000,
         debounceMs: 1000,
@@ -478,43 +321,83 @@ export default function PaymentMethodPage() {
     return (
         <div style={{ padding: 16, background: '#F8FAFC', minHeight: '100vh' }}>
             <style>{globalStyles}</style>
-            
-            {/* Header */}
-            <PageHeader 
-                onRefresh={fetchPaymentMethods}
-                onAdd={handleAdd}
-                searchValue={searchValue}
-                onSearchChange={setSearchValue}
-                page={page}
-                total={total}
-                lastPage={lastPage}
-                setPage={setPage}
-            />
-            
-            {/* Stats Card */}
-            <StatsCard 
-                totalPaymentMethods={paymentMethods.length}
-                activePaymentMethods={activePaymentMethods.length}
-                inactivePaymentMethods={inactivePaymentMethods.length}
+
+            <UIPageHeader
+                title="วิธีชำระเงิน"
+                subtitle={`${total} รายการ`}
+                icon={<CreditCardOutlined />}
+                actions={
+                    <Space size={8} wrap>
+                        <Input
+                            allowClear
+                            placeholder="ค้นหาวิธีชำระเงิน..."
+                            prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
+                            value={searchValue}
+                            onChange={(e) => setSearchValue(e.target.value)}
+                            style={{ minWidth: 220 }}
+                        />
+                        <Button icon={<ReloadOutlined />} onClick={fetchPaymentMethods} />
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                            เพิ่มวิธีชำระเงิน
+                        </Button>
+                    </Space>
+                }
             />
 
-            {/* Payment Methods List */}
-            <div>
-                {paymentMethods.length > 0 ? (
-                    <Row gutter={[12, 12]}>
-                        {paymentMethods.map((paymentMethod) => (
-                            <PaymentMethodCard
-                                key={paymentMethod.id}
-                                paymentMethod={paymentMethod}
-                                onEdit={handleEdit}
-                                onDelete={handleDelete}
+            <PageContainer>
+                <PageStack>
+                    <StatsCard
+                        totalPaymentMethods={paymentMethods.length}
+                        activePaymentMethods={activePaymentMethods.length}
+                        inactivePaymentMethods={inactivePaymentMethods.length}
+                    />
+
+                    <PageSection title="รายการ">
+                        {paymentMethods.length > 0 ? (
+                            <>
+                                <Row gutter={[12, 12]}>
+                                    {paymentMethods.map((paymentMethod) => (
+                                        <PaymentMethodCard
+                                            key={paymentMethod.id}
+                                            paymentMethod={paymentMethod}
+                                            onEdit={handleEdit}
+                                            onDelete={handleDelete}
+                                        />
+                                    ))}
+                                </Row>
+
+                                {lastPage > 1 && (
+                                    <div style={{ marginTop: 16, display: "flex", justifyContent: "center" }}>
+                                        <Pagination
+                                            current={page}
+                                            total={total}
+                                            pageSize={PAYMENT_METHOD_LIMIT}
+                                            onChange={(p) => setPage(p)}
+                                            showSizeChanger={false}
+                                        />
+                                    </div>
+                                )}
+                            </>
+                        ) : (
+                            <UIEmptyState
+                                title={searchValue.trim() ? "ไม่พบรายการที่ค้นหา" : "ยังไม่มีวิธีชำระเงิน"}
+                                description={
+                                    searchValue.trim()
+                                        ? "ลองเปลี่ยนคำค้นหาใหม่"
+                                        : "เพิ่มวิธีชำระเงินแรกเพื่อเริ่มใช้งาน"
+                                }
+                                action={
+                                    !searchValue.trim() ? (
+                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                                            เพิ่มวิธีชำระเงิน
+                                        </Button>
+                                    ) : null
+                                }
                             />
-                        ))}
-                    </Row>
-                ) : (
-                    <EmptyState onAdd={handleAdd} />
-                )}
-            </div>
+                        )}
+                    </PageSection>
+                </PageStack>
+            </PageContainer>
         </div>
     );
 }

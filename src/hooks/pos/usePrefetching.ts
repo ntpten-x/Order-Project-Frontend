@@ -23,10 +23,14 @@ export function usePOSPrefetching() {
         const prefetchData = async () => {
             try {
                 // Prefetch products and categories (used in all POS channels)
+                const productsPage = 1;
+                const productsLimit = 20;
+                const productsCategoryKey = "all";
+
                 await Promise.all([
                     queryClient.prefetchQuery({
-                        queryKey: ['products', 1, 20],
-                        queryFn: () => productsService.findAll(1, 20),
+                        queryKey: ['products', productsPage, productsLimit, productsCategoryKey],
+                        queryFn: () => productsService.findAll(productsPage, productsLimit, undefined, new URLSearchParams()),
                         staleTime: 5 * 60 * 1000, // 5 minutes
                     }),
                     queryClient.prefetchQuery({
@@ -80,7 +84,7 @@ export function useQueuePrefetching() {
             try {
                 // Prefetch queue data
                 await queryClient.prefetchQuery({
-                    queryKey: ['orderQueue'],
+                    queryKey: ['orderQueue', 'all'],
                     queryFn: () => orderQueueService.getAll(),
                     staleTime: 2000,
                 });

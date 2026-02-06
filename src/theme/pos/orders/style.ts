@@ -1689,6 +1689,15 @@ export const ordersResponsiveStyles = `
 
   /* ===== Tablet (768px+) ===== */
   @media (min-width: 768px) {
+    /* Explicitly handle visibility on tablet range to prevent double rendering */
+    .order-detail-table-desktop {
+      display: block !important;
+    }
+
+    .order-detail-cards-mobile {
+      display: none !important;
+    }
+
     .order-detail-header {
       padding: 16px 24px !important;
     }

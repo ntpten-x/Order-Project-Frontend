@@ -1,15 +1,19 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Sarabun, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { App } from "antd";
 
-const inter = Inter({
-  subsets: ["latin"],
-  variable: "--font-inter",
+const sarabun = Sarabun({
+  subsets: ["thai", "latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  variable: "--font-sans",
+  display: "swap",
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
-  variable: "--font-jetbrains-mono",
+  variable: "--font-mono",
+  display: "swap",
 });
 
 export const metadata: Metadata = {
@@ -32,22 +36,24 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="th">
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} antialiased font-sans`}
+        className={`${sarabun.variable} ${jetbrainsMono.variable}`}
       >
         <AntdRegistry>
-          <GlobalLoadingProvider>
-            <QueryProvider>
-              <AuthProvider>
-                <SocketProvider>
-                  <ServiceWorkerRegistration />
-                  <AppHeader />
-                  <ClientLayout>{children}</ClientLayout>
-                </SocketProvider>
-              </AuthProvider>
-            </QueryProvider>
-          </GlobalLoadingProvider>
+          <App>
+            <GlobalLoadingProvider>
+              <QueryProvider>
+                <AuthProvider>
+                  <SocketProvider>
+                    <ServiceWorkerRegistration />
+                    <AppHeader />
+                    <ClientLayout>{children}</ClientLayout>
+                  </SocketProvider>
+                </AuthProvider>
+              </QueryProvider>
+            </GlobalLoadingProvider>
+          </App>
         </AntdRegistry>
       </body>
     </html>

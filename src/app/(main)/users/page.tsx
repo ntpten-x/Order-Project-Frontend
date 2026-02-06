@@ -1,14 +1,13 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Button, Typography, message, Modal } from 'antd';
+import { Button, message, Modal, Space } from 'antd';
 import { TeamOutlined } from '@ant-design/icons';
 import { User } from "../../../types/api/users";
 import { useRouter } from 'next/navigation';
 import { 
     UserPageStyles, 
     pageStyles, 
-    PageHeader, 
     StatsCard, 
     UserCard 
 } from './style';
@@ -16,14 +15,19 @@ import { useSocket } from "../../../hooks/useSocket";
 import { useAsyncAction } from "../../../hooks/useAsyncAction";
 import { useGlobalLoading } from "../../../contexts/pos/GlobalLoadingContext";
 
-const { Title, Text } = Typography;
-
 import { useAuth } from "../../../contexts/AuthContext";
 
 import { Spin } from 'antd';
 
 import { authService } from "../../../services/auth.service";
 import { userService } from "../../../services/users.service";
+import { RealtimeEvents } from "../../../utils/realtimeEvents";
+import PageContainer from "../../../components/ui/page/PageContainer";
+import PageSection from "../../../components/ui/page/PageSection";
+import PageStack from "../../../components/ui/page/PageStack";
+import UIPageHeader from "../../../components/ui/page/PageHeader";
+import UIEmptyState from "../../../components/ui/states/EmptyState";
+import { t } from "../../../utils/i18n";
 
 export default function UsersPage() {
   const router = useRouter();
@@ -45,7 +49,7 @@ export default function UsersPage() {
   // Protect Route
   useEffect(() => {
     if (!authLoading) {
-      if (!user || user.role !== 'Admin') {
+      if (!user || !['Admin', 'Manager'].includes(user.role)) {
         const timer = setTimeout(() => {
             message.error("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
             router.push('/');
@@ -64,7 +68,7 @@ export default function UsersPage() {
 
   useEffect(() => {
     if (authLoading) return;
-    if (user?.role === 'Admin') {
+    if (user?.role === 'Admin' || user?.role === 'Manager') {
       fetchUsers();
     }
   }, [authLoading, user, fetchUsers]);
@@ -72,29 +76,29 @@ export default function UsersPage() {
   useEffect(() => {
     if (!socket) return;
     
-    socket.on('users:create', (newUser: User) => {
+    socket.on(RealtimeEvents.users.create, (newUser: User) => {
       setUsers((prevUsers) => [...prevUsers, newUser]);
-      message.success(`ผู้ใช้ใหม่ ${newUser.username} ถูกเพิ่มแล้ว`);
+      message.success(`ผู้ใช้ใหม่ ${newUser.name || newUser.username} ถูกเพิ่มแล้ว`);
     });
-    socket.on('users:update', (updatedUser: User) => {
+    socket.on(RealtimeEvents.users.update, (updatedUser: User) => {
       setUsers((prevUsers) =>
         prevUsers.map((user) => (user.id === updatedUser.id ? updatedUser : user))
       );
     });
-    socket.on('users:delete', ({ id }: { id: string }) => {
+    socket.on(RealtimeEvents.users.delete, ({ id }: { id: string }) => {
       setUsers((prevUsers) => prevUsers.filter((user) => user.id !== id));
     });
-    socket.on('users:update-status', ({ id, is_active }: { id: string, is_active: boolean }) => {
+    socket.on(RealtimeEvents.users.status, ({ id, is_active }: { id: string, is_active: boolean }) => {
         setUsers((prevUsers) =>
             prevUsers.map((user) => (user.id === id ? { ...user, is_active } : user))
         );
     });
 
     return () => {
-      socket.off('users:create');
-      socket.off('users:update');
-      socket.off('users:delete');
-      socket.off('users:update-status');
+      socket.off(RealtimeEvents.users.create);
+      socket.off(RealtimeEvents.users.update);
+      socket.off(RealtimeEvents.users.delete);
+      socket.off(RealtimeEvents.users.status);
     };
   }, [socket]);
   
@@ -124,7 +128,7 @@ export default function UsersPage() {
         },
     });
   };
-  if (authLoading || !user || user.role !== 'Admin') {
+  if (authLoading || !user || !['Admin', 'Manager'].includes(user.role)) {
     return (
         <div style={{ 
             height: '100vh', 
@@ -147,49 +151,63 @@ export default function UsersPage() {
       <UserPageStyles />
       
       {/* Header */}
-      <PageHeader 
-        onRefresh={fetchUsers}
-        onAdd={handleAdd}
-      />
-      
-      {/* Stats */}
-      <StatsCard 
-        totalUsers={users.length}
-        activeUsers={activeUsers}
-        onlineUsers={adminUsers}
+      <UIPageHeader
+        title={t("users.title")}
+        subtitle={t("users.subtitle", { count: users.length })}
+        icon={<TeamOutlined />}
+        actions={
+          <Space size={8} wrap>
+            <Button onClick={fetchUsers}>รีเฟรช</Button>
+            <Button type="primary" onClick={handleAdd}>เพิ่มผู้ใช้</Button>
+          </Space>
+        }
       />
 
-      {/* Main Content */}
-      <div style={pageStyles.listContainer}>
-          {users.length > 0 ? (
-             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: 24, justifyContent: 'center' }}>
+      <PageContainer>
+        <PageStack>
+          {/* Stats */}
+          <StatsCard
+            totalUsers={users.length}
+            activeUsers={activeUsers}
+            onlineUsers={adminUsers}
+          />
+
+          <PageSection title="รายการผู้ใช้" extra={<span style={{ fontWeight: 600 }}>{users.length}</span>}>
+            {users.length > 0 ? (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))',
+                  gap: 24,
+                  justifyContent: 'center',
+                }}
+              >
                 {users.map((user, index) => (
-                    <div key={user.id} style={{ animation: `fadeInUp 0.6s ease-out forwards`, animationDelay: `${index * 50}ms`, opacity: 0 }}>
-                        <UserCard 
-                            user={user} 
-                            onEdit={handleEdit}
-                            onDelete={handleDelete}
-                        />
-                    </div>
+                  <div
+                    key={user.id}
+                    style={{
+                      animation: `fadeInUp 0.6s ease-out forwards`,
+                      animationDelay: `${index * 50}ms`,
+                      opacity: 0,
+                    }}
+                  >
+                    <UserCard user={user} onEdit={handleEdit} onDelete={handleDelete} />
+                  </div>
                 ))}
-             </div>
-          ) : (
-            <div style={{ 
-                background: 'white', 
-                borderRadius: 20, 
-                padding: '60px 20px', 
-                textAlign: 'center',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.05)'
-            }}>
-                <TeamOutlined style={{ fontSize: 64, color: '#e5e7eb', marginBottom: 16 }} />
-                 <Title level={3} style={{ color: '#374151', margin: 0 }}>ยังไม่มีผู้ใช้งาน</Title>
-                 <Text type="secondary">เริ่มต้นด้วยการเพิ่มผู้ใช้งานคนแรก</Text>
-                 <div style={{ marginTop: 24 }}>
-                    <Button type="primary" onClick={handleAdd}>เพิ่มผู้ใช้</Button>
-                 </div>
-            </div>
-          )}
-      </div>
+              </div>
+            ) : (
+              <UIEmptyState
+                title={t("users.empty")}
+                action={
+                  <Button type="primary" onClick={handleAdd}>
+                    {t("users.add")}
+                  </Button>
+                }
+              />
+            )}
+          </PageSection>
+        </PageStack>
+      </PageContainer>
     </div>
   );
 }

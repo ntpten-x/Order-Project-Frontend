@@ -1,7 +1,7 @@
-"use client";
+﻿"use client";
 
 import React, { useState } from 'react';
-import { message, Modal, Typography, Tag, Button, Empty, Select, Badge } from 'antd';
+import { message, Modal, Typography, Tag, Button, Select, Badge } from 'antd';
 import {
     UnorderedListOutlined,
     ReloadOutlined,
@@ -19,10 +19,15 @@ import { useRoleGuard } from '../../../../utils/pos/accessControl';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 import { useQueuePrefetching } from '../../../../hooks/pos/usePrefetching';
 import { queueStyles, queueResponsiveStyles } from '../../../../theme/pos/queue/style';
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import PageState from "../../../../components/ui/states/PageState";
+import { t } from "../../../../utils/i18n";
 import dayjs from 'dayjs';
 import 'dayjs/locale/th';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 dayjs.locale('th');
 
 const priorityColors: Record<QueuePriority, string> = {
@@ -55,8 +60,8 @@ const statusLabels: Record<QueueStatus, string> = {
 
 export default function OrderQueuePage() {
     const [statusFilter, setStatusFilter] = useState<QueueStatus | undefined>(undefined);
-    const { queue, isLoading, updateStatus, removeFromQueue, reorderQueue, isReordering } = useOrderQueue(statusFilter);
-    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
+    const { queue, isLoading, error, updateStatus, removeFromQueue, reorderQueue, isReordering, refetch } = useOrderQueue(statusFilter);
+    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ["Admin", "Manager", "Employee"] });
     
     // Prefetch queue data
     useQueuePrefetching();
@@ -127,91 +132,46 @@ export default function OrderQueuePage() {
         <>
             <style jsx global>{queueResponsiveStyles}</style>
             <div style={queueStyles.container}>
-                {/* Header */}
-                <div style={queueStyles.header} className="queue-header-mobile">
-                    <div style={{
-                        position: 'absolute',
-                        top: -50,
-                        right: -50,
-                        width: 200,
-                        height: 200,
-                        borderRadius: '50%',
-                        background: 'rgba(255,255,255,0.08)',
-                        pointerEvents: 'none',
-                    }} />
-                    <div style={{
-                        position: 'absolute',
-                        bottom: -30,
-                        left: -30,
-                        width: 120,
-                        height: 120,
-                        borderRadius: '50%',
-                        background: 'rgba(255,255,255,0.06)',
-                        pointerEvents: 'none',
-                    }} />
-                    
-                    <div style={queueStyles.headerContent}>
-                        <div style={queueStyles.headerTop}>
-                            <div style={queueStyles.headerLeft}>
-                                <div style={queueStyles.headerIconBox} className="queue-header-icon-mobile">
-                                    <UnorderedListOutlined style={{ fontSize: 24, color: 'white' }} />
-                                </div>
-                                <div style={queueStyles.headerTitleBox}>
-                                    <Text style={queueStyles.headerSubtitle} className="queue-header-subtitle-mobile">
-                                        จัดการคิวออเดอร์
-                                    </Text>
-                                    <Title level={3} style={queueStyles.headerTitle} className="queue-header-title-mobile">
-                                        Order Queue
-                                    </Title>
-                                </div>
-                            </div>
-                            <div style={queueStyles.headerActions}>
-                                <Select
-                                    value={statusFilter}
-                                    placeholder="กรองสถานะ"
-                                    allowClear
-                                    style={{ width: 140, minWidth: 120 }}
-                                    size="middle"
-                                    onChange={setStatusFilter}
-                                >
-                                    {Object.values(QueueStatus).map(status => (
-                                        <Select.Option key={status} value={status}>
-                                            {statusLabels[status]}
-                                        </Select.Option>
-                                    ))}
-                                </Select>
-                                <Button
-                                    icon={<ReloadOutlined />}
-                                    onClick={() => window.location.reload()}
-                                    style={{ 
-                                        background: 'rgba(255,255,255,0.2)', 
-                                        color: 'white', 
-                                        border: 'none',
-                                        borderRadius: 10,
-                                    }}
-                                    size="middle"
-                                />
-                                <Button
-                                    icon={<SortAscendingOutlined />}
-                                    onClick={handleReorder}
-                                    loading={isReordering}
-                                    style={{ 
-                                        background: 'white', 
-                                        color: '#667eea',
-                                        borderRadius: 10,
-                                        fontWeight: 600,
-                                    }}
-                                    size="middle"
-                                >
-                                    <span className="hide-on-mobile">จัดเรียง</span>
-                                </Button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
+                <UIPageHeader
+                    title="Order Queue"
+                    subtitle="จัดการคิวออเดอร์"
+                    icon={<UnorderedListOutlined />}
+                    style={{ background: "transparent", borderBottom: "none" }}
+                    actions={
+                        <>
+                            <Select
+                                value={statusFilter}
+                                placeholder={t("queue.filter")}
+                                allowClear
+                                style={{ width: 160 }}
+                                size="middle"
+                                onChange={setStatusFilter}
+                                dropdownMatchSelectWidth
+                                getPopupContainer={(trigger) => trigger?.parentElement || document.body}
+                            >
+                                {Object.values(QueueStatus).map((status) => (
+                                    <Select.Option key={status} value={status}>
+                                        {statusLabels[status]}
+                                    </Select.Option>
+                                ))}
+                            </Select>
+                            <Button icon={<ReloadOutlined />} onClick={() => refetch()}>
+                                {t("queue.refresh")}
+                            </Button>
+                            <Button
+                                icon={<SortAscendingOutlined />}
+                                onClick={handleReorder}
+                                loading={isReordering}
+                                type="primary"
+                            >
+                                จัดเรียง
+                            </Button>
+                        </>
+                    }
+                />
 
-                {/* Content */}
-                <div style={{ maxWidth: 1400, margin: '0 auto', padding: '48px 16px 80px' }}>
+                <PageContainer maxWidth={1400}>
+                    <PageSection style={{ background: "transparent", border: "none" }}>
                     {/* Stats */}
                     <div style={queueStyles.statsGrid} className="queue-stats-grid-mobile">
                         <div style={queueStyles.statCard} className="queue-stat-card-mobile">
@@ -242,13 +202,11 @@ export default function OrderQueuePage() {
 
                     {/* Queue List */}
                     {isLoading ? (
-                        <div style={queueStyles.emptyCard}>
-                            <Empty description="กำลังโหลด..." />
-                        </div>
+                        <PageState status="loading" title={t("queue.loading")} />
+                    ) : error ? (
+                        <PageState status="error" title={t("queue.error")} onRetry={() => refetch()} />
                     ) : queue.length === 0 ? (
-                        <div style={queueStyles.emptyCard}>
-                            <Empty description="ยังไม่มีออเดอร์ในคิว" />
-                        </div>
+                        <PageState status="empty" title={t("queue.empty")} />
                     ) : (
                         <div style={queueStyles.queueList}>
                             {queue.map((item, index) => (
@@ -351,7 +309,8 @@ export default function OrderQueuePage() {
                             ))}
                         </div>
                     )}
-                </div>
+                    </PageSection>
+                </PageContainer>
             </div>
         </>
     );

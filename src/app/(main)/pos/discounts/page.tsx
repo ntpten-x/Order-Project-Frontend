@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Typography, Tag, Button, Empty, Input, Card } from 'antd';
+import { message, Modal, Typography, Tag, Button, Input, Card, Space } from 'antd';
 import { 
     PercentageOutlined,
     PlusOutlined,
@@ -22,105 +22,16 @@ import { useSocket } from "../../../../hooks/useSocket";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { useRoleGuard } from "../../../../utils/pos/accessControl";
 import { useRealtimeList } from "../../../../utils/pos/realtime";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { pageStyles, globalStyles } from '../../../../theme/pos/discounts/style';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import PageSection from "../../../../components/ui/page/PageSection";
+import PageStack from "../../../../components/ui/page/PageStack";
+import UIEmptyState from "../../../../components/ui/states/EmptyState";
 
 const { Text, Title } = Typography;
-
-// ============ HEADER COMPONENT ============
-
-interface HeaderProps {
-    onRefresh: () => void;
-    onAdd: () => void;
-    searchValue: string;
-    onSearchChange: (value: string) => void;
-    total: number;
-}
-
-const PageHeader = ({ onRefresh, onAdd, searchValue, onSearchChange, total }: HeaderProps) => (
-    <div style={{
-        marginBottom: 24,
-        background: 'white',
-        padding: '16px',
-        borderRadius: 20,
-        boxShadow: '0 4px 20px rgba(0,0,0,0.03)',
-    }}>
-        {/* Title Row */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-            <div style={{
-                width: 44,
-                height: 44,
-                background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
-                borderRadius: 12,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)',
-                flexShrink: 0
-            }}>
-                <PercentageOutlined style={{ fontSize: 22, color: 'white' }} />
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-                <Title level={4} style={{ margin: 0, fontSize: 18, fontWeight: 700, color: '#1E293B' }}>
-                    จัดการส่วนลด
-                </Title>
-                <Text style={{ color: '#64748B', fontSize: 13 }}>
-                    {total} รายการ
-                </Text>
-            </div>
-        </div>
-
-        {/* Search & Actions Row */}
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <Input
-                prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
-                allowClear
-                placeholder="ค้นหา..."
-                value={searchValue}
-                onChange={(e) => onSearchChange(e.target.value)}
-                style={{ 
-                    flex: 1,
-                    minWidth: 120,
-                    height: 44, 
-                    borderRadius: 12,
-                    background: '#F8FAFC',
-                    fontSize: 14,
-                    border: '1px solid #E2E8F0'
-                }}
-            />
-            <Button
-                icon={<ReloadOutlined />}
-                onClick={onRefresh}
-                style={{
-                    height: 44,
-                    width: 44,
-                    borderRadius: 12,
-                    border: '1px solid #E2E8F0',
-                    color: '#64748B',
-                    flexShrink: 0
-                }}
-            />
-            <Button
-                type="primary"
-                icon={<PlusOutlined />}
-                onClick={onAdd}
-                style={{
-                    height: 44,
-                    padding: '0 16px',
-                    borderRadius: 12,
-                    background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
-                    boxShadow: '0 4px 12px rgba(245, 158, 11, 0.3)',
-                    fontSize: 14,
-                    fontWeight: 600,
-                    border: 'none',
-                    flexShrink: 0
-                }}
-            >
-                เพิ่มส่วนลด
-            </Button>
-        </div>
-    </div>
-);
 
 // ============ STATS CARD COMPONENT ============
 
@@ -336,50 +247,6 @@ const DiscountCard = React.memo(({ discount, onEdit, onDelete }: DiscountCardPro
 });
 DiscountCard.displayName = 'DiscountCard';
 
-// ============ EMPTY STATE COMPONENT ============
-
-const EmptyState = ({ onAdd, isSearch }: { onAdd: () => void, isSearch: boolean }) => (
-    <div style={{ 
-        gridColumn: '1 / -1', 
-        display: 'flex', 
-        justifyContent: 'center', 
-        padding: '60px 0' 
-    }}>
-        <Empty
-            image={Empty.PRESENTED_IMAGE_SIMPLE}
-            description={
-                <div style={{ textAlign: 'center' }}>
-                    <Text type="secondary" style={{ fontSize: 16, display: 'block', marginBottom: 8 }}>
-                        {isSearch ? "ไม่พบส่วนลดที่ค้นหา" : "ยังไม่มีรายการส่วนลด"}
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: 14 }}>
-                        {isSearch ? "ลองเปลี่ยนคำค้นหาใหม่" : "เพิ่มส่วนลดแรกเพื่อเริ่มใช้งาน"}
-                    </Text>
-                </div>
-            }
-        >
-            {!isSearch && (
-                <Button 
-                    type="primary" 
-                    icon={<PlusOutlined />} 
-                    onClick={onAdd}
-                    size="large"
-                    style={{
-                        marginTop: 16,
-                        background: 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)',
-                        border: 'none',
-                        borderRadius: 12,
-                        height: 44,
-                        padding: '0 32px'
-                    }}
-                >
-                    เพิ่มส่วนลด
-                </Button>
-            )}
-        </Empty>
-    </div>
-);
-
 export default function POSDiscountsPage() {
     return <POSDiscountsContent />;
 }
@@ -392,7 +259,7 @@ function POSDiscountsContent() {
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
+    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ["Admin", "Manager"] });
 
 
     useEffect(() => {
@@ -432,7 +299,7 @@ function POSDiscountsContent() {
 
     useRealtimeList(
         socket,
-        { create: "discounts:create", update: "discounts:update", delete: "discounts:delete" },
+        { create: RealtimeEvents.discounts.create, update: RealtimeEvents.discounts.update, delete: RealtimeEvents.discounts.delete },
         setDiscounts
     );
 
@@ -483,42 +350,85 @@ function POSDiscountsContent() {
     return (
         <div className="discount-page px-4 md:px-6" style={{ ...pageStyles.container, paddingTop: 16, paddingBottom: 24, background: '#F8FAFC', minHeight: '100vh' }}>
             <style>{globalStyles}</style>
-            
-            <PageHeader 
-                onRefresh={fetchDiscounts}
-                onAdd={handleAdd}
-                searchValue={searchValue}
-                onSearchChange={setSearchValue}
-                total={discounts.length}
-            />
-            
-            <StatsCard 
-                total={discounts.length}
-                fixed={fixedDiscounts.length}
-                percent={percentageDiscounts.length}
-                active={activeDiscounts.length}
-                inactive={inactiveDiscounts.length}
+
+            <UIPageHeader
+                title="ส่วนลด"
+                subtitle={`${discounts.length} รายการ`}
+                icon={<PercentageOutlined />}
+                actions={
+                    <Space size={8} wrap>
+                        <Input
+                            prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
+                            allowClear
+                            placeholder="ค้นหา..."
+                            value={searchValue}
+                            onChange={(e) => setSearchValue(e.target.value)}
+                            style={{ minWidth: 200 }}
+                        />
+                        <Button icon={<ReloadOutlined />} onClick={fetchDiscounts} />
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                            เพิ่มส่วนลด
+                        </Button>
+                    </Space>
+                }
             />
 
-            <div style={{
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-                gap: 16,
-                paddingBottom: 40
-            }}>
-                {filteredDiscounts.length > 0 ? (
-                    filteredDiscounts.map((discount) => (
-                        <DiscountCard
-                            key={discount.id}
-                            discount={discount}
-                            onEdit={handleEdit}
-                            onDelete={handleDelete}
-                        />
-                    ))
-                ) : (
-                    <EmptyState onAdd={handleAdd} isSearch={!!searchValue} />
-                )}
-            </div>
+            <PageContainer>
+                <PageStack>
+                    <StatsCard
+                        total={discounts.length}
+                        fixed={fixedDiscounts.length}
+                        percent={percentageDiscounts.length}
+                        active={activeDiscounts.length}
+                        inactive={inactiveDiscounts.length}
+                    />
+
+                    <PageSection title="รายการส่วนลด">
+                        <div style={{
+                            display: 'grid',
+                            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
+                            gap: 16,
+                        }}>
+                            {filteredDiscounts.length > 0 ? (
+                                filteredDiscounts.map((discount) => (
+                                    <DiscountCard
+                                        key={discount.id}
+                                        discount={discount}
+                                        onEdit={handleEdit}
+                                        onDelete={handleDelete}
+                                    />
+                                ))
+                            ) : (
+                                <div style={{ gridColumn: "1 / -1" }}>
+                                    <UIEmptyState
+                                        title={
+                                            searchValue.trim()
+                                                ? "ไม่พบส่วนลดที่ค้นหา"
+                                                : "ยังไม่มีรายการส่วนลด"
+                                        }
+                                        description={
+                                            searchValue.trim()
+                                                ? "ลองเปลี่ยนคำค้นหาใหม่"
+                                                : "เพิ่มส่วนลดแรกเพื่อเริ่มใช้งาน"
+                                        }
+                                        action={
+                                            !searchValue.trim() ? (
+                                                <Button
+                                                    type="primary"
+                                                    icon={<PlusOutlined />}
+                                                    onClick={handleAdd}
+                                                >
+                                                    เพิ่มส่วนลด
+                                                </Button>
+                                            ) : null
+                                        }
+                                    />
+                                </div>
+                            )}
+                        </div>
+                    </PageSection>
+                </PageStack>
+            </PageContainer>
         </div>
     );
 }

@@ -17,7 +17,8 @@ import {
   Row,
   Col,
   Statistic,
-  Avatar
+  Avatar,
+  Grid,
 } from "antd";
 import { 
   ReloadOutlined, 
@@ -38,19 +39,30 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { authService } from "../../../../services/auth.service";
 import ItemsPageStyle from "./style";
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../components/ui/page/PageSection";
+import PageStack from "../../../../components/ui/page/PageStack";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import PageState from "../../../../components/ui/states/PageState";
+import { LegacyRealtimeEvents, RealtimeEvents } from "../../../../utils/realtimeEvents";
+import { t } from "../../../../utils/i18n";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 
 export default function ItemsPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const { socket } = useSocket();
   const router = useRouter();
   const { user } = useAuth();
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
 
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
+      setError(null);
       const response = await fetch("/api/stock/orders?status=pending", { 
         cache: "no-store", 
         headers: { 'Content-Type': 'application/json' } 
@@ -62,8 +74,8 @@ export default function ItemsPage() {
       // Handle paginated response format: { data: [...], total, page, limit }
       setOrders(Array.isArray(data) ? data : (data.data || []));
     } catch {
-      console.error("Failed to fetch orders");
-      message.error("ไม่สามารถโหลดรายการออเดอร์ได้");
+      setError(t("stock.error"));
+      message.error(t("stock.error"));
     } finally {
       setLoading(false);
     }
@@ -76,14 +88,52 @@ export default function ItemsPage() {
   useEffect(() => {
     if (!socket) return;
 
-    socket.on("orders_updated", (payload: { action: string, data?: Order, id?: string, orderId?: string }) => {
+    const handleCreate = (data: Order) => {
+      if (data && data.status === OrderStatus.PENDING) {
+        setOrders(prev => [data, ...prev]);
+        message.success("New stock order received.");
+      }
+    };
+
+    const handleUpdate = (data: Order) => {
+      if (!data) return;
+      if (data.status === OrderStatus.PENDING) {
+        setOrders(prev => prev.map(order => order.id === data.id ? data : order));
+      } else {
+        setOrders(prev => prev.filter(order => order.id !== data.id));
+      }
+    };
+
+    const handleStatus = (data: Order) => {
+      if (!data) return;
+      if (data.status === OrderStatus.PENDING) {
+        setOrders(prev => prev.map(order => order.id === data.id ? data : order));
+      } else {
+        setOrders(prev => prev.filter(order => order.id !== data.id));
+      }
+      message.info("Order status updated.");
+    };
+
+    const handleDelete = (payload: { id?: string }) => {
+      if (payload?.id) {
+        setOrders(prev => prev.filter(order => order.id !== payload.id));
+        message.warning("Order deleted.");
+      }
+    };
+
+    const handleDetailUpdate = (payload: { orderId?: string }) => {
+      if (payload?.orderId) {
+        fetchOrders();
+      }
+    };
+
+    const handleLegacyUpdate = (payload: { action: string; data?: Order; id?: string; orderId?: string }) => {
       const { action, data, id, orderId } = payload;
-      
       switch (action) {
         case "create":
           if (data && data.status === OrderStatus.PENDING) {
             setOrders(prev => [data, ...prev]);
-            message.success("🆕 มีออเดอร์ใหม่เข้ามา");
+            message.success("New stock order received.");
           }
           break;
         case "update_status":
@@ -93,28 +143,40 @@ export default function ItemsPage() {
             } else {
               setOrders(prev => prev.filter(order => order.id !== data.id));
             }
-            message.info(`อัปเดตสถานะออเดอร์`);
+            message.info("Order status updated.");
           }
           break;
         case "delete":
           if (id) {
             setOrders(prev => prev.filter(order => order.id !== id));
-            message.warning("ลบออเดอร์แล้ว");
+            message.warning("Order deleted.");
           }
           break;
         case "update_item_detail":
           if (orderId) {
-            fetchOrders(); 
+            fetchOrders();
           }
           break;
         default:
           fetchOrders();
           break;
       }
-    });
+    };
+
+    socket.on(RealtimeEvents.stockOrders.create, handleCreate);
+    socket.on(RealtimeEvents.stockOrders.update, handleUpdate);
+    socket.on(RealtimeEvents.stockOrders.status, handleStatus);
+    socket.on(RealtimeEvents.stockOrders.delete, handleDelete);
+    socket.on(RealtimeEvents.stockOrders.detailUpdate, handleDetailUpdate);
+    socket.on(LegacyRealtimeEvents.stockOrdersUpdated, handleLegacyUpdate);
 
     return () => {
-      socket.off("orders_updated");
+      socket.off(RealtimeEvents.stockOrders.create, handleCreate);
+      socket.off(RealtimeEvents.stockOrders.update, handleUpdate);
+      socket.off(RealtimeEvents.stockOrders.status, handleStatus);
+      socket.off(RealtimeEvents.stockOrders.delete, handleDelete);
+      socket.off(RealtimeEvents.stockOrders.detailUpdate, handleDetailUpdate);
+      socket.off(LegacyRealtimeEvents.stockOrdersUpdated, handleLegacyUpdate);
     };
   }, [socket, fetchOrders]);
 
@@ -154,7 +216,7 @@ export default function ItemsPage() {
             border: '1px solid rgba(255, 77, 79, 0.1)'
           }}>
             <Text type="secondary" style={{ fontSize: 13 }}>
-              ผู้สั่ง: <strong>{order.ordered_by?.username}</strong>
+              ผู้สั่ง: <strong>{order.ordered_by?.name || order.ordered_by?.username}</strong>
             </Text>
           </div>
         </div>
@@ -199,10 +261,12 @@ export default function ItemsPage() {
           <span>ผู้สั่ง</span>
         </Space>
       ),
-      dataIndex: ['ordered_by', 'username'],
+      dataIndex: 'ordered_by',
       key: 'ordered_by',
       width: 140,
-      render: (text: string) => (
+      render: (ordered_by: { name?: string; username?: string } | null) => {
+        const displayName = ordered_by?.name || ordered_by?.username || 'Unknown';
+        return (
         <Space>
           <div style={{
             width: 32,
@@ -216,11 +280,11 @@ export default function ItemsPage() {
             fontWeight: 600,
             fontSize: 14
           }}>
-            {text?.charAt(0)?.toUpperCase() || '?'}
+            {displayName.charAt(0)?.toUpperCase() || '?'}
           </div>
-          <Text strong style={{ fontSize: 14 }}>{text || 'Unknown'}</Text>
+          <Text strong style={{ fontSize: 14 }}>{displayName}</Text>
         </Space>
-      ),
+      )},
     },
     {
       title: (
@@ -408,53 +472,6 @@ export default function ItemsPage() {
     </div>
   );
 
-  // Empty State
-  const EmptyState = () => (
-    <div 
-      className="empty-state-card"
-      style={{ 
-        padding: '60px 24px',
-        textAlign: 'center'
-      }}
-    >
-      <div style={{
-        width: 100,
-        height: 100,
-        margin: '0 auto 24px',
-        borderRadius: '50%',
-        background: 'linear-gradient(135deg, #f0f5ff 0%, #e8f0ff 100%)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-      }}>
-        <InboxOutlined style={{ fontSize: 48, color: '#667eea' }} />
-      </div>
-      <Title level={4} style={{ color: '#262626', marginBottom: 8 }}>
-        ไม่มีรายการรอดำเนินการ
-      </Title>
-      <Text type="secondary" style={{ fontSize: 15, display: 'block', marginBottom: 24 }}>
-        ยังไม่มีออเดอร์ที่รอการสั่งซื้อในขณะนี้
-      </Text>
-      <Button 
-        type="primary"
-        icon={<ShoppingCartOutlined />}
-        size="large"
-        onClick={() => router.push('/')}
-        style={{
-          background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-          borderColor: 'transparent',
-          borderRadius: 10,
-          height: 48,
-          paddingInline: 32,
-          fontWeight: 600,
-          boxShadow: '0 4px 16px rgba(102, 126, 234, 0.4)'
-        }}
-      >
-        เลือกวัตถุดิบเพื่อสั่งซื้อ
-      </Button>
-    </div>
-  );
-
   return (
     <div style={{ 
       padding: '24px', 
@@ -463,143 +480,148 @@ export default function ItemsPage() {
       background: 'linear-gradient(180deg, #f8f9fc 0%, #f0f2f5 100%)'
     }}>
       <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-        {/* Header Section */}
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column',
-          gap: 24,
-          marginBottom: 24
-        }}>
-          <div style={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: 'flex-start',
-            flexWrap: 'wrap',
-            gap: 16
-          }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-              <div style={{
-                width: 56,
-                height: 56,
-                borderRadius: 16,
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                boxShadow: '0 8px 24px rgba(102, 126, 234, 0.35)'
-              }}>
-                <ClockCircleOutlined style={{ fontSize: 28, color: '#fff' }} />
-              </div>
-              <div>
-                <Title level={2} style={{ 
-                  margin: 0, 
-                  marginBottom: 4,
-                  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                  fontWeight: 700
-                }}>
-                  รายการรอสั่งซื้อ
-                </Title>
-                <Text type="secondary" style={{ fontSize: 14 }}>
-                  จัดการออเดอร์ที่รอการดำเนินการ
-                </Text>
-              </div>
-            </div>
-            
+        <UIPageHeader
+          title={t("stock.title")}
+          subtitle={t("stock.subtitleCount", { count: orders.length })}
+          icon={<ClockCircleOutlined />}
+          actions={
             <Button 
               icon={<ReloadOutlined />} 
               onClick={fetchOrders}
               loading={loading}
-              size="large"
-              style={{
-                borderRadius: 10,
-                height: 44,
-                paddingInline: 20,
-                fontWeight: 500
-              }}
             >
-              รีเฟรช
+              {t("queue.refresh")}
             </Button>
-          </div>
+          }
+        />
 
-          {/* Stats Cards */}
-          <Row gutter={[16, 16]}>
-            <Col xs={12} sm={8} md={6}>
-              <Card 
-                className="status-card"
-                size="small"
-                styles={{ body: { padding: 16 } }}
-              >
-                <Statistic 
-                  title={<Text type="secondary" style={{ fontSize: 13 }}>ออเดอร์ทั้งหมด</Text>}
-                  value={loading ? '-' : orders.length}
-                  prefix={<Badge status="processing" />}
-                  styles={{ content: { 
-                    color: '#667eea', 
-                    fontWeight: 700,
-                    fontSize: 28
-                  }}}
-                />
-              </Card>
-            </Col>
-            <Col xs={12} sm={8} md={6}>
-              <Card 
-                className="status-card"
-                size="small"
-                styles={{ body: { padding: 16 } }}
-              >
-                <Statistic 
-                  title={<Text type="secondary" style={{ fontSize: 13 }}>รายการสินค้า</Text>}
-                  value={loading ? '-' : totalItems}
-                  prefix={<Badge status="success" />}
-                  styles={{ content: { 
-                    color: '#52c41a', 
-                    fontWeight: 700,
-                    fontSize: 28
-                  }}}
-                />
-              </Card>
-            </Col>
-          </Row>
-        </div>
+      <PageContainer>
+        <PageStack>
+          <PageSection title={t("stock.title")}>
+            <Row gutter={[16, 16]}>
+              <Col xs={12} sm={8} md={6}>
+                <Card 
+                  className="status-card"
+                  size="small"
+                  styles={{ body: { padding: 16 } }}
+                >
+                  <Statistic 
+                    title={<Text type="secondary" style={{ fontSize: 13 }}>{t("stock.title")}</Text>}
+                    value={loading ? '-' : orders.length}
+                    prefix={<Badge status="processing" />}
+                    styles={{ content: { 
+                      color: '#667eea', 
+                      fontWeight: 700,
+                      fontSize: 28
+                    }}}
+                  />
+                </Card>
+              </Col>
+              <Col xs={12} sm={8} md={6}>
+                <Card 
+                  className="status-card"
+                  size="small"
+                  styles={{ body: { padding: 16 } }}
+                >
+                  <Statistic 
+                    title={<Text type="secondary" style={{ fontSize: 13 }}>{t("stock.totalItems")}</Text>}
+                    value={loading ? '-' : totalItems}
+                    prefix={<Badge status="success" />}
+                    styles={{ content: { 
+                      color: '#52c41a', 
+                      fontWeight: 700,
+                      fontSize: 28
+                    }}}
+                  />
+                </Card>
+              </Col>
+            </Row>
+          </PageSection>
 
-        {/* Table Card */}
-        <Card 
-          variant="borderless"
-          style={{ 
-            borderRadius: 20,
-            boxShadow: '0 4px 24px rgba(0, 0, 0, 0.06)',
-            overflow: 'hidden'
-          }}
-          styles={{ body: { padding: 0 } }}
-        >
-          {loading ? (
-            <LoadingSkeleton />
-          ) : orders.length === 0 ? (
-            <EmptyState />
-          ) : (
-            <Table 
-              dataSource={orders} 
-              columns={columns} 
-              rowKey="id" 
-              scroll={{ x: 900 }}
-              pagination={{ 
-                pageSize: 10,
-                showSizeChanger: true,
-                showTotal: (total, range) => (
-                  <Text type="secondary">
-                    แสดง {range[0]}-{range[1]} จาก {total} รายการ
-                  </Text>
-                )
+          <PageSection title={t("stock.title")}>
+            <Card 
+              variant="borderless"
+              style={{ 
+                borderRadius: 20,
+                boxShadow: '0 4px 24px rgba(0, 0, 0, 0.06)',
+                overflow: 'hidden'
               }}
-              className="items-table"
-              locale={{
-                emptyText: <Empty description="ไม่มีข้อมูล" />
-              }}
-            />
-          )}
-        </Card>
+              styles={{ body: { padding: 0 } }}
+            >
+              {loading ? (
+                <LoadingSkeleton />
+              ) : error ? (
+                <PageState status="error" title={error} onRetry={fetchOrders} />
+              ) : orders.length === 0 ? (
+                <PageState
+                  status="empty"
+                  title={t("stock.empty")}
+                  action={
+                    <Button 
+                      type="primary"
+                      icon={<ShoppingCartOutlined />}
+                      size="large"
+                      onClick={() => router.push('/')}
+                      style={{
+                        borderRadius: 10,
+                        height: 48,
+                        paddingInline: 32,
+                        fontWeight: 600
+                      }}
+                    >
+                      {t("stock.emptyAction")}
+                    </Button>
+                  }
+                />
+              ) : (
+                <>
+                  {isMobile ? (
+                    <div style={{ padding: 16, display: 'grid', gap: 12 }}>
+                      {orders.map((order) => (
+                        <Card key={order.id} size="small" style={{ borderRadius: 16, boxShadow: '0 6px 18px rgba(0,0,0,0.05)' }}>
+                          <Space direction="vertical" size={6} style={{ width: '100%' }}>
+                            <Text strong>#{order.id.slice(0, 6)}</Text>
+                            <Text type="secondary">{order.ordered_by?.name || order.ordered_by?.username || '-'}</Text>
+                            <Text>{t("stock.itemsLabel")}: {order.ordersItems?.length || 0}</Text>
+                            <Text type="secondary">{new Date(order.create_date).toLocaleString('th-TH')}</Text>
+                            <Tag color={order.status === OrderStatus.PENDING ? "warning" : order.status === OrderStatus.COMPLETED ? "success" : "error"}>
+                              {order.status === OrderStatus.PENDING ? t("stock.status.pending") : order.status === OrderStatus.COMPLETED ? t("stock.status.completed") : t("stock.status.cancelled")}
+                            </Tag>
+                            <Space wrap>
+                              <Button size="small" icon={<EyeOutlined />} onClick={() => setViewingOrder(order)}>{t("stock.view")}</Button>
+                              <Button size="small" type="primary" icon={<ShoppingCartOutlined />} disabled={order.status !== OrderStatus.PENDING} onClick={() => router.push(`/stock/buying?orderId=${order.id}`)}>{t("stock.buy")}</Button>
+                            </Space>
+                          </Space>
+                        </Card>
+                      ))}
+                    </div>
+                  ) : (
+                    <Table 
+                      dataSource={orders} 
+                      columns={columns} 
+                      rowKey="id" 
+                      scroll={{ x: 900 }}
+                      pagination={{ 
+                        pageSize: 10,
+                        showSizeChanger: true,
+                        showTotal: (total, range) => (
+                          <Text type="secondary">
+                            {range[0]}-{range[1]} / {total}
+                          </Text>
+                        )
+                      }}
+                      className="items-table"
+                      locale={{
+                        emptyText: <Empty description={t("stock.empty")} />
+                      }}
+                    />
+                  )}
+                </>
+              )}
+            </Card>
+          </PageSection>
+        </PageStack>
+      </PageContainer>
       </div>
 
       {/* Modals */}
@@ -620,3 +642,8 @@ export default function ItemsPage() {
     </div>
   );
 }
+
+
+
+
+

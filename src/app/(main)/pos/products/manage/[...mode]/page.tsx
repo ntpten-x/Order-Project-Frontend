@@ -1,14 +1,16 @@
 ﻿'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Form, Input, InputNumber, message, Spin, Switch, Modal, Typography } from 'antd';
+import { Button, Form, Input, InputNumber, message, Modal, Spin, Switch, Typography } from 'antd';
 import { useRouter } from 'next/navigation';
 import { Category } from '../../../../../../types/api/pos/category';
 import { ProductsUnit } from '../../../../../../types/api/pos/productsUnit';
+import PageContainer from "../../../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
 import {
     ManagePageStyles,
     pageStyles,
-    PageHeader,
     ProductPreview,
     ActionButtons
 } from './style';
@@ -36,7 +38,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     const mode = params.mode[0];
     const id = params.mode[1] || null;
     const isEdit = mode === 'edit' && !!id;
-    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
+    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ["Admin", "Manager"] });
 
     useEffect(() => {
         const fetchCsrf = async () => {
@@ -82,6 +84,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                 description: data.description,
                 img_url: data.img_url,
                 price: parseFloat(data.price),
+                price_delivery: Number(data.price_delivery ?? data.price ?? 0),
                 category_id: data.category_id,
                 unit_id: data.unit_id,
                 is_active: data.is_active,
@@ -191,21 +194,28 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     return (
         <div className="manage-page" style={pageStyles.container}>
             <ManagePageStyles />
-            
-            {/* Header */}
-            <PageHeader 
-                isEdit={isEdit}
+
+            <UIPageHeader
+                title={isEdit ? "แก้ไขสินค้า" : "เพิ่มสินค้า"}
+                subtitle={isEdit ? "แก้ไขข้อมูลสินค้า" : "สร้างสินค้าใหม่"}
                 onBack={handleBack}
-                onDelete={isEdit ? handleDelete : undefined}
+                actions={
+                    isEdit ? (
+                        <Button danger onClick={handleDelete}>
+                            ลบ
+                        </Button>
+                    ) : null
+                }
             />
-            
+
+            <PageContainer maxWidth={1200}>
+                <PageSection style={{ background: "transparent", border: "none" }}>
             <div style={{ 
                 display: 'grid', 
                 gridTemplateColumns: '1fr 340px', 
                 gap: 24, 
                 alignItems: 'start',
-                maxWidth: 1200,
-                margin: '0 auto' 
+                margin: 0
             }}>
                 {/* Left Column: Form */}
                 <div className="manage-form-card" style={{
@@ -224,10 +234,17 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                             onFinish={onFinish}
                             requiredMark={false}
                             autoComplete="off"
-                            initialValues={{ is_active: true, price: 0 }}
+                            initialValues={{ is_active: true, price: 0, price_delivery: 0 }}
                             onValuesChange={(changedValues) => {
                                 if (changedValues.img_url !== undefined) setImageUrl(changedValues.img_url);
                                 if (changedValues.display_name !== undefined) setDisplayName(changedValues.display_name);
+                                if (
+                                    !isEdit &&
+                                    changedValues.price !== undefined &&
+                                    !form.isFieldTouched("price_delivery")
+                                ) {
+                                    form.setFieldsValue({ price_delivery: changedValues.price });
+                                }
                                 forceUpdate({});
                             }}
                         >
@@ -256,25 +273,47 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                 </Form.Item>
                             </div>
 
-                            <Form.Item
-                                name="price"
-                                label="ราคา (บาท) *"
-                                rules={[
-                                    { required: true, message: 'กรุณากรอกราคา' },
-                                    { type: 'number', min: 0, message: 'ราคาต้องไม่ติดลบ' }
-                                ]}
-                            >
-                                <InputNumber<number> 
-                                    size="large" 
-                                    placeholder="0.00"
-                                    min={0}
-                                    precision={2}
-                                    style={{ width: '100%', height: 45, fontSize: 16, borderRadius: 12 }}
-                                    formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                                    parser={(value) => value ? parseFloat(value.replace(/\$\s?|(,*)/g, '')) : 0}
-                                    controls={false}
-                                />
-                            </Form.Item>
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+                                <Form.Item
+                                    name="price"
+                                    label="ราคา (หน้าร้าน) *"
+                                    rules={[
+                                        { required: true, message: 'กรุณากรอกราคา' },
+                                        { type: 'number', min: 0, message: 'ราคาต้องไม่ติดลบ' }
+                                    ]}
+                                >
+                                    <InputNumber<number>
+                                        size="large"
+                                        placeholder="0.00"
+                                        min={0}
+                                        precision={2}
+                                        style={{ width: '100%', height: 45, fontSize: 16, borderRadius: 12 }}
+                                        formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                        parser={(value) => value ? parseFloat(value.replace(/\$\s?|(,*)/g, '')) : 0}
+                                        controls={false}
+                                    />
+                                </Form.Item>
+
+                                <Form.Item
+                                    name="price_delivery"
+                                    label="ราคา (Delivery) *"
+                                    rules={[
+                                        { required: true, message: 'กรุณากรอกราคา Delivery' },
+                                        { type: 'number', min: 0, message: 'ราคาต้องไม่ติดลบ' }
+                                    ]}
+                                >
+                                    <InputNumber<number>
+                                        size="large"
+                                        placeholder="0.00"
+                                        min={0}
+                                        precision={2}
+                                        style={{ width: '100%', height: 45, fontSize: 16, borderRadius: 12 }}
+                                        formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                        parser={(value) => value ? parseFloat(value.replace(/\$\s?|(,*)/g, '')) : 0}
+                                        controls={false}
+                                    />
+                                </Form.Item>
+                            </div>
 
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
                                 <Form.Item
@@ -360,12 +399,15 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                             productName={form.getFieldValue('product_name')}
                             imageUrl={imageUrl}
                             price={form.getFieldValue('price')}
+                            priceDelivery={form.getFieldValue('price_delivery')}
                             category={categories.find(c => c.id === form.getFieldValue('category_id'))?.display_name}
                             unit={units.find(u => u.id === form.getFieldValue('unit_id'))?.display_name}
                         />
                      </div>
                 </div>
             </div>
+                </PageSection>
+            </PageContainer>
 
             {/* Modals */}
              <Modal
@@ -456,4 +498,3 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
         </div>
     );
 }
-

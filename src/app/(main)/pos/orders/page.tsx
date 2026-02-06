@@ -2,12 +2,11 @@
 
 import { useOrderListPrefetching } from "../../../../hooks/pos/usePrefetching";
 
-import React, { useEffect, useState } from "react";
-import { Typography, Card, Table, Tag, Button, Empty, Divider, Grid, List, Input } from "antd";
+import React, { useEffect, useMemo, useState } from "react";
+import { Typography, Card, Tag, Button, Divider, Grid, List, Input, Space } from "antd";
 import { 
   ReloadOutlined, 
   EyeOutlined,
-  ArrowLeftOutlined,
   ClockCircleOutlined,
   ContainerOutlined
 } from "@ant-design/icons";
@@ -26,8 +25,15 @@ import { useDebouncedValue } from "../../../../utils/useDebouncedValue";
 import { useOrdersSummary } from "../../../../hooks/pos/useOrdersSummary";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import UIEmptyState from "../../../../components/ui/states/EmptyState";
+import PageTable from "../../../../components/ui/table/PageTable";
+import PageState from "../../../../components/ui/states/PageState";
+import { t } from "../../../../utils/i18n";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 const { useBreakpoint } = Grid;
 dayjs.locale('th');
 
@@ -50,21 +56,21 @@ export default function POSOrdersPage() {
         setPage(1);
     }, [debouncedSearch]);
 
-    const { orders, total, isLoading, refetch } = useOrdersSummary({
+    const { orders, total, isLoading, isFetching, isError, refetch } = useOrdersSummary({
         page,
         limit: LIMIT,
         status: activeStatuses,
         query: debouncedSearch || undefined
     });
 
-// Socket logic moved to useOrders hook to prevent double fetching
-    // useRealtimeRefresh({
-    //     socket,
-    //     events: ["orders:create", "orders:update", "orders:delete", "payments:create", "payments:update"],
-    //     onRefresh: () => refetch(),
-    //     intervalMs: 15000,
-    //     debounceMs: 1000,
-    // });
+    const stats = useMemo(() => {
+        const pending = orders.filter(o => o.status === OrderStatus.Pending).length;
+        const cooking = orders.filter(o => o.status === OrderStatus.Cooking).length;
+        const waitingPayment = orders.filter(o => o.status === OrderStatus.WaitingForPayment).length;
+        const sumAmount = orders.reduce((acc, cur) => acc + Number(cur.total_amount || 0), 0);
+        return { pending, cooking, waitingPayment, sumAmount };
+    }, [orders]);
+
 
     const columns = [
         {
@@ -178,79 +184,100 @@ export default function POSOrdersPage() {
         }
     ];
 
+    if (isError) {
+        return (
+            <div style={{ 
+                ...ordersStyles.container, 
+                background: 'radial-gradient(circle at 20% 10%, rgba(99,102,241,0.06), transparent 26%), radial-gradient(circle at 80% 0%, rgba(16,185,129,0.05), transparent 20%), #f8fafc',
+                minHeight: '100vh'
+            }}>
+                <UIPageHeader
+                    title="ออเดอร์"
+                    subtitle="มอนิเตอร์ทุกช่องทาง • เน้นงานที่ต้องเร่งก่อน"
+                    onBack={() => router.push('/pos')}
+                    icon={<ContainerOutlined style={{ fontSize: 20 }} />}
+                    actions={
+                        <Space size={8} wrap>
+                            <Button icon={<ReloadOutlined />} onClick={() => refetch()}>
+                                {t("orders.loading")}
+                            </Button>
+                        </Space>
+                    }
+                />
+                <PageContainer>
+                    <PageSection>
+                        <PageState status="error" title={t("orders.error")} onRetry={() => refetch()} />
+                    </PageSection>
+                </PageContainer>
+            </div>
+        );
+    }
+
+    const isInitialLoading = isLoading && orders.length === 0 && !isFetching;
+
     return (
-        <div style={ordersStyles.container}>
+        <div style={{ 
+            ...ordersStyles.container, 
+            background: 'radial-gradient(circle at 20% 10%, rgba(99,102,241,0.06), transparent 26%), radial-gradient(circle at 80% 0%, rgba(16,185,129,0.05), transparent 20%), #f8fafc',
+            minHeight: '100vh'
+        }}>
             <style jsx global>{ordersResponsiveStyles}</style>
 
-            {/* Header with softer gradient */}
-            <header style={ordersStyles.header} className="orders-header" role="banner">
-                <div style={ordersStyles.headerContent} className="orders-content orders-header-content-mobile">
-                    {/* Glass Back Button */}
-                    <Button 
-                        icon={<ArrowLeftOutlined />} 
-                        onClick={() => router.push('/pos')}
-                        type="text"
-                        className="orders-back-button-mobile"
-                        aria-label="กลับไปหน้า POS"
-                        style={{ 
-                            color: '#fff', 
-                            fontSize: 18, 
-                            marginRight: 12,
-                            width: 44,
-                            height: 44,
-                            borderRadius: 14,
-                            background: 'rgba(255,255,255,0.15)',
-                            backdropFilter: 'blur(8px)',
-                            border: '1px solid rgba(255,255,255,0.25)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                        }}
-                    />
-                    <div style={ordersStyles.headerIcon} className="orders-header-icon">
-                        <ContainerOutlined style={{ color: '#fff', fontSize: 24 }} />
-                    </div>
-                    <div style={ordersStyles.headerTextContainer} className="orders-header-text-mobile">
-                        <Title level={2} style={ordersStyles.headerTitle} className="orders-page-title">
-                            รายการออเดอร์ปัจจุบัน
-                        </Title>
-                        <Text style={ordersStyles.headerSubtitle} className="orders-page-subtitle">
-                            จัดการและติดตามสถานะออเดอร์ที่กำลังดำเนินการ
-                        </Text>
-                    </div>
-                    <div className="orders-header-actions-mobile" style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+            <UIPageHeader
+                title="ออเดอร์"
+                subtitle="มอนิเตอร์ทุกช่องทาง • เน้นงานที่ต้องเร่งก่อน"
+                onBack={() => router.push('/pos')}
+                icon={<ContainerOutlined style={{ fontSize: 20 }} />}
+                actions={
+                    <Space size={8} wrap>
                         <Input
                             allowClear
-                            placeholder="ค้นหาออเดอร์..."
+                            placeholder="ค้นหาเลขที่ออเดอร์ โต๊ะ หรือรหัสอ้างอิง"
                             value={searchValue}
                             onChange={(e) => setSearchValue(e.target.value)}
-                            size={isMobile ? "middle" : "large"}
-                            className="orders-search-input-mobile"
-                            style={{ 
-                                width: isMobile ? 140 : 280, 
-                                minWidth: 120,
-                                borderRadius: 12,
-                            }}
+                            style={{ minWidth: isMobile ? 200 : 280 }}
                         />
-                        <Button 
-                            icon={<ReloadOutlined />} 
-                            onClick={() => refetch()} 
-                            size={isMobile ? 'middle' : 'large'} 
-                            ghost
-                            className="orders-refresh-button-mobile scale-hover"
-                            style={{
-                                borderRadius: 12,
-                                border: '1px solid rgba(255,255,255,0.4)',
-                            }}
-                        >
-                            <span className="hide-on-mobile">รีเฟรช</span>
+                        <Button icon={<ReloadOutlined />} onClick={() => refetch()}>
+                            รีเฟรช
                         </Button>
-                    </div>
-                </div>
-            </header>
+                    </Space>
+                }
+            />
 
-            {/* Content with Card */}
+            <PageContainer>
+                <PageSection>
+            {isInitialLoading ? (
+                <PageState status="loading" title={t("orders.loading")} />
+            ) : (
             <main style={ordersStyles.contentWrapper} className="orders-content-wrapper">
+                <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: 16,
+                    marginBottom: 20
+                }}>
+                    {[
+                        { label: 'รอทำ', value: stats.pending, color: '#f59e0b', bg: '#fffbeb' },
+                        { label: 'กำลังทำ', value: stats.cooking, color: '#0ea5e9', bg: '#e0f2fe' },
+                        { label: 'รอชำระ', value: stats.waitingPayment, color: '#6366f1', bg: '#eef2ff' },
+                        { label: 'ยอดต่อหน้า', value: formatCurrency(stats.sumAmount), color: '#0f172a', bg: '#e2e8f0' },
+                    ].map((card) => (
+                        <div key={card.label} style={{
+                            background: card.bg,
+                            borderRadius: 16,
+                            padding: '14px 16px',
+                            border: '1px solid rgba(148,163,184,0.3)',
+                            boxShadow: '0 10px 20px rgba(15, 23, 42, 0.06)',
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 6
+                        }}>
+                            <Text style={{ color: '#475569', fontWeight: 600 }}>{card.label}</Text>
+                            <Text strong style={{ color: card.color, fontSize: 22 }}>{card.value}</Text>
+                        </div>
+                    ))}
+                </div>
+
                 <Card 
                     bordered={false} 
                     style={{ 
@@ -261,7 +288,7 @@ export default function POSOrdersPage() {
                     styles={{ body: ordersStyles.cardBody }}
                 >
                     {!isMobile ? (
-                        <Table
+                        <PageTable
                             columns={columns}
                             dataSource={orders}
                             loading={isLoading}
@@ -275,12 +302,19 @@ export default function POSOrdersPage() {
                                 onChange: (p) => setPage(p),
                                 showTotal: (total) => `ทั้งหมด ${total} รายการ`
                             }}
-                            locale={{ emptyText: <Empty description="ไม่พบรายการออเดอร์" /> }}
+                            emptyTitle="ไม่พบรายการออเดอร์"
                         />
                     ) : (
                         <List
                             loading={isLoading}
                             dataSource={orders}
+                            locale={{
+                                emptyText: (
+                                    <div style={{ padding: 12 }}>
+                                        <UIEmptyState title="ไม่พบรายการออเดอร์" />
+                                    </div>
+                                ),
+                            }}
                             renderItem={(order) => {
                                 const totalQty = order.items_count || 0;
                                 
@@ -289,6 +323,9 @@ export default function POSOrdersPage() {
                                         style={{
                                             ...ordersStyles.orderCard,
                                             marginBottom: 14,
+                                            background: 'linear-gradient(135deg, #ffffff 0%, #f8fafc 100%)',
+                                            border: '1px solid #e2e8f0',
+                                            boxShadow: '0 10px 30px rgba(15,23,42,0.06)'
                                         }} 
                                         className={`orders-card fade-in`}
                                         onClick={() => router.push(`/pos/orders/${order.id}`)}
@@ -382,6 +419,9 @@ export default function POSOrdersPage() {
                     )}
                 </Card>
             </main>
+            )}
+                </PageSection>
+            </PageContainer>
         </div>
     );
 }

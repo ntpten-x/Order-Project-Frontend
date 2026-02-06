@@ -47,6 +47,7 @@ interface ProductPreviewProps {
     description?: string;
     imageUrl?: string;
     price?: number;
+    priceDelivery?: number;
     category?: string;
     unit?: string;
 }
@@ -54,7 +55,7 @@ interface ProductPreviewProps {
 import { Tag } from "antd";
 import { CheckCircleFilled } from "@ant-design/icons";
 
-export const ProductPreview = ({ name, productName, imageUrl, price, category, unit }: ProductPreviewProps) => (
+export const ProductPreview = ({ name, productName, imageUrl, price, priceDelivery, category, unit }: ProductPreviewProps) => (
     <div style={{
         marginTop: 24,
         marginBottom: 24,
@@ -136,6 +137,9 @@ export const ProductPreview = ({ name, productName, imageUrl, price, category, u
                     <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
                          <Tag style={{ borderRadius: 6, margin: 0, fontSize: 11, fontWeight: 700, color: '#059669', background: '#ECFDF5', border: 'none', padding: '0 8px' }}>
                             ฿{(price || 0).toLocaleString()}
+                        </Tag>
+                        <Tag style={{ borderRadius: 6, margin: 0, fontSize: 11, fontWeight: 700, color: '#db2777', background: '#fdf2f8', border: 'none', padding: '0 8px' }}>
+                            Delivery ฿{Number(priceDelivery ?? price ?? 0).toLocaleString()}
                         </Tag>
                         {category && <Tag style={{ borderRadius: 6, margin: 0, fontSize: 10, color: '#4F46E5', background: '#EEF2FF', border: 'none' }}>{category}</Tag>}
                         {unit && <Tag style={{ borderRadius: 6, margin: 0, fontSize: 10, color: '#0891B2', background: '#CFFAFE', border: 'none' }}>{unit}</Tag>}

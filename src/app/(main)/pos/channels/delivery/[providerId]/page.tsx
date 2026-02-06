@@ -1,7 +1,9 @@
-"use client";
+﻿"use client";
 
 import React from "react";
+import { Layout } from "antd";
 import POSDelivery from "../../../../../../components/pos/POSDelivery";
+import PageContainer from "../../../../../../components/ui/page/PageContainer";
 
 interface Props {
   params: {
@@ -14,9 +16,15 @@ interface Props {
 
 export default function DeliveryBuyingPage({ params, searchParams }: Props) {
     return (
-        <POSDelivery 
-            providerId={params.providerId} 
-            deliveryCode={searchParams.code} 
-        />
+        <PageContainer maxWidth={99999} style={{ padding: 0 }}>
+            <Layout style={{ background: "transparent" }}>
+                <Layout.Content style={{ background: "transparent" }}>
+                    <POSDelivery
+                        providerId={params.providerId}
+                        deliveryCode={searchParams.code}
+                    />
+                </Layout.Content>
+            </Layout>
+        </PageContainer>
     );
 }

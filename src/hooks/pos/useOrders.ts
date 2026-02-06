@@ -1,6 +1,4 @@
-import { useQuery, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { useContext, useEffect } from 'react';
-import { SocketContext } from '../../contexts/SocketContext';
+import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { SalesOrder } from '../../types/api/pos/salesOrder';
 import { ordersService } from '../../services/pos/orders.service';
 
@@ -18,9 +16,6 @@ interface UseOrdersParams {
 }
 
 export function useOrders({ page = 1, limit = 50, status }: UseOrdersParams) {
-    const { socket } = useContext(SocketContext);
-    const queryClient = useQueryClient();
-
     // Construct query string for key
     const queryKey = ['orders', page, limit, status || 'all'];
 
@@ -33,29 +28,9 @@ export function useOrders({ page = 1, limit = 50, status }: UseOrdersParams) {
         staleTime: 2000,
     });
 
-    useEffect(() => {
-        if (!socket) return;
-
-        const handleOrderUpdate = () => {
-            // Invalidate all orders to be safe
-            queryClient.invalidateQueries({ queryKey: ['orders'] });
-        };
-
-        // Listen for order events
-        socket.on("orders:create", handleOrderUpdate);
-        socket.on("orders:update", handleOrderUpdate);
-        socket.on("orders:delete", handleOrderUpdate);
-        socket.on("payments:create", handleOrderUpdate);
-        socket.on("payments:update", handleOrderUpdate);
-
-        return () => {
-            socket.off("orders:create", handleOrderUpdate);
-            socket.off("orders:update", handleOrderUpdate);
-            socket.off("orders:delete", handleOrderUpdate);
-            socket.off("payments:create", handleOrderUpdate);
-            socket.off("payments:update", handleOrderUpdate);
-        };
-    }, [socket, queryClient]);
+    // Socket logic moved to global useOrderSocketEvents hook
+    // to prevent code duplication and multiple listeners
+    // The query cache 'orders' is invalidated centrally there.
 
     return {
         orders: data?.data || [],

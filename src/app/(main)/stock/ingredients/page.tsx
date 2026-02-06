@@ -1,26 +1,32 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Spin, Typography } from 'antd';
-import { ExperimentOutlined } from '@ant-design/icons';
+import { message, Modal, Spin, Typography, Button, Space } from 'antd';
+import { ExperimentOutlined, ReloadOutlined, PlusOutlined } from '@ant-design/icons';
 import { Ingredients } from "../../../../types/api/stock/ingredients";
 import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
 import { useAsyncAction } from "../../../../hooks/useAsyncAction";
 import { useSocket } from "../../../../hooks/useSocket";
 import { useAuth } from "../../../../contexts/AuthContext";
+import { useRealtimeList } from "../../../../utils/pos/realtime";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import {
     IngredientsPageStyles,
     pageStyles,
-    PageHeader,
     StatsCard,
     IngredientCard,
-    EmptyState
 } from './style';
 
 const { Text } = Typography;
 
 import { authService } from "../../../../services/auth.service";
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../components/ui/page/PageSection";
+import PageStack from "../../../../components/ui/page/PageStack";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import UIEmptyState from "../../../../components/ui/states/EmptyState";
+import { t } from "../../../../utils/i18n";
 
 export default function IngredientsPage() {
     const router = useRouter();
@@ -46,11 +52,11 @@ export default function IngredientsPage() {
             const response = await fetch('/api/stock/ingredients');
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลวัตถุดิบได้');
+                throw new Error(errorData.error || errorData.message || t("stock.ingredients.loadError"));
             }
             const data = await response.json();
             setIngredients(data);
-        }, 'กำลังโหลดข้อมูลวัตถุดิบ...');
+        }, t("stock.ingredients.loading"));
     }, [execute]);
 
     useEffect(() => {
@@ -60,9 +66,9 @@ export default function IngredientsPage() {
                 setTimeout(() => {
                     router.replace('/login');
                 }, 1000); 
-            } else if (user.role !== 'Admin') {
+            } else if (!['Admin', 'Manager'].includes(user.role)) {
                 setIsAuthorized(false);
-                message.error("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
+                message.error(t("stock.ingredients.noPermission"));
                 setTimeout(() => {
                     router.replace('/stock/items');
                 }, 1000); 
@@ -73,29 +79,15 @@ export default function IngredientsPage() {
         }
     }, [user, authLoading, router, fetchIngredients]);
 
-    useEffect(() => {
-        if (!socket) return;
-
-        socket.on('ingredients:create', (newItem: Ingredients) => {
-            setIngredients((prev) => [...prev, newItem]);
-        });
-
-        socket.on('ingredients:update', (updatedItem: Ingredients) => {
-            setIngredients((prev) =>
-                prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
-            );
-        });
-
-        socket.on('ingredients:delete', ({ id }: { id: string }) => {
-            setIngredients((prev) => prev.filter((item) => item.id !== id));
-        });
-
-        return () => {
-            socket.off('ingredients:create');
-            socket.off('ingredients:update');
-            socket.off('ingredients:delete');
-        };
-    }, [socket]);
+    useRealtimeList(
+        socket,
+        {
+            create: RealtimeEvents.ingredients.create,
+            update: RealtimeEvents.ingredients.update,
+            delete: RealtimeEvents.ingredients.delete,
+        },
+        setIngredients
+    );
 
     const handleAdd = () => {
         showLoading();
@@ -111,11 +103,11 @@ export default function IngredientsPage() {
 
     const handleDelete = (ingredient: Ingredients) => {
         Modal.confirm({
-            title: 'ยืนยันการลบวัตถุดิบ',
-            content: `คุณต้องการลบวัตถุดิบ "${ingredient.display_name}" หรือไม่?`,
-            okText: 'ลบ',
+            title: t("stock.ingredients.deleteTitle"),
+            content: t("stock.ingredients.deleteContent", { name: ingredient.display_name }),
+            okText: t("branch.delete.ok"),
             okType: 'danger',
-            cancelText: 'ยกเลิก',
+            cancelText: t("branch.delete.cancel"),
             centered: true,
             onOk: async () => {
                 await execute(async () => {
@@ -126,10 +118,10 @@ export default function IngredientsPage() {
                         }
                     });
                     if (!response.ok) {
-                        throw new Error('ไม่สามารถลบวัตถุดิบได้');
+                        throw new Error(t("stock.ingredients.deleteError"));
                     }
-                    message.success(`ลบวัตถุดิบ "${ingredient.display_name}" สำเร็จ`);
-                }, "กำลังลบวัตถุดิบ...");
+                    message.success(t("stock.ingredients.deleteSuccess", { name: ingredient.display_name }));
+                }, t("stock.ingredients.deleting"));
             },
         });
     };
@@ -145,7 +137,7 @@ export default function IngredientsPage() {
                 gap: 16 
             }}>
                 <Spin size="large" />
-                <Text type="secondary">กำลังตรวจสอบสิทธิ์การใช้งาน...</Text>
+                <Text type="secondary">{t("stock.ingredients.checkingAuth")}</Text>
             </div>
         );
     }
@@ -161,7 +153,7 @@ export default function IngredientsPage() {
                 gap: 16 
             }}>
                 <Spin size="large" />
-                <Text type="danger">คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับหน้าแรก...</Text>
+                <Text type="danger">{t("stock.ingredients.redirecting")}</Text>
             </div>
         );
     }
@@ -173,54 +165,58 @@ export default function IngredientsPage() {
         <div className="ingredients-page" style={pageStyles.container}>
             <IngredientsPageStyles />
             
-            {/* Header */}
-            <PageHeader 
-                onRefresh={fetchIngredients}
-                onAdd={handleAdd}
+            <UIPageHeader
+                title={t("stock.ingredients.title")}
+                subtitle={t("stock.ingredients.subtitle", { count: ingredients.length })}
+                icon={<ExperimentOutlined />}
+                actions={
+                    <Space size={8} wrap>
+                        <Button icon={<ReloadOutlined />} onClick={fetchIngredients}>{t("stock.ingredients.refresh")}</Button>
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>{t("stock.ingredients.add")}</Button>
+                    </Space>
+                }
             />
             
-            {/* Stats Card */}
-            <StatsCard 
-                totalIngredients={ingredients.length}
-                activeIngredients={activeIngredients.length}
-                inactiveIngredients={inactiveIngredients.length}
-            />
+            <PageContainer>
+                <PageStack>
+                    {/* Stats Card */}
+                    <StatsCard 
+                        totalIngredients={ingredients.length}
+                        activeIngredients={activeIngredients.length}
+                        inactiveIngredients={inactiveIngredients.length}
+                    />
 
-            {/* Ingredients List */}
-            <div style={pageStyles.listContainer}>
-                {ingredients.length > 0 ? (
-                    <>
-                        <div style={pageStyles.sectionTitle}>
-                            <ExperimentOutlined style={{ fontSize: 18, color: '#1890ff' }} />
-                            <span style={{ fontSize: 16, fontWeight: 600, color: '#1a1a2e' }}>
-                                รายการวัตถุดิบ
-                            </span>
-                            <div style={{
-                                background: 'linear-gradient(135deg, #1890ff 0%, #096dd9 100%)',
-                                color: 'white',
-                                padding: '4px 12px',
-                                borderRadius: 20,
-                                fontSize: 12,
-                                fontWeight: 600
-                            }}>
-                                {ingredients.length} รายการ
+                    {/* Ingredients List */}
+                    <PageSection
+                        title={t("stock.ingredients.listTitle")}
+                        extra={<span style={{ fontWeight: 600 }}>{ingredients.length}</span>}
+                    >
+                        {ingredients.length > 0 ? (
+                            <div style={pageStyles.listContainer}>
+                                {ingredients.map((ingredient, index) => (
+                                    <IngredientCard
+                                        key={ingredient.id}
+                                        ingredient={ingredient}
+                                        index={index}
+                                        onEdit={handleEdit}
+                                        onDelete={handleDelete}
+                                    />
+                                ))}
                             </div>
-                        </div>
-
-                        {ingredients.map((ingredient, index) => (
-                            <IngredientCard
-                                key={ingredient.id}
-                                ingredient={ingredient}
-                                index={index}
-                                onEdit={handleEdit}
-                                onDelete={handleDelete}
+                        ) : (
+                            <UIEmptyState
+                                title={t("stock.ingredients.emptyTitle")}
+                                description={t("stock.ingredients.emptyDescription")}
+                                action={
+                                    <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                                        {t("stock.ingredients.emptyAction")}
+                                    </Button>
+                                }
                             />
-                        ))}
-                    </>
-                ) : (
-                    <EmptyState onAdd={handleAdd} />
-                )}
-            </div>
+                        )}
+                    </PageSection>
+                </PageStack>
+            </PageContainer>
         </div>
     );
 }

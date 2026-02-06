@@ -1,9 +1,13 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Typography, Row, Col, Card, Tag, Button, Empty, Divider, Avatar, Space, Skeleton } from "antd";
-import { CheckCircleOutlined, ShopOutlined, ShoppingOutlined, RocketOutlined, UserOutlined, ArrowLeftOutlined } from "@ant-design/icons";
+import { Typography, Row, Col, Card, Tag, Button, Divider, Avatar, Space, Skeleton } from "antd";
+import { CheckCircleOutlined, ShopOutlined, ShoppingOutlined, RocketOutlined, UserOutlined } from "@ant-design/icons";
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import UIEmptyState from "../../../../components/ui/states/EmptyState";
 import { ordersService } from "../../../../services/pos/orders.service";
 import { SalesOrderItem } from "../../../../types/api/pos/salesOrderItem";
 import { OrderStatus, OrderType, SalesOrder } from "../../../../types/api/pos/salesOrder";
@@ -12,11 +16,12 @@ import { formatCurrency } from "../../../../utils/orders";
 import { useGlobalLoadingDispatch } from "../../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import { isEqual } from "lodash";
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 dayjs.locale('th');
 
 interface OrderGroup {
@@ -73,7 +78,17 @@ export default function POSItemsPage() {
 
     useRealtimeRefresh({
         socket,
-        events: ["orders:update", "orders:create", "orders:delete"],
+        events: [
+            RealtimeEvents.orders.update,
+            RealtimeEvents.orders.create,
+            RealtimeEvents.orders.delete,
+            RealtimeEvents.salesOrderItem.create,
+            RealtimeEvents.salesOrderItem.update,
+            RealtimeEvents.salesOrderItem.delete,
+            RealtimeEvents.salesOrderDetail.create,
+            RealtimeEvents.salesOrderDetail.update,
+            RealtimeEvents.salesOrderDetail.delete,
+        ],
         onRefresh: () => fetchServedItems(false),
         intervalMs: 15000,
         debounceMs: 1000,
@@ -110,47 +125,20 @@ export default function POSItemsPage() {
         <>
             <style jsx global>{itemsResponsiveStyles}</style>
             <div style={itemsStyles.container}>
-                {/* Hero Header - Enhanced */}
-                <header 
-                    style={itemsStyles.heroSection} 
-                    className="items-hero-mobile"
-                    role="banner"
-                >
-                    <div style={{ ...itemsStyles.contentWrapper, padding: '0 16px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 14 }}>
-                            <Button
-                                type="text"
-                                icon={<ArrowLeftOutlined />}
-                                onClick={() => router.back()}
-                                style={itemsStyles.backButton}
-                                className="items-back-button-mobile scale-hover"
-                                aria-label="กลับ"
-                            />
-                            <div style={{ 
-                                width: 52, 
-                                height: 52, 
-                                borderRadius: 16, 
-                                background: 'rgba(255, 255, 255, 0.2)',
-                                backdropFilter: 'blur(10px)',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}>
-                                <CheckCircleOutlined style={{ fontSize: 26, color: '#fff' }} />
-                            </div>
-                            <div style={{ flex: 1 }}>
-                                <Title level={3} style={itemsStyles.pageTitle} className="items-title-mobile">
-                                    รายการรอชำระเงิน
-                                </Title>
-                                <Text style={itemsStyles.pageSubtitle} className="items-subtitle-mobile">
-                                    Waiting For Payment Orders
-                                </Text>
-                            </div>
-                        </div>
-                    </div>
-                </header>
+                <UIPageHeader
+                    title="รายการรอชำระเงิน"
+                    subtitle="Waiting For Payment Orders"
+                    onBack={() => router.back()}
+                    icon={<CheckCircleOutlined style={{ fontSize: 20 }} />}
+                    actions={
+                        <Button onClick={() => fetchServedItems(true)} loading={isLoading}>
+                            รีเฟรช
+                        </Button>
+                    }
+                />
 
-                <div style={{ ...itemsStyles.contentWrapper, marginTop: -32, padding: '0 16px' }} className="items-content-mobile">
+                <PageContainer>
+                    <PageSection>
                 {isLoading ? (
                     <Row gutter={[16, 16]}>
                         {Array.from({ length: 6 }).map((_, index) => (
@@ -162,9 +150,7 @@ export default function POSItemsPage() {
                         ))}
                     </Row>
                 ) : orderGroups.length === 0 ? (
-                    <Card style={itemsStyles.emptyCard}>
-                        <Empty description="ไม่มีรายการรอชำระเงิน" />
-                    </Card>
+                    <UIEmptyState title="ไม่มีรายการรอชำระเงิน" />
                 ) : (
                     <Row gutter={[16, 16]}>
                         {orderGroups.map((group, index) => (
@@ -261,7 +247,8 @@ export default function POSItemsPage() {
                         ))}
                     </Row>
                 )}
-                </div>
+                    </PageSection>
+                </PageContainer>
             </div>
         </>
     );

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Typography, Button, Empty, Input } from 'antd';
+import { message, Modal, Typography, Button, Input, Space } from 'antd';
 import { 
     UnorderedListOutlined,
     PlusOutlined,
@@ -19,102 +19,16 @@ import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { useRoleGuard } from "../../../../utils/pos/accessControl";
 import { useRealtimeList } from "../../../../utils/pos/realtime";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { pageStyles, globalStyles } from '../../../../theme/pos/productsUnit/style';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../components/ui/page/PageSection";
+import PageStack from "../../../../components/ui/page/PageStack";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import UIEmptyState from "../../../../components/ui/states/EmptyState";
 
-const { Text, Title } = Typography;
-
-// ============ HEADER COMPONENT ============
-
-interface HeaderProps {
-    onRefresh: () => void;
-    onAdd: () => void;
-    onSearch: (value: string) => void;
-}
-
-const PageHeader = ({ onRefresh, onAdd, onSearch }: HeaderProps) => (
-    <div style={pageStyles.header}>
-        <div style={pageStyles.headerDecoCircle1} />
-        <div style={pageStyles.headerDecoCircle2} />
-        
-        <div style={pageStyles.headerContent}>
-            <div style={pageStyles.headerLeft}>
-                <div style={pageStyles.headerIconBox}>
-                    <UnorderedListOutlined style={{ fontSize: 24, color: 'white' }} />
-                </div>
-                <div>
-                    <Text style={{ 
-                        color: 'rgba(255,255,255,0.85)', 
-                        fontSize: 13,
-                        display: 'block',
-                        textShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                    }}>
-                        จัดการข้อมูล
-                    </Text>
-                    <Title level={4} style={{ 
-                        color: 'white', 
-                        margin: 0,
-                        fontWeight: 700,
-                        letterSpacing: '0.5px',
-                        textShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                    }}>
-                        หน่วยสินค้า
-                    </Title>
-                </div>
-            </div>
-            <div style={pageStyles.headerActions}>
-                <Button
-                    type="text"
-                    icon={<ReloadOutlined style={{ color: 'white' }} />}
-                    onClick={onRefresh}
-                    style={{
-                        background: 'rgba(255,255,255,0.2)',
-                        backdropFilter: 'blur(4px)',
-                        borderRadius: 12,
-                        height: 40,
-                        width: 40,
-                        border: '1px solid rgba(255,255,255,0.3)'
-                    }}
-                />
-                <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={onAdd}
-                    style={{
-                        background: 'white',
-                        color: '#0891B2',
-                        borderRadius: 12,
-                        height: 40,
-                        fontWeight: 600,
-                        border: 'none',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                    }}
-                >
-                    <span className="hidden sm:inline">เพิ่มหน่วย</span>
-                </Button>
-            </div>
-        </div>
-
-        {/* Search Bar */}
-        <div style={{ marginTop: 24, padding: '0 4px' }}>
-            <Input 
-                prefix={<SearchOutlined style={{ color: '#fff', opacity: 0.7 }} />}
-                placeholder="ค้นหาหน่วยสินค้า..."
-                onChange={(e) => onSearch(e.target.value)}
-                bordered={false}
-                style={{
-                    background: 'rgba(255,255,255,0.15)',
-                    backdropFilter: 'blur(8px)',
-                    borderRadius: 14,
-                    padding: '8px 16px',
-                    color: 'white',
-                    fontSize: 15,
-                }}
-                className="search-input-placeholder-white"
-            />
-        </div>
-    </div>
-);
+const { Text } = Typography;
 
 // ============ STATS CARD COMPONENT ============
 
@@ -260,52 +174,6 @@ const UnitCard = ({ unit, index, onEdit, onDelete }: UnitCardProps) => {
     );
 };
 
-// ============ EMPTY STATE COMPONENT ============
-
-const EmptyState = ({ onAdd, isSearch }: { onAdd: () => void, isSearch?: boolean }) => (
-    <Empty
-        image={Empty.PRESENTED_IMAGE_SIMPLE}
-        description={
-            <div style={{ textAlign: 'center' }}>
-                <Text type="secondary" style={{ fontSize: 15 }}>
-                    {isSearch ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีหน่วยสินค้า'}
-                </Text>
-                <br />
-                {!isSearch && (
-                    <Text type="secondary" style={{ fontSize: 13 }}>
-                        เริ่มต้นเพิ่มหน่วยแรกของคุณได้เลย
-                    </Text>
-                )}
-            </div>
-        }
-        style={{
-            padding: '60px 20px',
-            background: 'white',
-            borderRadius: 24,
-            margin: '24px 16px',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.04)'
-        }}
-    >
-        {!isSearch && (
-            <Button 
-                type="primary" 
-                icon={<PlusOutlined />} 
-                onClick={onAdd} 
-                size="large"
-                style={{ 
-                    background: '#0891B2', 
-                    borderRadius: 12,
-                    height: 48,
-                    padding: '0 32px',
-                    boxShadow: '0 4px 12px rgba(8, 145, 178, 0.3)'
-                }}
-            >
-                เพิ่มหน่วยสินค้า
-            </Button>
-        )}
-    </Empty>
-);
-
 export default function ProductsUnitPage() {
     const router = useRouter();
     const [units, setUnits] = useState<ProductsUnit[]>([]);
@@ -314,7 +182,7 @@ export default function ProductsUnitPage() {
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
+    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ["Admin", "Manager"] });
 
     useEffect(() => {
         getCsrfTokenCached();
@@ -347,7 +215,7 @@ export default function ProductsUnitPage() {
 
     useRealtimeList(
         socket,
-        { create: "productsUnit:create", update: "productsUnit:update", delete: "productsUnit:delete" },
+        { create: RealtimeEvents.productsUnit.create, update: RealtimeEvents.productsUnit.update, delete: RealtimeEvents.productsUnit.delete },
         setUnits
     );
 
@@ -441,65 +309,74 @@ export default function ProductsUnitPage() {
             `}</style>
             
             {/* Header */}
-            <PageHeader 
-                onRefresh={fetchUnits}
-                onAdd={handleAdd}
-                onSearch={handleSearch}
+            <UIPageHeader
+                title="หน่วยสินค้า"
+                subtitle={`${units.length} รายการ`}
+                icon={<UnorderedListOutlined />}
+                actions={
+                    <Space size={8} wrap>
+                        <Input
+                            prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
+                            allowClear
+                            placeholder="ค้นหาหน่วยสินค้า..."
+                            onChange={(e) => handleSearch(e.target.value)}
+                            style={{ minWidth: 220 }}
+                        />
+                        <Button icon={<ReloadOutlined />} onClick={fetchUnits} />
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                            เพิ่มหน่วยสินค้า
+                        </Button>
+                    </Space>
+                }
             />
-            
-            {/* Stats Card */}
-            <div style={{ marginTop: -32, padding: '0 16px', position: 'relative', zIndex: 10 }}>
-                <StatsCard 
-                    totalUnits={units.length}
-                    activeUnits={activeUnits.length}
-                    inactiveUnits={inactiveUnits.length}
-                />
-            </div>
 
-            {/* Units List */}
-            <div style={pageStyles.listContainer}>
-                {filteredUnits.length > 0 ? (
-                    <>
-                        <div style={pageStyles.sectionTitle}>
-                            <div style={{ 
-                                width: 4, 
-                                height: 16, 
-                                background: '#0891B2', 
-                                borderRadius: 2 
-                            }} />
-                            <span style={{ fontSize: 16, fontWeight: 700, color: '#1E293B' }}>
-                                รายการหน่วยสินค้า
-                            </span>
-                            <div style={{
-                                background: '#CFFAFE',
-                                color: '#0891B2',
-                                padding: '2px 10px',
-                                borderRadius: 12,
-                                fontSize: 12,
-                                fontWeight: 700,
-                                marginLeft: 'auto'
-                            }}>
-                                {filteredUnits.length}
-                            </div>
-                        </div>
+            <PageContainer>
+                <PageStack>
+                    <StatsCard
+                        totalUnits={units.length}
+                        activeUnits={activeUnits.length}
+                        inactiveUnits={inactiveUnits.length}
+                    />
 
-                        {filteredUnits.map((unit, index) => (
-                            <UnitCard
-                                key={unit.id}
-                                unit={unit}
-                                index={index}
-                                onEdit={handleEdit}
-                                onDelete={handleDelete}
+                    <PageSection
+                        title="รายการหน่วยสินค้า"
+                        extra={<span style={{ fontWeight: 600 }}>{filteredUnits.length}</span>}
+                    >
+                        {filteredUnits.length > 0 ? (
+                            filteredUnits.map((unit, index) => (
+                                <UnitCard
+                                    key={unit.id}
+                                    unit={unit}
+                                    index={index}
+                                    onEdit={handleEdit}
+                                    onDelete={handleDelete}
+                                />
+                            ))
+                        ) : (
+                            <UIEmptyState
+                                title={
+                                    searchText.trim()
+                                        ? "ไม่พบหน่วยสินค้าที่ค้นหา"
+                                        : "ยังไม่มีหน่วยสินค้า"
+                                }
+                                description={
+                                    searchText.trim()
+                                        ? "ลองค้นหาด้วยคำอื่นหรือล้างการค้นหา"
+                                        : "เพิ่มหน่วยสินค้าตัวแรกเพื่อเริ่มต้นใช้งาน"
+                                }
+                                action={
+                                    !searchText.trim() ? (
+                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                                            เพิ่มหน่วยสินค้า
+                                        </Button>
+                                    ) : null
+                                }
                             />
-                        ))}
-                    </>
-                ) : (
-                    <EmptyState onAdd={handleAdd} isSearch={!!searchText} />
-                )}
-            </div>
-            
-            {/* Bottom padding */}
-            <div style={{ height: 40 }} />
+                        )}
+                    </PageSection>
+                </PageStack>
+            </PageContainer>
+
         </div>
     );
 }

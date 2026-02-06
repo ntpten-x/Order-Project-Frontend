@@ -2,6 +2,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useContext, useEffect } from "react";
 import { SocketContext } from "../../contexts/SocketContext";
 import { ordersService } from "../../services/pos/orders.service";
+import { RealtimeEvents } from "../realtimeEvents";
 
 /**
  * Statistics for each sales channel showing active order counts
@@ -39,17 +40,17 @@ export function useChannelStats() {
         };
 
         // Listen for relevant events
-        socket.on("orders:create", handleOrderUpdate);
-        socket.on("orders:update", handleOrderUpdate);
-        socket.on("orders:delete", handleOrderUpdate);
+        socket.on(RealtimeEvents.orders.create, handleOrderUpdate);
+        socket.on(RealtimeEvents.orders.update, handleOrderUpdate);
+        socket.on(RealtimeEvents.orders.delete, handleOrderUpdate);
 
         // Also listen for table updates as they might affect Dine In status technically, 
         // though stats are based on orders. Safe to just listen to orders.
 
         return () => {
-            socket.off("orders:create", handleOrderUpdate);
-            socket.off("orders:update", handleOrderUpdate);
-            socket.off("orders:delete", handleOrderUpdate);
+            socket.off(RealtimeEvents.orders.create, handleOrderUpdate);
+            socket.off(RealtimeEvents.orders.update, handleOrderUpdate);
+            socket.off(RealtimeEvents.orders.delete, handleOrderUpdate);
         };
     }, [socket, queryClient]);
 

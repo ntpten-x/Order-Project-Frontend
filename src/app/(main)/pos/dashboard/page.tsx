@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useState, useCallback } from "react";
 import { Typography, Button, Avatar, Dropdown, message, Spin } from "antd";
@@ -19,8 +19,13 @@ import { SalesOrderSummary, OrderStatus, OrderType } from "../../../../types/api
 import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { dashboardStyles, dashboardColors, dashboardResponsiveStyles } from "../../../../theme/pos/dashboard/style";
 import { DatePicker } from "antd";
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import { t } from "../../../../utils/i18n";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -64,7 +69,12 @@ export default function DashboardPage() {
 
     useRealtimeRefresh({
         socket,
-        events: ["orders:update", "orders:create", "orders:delete", "payments:create"],
+        events: [
+            RealtimeEvents.orders.update,
+            RealtimeEvents.orders.create,
+            RealtimeEvents.orders.delete,
+            RealtimeEvents.payments.create,
+        ],
         onRefresh: () => fetchData(true),
         intervalMs: 20000,
         debounceMs: 1000,
@@ -72,15 +82,15 @@ export default function DashboardPage() {
 
     const handleExportPDF = () => {
         try {
-            showLoading("กำลังสร้าง PDF...");
+            showLoading(t("dashboard.exportPDF.loading"));
             exportSalesReportPDF(
                 salesData,
                 topItems,
                 [dateRange[0].format('YYYY-MM-DD'), dateRange[1].format('YYYY-MM-DD')]
             );
-            message.success('ส่งออก PDF สำเร็จ');
+            message.success(t("dashboard.exportPDF.success"));
         } catch {
-            message.error('เกิดข้อผิดพลาดในการส่งออก PDF');
+            message.error(t("dashboard.exportPDF.error"));
         } finally {
             hideLoading();
         }
@@ -88,15 +98,15 @@ export default function DashboardPage() {
 
     const handleExportExcel = () => {
         try {
-            showLoading("กำลังสร้าง Excel...");
+            showLoading(t("dashboard.exportExcel.loading"));
             exportSalesReportExcel(
                 salesData,
                 topItems,
                 [dateRange[0].format('YYYY-MM-DD'), dateRange[1].format('YYYY-MM-DD')]
             );
-            message.success('ส่งออก Excel สำเร็จ');
+            message.success(t("dashboard.exportExcel.success"));
         } catch {
-            message.error('เกิดข้อผิดพลาดในการส่งออก Excel');
+            message.error(t("dashboard.exportExcel.error"));
         } finally {
             hideLoading();
         }
@@ -112,14 +122,24 @@ export default function DashboardPage() {
 
     if (isLoading) {
         return (
-            <div style={{ 
-                minHeight: '100vh', 
-                background: dashboardColors.background || '#F8FAFC', 
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center' 
-            }}>
-                <Spin size="large" tip="กำลังโหลดข้อมูล..." />
+            <div style={{ minHeight: "100vh", background: dashboardColors.background || "#F8FAFC" }}>
+                <UIPageHeader
+                    title="Dashboard"
+                    subtitle={t("dashboard.subtitle")}
+                    icon={<RiseOutlined />}
+                    actions={
+                        <Button icon={<ReloadOutlined />} onClick={() => fetchData(false)}>
+                            {t("dashboard.reload")}
+                        </Button>
+                    }
+                />
+                <PageContainer maxWidth={1400}>
+                    <PageSection>
+                        <div style={{ display: "flex", justifyContent: "center", padding: "60px 0" }}>
+                            <Spin size="large" tip={t("dashboard.loading")} />
+                        </div>
+                    </PageSection>
+                </PageContainer>
             </div>
         );
     }
@@ -134,49 +154,38 @@ export default function DashboardPage() {
                 <div style={dashboardStyles.heroDecoCircle2} />
                 
                 <div style={dashboardStyles.heroContent}>
-                    {/* Header Row */}
-                    <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        justifyContent: 'space-between', 
-                        marginBottom: 20 
-                    }}>
-                        <div style={dashboardStyles.heroHeader}>
-                            <div style={dashboardStyles.heroIconBox}>
-                                <RiseOutlined style={{ fontSize: 24, color: 'white' }} />
-                            </div>
-                            <div>
-                                <Title level={4} style={dashboardStyles.heroTitle} className="dashboard-title-mobile">
-                                    Dashboard
-                                </Title>
-                                <Text style={dashboardStyles.heroSubtitle}>ภาพรวมยอดขาย</Text>
-                            </div>
-                        </div>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <Button 
-                                icon={<ReloadOutlined />} 
-                                onClick={() => fetchData(false)}
-                                style={dashboardStyles.refreshButton}
-                                className="scale-hover"
-                            />
-                            <Dropdown
-                                menu={{
-                                    items: [
-                                        { key: 'pdf', icon: <FilePdfOutlined />, label: 'PDF', onClick: handleExportPDF },
-                                        { key: 'excel', icon: <FileExcelOutlined />, label: 'Excel', onClick: handleExportExcel }
-                                    ]
-                                }}
-                                trigger={['click']}
-                                disabled={salesData.length === 0}
-                            >
+                    <UIPageHeader
+                        title={<span style={{ color: "white" }}>Dashboard</span>}
+                        subtitle={<span style={{ color: "rgba(255,255,255,0.85)" }}>{t("dashboard.subtitle")}</span>}
+                        icon={<RiseOutlined style={{ color: "white" }} />}
+                        style={{ background: "transparent", borderBottom: "none", padding: 0, marginBottom: 20 }}
+                        actions={
+                            <div style={{ display: 'flex', gap: 8 }}>
                                 <Button 
-                                    icon={<DownloadOutlined />} 
-                                    style={dashboardStyles.exportButton}
+                                    icon={<ReloadOutlined />} 
+                                    onClick={() => fetchData(false)}
+                                    style={dashboardStyles.refreshButton}
                                     className="scale-hover"
                                 />
-                            </Dropdown>
-                        </div>
-                    </div>
+                                <Dropdown
+                                    menu={{
+                                        items: [
+                                            { key: 'pdf', icon: <FilePdfOutlined />, label: t("dashboard.export.pdf"), onClick: handleExportPDF },
+                                            { key: 'excel', icon: <FileExcelOutlined />, label: t("dashboard.export.excel"), onClick: handleExportExcel }
+                                        ]
+                                    }}
+                                    trigger={['click']}
+                                    disabled={salesData.length === 0}
+                                >
+                                    <Button 
+                                        icon={<DownloadOutlined />} 
+                                        style={dashboardStyles.exportButton}
+                                        className="scale-hover"
+                                    />
+                                </Dropdown>
+                            </div>
+                        }
+                    />
 
                     {/* Date Picker */}
                     <div style={dashboardStyles.datePickerWrapper}>
@@ -192,7 +201,9 @@ export default function DashboardPage() {
             </div>
 
             {/* Main Content */}
-            <div style={dashboardStyles.contentWrapper} className="dashboard-content-mobile">
+            <PageContainer maxWidth={1400}>
+                <PageSection style={{ background: "transparent", border: "none" }}>
+                    <div style={dashboardStyles.contentWrapper} className="dashboard-content-mobile">
                 
                 {/* Main Sales Card */}
                 <div 
@@ -207,7 +218,7 @@ export default function DashboardPage() {
                 >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
                         <DollarCircleOutlined style={{ fontSize: 28 }} />
-                        <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 14 }}>ยอดขายรวม</Text>
+                        <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 14 }}>{t("dashboard.totalSales")}</Text>
                     </div>
                     <Title level={2} style={{ margin: 0, color: 'white', fontSize: 32 }}>
                         ฿{totalSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
@@ -215,11 +226,15 @@ export default function DashboardPage() {
                     <div style={{ marginTop: 12, display: 'flex', gap: 16 }}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <ShoppingOutlined style={{ fontSize: 14 }} />
-                            <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13 }}>{totalOrders} ออเดอร์</Text>
+                            <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13 }}>
+                                {t("dashboard.orders", { count: totalOrders })}
+                            </Text>
                         </div>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
                             <TagOutlined style={{ fontSize: 14 }} />
-                            <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13 }}>ส่วนลด ฿{totalDiscount.toLocaleString()}</Text>
+                            <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13 }}>
+                                {t("dashboard.discount", { amount: totalDiscount.toLocaleString() })}
+                            </Text>
                         </div>
                     </div>
                 </div>
@@ -252,7 +267,7 @@ export default function DashboardPage() {
                         }}>
                             <ShopOutlined style={{ fontSize: 18, color: dashboardColors.dineInColor }} />
                         </div>
-                        <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>ทานที่ร้าน</Text>
+                        <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>{t("dashboard.channel.dineIn")}</Text>
                         <Text strong style={{ fontSize: 14, color: dashboardColors.dineInColor }}>
                             ฿{totalDineInSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                         </Text>
@@ -279,7 +294,7 @@ export default function DashboardPage() {
                         }}>
                             <HomeOutlined style={{ fontSize: 18, color: dashboardColors.takeAwayColor }} />
                         </div>
-                        <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>กลับบ้าน</Text>
+                        <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>{t("dashboard.channel.takeAway")}</Text>
                         <Text strong style={{ fontSize: 14, color: dashboardColors.takeAwayColor }}>
                             ฿{totalTakeAwaySales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                         </Text>
@@ -306,7 +321,7 @@ export default function DashboardPage() {
                         }}>
                             <CarOutlined style={{ fontSize: 18, color: dashboardColors.deliveryColor }} />
                         </div>
-                        <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>เดลิเวอรี่</Text>
+                        <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>{t("dashboard.channel.delivery")}</Text>
                         <Text strong style={{ fontSize: 14, color: dashboardColors.deliveryColor }}>
                             ฿{totalDeliverySales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                         </Text>
@@ -324,7 +339,7 @@ export default function DashboardPage() {
                     <div style={dashboardStyles.tableHeader}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <TrophyOutlined style={{ color: '#F59E0B', fontSize: 18 }} />
-                            <Text strong style={dashboardStyles.tableTitle}>สินค้าขายดี</Text>
+                            <Text strong style={dashboardStyles.tableTitle}>{t("dashboard.topProducts")}</Text>
                         </div>
                     </div>
                     <div style={{ padding: 16 }}>
@@ -395,7 +410,7 @@ export default function DashboardPage() {
                         ) : (
                             <div style={{ textAlign: 'center', padding: 30, color: '#9CA3AF' }}>
                                 <ShoppingOutlined style={{ fontSize: 32, marginBottom: 8, opacity: 0.5 }} />
-                                <Text type="secondary" style={{ display: 'block' }}>ยังไม่มีข้อมูลสินค้า</Text>
+                                <Text type="secondary" style={{ display: 'block' }}>{t("dashboard.topProducts.empty")}</Text>
                             </div>
                         )}
                     </div>
@@ -409,7 +424,7 @@ export default function DashboardPage() {
                     <div style={dashboardStyles.tableHeader}>
                         <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <ShoppingOutlined style={{ color: dashboardColors.primary, fontSize: 18 }} />
-                            <Text strong style={dashboardStyles.tableTitle}>ออเดอร์ล่าสุด</Text>
+                            <Text strong style={dashboardStyles.tableTitle}>{t("dashboard.recentOrders")}</Text>
                         </div>
                     </div>
                     <div style={{ padding: '12px 16px' }}>
@@ -417,9 +432,9 @@ export default function DashboardPage() {
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                 {recentOrders.slice(0, 5).map(order => {
                                     const typeConfig: Record<OrderType, { label: string, color: string, bg: string }> = {
-                                        [OrderType.DineIn]: { label: 'ทานร้าน', color: '#fff', bg: '#3B82F6' },
-                                        [OrderType.TakeAway]: { label: 'กลับบ้าน', color: '#fff', bg: '#22C55E' },
-                                        [OrderType.Delivery]: { label: 'เดลิเวอรี่', color: '#fff', bg: '#EC4899' },
+                                        [OrderType.DineIn]: { label: t("dashboard.channel.dineIn"), color: '#fff', bg: '#3B82F6' },
+                                        [OrderType.TakeAway]: { label: t("dashboard.channel.takeAway"), color: '#fff', bg: '#22C55E' },
+                                        [OrderType.Delivery]: { label: t("dashboard.channel.delivery"), color: '#fff', bg: '#EC4899' },
                                     };
                                     const statusConfig: Record<string, { label: string, bg: string, color: string }> = {
                                         [OrderStatus.Paid]: { label: 'ชำระแล้ว', bg: '#DCFCE7', color: '#16A34A' },
@@ -504,7 +519,7 @@ export default function DashboardPage() {
                                                         color: '#B45309',
                                                         fontWeight: 600
                                                     }}>
-                                                        💳 {paymentMethod}
+                                                        {t("dashboard.paymentMethod", { method: paymentMethod })}
                                                     </span>
                                                 </div>
                                             </div>
@@ -527,7 +542,7 @@ export default function DashboardPage() {
                                                     gap: 4,
                                                     color: dashboardColors.primary
                                                 }}>
-                                                    <Text style={{ fontSize: 12, color: dashboardColors.primary }}>ดูรายละเอียด</Text>
+                                                        <Text style={{ fontSize: 12, color: dashboardColors.primary }}>{t("dashboard.viewDetails")}</Text>
                                                     <EyeOutlined style={{ fontSize: 14 }} />
                                                 </div>
                                             </div>
@@ -538,7 +553,7 @@ export default function DashboardPage() {
                         ) : (
                             <div style={{ textAlign: 'center', padding: 30, color: '#9CA3AF' }}>
                                 <ShoppingOutlined style={{ fontSize: 32, marginBottom: 8, opacity: 0.5 }} />
-                                <Text type="secondary" style={{ display: 'block' }}>ยังไม่มีออเดอร์</Text>
+                                <Text type="secondary" style={{ display: 'block' }}>{t("dashboard.recentOrders.empty")}</Text>
                             </div>
                         )}
                     </div>
@@ -556,16 +571,16 @@ export default function DashboardPage() {
                         <div style={dashboardStyles.tableHeader}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                 <CalendarOutlined style={{ color: dashboardColors.primary, fontSize: 18 }} />
-                                <Text strong style={dashboardStyles.tableTitle}>ยอดขายรายวัน</Text>
+                                <Text strong style={dashboardStyles.tableTitle}>{t("dashboard.dailySales")}</Text>
                             </div>
                         </div>
                         <div style={{ overflowX: 'auto' }}>
                             <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 300 }}>
                                 <thead>
                                     <tr style={{ background: '#F8FAFC' }}>
-                                        <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 12, color: '#64748B', fontWeight: 600 }}>วันที่</th>
-                                        <th style={{ padding: '12px 16px', textAlign: 'center', fontSize: 12, color: '#64748B', fontWeight: 600 }}>ออเดอร์</th>
-                                        <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: 12, color: '#64748B', fontWeight: 600 }}>ยอดขาย</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 12, color: '#64748B', fontWeight: 600 }}>{t("dashboard.dailySales.date")}</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'center', fontSize: 12, color: '#64748B', fontWeight: 600 }}>{t("dashboard.dailySales.orders")}</th>
+                                        <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: 12, color: '#64748B', fontWeight: 600 }}>{t("dashboard.dailySales.sales")}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -602,7 +617,9 @@ export default function DashboardPage() {
                     </div>
                 )}
 
-            </div>
+                    </div>
+                </PageSection>
+            </PageContainer>
         </div>
     );
 }

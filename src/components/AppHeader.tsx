@@ -1,172 +1,276 @@
 ﻿"use client";
 
-import { Layout, Avatar, Typography, Space, Popover, Button } from "antd";
-import { UserOutlined, LogoutOutlined, SettingOutlined, ShoppingOutlined, DownOutlined } from "@ant-design/icons";
+import React, { useState, useEffect, useRef } from "react";
+import { Layout, Avatar, Typography, Space, Button, theme, Grid } from "antd";
+import { 
+  UserOutlined, 
+  LogoutOutlined, 
+  SettingOutlined, 
+  ShoppingOutlined, 
+  DownOutlined
+} from "@ant-design/icons";
 import { useAuth } from "../contexts/AuthContext";
 import { usePathname } from "next/navigation";
 
 const { Header } = Layout;
 const { Text } = Typography;
+const { useToken } = theme;
+const { useBreakpoint } = Grid;
 
 const AppHeader: React.FC = () => {
   const { user, logout } = useAuth();
   const pathname = usePathname();
+  const { token } = useToken();
+  const screens = useBreakpoint(); // xs, sm, md, lg, xl, xxl
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Sync state if pathname changes
+  useEffect(() => {
+    setDropdownOpen(false);
+  }, [pathname]);
 
   // ซ่อน header บนหน้า login
   if (!user || pathname === "/login") {
     return null;
   }
 
-
+  const isMobile = !screens.md; // Mobile if screen is smaller than md (768px)
+  const headerBaseHeight = isMobile ? 56 : 64;
 
   return (
     <Header
       style={{
         position: 'fixed',
         top: 0,
+        left: 0,
         width: '100%',
         zIndex: 1000,
-        height: '64px',
-        padding: '0 24px',
+        boxSizing: "border-box",
+        paddingTop: "env(safe-area-inset-top)",
+        height: `calc(${headerBaseHeight}px + env(safe-area-inset-top))`,
+        padding: isMobile ? '0 16px' : '0 24px',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        background: '#0f172a', // Slate 900
-        borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
-        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
+        background: 'rgba(255, 255, 255, 0.95)', // Glass effect light bg
+        backdropFilter: 'blur(10px)',
+        borderBottom: `1px solid ${token.colorBorderSecondary}`,
+        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+        transition: 'all 0.3s ease',
       }}
     >
-      <Space size={16} align="center">
+      {/* Left: Brand / Logo */}
+      <Space size={12} align="center">
         <div
           style={{
-            width: '40px',
-            height: '40px',
-            background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-            borderRadius: '12px',
+            width: isMobile ? '32px' : '36px',
+            height: isMobile ? '32px' : '36px',
+            background: `linear-gradient(135deg, ${token.colorPrimary} 0%, ${token.colorPrimaryActive} 100%)`,
+            borderRadius: token.borderRadius,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            boxShadow: '0 0 15px rgba(16, 185, 129, 0.3)',
+            boxShadow: `0 4px 12px ${token.colorPrimary}40`,
             cursor: 'pointer',
-            transition: 'transform 0.2s ease',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.transform = 'scale(1.05)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.transform = 'scale(1)';
           }}
         >
-          <ShoppingOutlined style={{ fontSize: '20px', color: '#fff' }} />
+          <ShoppingOutlined style={{ fontSize: isMobile ? '18px' : '20px', color: '#fff' }} />
         </div>
-        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1 }}>
+        
+        <div style={{ display: 'flex', flexDirection: 'column', lineHeight: 1.1 }}>
           <Text
             strong
             style={{
-              fontSize: '18px',
-              color: '#f8fafc', // Light text
+              fontSize: isMobile ? '16px' : '18px',
+              color: token.colorTextHeading,
               fontWeight: 700,
               letterSpacing: '-0.02em',
             }}
           >
             POS System
           </Text>
-          <Text style={{ fontSize: '12px', fontWeight: 500, color: '#94a3b8' }}>
-            Management
-          </Text>
+           {/* Hide subtitle on very small screens to save space */}
+          {!isMobile && (
+            <Text style={{ fontSize: '11px', fontWeight: 500, color: token.colorTextDescription }}>
+              Management
+            </Text>
+          )}
         </div>
       </Space>
 
-      {user && (
-        <Popover 
-          content={
-            <div style={{ width: 240 }}>
-              {/* Profile Header */}
-              <div style={{ padding: '16px', background: '#f8fafc', borderRadius: '12px 12px 0 0', borderBottom: '1px solid #f1f5f9' }}>
-                <Space align="center" size={12}>
-                  <Avatar
-                    size={48}
-                    icon={<UserOutlined />}
-                    style={{
-                      background: '#fff',
-                      color: '#10b981',
-                      border: '2px solid #e2e8f0',
-                    }}
-                  />
-                  <div>
-                    <Text strong style={{ fontSize: '15px', display: 'block', color: '#1e293b' }}>
-                      {user?.name || user?.username || "Guest"}
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: '12px' }}>
-                      {user?.role || "Staff"}
-                    </Text>
-                  </div>
-                </Space>
-              </div>
-
-              {/* Menu Actions */}
-              <div style={{ padding: '8px', display: 'flex', flexDirection: 'column', gap: 4 }}>
-                <Button 
-                  type="text" 
-                  icon={<SettingOutlined />} 
-                  style={{ textAlign: 'left', height: 40, borderRadius: 8, color: '#64748b' }}
-                  block
-                >
-                  การตั้งค่า
-                </Button>
-                
-                <Button 
-                  type="text" 
-                  danger 
-                  icon={<LogoutOutlined />} 
-                  style={{ textAlign: 'left', height: 40, borderRadius: 8 }}
-                  onClick={logout}
-                  block
-                >
-                  ออกจากระบบ
-                </Button>
-              </div>
-            </div>
-          } 
-          trigger="click"
-          placement="bottomRight"
-          overlayInnerStyle={{ padding: 0, borderRadius: 12, boxShadow: '0 10px 40px rgba(0,0,0,0.08)' }}
+      {/* Right: User Profile */}
+      <div ref={dropdownRef} style={{ position: 'relative' }}>
+        <div
+          onClick={() => setDropdownOpen(!dropdownOpen)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault();
+              setDropdownOpen((prev) => !prev);
+            }
+          }}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: isMobile ? '8px' : '10px',
+            cursor: 'pointer',
+            padding: '4px',
+            paddingRight: isMobile ? '4px' : '10px',
+            borderRadius: '24px',
+            background: dropdownOpen ? token.colorFillTertiary : 'transparent',
+            transition: 'all 0.2s ease',
+          }}
+          className="user-profile-trigger"
+          role="button"
+          tabIndex={0}
+          aria-expanded={dropdownOpen}
+          aria-label="User menu"
         >
+          <Avatar
+            size={isMobile ? 32 : 36}
+            icon={<UserOutlined />}
+            style={{
+              background: token.colorBgContainer,
+              color: token.colorPrimary,
+              border: `1px solid ${token.colorBorder}`,
+              boxShadow: '0 2px 6px rgba(0,0,0,0.05)',
+            }}
+          />
+          
+          {/* Hide Name on Mobile */}
+          {!isMobile && (
+            <div style={{ display: 'flex', alignItems: 'center' }}>
+              <Text strong style={{ fontSize: '14px', color: token.colorText }}>
+                {user?.name || "Member"}
+              </Text>
+              <DownOutlined style={{ 
+                fontSize: '10px', 
+                color: token.colorTextDescription, 
+                marginLeft: 8,
+                transform: dropdownOpen ? 'rotate(180deg)' : 'rotate(0deg)',
+                transition: 'transform 0.3s ease',
+              }} />
+            </div>
+          )}
+          
+          {/* Mobile: Simple Indicator if needed, or just Avatar act as trigger */}
+        </div>
+
+        {/* Custom Dropdown Menu */}
+        {dropdownOpen && (
           <div
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '12px',
-              cursor: 'pointer',
-              padding: '6px 8px 6px 6px',
-              borderRadius: '30px',
-              background: 'rgba(255, 255, 255, 0.1)', // Glassy dark
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              transition: 'all 0.2s ease',
-            }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+              position: 'absolute',
+              top: 'calc(100% + 8px)',
+              right: isMobile ? -8 : 0, // Adjust alignment for mobile padding
+              width: 260,
+              background: '#ffffff',
+              borderRadius: token.borderRadiusLG,
+              boxShadow: '0 10px 40px rgba(0, 0, 0, 0.12)',
+              padding: '8px',
+              zIndex: 1100,
+              animation: 'slideUp 0.2s cubic-bezier(0.23, 1, 0.32, 1)',
+              border: `1px solid ${token.colorBorderSecondary}`,
             }}
           >
-            <Avatar
-              size={32}
-              icon={<UserOutlined />}
-              style={{
-                background: '#334155',
-                color: '#fff',
-                border: 'none',
-              }}
-            />
-            <Text strong style={{ fontSize: '14px', color: '#e2e8f0', paddingRight: 4 }}>
-               {user?.name || user?.username}
-            </Text>
-            <DownOutlined style={{ fontSize: '10px', color: '#94a3b8' }} />
+            {/* Header info inside dropdown */}
+            <div style={{ 
+              padding: '16px', 
+              background: token.colorBgLayout, 
+              borderRadius: token.borderRadius,
+              marginBottom: '8px',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <Avatar 
+                  size={44} 
+                  icon={<UserOutlined />} 
+                  style={{ 
+                    background: '#fff', 
+                    color: token.colorPrimary, 
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.08)'
+                  }} 
+                />
+                <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0 }}>
+                  <Text strong style={{ color: token.colorTextHeading, fontSize: '15px' }}>
+                    {user?.name || "Member"}
+                  </Text>
+                  <Text style={{ color: token.colorTextSecondary, fontSize: '12px' }}>
+                    @{user?.username || "username"}
+                  </Text>
+                  <div style={{ 
+                    marginTop: 4, 
+                    display: 'inline-flex',
+                    padding: '2px 8px', 
+                    background: token.colorPrimaryBg, 
+                    color: token.colorPrimary,
+                    borderRadius: '4px',
+                    fontSize: '10px',
+                    fontWeight: 600,
+                    width: 'fit-content'
+                  }}>
+                    {user?.role || "Staff"}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <Button 
+                type="text" 
+                icon={<SettingOutlined />} 
+                style={{ 
+                  textAlign: 'left', 
+                  height: 44, 
+                  justifyContent: 'flex-start',
+                  fontSize: '14px',
+                  color: token.colorText
+                }}
+                block
+              >
+                การตั้งค่าระบบ
+              </Button>
+              <div style={{ height: '1px', background: token.colorBorderSecondary, margin: '4px 0' }} />
+              <Button 
+                type="text" 
+                danger 
+                icon={<LogoutOutlined />} 
+                style={{ 
+                  textAlign: 'left', 
+                  height: 44, 
+                  justifyContent: 'flex-start',
+                  fontSize: '14px',
+                  fontWeight: 500
+                }}
+                onClick={logout}
+                block
+              >
+                ออกจากระบบ
+              </Button>
+            </div>
           </div>
-        </Popover>
-      )}
+        )}
+      </div>
+
+      <style jsx global>{`
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(8px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        .user-profile-trigger:hover {
+          background: ${token.colorFillTertiary} !important;
+        }
+      `}</style>
     </Header>
   );
 };

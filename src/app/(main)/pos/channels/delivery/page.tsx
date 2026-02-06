@@ -2,8 +2,14 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Typography, Row, Col, Empty, Modal, Input, message, Button, Select, Tag } from "antd";
-import { RocketOutlined, PlusOutlined, ArrowLeftOutlined, ClockCircleOutlined } from "@ant-design/icons";
+import { Button, Col, Input, Modal, Row, Select, Space, Tag, Typography, message } from "antd";
+import { RocketOutlined, PlusOutlined, ClockCircleOutlined } from "@ant-design/icons";
+import PageContainer from "../../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../../components/ui/page/PageHeader";
+import UIEmptyState from "../../../../../components/ui/states/EmptyState";
+import PageState from "../../../../../components/ui/states/PageState";
+import { t } from "../../../../../utils/i18n";
 import { useDelivery } from "../../../../../hooks/pos/useDelivery";
 import { OrderType, SalesOrderSummary } from "../../../../../types/api/pos/salesOrder";
 import { Delivery } from "../../../../../types/api/pos/delivery";
@@ -18,14 +24,14 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import 'dayjs/locale/th';
 
-const { Title, Text } = Typography;
+const { Text } = Typography;
 dayjs.extend(relativeTime);
 dayjs.locale('th');
 
 export default function DeliverySelectionPage() {
     const router = useRouter();
     const { showLoading, hideLoading } = useGlobalLoading();
-    const { deliveryProviders, isLoading: isLoadingProviders } = useDelivery();
+    const { deliveryProviders, isLoading: isLoadingProviders, isError: deliveryError, mutate: refetchProviders } = useDelivery();
     const { orders, isLoading } = useChannelOrders({ orderType: OrderType.Delivery });
     const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -40,7 +46,7 @@ export default function DeliverySelectionPage() {
 
     useEffect(() => {
         if (isLoading || isLoadingProviders) {
-            showLoading("กำลังโหลดออเดอร์...");
+            showLoading(t("delivery.loadingOrders"));
         } else {
             hideLoading();
         }
@@ -154,74 +160,32 @@ export default function DeliverySelectionPage() {
             `}</style>
             
             <div style={posPageStyles.container}>
-                {/* Header Section */}
-                <header
-                    style={{ ...channelPageStyles.channelHeader, background: channelColors.delivery.gradient }}
-                    className="delivery-header-mobile"
-                    role="banner"
-                >
-                    <div className="header-pattern"></div>
-                    <div className="header-circle circle-1"></div>
-                    <div className="header-circle circle-2"></div>
-
-                    <div style={channelPageStyles.channelHeaderContent} className="delivery-header-content-mobile">
-                        {/* Back Button */}
-                        <button
-                            className="back-button-hover delivery-back-button-mobile"
-                            style={channelPageStyles.channelBackButton}
-                            onClick={handleBack}
-                            aria-label="กลับไปหน้าเลือกช่องทาง"
-                        >
-                            <ArrowLeftOutlined />
-                            <span>กลับ</span>
-                        </button>
-
-                        {/* Title Section */}
-                        <div style={channelPageStyles.channelTitleSection} className="delivery-title-section-mobile">
-                            <RocketOutlined style={channelPageStyles.channelHeaderIcon} className="delivery-header-icon-mobile" aria-hidden="true" />
-                            <div>
-                                <Title level={3} style={channelPageStyles.channelHeaderTitle} className="delivery-header-title-mobile">
-                                    เดลิเวอรี่
-                                </Title>
-                                <Text style={channelPageStyles.channelHeaderSubtitle}>Delivery</Text>
-                            </div>
-                        </div>
-
-                        {/* Statistics Bar */}
-                        <div style={channelPageStyles.channelStatsBar} className="delivery-stats-bar-mobile">
-                            <div style={channelPageStyles.statItem}>
-                                <span style={{ ...channelPageStyles.statDot, background: '#fff' }} />
-                                <Text style={channelPageStyles.statText}>ทั้งหมด {stats.total}</Text>
-                            </div>
-                            <div style={channelPageStyles.statItem}>
-                                <span style={{ ...channelPageStyles.statDot, background: tableColors.occupied.primary }} />
-                                <Text style={channelPageStyles.statText}>กำลังปรุง {stats.cooking}</Text>
-                            </div>
-                        </div>
-                    </div>
-                </header>
-
-                {/* Content Section */}
-                <main style={{ maxWidth: 1400, margin: '0 auto', padding: '0 16px 32px' }} className="delivery-content-mobile" role="main">
-                    {/* Add Order Button */}
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 20 }}>
-                        <Button
-                            type="primary"
-                            size="large"
-                            icon={<PlusOutlined />}
-                            onClick={handleCreateOrderClick}
-                            className="add-button-hover delivery-add-button-mobile"
-                            style={{
-                                ...channelPageStyles.addOrderButton,
-                                background: channelColors.delivery.primary,
-                                boxShadow: `0 8px 20px ${channelColors.delivery.primary}40`,
-                            }}
-                        >
-                            <span className="hide-on-mobile">เพิ่มออเดอร์ใหม่</span>
-                            <span className="show-on-mobile-inline">เพิ่ม</span>
+                <UIPageHeader
+                    title="เดลิเวอรี่"
+                    subtitle={
+                        <Space size={8} wrap>
+                            <Tag>ทั้งหมด {stats.total}</Tag>
+                            <Tag color="orange">กำลังปรุง {stats.cooking}</Tag>
+                        </Space>
+                    }
+                    onBack={handleBack}
+                    icon={<RocketOutlined style={{ fontSize: 20 }} />}
+                    actions={
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateOrderClick}>
+                            เพิ่มออเดอร์
                         </Button>
-                    </div>
+                    }
+                />
 
+        <PageContainer>
+            {deliveryError ? (
+                <PageState status="error" title={t("page.error")} onRetry={() => refetchProviders()} />
+            ) : !isLoadingProviders && deliveryProviders.length === 0 ? (
+                <PageState status="empty" title={t("delivery.noProviders")} action={
+                    <Button onClick={() => refetchProviders()}>{t("delivery.retry")}</Button>
+                } />
+            ) : (
+            <PageSection title="ออเดอร์">
                     {orders.length > 0 ? (
                         <Row gutter={[16, 16]}>
                             {orders.map((order: SalesOrderSummary, index) => {
@@ -319,37 +283,19 @@ export default function DeliverySelectionPage() {
                             })}
                         </Row>
                     ) : (
-                        <div style={channelPageStyles.emptyStateContainer}>
-                            <Empty
-                                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                description={
-                                    <div style={{ marginTop: 16 }}>
-                                        <Title level={4} style={{ marginBottom: 8, color: '#1E293B' }}>ไม่มีออเดอร์เดลิเวอรี่</Title>
-                                        <Text type="secondary" style={{ fontSize: 15 }}>เริ่มรับออเดอร์โดยกดปุ่ม &quot;เพิ่มออเดอร์&quot;</Text>
-                                    </div>
-                                }
-                            />
-                            <Button
-                                type="primary"
-                                size="large"
-                                icon={<PlusOutlined />}
-                                onClick={handleCreateOrderClick}
-                                style={{
-                                    marginTop: 24,
-                                    background: channelColors.delivery.primary,
-                                    height: 52,
-                                    borderRadius: 16,
-                                    padding: '0 32px',
-                                    fontWeight: 600,
-                                    border: 'none',
-                                    boxShadow: `0 8px 20px ${channelColors.delivery.primary}40`,
-                                }}
-                            >
-                                สร้างออเดอร์ใหม่
-                            </Button>
-                        </div>
+                        <UIEmptyState
+                            title={t("delivery.noOrders")}
+                            description="เริ่มรับออเดอร์โดยกดปุ่ม “เพิ่มออเดอร์”"
+                            action={
+                                <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateOrderClick}>
+                                    {t("delivery.createNewOrder")}
+                                </Button>
+                            }
+                        />
                     )}
-                </main>
+                    </PageSection>
+                )}
+                </PageContainer>
 
                 {/* Create Order Modal */}
                 <Modal
@@ -367,8 +313,8 @@ export default function DeliverySelectionPage() {
                                 <RocketOutlined style={{ color: channelColors.delivery.primary, fontSize: 20 }} />
                             </div>
                             <div>
-                                <div style={{ fontSize: 18, fontWeight: 700, color: '#1E293B' }}>เปิดออเดอร์เดลิเวอรี่</div>
-                                <div style={{ fontSize: 13, fontWeight: 400, color: '#94A3B8' }}>กรอกข้อมูลเพื่อสร้างออเดอร์ใหม่</div>
+                                <div style={{ fontSize: 18, fontWeight: 700, color: '#1E293B' }}>{t("delivery.createOrder")}</div>
+                                <div style={{ fontSize: 13, fontWeight: 400, color: '#94A3B8' }}>{t("delivery.createOrderSubtitle")}</div>
                             </div>
                         </div>
                     }
@@ -388,7 +334,7 @@ export default function DeliverySelectionPage() {
                             fontWeight: 600,
                             padding: '0 24px',
                         },
-                        disabled: !selectedProviderId || !deliveryCode.trim()
+                        disabled: isLoadingProviders || !selectedProviderId || !deliveryCode.trim()
                     }}
                     cancelButtonProps={{
                         style: {
@@ -402,24 +348,28 @@ export default function DeliverySelectionPage() {
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
                         <div>
                             <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 14, color: '#475569' }}>
-                                เลือกผู้ให้บริการ (Delivery Provider)
+                                {t("delivery.selectProvider")}
                             </Text>
                             <Select
-                                placeholder="เลือกผู้ให้บริการ"
+                                placeholder={t("delivery.selectProviderPlaceholder")}
                                 style={{ width: '100%' }}
                                 size="large"
                                 value={selectedProviderId}
                                 onChange={setSelectedProviderId}
                                 options={(deliveryProviders as Delivery[]).map((p: Delivery) => ({ label: p.delivery_name, value: p.id }))}
                                 loading={isLoadingProviders}
+                                dropdownStyle={{ borderRadius: 12, padding: 8 }}
+                                dropdownMatchSelectWidth
+                                getPopupContainer={(trigger) => trigger?.closest('.delivery-modal') || trigger?.parentElement || document.body}
+                                notFoundContent={isLoadingProviders ? t("delivery.loadingOrders") : t("delivery.noProviders")}
                             />
                         </div>
                         <div>
                             <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 14, color: '#475569' }}>
-                                รหัสเดลิเวอรี่ / Order Code
+                                {t("delivery.orderCode")}
                             </Text>
                             <Input
-                                placeholder="ระบุรหัสออเดอร์ (เช่น 123)"
+                                placeholder={t("delivery.enterOrderCode")}
                                 addonBefore={selectedProvider?.delivery_prefix ? `${selectedProvider.delivery_prefix}-` : undefined}
                                 value={deliveryCode}
                                 onChange={(e) => setDeliveryCode(e.target.value)}

@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Layout } from "antd";
 
 import { CartProvider } from "../../contexts/stock/CartContext";
 import { usePOSPrefetching } from "../../hooks/pos/usePrefetching";
@@ -15,10 +16,11 @@ export default function MainLayout({
 
   return (
     <CartProvider>
-      <div className="min-h-screen pb-24 relative"> 
-        {/* pb-24 to prevent content from being hidden behind the fixed bottom nav */}
-        {children}
-      </div>
+      <Layout style={{ minHeight: "100%", background: "transparent" }}>
+        <Layout.Content style={{ background: "transparent" }}>
+          {children}
+        </Layout.Content>
+      </Layout>
     </CartProvider>
   );
 }

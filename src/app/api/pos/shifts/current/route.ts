@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProxyUrl } from "../../../../../lib/proxy-utils";
 
+export const dynamic = "force-dynamic";
+
 export async function GET(request: NextRequest) {
     try {
         const url = getProxyUrl("GET", "/pos/shifts/current");
@@ -24,7 +26,8 @@ export async function GET(request: NextRequest) {
 
         const data = await response.json();
         return NextResponse.json(data);
-    } catch {
+    } catch (error) {
+        console.error("Proxy Error:", error);
         return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
     }
 }
