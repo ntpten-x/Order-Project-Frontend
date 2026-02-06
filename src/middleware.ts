@@ -39,8 +39,6 @@ export function middleware(req: NextRequest) {
   const policy = requiredRolesForPath(pathname, req.method);
   if (!policy) return NextResponse.next();
 
-  const token = req.cookies.get("token")?.value;
-
   // Public access (no token required) only for login + csrf + auth login
   const isPublic =
     pathname === "/login" ||
@@ -48,13 +46,22 @@ export function middleware(req: NextRequest) {
     pathname === "/api/csrf" ||
     pathname.startsWith("/api/auth/login") ||
     pathname.startsWith("/api/auth/logout");
+  if (isPublic) return NextResponse.next();
 
-  if (!token) {
-    if (isPublic) return NextResponse.next();
+  const token = req.cookies.get("token")?.value;
+
+  const redirectToLogin = () => {
     if (pathname.startsWith("/api")) return jsonError(401, "Unauthorized");
     const url = req.nextUrl.clone();
     url.pathname = "/login";
-    return NextResponse.redirect(url);
+    const res = NextResponse.redirect(url);
+    // Clear potentially invalid/stale token to prevent redirect loops.
+    res.cookies.delete("token");
+    return res;
+  };
+
+  if (!token) {
+    return redirectToLogin();
   }
 
   // Authenticated: determine role from JWT payload (UI gate only; backend is source of truth)
@@ -62,10 +69,7 @@ export function middleware(req: NextRequest) {
   const role = asRole(payload?.role) ?? asRole(payload?.user?.role);
 
   if (!role) {
-    if (pathname.startsWith("/api")) return jsonError(401, "Unauthorized");
-    const url = req.nextUrl.clone();
-    url.pathname = "/login";
-    return NextResponse.redirect(url);
+    return redirectToLogin();
   }
 
   const allowed = policy.allowed;
