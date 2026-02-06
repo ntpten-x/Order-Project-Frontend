@@ -1,4 +1,5 @@
 {
-  "/(auth)/login/page": "app/(auth)/login/page.js",
-  "/(main)/page": "app/(main)/page.js"
+  "/api/pos/payment-accounts/accounts/route": "app/api/pos/payment-accounts/accounts/route.js",
+  "/api/pos/payment-accounts/accounts/[id]/activate/route": "app/api/pos/payment-accounts/accounts/[id]/activate/route.js",
+  "/(main)/pos/settings/payment-accounts/[...mode]/page": "app/(main)/pos/settings/payment-accounts/[...mode]/page.js"
 }

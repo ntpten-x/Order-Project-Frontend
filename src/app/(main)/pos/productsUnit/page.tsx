@@ -1,8 +1,8 @@
-'use client';
+﻿'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Typography, Button, Input, Space } from 'antd';
-import { 
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { message, Modal, Typography, Button, Input, Space, Segmented, Tag, Switch } from 'antd';
+import {
     UnorderedListOutlined,
     PlusOutlined,
     ReloadOutlined,
@@ -10,27 +10,27 @@ import {
     DeleteOutlined,
     SearchOutlined
 } from '@ant-design/icons';
-import { ProductsUnit } from "../../../../types/api/pos/productsUnit";
+import { ProductsUnit } from '../../../../types/api/pos/productsUnit';
 import { useRouter } from 'next/navigation';
-import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
-import { useAsyncAction } from "../../../../hooks/useAsyncAction";
-import { useSocket } from "../../../../hooks/useSocket";
-import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
-import { useRoleGuard } from "../../../../utils/pos/accessControl";
-import { useRealtimeList } from "../../../../utils/pos/realtime";
-import { readCache, writeCache } from "../../../../utils/pos/cache";
-import { RealtimeEvents } from "../../../../utils/realtimeEvents";
+import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
+import { useAsyncAction } from '../../../../hooks/useAsyncAction';
+import { useSocket } from '../../../../hooks/useSocket';
+import { getCsrfTokenCached } from '../../../../utils/pos/csrf';
+import { useRoleGuard } from '../../../../utils/pos/accessControl';
+import { useRealtimeList } from '../../../../utils/pos/realtime';
+import { readCache, writeCache } from '../../../../utils/pos/cache';
+import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import { pageStyles, globalStyles } from '../../../../theme/pos/productsUnit/style';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
-import PageContainer from "../../../../components/ui/page/PageContainer";
-import PageSection from "../../../../components/ui/page/PageSection";
-import PageStack from "../../../../components/ui/page/PageStack";
-import UIPageHeader from "../../../../components/ui/page/PageHeader";
-import UIEmptyState from "../../../../components/ui/states/EmptyState";
+import PageContainer from '../../../../components/ui/page/PageContainer';
+import PageSection from '../../../../components/ui/page/PageSection';
+import PageStack from '../../../../components/ui/page/PageStack';
+import UIPageHeader from '../../../../components/ui/page/PageHeader';
+import UIEmptyState from '../../../../components/ui/states/EmptyState';
 
 const { Text } = Typography;
 
-// ============ STATS CARD COMPONENT ============
+type StatusFilter = 'all' | 'active' | 'inactive';
 
 interface StatsCardProps {
     totalUnits: number;
@@ -39,105 +39,115 @@ interface StatsCardProps {
 }
 
 const StatsCard = ({ totalUnits, activeUnits, inactiveUnits }: StatsCardProps) => (
-    <div style={pageStyles.statsCard}>
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#0891B2' }}>{totalUnits}</span>
-            <Text style={pageStyles.statLabel}>ทั้งหมด</Text>
+    <div style={{
+        background: '#fff',
+        borderRadius: 16,
+        border: '1px solid #e2e8f0',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+        gap: 8,
+        padding: 14
+    }}>
+        <div style={{ textAlign: 'center' }}>
+            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', display: 'block' }}>{totalUnits}</span>
+            <Text style={{ fontSize: 12, color: '#64748b' }}>ทั้งหมด</Text>
         </div>
-        <div style={{ width: 1, height: 24, background: '#f0f0f0', alignSelf: 'center' }} />
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#10B981' }}>{activeUnits}</span>
-            <Text style={pageStyles.statLabel}>ใช้งาน</Text>
+        <div style={{ textAlign: 'center' }}>
+            <span style={{ fontSize: 24, fontWeight: 700, color: '#0e7490', display: 'block' }}>{activeUnits}</span>
+            <Text style={{ fontSize: 12, color: '#64748b' }}>ใช้งาน</Text>
         </div>
-        <div style={{ width: 1, height: 24, background: '#f0f0f0', alignSelf: 'center' }} />
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#EF4444' }}>{inactiveUnits}</span>
-            <Text style={pageStyles.statLabel}>ไม่ใช้งาน</Text>
+        <div style={{ textAlign: 'center' }}>
+            <span style={{ fontSize: 24, fontWeight: 700, color: '#b91c1c', display: 'block' }}>{inactiveUnits}</span>
+            <Text style={{ fontSize: 12, color: '#64748b' }}>ปิดใช้งาน</Text>
         </div>
     </div>
 );
 
-// ============ UNIT CARD COMPONENT ============
-
 interface UnitCardProps {
     unit: ProductsUnit;
-    index: number;
     onEdit: (unit: ProductsUnit) => void;
     onDelete: (unit: ProductsUnit) => void;
+    onToggleActive: (unit: ProductsUnit, next: boolean) => void;
+    updatingStatusId: string | null;
 }
 
-const UnitCard = ({ unit, index, onEdit, onDelete }: UnitCardProps) => {
+const formatDate = (raw: string | Date) => {
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return '-';
+    return new Intl.DateTimeFormat('th-TH', {
+        dateStyle: 'medium',
+        timeStyle: 'short'
+    }).format(date);
+};
+
+const UnitCard = ({ unit, onEdit, onDelete, onToggleActive, updatingStatusId }: UnitCardProps) => {
     return (
         <div
             className="unit-card"
             style={{
                 ...pageStyles.unitCard(unit.is_active),
-                animationDelay: `${index * 0.05}s`
+                borderRadius: 16,
             }}
             onClick={() => onEdit(unit)}
         >
             <div style={pageStyles.unitCardInner}>
-                {/* Icon */}
                 <div style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 16,
-                    background: unit.is_active 
-                        ? 'linear-gradient(135deg, #CFFAFE 0%, #A5F3FC 100%)' 
-                        : '#F1F5F9',
+                    width: 52,
+                    height: 52,
+                    borderRadius: 14,
+                    background: unit.is_active
+                        ? 'linear-gradient(135deg, #cffafe 0%, #a5f3fc 100%)'
+                        : '#f1f5f9',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
-                    boxShadow: unit.is_active ? '0 4px 10px rgba(8, 145, 178, 0.1)' : 'none'
+                    boxShadow: unit.is_active ? '0 4px 10px rgba(14, 116, 144, 0.18)' : 'none'
                 }}>
-                    <UnorderedListOutlined style={{ 
-                        fontSize: 24, 
-                        color: unit.is_active ? '#0891B2' : '#94A3B8' 
+                    <UnorderedListOutlined style={{
+                        fontSize: 22,
+                        color: unit.is_active ? '#0e7490' : '#94a3b8'
                     }} />
                 </div>
 
-                {/* Info */}
                 <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                        <Text 
-                            strong 
-                            style={{ 
-                                fontSize: 16, 
-                                color: unit.is_active ? '#1E293B' : '#64748B' 
+                        <Text
+                            strong
+                            style={{
+                                fontSize: 16,
+                                color: '#0f172a'
                             }}
                             ellipsis={{ tooltip: unit.display_name }}
                         >
                             {unit.display_name}
                         </Text>
-                        {unit.is_active ? (
-                            <div style={{
-                                width: 8,
-                                height: 8,
-                                borderRadius: '50%',
-                                background: '#10B981',
-                                boxShadow: '0 0 0 2px #ecfdf5'
-                            }} />
-                        ) : (
-                            <div style={{
-                                width: 6,
-                                height: 6,
-                                borderRadius: '50%',
-                                background: '#CBD5E1'
-                            }} />
-                        )}
+                        <Tag color={unit.is_active ? 'green' : 'default'}>
+                            {unit.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}
+                        </Tag>
                     </div>
-                    <Text 
-                        type="secondary" 
-                        style={{ fontSize: 13, display: 'block', color: '#64748B' }}
+                    <Text
+                        type="secondary"
+                        style={{ fontSize: 13, display: 'block', color: '#334155' }}
                         ellipsis={{ tooltip: unit.unit_name }}
                     >
                         {unit.unit_name}
                     </Text>
+                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
+                        อัปเดตล่าสุด {formatDate(unit.update_date)}
+                    </Text>
                 </div>
 
-                {/* Actions */}
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <Switch
+                        size="small"
+                        checked={unit.is_active}
+                        loading={updatingStatusId === unit.id}
+                        onClick={(checked, event) => {
+                            event?.stopPropagation();
+                            onToggleActive(unit, checked);
+                        }}
+                    />
                     <Button
                         type="text"
                         icon={<EditOutlined />}
@@ -146,9 +156,9 @@ const UnitCard = ({ unit, index, onEdit, onDelete }: UnitCardProps) => {
                             onEdit(unit);
                         }}
                         style={{
-                            borderRadius: 12,
-                            color: '#0891B2',
-                            background: '#CFFAFE',
+                            borderRadius: 10,
+                            color: '#0e7490',
+                            background: '#ecfeff',
                             width: 36,
                             height: 36
                         }}
@@ -162,8 +172,8 @@ const UnitCard = ({ unit, index, onEdit, onDelete }: UnitCardProps) => {
                             onDelete(unit);
                         }}
                         style={{
-                            borderRadius: 12,
-                            background: '#FEF2F2',
+                            borderRadius: 10,
+                            background: '#fef2f2',
                             width: 36,
                             height: 36
                         }}
@@ -177,19 +187,20 @@ const UnitCard = ({ unit, index, onEdit, onDelete }: UnitCardProps) => {
 export default function ProductsUnitPage() {
     const router = useRouter();
     const [units, setUnits] = useState<ProductsUnit[]>([]);
-    const [filteredUnits, setFilteredUnits] = useState<ProductsUnit[]>([]);
     const [searchText, setSearchText] = useState('');
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+    const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ["Admin", "Manager"] });
+    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager'] });
 
     useEffect(() => {
         getCsrfTokenCached();
     }, []);
 
     useEffect(() => {
-        const cached = readCache<ProductsUnit[]>("pos:products-units", 10 * 60 * 1000);
+        const cached = readCache<ProductsUnit[]>('pos:products-units', 10 * 60 * 1000);
         if (cached && cached.length > 0) {
             setUnits(cached);
         }
@@ -202,7 +213,9 @@ export default function ProductsUnitPage() {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลหน่วยสินค้าได้');
             }
-            const data = await response.json();
+            const payload = await response.json();
+            const data = Array.isArray(payload) ? payload : payload?.data;
+            if (!Array.isArray(data)) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
             setUnits(data);
         }, 'กำลังโหลดข้อมูลหน่วยสินค้า...');
     }, [execute]);
@@ -219,37 +232,39 @@ export default function ProductsUnitPage() {
         setUnits
     );
 
-    // Centralized filtering logic
-    useEffect(() => {
-        if (searchText) {
-            const lower = searchText.toLowerCase();
-            const filtered = units.filter((u: ProductsUnit) => 
-                u.display_name.toLowerCase().includes(lower) || 
-                u.unit_name.toLowerCase().includes(lower)
-            );
-            setFilteredUnits(filtered);
-        } else {
-            setFilteredUnits(units);
+    const filteredUnits = useMemo(() => {
+        let result = units;
+
+        if (statusFilter === 'active') {
+            result = result.filter((item) => item.is_active);
+        } else if (statusFilter === 'inactive') {
+            result = result.filter((item) => !item.is_active);
         }
-    }, [units, searchText]);
+
+        const keyword = searchText.trim().toLowerCase();
+        if (keyword) {
+            result = result.filter((item) =>
+                item.display_name.toLowerCase().includes(keyword) ||
+                item.unit_name.toLowerCase().includes(keyword)
+            );
+        }
+
+        return result;
+    }, [units, searchText, statusFilter]);
 
     useEffect(() => {
         if (units.length > 0) {
-            writeCache("pos:products-units", units);
+            writeCache('pos:products-units', units);
         }
     }, [units]);
 
-    const handleSearch = (value: string) => {
-        setSearchText(value);
-    };
-
     const handleAdd = () => {
-        showLoading("กำลังเปิดหน้าจัดการหน่วยสินค้า...");
+        showLoading('กำลังเปิดหน้าจัดการหน่วยสินค้า...');
         router.push('/pos/productsUnit/manager/add');
     };
 
     const handleEdit = (unit: ProductsUnit) => {
-        showLoading("กำลังเปิดหน้าแก้ไขหน่วยสินค้า...");
+        showLoading('กำลังเปิดหน้าแก้ไขหน่วยสินค้า...');
         router.push(`/pos/productsUnit/manager/edit/${unit.id}`);
     };
 
@@ -262,7 +277,6 @@ export default function ProductsUnitPage() {
             cancelText: 'ยกเลิก',
             centered: true,
             icon: <DeleteOutlined style={{ color: '#EF4444' }} />,
-            maskClosable: true,
             onOk: async () => {
                 await execute(async () => {
                     const csrfToken = await getCsrfTokenCached();
@@ -275,10 +289,40 @@ export default function ProductsUnitPage() {
                     if (!response.ok) {
                         throw new Error('ไม่สามารถลบหน่วยสินค้าได้');
                     }
+                    setUnits((prev) => prev.filter((item) => item.id !== unit.id));
                     message.success(`ลบหน่วย "${unit.display_name}" สำเร็จ`);
-                }, "กำลังลบหน่วยสินค้า...");
+                }, 'กำลังลบหน่วยสินค้า...');
             },
         });
+    };
+
+    const handleToggleActive = async (unit: ProductsUnit, next: boolean) => {
+        setUpdatingStatusId(unit.id);
+        try {
+            const csrfToken = await getCsrfTokenCached();
+            const response = await fetch(`/api/pos/productsUnit/update/${unit.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
+                body: JSON.stringify({ is_active: next })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || errorData.message || 'ไม่สามารถเปลี่ยนสถานะหน่วยสินค้าได้');
+            }
+
+            const updated = await response.json();
+            setUnits((prev) => prev.map((item) => item.id === unit.id ? updated : item));
+            message.success(next ? 'เปิดใช้งานหน่วยสินค้าแล้ว' : 'ปิดใช้งานหน่วยสินค้าแล้ว');
+        } catch (error) {
+            console.error(error);
+            message.error(error instanceof Error ? error.message : 'ไม่สามารถเปลี่ยนสถานะหน่วยสินค้าได้');
+        } finally {
+            setUpdatingStatusId(null);
+        }
     };
 
     if (isChecking) {
@@ -295,33 +339,13 @@ export default function ProductsUnitPage() {
     return (
         <div className="unit-page" style={pageStyles.container}>
             <style>{globalStyles}</style>
-            <style jsx global>{`
-                .search-input-placeholder-white input::placeholder {
-                    color: rgba(255, 255, 255, 0.6) !important;
-                }
-                .search-input-placeholder-white input {
-                    color: white !important;
-                }
-                .unit-card {
-                    cursor: pointer;
-                    -webkit-tap-highlight-color: transparent;
-                }
-            `}</style>
-            
-            {/* Header */}
+
             <UIPageHeader
                 title="หน่วยสินค้า"
-                subtitle={`${units.length} รายการ`}
+                subtitle={`ทั้งหมด ${units.length} รายการ`}
                 icon={<UnorderedListOutlined />}
                 actions={
                     <Space size={8} wrap>
-                        <Input
-                            prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
-                            allowClear
-                            placeholder="ค้นหาหน่วยสินค้า..."
-                            onChange={(e) => handleSearch(e.target.value)}
-                            style={{ minWidth: 220 }}
-                        />
                         <Button icon={<ReloadOutlined />} onClick={fetchUnits} />
                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                             เพิ่มหน่วยสินค้า
@@ -338,31 +362,53 @@ export default function ProductsUnitPage() {
                         inactiveUnits={inactiveUnits.length}
                     />
 
+                    <PageSection title="ค้นหาและตัวกรอง">
+                        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: '1fr', alignItems: 'center' }}>
+                            <Input
+                                prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
+                                allowClear
+                                placeholder="ค้นหาจากชื่อแสดงหรือชื่อระบบ..."
+                                value={searchText}
+                                onChange={(e) => setSearchText(e.target.value)}
+                            />
+                            <Segmented<StatusFilter>
+                                options={[
+                                    { label: `ทั้งหมด (${units.length})`, value: 'all' },
+                                    { label: `ใช้งาน (${activeUnits.length})`, value: 'active' },
+                                    { label: `ปิดใช้งาน (${inactiveUnits.length})`, value: 'inactive' }
+                                ]}
+                                value={statusFilter}
+                                onChange={(value) => setStatusFilter(value)}
+                            />
+                        </div>
+                    </PageSection>
+
                     <PageSection
                         title="รายการหน่วยสินค้า"
                         extra={<span style={{ fontWeight: 600 }}>{filteredUnits.length}</span>}
                     >
                         {filteredUnits.length > 0 ? (
-                            filteredUnits.map((unit, index) => (
+                            filteredUnits.map((unit) => (
                                 <UnitCard
                                     key={unit.id}
                                     unit={unit}
-                                    index={index}
                                     onEdit={handleEdit}
                                     onDelete={handleDelete}
+                                    onToggleActive={handleToggleActive}
+                                    updatingStatusId={updatingStatusId}
                                 />
                             ))
                         ) : (
                             <UIEmptyState
                                 title={
                                     searchText.trim()
-                                        ? "ไม่พบหน่วยสินค้าที่ค้นหา"
-                                        : "ยังไม่มีหน่วยสินค้า"
+                                        ? 'ไม่พบหน่วยสินค้าตามคำค้น'
+                                        : 'ยังไม่มีหน่วยสินค้า'
                                 }
                                 description={
                                     searchText.trim()
-                                        ? "ลองค้นหาด้วยคำอื่นหรือล้างการค้นหา"
-                                        : "เพิ่มหน่วยสินค้าตัวแรกเพื่อเริ่มต้นใช้งาน"
+                                        ? 'ลองเปลี่ยนคำค้น หรือตัวกรองสถานะ'
+                                        : 'เพิ่มหน่วยสินค้าแรกเพื่อเริ่มใช้งาน'
                                 }
                                 action={
                                     !searchText.trim() ? (

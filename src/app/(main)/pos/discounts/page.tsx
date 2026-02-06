@@ -1,278 +1,251 @@
-'use client';
+﻿'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Typography, Tag, Button, Input, Card, Space } from 'antd';
-import { 
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { message, Modal, Typography, Button, Input, Space, Segmented, Tag, Switch } from 'antd';
+import {
     PercentageOutlined,
     PlusOutlined,
     ReloadOutlined,
     EditOutlined,
     DeleteOutlined,
-    CheckCircleFilled,
-    StopOutlined,
-    DollarOutlined,
     SearchOutlined,
-    GiftOutlined
+    DollarOutlined
 } from '@ant-design/icons';
-import { Discounts, DiscountType } from "../../../../types/api/pos/discounts";
+import { Discounts, DiscountType } from '../../../../types/api/pos/discounts';
 import { useRouter } from 'next/navigation';
-import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
-import { useAsyncAction } from "../../../../hooks/useAsyncAction";
-import { useSocket } from "../../../../hooks/useSocket";
-import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
-import { useRoleGuard } from "../../../../utils/pos/accessControl";
-import { useRealtimeList } from "../../../../utils/pos/realtime";
-import { RealtimeEvents } from "../../../../utils/realtimeEvents";
+import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
+import { useAsyncAction } from '../../../../hooks/useAsyncAction';
+import { useSocket } from '../../../../hooks/useSocket';
+import { getCsrfTokenCached } from '../../../../utils/pos/csrf';
+import { useRoleGuard } from '../../../../utils/pos/accessControl';
+import { useRealtimeList } from '../../../../utils/pos/realtime';
+import { readCache, writeCache } from '../../../../utils/pos/cache';
+import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import { pageStyles, globalStyles } from '../../../../theme/pos/discounts/style';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
-import PageContainer from "../../../../components/ui/page/PageContainer";
-import UIPageHeader from "../../../../components/ui/page/PageHeader";
-import PageSection from "../../../../components/ui/page/PageSection";
-import PageStack from "../../../../components/ui/page/PageStack";
-import UIEmptyState from "../../../../components/ui/states/EmptyState";
+import PageContainer from '../../../../components/ui/page/PageContainer';
+import PageSection from '../../../../components/ui/page/PageSection';
+import PageStack from '../../../../components/ui/page/PageStack';
+import UIPageHeader from '../../../../components/ui/page/PageHeader';
+import UIEmptyState from '../../../../components/ui/states/EmptyState';
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
-// ============ STATS CARD COMPONENT ============
+type StatusFilter = 'all' | 'active' | 'inactive';
+type TypeFilter = 'all' | DiscountType.Fixed | DiscountType.Percentage;
 
 interface StatsCardProps {
     total: number;
-    fixed: number;
-    percent: number;
     active: number;
     inactive: number;
+    fixed: number;
+    percentage: number;
 }
-
-const StatsCard = ({ total, fixed, percent, active, inactive }: StatsCardProps) => (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-        <div style={{ 
-            background: 'white', 
-            padding: '12px 14px', 
-            borderRadius: 16, 
-            boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
-            border: '1px solid #F1F5F9',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10
-        }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: '#FFF7ED', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <GiftOutlined style={{ fontSize: 20, color: '#F59E0B' }} />
-            </div>
-            <div style={{ minWidth: 0 }}>
-                <Text style={{ color: '#64748B', display: 'block', fontSize: 11 }}>ทั้งหมด</Text>
-                <Title level={4} style={{ margin: 0, color: '#1E293B', fontWeight: 700, fontSize: 18 }}>{total}</Title>
-            </div>
-        </div>
-
-        <div style={{ 
-            background: 'white', 
-            padding: '12px 14px', 
-            borderRadius: 16, 
-            boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
-            border: '1px solid #F1F5F9',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10
-        }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: '#F0F9FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <DollarOutlined style={{ fontSize: 20, color: '#0EA5E9' }} />
-            </div>
-            <div style={{ minWidth: 0 }}>
-                <Text style={{ color: '#64748B', display: 'block', fontSize: 11 }}>แบบบาท</Text>
-                <Title level={4} style={{ margin: 0, color: '#1E293B', fontWeight: 700, fontSize: 18 }}>{fixed}</Title>
-            </div>
-        </div>
-
-        <div style={{ 
-            background: 'white', 
-            padding: '12px 14px', 
-            borderRadius: 16, 
-            boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
-            border: '1px solid #F1F5F9',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10
-        }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: '#F5F3FF', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <PercentageOutlined style={{ fontSize: 20, color: '#8B5CF6' }} />
-            </div>
-            <div style={{ minWidth: 0 }}>
-                <Text style={{ color: '#64748B', display: 'block', fontSize: 11 }}>แบบ %</Text>
-                <Title level={4} style={{ margin: 0, color: '#1E293B', fontWeight: 700, fontSize: 18 }}>{percent}</Title>
-            </div>
-        </div>
-
-        <div style={{ 
-            background: 'white', 
-            padding: '12px 14px', 
-            borderRadius: 16, 
-            boxShadow: '0 2px 10px rgba(0,0,0,0.02)',
-            border: '1px solid #F1F5F9',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 10
-        }}>
-            <div style={{ width: 40, height: 40, borderRadius: 10, background: '#ECFDF5', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <CheckCircleFilled style={{ fontSize: 20, color: '#10B981' }} />
-            </div>
-            <div style={{ minWidth: 0 }}>
-                <Text style={{ color: '#64748B', display: 'block', fontSize: 11 }}>ใช้งาน</Text>
-                <div style={{ display: 'flex', alignItems: 'baseline', gap: 4 }}>
-                    <Title level={4} style={{ margin: 0, color: '#1E293B', fontWeight: 700, fontSize: 18 }}>{active}</Title>
-                    {inactive > 0 && <Text type="secondary" style={{ fontSize: 11 }}>(ปิด {inactive})</Text>}
-                </div>
-            </div>
-        </div>
-    </div>
-);
-
-// ============ DISCOUNT CARD COMPONENT ============
 
 interface DiscountCardProps {
     discount: Discounts;
     onEdit: (discount: Discounts) => void;
     onDelete: (discount: Discounts) => void;
+    onToggleActive: (discount: Discounts, next: boolean) => void;
+    updatingStatusId: string | null;
 }
 
-const DiscountCard = React.memo(({ discount, onEdit, onDelete }: DiscountCardProps) => {
+const formatDate = (raw: string | Date) => {
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return '-';
+    return new Intl.DateTimeFormat('th-TH', {
+        dateStyle: 'medium',
+        timeStyle: 'short'
+    }).format(date);
+};
+
+const formatDiscountValue = (discount: Discounts) => {
+    const amount = Number(discount.discount_amount || 0);
+    if (discount.discount_type === DiscountType.Percentage) {
+        return `${amount}%`;
+    }
+    return `${amount.toLocaleString('th-TH')} บาท`;
+};
+
+const StatsCard = ({ total, active, inactive, fixed, percentage }: StatsCardProps) => (
+    <div style={{
+        background: '#fff',
+        borderRadius: 16,
+        border: '1px solid #e2e8f0',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
+        gap: 8,
+        padding: 14
+    }}>
+        <div style={{ textAlign: 'center' }}>
+            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', display: 'block' }}>{total}</span>
+            <Text style={{ fontSize: 12, color: '#64748b' }}>ทั้งหมด</Text>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+            <span style={{ fontSize: 24, fontWeight: 700, color: '#d97706', display: 'block' }}>{active}</span>
+            <Text style={{ fontSize: 12, color: '#64748b' }}>ใช้งาน</Text>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+            <span style={{ fontSize: 24, fontWeight: 700, color: '#b91c1c', display: 'block' }}>{inactive}</span>
+            <Text style={{ fontSize: 12, color: '#64748b' }}>ปิดใช้งาน</Text>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+            <span style={{ fontSize: 24, fontWeight: 700, color: '#0369a1', display: 'block' }}>{fixed}</span>
+            <Text style={{ fontSize: 12, color: '#64748b' }}>ลดเป็นบาท</Text>
+        </div>
+        <div style={{ textAlign: 'center' }}>
+            <span style={{ fontSize: 24, fontWeight: 700, color: '#7e22ce', display: 'block' }}>{percentage}</span>
+            <Text style={{ fontSize: 12, color: '#64748b' }}>ลดเปอร์เซ็นต์</Text>
+        </div>
+    </div>
+);
+
+const DiscountCard = ({ discount, onEdit, onDelete, onToggleActive, updatingStatusId }: DiscountCardProps) => {
     const isFixed = discount.discount_type === DiscountType.Fixed;
-    
+
     return (
-        <Card
-            hoverable
-            onClick={() => onEdit(discount)}
-            style={{ 
-                borderRadius: 20, 
-                border: 'none', 
-                boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-                transition: 'all 0.2s',
-                overflow: 'hidden',
-                background: 'white',
-                opacity: discount.is_active ? 1 : 0.7
+        <div
+            className="discount-card"
+            style={{
+                ...pageStyles.discountCard(discount.is_active),
+                borderRadius: 16,
             }}
-            styles={{ body: { padding: 16 } }}
+            onClick={() => onEdit(discount)}
         >
-             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16 }}>
+            <div style={pageStyles.discountCardInner}>
                 <div style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 16,
-                    background: isFixed 
-                        ? 'linear-gradient(135deg, #E0F2FE 0%, #BAE6FD 100%)'
-                        : 'linear-gradient(135deg, #F3E8FF 0%, #D8B4FE 100%)',
+                    width: 52,
+                    height: 52,
+                    borderRadius: 14,
+                    background: isFixed
+                        ? 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)'
+                        : 'linear-gradient(135deg, #f3e8ff 0%, #e9d5ff 100%)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: isFixed ? '0 4px 12px rgba(14, 165, 233, 0.2)' : '0 4px 12px rgba(139, 92, 246, 0.2)'
+                    flexShrink: 0,
+                    boxShadow: isFixed
+                        ? '0 4px 10px rgba(3, 105, 161, 0.18)'
+                        : '0 4px 10px rgba(126, 34, 206, 0.18)'
                 }}>
                     {isFixed ? (
-                        <DollarOutlined style={{ fontSize: 24, color: '#0369A1' }} />
+                        <DollarOutlined style={{ fontSize: 22, color: '#0369a1' }} />
                     ) : (
-                        <PercentageOutlined style={{ fontSize: 24, color: '#7E22CE' }} />
+                        <PercentageOutlined style={{ fontSize: 22, color: '#7e22ce' }} />
                     )}
                 </div>
-                <div style={{ 
-                    padding: '4px 10px', 
-                    borderRadius: 20, 
-                    background: discount.is_active ? '#ECFDF5' : '#F1F5F9',
-                    color: discount.is_active ? '#059669' : '#64748B',
-                    fontSize: 12,
-                    fontWeight: 600,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 4
-                }}>
-                    {discount.is_active ? <CheckCircleFilled /> : <StopOutlined />}
-                    {discount.is_active ? 'Active' : 'Inactive'}
-                </div>
-            </div>
 
-            <div style={{ marginBottom: 16 }}>
-                <Title level={5} style={{ margin: 0, marginBottom: 4, color: '#1E293B' }} ellipsis>
-                    {discount.display_name}
-                </Title>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                    <Text type="secondary" style={{ fontSize: 13 }}>Code:</Text>
-                    <Tag style={{ margin: 0, borderRadius: 6, background: '#F8FAFC', border: '1px solid #E2E8F0', color: '#475569' }}>
+                <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                        <Text
+                            strong
+                            style={{
+                                fontSize: 16,
+                                color: '#0f172a'
+                            }}
+                            ellipsis={{ tooltip: discount.display_name }}
+                        >
+                            {discount.display_name}
+                        </Text>
+                        <Tag color={discount.is_active ? 'green' : 'default'}>
+                            {discount.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}
+                        </Tag>
+                    </div>
+                    <Text
+                        type="secondary"
+                        style={{ fontSize: 13, display: 'block', color: '#334155' }}
+                        ellipsis={{ tooltip: discount.discount_name }}
+                    >
                         {discount.discount_name}
-                    </Tag>
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 2 }}>
+                        มูลค่าส่วนลด {formatDiscountValue(discount)}
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 2 }}>
+                        สร้างเมื่อ {formatDate(discount.create_date)}
+                    </Text>
+                </div>
+
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <Switch
+                        size="small"
+                        checked={discount.is_active}
+                        loading={updatingStatusId === discount.id}
+                        onClick={(checked, event) => {
+                            event?.stopPropagation();
+                            onToggleActive(discount, checked);
+                        }}
+                    />
+                    <Button
+                        type="text"
+                        icon={<EditOutlined />}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onEdit(discount);
+                        }}
+                        style={{
+                            borderRadius: 10,
+                            color: '#d97706',
+                            background: '#fff7ed',
+                            width: 36,
+                            height: 36
+                        }}
+                    />
+                    <Button
+                        type="text"
+                        danger
+                        icon={<DeleteOutlined />}
+                        onClick={(e) => {
+                            e.stopPropagation();
+                            onDelete(discount);
+                        }}
+                        style={{
+                            borderRadius: 10,
+                            background: '#fef2f2',
+                            width: 36,
+                            height: 36
+                        }}
+                    />
                 </div>
             </div>
-
-            <div style={{ 
-                background: '#F8FAFC', 
-                borderRadius: 12, 
-                padding: '10px 12px', 
-                marginBottom: 16,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center'
-            }}>
-                <Text style={{ fontSize: 12, color: '#64748B' }}>
-                    มูลค่าส่วนลด
-                </Text>
-                <Text style={{ fontSize: 16, fontWeight: 700, color: '#F59E0B' }}>
-                    {isFixed ? `฿${discount.discount_amount.toLocaleString()}` : `${discount.discount_amount}% OFF`}
-                </Text>
-            </div>
-
-            <div style={{ display: 'flex', gap: 8, marginTop: 'auto' }}>
-                <Button 
-                    type="text" 
-                    icon={<EditOutlined />} 
-                    block
-                    onClick={(e) => { e.stopPropagation(); onEdit(discount); }}
-                    style={{ 
-                        borderRadius: 10, 
-                        background: '#FFF7ED', 
-                        color: '#F59E0B',
-                        fontWeight: 600
-                    }}
-                >
-                    แก้ไข
-                </Button>
-                <Button 
-                    type="text" 
-                    icon={<DeleteOutlined />} 
-                    onClick={(e) => { e.stopPropagation(); onDelete(discount); }}
-                    style={{ 
-                        borderRadius: 10, 
-                        background: '#FEF2F2', 
-                        color: '#EF4444'
-                    }}
-                />
-            </div>
-        </Card>
+        </div>
     );
-});
-DiscountCard.displayName = 'DiscountCard';
+};
 
-export default function POSDiscountsPage() {
-    return <POSDiscountsContent />;
-}
-
-function POSDiscountsContent() {
+export default function DiscountsPage() {
     const router = useRouter();
     const [discounts, setDiscounts] = useState<Discounts[]>([]);
-    const [filteredDiscounts, setFilteredDiscounts] = useState<Discounts[]>([]);
-    const [searchValue, setSearchValue] = useState("");
+    const [searchText, setSearchText] = useState('');
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+    const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
+    const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ["Admin", "Manager"] });
-
+    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager'] });
 
     useEffect(() => {
         getCsrfTokenCached();
     }, []);
 
+    useEffect(() => {
+        const cached = readCache<Discounts[]>('pos:discounts', 5 * 60 * 1000);
+        if (cached && cached.length > 0) {
+            setDiscounts(cached);
+        }
+    }, []);
+
     const fetchDiscounts = useCallback(async () => {
         execute(async () => {
             const response = await fetch('/api/pos/discounts');
-            if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลส่วนลดได้');
-            const data = await response.json();
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลส่วนลดได้');
+            }
+            const payload = await response.json();
+            const data = Array.isArray(payload) ? payload : payload?.data;
+            if (!Array.isArray(data)) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
             setDiscounts(data);
-            setFilteredDiscounts(data);
         }, 'กำลังโหลดข้อมูลส่วนลด...');
     }, [execute]);
 
@@ -282,47 +255,62 @@ function POSDiscountsContent() {
         }
     }, [isAuthorized, fetchDiscounts]);
 
-    // Client-side filtering
-    useEffect(() => {
-        if (searchValue.trim()) {
-            const lower = searchValue.trim().toLowerCase();
-            const filtered = discounts.filter(d => 
-                d.display_name?.toLowerCase().includes(lower) || 
-                d.discount_name?.toLowerCase().includes(lower) ||
-                d.description?.toLowerCase().includes(lower)
-            );
-            setFilteredDiscounts(filtered);
-        } else {
-            setFilteredDiscounts(discounts);
-        }
-    }, [searchValue, discounts]);
-
     useRealtimeList(
         socket,
         { create: RealtimeEvents.discounts.create, update: RealtimeEvents.discounts.update, delete: RealtimeEvents.discounts.delete },
         setDiscounts
     );
 
+    useEffect(() => {
+        if (discounts.length > 0) {
+            writeCache('pos:discounts', discounts);
+        }
+    }, [discounts]);
+
+    const filteredDiscounts = useMemo(() => {
+        let result = discounts;
+
+        if (statusFilter === 'active') {
+            result = result.filter((item) => item.is_active);
+        } else if (statusFilter === 'inactive') {
+            result = result.filter((item) => !item.is_active);
+        }
+
+        if (typeFilter !== 'all') {
+            result = result.filter((item) => item.discount_type === typeFilter);
+        }
+
+        const keyword = searchText.trim().toLowerCase();
+        if (keyword) {
+            result = result.filter((item) =>
+                item.display_name.toLowerCase().includes(keyword) ||
+                item.discount_name.toLowerCase().includes(keyword) ||
+                (item.description || '').toLowerCase().includes(keyword)
+            );
+        }
+
+        return result;
+    }, [discounts, searchText, statusFilter, typeFilter]);
+
     const handleAdd = () => {
-        showLoading("กำลังเปิดหน้าจัดการส่วนลด...");
+        showLoading('กำลังเปิดหน้าจัดการส่วนลด...');
         router.push('/pos/discounts/manager/add');
     };
 
     const handleEdit = (discount: Discounts) => {
-        showLoading("กำลังเปิดหน้าแก้ไขส่วนลด...");
+        showLoading('กำลังเปิดหน้าแก้ไขส่วนลด...');
         router.push(`/pos/discounts/manager/edit/${discount.id}`);
     };
 
     const handleDelete = (discount: Discounts) => {
         Modal.confirm({
             title: 'ยืนยันการลบส่วนลด',
-            content: `คุณต้องการลบส่วนลด "${discount.display_name || discount.discount_name}" หรือไม่?`,
-            okText: 'ลบรายการ',
+            content: `คุณต้องการลบส่วนลด "${discount.display_name}" หรือไม่?`,
+            okText: 'ลบ',
             okType: 'danger',
             cancelText: 'ยกเลิก',
             centered: true,
             icon: <DeleteOutlined style={{ color: '#EF4444' }} />,
-            styles: { body: { borderRadius: 16 } },
             onOk: async () => {
                 await execute(async () => {
                     const csrfToken = await getCsrfTokenCached();
@@ -332,39 +320,68 @@ function POSDiscountsContent() {
                             'X-CSRF-Token': csrfToken
                         }
                     });
-                    if (!response.ok) throw new Error('ไม่สามารถลบส่วนลดได้');
-                    message.success('ลบส่วนลดสำเร็จ');
-                }, "กำลังลบส่วนลด...");
+                    if (!response.ok) {
+                        throw new Error('ไม่สามารถลบส่วนลดได้');
+                    }
+                    setDiscounts((prev) => prev.filter((item) => item.id !== discount.id));
+                    message.success(`ลบส่วนลด "${discount.display_name}" สำเร็จ`);
+                }, 'กำลังลบส่วนลด...');
             },
         });
     };
 
-    if (isChecking) return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
-    if (!isAuthorized) return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    const handleToggleActive = async (discount: Discounts, next: boolean) => {
+        setUpdatingStatusId(discount.id);
+        try {
+            const csrfToken = await getCsrfTokenCached();
+            const response = await fetch(`/api/pos/discounts/update/${discount.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
+                body: JSON.stringify({ is_active: next })
+            });
 
-    const activeDiscounts = discounts.filter(d => d.is_active);
-    const inactiveDiscounts = discounts.filter(d => !d.is_active);
-    const fixedDiscounts = discounts.filter(d => d.discount_type === DiscountType.Fixed);
-    const percentageDiscounts = discounts.filter(d => d.discount_type === DiscountType.Percentage);
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || errorData.message || 'ไม่สามารถเปลี่ยนสถานะส่วนลดได้');
+            }
+
+            const updated = await response.json();
+            setDiscounts((prev) => prev.map((item) => item.id === discount.id ? updated : item));
+            message.success(next ? 'เปิดใช้งานส่วนลดแล้ว' : 'ปิดใช้งานส่วนลดแล้ว');
+        } catch (error) {
+            console.error(error);
+            message.error(error instanceof Error ? error.message : 'ไม่สามารถเปลี่ยนสถานะส่วนลดได้');
+        } finally {
+            setUpdatingStatusId(null);
+        }
+    };
+
+    if (isChecking) {
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
+    }
+
+    if (!isAuthorized) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
+    }
+
+    const activeCount = discounts.filter((d) => d.is_active).length;
+    const inactiveCount = discounts.filter((d) => !d.is_active).length;
+    const fixedCount = discounts.filter((d) => d.discount_type === DiscountType.Fixed).length;
+    const percentageCount = discounts.filter((d) => d.discount_type === DiscountType.Percentage).length;
 
     return (
-        <div className="discount-page px-4 md:px-6" style={{ ...pageStyles.container, paddingTop: 16, paddingBottom: 24, background: '#F8FAFC', minHeight: '100vh' }}>
+        <div className="discount-page" style={pageStyles.container}>
             <style>{globalStyles}</style>
 
             <UIPageHeader
                 title="ส่วนลด"
-                subtitle={`${discounts.length} รายการ`}
+                subtitle={`ทั้งหมด ${discounts.length} รายการ`}
                 icon={<PercentageOutlined />}
                 actions={
                     <Space size={8} wrap>
-                        <Input
-                            prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
-                            allowClear
-                            placeholder="ค้นหา..."
-                            value={searchValue}
-                            onChange={(e) => setSearchValue(e.target.value)}
-                            style={{ minWidth: 200 }}
-                        />
                         <Button icon={<ReloadOutlined />} onClick={fetchDiscounts} />
                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                             เพิ่มส่วนลด
@@ -377,55 +394,78 @@ function POSDiscountsContent() {
                 <PageStack>
                     <StatsCard
                         total={discounts.length}
-                        fixed={fixedDiscounts.length}
-                        percent={percentageDiscounts.length}
-                        active={activeDiscounts.length}
-                        inactive={inactiveDiscounts.length}
+                        active={activeCount}
+                        inactive={inactiveCount}
+                        fixed={fixedCount}
+                        percentage={percentageCount}
                     />
 
-                    <PageSection title="รายการส่วนลด">
-                        <div style={{
-                            display: 'grid',
-                            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-                            gap: 16,
-                        }}>
-                            {filteredDiscounts.length > 0 ? (
-                                filteredDiscounts.map((discount) => (
-                                    <DiscountCard
-                                        key={discount.id}
-                                        discount={discount}
-                                        onEdit={handleEdit}
-                                        onDelete={handleDelete}
-                                    />
-                                ))
-                            ) : (
-                                <div style={{ gridColumn: "1 / -1" }}>
-                                    <UIEmptyState
-                                        title={
-                                            searchValue.trim()
-                                                ? "ไม่พบส่วนลดที่ค้นหา"
-                                                : "ยังไม่มีรายการส่วนลด"
-                                        }
-                                        description={
-                                            searchValue.trim()
-                                                ? "ลองเปลี่ยนคำค้นหาใหม่"
-                                                : "เพิ่มส่วนลดแรกเพื่อเริ่มใช้งาน"
-                                        }
-                                        action={
-                                            !searchValue.trim() ? (
-                                                <Button
-                                                    type="primary"
-                                                    icon={<PlusOutlined />}
-                                                    onClick={handleAdd}
-                                                >
-                                                    เพิ่มส่วนลด
-                                                </Button>
-                                            ) : null
-                                        }
-                                    />
-                                </div>
-                            )}
+                    <PageSection title="ค้นหาและตัวกรอง">
+                        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: '1fr', alignItems: 'center' }}>
+                            <Input
+                                prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
+                                allowClear
+                                placeholder="ค้นหาจากชื่อแสดง ชื่อระบบ หรือคำอธิบาย..."
+                                value={searchText}
+                                onChange={(e) => setSearchText(e.target.value)}
+                            />
+                            <Segmented<StatusFilter>
+                                options={[
+                                    { label: `ทั้งหมด (${discounts.length})`, value: 'all' },
+                                    { label: `ใช้งาน (${activeCount})`, value: 'active' },
+                                    { label: `ปิดใช้งาน (${inactiveCount})`, value: 'inactive' }
+                                ]}
+                                value={statusFilter}
+                                onChange={(value) => setStatusFilter(value)}
+                            />
+                            <Segmented<TypeFilter>
+                                options={[
+                                    { label: `ทุกประเภท (${discounts.length})`, value: 'all' },
+                                    { label: `ลดเป็นบาท (${fixedCount})`, value: DiscountType.Fixed },
+                                    { label: `ลด % (${percentageCount})`, value: DiscountType.Percentage }
+                                ]}
+                                value={typeFilter}
+                                onChange={(value) => setTypeFilter(value)}
+                            />
                         </div>
+                    </PageSection>
+
+                    <PageSection
+                        title="รายการส่วนลด"
+                        extra={<span style={{ fontWeight: 600 }}>{filteredDiscounts.length}</span>}
+                    >
+                        {filteredDiscounts.length > 0 ? (
+                            filteredDiscounts.map((discount) => (
+                                <DiscountCard
+                                    key={discount.id}
+                                    discount={discount}
+                                    onEdit={handleEdit}
+                                    onDelete={handleDelete}
+                                    onToggleActive={handleToggleActive}
+                                    updatingStatusId={updatingStatusId}
+                                />
+                            ))
+                        ) : (
+                            <UIEmptyState
+                                title={
+                                    searchText.trim()
+                                        ? 'ไม่พบส่วนลดตามคำค้น'
+                                        : 'ยังไม่มีส่วนลด'
+                                }
+                                description={
+                                    searchText.trim()
+                                        ? 'ลองเปลี่ยนคำค้น หรือตัวกรองสถานะ/ประเภท'
+                                        : 'เพิ่มส่วนลดแรกเพื่อเริ่มใช้งาน'
+                                }
+                                action={
+                                    !searchText.trim() ? (
+                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                                            เพิ่มส่วนลด
+                                        </Button>
+                                    ) : null
+                                }
+                            />
+                        )}
                     </PageSection>
                 </PageStack>
             </PageContainer>
