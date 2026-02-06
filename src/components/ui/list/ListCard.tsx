@@ -3,7 +3,7 @@
 import React from "react";
 import { Card } from "antd";
 
-import { UI_TOKENS } from "@/components/ui/tokens";
+import { UI_TOKENS } from "../tokens";
 
 type ListCardProps = {
   children: React.ReactNode;

@@ -23,11 +23,11 @@ import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
 import { pageStyles, globalStyles } from '../../../../theme/pos/delivery/style';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
-import PageStack from "@/components/ui/page/PageStack";
-import UIPageHeader from "@/components/ui/page/PageHeader";
-import UIEmptyState from "@/components/ui/states/EmptyState";
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../components/ui/page/PageSection";
+import PageStack from "../../../../components/ui/page/PageStack";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import UIEmptyState from "../../../../components/ui/states/EmptyState";
 
 const { Text } = Typography;
 

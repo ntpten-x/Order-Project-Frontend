@@ -22,12 +22,12 @@ import { getCsrfTokenCached } from '../../../utils/pos/csrf';
 import { useAsyncAction } from "../../../hooks/useAsyncAction";
 import { readCache, writeCache } from "../../../utils/pos/cache";
 import { RealtimeEvents } from "../../../utils/realtimeEvents";
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
-import PageStack from "@/components/ui/page/PageStack";
-import UIEmptyState from "@/components/ui/states/EmptyState";
-import UIPageHeader from "@/components/ui/page/PageHeader";
-import { t } from "@/utils/i18n";
+import PageContainer from "../../../components/ui/page/PageContainer";
+import PageSection from "../../../components/ui/page/PageSection";
+import PageStack from "../../../components/ui/page/PageStack";
+import UIEmptyState from "../../../components/ui/states/EmptyState";
+import UIPageHeader from "../../../components/ui/page/PageHeader";
+import { t } from "../../../utils/i18n";
 
 const { Title, Text } = Typography;
 const BRANCH_CACHE_KEY = "pos:branches";

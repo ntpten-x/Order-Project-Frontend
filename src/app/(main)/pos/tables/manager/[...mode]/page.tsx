@@ -3,9 +3,9 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Form, Input, message, Spin, Switch, Modal, Typography, Button, Select } from 'antd';
 import { useRouter } from 'next/navigation';
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
-import UIPageHeader from "@/components/ui/page/PageHeader";
+import PageContainer from "../../../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
 import {
     DeleteOutlined,
     SaveOutlined,

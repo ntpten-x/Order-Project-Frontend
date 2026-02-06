@@ -31,13 +31,13 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import dayjs, { Dayjs } from "dayjs";
 
-import PageContainer from "@/components/ui/page/PageContainer";
-import UIPageHeader from "@/components/ui/page/PageHeader";
-import PageSection from "@/components/ui/page/PageSection";
-import { AuditLog, AuditActionType } from "@/types/api/audit";
+import PageContainer from "../../../components/ui/page/PageContainer";
+import UIPageHeader from "../../../components/ui/page/PageHeader";
+import PageSection from "../../../components/ui/page/PageSection";
+import { AuditLog, AuditActionType } from "../../../types/api/audit";
 import { AuditPageStyles, pageStyles } from "./style";
-import { useAuth } from "@/contexts/AuthContext";
-import { branchService } from "@/services/branch.service";
+import { useAuth } from "../../../contexts/AuthContext";
+import { branchService } from "../../../services/branch.service";
 
 const { RangePicker } = DatePicker;
 const { Text } = Typography;

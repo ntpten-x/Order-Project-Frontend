@@ -12,7 +12,7 @@ import {
     CloseCircleFilled
 } from "@ant-design/icons";
 import { Ingredients } from "../../../../types/api/stock/ingredients";
-import { t } from "@/utils/i18n";
+import { t } from "../../../../utils/i18n";
 
 const { Text, Title } = Typography;
 

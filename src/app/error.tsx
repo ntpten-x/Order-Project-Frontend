@@ -4,8 +4,8 @@ import React, { useEffect } from "react";
 import { Button, Result, Space, Typography } from "antd";
 import { useRouter } from "next/navigation";
 
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
+import PageContainer from "../components/ui/page/PageContainer";
+import PageSection from "../components/ui/page/PageSection";
 
 export default function Error({
   error,

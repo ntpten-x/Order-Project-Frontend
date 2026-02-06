@@ -3,7 +3,7 @@
 import React from "react";
 import { Button, Flex, Spin, Typography, Result } from "antd";
 import { UI_TOKENS } from "../tokens";
-import { t } from "@/utils/i18n";
+import { t } from "../../../utils/i18n";
 
 const { Text } = Typography;
 

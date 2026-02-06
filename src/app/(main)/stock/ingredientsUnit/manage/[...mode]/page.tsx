@@ -10,9 +10,9 @@ import {
 } from './style';
 
 import { authService } from '../../../../../../services/auth.service';
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
-import UIPageHeader from "@/components/ui/page/PageHeader";
+import PageContainer from "../../../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
 
 export default function IngredientsUnitManagePage({ params }: { params: { mode: string[] } }) {
     const router = useRouter();

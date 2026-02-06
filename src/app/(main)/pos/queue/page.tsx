@@ -19,12 +19,11 @@ import { useRoleGuard } from '../../../../utils/pos/accessControl';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 import { useQueuePrefetching } from '../../../../hooks/pos/usePrefetching';
 import { queueStyles, queueResponsiveStyles } from '../../../../theme/pos/queue/style';
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
-import UIPageHeader from "@/components/ui/page/PageHeader";
-import UIEmptyState from "@/components/ui/states/EmptyState";
-import PageState from "@/components/ui/states/PageState";
-import { t } from "@/utils/i18n";
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import PageState from "../../../../components/ui/states/PageState";
+import { t } from "../../../../utils/i18n";
 import dayjs from 'dayjs';
 import 'dayjs/locale/th';
 

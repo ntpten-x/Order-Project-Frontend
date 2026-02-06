@@ -5,7 +5,7 @@ import { Form, Input, Button, Card, message, Typography, Spin, Popconfirm, Switc
 import { ArrowLeftOutlined, SaveOutlined, DeleteOutlined, DownOutlined, CheckOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import UserManageStyle from './style';
-import { Role } from '@/types/api/roles';
+import { Role } from '../../../../../types/api/roles';
 
 const { Title } = Typography;
 
@@ -14,12 +14,12 @@ const { Title } = Typography;
 import { authService } from "../../../../../services/auth.service";
 import { userService } from "../../../../../services/users.service";
 import { branchService } from "../../../../../services/branch.service";
-import { Branch } from '@/types/api/branch';
+import { Branch } from '../../../../../types/api/branch';
 import { useAuth } from "../../../../../contexts/AuthContext";
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
-import UIPageHeader from "@/components/ui/page/PageHeader";
-import { t } from "@/utils/i18n";
+import PageContainer from "../../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../../components/ui/page/PageHeader";
+import { t } from "../../../../../utils/i18n";
 
 export default function UserManagePage({ params }: { params: { mode: string[] } }) {
   const router = useRouter();

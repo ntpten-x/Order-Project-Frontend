@@ -17,11 +17,11 @@ import { Ingredients } from "../../../types/api/stock/ingredients";
 import { useSocket } from "../../../hooks/useSocket";
 import { DashboardStyles, pageStyles } from "./style";
 import { RealtimeEvents } from "../../../utils/realtimeEvents";
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
-import PageStack from "@/components/ui/page/PageStack";
-import UIPageHeader from "@/components/ui/page/PageHeader";
-import UIEmptyState from "@/components/ui/states/EmptyState";
+import PageContainer from "../../../components/ui/page/PageContainer";
+import PageSection from "../../../components/ui/page/PageSection";
+import PageStack from "../../../components/ui/page/PageStack";
+import UIPageHeader from "../../../components/ui/page/PageHeader";
+import UIEmptyState from "../../../components/ui/states/EmptyState";
 
 
 export default function HomePage() {

@@ -4,7 +4,7 @@ import React from "react";
 import { useParams } from "next/navigation";
 import { Layout } from "antd";
 import POSDineIn from "../../../../../../components/pos/POSDineIn";
-import PageContainer from "@/components/ui/page/PageContainer";
+import PageContainer from "../../../../../../components/ui/page/PageContainer";
 
 export default function DineInPOSPage() {
     const params = useParams();

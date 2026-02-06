@@ -25,11 +25,11 @@ import { useRealtimeList } from "../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { pageStyles, globalStyles } from '../../../../theme/pos/discounts/style';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
-import PageContainer from "@/components/ui/page/PageContainer";
-import UIPageHeader from "@/components/ui/page/PageHeader";
-import PageSection from "@/components/ui/page/PageSection";
-import PageStack from "@/components/ui/page/PageStack";
-import UIEmptyState from "@/components/ui/states/EmptyState";
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import PageSection from "../../../../components/ui/page/PageSection";
+import PageStack from "../../../../components/ui/page/PageStack";
+import UIEmptyState from "../../../../components/ui/states/EmptyState";
 
 const { Text, Title } = Typography;
 

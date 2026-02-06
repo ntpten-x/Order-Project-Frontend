@@ -13,9 +13,9 @@ import {
 } from "../../../../utils/channels/channelStats.utils";
 import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
 import { usePOSPrefetching } from "../../../../hooks/pos/usePrefetching";
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
-import UIPageHeader from "@/components/ui/page/PageHeader";
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
 
 const { Title, Text } = Typography;
 

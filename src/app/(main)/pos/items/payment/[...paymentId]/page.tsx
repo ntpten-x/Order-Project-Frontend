@@ -30,7 +30,7 @@ import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingCo
 import { useSocket } from "../../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../../../utils/realtimeEvents";
-import PageContainer from "@/components/ui/page/PageContainer";
+import PageContainer from "../../../../../../components/ui/page/PageContainer";
 
 
 const { Title, Text } = Typography;
@@ -55,7 +55,7 @@ export default function POSPaymentPage() {
     const [appliedDiscount, setAppliedDiscount] = useState<Discounts | null>(null);
     const [discountModalVisible, setDiscountModalVisible] = useState(false);
     const { showLoading, hideLoading } = useGlobalLoading();
-    useSocket();
+    const { socket } = useSocket();
     
     // Confirmation Dialog State
     const [confirmConfig, setConfirmConfig] = useState<ConfirmationConfig>({

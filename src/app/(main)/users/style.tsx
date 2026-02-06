@@ -12,7 +12,7 @@ import {
 } from '@ant-design/icons';
 import { User } from "../../../types/api/users";
 import { CSSProperties } from 'react';
-import { t } from "@/utils/i18n";
+import { t } from "../../../utils/i18n";
 
 const { Title, Text } = Typography;
 

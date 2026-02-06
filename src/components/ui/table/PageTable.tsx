@@ -4,7 +4,7 @@ import React from "react";
 import { Table } from "antd";
 import type { TableProps } from "antd";
 
-import UIEmptyState from "@/components/ui/states/EmptyState";
+import UIEmptyState from "../states/EmptyState";
 
 type PageTableProps<RecordType extends object> = TableProps<RecordType> & {
   emptyTitle?: string;

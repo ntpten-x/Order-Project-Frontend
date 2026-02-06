@@ -22,10 +22,10 @@ import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { dashboardStyles, dashboardColors, dashboardResponsiveStyles } from "../../../../theme/pos/dashboard/style";
 import { DatePicker } from "antd";
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
-import UIPageHeader from "@/components/ui/page/PageHeader";
-import { t } from "@/utils/i18n";
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import { t } from "../../../../utils/i18n";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;

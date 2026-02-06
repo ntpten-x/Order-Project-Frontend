@@ -5,9 +5,9 @@ import { Button, Form, Input, InputNumber, message, Modal, Spin, Switch, Typogra
 import { useRouter } from 'next/navigation';
 import { Category } from '../../../../../../types/api/pos/category';
 import { ProductsUnit } from '../../../../../../types/api/pos/productsUnit';
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
-import UIPageHeader from "@/components/ui/page/PageHeader";
+import PageContainer from "../../../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
 import {
     ManagePageStyles,
     pageStyles,

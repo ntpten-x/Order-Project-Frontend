@@ -7,7 +7,7 @@ import {
     DeleteOutlined
 } from '@ant-design/icons';
 import { CSSProperties } from 'react';
-import { t } from "@/utils/i18n";
+import { t } from "../../../../../utils/i18n";
 
 const { Title, Text } = Typography;
 

@@ -55,7 +55,7 @@ import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../../utils/realtimeEvents";
 import { useOrderQueue } from "../../../../../hooks/pos/useOrderQueue";
 import { QueueStatus, QueuePriority } from "../../../../../types/api/pos/orderQueue";
-import UIPageHeader from "@/components/ui/page/PageHeader";
+import UIPageHeader from "../../../../../components/ui/page/PageHeader";
 
 
 const { Title, Text } = Typography;
