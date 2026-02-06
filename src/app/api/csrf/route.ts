@@ -8,8 +8,8 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
     try {
         // Server-side: call backend directly
-        // Backend default port is 3000, but check env variable
-        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:3000";
+        // Backend default port is 4000, but check env variable
+        const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:4000";
         const url = `${backendUrl}/csrf-token`;
         const cookieStore = cookies();
         const cookieHeader = cookieStore.getAll().map(c => `${c.name}=${c.value}`).join(';');
