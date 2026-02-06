@@ -28,6 +28,7 @@ export interface ShiftSummary {
     shift_info: {
         start_amount: number | string;
         end_amount?: number | string;
+        expected_amount?: number | string;
         diff_amount?: number | string;
     };
     summary: {
