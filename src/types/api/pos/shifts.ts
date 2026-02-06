@@ -6,6 +6,8 @@ export enum ShiftStatus {
 export interface Shift {
     id: string;
     user_id: string;
+    opened_by_user_id?: string;
+    closed_by_user_id?: string;
     user?: {
         id: string;
         username: string;

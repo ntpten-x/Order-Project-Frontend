@@ -13,6 +13,7 @@ import {
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { SocketContext } from "../../../../contexts/SocketContext";
+import { useAuth } from "../../../../contexts/AuthContext";
 import { shiftsService } from "../../../../services/pos/shifts.service";
 import { Shift, ShiftSummary } from "../../../../types/api/pos/shifts";
 import { RealtimeEvents } from "../../../../utils/realtimeEvents";
@@ -35,6 +36,7 @@ const { Title, Text } = Typography;
 export default function ShiftPage() {
     const router = useRouter();
     const queryClient = useQueryClient();
+    const { user } = useAuth();
 
     const [openShiftVisible, setOpenShiftVisible] = useState(false);
     const [closeShiftVisible, setCloseShiftVisible] = useState(false);
@@ -67,6 +69,12 @@ export default function ShiftPage() {
 
     const summary = currentShift ? (summaryData as ShiftSummary) : null;
     const isLoading = isShiftLoading || (currentShift ? isSummaryLoading : false);
+    const canCloseShift = !!currentShift && !!user && (
+        user.role === "Admin" ||
+        user.role === "Manager" ||
+        currentShift.opened_by_user_id === user.id ||
+        (!currentShift.opened_by_user_id && currentShift.user_id === user.id)
+    );
     
     useEffect(() => {
         if (!socket) return;
@@ -151,17 +159,23 @@ export default function ShiftPage() {
                                         <Title level={1} style={{ color: 'white', margin: '4px 0 0', fontSize: 40, letterSpacing: '-0.02em' }}>{getShiftDuration()}</Title>
                                     </div>
                                     
-                                    <Button 
-                                        type="primary" 
-                                        danger
-                                        icon={<StopOutlined />}
-                                        size="large"
-                                        block
-                                        onClick={() => setCloseShiftVisible(true)}
-                                        style={{ marginTop: 32, height: 56, fontSize: 18, borderRadius: 16, border: 'none', background: 'white', color: '#ef4444', fontWeight: 700, boxShadow: '0 10px 30px rgba(0,0,0,0.15)' }}
-                                    >
-                                        ปิดกะ (Close Shift)
-                                    </Button>
+                                    {canCloseShift ? (
+                                        <Button 
+                                            type="primary" 
+                                            danger
+                                            icon={<StopOutlined />}
+                                            size="large"
+                                            block
+                                            onClick={() => setCloseShiftVisible(true)}
+                                            style={{ marginTop: 32, height: 56, fontSize: 18, borderRadius: 16, border: 'none', background: 'white', color: '#ef4444', fontWeight: 700, boxShadow: '0 10px 30px rgba(0,0,0,0.15)' }}
+                                        >
+                                            ปิดกะ (Close Shift)
+                                        </Button>
+                                    ) : (
+                                        <Text style={{ color: 'rgba(255,255,255,0.9)', display: 'block', marginTop: 32, textAlign: 'center' }}>
+                                            คุณไม่มีสิทธิ์ปิดกะนี้
+                                        </Text>
+                                    )}
                                 </div>
                             </Col>
 

@@ -1,10 +1,11 @@
 {
+  "/api/pos/products/route": "app/api/pos/products/route.js",
   "/api/pos/category/route": "app/api/pos/category/route.js",
   "/api/pos/productsUnit/route": "app/api/pos/productsUnit/route.js",
-  "/(main)/page": "app/(main)/page.js",
-  "/(main)/pos/category/page": "app/(main)/pos/category/page.js",
-  "/(main)/pos/channels/page": "app/(main)/pos/channels/page.js",
-  "/(main)/pos/category/manager/[...mode]/page": "app/(main)/pos/category/manager/[...mode]/page.js",
+  "/api/pos/products/getById/[id]/route": "app/api/pos/products/getById/[id]/route.js",
   "/(main)/pos/productsUnit/page": "app/(main)/pos/productsUnit/page.js",
-  "/(main)/pos/productsUnit/manager/[...mode]/page": "app/(main)/pos/productsUnit/manager/[...mode]/page.js"
+  "/(main)/pos/productsUnit/manager/[...mode]/page": "app/(main)/pos/productsUnit/manager/[...mode]/page.js",
+  "/(main)/pos/products/page": "app/(main)/pos/products/page.js",
+  "/(main)/pos/products/manage/[...mode]/page": "app/(main)/pos/products/manage/[...mode]/page.js",
+  "/(main)/pos/category/page": "app/(main)/pos/category/page.js"
 }

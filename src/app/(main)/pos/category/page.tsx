@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { message, Modal, Typography, Button, Input, Space, Segmented, Tag, Switch } from 'antd';
 import {
     TagsOutlined,
+    ShopOutlined,
     PlusOutlined,
     ReloadOutlined,
     EditOutlined,
@@ -346,6 +347,9 @@ export default function CategoryPage() {
                 icon={<TagsOutlined />}
                 actions={
                     <Space size={8} wrap>
+                        <Button icon={<ShopOutlined />} onClick={() => router.push('/pos/products')}>
+                            ไปหน้าสินค้า
+                        </Button>
                         <Button icon={<ReloadOutlined />} onClick={fetchCategories} />
                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                             เพิ่มหมวดหมู่
