@@ -7,10 +7,10 @@ import { CSSProperties } from 'react';
 // ============================================
 export const posColors = {
   // Primary Colors - Softer blues
-  primary: '#3B82F6',
-  primaryDark: '#2563EB',
-  primaryLight: '#EFF6FF',
-  primaryBorder: '#BFDBFE',
+  primary: 'var(--color-primary)',
+  primaryDark: 'var(--color-primary-hover)',
+  primaryLight: 'var(--color-primary-light)',
+  primaryBorder: 'var(--color-primary-border)',
   
   // Success (Cart & Actions) - Softer greens
   success: '#10B981',
@@ -89,9 +89,9 @@ export const posLayoutStyles = {
 
   // Header - Softer gradient
   header: {
-    background: 'linear-gradient(145deg, #3B82F6 0%, #60A5FA 50%, #93C5FD 100%)',
+    background: 'linear-gradient(145deg, var(--color-primary-hover) 0%, var(--color-primary) 55%, var(--color-primary-soft) 100%)',
     padding: '20px 24px',
-    boxShadow: '0 4px 20px rgba(59, 130, 246, 0.15)',
+    boxShadow: '0 4px 20px rgb(var(--color-primary-rgb) / 0.18)',
     position: 'sticky' as CSSProperties['position'],
     top: 0,
     zIndex: 100,
@@ -178,16 +178,15 @@ export const posLayoutStyles = {
     position: 'sticky' as CSSProperties['position'],
     top: 84,
     zIndex: 99,
-    overflowX: 'auto' as CSSProperties['overflowX'],
-    whiteSpace: 'nowrap' as CSSProperties['whiteSpace'],
+    overflow: 'hidden' as CSSProperties['overflow'],
   },
 
   categoryScroll: {
-    maxWidth: 1400,
-    margin: '0 auto',
     display: 'flex',
     gap: 10,
-  },
+    overflowX: 'auto' as CSSProperties['overflowX'],
+    paddingBottom: 2,
+  } as CSSProperties,
 
   // Content Area
   content: {
@@ -286,7 +285,7 @@ export const posLayoutStyles = {
     height: 64,
     borderRadius: 20,
     background: `linear-gradient(145deg, ${posColors.primary} 0%, ${posColors.primaryDark} 100%)`,
-    boxShadow: `0 8px 24px ${posColors.primary}50`,
+    boxShadow: '0 8px 24px rgb(var(--color-primary-rgb) / 0.32)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -392,6 +391,130 @@ export const posCartStyles = {
 };
 
 // ============================================
+// Shared Component Styles (reused in POSPageLayout)
+// ============================================
+export const posComponentStyles = {
+  modalTitleRow: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: 10,
+  } as CSSProperties,
+  modalIconBase: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as CSSProperties,
+  modalButton: {
+    borderRadius: 10,
+    height: 42,
+  } as CSSProperties,
+  modalButtonLarge: {
+    borderRadius: 10,
+    height: 44,
+  } as CSSProperties,
+  cartItemContainer: {
+    padding: "12px",
+    marginBottom: "12px",
+    background: "#fff",
+    borderRadius: "16px",
+    border: "none",
+    transition: "all 0.2s",
+    boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+  } as CSSProperties,
+  cartItemRow: {
+    display: "flex",
+    gap: 12,
+    width: "100%",
+  } as CSSProperties,
+  cartItemImage: {
+    width: 72,
+    height: 72,
+    borderRadius: 12,
+    overflow: 'hidden',
+    border: '1px solid #f1f5f9',
+  } as CSSProperties,
+  cartItemImagePlaceholder: {
+    width: 72,
+    height: 72,
+    borderRadius: 12,
+    background: '#f8fafc',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    border: '1px solid #f1f5f9',
+  } as CSSProperties,
+  cartItemTag: {
+    border: 'none',
+    background: '#f1f5f9',
+    color: '#64748b',
+    fontSize: 11,
+    padding: '0 6px',
+    margin: 0,
+    borderRadius: 6,
+  } as CSSProperties,
+  cartItemNote: {
+    marginTop: 4,
+    background: "#fef2f2",
+    padding: "2px 6px",
+    borderRadius: 4,
+    display: "inline-block",
+    border: '1px solid #fecaca',
+  } as CSSProperties,
+  cartItemQtyControl: {
+    display: "flex",
+    alignItems: "center",
+    background: "#f8fafc",
+    borderRadius: 10,
+    padding: "4px",
+    border: '1px solid #e2e8f0',
+  } as CSSProperties,
+  drawerTitleRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: 12,
+  } as CSSProperties,
+  drawerTitleIcon: {
+    width: 40,
+    height: 40,
+    background: "#ecfdf5",
+    borderRadius: 12,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+  } as CSSProperties,
+  checkoutItemRow: {
+    display: 'flex',
+    gap: 12,
+    padding: '14px 0',
+    borderBottom: '1px dashed #E2E8F0',
+  } as CSSProperties,
+  checkoutItemImage: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    overflow: 'hidden',
+    flexShrink: 0,
+    border: '1px solid #E2E8F0',
+  } as CSSProperties,
+  checkoutItemImagePlaceholder: {
+    width: '100%',
+    height: '100%',
+    background: posColors.primaryLight,
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+  } as CSSProperties,
+  flexRowBetween: {
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "center",
+  } as CSSProperties,
+};
+
+// ============================================
 // Global Styles Component
 // ============================================
 export const POSSharedStyles = () => (
@@ -444,15 +567,18 @@ export const POSSharedStyles = () => (
     .pos-delay-3 { animation-delay: 0.15s; opacity: 0; }
     .pos-delay-4 { animation-delay: 0.2s; opacity: 0; }
 
-    /* Category Bar Scrollbar */
+    /* Category Scroll Row Scrollbar */
+    .pos-category-scroll-row::-webkit-scrollbar,
     .pos-category-bar::-webkit-scrollbar {
       height: 4px;
     }
 
+    .pos-category-scroll-row::-webkit-scrollbar-track,
     .pos-category-bar::-webkit-scrollbar-track {
       background: transparent;
     }
 
+    .pos-category-scroll-row::-webkit-scrollbar-thumb,
     .pos-category-bar::-webkit-scrollbar-thumb {
       background: #CBD5E1;
       border-radius: 4px;
@@ -473,10 +599,42 @@ export const POSSharedStyles = () => (
       color: ${posColors.primary} !important;
     }
 
+    /* Cart - Touch Targets (Mobile First) */
+    .pos-cart-icon-btn {
+      padding: 0 !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      line-height: 1 !important;
+      min-width: 40px !important;
+      width: 40px !important;
+      height: 40px !important;
+    }
+
+    .pos-cart-qty-btn {
+      width: 40px !important;
+      height: 40px !important;
+    }
+
+    .pos-cart-action-btn {
+      width: 40px !important;
+      height: 40px !important;
+    }
+
     /* Header Back Button */
     .pos-header-back:hover {
       background: rgba(255, 255, 255, 0.3) !important;
       transform: translateX(-2px);
+    }
+
+    .pos-header-back:focus-visible,
+    .pos-category-btn:focus-visible,
+    .pos-add-button:focus-visible,
+    .pos-cart-icon-btn:focus-visible,
+    .pos-product-card:focus-visible,
+    .pos-product-search:focus-visible {
+      outline: 3px solid rgba(59, 130, 246, 0.5);
+      outline-offset: 2px;
     }
 
     /* Floating Button Container */
@@ -490,8 +648,8 @@ export const POSSharedStyles = () => (
 
     /* Pulse Animation for Cart */
     @keyframes pos-pulse {
-      0%, 100% { box-shadow: 0 8px 24px ${posColors.primary}50; }
-      50% { box-shadow: 0 12px 32px ${posColors.primary}70; }
+      0%, 100% { box-shadow: 0 8px 24px rgb(var(--color-primary-rgb) / 0.32); }
+      50% { box-shadow: 0 12px 32px rgb(var(--color-primary-rgb) / 0.45); }
     }
     
     .pos-cart-pulse {
@@ -502,6 +660,22 @@ export const POSSharedStyles = () => (
        Mobile Responsive Styles
        ============================================ */
     @media (max-width: 768px) {
+      .pos-cart-qty-btn,
+      .pos-cart-action-btn {
+        width: 44px !important;
+        height: 44px !important;
+      }
+
+      .pos-cart-item-controls {
+        gap: 8px !important;
+        flex-wrap: wrap !important;
+      }
+
+      .pos-cart-action-row {
+        flex: 1 1 auto;
+        justify-content: flex-end !important;
+      }
+
       .pos-header-mobile {
         padding: 16px 16px 20px !important;
         border-radius: 0 0 20px 20px !important;
@@ -570,6 +744,19 @@ export const POSSharedStyles = () => (
     }
 
     @media (max-width: 480px) {
+      .pos-cart-item-controls {
+        flex-direction: column !important;
+        align-items: stretch !important;
+      }
+
+      .pos-cart-qty-control {
+        justify-content: space-between !important;
+      }
+
+      .pos-cart-action-row {
+        justify-content: flex-end !important;
+      }
+
       .pos-product-grid-mobile {
         gap: 10px !important;
       }
@@ -610,6 +797,12 @@ export const POSSharedStyles = () => (
 
     /* Touch device adjustments */
     @media (hover: none) {
+      .pos-cart-icon-btn {
+        min-width: 44px !important;
+        width: 44px !important;
+        height: 44px !important;
+      }
+
       .pos-product-card:active {
         transform: scale(0.98) !important;
       }
@@ -617,6 +810,19 @@ export const POSSharedStyles = () => (
       .pos-product-card:hover {
         transform: none !important;
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.04) !important;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+      }
+
+      .pos-cart-pulse {
+        animation: none !important;
       }
     }
   `}</style>

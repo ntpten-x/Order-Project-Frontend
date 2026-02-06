@@ -6,7 +6,7 @@ export const pageStyles = {
   container: {
     minHeight: '100vh',
     background: '#f8f9fc',
-    fontFamily: "'Inter', 'Sarabun', sans-serif",
+    fontFamily: "var(--font-sans), 'Sarabun', sans-serif",
   } as CSSProperties,
   
   heroParams: {

@@ -1,18 +1,21 @@
-"use client";
+﻿"use client";
 
 import React, { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Typography, Row, Col, Empty, Button } from "antd";
+import { Button, Col, Row, Space, Tag } from "antd";
 import {
     ShopOutlined,
     CloseCircleOutlined,
-    ArrowLeftOutlined,
     StopOutlined,
     CheckCircleOutlined,
 } from "@ant-design/icons";
+import PageContainer from "../../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../../components/ui/page/PageHeader";
+import UIEmptyState from "../../../../../components/ui/states/EmptyState";
 import { Tables } from "../../../../../types/api/pos/tables";
 import { useTables } from "../../../../../hooks/pos/useTables";
-import { posPageStyles, tableColors, channelColors } from "../../../../../theme/pos";
+import { posPageStyles, tableColors } from "../../../../../theme/pos";
 import { channelPageStyles, channelsResponsiveStyles } from "../../../../../theme/pos/channels/style";
 import { POSGlobalStyles } from "../../../../../theme/pos/GlobalStyles";
 import { getTableNavigationPath } from "../../../../../utils/orders";
@@ -24,8 +27,6 @@ import {
     getTableColorScheme,
     formatOrderStatus,
 } from "../../../../../utils/channels";
-
-const { Title, Text } = Typography;
 
 export default function DineInTableSelectionPage() {
     const router = useRouter();
@@ -113,68 +114,21 @@ export default function DineInTableSelectionPage() {
             `}</style>
             
             <div style={posPageStyles.container}>
-                {/* Header Section */}
-                <header
-                    style={{ ...channelPageStyles.channelHeader, background: channelColors.dineIn.gradient }}
-                    className="dine-in-header-mobile"
-                    role="banner"
-                >
-                    <div className="header-pattern"></div>
-                    <div className="header-circle circle-1"></div>
-                    <div className="header-circle circle-2"></div>
+                <UIPageHeader
+                    title="หน้าร้าน"
+                    subtitle="เลือกโต๊ะ"
+                    onBack={() => router.push("/pos/channels")}
+                    icon={<ShopOutlined style={{ fontSize: 20 }} />}
+                    actions={
+                        <Space size={8} wrap>
+                            <Tag color="success">ว่าง {stats.available}</Tag>
+                            <Tag color="warning">ไม่ว่าง {stats.occupied}</Tag>
+                        </Space>
+                    }
+                />
 
-                    <div style={channelPageStyles.channelHeaderContent} className="dine-in-header-content-mobile">
-                        {/* Back Button */}
-                        <button
-                            className="back-button-hover dine-in-back-button-mobile"
-                            style={channelPageStyles.channelBackButton}
-                            onClick={() => router.push("/pos/channels")}
-                            aria-label="กลับไปหน้าเลือกช่องทาง"
-                        >
-                            <ArrowLeftOutlined />
-                            <span>กลับ</span>
-                        </button>
-
-                        {/* Title Section */}
-                        <div style={channelPageStyles.channelTitleSection} className="dine-in-title-section-mobile">
-                            <ShopOutlined style={channelPageStyles.channelHeaderIcon} className="dine-in-header-icon-mobile" aria-hidden="true" />
-                            <div>
-                                <Title level={3} style={channelPageStyles.channelHeaderTitle} className="dine-in-header-title-mobile">
-                                    เลือกโต๊ะ
-                                </Title>
-                            </div>
-                        </div>
-
-                        {/* Statistics Bar */}
-                        <div style={channelPageStyles.channelStatsBar} className="dine-in-stats-bar-mobile">
-                            <div style={channelPageStyles.statItem}>
-                                <span
-                                    style={{
-                                        ...channelPageStyles.statDot,
-                                        background: tableColors.available.primary,
-                                    }}
-                                />
-                                <Text style={channelPageStyles.statText}>
-                                    ว่าง {stats.available}
-                                </Text>
-                            </div>
-                            <div style={channelPageStyles.statItem}>
-                                <span
-                                    style={{
-                                        ...channelPageStyles.statDot,
-                                        background: tableColors.occupied.primary,
-                                    }}
-                                />
-                                <Text style={channelPageStyles.statText}>
-                                    ไม่ว่าง {stats.occupied}
-                                </Text>
-                            </div>
-                        </div>
-                    </div>
-                </header>
-
-                {/* Content Section */}
-                <main style={{ maxWidth: 1400, margin: '24px auto 0', padding: '0 16px 32px' }} className="dine-in-content-mobile" role="main">
+                <PageContainer>
+                    <PageSection title="โต๊ะ">
                     {(tables as Tables[]).length > 0 ? (
                         <Row gutter={[16, 16]}>
                             {(sortedTables as Tables[]).map((table: Tables, index: number) => {
@@ -318,40 +272,23 @@ export default function DineInTableSelectionPage() {
                             })}
                         </Row>
                     ) : (
-                        <div style={channelPageStyles.emptyStateContainer}>
-                            <Empty
-                                image={Empty.PRESENTED_IMAGE_SIMPLE}
-                                styles={{ image: { height: 100 } }}
-                                description={
-                                    <div style={{ marginTop: 20 }}>
-                                        <Title level={4} style={{ marginBottom: 8, color: '#1E293B' }}>ยังไม่มีข้อมูลโต๊ะ</Title>
-                                        <Text type="secondary" style={{ fontSize: 15 }}>กรุณาเพิ่มข้อมูลโต๊ะก่อนเริ่มการขาย</Text>
-                                    </div>
-                                }
-                            >
+                        <UIEmptyState
+                            title="ยังไม่มีข้อมูลโต๊ะ"
+                            description="กรุณาเพิ่มข้อมูลโต๊ะก่อนเริ่มการขาย"
+                            action={
                                 <Button
                                     type="primary"
                                     size="large"
                                     icon={<ShopOutlined />}
-                                    style={{
-                                        height: 52,
-                                        padding: '0 36px',
-                                        borderRadius: 16,
-                                        fontSize: 16,
-                                        fontWeight: 600,
-                                        marginTop: 20,
-                                        background: channelColors.dineIn.primary,
-                                        border: 'none',
-                                        boxShadow: `0 8px 20px ${channelColors.dineIn.primary}40`,
-                                    }}
                                     onClick={() => router.push("/pos/tables")}
                                 >
                                     ไปหน้าจัดการโต๊ะ
                                 </Button>
-                            </Empty>
-                        </div>
+                            }
+                        />
                     )}
-                </main>
+                    </PageSection>
+                </PageContainer>
             </div>
         </>
     );

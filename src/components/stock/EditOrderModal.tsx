@@ -15,6 +15,7 @@ import { ingredientsService } from "../../services/stock/ingredients.service";
 import { ordersService } from "../../services/stock/orders.service";
 import { useSocket } from "../../hooks/useSocket";
 import { authService } from "../../services/auth.service";
+import { LegacyRealtimeEvents, RealtimeEvents } from "../../utils/realtimeEvents";
 
 const { Text, Title } = Typography;
 
@@ -125,35 +126,71 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
     const [selectedIngredient, setSelectedIngredient] = useState<string | null>(null);
     const { socket } = useSocket();
 
+    const mapItemsFromOrder = (source?: Order | null) =>
+        source?.ordersItems?.map(item => ({
+            ingredient_id: item.ingredient_id,
+            quantity_ordered: item.quantity_ordered,
+            display_name: item.ingredient?.display_name || 'Unknown',
+            unit_name: item.ingredient?.unit?.display_name || '-',
+            img_url: item.ingredient?.img_url || undefined
+        })) || [];
+
     // Listen for real-time updates for the current order
     useEffect(() => {
         if (!socket || !order || !open) return;
 
-        const handleUpdate = (payload: { action: string, data?: Order }) => {
-            const { action, data } = payload;
-            if (!data || data.id !== order.id) return;
-
-            if (action === "update_order" || action === "update_item_detail") {
-                message.info("ข้อมูลออเดอร์มีการเปลี่ยนแปลงจากระบบ");
-                const mappedItems = data.ordersItems?.map(item => ({
-                    ingredient_id: item.ingredient_id,
-                    quantity_ordered: item.quantity_ordered,
-                    display_name: item.ingredient?.display_name || 'Unknown',
-                    unit_name: item.ingredient?.unit?.display_name || '-',
-                    img_url: item.ingredient?.img_url || undefined
-                })) || [];
-                setItems(mappedItems);
-            } else if (action === "update_status") {
-                if (data.status !== OrderStatus.PENDING) {
-                    message.warning(`สถานะออเดอร์เปลี่ยนเป็น ${data.status} ปิดการแก้ไข`);
-                    onClose();
-                }
+        const refreshOrderItems = async () => {
+            try {
+                const updatedOrder = await ordersService.getOrderById(order.id);
+                setItems(mapItemsFromOrder(updatedOrder));
+            } catch {
+                // ignore
             }
         };
 
-        socket.on("orders_updated", handleUpdate);
+        const handleOrderUpdate = (updated: Order) => {
+            if (!updated || updated.id !== order.id) return;
+            message.info("Order updated by another user.");
+            setItems(mapItemsFromOrder(updated));
+        };
+
+        const handleStatusUpdate = (updated: Order) => {
+            if (!updated || updated.id !== order.id) return;
+            if (updated.status !== OrderStatus.PENDING) {
+                message.warning(`Order status changed to ${updated.status}. Closing editor.`);
+                onClose();
+            }
+        };
+
+        const handleDetailUpdate = (payload: { orderId?: string }) => {
+            if (!payload?.orderId || payload.orderId !== order.id) return;
+            refreshOrderItems();
+        };
+
+        const handleLegacyUpdate = (payload: { action?: string; data?: Order; orderId?: string }) => {
+            const { action, data, orderId } = payload || {};
+            if (data && data.id === order.id) {
+                if (action === "update_order") {
+                    message.info("Order updated by another user.");
+                    setItems(mapItemsFromOrder(data));
+                } else if (action === "update_status" && data.status !== OrderStatus.PENDING) {
+                    message.warning(`Order status changed to ${data.status}. Closing editor.`);
+                    onClose();
+                }
+            } else if (action === "update_item_detail" && orderId === order.id) {
+                refreshOrderItems();
+            }
+        };
+
+        socket.on(RealtimeEvents.stockOrders.update, handleOrderUpdate);
+        socket.on(RealtimeEvents.stockOrders.status, handleStatusUpdate);
+        socket.on(RealtimeEvents.stockOrders.detailUpdate, handleDetailUpdate);
+        socket.on(LegacyRealtimeEvents.stockOrdersUpdated, handleLegacyUpdate);
         return () => {
-            socket.off("orders_updated", handleUpdate);
+            socket.off(RealtimeEvents.stockOrders.update, handleOrderUpdate);
+            socket.off(RealtimeEvents.stockOrders.status, handleStatusUpdate);
+            socket.off(RealtimeEvents.stockOrders.detailUpdate, handleDetailUpdate);
+            socket.off(LegacyRealtimeEvents.stockOrdersUpdated, handleLegacyUpdate);
         };
     }, [socket, order, open, onClose]);
 
@@ -185,14 +222,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
     // Initialize items when order changes
     useEffect(() => {
         if (order && open) {
-            const mappedItems = order.ordersItems?.map(item => ({
-                ingredient_id: item.ingredient_id,
-                quantity_ordered: item.quantity_ordered,
-                display_name: item.ingredient?.display_name || 'Unknown',
-                unit_name: item.ingredient?.unit?.display_name || '-',
-                img_url: item.ingredient?.img_url || undefined
-            })) || [];
-            setItems(mappedItems);
+            setItems(mapItemsFromOrder(order));
         }
     }, [order, open]);
 

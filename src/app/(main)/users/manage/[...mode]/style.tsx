@@ -15,6 +15,10 @@ export default function UserManageStyle() {
         gap: 12px;
         margin-top: 24px;
       }
+
+      .user-manage-page .ant-form-item {
+        /* overflow: visible !important; - No longer needed with Modal approach */
+      }
     `}</style>
   );
 }

@@ -1,5 +1,6 @@
 import { Payments } from "../../types/api/pos/payments";
 import { getProxyUrl } from "../../lib/proxy-utils";
+import { getBackendErrorMessage, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = "/pos/payments";
 
@@ -21,9 +22,9 @@ export const paymentsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลการชำระเงินได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลการชำระเงินได้"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Payments[];
     },
 
     getById: async (id: string, cookie?: string): Promise<Payments> => {
@@ -36,9 +37,9 @@ export const paymentsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลการชำระเงินได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลการชำระเงินได้"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Payments;
     },
 
     create: async (data: Partial<Payments>, cookie?: string, csrfToken?: string): Promise<Payments> => {
@@ -54,9 +55,9 @@ export const paymentsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถสร้างรายการชำระเงินได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถสร้างรายการชำระเงินได้"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Payments;
     },
 
     update: async (id: string, data: Partial<Payments>, cookie?: string, csrfToken?: string): Promise<Payments> => {
@@ -72,9 +73,9 @@ export const paymentsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถแก้ไขรายการชำระเงินได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถแก้ไขรายการชำระเงินได้"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Payments;
     },
 
     delete: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
@@ -89,7 +90,7 @@ export const paymentsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถลบรายการชำระเงินได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถลบรายการชำระเงินได้"));
         }
     }
 };

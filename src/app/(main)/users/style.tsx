@@ -12,6 +12,7 @@ import {
 } from '@ant-design/icons';
 import { User } from "../../../types/api/users";
 import { CSSProperties } from 'react';
+import { t } from "../../../utils/i18n";
 
 const { Title, Text } = Typography;
 
@@ -115,11 +116,11 @@ export const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
                             <TeamOutlined style={{ fontSize: 28, color: '#fff' }} />
                          </div>
                          <Title level={2} style={{ margin: 0, color: '#fff', fontWeight: 800 }}>
-                            จัดการผู้ใช้
+                            {t("users.headerTitle")}
                          </Title>
                     </div>
                     <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 16, display: 'block', paddingLeft: 4 }}>
-                        บริหารจัดการสิทธิ์และข้อมูลผู้ใช้งานในระบบ
+                        {t("users.headerSubtitle")}
                     </Text>
                 </div>
 
@@ -136,7 +137,7 @@ export const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
                             backdropFilter: 'blur(4px)'
                         }}
                     >
-                        รีเฟรช
+                        {t("users.refresh")}
                     </Button>
                     <Button 
                         type="primary" 
@@ -152,7 +153,7 @@ export const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
                             boxShadow: '0 4px 15px rgba(0,0,0,0.2)'
                         }}
                     >
-                        เพิ่มผู้ใช้
+                        {t("users.add")}
                     </Button>
                 </div>
             </div>
@@ -183,7 +184,7 @@ export const StatsCard = ({ totalUsers, activeUsers, onlineUsers }: StatsCardPro
     }}>
         <Card variant="borderless" style={{ borderRadius: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}>
             <Statistic 
-                title={<Text type="secondary">ผู้ใช้ทั้งหมด</Text>}
+                title={<Text type="secondary">{t("users.stats.total")}</Text>}
                 value={totalUsers} 
                 prefix={<TeamOutlined style={{ color: '#3b82f6', background: '#eff6ff', padding: 8, borderRadius: '50%' }} />} 
                 styles={{ content: { fontWeight: 700 } }}
@@ -191,7 +192,7 @@ export const StatsCard = ({ totalUsers, activeUsers, onlineUsers }: StatsCardPro
         </Card>
         <Card variant="borderless" style={{ borderRadius: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}>
             <Statistic 
-                title={<Text type="secondary">ออนไลน์/ใช้งาน</Text>}
+                title={<Text type="secondary">{t("users.stats.active")}</Text>}
                 value={activeUsers} 
                 styles={{ content: { color: '#10b981', fontWeight: 700 } }}
                 prefix={<Badge status="processing" color="#10b981" />}
@@ -199,7 +200,7 @@ export const StatsCard = ({ totalUsers, activeUsers, onlineUsers }: StatsCardPro
         </Card>
         <Card variant="borderless" style={{ borderRadius: 16, boxShadow: '0 10px 30px rgba(0,0,0,0.08)' }}>
              <Statistic 
-                title={<Text type="secondary">ผู้ดูแลระบบ</Text>}
+                title={<Text type="secondary">{t("users.stats.online")}</Text>}
                 value={onlineUsers} 
                 styles={{ content: { color: '#f59e0b', fontWeight: 700 } }}
                 prefix={<UserOutlined style={{ color: '#f59e0b', background: '#fffbeb', padding: 8, borderRadius: '50%' }} />}
@@ -235,11 +236,11 @@ export const UserCard = ({ user, onEdit, onDelete }: UserCardProps) => {
             style={pageStyles.userCard(user.is_active || false)}
             styles={{ body: { padding: 20 } }}
             actions={[
-                <Tooltip title="แก้ไขข้อมูล" key="edit">
-                    <Button type="text" icon={<EditOutlined style={{ color: '#3b82f6' }} />} onClick={() => onEdit(user)}>แก้ไข</Button>
+                <Tooltip title={t("users.card.edit")} key="edit">
+                    <Button type="text" icon={<EditOutlined style={{ color: '#3b82f6' }} />} onClick={() => onEdit(user)}>{t("users.card.edit")}</Button>
                 </Tooltip>,
-                <Tooltip title="ลบผู้ใช้" key="delete">
-                    <Button type="text" danger icon={<DeleteOutlined />} onClick={() => onDelete(user)}>ลบ</Button>
+                <Tooltip title={t("users.card.delete")} key="delete">
+                    <Button type="text" danger icon={<DeleteOutlined />} onClick={() => onDelete(user)}>{t("users.card.delete")}</Button>
                 </Tooltip>
             ]}
         >
@@ -272,7 +273,7 @@ export const UserCard = ({ user, onEdit, onDelete }: UserCardProps) => {
                                 )}
                             </div>
                         </div>
-                        <Tooltip title={user.is_active ? "กำลังใช้งาน" : "ออฟไลน์"}>
+                        <Tooltip title={user.is_active ? t("users.card.active") : t("users.card.inactive")}>
                             {user.is_active ? (
                                 <div style={{ 
                                     width: 12, height: 12, borderRadius: '50%', 
@@ -289,24 +290,24 @@ export const UserCard = ({ user, onEdit, onDelete }: UserCardProps) => {
 
             <div style={{ background: '#f9fafb', padding: 12, borderRadius: 12 }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>สถานะการใช้งาน</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>{t("users.card.active")}</Text>
                     {user.is_active ? (
                         <Tag color="#10b981" style={{ margin: 0, borderRadius: 12, border: 'none', padding: '0 10px', display: 'flex', alignItems: 'center', gap: 6 }}>
                              <div style={{ width: 6, height: 6, borderRadius: '50%', background: '#fff', boxShadow: '0 0 8px rgba(255,255,255,0.8)' }} />
-                             <span style={{ fontWeight: 600 }}>กำลังใช้งาน</span>
+                             <span style={{ fontWeight: 600 }}>{t("users.card.active")}</span>
                         </Tag>
                     ) : (
                         <Tag style={{ margin: 0, borderRadius: 12, border: 'none', background: '#f3f4f6', color: '#9ca3af' }}>
-                            ออฟไลน์
+                            {t("users.card.inactive")}
                         </Tag>
                     )}
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>สถานะบัญชี</Text>
-                    <Badge status={user.is_use ? "success" : "error"} text={<span style={{ fontSize: 12 }}>{user.is_use ? 'เปิดใช้งาน' : 'ระงับ'}</span>} />
+                    <Text type="secondary" style={{ fontSize: 12 }}>{t("users.card.canUse")}</Text>
+                    <Badge status={user.is_use ? "success" : "error"} text={<span style={{ fontSize: 12 }}>{user.is_use ? '{t("users.card.canUse")}' : '{t("users.card.cannotUse")}'}</span>} />
                 </div>
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>เข้าสู่ระบบล่าสุด</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>{t("users.card.lastLogin")}</Text>
                     <Text style={{ fontSize: 12, fontWeight: 500 }}>
                         {user.last_login_at ? new Date(user.last_login_at).toLocaleDateString('th-TH') : '-'}
                     </Text>

@@ -1,36 +1,49 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { Button, App, Typography, Spin } from 'antd';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import { Button, App, Typography, Spin, Badge, Grid } from 'antd';
 import { ShopOutlined } from '@ant-design/icons';
 import { Branch } from "../../../types/api/branch";
 import { useRouter } from 'next/navigation';
 import { 
     BranchPageStyles, 
     pageStyles, 
-    PageHeader, 
     StatsCard, 
-    BranchCard 
+    BranchCard,
+    SearchBar
 } from './style';
 import { useGlobalLoading } from "../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../hooks/useSocket";
 import { useRealtimeList } from "../../../utils/pos/realtime";
 import { useAuth } from "../../../contexts/AuthContext";
 import { branchService } from "../../../services/branch.service";
+import { authService } from "../../../services/auth.service";
 import { getCsrfTokenCached } from '../../../utils/pos/csrf';
 import { useAsyncAction } from "../../../hooks/useAsyncAction";
 import { readCache, writeCache } from "../../../utils/pos/cache";
+import { RealtimeEvents } from "../../../utils/realtimeEvents";
+import PageContainer from "../../../components/ui/page/PageContainer";
+import PageSection from "../../../components/ui/page/PageSection";
+import PageStack from "../../../components/ui/page/PageStack";
+import UIEmptyState from "../../../components/ui/states/EmptyState";
+import UIPageHeader from "../../../components/ui/page/PageHeader";
+import { t } from "../../../utils/i18n";
 
 const { Title, Text } = Typography;
 const BRANCH_CACHE_KEY = "pos:branches";
 const BRANCH_CACHE_TTL = 5 * 60 * 1000;
 
+type FilterType = 'all' | 'active' | 'inactive';
+
 export default function BranchPage() {
   const router = useRouter();
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filter, setFilter] = useState<FilterType>('all');
   const { showLoading, hideLoading } = useGlobalLoading();
   const { socket } = useSocket();
   const { user, loading: authLoading } = useAuth();
+  const isAdmin = user?.role === "Admin";
   const { message, modal } = App.useApp();
   const { execute } = useAsyncAction();
 
@@ -38,12 +51,12 @@ export default function BranchPage() {
     execute(async () => {
       const data = await branchService.getAll();
       setBranches(data);
-    }, 'กำลังโหลดข้อมูลสาขา...');
+    }, t("branch.loading"));
   }, [execute]);
 
   useRealtimeList(
     socket,
-    { create: "branches:create", update: "branches:update", delete: "branches:delete" },
+    { create: RealtimeEvents.branches.create, update: RealtimeEvents.branches.update, delete: RealtimeEvents.branches.delete },
     setBranches,
     (item) => item.id,
     (item) => item.is_active !== false
@@ -64,8 +77,8 @@ export default function BranchPage() {
 
   useEffect(() => {
     if (!authLoading && user) {
-        if (user.role !== 'Admin') {
-            message.error("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
+        if (!["Admin", "Manager"].includes(user.role)) {
+            message.error(t("branch.noPermission"));
             router.push('/');
             return;
         }
@@ -74,35 +87,81 @@ export default function BranchPage() {
   }, [user, authLoading, router, fetchBranches, message]);
   
   const handleAdd = () => {
+    if (!isAdmin) return;
     showLoading();
     router.push('/branch/manager/add');
     setTimeout(() => hideLoading(), 500);
   };
 
   const handleEdit = (branch: Branch) => {
+    if (!isAdmin) return;
     router.push(`/branch/manager/edit/${branch.id}`);
   };
 
   const handleDelete = (branch: Branch) => {
+    if (!isAdmin) return;
     modal.confirm({
-        title: 'ยืนยันการลบสาขา',
-        content: `คุณต้องการลบสาขา "${branch.branch_name}" หรือไม่?`,
-        okText: 'ลบ',
+        title: t("branch.delete.title"),
+        content: t("branch.delete.content", { name: branch.branch_name }),
+        okText: t("branch.delete.ok"),
         okType: 'danger',
-        cancelText: 'ยกเลิก',
+        cancelText: t("branch.delete.cancel"),
         centered: true,
         onOk: async () => {
             try {
                 const csrfToken = await getCsrfTokenCached();
                 await branchService.delete(branch.id, undefined, csrfToken);
-                message.success(`ลบสาขา "${branch.branch_name}" สำเร็จ`);
+                message.success(t("branch.delete.success", { name: branch.branch_name }));
                 fetchBranches();
             } catch {
-                message.error('ไม่สามารถลบสาขาได้');
+                message.error(t("branch.delete.error"));
             }
         },
     });
   };
+
+  const handleSwitchBranch = (branch: Branch) => {
+    if (!isAdmin) {
+      message.error(t("branch.noPermission"));
+      return;
+    }
+    execute(async () => {
+      const csrfToken = await getCsrfTokenCached();
+      await authService.switchBranch(branch.id, csrfToken);
+      message.success(t("branch.switch.success", { name: branch.branch_name }));
+      router.push("/pos");
+    }, t("branch.switch.loading"));
+  };
+
+  // Filter and search branches
+  const filteredBranches = useMemo(() => {
+    let result = branches;
+
+    // Apply status filter
+    if (filter === 'active') {
+      result = result.filter(b => b.is_active);
+    } else if (filter === 'inactive') {
+      result = result.filter(b => !b.is_active);
+    }
+
+    // Apply search query
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase().trim();
+      result = result.filter(b => 
+        b.branch_name.toLowerCase().includes(query) ||
+        b.branch_code.toLowerCase().includes(query) ||
+        (b.address && b.address.toLowerCase().includes(query)) ||
+        (b.phone && b.phone.includes(query))
+      );
+    }
+
+    return result;
+  }, [branches, filter, searchQuery]);
+
+  const activeBranches = branches.filter(b => b.is_active).length;
+  const { useBreakpoint } = Grid;
+  const screens = useBreakpoint();
+  const isMobile = !screens.md;
 
   if (authLoading) {
     return (
@@ -119,56 +178,110 @@ export default function BranchPage() {
     );
   }
 
-  const activeBranches = branches.filter(b => b.is_active).length;
-
   return (
     <div style={pageStyles.container}>
       <BranchPageStyles />
       
-      {/* Header */}
-      <PageHeader 
-        onRefresh={fetchBranches}
-        onAdd={handleAdd}
-      />
-      
-      {/* Stats */}
-      <StatsCard 
-        totalBranches={branches.length}
-        activeBranches={activeBranches}
+      <UIPageHeader
+        title={t("branch.page.title")}
+        subtitle={t("branch.page.subtitle", { count: branches.length })}
+        icon={<ShopOutlined />}
+        actions={
+          <>
+            <Button onClick={fetchBranches}>{t("branch.actions.refresh")}</Button>
+            {isAdmin && <Button type="primary" onClick={handleAdd}>{t("branch.actions.add")}</Button>}
+          </>
+        }
       />
 
-      {/* Main Content */}
       <div style={pageStyles.listContainer}>
-          {branches.length > 0 ? (
-             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))', gap: 24, justifyContent: 'center' }}>
-                {branches.map((branch, index) => (
-                    <div key={branch.id} style={{ animation: `fadeInUp 0.6s ease-out forwards`, animationDelay: `${index * 50}ms`, opacity: 0 }}>
-                        <BranchCard 
-                            branch={branch} 
-                            onEdit={handleEdit}
-                            onDelete={handleDelete}
-                        />
-                    </div>
+        <PageContainer>
+        <PageStack gap={isMobile ? 16 : 12}>
+          {/* Stats */}
+          <StatsCard totalBranches={branches.length} activeBranches={activeBranches} />
+
+          {/* Search and Filter */}
+          <SearchBar
+            searchQuery={searchQuery}
+            onSearchChange={setSearchQuery}
+            filter={filter}
+            onFilterChange={setFilter}
+            resultCount={filteredBranches.length}
+            totalCount={branches.length}
+          />
+
+          {/* Branch List */}
+          <PageSection 
+            title={
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <Title level={4} style={{ margin: 0, fontWeight: 700 }}>{t("branch.section.listTitle")}</Title>
+                {searchQuery || filter !== 'all' ? (
+                  <Badge 
+                    count={filteredBranches.length} 
+                    showZero 
+                    style={{ backgroundColor: '#6366f1' }}
+                  />
+                ) : null}
+              </div>
+            } 
+            extra={
+              <Text strong style={{ color: '#6366f1', background: '#eef2ff', padding: '4px 12px', borderRadius: 10 }}>
+                {t("branch.section.countTag", { filtered: filteredBranches.length, total: branches.length })}
+              </Text>
+            }
+          >
+            {filteredBranches.length > 0 ? (
+              <div
+                style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+                  gap: 24,
+                  justifyContent: 'center',
+                }}
+              >
+                {filteredBranches.map((branch, index) => (
+                  <div
+                    key={branch.id}
+                    style={{
+                      animation: `fadeInUp 0.5s ease-out forwards`,
+                      animationDelay: `${Math.min(index * 30, 300)}ms`,
+                      opacity: 0,
+                    }}
+                  >
+                    <BranchCard
+                      branch={branch}
+                      onEdit={isAdmin ? handleEdit : undefined}
+                      onDelete={isAdmin ? handleDelete : undefined}
+                      onSwitch={isAdmin ? handleSwitchBranch : undefined}
+                    />
+                  </div>
                 ))}
-             </div>
-          ) : (
-            <div style={{ 
-                background: 'white', 
-                borderRadius: 20, 
-                padding: '60px 20px', 
-                textAlign: 'center',
-                boxShadow: '0 4px 20px rgba(0,0,0,0.05)'
-            }}>
-                <ShopOutlined style={{ fontSize: 64, color: '#e5e7eb', marginBottom: 16 }} />
-                 <Title level={3} style={{ color: '#374151', margin: 0 }}>ยังไม่มีข้อมูลสาขา</Title>
-                 <Text type="secondary">เริ่มต้นด้วยการเพิ่มสาขาแรกของคุณ</Text>
-                 <div style={{ marginTop: 24 }}>
-                    <Button type="primary" onClick={handleAdd}>เพิ่มสาขา</Button>
-                 </div>
-            </div>
-          )}
+              </div>
+            ) : (
+              <UIEmptyState
+                title={t(searchQuery || filter !== 'all' ? "branch.empty.filtered.title" : "branch.empty.default.title")}
+                description={
+                  searchQuery || filter !== 'all' 
+                    ? t("branch.empty.filtered.description")
+                    : t("branch.empty.default.description")
+                }
+                action={
+                  searchQuery || filter !== 'all' ? (
+                    <Button onClick={() => { setSearchQuery(''); setFilter('all'); }}>
+                      {t("branch.empty.reset")}
+                    </Button>
+                  ) : (
+                    <Button type="primary" onClick={handleAdd}>
+                      {t("branch.empty.add")}
+                    </Button>
+                  )
+                }
+              />
+            )}
+          </PageSection>
+        </PageStack>
+        </PageContainer>
       </div>
     </div>
   );
 }
-

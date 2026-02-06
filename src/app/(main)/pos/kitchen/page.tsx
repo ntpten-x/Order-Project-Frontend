@@ -1,8 +1,8 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState, useContext, useMemo, useRef, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Typography, Button, Row, Col, Tag, Empty, Spin, message, Space, Tooltip } from "antd";
+import { Typography, Button, Row, Col, Tag, Empty, Spin, message, Tooltip } from "antd";
 import { 
     CheckOutlined, 
     ClockCircleOutlined, 
@@ -17,11 +17,14 @@ import {
 import { SocketContext } from "../../../../contexts/SocketContext";
 import { ordersService } from "../../../../services/pos/orders.service";
 import { SalesOrderItem, ItemStatus } from "../../../../types/api/pos/salesOrderItem";
-import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
+import { useGlobalLoadingDispatch } from "../../../../contexts/pos/GlobalLoadingContext";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import { t } from "../../../../utils/i18n";
 
 dayjs.extend(relativeTime);
 dayjs.locale('th');
@@ -32,48 +35,53 @@ const { Title, Text } = Typography;
 const kdsStyles = {
     container: {
         minHeight: '100vh',
-        background: '#0f172a', // Slate 900
+        background: 'radial-gradient(circle at 20% 20%, rgba(59,130,246,0.08), transparent 25%), radial-gradient(circle at 80% 0%, rgba(16,185,129,0.08), transparent 22%), #0b1020',
         padding: '24px',
         color: '#f8fafc',
-        fontFamily: "'Inter', 'Sarabun', sans-serif"
+        fontFamily: "var(--font-sans), 'Sarabun', sans-serif",
+        position: 'relative' as const,
+        overflow: 'hidden',
     },
     header: {
-        marginBottom: 32,
-        background: '#1e293b',
-        padding: '16px 24px',
-        borderRadius: 20,
+        marginBottom: 28,
+        background: 'linear-gradient(135deg, rgba(30,41,59,0.9) 0%, rgba(15,23,42,0.9) 40%, rgba(28,43,68,0.92) 100%)',
+        padding: '18px 22px',
+        borderRadius: 24,
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        border: '1px solid rgba(255,255,255,0.05)',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)'
+        border: '1px solid rgba(255,255,255,0.08)',
+        boxShadow: '0 20px 50px rgba(0,0,0,0.25)',
+        position: 'relative' as const,
+        overflow: 'hidden',
     },
     card: (urgencyColor: string, isHighUrgency: boolean) => ({
-        background: '#1e293b',
-        borderRadius: 16,
+        background: 'linear-gradient(180deg, rgba(30,41,59,0.96) 0%, rgba(17,24,39,0.94) 100%)',
+        borderRadius: 18,
         overflow: 'hidden',
-        border: `2px solid ${isHighUrgency ? urgencyColor : 'rgba(255,255,255,0.05)'}`,
-        boxShadow: isHighUrgency 
-            ? `0 0 0 2px ${urgencyColor}, 0 10px 15px -3px rgba(0, 0, 0, 0.1)` 
-            : '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+        border: `1px solid ${isHighUrgency ? urgencyColor : 'rgba(255,255,255,0.08)'}`,
+        boxShadow: isHighUrgency
+            ? `0 0 0 2px ${urgencyColor}33, 0 16px 32px rgba(0,0,0,0.28)`
+            : '0 12px 30px rgba(0,0,0,0.18)',
         height: '100%',
         display: 'flex',
         flexDirection: 'column' as const,
-        transition: 'all 0.3s ease',
-        animation: isHighUrgency ? 'pulse-border 2s infinite' : 'none'
+        transition: 'transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease',
+        animation: isHighUrgency ? 'pulse-border 1.8s infinite' : 'none'
     }),
     itemRow: (status: ItemStatus) => ({
         padding: '12px',
-        background: status === ItemStatus.Cooking ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255,255,255,0.03)',
-        marginBottom: 8,
-        borderRadius: 8,
-        borderLeft: `4px solid ${
-            status === ItemStatus.Cooking ? '#10b981' : 
+        background: status === ItemStatus.Cooking ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255,255,255,0.05)',
+        marginBottom: 10,
+        borderRadius: 10,
+        borderLeft: `5px solid ${
+            status === ItemStatus.Cooking ? '#10b981' :
             status === ItemStatus.Served ? '#64748b' : '#f59e0b'
         }`,
         display: 'flex',
         justifyContent: 'space-between',
-        alignItems: 'flex-start'
+        alignItems: 'flex-start',
+        gap: 10
     })
 };
 
@@ -111,7 +119,7 @@ interface GroupedOrder {
 
 export default function KitchenDisplayPage() {
     const { socket, isConnected } = useContext(SocketContext);
-    const { showLoading, hideLoading } = useGlobalLoading();
+    const { showLoading, hideLoading } = useGlobalLoadingDispatch();
     const queryClient = useQueryClient();
     const [soundEnabled, setSoundEnabled] = useState(true);
     const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -126,15 +134,25 @@ export default function KitchenDisplayPage() {
     const playNotificationSound = useCallback(() => {
         if (soundEnabled && audioRef.current) {
             audioRef.current.currentTime = 0;
-            audioRef.current.play().catch(console.error);
+            audioRef.current.play().catch((err) => {
+                console.error(err);
+                message.warning(t("kitchen.soundBlocked"));
+            });
         }
     }, [soundEnabled]);
 
-    const { data: allItems = [], isLoading, refetch } = useQuery<SalesOrderItem[]>({
+    const { data: allItems = [], isLoading, refetch, error } = useQuery<SalesOrderItem[]>({
         queryKey: ["orderItems", "kitchen"],
         queryFn: async () => {
-            const items = await ordersService.getItems();
-            return items.filter((item: SalesOrderItem) =>
+            // Backend sometimes needs explicit status filter; fetch both important statuses
+            const [pending, cooking] = await Promise.all([
+                ordersService.getItems(ItemStatus.Pending),
+                ordersService.getItems(ItemStatus.Cooking),
+            ]);
+
+            const merged = [...pending, ...cooking];
+
+            return merged.filter((item: SalesOrderItem) =>
                 item.status !== ItemStatus.Served &&
                 item.status !== ItemStatus.Cancelled
             );
@@ -193,12 +211,24 @@ export default function KitchenDisplayPage() {
             refetch();
         };
 
-        socket.on('orders:create', handleOrderCreate);
-        socket.on('orders:update', handleOrderUpdate);
+        socket.on(RealtimeEvents.orders.create, handleOrderCreate);
+        socket.on(RealtimeEvents.orders.update, handleOrderUpdate);
+        socket.on(RealtimeEvents.salesOrderItem.create, handleOrderUpdate);
+        socket.on(RealtimeEvents.salesOrderItem.update, handleOrderUpdate);
+        socket.on(RealtimeEvents.salesOrderItem.delete, handleOrderUpdate);
+        socket.on(RealtimeEvents.salesOrderDetail.create, handleOrderUpdate);
+        socket.on(RealtimeEvents.salesOrderDetail.update, handleOrderUpdate);
+        socket.on(RealtimeEvents.salesOrderDetail.delete, handleOrderUpdate);
 
         return () => {
-            socket.off('orders:create', handleOrderCreate);
-            socket.off('orders:update', handleOrderUpdate);
+            socket.off(RealtimeEvents.orders.create, handleOrderCreate);
+            socket.off(RealtimeEvents.orders.update, handleOrderUpdate);
+            socket.off(RealtimeEvents.salesOrderItem.create, handleOrderUpdate);
+            socket.off(RealtimeEvents.salesOrderItem.update, handleOrderUpdate);
+            socket.off(RealtimeEvents.salesOrderItem.delete, handleOrderUpdate);
+            socket.off(RealtimeEvents.salesOrderDetail.create, handleOrderUpdate);
+            socket.off(RealtimeEvents.salesOrderDetail.update, handleOrderUpdate);
+            socket.off(RealtimeEvents.salesOrderDetail.delete, handleOrderUpdate);
         };
     }, [socket, refetch, playNotificationSound]);
 
@@ -248,6 +278,7 @@ export default function KitchenDisplayPage() {
     const cookingCount = allItems.filter(i => i.status === ItemStatus.Cooking).length;
 
     return (
+        <PageContainer maxWidth={99999} style={{ padding: 0 }}>
         <div style={kdsStyles.container}>
             <style jsx global>{`
                 @keyframes pulse-border {
@@ -265,42 +296,66 @@ export default function KitchenDisplayPage() {
             
             {/* Header */}
             <div style={kdsStyles.header}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-                     <div style={{ 
-                        width: 56, 
-                        height: 56, 
-                        borderRadius: 16, 
-                        background: 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)', // Amber for Kitchen
+                <div style={{ position: 'absolute', inset: 0, opacity: 0.6, pointerEvents: 'none' }} className="header-pattern" />
+                <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap', position: 'relative', zIndex: 2 }}>
+                    <div style={{
+                        width: 62,
+                        height: 62,
+                        borderRadius: 18,
+                        background: 'linear-gradient(135deg, #f59e0b 0%, #f97316 60%, #fb923c 100%)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        boxShadow: '0 0 20px rgba(245, 158, 11, 0.3)'
+                        boxShadow: '0 0 24px rgba(249, 115, 22, 0.4)',
+                        position: 'relative',
+                        overflow: 'hidden'
                     }}>
-                        <FireOutlined style={{ fontSize: 30, color: '#fff' }} />
+                        <FireOutlined style={{ fontSize: 30, color: '#fff' }} className="header-icon-animate" />
                     </div>
-                    <div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                    <div style={{ minWidth: 0 }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
                             <Title level={2} style={{ margin: 0, color: '#fff', fontSize: 28, letterSpacing: '0.5px' }}>
-                                KITCHEN DISPLAY
+                                Kitchen Pulse
                             </Title>
                             {isConnected ? (
-                                <Tag icon={<WifiOutlined />} color="#10b981" style={{ margin: 0, borderRadius: 12, padding: '2px 10px' }}>LIVE</Tag>
+                                <Tag icon={<WifiOutlined />} color="#10b981" style={{ margin: 0, borderRadius: 12, padding: '2px 12px', fontWeight: 700 }}>LIVE</Tag>
                             ) : (
-                                <Tag icon={<WifiOutlined />} color="#ef4444" style={{ margin: 0, borderRadius: 12, padding: '2px 10px' }}>OFFLINE</Tag>
+                                <Tag icon={<WifiOutlined />} color="#ef4444" style={{ margin: 0, borderRadius: 12, padding: '2px 12px', fontWeight: 700 }}>OFFLINE</Tag>
                             )}
                         </div>
-                        <Text style={{ color: '#94a3b8', fontSize: 14 }}>ระบบจัดการออเดอร์ในครัวอัจฉริยะ</Text>
+                        <Text style={{ color: '#cbd5e1', fontSize: 14 }}>มอนิเตอร์งานครัวแบบเรียลไทม์ • เน้นงานด่วนก่อน</Text>
                     </div>
                 </div>
 
-                <Space size={16}>
-                     {/* Stats Filter Buttons */}
-                     <div style={{ background: '#020617', padding: 6, borderRadius: 14, display: 'flex', gap: 4 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', justifyContent: 'flex-end', position: 'relative', zIndex: 2 }}>
+                    <div style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
+                        gap: 10,
+                        background: 'rgba(255,255,255,0.04)',
+                        padding: '10px 12px',
+                        borderRadius: 16,
+                        border: '1px solid rgba(255,255,255,0.08)',
+                        minWidth: 320
+                    }}>
+                        {[
+                            { label: 'คิวทั้งหมด', value: allItems.length, color: '#38bdf8' },
+                            { label: 'รอทำ', value: pendingCount, color: '#f59e0b' },
+                            { label: 'กำลังทำ', value: cookingCount, color: '#10b981' },
+                        ].map((stat) => (
+                            <div key={stat.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                                <Text style={{ color: '#cbd5e1', fontSize: 12 }}>{stat.label}</Text>
+                                <Text strong style={{ color: stat.color, fontSize: 18 }}>{stat.value}</Text>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#0b1222', padding: 6, borderRadius: 14, border: '1px solid rgba(255,255,255,0.06)' }}>
                         {['all', ItemStatus.Pending, ItemStatus.Cooking].map((status) => {
                             const isActive = filterStatus === status;
                             let count = allItems.length;
                             let label = 'ทั้งหมด';
-                            let activeColor = '#3b82f6';
+                            let activeColor = '#38bdf8';
 
                             if (status === ItemStatus.Pending) {
                                 count = pendingCount;
@@ -318,12 +373,12 @@ export default function KitchenDisplayPage() {
                                     type="text"
                                     onClick={() => setFilterStatus(status as ItemStatus | 'all')}
                                     style={{
-                                        color: isActive ? '#fff' : '#64748b',
+                                        color: isActive ? '#0b1222' : '#cbd5e1',
                                         background: isActive ? activeColor : 'transparent',
                                         borderRadius: 10,
-                                        fontWeight: isActive ? 600 : 400,
+                                        fontWeight: isActive ? 700 : 500,
                                         height: 36,
-                                        padding: '0 16px'
+                                        padding: '0 14px'
                                     }}
                                 >
                                     {label} <span style={{ opacity: 0.7, marginLeft: 6, fontSize: 12 }}>{count}</span>
@@ -332,16 +387,14 @@ export default function KitchenDisplayPage() {
                         })}
                     </div>
 
-                    <div style={{ width: 1, height: 32, background: 'rgba(255,255,255,0.1)' }} />
-
-                    <Tooltip title="เปิด/ปิดเสียง">
+                    <Tooltip title="เปิด/ปิดเสียงแจ้งเตือน">
                         <Button 
                             type="text"
                             icon={<SoundOutlined style={{ fontSize: 18 }} />}
                             onClick={() => setSoundEnabled(!soundEnabled)}
                             style={{ 
-                                color: soundEnabled ? '#10b981' : '#64748b',
-                                background: soundEnabled ? 'rgba(16, 185, 129, 0.1)' : 'rgba(255,255,255,0.05)',
+                                color: soundEnabled ? '#10b981' : '#94a3b8',
+                                background: soundEnabled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.05)',
                                 width: 44,
                                 height: 44,
                                 borderRadius: 12
@@ -354,20 +407,29 @@ export default function KitchenDisplayPage() {
                         onClick={() => refetch()}
                         loading={isLoading}
                         style={{ 
-                            background: '#334155',
+                            background: 'linear-gradient(135deg, #38bdf8 0%, #6366f1 100%)',
                             border: 'none',
                             color: 'white',
                             borderRadius: 12,
-                            height: 44
+                            height: 44,
+                            boxShadow: '0 10px 24px rgba(99,102,241,0.3)'
                         }}
                     >
                         รีเฟรช
                     </Button>
-                </Space>
+                </div>
             </div>
 
             {/* Grid */}
-            {isLoading ? (
+            {error && (
+                <div style={{ textAlign: 'center', padding: '60px 16px', color: '#cbd5e1' }}>
+                    <Text style={{ color: '#fca5a5' }}>โหลดข้อมูลไม่สำเร็จ</Text>
+                    <div style={{ marginTop: 10 }}>
+                        <Button onClick={() => refetch()} type="primary">ลองใหม่</Button>
+                    </div>
+                </div>
+            )}
+            {!error && isLoading ? (
                 <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 100 }}>
                     <Spin size="large" />
                 </div>
@@ -382,9 +444,10 @@ export default function KitchenDisplayPage() {
                     {groupedOrders.map((order) => {
                         const urgency = getUrgencyConfig(order.created_at);
                         const isHighUrgency = urgency.level === 3;
+                        const progress = Math.min(1, Math.max(0.1, dayjs().diff(dayjs(order.created_at), 'minute') / 25));
 
                         return (
-                            <Col xs={24} sm={12} lg={8} xl={6} key={order.order_id}>
+                            <Col xs={24} sm={24} md={12} lg={8} xl={6} key={order.order_id}>
                                 <div style={kdsStyles.card(urgency.color, isHighUrgency)}>
                                     
                                     {/* Card Header */}
@@ -427,6 +490,9 @@ export default function KitchenDisplayPage() {
                                                     LATE
                                                 </span>
                                             )}
+                                        </div>
+                                        <div style={{ marginTop: 10, height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 999, overflow: 'hidden' }}>
+                                            <div style={{ width: `${progress * 100}%`, height: '100%', background: urgency.color, transition: 'width 0.3s ease' }} />
                                         </div>
                                     </div>
 
@@ -533,5 +599,6 @@ export default function KitchenDisplayPage() {
                 </Row>
             )}
         </div>
+        </PageContainer>
     );
 }

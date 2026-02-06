@@ -4,6 +4,7 @@ import { OrderStatus, OrderType, SalesOrderSummary } from "../../types/api/pos/s
 import { useSocket } from "../../hooks/useSocket";
 import { useRealtimeRefresh } from "./realtime";
 import { isEqual } from "lodash";
+import { RealtimeEvents } from "../realtimeEvents";
 
 const EXCLUDED_STATUSES = new Set<OrderStatus>([
     OrderStatus.Paid,
@@ -19,11 +20,17 @@ const DEFAULT_ACTIVE_STATUS_FILTER = [
 ].join(",");
 
 const DEFAULT_EVENTS = [
-    "orders:create",
-    "orders:update",
-    "orders:delete",
-    "payments:create",
-    "payments:update",
+    RealtimeEvents.orders.create,
+    RealtimeEvents.orders.update,
+    RealtimeEvents.orders.delete,
+    RealtimeEvents.payments.create,
+    RealtimeEvents.payments.update,
+    RealtimeEvents.salesOrderItem.create,
+    RealtimeEvents.salesOrderItem.update,
+    RealtimeEvents.salesOrderItem.delete,
+    RealtimeEvents.salesOrderDetail.create,
+    RealtimeEvents.salesOrderDetail.update,
+    RealtimeEvents.salesOrderDetail.delete,
 ];
 
 const filterActiveOrders = (orders: SalesOrderSummary[], orderType: OrderType) =>

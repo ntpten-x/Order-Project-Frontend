@@ -1,5 +1,6 @@
 import { Ingredients } from "../../types/api/stock/ingredients";
 import { getProxyUrl } from "../../lib/proxy-utils";
+import { getBackendErrorMessage, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = "/stock/ingredients";
 
@@ -20,9 +21,9 @@ export const ingredientsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to fetch ingredients");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch ingredients"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Ingredients[];
     },
 
     findOne: async (id: string, cookie?: string): Promise<Ingredients> => {
@@ -37,9 +38,9 @@ export const ingredientsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to fetch ingredient");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch ingredient"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Ingredients;
     },
 
     findOneByName: async (name: string, cookie?: string): Promise<Ingredients> => {
@@ -54,9 +55,9 @@ export const ingredientsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to fetch ingredient by name");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch ingredient by name"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Ingredients;
     },
 
     create: async (data: Partial<Ingredients>, cookie?: string, csrfToken?: string): Promise<Ingredients> => {
@@ -73,9 +74,9 @@ export const ingredientsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to create ingredient");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to create ingredient"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Ingredients;
     },
 
     update: async (id: string, data: Partial<Ingredients>, cookie?: string, csrfToken?: string): Promise<Ingredients> => {
@@ -92,9 +93,9 @@ export const ingredientsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to update ingredient");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to update ingredient"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Ingredients;
     },
 
     delete: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
@@ -110,7 +111,7 @@ export const ingredientsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to delete ingredient");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to delete ingredient"));
         }
     },
 };

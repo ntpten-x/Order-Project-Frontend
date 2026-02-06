@@ -1,5 +1,6 @@
 import { SalesOrderItem } from "../../types/api/pos/salesOrderItem";
 import { getProxyUrl } from "../../lib/proxy-utils";
+import { getBackendErrorMessage, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = "/pos/salesOrderItem";
 
@@ -21,9 +22,9 @@ export const salesOrderItemService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลรายการสินค้าได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลรายการสินค้าได้"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as SalesOrderItem[];
     },
 
     getById: async (id: string, cookie?: string): Promise<SalesOrderItem> => {
@@ -36,9 +37,9 @@ export const salesOrderItemService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถดึงข้อมูลรายการสินค้าได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลรายการสินค้าได้"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as SalesOrderItem;
     },
 
     create: async (data: Partial<SalesOrderItem>, cookie?: string, csrfToken?: string): Promise<SalesOrderItem> => {
@@ -53,9 +54,9 @@ export const salesOrderItemService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถสร้างรายการสินค้าได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถสร้างรายการสินค้าได้"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as SalesOrderItem;
     },
 
     update: async (id: string, data: Partial<SalesOrderItem>, cookie?: string, csrfToken?: string): Promise<SalesOrderItem> => {
@@ -70,9 +71,9 @@ export const salesOrderItemService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถแก้ไขรายการสินค้าได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถแก้ไขรายการสินค้าได้"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as SalesOrderItem;
     },
 
     delete: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
@@ -86,7 +87,7 @@ export const salesOrderItemService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "ไม่สามารถลบรายการสินค้าได้");
+            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถลบรายการสินค้าได้"));
         }
     }
 };

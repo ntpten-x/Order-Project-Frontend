@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { message } from "antd";
 import api from "../lib/axios";
 import { useGlobalLoading } from "../contexts/pos/GlobalLoadingContext";
 import { getCsrfTokenCached } from "../utils/pos/csrf";
@@ -9,6 +10,7 @@ import {
   shouldAttachCsrf,
   shouldTrackRequest,
 } from "../utils/network";
+import { t } from "../utils/i18n";
 
 const resolveAxiosUrl = (url?: string, baseURL?: string) => {
   if (!url && !baseURL) return "";
@@ -29,6 +31,7 @@ export const useNetworkInterceptors = () => {
   const pendingRef = useRef(0);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadingMessageRef = useRef<string | undefined>(loadingMessage);
+  const offlineNoticeRef = useRef(0);
 
   useEffect(() => {
     loadingMessageRef.current = loadingMessage;
@@ -37,13 +40,20 @@ export const useNetworkInterceptors = () => {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    const notifyOffline = () => {
+      const now = Date.now();
+      if (now - offlineNoticeRef.current < 5000) return;
+      offlineNoticeRef.current = now;
+      message.warning(t("network.offline"));
+    };
+
     const start = () => {
       pendingRef.current += 1;
       if (pendingRef.current === 1) {
         if (timerRef.current) clearTimeout(timerRef.current);
         timerRef.current = setTimeout(() => {
           if (pendingRef.current > 0) {
-            showLoading(loadingMessageRef.current ? undefined : "กำลังโหลดข้อมูล...", "network");
+            showLoading(loadingMessageRef.current ? undefined : t("network.loading"), "network");
           }
         }, LOADING_DELAY_MS);
       }
@@ -74,18 +84,18 @@ export const useNetworkInterceptors = () => {
         let finalInit = init;
         if (shouldAttachCsrf(url, method, init)) {
           const headers = new Headers(init?.headers || request?.headers || {});
-          // Always try to get CSRF token for cookie-based requests
           const csrfToken = await getCsrfTokenCached();
           if (csrfToken) {
             headers.set("X-CSRF-Token", csrfToken);
           } else {
-            // If token fetch failed, log warning but don't block request
-            // Backend will reject if CSRF token is required
             console.warn("[CSRF] Failed to get CSRF token for request:", method, url);
           }
           finalInit = { ...init, headers };
         }
         return await originalFetch(input, finalInit);
+      } catch (err) {
+        notifyOffline();
+        throw err;
       } finally {
         if (track) stop();
       }
@@ -102,6 +112,7 @@ export const useNetworkInterceptors = () => {
       (error) => {
         const cfg = (error?.config || {}) as { _trackLoading?: boolean };
         if (cfg._trackLoading) stop();
+        notifyOffline();
         return Promise.reject(error);
       }
     );
@@ -115,6 +126,7 @@ export const useNetworkInterceptors = () => {
       (error) => {
         const cfg = (error?.config || {}) as { _trackLoading?: boolean };
         if (cfg._trackLoading) stop();
+        notifyOffline();
         return Promise.reject(error);
       }
     );

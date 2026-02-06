@@ -1,5 +1,6 @@
 import { IngredientsUnit } from "../../types/api/stock/ingredientsUnit";
 import { getProxyUrl } from "../../lib/proxy-utils";
+import { getBackendErrorMessage, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = "/stock/ingredientsUnit";
 
@@ -20,9 +21,9 @@ export const ingredientsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to fetch ingredients units");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch ingredients units"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as IngredientsUnit[];
     },
 
     findOne: async (id: string, cookie?: string): Promise<IngredientsUnit> => {
@@ -37,9 +38,9 @@ export const ingredientsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to fetch ingredients unit");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch ingredients unit"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as IngredientsUnit;
     },
 
     findOneByUnitName: async (name: string, cookie?: string): Promise<IngredientsUnit> => {
@@ -54,9 +55,9 @@ export const ingredientsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to fetch ingredients unit by name");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch ingredients unit by name"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as IngredientsUnit;
     },
 
     create: async (data: Partial<IngredientsUnit>, cookie?: string, csrfToken?: string): Promise<IngredientsUnit> => {
@@ -73,9 +74,9 @@ export const ingredientsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to create ingredients unit");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to create ingredients unit"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as IngredientsUnit;
     },
 
     update: async (id: string, data: Partial<IngredientsUnit>, cookie?: string, csrfToken?: string): Promise<IngredientsUnit> => {
@@ -92,9 +93,9 @@ export const ingredientsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to update ingredients unit");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to update ingredients unit"));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as IngredientsUnit;
     },
 
     delete: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
@@ -110,7 +111,7 @@ export const ingredientsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || "Failed to delete ingredients unit");
+            throw new Error(getBackendErrorMessage(errorData, "Failed to delete ingredients unit"));
         }
     },
 };

@@ -13,6 +13,9 @@ import {
 } from "../../../../utils/channels/channelStats.utils";
 import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
 import { usePOSPrefetching } from "../../../../hooks/pos/usePrefetching";
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
 
 const { Title, Text } = Typography;
 
@@ -78,43 +81,12 @@ export default function ChannelSelectionPage() {
 
   return (
     <>
+      <UIPageHeader title="ช่องทางขาย" subtitle="เลือกช่องทางขาย" />
+      <PageContainer>
+        <PageSection>
       <POSGlobalStyles />
       <style jsx global>{channelsResponsiveStyles}</style>
       <div style={channelsStyles.channelsContainer}>
-        {/* Header Section - Soft gradient with decorative elements */}
-        <header 
-          style={channelsStyles.channelsHeader} 
-          className="channels-header-mobile"
-          role="banner"
-        >
-          <div className="header-pattern"></div>
-          <div className="header-circle circle-1"></div>
-          <div className="header-circle circle-2"></div>
-          
-          <div style={channelsStyles.channelsHeaderContent}>
-            <div className="header-icon-animate">
-              <ShopOutlined 
-                style={channelsStyles.channelsHeaderIcon} 
-                className="channels-header-icon-mobile" 
-                aria-hidden="true"
-              />
-            </div>
-            <Title 
-              level={1} 
-              style={channelsStyles.channelsHeaderTitle} 
-              className="channels-header-title-mobile"
-            >
-              เลือกช่องทางขาย
-            </Title>
-            <Text 
-              style={channelsStyles.channelsHeaderSubtitle} 
-              className="channels-header-subtitle-mobile"
-            >
-              Select Sales Channel
-            </Text>
-          </div>
-        </header>
-
         {/* Channel Cards - Main content */}
         <main 
           style={channelsStyles.channelsCardsContainer} 
@@ -218,6 +190,8 @@ export default function ChannelSelectionPage() {
           </Row>
         </main>
       </div>
+        </PageSection>
+      </PageContainer>
     </>
   );
 }

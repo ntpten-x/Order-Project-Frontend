@@ -131,7 +131,8 @@ export const posPageStyles = {
     container: {
         minHeight: '100vh',
         background: posColors.background,
-        fontFamily: "'Inter', 'Sarabun', -apple-system, BlinkMacSystemFont, sans-serif",
+        fontFamily:
+            "var(--font-sans), 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         paddingBottom: 100,
     } as CSSProperties,
 
@@ -191,7 +192,8 @@ export const posPageStyles = {
         background: posColors.kitchenBg,
         padding: '16px 16px 100px',
         color: '#F8FAFC',
-        fontFamily: "'Inter', 'Sarabun', -apple-system, BlinkMacSystemFont, sans-serif",
+        fontFamily:
+            "var(--font-sans), 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     } as CSSProperties,
 
     kitchenGlassCard: {

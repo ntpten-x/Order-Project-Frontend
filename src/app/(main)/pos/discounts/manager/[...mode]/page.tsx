@@ -1,13 +1,15 @@
 ﻿'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Form, Input, InputNumber, message, Spin, Switch, Modal, Radio } from 'antd';
+import { Button, Form, Input, InputNumber, message, Modal, Radio, Spin, Switch } from 'antd';
 import { useRouter } from 'next/navigation';
 import { DiscountType } from '../../../../../../types/api/pos/discounts';
+import PageContainer from "../../../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
 import {
     ManagePageStyles,
     pageStyles,
-    PageHeader,
     DiscountPreview,
     ActionButtons
 } from './style';
@@ -31,7 +33,7 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
     const mode = params.mode[0];
     const id = params.mode[1] || null;
     const isEdit = mode === 'edit' && !!id;
-    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
+    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ["Admin", "Manager"] });
 
     useEffect(() => {
         const fetchCsrf = async () => {
@@ -159,18 +161,23 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
     return (
         <div className="manage-page" style={pageStyles.container}>
             <ManagePageStyles />
-            
-            {/* Header */}
-            <PageHeader 
-                isEdit={isEdit}
+
+            <UIPageHeader
+                title={isEdit ? "แก้ไขส่วนลด" : "เพิ่มส่วนลด"}
+                subtitle={isEdit ? "แก้ไขข้อมูลส่วนลด" : "สร้างส่วนลดใหม่"}
                 onBack={handleBack}
-                onDelete={isEdit ? handleDelete : undefined}
+                actions={
+                    isEdit ? (
+                        <Button danger onClick={handleDelete}>
+                            ลบ
+                        </Button>
+                    ) : null
+                }
             />
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6" style={{ 
-                maxWidth: 1000,
-                margin: '0 auto' 
-            }}>
+
+            <PageContainer maxWidth={1000}>
+                <PageSection style={{ background: "transparent", border: "none" }}>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {/* Left Column: Form */}
                 <div className="md:col-span-2" style={{
                      ...pageStyles.formCard,
@@ -380,8 +387,9 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
                         )}
                     </Form.Item>
                 </div>
-            </div>
+                </div>
+                </PageSection>
+            </PageContainer>
         </div>
     );
 }
-

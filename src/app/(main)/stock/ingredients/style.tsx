@@ -12,6 +12,7 @@ import {
     CloseCircleFilled
 } from "@ant-design/icons";
 import { Ingredients } from "../../../../types/api/stock/ingredients";
+import { t } from "../../../../utils/i18n";
 
 const { Text, Title } = Typography;
 
@@ -198,7 +199,7 @@ export const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
                         fontSize: 13,
                         display: 'block'
                     }}>
-                        จัดการข้อมูล
+                        {t("stock.ingredients.headerLabel")}
                     </Text>
                     <Title level={4} style={{ 
                         color: 'white', 
@@ -206,7 +207,7 @@ export const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
                         fontWeight: 700,
                         letterSpacing: '0.5px'
                     }}>
-                        วัตถุดิบ
+                        {t("stock.ingredients.title")}
                     </Title>
                 </div>
             </div>
@@ -236,7 +237,7 @@ export const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
                         boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
                     }}
                 >
-                    เพิ่มวัตถุดิบ
+                    {t("stock.ingredients.add")}
                 </Button>
             </div>
         </div>
@@ -255,17 +256,17 @@ export const StatsCard = ({ totalIngredients, activeIngredients, inactiveIngredi
     <div style={pageStyles.statsCard}>
         <div style={pageStyles.statItem}>
             <span style={{ ...pageStyles.statNumber, color: '#1890ff' }}>{totalIngredients}</span>
-            <Text style={pageStyles.statLabel}>ทั้งหมด</Text>
+            <Text style={pageStyles.statLabel}>{t("stock.ingredients.stats.total")}</Text>
         </div>
         <div style={{ width: 1, background: '#f0f0f0' }} />
         <div style={pageStyles.statItem}>
             <span style={{ ...pageStyles.statNumber, color: '#52c41a' }}>{activeIngredients}</span>
-            <Text style={pageStyles.statLabel}>ใช้งาน</Text>
+            <Text style={pageStyles.statLabel}>{t("stock.ingredients.stats.active")}</Text>
         </div>
         <div style={{ width: 1, background: '#f0f0f0' }} />
         <div style={pageStyles.statItem}>
             <span style={{ ...pageStyles.statNumber, color: '#ff4d4f' }}>{inactiveIngredients}</span>
-            <Text style={pageStyles.statLabel}>ไม่ใช้งาน</Text>
+            <Text style={pageStyles.statLabel}>{t("stock.ingredients.stats.inactive")}</Text>
         </div>
     </div>
 );
@@ -398,11 +399,11 @@ export const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
         description={
             <div style={{ textAlign: 'center' }}>
                 <Text type="secondary" style={{ fontSize: 15 }}>
-                    ยังไม่มีวัตถุดิบ
+                    {t("stock.ingredients.emptyTitle")}
                 </Text>
                 <br />
                 <Text type="secondary" style={{ fontSize: 13 }}>
-                    เริ่มต้นเพิ่มวัตถุดิบแรกของคุณ
+                    {t("stock.ingredients.emptyDescription")}
                 </Text>
             </div>
         }
@@ -414,7 +415,7 @@ export const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
         }}
     >
         <Button type="primary" icon={<PlusOutlined />} onClick={onAdd}>
-            เพิ่มวัตถุดิบ
+            {t("stock.ingredients.emptyAction")}
         </Button>
     </Empty>
 );

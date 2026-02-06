@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useCallback, useEffect, useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
 import { Typography, Button, Spin, message, Image, Modal } from "antd";
 import { ArrowLeftOutlined, UserOutlined, ShopOutlined, ClockCircleOutlined, TableOutlined, CarOutlined, ShoppingOutlined, PrinterOutlined, TagOutlined, CheckCircleOutlined, CloseCircleOutlined, CreditCardOutlined } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
@@ -14,9 +14,12 @@ import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import ReceiptTemplate from "../../../../../components/pos/shared/ReceiptTemplate";
 import { sortOrderItems, getStatusTextStyle } from "../../../../../utils/dashboard/orderUtils";
+import { groupOrderItems } from "../../../../../utils/orderGrouping";
 import { ItemStatus } from "../../../../../types/api/pos/salesOrderItem";
 import { useSocket } from "../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
+import { RealtimeEvents } from "../../../../../utils/realtimeEvents";
+import PageContainer from "../../../../../components/ui/page/PageContainer";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -75,7 +78,12 @@ export default function DashboardOrderDetailPage({ params }: Props) {
 
     useRealtimeRefresh({
         socket,
-        events: ["orders:update", "orders:delete", "payments:create", "payments:update"],
+        events: [
+            RealtimeEvents.orders.update,
+            RealtimeEvents.orders.delete,
+            RealtimeEvents.payments.create,
+            RealtimeEvents.payments.update,
+        ],
         onRefresh: () => fetchOrderDetail(),
         intervalMs: 20000,
     });
@@ -92,6 +100,13 @@ export default function DashboardOrderDetailPage({ params }: Props) {
     useEffect(() => {
         fetchShopProfile();
     }, [fetchShopProfile]);
+
+    useRealtimeRefresh({
+        socket,
+        events: [RealtimeEvents.shopProfile.update],
+        onRefresh: () => fetchShopProfile(),
+        debounceMs: 800,
+    });
 
     const handlePrint = () => {
         setIsPrintModalVisible(true);
@@ -124,33 +139,41 @@ export default function DashboardOrderDetailPage({ params }: Props) {
         }, 500);
     };
 
+    const items = useMemo(() => {
+        const grouped = groupOrderItems(order?.items || []);
+        return sortOrderItems(grouped);
+    }, [order?.items]);
+
     if (isLoading) {
         return (
-            <div style={{ 
-                minHeight: '100vh', 
-                background: '#F8FAFC',
-                display: 'flex', 
-                justifyContent: 'center', 
-                alignItems: 'center' 
-            }}>
-                <Spin size="large" />
-            </div>
+            <PageContainer maxWidth={99999} style={{ padding: 0 }}>
+                <div style={{ 
+                    minHeight: '100vh', 
+                    background: '#F8FAFC',
+                    display: 'flex', 
+                    justifyContent: 'center', 
+                    alignItems: 'center' 
+                }}>
+                    <Spin size="large" />
+                </div>
+            </PageContainer>
         );
     }
 
     if (!order) {
         return (
-            <div style={{ minHeight: '100vh', background: '#F8FAFC', padding: 24 }}>
-                <div style={{ textAlign: 'center', paddingTop: 60 }}>
-                    <ShopOutlined style={{ fontSize: 48, color: '#CBD5E1', marginBottom: 16 }} />
-                    <Title level={4} style={{ color: '#64748B' }}>ไม่พบข้อมูลออเดอร์</Title>
-                    <Button type="primary" onClick={() => router.back()}>ย้อนกลับ</Button>
+            <PageContainer maxWidth={99999} style={{ padding: 0 }}>
+                <div style={{ minHeight: '100vh', background: '#F8FAFC', padding: 24 }}>
+                    <div style={{ textAlign: 'center', paddingTop: 60 }}>
+                        <ShopOutlined style={{ fontSize: 48, color: '#CBD5E1', marginBottom: 16 }} />
+                        <Title level={4} style={{ color: '#64748B' }}>ไม่พบข้อมูลออเดอร์</Title>
+                        <Button type="primary" onClick={() => router.back()}>ย้อนกลับ</Button>
+                    </div>
                 </div>
-            </div>
+            </PageContainer>
         );
     }
 
-    const items = sortOrderItems(order.items || []);
     const payments = (order.payments || []) as PaymentWithMethod[];
     
     // Derived Data
@@ -181,6 +204,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
     const statusInfo = getStatusInfo(order.status);
 
     return (
+        <PageContainer maxWidth={99999} style={{ padding: 0 }}>
         <div style={{ 
             minHeight: '100vh', 
             background: '#F8FAFC',
@@ -652,5 +676,6 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                 />
             </div>
         </div>
+        </PageContainer>
     );
 }

@@ -296,7 +296,7 @@ export const getCancelOrderNavigationPath = (orderType?: string): string => {
 };
 
 interface CartItemInput {
-    product: { id: string; price: number | string };
+    product: { id: string; price: number | string; price_delivery?: number | string };
     quantity: number;
     notes?: string;
     details?: { detail_name: string; extra_price: number | string }[];
@@ -331,7 +331,10 @@ export const createOrderPayload = (
         delivery_id: options.deliveryId || null,
         delivery_code: options.deliveryCode || null,
         items: cartItems.map(item => {
-            const productPrice = Number(item.product.price);
+            const productPrice =
+                orderType === OrderType.Delivery
+                    ? Number(item.product.price_delivery ?? item.product.price)
+                    : Number(item.product.price);
             const detailsPrice = (item.details || []).reduce((sum: number, d) => sum + Number(d.extra_price), 0);
             const totalPrice = (productPrice + detailsPrice) * item.quantity;
 
@@ -348,4 +351,3 @@ export const createOrderPayload = (
         })
     };
 };
-

@@ -7,7 +7,7 @@ export const pageStyles = {
     container: {
         minHeight: '100vh',
         background: posColors.background,
-        fontFamily: "'Inter', 'Sarabun', sans-serif",
+        fontFamily: "var(--font-sans), 'Sarabun', sans-serif",
         paddingBottom: 60,
     } as CSSProperties,
 

@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Typography, Tag, Button, Empty, Input, Alert } from 'antd';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
+import { message, Modal, Typography, Tag, Button, Input, Alert, Space, Tooltip } from 'antd';
 import Image from "next/image";
 import { 
     ShopOutlined,
@@ -22,114 +22,25 @@ import { useAsyncAction } from "../../../../hooks/useAsyncAction";
 import { useSocket } from "../../../../hooks/useSocket";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { useRoleGuard } from "../../../../utils/pos/accessControl";
-import { useRealtimeList } from "../../../../utils/pos/realtime";
+import { useRealtimeList, useRealtimeRefresh } from "../../../../utils/pos/realtime";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
 import { pageStyles, globalStyles } from '../../../../theme/pos/products/style';
 import { useCategories } from '../../../../hooks/pos/useCategories';
 import { useProductsUnit } from '../../../../hooks/pos/useProductsUnit';
 import { formatPrice } from '../../../../utils/products/productDisplay.utils';
 import { checkProductSetupState, getSetupMissingMessage } from '../../../../utils/products/productSetup.utils';
+import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../components/ui/page/PageSection";
+import PageStack from "../../../../components/ui/page/PageStack";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import UIEmptyState from "../../../../components/ui/states/EmptyState";
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
-// ============ HEADER COMPONENT ============
-
-interface HeaderProps {
-    onRefresh: () => void;
-    onAdd: () => void;
-    onSearch: (value: string) => void;
-    disabledAdd?: boolean;
-}
-
-const PageHeader = ({ onRefresh, onAdd, onSearch, disabledAdd }: HeaderProps) => (
-    <div style={pageStyles.header}>
-        <div style={pageStyles.headerDecoCircle1} />
-        <div style={pageStyles.headerDecoCircle2} />
-        
-        <div className="products-header-content" style={pageStyles.headerContent}>
-            <div className="products-header-left" style={pageStyles.headerLeft}>
-                <div style={pageStyles.headerIconBox}>
-                    <ShopOutlined style={{ fontSize: 24, color: 'white' }} />
-                </div>
-                <div>
-                    <Text style={{ 
-                        color: 'rgba(255,255,255,0.85)', 
-                        fontSize: 13,
-                        display: 'block',
-                        textShadow: '0 1px 2px rgba(0,0,0,0.1)'
-                    }}>
-                        จัดการข้อมูล
-                    </Text>
-                    <Title level={4} style={{ 
-                        color: 'white', 
-                        margin: 0,
-                        fontWeight: 700,
-                        letterSpacing: '0.5px',
-                        textShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                    }}>
-                        สินค้า
-                    </Title>
-                </div>
-            </div>
-            
-            <div className="products-header-actions" style={pageStyles.headerActions}>
-                <Button
-                    type="text"
-                    icon={<ReloadOutlined style={{ color: 'white' }} />}
-                    onClick={onRefresh}
-                    style={{
-                        background: 'rgba(255,255,255,0.2)',
-                        backdropFilter: 'blur(4px)',
-                        borderRadius: 12,
-                        height: 40,
-                        width: 40,
-                        flexShrink: 0,
-                        border: '1px solid rgba(255,255,255,0.3)'
-                    }}
-                />
-                {!disabledAdd && (
-                    <Button
-                        type="primary"
-                        icon={<PlusOutlined />}
-                        onClick={onAdd}
-                        style={{
-                            background: 'white',
-                            color: '#4F46E5',
-                            borderRadius: 12,
-                            height: 40,
-                            fontWeight: 600,
-                            border: 'none',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-                            flexShrink: 0
-                        }}
-                    >
-                        <span className="products-add-btn-text">เพิ่มสินค้า</span>
-                    </Button>
-                )}
-            </div>
-        </div>
-
-        {/* Search Bar */}
-        <div style={{ marginTop: 24, padding: '0 4px' }}>
-            <Input 
-                prefix={<SearchOutlined style={{ color: '#fff', opacity: 0.7 }} />}
-                placeholder="ค้นหาสินค้า (ชื่อ, บาร์โค้ด)..."
-                onChange={(e) => onSearch(e.target.value)}
-                bordered={false}
-                style={{
-                    background: 'rgba(255,255,255,0.15)',
-                    backdropFilter: 'blur(8px)',
-                    borderRadius: 14,
-                    padding: '8px 16px',
-                    color: 'white',
-                    fontSize: 15,
-                }}
-                className="search-input-placeholder-white"
-            />
-        </div>
-    </div>
-);
+const PAGE_SIZE = 50;
+const SEARCH_DEBOUNCE_MS = 300;
 
 // ============ STATS CARD COMPONENT ============
 
@@ -252,6 +163,22 @@ const ProductCard = ({ product, index, onEdit, onDelete }: ProductCardProps) => 
                         >
                             {formatPrice(Number(product.price))}
                         </Tag>
+                        {Number(product.price_delivery ?? product.price) !== Number(product.price) && (
+                            <Tag
+                                style={{
+                                    borderRadius: 6,
+                                    margin: 0,
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    color: '#db2777',
+                                    background: '#fdf2f8',
+                                    border: 'none',
+                                    padding: '0 8px'
+                                }}
+                            >
+                                Delivery {formatPrice(Number(product.price_delivery ?? product.price))}
+                            </Tag>
+                        )}
                         {product.category?.display_name && (
                             <Tag 
                                 style={{ 
@@ -307,62 +234,21 @@ const ProductCard = ({ product, index, onEdit, onDelete }: ProductCardProps) => 
     );
 };
 
-// ============ EMPTY STATE COMPONENT ============
-
-const EmptyState = ({ onAdd, showAdd = true, isSearch }: { onAdd: () => void, showAdd?: boolean, isSearch?: boolean }) => (
-    <Empty
-        image={Empty.PRESENTED_IMAGE_SIMPLE}
-        description={
-            <div style={{ textAlign: 'center' }}>
-                <Text type="secondary" style={{ fontSize: 15 }}>
-                     {isSearch ? 'ไม่พบสินค้าที่ค้นหา' : 'ยังไม่มีสินค้า'}
-                </Text>
-                <br />
-                {!isSearch && (
-                    <Text type="secondary" style={{ fontSize: 13 }}>
-                        เริ่มต้นเพิ่มสินค้าแรกของคุณ
-                    </Text>
-                )}
-            </div>
-        }
-        style={{
-            padding: '60px 20px',
-            background: 'white',
-            borderRadius: 24,
-            margin: '24px 16px',
-            boxShadow: '0 4px 24px rgba(0,0,0,0.04)'
-        }}
-    >
-        {showAdd && !isSearch && (
-            <Button 
-                type="primary" 
-                icon={<PlusOutlined />} 
-                onClick={onAdd}
-                size="large"
-                style={{ 
-                    background: '#4F46E5', 
-                    borderRadius: 12,
-                    height: 48,
-                    padding: '0 32px',
-                    boxShadow: '0 4px 12px rgba(79, 70, 229, 0.3)',
-                    border: 'none'
-                }}
-            >
-                เพิ่มสินค้า
-            </Button>
-        )}
-    </Empty>
-);
-
 export default function ProductsPage() {
     const router = useRouter();
     const [products, setProducts] = useState<Products[]>([]);
-    const [filteredProducts, setFilteredProducts] = useState<Products[]>([]);
+    const [totalProducts, setTotalProducts] = useState(0);
+    const [activeProductsTotal, setActiveProductsTotal] = useState<number | null>(null);
+    const [page, setPage] = useState(1);
+    const [lastPage, setLastPage] = useState(1);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [searchText, setSearchText] = useState("");
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard({ requiredRole: "Admin" });
+    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ["Admin", "Manager"] });
+    const loadMoreRef = useRef<HTMLDivElement | null>(null);
+    const initialLoadRef = useRef(false);
     
     // Metadata State
     const [categories, setCategories] = useState<Category[]>([]);
@@ -388,67 +274,182 @@ export default function ProductsPage() {
 
     // Initial Cache Read
     useEffect(() => {
+        const cachedV2 = readCache<{
+            items: Products[];
+            total?: number;
+            last_page?: number;
+            active_total?: number;
+        }>("pos:products:v2", 10 * 60 * 1000);
+
+        if (cachedV2?.items && Array.isArray(cachedV2.items)) {
+            setProducts(cachedV2.items);
+            setTotalProducts(typeof cachedV2.total === "number" ? cachedV2.total : cachedV2.items.length);
+            setPage(1);
+            setLastPage(typeof cachedV2.last_page === "number" ? cachedV2.last_page : 1);
+            setActiveProductsTotal(typeof cachedV2.active_total === "number" ? cachedV2.active_total : null);
+            return;
+        }
+
         const cached = readCache<Products[]>("pos:products", 10 * 60 * 1000);
         if (cached && Array.isArray(cached)) {
             setProducts(cached);
+            setTotalProducts(cached.length);
+            setPage(1);
+            setLastPage(1);
         }
     }, []);
 
     const fetchProducts = useCallback(async () => {
         execute(async () => {
-            // Fetch all products for client-side filtering support
+            // Fetch paginated products (server-side search)
             const params = new URLSearchParams();
-            params.set("limit", "500");
-            
+            params.set("page", "1");
+            params.set("limit", PAGE_SIZE.toString());
+            if (searchText.trim()) params.set("q", searchText.trim());
+
+            const activeParams = new URLSearchParams(params);
+            activeParams.set("limit", "1");
+            activeParams.set("is_active", "true");
+
+            const [listResponse, activeResponse] = await Promise.all([
+                fetch(`/api/pos/products?${params.toString()}`),
+                fetch(`/api/pos/products?${activeParams.toString()}`),
+            ]);
+            if (!listResponse.ok) {
+                const errorData = await listResponse.json().catch(() => ({}));
+                throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลสินค้าได้');
+            }
+            if (!activeResponse.ok) {
+                const errorData = await activeResponse.json().catch(() => ({}));
+                throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงจำนวนสินค้าได้');
+            }
+
+            const data = await listResponse.json();
+            const activeData = await activeResponse.json();
+            const list: Products[] = data.data || [];
+            const total = typeof data.total === "number" ? data.total : list.length;
+            const currentPage = typeof data.page === "number" ? data.page : 1;
+            const last = typeof data.last_page === "number" ? data.last_page : 1;
+
+            setProducts(list);
+            setTotalProducts(total);
+            setPage(currentPage);
+            setLastPage(last);
+            setActiveProductsTotal(typeof activeData.total === "number" ? activeData.total : null);
+
+            if (!searchText.trim()) {
+                writeCache("pos:products:v2", {
+                    items: list,
+                    total,
+                    last_page: last,
+                    active_total: typeof activeData.total === "number" ? activeData.total : undefined,
+                });
+            }
+        }, 'กำลังโหลดข้อมูลสินค้า...');
+    }, [execute, searchText]);
+
+    useEffect(() => {
+        if (!isAuthorized) return;
+
+        if (!initialLoadRef.current) {
+            initialLoadRef.current = true;
+            fetchProducts();
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            fetchProducts();
+        }, SEARCH_DEBOUNCE_MS);
+
+        return () => clearTimeout(timer);
+    }, [isAuthorized, fetchProducts, searchText]);
+
+    useRealtimeRefresh({
+        socket,
+        events: [RealtimeEvents.products.create, RealtimeEvents.products.update, RealtimeEvents.products.delete],
+        onRefresh: fetchProducts,
+        enabled: isAuthorized,
+        debounceMs: 400,
+    });
+
+    const fetchMoreProducts = useCallback(async () => {
+        if (isLoadingMore) return;
+        if (page >= lastPage) return;
+
+        setIsLoadingMore(true);
+        try {
+            const q = searchText.trim();
+            const nextPage = page + 1;
+            const params = new URLSearchParams();
+            params.set("page", nextPage.toString());
+            params.set("limit", PAGE_SIZE.toString());
+            if (q) params.set("q", q);
+
             const response = await fetch(`/api/pos/products?${params.toString()}`);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลสินค้าได้');
+                throw new Error(errorData.error || errorData.message || "โหลดข้อมูลเพิ่มเติมไม่สำเร็จ");
             }
+
             const data = await response.json();
-            const list = data.data || [];
-            setProducts(list);
-            writeCache("pos:products", list);
-        }, 'กำลังโหลดข้อมูลสินค้า...');
-    }, [execute]);
+            const incoming: Products[] = data.data || [];
+            const total = typeof data.total === "number" ? data.total : totalProducts;
+            const currentPage = typeof data.page === "number" ? data.page : nextPage;
+            const last = typeof data.last_page === "number" ? data.last_page : lastPage;
+
+            setProducts((prev) => {
+                if (incoming.length === 0) return prev;
+                const indexById = new Map(prev.map((p, idx) => [p.id, idx]));
+                const next = [...prev];
+                for (const item of incoming) {
+                    const idx = indexById.get(item.id);
+                    if (idx === undefined) {
+                        next.push(item);
+                    } else {
+                        next[idx] = item;
+                    }
+                }
+                return next;
+            });
+
+            setTotalProducts(total);
+            setPage(currentPage);
+            setLastPage(last);
+        } catch (err) {
+            message.error(err instanceof Error ? err.message : "โหลดข้อมูลเพิ่มเติมไม่สำเร็จ");
+        } finally {
+            setIsLoadingMore(false);
+        }
+    }, [isLoadingMore, page, lastPage, searchText, totalProducts]);
 
     useEffect(() => {
-        if (isAuthorized) {
-            fetchProducts();
-        }
-    }, [isAuthorized, fetchProducts]);
+        const el = loadMoreRef.current;
+        if (!el) return;
 
-    useRealtimeList(
-        socket,
-        { create: "products:create", update: "products:update", delete: "products:delete" },
-        setProducts
-    );
+        const observer = new IntersectionObserver(
+            (entries) => {
+                const entry = entries[0];
+                if (!entry?.isIntersecting) return;
+                fetchMoreProducts();
+            },
+            { root: null, rootMargin: "400px 0px", threshold: 0 }
+        );
 
-     // Client-side filtering
-     useEffect(() => {
-        if (searchText) {
-            const lower = searchText.toLowerCase();
-            const filtered = products.filter((p: Products) => 
-                (p.display_name?.toLowerCase().includes(lower)) || 
-                (p.product_name?.toLowerCase().includes(lower))
-            );
-            setFilteredProducts(filtered);
-        } else {
-            setFilteredProducts(products);
-        }
-    }, [products, searchText]);
+        observer.observe(el);
+        return () => observer.disconnect();
+    }, [fetchMoreProducts]);
 
 
     // Real-time Metadata Updates
     useRealtimeList(
         socket,
-        { create: "category:create", update: "category:update", delete: "category:delete" },
+        { create: RealtimeEvents.categories.create, update: RealtimeEvents.categories.update, delete: RealtimeEvents.categories.delete },
         setCategories
     );
 
     useRealtimeList(
         socket,
-        { create: "productsUnit:create", update: "productsUnit:update", delete: "productsUnit:delete" },
+        { create: RealtimeEvents.productsUnit.create, update: RealtimeEvents.productsUnit.update, delete: RealtimeEvents.productsUnit.delete },
         setUnits
     );
 
@@ -502,8 +503,8 @@ export default function ProductsPage() {
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
     }
 
-    const activeProducts = products.filter(p => p.is_active);
-    const inactiveProducts = products.filter(p => !p.is_active);
+    const activeCount = activeProductsTotal ?? products.filter((p) => p.is_active).length;
+    const inactiveCount = Math.max((totalProducts || products.length) - activeCount, 0);
 
     // Initial Setup Check using Utility
     const setupState = checkProductSetupState(categories, units);
@@ -514,54 +515,50 @@ export default function ProductsPage() {
         return (
             <div className="products-page" style={pageStyles.container}>
                 <style>{globalStyles}</style>
-                <PageHeader 
-                    onRefresh={fetchProducts}
-                    onAdd={handleAdd}
-                    onSearch={handleSearch}
-                    disabledAdd={!hasMetadata}
+
+                <UIPageHeader
+                    title="สินค้า"
+                    subtitle="ตั้งค่าระบบก่อนเพิ่มสินค้า"
+                    icon={<ShopOutlined />}
+                    actions={
+                        <Space size={8} wrap>
+                            <Button icon={<ReloadOutlined />} onClick={fetchProducts} />
+                            <Tooltip title="ต้องเพิ่มหมวดหมู่สินค้าและหน่วยสินค้าก่อน">
+                                <Button type="primary" icon={<PlusOutlined />} disabled>
+                                    เพิ่มสินค้า
+                                </Button>
+                            </Tooltip>
+                        </Space>
+                    }
                 />
-                <div style={{ ...pageStyles.listContainer, padding: '40px 20px' }}>
-                    <div style={{ 
-                        background: '#fff', 
-                        borderRadius: 24, 
-                        padding: '80px 24px', 
-                        textAlign: 'center',
-                        boxShadow: '0 4px 24px rgba(0,0,0,0.04)'
-                    }}>
-                        <Empty 
-                            image={Empty.PRESENTED_IMAGE_SIMPLE}
-                            description={
-                                <div style={{ marginTop: 20 }}>
-                                    <Title level={4} style={{ marginBottom: 8, color: '#334155' }}>ยังไม่พร้อมเพิ่มสินค้า</Title>
-                                    <Text type="secondary" style={{ fontSize: 16 }}>{getSetupMissingMessage(categories, units)}</Text>
-                                </div>
+
+                <PageContainer>
+                    <PageStack>
+                        <UIEmptyState
+                            title="ยังไม่พร้อมเพิ่มสินค้า"
+                            description={getSetupMissingMessage(categories, units)}
+                            action={
+                                <Space size={12} wrap>
+                                    {!setupState.hasCategories && (
+                                        <Button type="primary" onClick={() => router.push("/pos/category")}>
+                                            เพิ่มหมวดหมู่สินค้า
+                                        </Button>
+                                    )}
+                                    {!setupState.hasUnits && (
+                                        <Button type="primary" onClick={() => router.push("/pos/productsUnit")}>
+                                            เพิ่มหน่วยสินค้า
+                                        </Button>
+                                    )}
+                                    <Tooltip title="ต้องเพิ่มหมวดหมู่สินค้าและหน่วยสินค้าก่อน">
+                                        <Button type="primary" icon={<PlusOutlined />} disabled>
+                                            เพิ่มสินค้า
+                                        </Button>
+                                    </Tooltip>
+                                </Space>
                             }
-                        >
-                            <div style={{ display: 'flex', gap: 16, justifyContent: 'center', marginTop: 24, flexWrap: 'wrap' }}>
-                                {!setupState.hasCategories && (
-                                    <Button 
-                                        type="primary" 
-                                        size="large"
-                                        onClick={() => router.push("/pos/category")}
-                                        style={{ height: 45, borderRadius: 12, background: '#4F46E5', border: 'none' }}
-                                    >
-                                        เพิ่มหมวดหมู่สินค้า
-                                    </Button>
-                                )}
-                                {!setupState.hasUnits && (
-                                    <Button 
-                                        type="primary" 
-                                        size="large"
-                                        onClick={() => router.push("/pos/productsUnit")}
-                                        style={{ height: 45, borderRadius: 12, background: '#10B981', border: 'none' }}
-                                    >
-                                        เพิ่มหน่วยสินค้า
-                                    </Button>
-                                )}
-                            </div>
-                        </Empty>
-                    </div>
-                </div>
+                        />
+                    </PageStack>
+                </PageContainer>
             </div>
         );
     }
@@ -579,95 +576,138 @@ export default function ProductsPage() {
                 .product-card {
                     cursor: pointer;
                     -webkit-tap-highlight-color: transparent;
+                    content-visibility: auto;
+                    contain-intrinsic-size: 160px 120px;
                 }
             `}</style>
             
             {/* Header */}
-            <PageHeader 
-                onRefresh={fetchProducts}
-                onAdd={handleAdd}
-                onSearch={handleSearch}
-                disabledAdd={!hasMetadata}
+            <UIPageHeader
+                title="สินค้า"
+                subtitle={`${totalProducts || products.length} รายการ`}
+                icon={<ShopOutlined />}
+                actions={
+                    <Space size={8} wrap>
+                        <Input
+                            prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
+                            allowClear
+                            placeholder="ค้นหาสินค้า (ชื่อ, หมวดหมู่)..."
+                            onChange={(e) => handleSearch(e.target.value)}
+                            style={{ minWidth: 240 }}
+                        />
+                        <Button icon={<ReloadOutlined />} onClick={fetchProducts} />
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={handleAdd}
+                            disabled={!hasMetadata}
+                        >
+                            เพิ่มสินค้า
+                        </Button>
+                    </Space>
+                }
             />
 
-            {!isMetadataLoading && !hasMetadata && products.length > 0 && (
-                <div style={{ margin: '0 16px 20px', position: 'relative', zIndex: 10 }}>
-                    <Alert
-                        message="ตั้งค่าไม่สมบูรณ์"
-                        description={getSetupMissingMessage(categories, units)}
-                        type="warning"
-                        showIcon
-                        style={{ borderRadius: 16, border: 'none', boxShadow: '0 4px 12px rgba(251, 146, 60, 0.1)' }}
-                        action={
-                            <div style={{ display: 'flex', gap: 8 }}>
-                                {!setupState.hasCategories && (
-                                    <Button size="small" type="primary" ghost onClick={() => router.push("/pos/category")}>
-                                        เพิ่มหมวดหมู่
-                                    </Button>
-                                )}
-                                {!setupState.hasUnits && (
-                                    <Button size="small" type="primary" ghost onClick={() => router.push("/pos/productsUnit")}>
-                                        เพิ่มหน่วยสินค้า
-                                    </Button>
-                                )}
-                            </div>
-                        }
-                    />
-                </div>
-            )}
-            
-            {/* Stats Card */}
-            <div style={{ marginTop: -32, padding: '0 16px', position: 'relative', zIndex: 10 }}>
-                <StatsCard 
-                    totalProducts={products.length}
-                    activeProducts={activeProducts.length}
-                    inactiveProducts={inactiveProducts.length}
-                />
-            </div>
-
-            {/* Products List */}
-            <div style={pageStyles.listContainer}>
-                {filteredProducts.length > 0 ? (
-                    <>
-                        <div style={pageStyles.sectionTitle}>
-                            <div style={{ 
-                                width: 4, 
-                                height: 16, 
-                                background: '#4F46E5', 
-                                borderRadius: 2 
-                            }} />
-                            <span style={{ fontSize: 16, fontWeight: 700, color: '#1E293B' }}>
-                                รายการสินค้า
-                            </span>
-                            <div style={{
-                                background: '#EEF2FF',
-                                color: '#4F46E5',
-                                padding: '2px 10px',
-                                borderRadius: 12,
-                                fontSize: 12,
-                                fontWeight: 700,
-                                marginLeft: 'auto'
-                            }}>
-                                {filteredProducts.length}
-                            </div>
-                        </div>
-
-                        {filteredProducts.map((product, index) => (
-                            <ProductCard
-                                key={product.id}
-                                product={product}
-                                index={index}
-                                onEdit={handleEdit}
-                                onDelete={handleDelete}
+            <PageContainer>
+                <PageStack>
+                    {!isMetadataLoading && !hasMetadata && products.length > 0 && (
+                        <PageSection title="ต้องตั้งค่าก่อนเพิ่มสินค้า">
+                            <Alert
+                                message="ยังตั้งค่าระบบไม่ครบ"
+                                description={getSetupMissingMessage(categories, units)}
+                                type="warning"
+                                showIcon
+                                action={
+                                    <div style={{ display: 'flex', gap: 8 }}>
+                                        {!setupState.hasCategories && (
+                                            <Button size="small" type="primary" ghost onClick={() => router.push("/pos/category")}> 
+                                                เพิ่มหมวดหมู่
+                                            </Button>
+                                        )}
+                                        {!setupState.hasUnits && (
+                                            <Button size="small" type="primary" ghost onClick={() => router.push("/pos/productsUnit")}> 
+                                                เพิ่มหน่วยสินค้า
+                                            </Button>
+                                        )}
+                                    </div>
+                                }
                             />
-                        ))}
-                    </>
-                ) : (
-                    <EmptyState onAdd={handleAdd} showAdd={hasMetadata} isSearch={!!searchText} />
-                )}
-            </div>
-             {/* Bottom padding */}
-             <div style={{ height: 40 }} />
+                        </PageSection>
+                    )}
+
+                    <StatsCard
+                        totalProducts={totalProducts || products.length}
+                        activeProducts={activeCount}
+                        inactiveProducts={inactiveCount}
+                    />
+
+                    <PageSection
+                        title="รายการสินค้า"
+                        extra={
+                            <span style={{ fontWeight: 600 }}>
+                                {totalProducts ? `${products.length}/${totalProducts}` : products.length}
+                            </span>
+                        }
+                    >
+                        {products.length > 0 ? (
+                            <>
+                                {products.map((product, index) => (
+                                    <ProductCard
+                                        key={product.id}
+                                        product={product}
+                                        index={index}
+                                        onEdit={handleEdit}
+                                        onDelete={handleDelete}
+                                    />
+                                ))}
+
+                                <div style={{ display: "flex", justifyContent: "center", padding: "16px 0 4px" }}>
+                                    {page < lastPage ? (
+                                        <Button
+                                            onClick={fetchMoreProducts}
+                                            loading={isLoadingMore}
+                                            style={{ borderRadius: 12 }}
+                                        >
+                                            โหลดเพิ่ม
+                                        </Button>
+                                    ) : (
+                                        <Text type="secondary" style={{ fontSize: 12 }}>
+                                            ไม่มีสินค้าเพิ่มเติม
+                                        </Text>
+                                    )}
+                                </div>
+                                <div ref={loadMoreRef} style={{ height: 1 }} />
+                            </>
+                        ) : (
+                            <UIEmptyState
+                                title={
+                                    searchText.trim()
+                                        ? "ไม่พบสินค้าที่ค้นหา"
+                                        : "ยังไม่มีสินค้า"
+                                }
+                                description={
+                                    searchText.trim()
+                                        ? "ลองค้นหาด้วยคำอื่นหรือล้างการค้นหา"
+                                        : "เพิ่มสินค้ารายการแรกเพื่อเริ่มต้นขาย"
+                                }
+                                action={
+                                    !searchText.trim() ? (
+                                        <Button
+                                            type="primary"
+                                            icon={<PlusOutlined />}
+                                            onClick={handleAdd}
+                                            disabled={!hasMetadata}
+                                        >
+                                            เพิ่มสินค้า
+                                        </Button>
+                                    ) : null
+                                }
+                            />
+                        )}
+                    </PageSection>
+                </PageStack>
+            </PageContainer>
+
         </div>
     );
 }

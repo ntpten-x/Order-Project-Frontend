@@ -2,6 +2,7 @@ import { Branch, CreateBranchInput, UpdateBranchInput } from "../types/api/branc
 import { API_ROUTES } from "../config/api";
 import { getProxyUrl } from "../lib/proxy-utils";
 import { BranchSchema, BranchesResponseSchema } from "../schemas/api/branch.schema";
+import { getBackendErrorMessage, unwrapBackendData } from "../utils/api/backendResponse";
 
 const BASE_PATH = API_ROUTES.POS.BRANCH;
 
@@ -19,7 +20,7 @@ export const branchService = {
         if (!response.ok) throw new Error('Failed to fetch branches');
 
         const json = await response.json();
-        return BranchesResponseSchema.parse(json) as unknown as Branch[];
+        return BranchesResponseSchema.parse(unwrapBackendData(json)) as unknown as Branch[];
     },
 
     getById: async (id: string, cookie?: string): Promise<Branch> => {
@@ -35,7 +36,7 @@ export const branchService = {
         if (!response.ok) throw new Error('Failed to fetch branch');
 
         const json = await response.json();
-        return BranchSchema.parse(json) as unknown as Branch;
+        return BranchSchema.parse(unwrapBackendData(json)) as unknown as Branch;
     },
 
     create: async (data: CreateBranchInput, cookie?: string, csrfToken?: string): Promise<Branch> => {
@@ -52,9 +53,9 @@ export const branchService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || 'Failed to create branch');
+            throw new Error(getBackendErrorMessage(errorData, 'Failed to create branch'));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Branch;
     },
 
     update: async (id: string, data: UpdateBranchInput, cookie?: string, csrfToken?: string): Promise<Branch> => {
@@ -71,9 +72,9 @@ export const branchService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || 'Failed to update branch');
+            throw new Error(getBackendErrorMessage(errorData, 'Failed to update branch'));
         }
-        return response.json();
+        return unwrapBackendData(await response.json()) as Branch;
     },
 
     delete: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
@@ -89,7 +90,7 @@ export const branchService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData.error || errorData.message || 'Failed to delete branch');
+            throw new Error(getBackendErrorMessage(errorData, 'Failed to delete branch'));
         }
     }
 };
