@@ -134,6 +134,26 @@
       "static/css/common.css",
       "static/chunks/common.js",
       "static/chunks/app/(main)/pos/category/manager/[...mode]/page.js"
+    ],
+    "/(main)/pos/productsUnit/page": [
+      "static/chunks/webpack.js",
+      "static/css/vendor.css",
+      "static/chunks/vendor.js",
+      "static/chunks/main-app.js",
+      "static/chunks/antd.js",
+      "static/css/common.css",
+      "static/chunks/common.js",
+      "static/chunks/app/(main)/pos/productsUnit/page.js"
+    ],
+    "/(main)/pos/productsUnit/manager/[...mode]/page": [
+      "static/chunks/webpack.js",
+      "static/css/vendor.css",
+      "static/chunks/vendor.js",
+      "static/chunks/main-app.js",
+      "static/chunks/antd.js",
+      "static/css/common.css",
+      "static/chunks/common.js",
+      "static/chunks/app/(main)/pos/productsUnit/manager/[...mode]/page.js"
     ]
   }
 }
