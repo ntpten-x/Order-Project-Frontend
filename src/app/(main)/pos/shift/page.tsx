@@ -9,6 +9,7 @@ import {
     StopOutlined,
     RiseOutlined,
     SafetyCertificateOutlined,
+    HistoryOutlined,
     ReloadOutlined,
     WalletOutlined,
     ShoppingOutlined
@@ -175,6 +176,9 @@ export default function ShiftPage() {
                 actions={
                     <Space size={8}>
                         <Button icon={<ReloadOutlined />} onClick={handleRefresh} />
+                        <Button icon={<HistoryOutlined />} onClick={() => router.push('/pos/shiftHistory')}>
+                            ประวัติกะ
+                        </Button>
                         {!currentShift ? (
                             <Button type="primary" icon={<PlayCircleOutlined />} onClick={() => setOpenShiftVisible(true)}>
                                 เปิดกะ
