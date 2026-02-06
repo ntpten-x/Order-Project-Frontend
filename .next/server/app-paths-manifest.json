@@ -1,14 +1,5 @@
 {
-  "/api/auth/me/route": "app/api/auth/me/route.js",
-  "/api/pos/shifts/current/route": "app/api/pos/shifts/current/route.js",
-  "/api/pos/products/route": "app/api/pos/products/route.js",
-  "/api/pos/category/route": "app/api/pos/category/route.js",
-  "/api/csrf/route": "app/api/csrf/route.js",
-  "/api/pos/shifts/history/route": "app/api/pos/shifts/history/route.js",
-  "/api/pos/shifts/current/summary/route": "app/api/pos/shifts/current/summary/route.js",
-  "/(main)/pos/tables/manager/[...mode]/page": "app/(main)/pos/tables/manager/[...mode]/page.js",
-  "/(main)/pos/shift/page": "app/(main)/pos/shift/page.js",
-  "/(main)/pos/channels/page": "app/(main)/pos/channels/page.js",
-  "/(main)/pos/channels/takeaway/page": "app/(main)/pos/channels/takeaway/page.js",
-  "/(main)/pos/shiftHistory/page": "app/(main)/pos/shiftHistory/page.js"
+  "/api/pos/payment-accounts/accounts/route": "app/api/pos/payment-accounts/accounts/route.js",
+  "/api/pos/payment-accounts/accounts/[id]/activate/route": "app/api/pos/payment-accounts/accounts/[id]/activate/route.js",
+  "/(main)/pos/settings/payment-accounts/[...mode]/page": "app/(main)/pos/settings/payment-accounts/[...mode]/page.js"
 }

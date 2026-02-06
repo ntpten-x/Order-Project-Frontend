@@ -6,6 +6,17 @@ import { getBackendErrorMessage, unwrapBackendData } from "../../utils/api/backe
 // Assuming we add a new route constant or just use a hardcoded path for now if not in config
 const BASE_PATH = "/pos/payment-accounts";
 
+type BackendErrorPayload = {
+    error?: {
+        code?: string;
+    };
+};
+
+const getErrorCode = (payload: unknown): string | undefined => {
+    if (!payload || typeof payload !== "object") return undefined;
+    return (payload as BackendErrorPayload).error?.code;
+};
+
 export const paymentAccountService = {
     getBasePath: (shopId?: string) => {
         const url = getProxyUrl("GET", `${BASE_PATH}/accounts`);
@@ -28,6 +39,7 @@ export const paymentAccountService = {
             const errorData = await response.json().catch(() => ({}));
             const err: Error & { status?: number } = new Error(getBackendErrorMessage(errorData, "Failed to fetch accounts"));
             err.status = response.status;
+            (err as Error & { code?: string }).code = getErrorCode(errorData);
             throw err;
         }
 
@@ -53,6 +65,7 @@ export const paymentAccountService = {
             const errorData = await response.json().catch(() => ({}));
             const err: Error & { status?: number } = new Error(getBackendErrorMessage(errorData, "Failed to create account"));
             err.status = response.status;
+            (err as Error & { code?: string }).code = getErrorCode(errorData);
             throw err;
         }
         return unwrapBackendData(await response.json()) as ShopPaymentAccount;
@@ -77,6 +90,7 @@ export const paymentAccountService = {
             const errorData = await response.json().catch(() => ({}));
             const err: Error & { status?: number } = new Error(getBackendErrorMessage(errorData, "Failed to update account"));
             err.status = response.status;
+            (err as Error & { code?: string }).code = getErrorCode(errorData);
             throw err;
         }
         return unwrapBackendData(await response.json()) as ShopPaymentAccount;
@@ -101,6 +115,7 @@ export const paymentAccountService = {
             const errorData = await response.json().catch(() => ({}));
             const err: Error & { status?: number } = new Error(getBackendErrorMessage(errorData, "Failed to activate account"));
             err.status = response.status;
+            (err as Error & { code?: string }).code = getErrorCode(errorData);
             throw err;
         }
         return unwrapBackendData(await response.json()) as ShopPaymentAccount;
@@ -124,6 +139,7 @@ export const paymentAccountService = {
             const errorData = await response.json().catch(() => ({}));
             const err: Error & { status?: number } = new Error(getBackendErrorMessage(errorData, "Failed to delete account"));
             err.status = response.status;
+            (err as Error & { code?: string }).code = getErrorCode(errorData);
             throw err;
         }
     }
