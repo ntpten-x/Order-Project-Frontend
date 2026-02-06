@@ -18,7 +18,7 @@ import {
 import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
 import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
 import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuard';
-import { ManagePageStyles, pageStyles } from './style';
+import { pageStyles } from '../../../../../../theme/pos/paymentMethod/style';
 import { PaymentMethod } from '../../../../../../types/api/pos/paymentMethod';
 
 type ManageMode = 'add' | 'edit';
@@ -117,6 +117,9 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
     const [form] = Form.useForm<PaymentMethodFormValues>();
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
+    const [displayName, setDisplayName] = useState<string>('');
+    const [paymentMethodName, setPaymentMethodName] = useState<string>('');
+    const [isActive, setIsActive] = useState<boolean>(true);
     const [csrfToken, setCsrfToken] = useState<string>('');
     const [originalPaymentMethod, setOriginalPaymentMethod] = useState<PaymentMethod | null>(null);
     const [currentMethodName, setCurrentMethodName] = useState<string>('');
@@ -126,10 +129,6 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
     const isValidMode = mode === 'add' || mode === 'edit';
     const isEdit = mode === 'edit' && Boolean(id);
     const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager'] });
-
-    const paymentMethodName = Form.useWatch('payment_method_name', form) || '';
-    const displayName = Form.useWatch('display_name', form) || '';
-    const isActive = Form.useWatch('is_active', form) ?? true;
 
     const modeTitle = useMemo(() => {
         if (isEdit) return 'แก้ไขวิธีการชำระเงิน';
@@ -163,6 +162,9 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                 display_name: data.display_name,
                 is_active: data.is_active,
             });
+            setDisplayName(data.display_name || '');
+            setPaymentMethodName(data.payment_method_name || '');
+            setIsActive(data.is_active);
             setCurrentMethodName((data.payment_method_name || '').toLowerCase());
             setOriginalPaymentMethod(data);
         } catch (error) {
@@ -281,7 +283,6 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
 
     return (
         <div className="manage-page" style={pageStyles.container as React.CSSProperties}>
-            <ManagePageStyles />
             <UIPageHeader
                 title={modeTitle}
                 subtitle={isEdit ? 'ปรับแก้ชื่อและสถานะวิธีการชำระเงิน' : 'สร้างวิธีการชำระเงินใหม่ให้พร้อมใช้งาน'}
@@ -325,16 +326,12 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                                         requiredMark={false}
                                         autoComplete="off"
                                         initialValues={{ is_active: true }}
+                                        onValuesChange={(changedValues) => {
+                                            if (changedValues.display_name !== undefined) setDisplayName(changedValues.display_name);
+                                            if (changedValues.payment_method_name !== undefined) setPaymentMethodName(changedValues.payment_method_name);
+                                            if (changedValues.is_active !== undefined) setIsActive(changedValues.is_active);
+                                        }}
                                     >
-                                        <Alert
-                                            showIcon
-                                            type="info"
-                                            icon={<InfoCircleOutlined />}
-                                            message="ข้อมูลที่จำเป็น"
-                                            description="ชื่อในระบบเลือกได้เฉพาะ 3 แบบ: Cash, PromptPay, Delivery และระบบจะตั้งชื่อที่แสดงให้อัตโนมัติ"
-                                            style={{ marginBottom: 18 }}
-                                        />
-
                                         <Form.Item
                                             name="payment_method_name"
                                             label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อในระบบ (payment_method_name)</span>}
@@ -354,12 +351,17 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                                             ]}
                                         >
                                             {isEdit ? (
-                                                <Input size="large" disabled />
+                                                <Input
+                                                    size="large"
+                                                    disabled
+                                                    style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
+                                                />
                                             ) : (
                                                 <Select
                                                     size="large"
                                                     placeholder="เลือกชื่อในระบบ"
                                                     getPopupContainer={() => document.body}
+                                                    style={{ borderRadius: 12 }}
                                                     options={ALLOWED_PAYMENT_METHODS.map((method) => ({
                                                         value: method.payment_method_name,
                                                         label: `${method.payment_method_name} (${method.display_name})`,
@@ -368,6 +370,8 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                                                         const selected = ALLOWED_PAYMENT_METHODS.find((method) => method.payment_method_name === value);
                                                         if (selected) {
                                                             form.setFieldsValue({ display_name: selected.display_name });
+                                                            setDisplayName(selected.display_name);
+                                                            setPaymentMethodName(selected.payment_method_name);
                                                         }
                                                     }}
                                                 />
@@ -382,10 +386,15 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                                                 { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
                                             ]}
                                         >
-                                            <Input size="large" disabled />
+                                            <Input
+                                                size="large"
+                                                disabled
+                                                maxLength={100}
+                                                style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
+                                            />
                                         </Form.Item>
 
-                                        <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: 14, marginTop: 8, marginBottom: 18 }}>
+                                        <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: 14, marginTop: 16, marginBottom: 18 }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
                                                 <div>
                                                     <Text strong style={{ fontSize: 15, display: 'block' }}>สถานะการใช้งาน</Text>
@@ -396,6 +405,15 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                                                 </Form.Item>
                                             </div>
                                         </div>
+
+                                        <Alert
+                                            showIcon
+                                            type="info"
+                                            icon={<InfoCircleOutlined />}
+                                            message="ข้อมูลที่จำเป็น"
+                                            description="ชื่อในระบบเลือกได้เฉพาะ 3 แบบ: Cash, PromptPay, Delivery และระบบจะตั้งชื่อที่แสดงให้อัตโนมัติ"
+                                            style={{ marginBottom: 24 }}
+                                        />
 
                                         <div style={{ marginTop: 12, display: 'flex', gap: 12 }}>
                                             <Button
@@ -455,3 +473,4 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
         </div>
     );
 }
+
