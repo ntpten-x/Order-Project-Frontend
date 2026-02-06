@@ -33,7 +33,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
     }
 
     // connect to backend
-    const socketUrl = process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:3001";
+    const socketUrl = process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:4000";
     const branchId = user.branch?.id || user.branch_id || null;
     const socketInstance = io(socketUrl, {
         transports: ["websocket"],

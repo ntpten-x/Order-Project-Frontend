@@ -1,223 +1,155 @@
 ﻿'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { Form, Input, message, Spin, Switch, Modal, Typography, Button } from 'antd';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { Form, Input, message, Spin, Switch, Modal, Button, Card, Row, Col, Typography, Alert, Avatar } from 'antd';
 import { useRouter } from 'next/navigation';
-import PageContainer from "../../../../../../components/ui/page/PageContainer";
-import PageSection from "../../../../../../components/ui/page/PageSection";
-import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
+import PageContainer from '../../../../../../components/ui/page/PageContainer';
+import PageSection from '../../../../../../components/ui/page/PageSection';
+import UIPageHeader from '../../../../../../components/ui/page/PageHeader';
 import {
     DeleteOutlined,
     SaveOutlined,
     CarOutlined,
-    CheckCircleFilled
+    CheckCircleFilled,
+    AppstoreOutlined,
+    InfoCircleOutlined,
+    ExclamationCircleOutlined
 } from '@ant-design/icons';
-import Image from "next/image";
-import { globalStyles, pageStyles } from '../../../../../../theme/pos/delivery/style';
-import { getCsrfTokenCached } from "../../../../../../utils/pos/csrf";
-import { useRoleGuard } from "../../../../../../utils/pos/accessControl";
-import { AccessGuardFallback } from "../../../../../../components/pos/AccessGuard";
-import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingContext";
+import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
+import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
+import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuard';
+import { pageStyles } from '../../../../../../theme/pos/delivery/style';
+import { Delivery } from '../../../../../../types/api/pos/delivery';
+
+type DeliveryManageMode = 'add' | 'edit';
+
+type DeliveryFormValues = {
+    delivery_name: string;
+    delivery_prefix?: string;
+    logo?: string;
+    is_active?: boolean;
+};
 
 const { Title, Text } = Typography;
 
-// ============ REUSABLE COMPONENTS ============
+const formatDate = (raw?: string | Date) => {
+    if (!raw) return '-';
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return '-';
+    return new Intl.DateTimeFormat('th-TH', {
+        dateStyle: 'medium',
+        timeStyle: 'short'
+    }).format(date);
+};
 
-const ManagePageStyles = () => (
-    <>
-        <style>{globalStyles}</style>
-        <style jsx global>{`
-            .ant-form-item-label > label {
-                font-size: 15px;
-                font-weight: 500;
-                color: #334155;
-            }
-            .ant-input-lg, .ant-input-number-lg {
-                border-radius: 12px;
-                padding: 10px 16px;
-                font-size: 16px;
-                border-color: #E2E8F0;
-            }
-            .ant-input-lg:hover, .ant-input-number-lg:hover {
-                border-color: #0891B2;
-            }
-            .ant-input-lg:focus, .ant-input-number-lg:focus {
-                border-color: #0891B2;
-                box-shadow: 0 0 0 2px rgba(8, 145, 178, 0.1);
-            }
-            .ant-card-bordered {
-                border-color: #E2E8F0;
-            }
-        `}</style>
-    </>
-);
+const DeliveryPreviewCard = ({
+    deliveryName,
+    deliveryPrefix,
+    logo,
+    isActive
+}: {
+    deliveryName: string;
+    deliveryPrefix: string;
+    logo: string;
+    isActive: boolean;
+}) => (
+    <div style={{
+        background: 'white',
+        borderRadius: 20,
+        padding: 20,
+        boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
+        border: '1px solid #F1F5F9',
+    }}>
+        <Title level={5} style={{ color: '#0891B2', marginBottom: 16, fontWeight: 700 }}>ตัวอย่างการแสดงผล</Title>
 
-// Preview Component
-const DeliveryPreview = ({ name, logo }: { name?: string, logo?: string }) => {
-    // Determine active status for preview (always active visually to look good)
-    // Determine active status for preview (always active visually to look good)
-    
-    return (
-        <div style={{ 
-            background: 'white', 
-            borderRadius: 24, 
-            padding: 24,
-            boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
-            border: '1px solid #F1F5F9',
-            height: '100%',
+        <div style={{
+            borderRadius: 16,
+            border: `1px solid ${isActive ? '#a5f3fc' : '#e2e8f0'}`,
+            padding: 14,
+            background: isActive ? '#ecfeff' : '#f8fafc',
             display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center'
+            alignItems: 'center',
+            gap: 12,
+            marginBottom: 16,
         }}>
-            <Title level={5} style={{ color: '#94A3B8', marginBottom: 20, fontWeight: 600, width: '100%', textAlign: 'left' }}>
-                ตัวอย่างการแสดงผล
-            </Title>
-            
-            <div style={{ 
-                width: '100%',
-                background: 'white',
-                borderRadius: 16,
-                border: '1px solid #E2E8F0',
-                padding: '16px',
-                display: 'flex',
-                alignItems: 'center',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
-                maxWidth: 400
-            }}>
-                 {/* Icon */}
-                 <div style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 16,
-                    background: 'linear-gradient(135deg, #CFFAFE 0%, #A5F3FC 100%)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                    marginRight: 16,
-                    overflow: 'hidden',
-                    position: 'relative',
-                    boxShadow: '0 4px 10px rgba(8, 145, 178, 0.1)'
-                }}>
-                    {logo ? (
-                        <Image 
-                            src={logo} 
-                            alt={name || 'Logo'} 
-                            fill
-                            sizes="56px"
-                            style={{ objectFit: 'contain', padding: 8 }} 
-                            onError={(e) => {
-                                // Fallback if image fails to load
-                                (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                        />
-                    ) : (
-                        <CarOutlined style={{ fontSize: 24, color: '#0891B2' }} />
-                    )}
-                </div>
+            <Avatar
+                shape="square"
+                size={48}
+                src={logo || undefined}
+                icon={<CarOutlined />}
+                style={{
+                    borderRadius: 12,
+                    background: isActive ? 'linear-gradient(135deg, #cffafe 0%, #a5f3fc 100%)' : '#e2e8f0',
+                    color: isActive ? '#0891B2' : '#64748b'
+                }}
+            />
 
-                {/* Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                        <Text strong style={{ fontSize: 16, color: '#1E293B' }}>
-                            {name || 'ชื่อบริการส่ง'}
-                        </Text>
-                        <CheckCircleFilled style={{ color: '#10B981', fontSize: 14 }} />
-                    </div>
+            <div style={{ textAlign: 'left', flex: 1 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <Text strong style={{ fontSize: 16, color: '#0f172a' }}>
+                        {deliveryName || 'ชื่อช่องทางจัดส่ง'}
+                    </Text>
+                    {isActive && <CheckCircleFilled style={{ color: '#10B981', fontSize: 14 }} />}
                 </div>
-            </div>
-            
-            <div style={{ marginTop: 24, textAlign: 'center' }}>
-                <Text type="secondary" style={{ fontSize: 13 }}>
-                    นี่คือลักษณะที่จะแสดงในรายการ
+                <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>
+                    Prefix: {deliveryPrefix || '-'}
                 </Text>
             </div>
         </div>
-    );
-};
 
-interface ActionButtonsProps {
-    isEdit: boolean;
-    loading: boolean;
-    onCancel: () => void;
-}
-
-const ActionButtons = ({ isEdit, loading, onCancel }: ActionButtonsProps) => (
-    <div style={{ 
-        display: 'flex', 
-        justifyContent: 'flex-end', 
-        gap: 12, 
-        marginTop: 40,
-        borderTop: '1px solid #F1F5F9',
-        paddingTop: 24
-    }}>
-        <Button 
-            size="large" 
-            onClick={onCancel}
-            style={{ 
-                borderRadius: 12, 
-                height: 48,
-                padding: '0 32px',
-                border: '1px solid #E2E8F0',
-                color: '#64748B',
-                fontWeight: 600
-            }}
-        >
-            ยกเลิก
-        </Button>
-        <Button 
-            type="primary" 
-            htmlType="submit" 
-            loading={loading}
-            icon={<SaveOutlined />}
-            size="large"
-            style={{ 
-                borderRadius: 12, 
-                height: 48,
-                padding: '0 32px',
-                background: '#0891B2',
-                boxShadow: '0 4px 12px rgba(8, 145, 178, 0.3)',
-                fontWeight: 600,
-                border: 'none'
-            }}
-        >
-            {isEdit ? 'บันทึกการแก้ไข' : 'สร้างบริการส่ง'}
-        </Button>
+        <Alert
+            type={isActive ? 'success' : 'warning'}
+            showIcon
+            message={isActive ? 'ช่องทางนี้พร้อมใช้งานในหน้า POS' : 'ช่องทางนี้จะไม่แสดงให้เลือกใช้งาน'}
+        />
     </div>
 );
 
-// ============ MAIN PAGE ============
-
 export default function DeliveryManagePage({ params }: { params: { mode: string[] } }) {
     const router = useRouter();
-    const [form] = Form.useForm();
+    const [form] = Form.useForm<DeliveryFormValues>();
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [deliveryName, setDeliveryName] = useState<string>('');
-    const [logoUrl, setLogoUrl] = useState<string>('');
-    const [csrfToken, setCsrfToken] = useState<string>("");
-    const { showLoading, hideLoading } = useGlobalLoading();
+    const [deliveryPrefix, setDeliveryPrefix] = useState<string>('');
+    const [logo, setLogo] = useState<string>('');
+    const [isActive, setIsActive] = useState<boolean>(true);
+    const [csrfToken, setCsrfToken] = useState<string>('');
+    const [originalDelivery, setOriginalDelivery] = useState<Delivery | null>(null);
+    const [currentDeliveryName, setCurrentDeliveryName] = useState<string>('');
 
-    const mode = params.mode[0];
-    const id = params.mode[1] || null;
-    const isEdit = mode === 'edit' && !!id;
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ["Admin", "Manager"] });
+    const mode = params.mode?.[0] as DeliveryManageMode | undefined;
+    const id = params.mode?.[1] || null;
+    const isValidMode = mode === 'add' || mode === 'edit';
+    const isEdit = mode === 'edit' && Boolean(id);
+    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager'] });
+
+    const modeTitle = useMemo(() => {
+        if (isEdit) return 'แก้ไขช่องทางจัดส่ง';
+        return 'เพิ่มช่องทางจัดส่ง';
+    }, [isEdit]);
+
+    useEffect(() => {
+        if (!isValidMode || (mode === 'edit' && !id)) {
+            message.warning('รูปแบบ URL ไม่ถูกต้อง');
+            router.replace('/pos/delivery');
+        }
+    }, [isValidMode, mode, id, router]);
 
     useEffect(() => {
         const fetchCsrf = async () => {
-             const token = await getCsrfTokenCached();
-             setCsrfToken(token);
+            const token = await getCsrfTokenCached();
+            setCsrfToken(token);
         };
         fetchCsrf();
     }, []);
 
     const fetchDelivery = useCallback(async () => {
+        if (!id) return;
         setLoading(true);
-        showLoading();
         try {
             const response = await fetch(`/api/pos/delivery/getById/${id}`);
-            if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลบริการส่งได้');
+            if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลช่องทางจัดส่งได้');
             const data = await response.json();
             form.setFieldsValue({
                 delivery_name: data.delivery_name,
@@ -226,66 +158,78 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                 is_active: data.is_active,
             });
             setDeliveryName(data.delivery_name || '');
-            setLogoUrl(data.logo || '');
+            setDeliveryPrefix(data.delivery_prefix || '');
+            setLogo(data.logo || '');
+            setIsActive(Boolean(data.is_active));
+            setCurrentDeliveryName((data.delivery_name || '').toLowerCase());
+            setOriginalDelivery(data);
         } catch (error) {
             console.error(error);
-            message.error('ไม่สามารถดึงข้อมูลบริการส่งได้');
-            router.push('/pos/delivery');
+            message.error('ไม่สามารถดึงข้อมูลช่องทางจัดส่งได้');
+            router.replace('/pos/delivery');
         } finally {
             setLoading(false);
-            hideLoading();
         }
-    }, [id, form, router, showLoading, hideLoading]);
+    }, [id, form, router]);
 
     useEffect(() => {
         if (isEdit) {
             fetchDelivery();
-        } else {
-            hideLoading();
         }
-    }, [isEdit, id, fetchDelivery, hideLoading]);
+    }, [isEdit, fetchDelivery]);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const onFinish = async (values: any) => {
+    const checkNameConflict = useCallback(async (rawValue: string) => {
+        const value = rawValue.trim();
+        if (!value) return false;
+
+        if (isEdit && value.toLowerCase() === currentDeliveryName) {
+            return false;
+        }
+
+        try {
+            const response = await fetch(`/api/pos/delivery/getByName/${encodeURIComponent(value)}`);
+            if (!response.ok) return false;
+            const found = await response.json();
+            if (!found?.id) return false;
+            if (isEdit && found.id === id) return false;
+            return true;
+        } catch {
+            return false;
+        }
+    }, [currentDeliveryName, id, isEdit]);
+
+    const onFinish = async (values: DeliveryFormValues) => {
         setSubmitting(true);
         try {
-            if (isEdit) {
-                const response = await fetch(`/api/pos/delivery/update/${id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': csrfToken
-                    },
-                    body: JSON.stringify(values),
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถอัปเดตบริการส่งได้');
-                }
-                
-                message.success('อัปเดตบริการส่งสำเร็จ');
-            } else {
-                const response = await fetch(`/api/pos/delivery/create`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': csrfToken
-                    },
-                    body: JSON.stringify(values),
-                });
+            const payload: DeliveryFormValues = {
+                delivery_name: values.delivery_name.trim(),
+                delivery_prefix: values.delivery_prefix?.trim().toUpperCase() || undefined,
+                logo: values.logo?.trim() || undefined,
+                is_active: values.is_active,
+            };
 
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถสร้างบริการส่งได้');
-                }
-                
-                message.success('สร้างบริการส่งสำเร็จ');
+            const endpoint = isEdit ? `/api/pos/delivery/update/${id}` : '/api/pos/delivery/create';
+            const method = isEdit ? 'PUT' : 'POST';
+
+            const response = await fetch(endpoint, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || errorData.message || (isEdit ? 'ไม่สามารถอัปเดตช่องทางจัดส่งได้' : 'ไม่สามารถสร้างช่องทางจัดส่งได้'));
             }
+
+            message.success(isEdit ? 'อัปเดตช่องทางจัดส่งสำเร็จ' : 'สร้างช่องทางจัดส่งสำเร็จ');
             router.push('/pos/delivery');
-        } catch (error: unknown) {
+        } catch (error) {
             console.error(error);
-            message.error((error as { message: string }).message || (isEdit ? 'ไม่สามารถอัปเดตบริการส่งได้' : 'ไม่สามารถสร้างบริการส่งได้'));
+            message.error(error instanceof Error ? error.message : 'ไม่สามารถบันทึกข้อมูลได้');
         } finally {
             setSubmitting(false);
         }
@@ -294,14 +238,13 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
     const handleDelete = () => {
         if (!id) return;
         Modal.confirm({
-            title: 'ยืนยันการลบบริการส่ง',
-            content: `คุณต้องการลบบริการส่ง "${deliveryName}" หรือไม่?`,
+            title: 'ยืนยันการลบช่องทางจัดส่ง',
+            content: `คุณต้องการลบช่องทางจัดส่ง "${deliveryName || '-'}" หรือไม่?`,
             okText: 'ลบ',
             okType: 'danger',
             cancelText: 'ยกเลิก',
             centered: true,
             icon: <DeleteOutlined style={{ color: '#EF4444' }} />,
-            maskClosable: true,
             onOk: async () => {
                 try {
                     const response = await fetch(`/api/pos/delivery/delete/${id}`, {
@@ -310,15 +253,12 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                             'X-CSRF-Token': csrfToken
                         }
                     });
-                     if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({}));
-                        throw new Error(errorData.error || errorData.message || 'ไม่สามารถลบบริการส่งได้');
-                    }
-                    message.success('ลบบริการส่งสำเร็จ');
+                    if (!response.ok) throw new Error('ไม่สามารถลบช่องทางจัดส่งได้');
+                    message.success('ลบช่องทางจัดส่งสำเร็จ');
                     router.push('/pos/delivery');
                 } catch (error) {
                     console.error(error);
-                    message.error('ไม่สามารถลบบริการส่งได้');
+                    message.error('ไม่สามารถลบช่องทางจัดส่งได้');
                 }
             }
         });
@@ -329,17 +269,16 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
     if (isChecking) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
     }
+
     if (!isAuthorized) {
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
     }
 
     return (
-        <div className="manage-page" style={pageStyles.container}>
-            <ManagePageStyles />
-
+        <div className="manage-page" style={pageStyles.container as React.CSSProperties}>
             <UIPageHeader
-                title={isEdit ? "แก้ไขบริการส่ง" : "เพิ่มบริการส่ง"}
-                subtitle={isEdit ? "แก้ไขข้อมูลบริการส่ง" : "สร้างบริการส่งใหม่"}
+                title={modeTitle}
+                subtitle={isEdit ? 'ปรับแก้ชื่อ Prefix รูปโลโก้ และสถานะการใช้งาน' : 'สร้างช่องทางจัดส่งใหม่ให้พร้อมใช้งานในระบบ POS'}
                 onBack={handleBack}
                 actions={
                     isEdit ? (
@@ -350,94 +289,92 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                 }
             />
 
-            <PageContainer maxWidth={1000}>
-                <PageSection style={{ background: "transparent", border: "none" }}>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Left Column: Form */}
-                    <div className="md:col-span-2">
-                        <div style={{ 
-                            background: 'white', 
-                            borderRadius: 24, 
-                            padding: 32,
-                            boxShadow: '0 4px 24px rgba(0,0,0,0.04)'
-                        }}>
-                             {loading ? (
-                                <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
-                                    <Spin size="large" />
-                                </div>
-                            ) : (
-                                <Form
-                                    form={form}
-                                    layout="vertical"
-                                    onFinish={onFinish}
-                                    requiredMark={false}
-                                    autoComplete="off"
-                                    initialValues={{ is_active: true }}
-                                    onValuesChange={(changedValues) => {
-                                        if (changedValues.delivery_name !== undefined) {
-                                            setDeliveryName(changedValues.delivery_name);
-                                        }
-                                        if (changedValues.logo !== undefined) {
-                                            setLogoUrl(changedValues.logo);
-                                        }
+            <PageContainer maxWidth={1040}>
+                <PageSection style={{ background: 'transparent', border: 'none' }}>
+                    {loading ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '90px 0' }}>
+                            <Spin size="large" tip="กำลังโหลดข้อมูล..." />
+                        </div>
+                    ) : (
+                        <Row gutter={[20, 20]}>
+                            <Col xs={24} lg={15}>
+                                <Card
+                                    bordered={false}
+                                    style={{
+                                        borderRadius: 20,
+                                        boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
+                                        overflow: 'hidden'
                                     }}
+                                    styles={{ body: { padding: 24 } }}
                                 >
-                                    <div style={{ marginBottom: 24 }}>
-                                        <Text strong style={{ fontSize: 18, color: '#1E293B', display: 'block', marginBottom: 16 }}>
-                                            ข้อมูลทั่วไป
-                                        </Text>
-                                        
-                                        <div className="grid grid-cols-1 gap-6">
-                                            <Form.Item
-                                                name="delivery_name"
-                                                label="ชื่อบริการส่ง *"
-                                                rules={[
-                                                    { required: true, message: 'กรุณากรอกชื่อบริการส่ง' },
-                                                    { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
-                                                ]}
-                                            >
-                                                <Input 
-                                                    size="large" 
-                                                    placeholder="เช่น Grab, Lineman, Shopee Food" 
-                                                    maxLength={100}
-                                                />
-                                            </Form.Item>
-
-                                            <Form.Item
-                                                name="delivery_prefix"
-                                                label="รหัสย่อ (Prefix)"
-                                                rules={[
-                                                    { max: 10, message: 'ความยาวต้องไม่เกิน 10 ตัวอักษร' }
-                                                ]}
-                                                normalize={(value) => (value || '').toUpperCase()}
-                                                extra="ใช้สำหรับสร้างรหัสออเดอร์ (เช่น GF-123)"
-                                            >
-                                                <Input 
-                                                    size="large" 
-                                                    placeholder="เช่น GR, LM" 
-                                                    maxLength={10}
-                                                    style={{ textTransform: 'uppercase', letterSpacing: '1px' }}
-                                                />
-                                            </Form.Item>
-                                        </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                                        <AppstoreOutlined style={{ fontSize: 20, color: '#0891B2' }} />
+                                        <Title level={5} style={{ margin: 0 }}>ข้อมูลช่องทางจัดส่ง</Title>
                                     </div>
 
-                                    <div style={{ marginBottom: 24, borderTop: '1px solid #F1F5F9', paddingTop: 24 }}>
-                                        <Text strong style={{ fontSize: 18, color: '#1E293B', display: 'block', marginBottom: 16 }}>
-                                            การแสดงผล
-                                        </Text>
+                                    <Form<DeliveryFormValues>
+                                        form={form}
+                                        layout="vertical"
+                                        onFinish={onFinish}
+                                        requiredMark={false}
+                                        autoComplete="off"
+                                        initialValues={{ is_active: true }}
+                                        onValuesChange={(changedValues) => {
+                                            if (changedValues.delivery_name !== undefined) setDeliveryName(changedValues.delivery_name);
+                                            if (changedValues.delivery_prefix !== undefined) setDeliveryPrefix(changedValues.delivery_prefix);
+                                            if (changedValues.logo !== undefined) setLogo(changedValues.logo);
+                                            if (changedValues.is_active !== undefined) setIsActive(changedValues.is_active);
+                                        }}
+                                    >
+                                        <Form.Item
+                                            name="delivery_name"
+                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อระบบ (delivery_name)</span>}
+                                            validateTrigger={['onBlur', 'onSubmit']}
+                                            rules={[
+                                                { required: true, message: 'กรุณากรอกชื่อระบบ' },
+                                                { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' },
+                                                {
+                                                    validator: async (_, value: string) => {
+                                                        if (!value?.trim()) return;
+                                                        const duplicated = await checkNameConflict(value);
+                                                        if (duplicated) throw new Error('ชื่อระบบนี้ถูกใช้งานแล้ว');
+                                                    }
+                                                }
+                                            ]}
+                                        >
+                                            <Input
+                                                size="large"
+                                                placeholder="เช่น GrabFood, LINE MAN, ShopeeFood"
+                                                style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
+                                                maxLength={100}
+                                            />
+                                        </Form.Item>
+
+                                        <Form.Item
+                                            name="delivery_prefix"
+                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>Prefix</span>}
+                                            rules={[
+                                                { max: 10, message: 'ความยาวต้องไม่เกิน 10 ตัวอักษร' },
+                                                { pattern: /^[A-Za-z0-9_-]*$/, message: 'กรอกได้เฉพาะตัวอักษรภาษาอังกฤษ ตัวเลข _ และ -' }
+                                            ]}
+                                        >
+                                            <Input
+                                                size="large"
+                                                placeholder="เช่น GF, LM"
+                                                style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', textTransform: 'uppercase' }}
+                                                maxLength={10}
+                                            />
+                                        </Form.Item>
 
                                         <Form.Item
                                             name="logo"
-                                            label="รูป (URL)"
+                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>URL โลโก้</span>}
                                             rules={[
-                                                { 
-                                                    validator: async (_, value) => {
-                                                        if (!value) return;
-                                                        if (value.startsWith('data:image')) return;
+                                                {
+                                                    validator: async (_, value: string | undefined) => {
+                                                        if (!value?.trim()) return;
                                                         try {
-                                                            new URL(value);
-                                                            return;
+                                                            new URL(value.trim());
                                                         } catch {
                                                             throw new Error('กรุณากรอก URL ที่ถูกต้อง');
                                                         }
@@ -445,86 +382,90 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                                 }
                                             ]}
                                         >
-                                            <Input 
-                                                size="large" 
-                                                placeholder="https://example.com/logo.png" 
-                                                allowClear
+                                            <Input
+                                                size="large"
+                                                placeholder="https://example.com/logo.png"
+                                                style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
+                                                maxLength={255}
                                             />
                                         </Form.Item>
 
-                                        {/* Logo Preview */}
-                                        {logoUrl && (
-                                            <div style={{ 
-                                                marginTop: -16, 
-                                                marginBottom: 24, 
-                                                padding: 16, 
-                                                background: '#F8FAFC', 
-                                                borderRadius: 12,
-                                                border: '1px dashed #E2E8F0'
-                                            }}>
-                                                <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 12 }}>
-                                                    ตัวอย่างรูป
-                                                </Text>
-                                                <div style={{ 
-                                                    width: 80, 
-                                                    height: 80, 
-                                                    borderRadius: 12, 
-                                                    overflow: 'hidden',
-                                                    background: 'white',
-                                                    border: '1px solid #E2E8F0',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'center',
-                                                    position: 'relative'
-                                                }}>
-                                                    <Image 
-                                                        src={logoUrl} 
-                                                        alt="Logo Preview" 
-                                                        fill
-                                                        sizes="80px"
-                                                        style={{ objectFit: 'contain', padding: 8 }}
-                                                        onError={(e) => {
-                                                            (e.target as HTMLImageElement).style.display = 'none';
-                                                        }}
-                                                    />
+                                        <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: 14, marginTop: 16, marginBottom: 18 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                                                <div>
+                                                    <Text strong style={{ fontSize: 15, display: 'block' }}>สถานะการใช้งาน</Text>
+                                                    <Text type="secondary" style={{ fontSize: 13 }}>เปิดเพื่อให้แสดงในหน้า POS ที่เกี่ยวข้องกับเดลิเวอรี่</Text>
                                                 </div>
+                                                <Form.Item name="is_active" valuePropName="checked" noStyle>
+                                                    <Switch style={{ background: isActive ? '#10B981' : undefined }} />
+                                                </Form.Item>
                                             </div>
-                                        )}
+                                        </div>
 
-                                         <Form.Item
-                                            name="is_active"
-                                            label="สถานะการใช้งาน"
-                                            valuePropName="checked"
-                                            style={{ marginBottom: 0 }}
-                                        >
-                                            <Switch 
-                                                checkedChildren="เปิดใช้งาน" 
-                                                unCheckedChildren="ปิดใช้งาน"
-                                                style={{ background: form.getFieldValue('is_active') ? '#10B981' : undefined }}
-                                            />
-                                        </Form.Item>
-                                    </div>
+                                        <Alert
+                                            showIcon
+                                            type="info"
+                                            icon={<InfoCircleOutlined />}
+                                            message="ข้อมูลที่จำเป็น"
+                                            description="ต้องกรอกชื่อระบบ และควรกำหนด Prefix ให้สั้นเพื่อใช้อ้างอิงรหัสออเดอร์"
+                                            style={{ marginBottom: 24 }}
+                                        />
 
-                                    <ActionButtons 
-                                        isEdit={isEdit}
-                                        loading={submitting}
-                                        onCancel={handleBack}
+                                        <div style={{ marginTop: 12, display: 'flex', gap: 12 }}>
+                                            <Button
+                                                size="large"
+                                                onClick={handleBack}
+                                                style={{ flex: 1, borderRadius: 12, height: 46, fontWeight: 600 }}
+                                            >
+                                                ยกเลิก
+                                            </Button>
+                                            <Button
+                                                type="primary"
+                                                htmlType="submit"
+                                                loading={submitting}
+                                                icon={<SaveOutlined />}
+                                                style={{
+                                                    flex: 2,
+                                                    borderRadius: 12,
+                                                    height: 46,
+                                                    fontWeight: 600,
+                                                    background: '#0891B2',
+                                                    boxShadow: '0 4px 12px rgba(8, 145, 178, 0.25)'
+                                                }}
+                                            >
+                                                บันทึกข้อมูล
+                                            </Button>
+                                        </div>
+                                    </Form>
+                                </Card>
+                            </Col>
+
+                            <Col xs={24} lg={9}>
+                                <div style={{ display: 'grid', gap: 14 }}>
+                                    <DeliveryPreviewCard
+                                        deliveryName={deliveryName}
+                                        deliveryPrefix={deliveryPrefix}
+                                        logo={logo}
+                                        isActive={isActive}
                                     />
-                                </Form>
-                            )}
-                        </div>
-                    </div>
 
-                    {/* Right Column: Preview */}
-                    <div className="md:col-span-1 hidden md:block">
-                        <div style={{ position: 'sticky', top: 24 }}>
-                            <DeliveryPreview 
-                                name={deliveryName} 
-                                logo={logoUrl}
-                            />
-                        </div>
-                    </div>
-                </div>
+                                    {isEdit ? (
+                                        <Card style={{ borderRadius: 16 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                                                <ExclamationCircleOutlined style={{ color: '#0369a1' }} />
+                                                <Text strong>รายละเอียดรายการ</Text>
+                                            </div>
+                                            <div style={{ display: 'grid', gap: 8 }}>
+                                                <Text type="secondary">ID: {originalDelivery?.id || '-'}</Text>
+                                                <Text type="secondary">สร้างเมื่อ: {formatDate(originalDelivery?.create_date)}</Text>
+                                                <Text type="secondary">อัปเดตเมื่อ: {formatDate(originalDelivery?.update_date)}</Text>
+                                            </div>
+                                        </Card>
+                                    ) : null}
+                                </div>
+                            </Col>
+                        </Row>
+                    )}
                 </PageSection>
             </PageContainer>
         </div>

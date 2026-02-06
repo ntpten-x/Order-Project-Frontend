@@ -1,4 +1,4 @@
-import { Shift } from "../../types/api/pos/shifts";
+import { Shift, ShiftHistoryQuery, ShiftHistoryResponse } from "../../types/api/pos/shifts";
 import { getCsrfTokenCached } from "../../utils/pos/csrf";
 import { unwrapBackendData } from "../../utils/api/backendResponse";
 
@@ -89,5 +89,30 @@ export const shiftsService = {
         }
 
         return unwrapBackendData(await response.json());
+    },
+
+    getHistory: async (params: ShiftHistoryQuery = {}): Promise<ShiftHistoryResponse> => {
+        const query = new URLSearchParams();
+
+        if (params.page) query.set("page", String(params.page));
+        if (params.limit) query.set("limit", String(params.limit));
+        if (params.q) query.set("q", params.q);
+        if (params.status) query.set("status", params.status);
+        if (params.date_from) query.set("date_from", params.date_from);
+        if (params.date_to) query.set("date_to", params.date_to);
+
+        const suffix = query.toString();
+        const response = await fetch(`/api/pos/shifts/history${suffix ? `?${suffix}` : ""}`, {
+            method: "GET",
+            headers: { "Content-Type": "application/json" },
+            credentials: "include"
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error?.error?.message || error?.error || error.message || "Failed to fetch shift history");
+        }
+
+        return unwrapBackendData(await response.json()) as ShiftHistoryResponse;
     }
 };
