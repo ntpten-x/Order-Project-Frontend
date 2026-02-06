@@ -1,214 +1,161 @@
 ﻿'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { Form, Input, message, Spin, Switch, Modal, Typography, Button, Select } from 'antd';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { Form, Input, Select, message, Spin, Switch, Modal, Button, Card, Row, Col, Typography, Alert, Tag } from 'antd';
 import { useRouter } from 'next/navigation';
-import PageContainer from "../../../../../../components/ui/page/PageContainer";
-import PageSection from "../../../../../../components/ui/page/PageSection";
-import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
+import PageContainer from '../../../../../../components/ui/page/PageContainer';
+import PageSection from '../../../../../../components/ui/page/PageSection';
+import UIPageHeader from '../../../../../../components/ui/page/PageHeader';
 import {
     DeleteOutlined,
     SaveOutlined,
     TableOutlined,
-    CheckCircleFilled
+    CheckCircleFilled,
+    AppstoreOutlined,
+    InfoCircleOutlined,
+    ExclamationCircleOutlined
 } from '@ant-design/icons';
-import { globalStyles, pageStyles } from '../../../../../../theme/pos/tables/style';
-import { getCsrfTokenCached } from "../../../../../../utils/pos/csrf";
-import { useRoleGuard } from "../../../../../../utils/pos/accessControl";
-import { AccessGuardFallback } from "../../../../../../components/pos/AccessGuard";
-import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingContext";
-import { TableStatus } from "../../../../../../types/api/pos/tables";
+import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
+import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
+import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuard';
+import { pageStyles } from '../../../../../../theme/pos/tables/style';
+import { Tables, TableStatus } from '../../../../../../types/api/pos/tables';
+
+type TablesManageMode = 'add' | 'edit';
+
+type TableFormValues = {
+    table_name: string;
+    status: TableStatus;
+    is_active?: boolean;
+};
 
 const { Title, Text } = Typography;
 
-// ============ REUSABLE COMPONENTS ============
+const formatDate = (raw?: string | Date) => {
+    if (!raw) return '-';
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return '-';
+    return new Intl.DateTimeFormat('th-TH', {
+        dateStyle: 'medium',
+        timeStyle: 'short'
+    }).format(date);
+};
 
-const ManagePageStyles = () => (
-    <>
-        <style>{globalStyles}</style>
-        <style jsx global>{`
-            .ant-form-item-label > label {
-                font-size: 15px;
-                font-weight: 500;
-                color: #334155;
-            }
-            .ant-input-lg, .ant-input-number-lg, .ant-select-selector {
-                border-radius: 12px !important;
-                padding: 8px 11px !important;
-                font-size: 16px !important;
-                border-color: #E2E8F0 !important;
-            }
-            .ant-select-lg .ant-select-selector {
-                 padding: 0 11px !important;
-                 height: 48px !important;
-                 align-items: center;
-            }
-            .ant-input-lg:hover, .ant-input-number-lg:hover, .ant-select-selector:hover {
-                border-color: #7C3AED !important;
-            }
-            .ant-input-lg:focus, .ant-input-number-lg:focus, .ant-select-focused .ant-select-selector {
-                border-color: #7C3AED !important;
-                box-shadow: 0 0 0 2px rgba(124, 58, 237, 0.1) !important;
-            }
-        `}</style>
-    </>
-);
+const getStatusLabel = (status: TableStatus) => {
+    return status === TableStatus.Available ? 'ว่าง' : 'ไม่ว่าง';
+};
 
-// Preview Component
-const TablePreview = ({ name }: { name?: string }) => {
-    
+const TablePreviewCard = ({
+    tableName,
+    status,
+    isActive
+}: {
+    tableName: string;
+    status: TableStatus;
+    isActive: boolean;
+}) => {
+    const isAvailable = status === TableStatus.Available;
+
     return (
-        <div style={{ 
-            background: 'white', 
-            borderRadius: 24, 
-            padding: 24,
+        <div style={{
+            background: 'white',
+            borderRadius: 20,
+            padding: 20,
             boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
             border: '1px solid #F1F5F9',
-            height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center',
-            alignItems: 'center'
         }}>
-            <Title level={5} style={{ color: '#94A3B8', marginBottom: 20, fontWeight: 600, width: '100%', textAlign: 'left' }}>
-                ตัวอย่างการแสดงผล
-            </Title>
-            
-            <div style={{ 
-                width: '100%',
-                background: 'white',
+            <Title level={5} style={{ color: '#7C3AED', marginBottom: 16, fontWeight: 700 }}>ตัวอย่างการแสดงผล</Title>
+
+            <div style={{
                 borderRadius: 16,
-                border: '1px solid #E2E8F0',
-                padding: '16px',
+                border: `1px solid ${isActive ? '#ddd6fe' : '#e2e8f0'}`,
+                padding: 14,
+                background: isActive ? '#f5f3ff' : '#f8fafc',
                 display: 'flex',
                 alignItems: 'center',
-                boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
-                maxWidth: 400
+                gap: 12,
+                marginBottom: 16,
             }}>
-                 {/* Icon */}
-                 <div style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: '50%',
-                    background: 'linear-gradient(135deg, #A7F3D0 0%, #6EE7B7 100%)',
+                <div style={{
+                    width: 48,
+                    height: 48,
+                    borderRadius: 12,
+                    background: isActive
+                        ? 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)'
+                        : '#e2e8f0',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
-                    marginRight: 16,
-                    position: 'relative',
-                    boxShadow: '0 4px 10px rgba(16, 185, 129, 0.2)'
                 }}>
-                    <div style={{
-                        width: 48,
-                        height: 48,
-                        borderRadius: '50%',
-                        background: 'white',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                    }}>
-                        <TableOutlined style={{ fontSize: 22, color: '#10B981' }} />
-                    </div>
+                    <TableOutlined style={{
+                        fontSize: 20,
+                        color: isActive ? '#7C3AED' : '#64748b'
+                    }} />
                 </div>
-
-                {/* Info */}
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                        <Text strong style={{ fontSize: 16, color: '#1E293B' }}>
-                            {name || 'ชื่อโต๊ะ'}
+                <div style={{ textAlign: 'left', flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Text strong style={{ fontSize: 16, color: '#0f172a' }}>
+                            {tableName || 'ชื่อโต๊ะ'}
                         </Text>
-                        <CheckCircleFilled style={{ color: '#10B981', fontSize: 14 }} />
+                        {isActive && <CheckCircleFilled style={{ color: '#10B981', fontSize: 14 }} />}
                     </div>
+                    <Tag color={isAvailable ? 'green' : 'orange'} style={{ margin: '6px 0 0', borderRadius: 6 }}>
+                        {getStatusLabel(status)}
+                    </Tag>
                 </div>
             </div>
-            
-            <div style={{ marginTop: 24, textAlign: 'center' }}>
-                <Text type="secondary" style={{ fontSize: 13 }}>
-                    นี่คือลักษณะที่จะแสดงในรายการ (สถานะว่าง)
-                </Text>
-            </div>
+
+            <Alert
+                type={isActive ? 'success' : 'warning'}
+                showIcon
+                message={isActive ? 'โต๊ะนี้พร้อมใช้งานในระบบ POS' : 'โต๊ะนี้จะไม่แสดงให้เลือกใช้งาน'}
+            />
         </div>
     );
 };
 
-interface ActionButtonsProps {
-    isEdit: boolean;
-    loading: boolean;
-    onCancel: () => void;
-}
-
-const ActionButtons = ({ isEdit, loading, onCancel }: ActionButtonsProps) => (
-    <div style={{ 
-        display: 'flex', 
-        justifyContent: 'flex-end', 
-        gap: 12, 
-        marginTop: 40,
-        borderTop: '1px solid #F1F5F9',
-        paddingTop: 24
-    }}>
-        <Button 
-            size="large" 
-            onClick={onCancel}
-            style={{ 
-                borderRadius: 12, 
-                height: 48,
-                padding: '0 32px',
-                border: '1px solid #E2E8F0',
-                color: '#64748B',
-                fontWeight: 600
-            }}
-        >
-            ยกเลิก
-        </Button>
-        <Button 
-            type="primary" 
-            htmlType="submit" 
-            loading={loading}
-            icon={<SaveOutlined />}
-            size="large"
-            style={{ 
-                borderRadius: 12, 
-                height: 48,
-                padding: '0 32px',
-                background: '#7C3AED',
-                boxShadow: '0 4px 12px rgba(124, 58, 237, 0.3)',
-                fontWeight: 600,
-                border: 'none'
-            }}
-        >
-            {isEdit ? 'บันทึกการแก้ไข' : 'สร้างโต๊ะ'}
-        </Button>
-    </div>
-);
-
-// ============ MAIN PAGE ============
-
 export default function TablesManagePage({ params }: { params: { mode: string[] } }) {
     const router = useRouter();
-    const [form] = Form.useForm();
+    const [form] = Form.useForm<TableFormValues>();
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [tableName, setTableName] = useState<string>('');
-    const [csrfToken, setCsrfToken] = useState<string>("");
-    const { showLoading, hideLoading } = useGlobalLoading();
+    const [status, setStatus] = useState<TableStatus>(TableStatus.Available);
+    const [isActive, setIsActive] = useState<boolean>(true);
+    const [csrfToken, setCsrfToken] = useState<string>('');
+    const [originalTable, setOriginalTable] = useState<Tables | null>(null);
+    const [currentTableName, setCurrentTableName] = useState<string>('');
 
-    const mode = params.mode[0];
-    const id = params.mode[1] || null;
-    const isEdit = mode === 'edit' && !!id;
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ["Admin", "Manager"] });
+    const mode = params.mode?.[0] as TablesManageMode | undefined;
+    const id = params.mode?.[1] || null;
+    const isValidMode = mode === 'add' || mode === 'edit';
+    const isEdit = mode === 'edit' && Boolean(id);
+    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager'] });
+
+    const modeTitle = useMemo(() => {
+        if (isEdit) return 'แก้ไขข้อมูลโต๊ะ';
+        return 'เพิ่มโต๊ะ';
+    }, [isEdit]);
+
+    useEffect(() => {
+        if (!isValidMode || (mode === 'edit' && !id)) {
+            message.warning('รูปแบบ URL ไม่ถูกต้อง');
+            router.replace('/pos/tables');
+        }
+    }, [isValidMode, mode, id, router]);
 
     useEffect(() => {
         const fetchCsrf = async () => {
-             const token = await getCsrfTokenCached();
-             setCsrfToken(token);
+            const token = await getCsrfTokenCached();
+            setCsrfToken(token);
         };
         fetchCsrf();
     }, []);
 
     const fetchTable = useCallback(async () => {
+        if (!id) return;
         setLoading(true);
-        showLoading();
         try {
             const response = await fetch(`/api/pos/tables/getById/${id}`);
             if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลโต๊ะได้');
@@ -219,70 +166,76 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                 is_active: data.is_active,
             });
             setTableName(data.table_name || '');
+            setStatus(data.status || TableStatus.Available);
+            setIsActive(Boolean(data.is_active));
+            setCurrentTableName((data.table_name || '').toLowerCase());
+            setOriginalTable(data);
         } catch (error) {
             console.error(error);
             message.error('ไม่สามารถดึงข้อมูลโต๊ะได้');
-            router.push('/pos/tables');
+            router.replace('/pos/tables');
         } finally {
             setLoading(false);
-            hideLoading();
         }
-    }, [id, form, router, showLoading, hideLoading]);
+    }, [id, form, router]);
 
     useEffect(() => {
         if (isEdit) {
             fetchTable();
-        } else {
-            hideLoading();
-            // Set default values for create mode
-            form.setFieldsValue({
-                status: TableStatus.Available,
-                is_active: true
-            });
         }
-    }, [isEdit, id, fetchTable, hideLoading, form]);
+    }, [isEdit, fetchTable]);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const onFinish = async (values: any) => {
+    const checkNameConflict = useCallback(async (rawValue: string) => {
+        const value = rawValue.trim();
+        if (!value) return false;
+
+        if (isEdit && value.toLowerCase() === currentTableName) {
+            return false;
+        }
+
+        try {
+            const response = await fetch(`/api/pos/tables/getByName/${encodeURIComponent(value)}`);
+            if (!response.ok) return false;
+            const found = await response.json();
+            if (!found?.id) return false;
+            if (isEdit && found.id === id) return false;
+            return true;
+        } catch {
+            return false;
+        }
+    }, [currentTableName, id, isEdit]);
+
+    const onFinish = async (values: TableFormValues) => {
         setSubmitting(true);
         try {
-            if (isEdit) {
-                const response = await fetch(`/api/pos/tables/update/${id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': csrfToken
-                    },
-                    body: JSON.stringify(values),
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถอัปเดตโต๊ะได้');
-                }
-                
-                message.success('อัปเดตโต๊ะสำเร็จ');
-            } else {
-                const response = await fetch(`/api/pos/tables/create`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': csrfToken
-                    },
-                    body: JSON.stringify(values),
-                });
+            const payload: TableFormValues = {
+                table_name: values.table_name.trim(),
+                status: values.status,
+                is_active: values.is_active,
+            };
 
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถสร้างโต๊ะได้');
-                }
-                
-                message.success('สร้างโต๊ะสำเร็จ');
+            const endpoint = isEdit ? `/api/pos/tables/update/${id}` : '/api/pos/tables/create';
+            const method = isEdit ? 'PUT' : 'POST';
+
+            const response = await fetch(endpoint, {
+                method,
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken,
+                },
+                body: JSON.stringify(payload),
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || errorData.message || (isEdit ? 'ไม่สามารถอัปเดตโต๊ะได้' : 'ไม่สามารถสร้างโต๊ะได้'));
             }
+
+            message.success(isEdit ? 'อัปเดตโต๊ะสำเร็จ' : 'สร้างโต๊ะสำเร็จ');
             router.push('/pos/tables');
-        } catch (error: unknown) {
+        } catch (error) {
             console.error(error);
-            message.error((error as { message: string }).message || (isEdit ? 'ไม่สามารถอัปเดตโต๊ะได้' : 'ไม่สามารถสร้างโต๊ะได้'));
+            message.error(error instanceof Error ? error.message : 'ไม่สามารถบันทึกข้อมูลได้');
         } finally {
             setSubmitting(false);
         }
@@ -292,13 +245,12 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
         if (!id) return;
         Modal.confirm({
             title: 'ยืนยันการลบโต๊ะ',
-            content: `คุณต้องการลบโต๊ะ "${tableName}" หรือไม่?`,
+            content: `คุณต้องการลบโต๊ะ "${tableName || '-'}" หรือไม่?`,
             okText: 'ลบ',
             okType: 'danger',
             cancelText: 'ยกเลิก',
             centered: true,
             icon: <DeleteOutlined style={{ color: '#EF4444' }} />,
-            maskClosable: true,
             onOk: async () => {
                 try {
                     const response = await fetch(`/api/pos/tables/delete/${id}`, {
@@ -307,10 +259,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                             'X-CSRF-Token': csrfToken
                         }
                     });
-                     if (!response.ok) {
-                        const errorData = await response.json().catch(() => ({}));
-                        throw new Error(errorData.error || errorData.message || 'ไม่สามารถลบโต๊ะได้');
-                    }
+                    if (!response.ok) throw new Error('ไม่สามารถลบโต๊ะได้');
                     message.success('ลบโต๊ะสำเร็จ');
                     router.push('/pos/tables');
                 } catch (error) {
@@ -326,17 +275,16 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
     if (isChecking) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
     }
+
     if (!isAuthorized) {
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
     }
 
     return (
-        <div className="manage-page" style={pageStyles.container}>
-            <ManagePageStyles />
-
+        <div className="manage-page" style={pageStyles.container as React.CSSProperties}>
             <UIPageHeader
-                title={isEdit ? "แก้ไขข้อมูลโต๊ะ" : "เพิ่มโต๊ะ"}
-                subtitle={isEdit ? "แก้ไขชื่อหรือสถานะของโต๊ะอาหาร" : "สร้างโต๊ะใหม่ในร้านของคุณ"}
+                title={modeTitle}
+                subtitle={isEdit ? 'ปรับแก้ชื่อโต๊ะ สถานะโต๊ะ และสถานะการใช้งาน' : 'สร้างโต๊ะใหม่ให้พร้อมใช้งานในระบบ POS'}
                 onBack={handleBack}
                 actions={
                     isEdit ? (
@@ -347,114 +295,161 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                 }
             />
 
-            <PageContainer maxWidth={1000}>
-                <PageSection style={{ background: "transparent", border: "none" }}>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                    {/* Left Column: Form */}
-                    <div className="md:col-span-2">
-                        <div style={{ 
-                            background: 'white', 
-                            borderRadius: 24, 
-                            padding: 32,
-                            boxShadow: '0 4px 24px rgba(0,0,0,0.04)'
-                        }}>
-                             {loading ? (
-                                <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
-                                    <Spin size="large" />
-                                </div>
-                            ) : (
-                                <Form
-                                    form={form}
-                                    layout="vertical"
-                                    onFinish={onFinish}
-                                    requiredMark={false}
-                                    autoComplete="off"
-                                    initialValues={{ 
-                                        is_active: true,
-                                        status: TableStatus.Available
+            <PageContainer maxWidth={1040}>
+                <PageSection style={{ background: 'transparent', border: 'none' }}>
+                    {loading ? (
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '90px 0' }}>
+                            <Spin size="large" tip="กำลังโหลดข้อมูล..." />
+                        </div>
+                    ) : (
+                        <Row gutter={[20, 20]}>
+                            <Col xs={24} lg={15}>
+                                <Card
+                                    bordered={false}
+                                    style={{
+                                        borderRadius: 20,
+                                        boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
+                                        overflow: 'hidden'
                                     }}
-                                    onValuesChange={(changedValues) => {
-                                        if (changedValues.table_name !== undefined) {
-                                            setTableName(changedValues.table_name);
-                                        }
-                                    }}
+                                    styles={{ body: { padding: 24 } }}
                                 >
-                                    <div style={{ marginBottom: 24 }}>
-                                        <Text strong style={{ fontSize: 18, color: '#1E293B', display: 'block', marginBottom: 16 }}>
-                                            ข้อมูลทั่วไป
-                                        </Text>
-                                        
-                                        <div className="grid grid-cols-1 gap-6">
-                                            <Form.Item
-                                                name="table_name"
-                                                label="ชื่อโต๊ะ *"
-                                                rules={[
-                                                    { required: true, message: 'กรุณากรอกชื่อโต๊ะ' },
-                                                    { max: 50, message: 'ความยาวต้องไม่เกิน 50 ตัวอักษร' }
-                                                ]}
-                                            >
-                                                <Input 
-                                                    size="large" 
-                                                    placeholder="เช่น T-01, VIP-1" 
-                                                    maxLength={50}
-                                                />
-                                            </Form.Item>
-
-                                            <Form.Item
-                                                name="status"
-                                                label="สถานะเริ่มต้น"
-                                                rules={[{ required: true, message: 'กรุณาเลือกสถานะ' }]}
-                                            >
-                                                <Select
-                                                    size="large"
-                                                    dropdownMatchSelectWidth
-                                                    getPopupContainer={(trigger) => trigger?.parentElement || document.body}
-                                                >
-                                                    <Select.Option value={TableStatus.Available}>ว่าง (Available)</Select.Option>
-                                                    <Select.Option value={TableStatus.Unavailable}>ไม่ว่าง (Unavailable)</Select.Option>
-                                                </Select>
-                                            </Form.Item>
-                                        </div>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                                        <AppstoreOutlined style={{ fontSize: 20, color: '#7C3AED' }} />
+                                        <Title level={5} style={{ margin: 0 }}>ข้อมูลโต๊ะ</Title>
                                     </div>
 
-                                    <div style={{ marginBottom: 24, borderTop: '1px solid #F1F5F9', paddingTop: 24 }}>
-                                        <Text strong style={{ fontSize: 18, color: '#1E293B', display: 'block', marginBottom: 16 }}>
-                                            การตั้งค่าอื่นๆ
-                                        </Text>
-
-                                         <Form.Item
-                                            name="is_active"
-                                            label="สถานะการใช้งาน"
-                                            valuePropName="checked"
-                                            style={{ marginBottom: 0 }}
+                                    <Form<TableFormValues>
+                                        form={form}
+                                        layout="vertical"
+                                        onFinish={onFinish}
+                                        requiredMark={false}
+                                        autoComplete="off"
+                                        initialValues={{
+                                            is_active: true,
+                                            status: TableStatus.Available
+                                        }}
+                                        onValuesChange={(changedValues) => {
+                                            if (changedValues.table_name !== undefined) setTableName(changedValues.table_name);
+                                            if (changedValues.status !== undefined) setStatus(changedValues.status);
+                                            if (changedValues.is_active !== undefined) setIsActive(changedValues.is_active);
+                                        }}
+                                    >
+                                        <Form.Item
+                                            name="table_name"
+                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อระบบ (table_name)</span>}
+                                            validateTrigger={['onBlur', 'onSubmit']}
+                                            rules={[
+                                                { required: true, message: 'กรุณากรอกชื่อระบบ' },
+                                                { max: 50, message: 'ความยาวต้องไม่เกิน 50 ตัวอักษร' },
+                                                { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'กรอกได้เฉพาะภาษาอังกฤษ ตัวเลข และ - _ ( ) .' },
+                                                {
+                                                    validator: async (_, value: string) => {
+                                                        if (!value?.trim()) return;
+                                                        const duplicated = await checkNameConflict(value);
+                                                        if (duplicated) throw new Error('ชื่อโต๊ะนี้ถูกใช้งานแล้ว');
+                                                    }
+                                                }
+                                            ]}
                                         >
-                                            <Switch 
-                                                checkedChildren="เปิดใช้งาน" 
-                                                unCheckedChildren="ปิดใช้งาน"
-                                                style={{ background: form.getFieldValue('is_active') ? '#10B981' : undefined }}
+                                            <Input
+                                                size="large"
+                                                placeholder="เช่น T-01, VIP-01"
+                                                style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
+                                                maxLength={50}
                                             />
                                         </Form.Item>
-                                    </div>
 
-                                    <ActionButtons 
-                                        isEdit={isEdit}
-                                        loading={submitting}
-                                        onCancel={handleBack}
+                                        <Form.Item
+                                            name="status"
+                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>สถานะโต๊ะ</span>}
+                                            rules={[{ required: true, message: 'กรุณาเลือกสถานะโต๊ะ' }]}
+                                        >
+                                            <Select
+                                                size="large"
+                                                style={{ borderRadius: 12 }}
+                                                options={[
+                                                    { value: TableStatus.Available, label: 'ว่าง (Available)' },
+                                                    { value: TableStatus.Unavailable, label: 'ไม่ว่าง (Unavailable)' }
+                                                ]}
+                                            />
+                                        </Form.Item>
+
+                                        <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: 14, marginTop: 16, marginBottom: 18 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                                                <div>
+                                                    <Text strong style={{ fontSize: 15, display: 'block' }}>สถานะการใช้งาน</Text>
+                                                    <Text type="secondary" style={{ fontSize: 13 }}>เปิดเพื่อให้แสดงโต๊ะนี้ในหน้า POS</Text>
+                                                </div>
+                                                <Form.Item name="is_active" valuePropName="checked" noStyle>
+                                                    <Switch style={{ background: isActive ? '#10B981' : undefined }} />
+                                                </Form.Item>
+                                            </div>
+                                        </div>
+
+                                        <Alert
+                                            showIcon
+                                            type="info"
+                                            icon={<InfoCircleOutlined />}
+                                            message="ข้อมูลที่จำเป็น"
+                                            description="ต้องกรอกชื่อโต๊ะ และกำหนดสถานะเริ่มต้นของโต๊ะ โดยชื่อโต๊ะจะถูกตรวจสอบไม่ให้ซ้ำในสาขาเดียวกัน"
+                                            style={{ marginBottom: 24 }}
+                                        />
+
+                                        <div style={{ marginTop: 12, display: 'flex', gap: 12 }}>
+                                            <Button
+                                                size="large"
+                                                onClick={handleBack}
+                                                style={{ flex: 1, borderRadius: 12, height: 46, fontWeight: 600 }}
+                                            >
+                                                ยกเลิก
+                                            </Button>
+                                            <Button
+                                                type="primary"
+                                                htmlType="submit"
+                                                loading={submitting}
+                                                icon={<SaveOutlined />}
+                                                style={{
+                                                    flex: 2,
+                                                    borderRadius: 12,
+                                                    height: 46,
+                                                    fontWeight: 600,
+                                                    background: '#7C3AED',
+                                                    boxShadow: '0 4px 12px rgba(124, 58, 237, 0.25)'
+                                                }}
+                                            >
+                                                บันทึกข้อมูล
+                                            </Button>
+                                        </div>
+                                    </Form>
+                                </Card>
+                            </Col>
+
+                            <Col xs={24} lg={9}>
+                                <div style={{ display: 'grid', gap: 14 }}>
+                                    <TablePreviewCard
+                                        tableName={tableName}
+                                        status={status}
+                                        isActive={isActive}
                                     />
-                                </Form>
-                            )}
-                        </div>
-                    </div>
 
-                    {/* Right Column: Preview */}
-                    <div className="md:col-span-1 hidden md:block">
-                        <div style={{ position: 'sticky', top: 24 }}>
-                            <TablePreview 
-                                name={tableName} 
-                            />
-                        </div>
-                    </div>
-                </div>
+                                    {isEdit ? (
+                                        <Card style={{ borderRadius: 16 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                                                <ExclamationCircleOutlined style={{ color: '#0369a1' }} />
+                                                <Text strong>รายละเอียดรายการ</Text>
+                                            </div>
+                                            <div style={{ display: 'grid', gap: 8 }}>
+                                                <Text type="secondary">ID: {originalTable?.id || '-'}</Text>
+                                                <Text type="secondary">สถานะออเดอร์ล่าสุด: {originalTable?.active_order_status || '-'}</Text>
+                                                <Text type="secondary">สร้างเมื่อ: {formatDate(originalTable?.create_date)}</Text>
+                                                <Text type="secondary">อัปเดตเมื่อ: {formatDate(originalTable?.update_date)}</Text>
+                                            </div>
+                                        </Card>
+                                    ) : null}
+                                </div>
+                            </Col>
+                        </Row>
+                    )}
                 </PageSection>
             </PageContainer>
         </div>

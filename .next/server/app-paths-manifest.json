@@ -1,10 +1,8 @@
 {
-  "/api/pos/delivery/route": "app/api/pos/delivery/route.js",
-  "/api/pos/orders/summary/route": "app/api/pos/orders/summary/route.js",
-  "/(main)/pos/discounts/page": "app/(main)/pos/discounts/page.js",
-  "/(main)/pos/productsUnit/page": "app/(main)/pos/productsUnit/page.js",
-  "/(main)/pos/discounts/manager/[...mode]/page": "app/(main)/pos/discounts/manager/[...mode]/page.js",
+  "/api/pos/tables/route": "app/api/pos/tables/route.js",
   "/(main)/pos/delivery/page": "app/(main)/pos/delivery/page.js",
   "/(main)/pos/delivery/manager/[...mode]/page": "app/(main)/pos/delivery/manager/[...mode]/page.js",
-  "/(main)/pos/orders/page": "app/(main)/pos/orders/page.js"
+  "/(main)/pos/orders/page": "app/(main)/pos/orders/page.js",
+  "/(main)/pos/tables/page": "app/(main)/pos/tables/page.js",
+  "/(main)/pos/tables/manager/[...mode]/page": "app/(main)/pos/tables/manager/[...mode]/page.js"
 }
