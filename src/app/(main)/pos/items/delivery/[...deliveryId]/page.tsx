@@ -21,9 +21,9 @@ import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingCo
 import { useSocket } from "../../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../../../utils/realtimeEvents";
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
-import UIPageHeader from "@/components/ui/page/PageHeader";
+import PageContainer from "../../../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');

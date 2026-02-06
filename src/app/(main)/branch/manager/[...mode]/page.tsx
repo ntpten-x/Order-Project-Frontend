@@ -10,11 +10,11 @@ import {
 import { branchService } from "../../../../../services/branch.service";
 import { useAuth } from "../../../../../contexts/AuthContext";
 import { getCsrfTokenCached } from '../../../../../utils/pos/csrf';
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
-import UIPageHeader from "@/components/ui/page/PageHeader";
-import type { CreateBranchInput } from "@/types/api/branch";
-import { t } from "@/utils/i18n";
+import PageContainer from "../../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../../components/ui/page/PageHeader";
+import type { CreateBranchInput } from "../../../../../types/api/branch";
+import { t } from "../../../../../utils/i18n";
 
 const { TextArea } = Input;
 

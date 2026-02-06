@@ -17,11 +17,11 @@ import {
     ModalItemCard,
     WarningBanner
 } from "./style";
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
-import PageStack from "@/components/ui/page/PageStack";
-import UIPageHeader from "@/components/ui/page/PageHeader";
-import UIEmptyState from "@/components/ui/states/EmptyState";
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../components/ui/page/PageSection";
+import PageStack from "../../../../components/ui/page/PageStack";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import UIEmptyState from "../../../../components/ui/states/EmptyState";
 import { LegacyRealtimeEvents, RealtimeEvents } from "../../../../utils/realtimeEvents";
 
 interface PurchaseItemState {

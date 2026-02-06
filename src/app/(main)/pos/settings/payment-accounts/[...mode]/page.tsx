@@ -11,10 +11,10 @@ import { ShopPaymentAccount } from "../../../../../../types/api/pos/shopPaymentA
 import { useRoleGuard } from "../../../../../../utils/pos/accessControl";
 import { AccessGuardFallback } from "../../../../../../components/pos/AccessGuard";
 import { posColors } from "../../../../../../theme/pos";
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
-import UIPageHeader from "@/components/ui/page/PageHeader";
-import UIEmptyState from "@/components/ui/states/EmptyState";
+import PageContainer from "../../../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
+import UIEmptyState from "../../../../../../components/ui/states/EmptyState";
 
 const { Title, Text } = Typography;
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from 'react';
-import { Button, message } from 'antd';
+import { Button, notification } from 'antd';
 import { register } from '../utils/serviceWorker';
 import { t } from '../utils/i18n';
 
@@ -14,11 +14,9 @@ export default function ServiceWorkerRegistration() {
                 },
                 onUpdate: (registration) => {
                     const key = 'sw-update';
-                    message.info({
+                    notification.info({
                         key,
-                        content: (
-                            <span>{t("network.newVersion")}</span>
-                        ),
+                        message: t("network.newVersion"),
                         duration: 0,
                         btn: (
                             <Button type="primary" size="small" onClick={() => registration.waiting?.postMessage({ type: 'SKIP_WAITING' }) || window.location.reload()}>

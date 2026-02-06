@@ -3,7 +3,7 @@
 import React from "react";
 import { Layout } from "antd";
 import POSDelivery from "../../../../../../components/pos/POSDelivery";
-import PageContainer from "@/components/ui/page/PageContainer";
+import PageContainer from "../../../../../../components/ui/page/PageContainer";
 
 interface Props {
   params: {

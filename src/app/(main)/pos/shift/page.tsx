@@ -16,11 +16,11 @@ import { SocketContext } from "../../../../contexts/SocketContext";
 import { shiftsService } from "../../../../services/pos/shifts.service";
 import { Shift, ShiftSummary } from "../../../../types/api/pos/shifts";
 import { RealtimeEvents } from "../../../../utils/realtimeEvents";
-import OpenShiftModal from "@/components/pos/shifts/OpenShiftModal";
-import CloseShiftModal from "@/components/pos/shifts/CloseShiftModal";
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
-import UIPageHeader from "@/components/ui/page/PageHeader";
+import OpenShiftModal from "../../../../components/pos/shifts/OpenShiftModal";
+import CloseShiftModal from "../../../../components/pos/shifts/CloseShiftModal";
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
 
 import dayjs from "dayjs";
 import 'dayjs/locale/th';

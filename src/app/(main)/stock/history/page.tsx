@@ -9,11 +9,11 @@ import OrderDetailModal from "../../../../components/stock/OrderDetailModal";
 import { useSocket } from "../../../../hooks/useSocket";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { authService } from "../../../../services/auth.service";
-import PageContainer from "@/components/ui/page/PageContainer";
-import UIPageHeader from "@/components/ui/page/PageHeader";
-import PageSection from "@/components/ui/page/PageSection";
-import UIEmptyState from "@/components/ui/states/EmptyState";
-import { t } from "@/utils/i18n";
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import PageSection from "../../../../components/ui/page/PageSection";
+import UIEmptyState from "../../../../components/ui/states/EmptyState";
+import { t } from "../../../../utils/i18n";
 import { LegacyRealtimeEvents, RealtimeEvents } from "../../../../utils/realtimeEvents";
 import {
     HistoryPageStyles,

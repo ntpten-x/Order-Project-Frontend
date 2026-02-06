@@ -5,8 +5,8 @@ import { HomeOutlined } from "@ant-design/icons";
 import { Button, Result } from "antd";
 import { useRouter } from "next/navigation";
 
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
+import PageContainer from "../components/ui/page/PageContainer";
+import PageSection from "../components/ui/page/PageSection";
 
 export default function NotFound() {
   const router = useRouter();

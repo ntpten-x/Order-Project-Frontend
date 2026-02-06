@@ -17,7 +17,7 @@ import {
 import { Branch } from "../../../types/api/branch";
 import { CSSProperties } from 'react';
 import { theme } from 'antd';
-import { t } from "@/utils/i18n";
+import { t } from "../../../utils/i18n";
 
 const { Title, Text } = Typography;
 const { useToken } = theme;

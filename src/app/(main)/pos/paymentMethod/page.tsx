@@ -29,11 +29,11 @@ import { paymentMethodService } from "../../../../services/pos/paymentMethod.ser
 import { globalStyles } from '../../../../theme/pos/paymentMethod/style';
 import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
-import PageStack from "@/components/ui/page/PageStack";
-import UIPageHeader from "@/components/ui/page/PageHeader";
-import UIEmptyState from "@/components/ui/states/EmptyState";
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../components/ui/page/PageSection";
+import PageStack from "../../../../components/ui/page/PageStack";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import UIEmptyState from "../../../../components/ui/states/EmptyState";
 
 const { Text } = Typography;
 

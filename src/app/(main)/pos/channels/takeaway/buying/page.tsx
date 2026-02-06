@@ -3,7 +3,7 @@
 import React from "react";
 import { Layout } from "antd";
 import POSTakeAway from "../../../../../../components/pos/POSTakeAway";
-import PageContainer from "@/components/ui/page/PageContainer";
+import PageContainer from "../../../../../../components/ui/page/PageContainer";
 
 export default function TakeawayBuyingPage() {
     return (

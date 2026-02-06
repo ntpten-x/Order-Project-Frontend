@@ -22,12 +22,12 @@ import { Spin } from 'antd';
 import { authService } from "../../../services/auth.service";
 import { userService } from "../../../services/users.service";
 import { RealtimeEvents } from "../../../utils/realtimeEvents";
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
-import PageStack from "@/components/ui/page/PageStack";
-import UIPageHeader from "@/components/ui/page/PageHeader";
-import UIEmptyState from "@/components/ui/states/EmptyState";
-import { t } from "@/utils/i18n";
+import PageContainer from "../../../components/ui/page/PageContainer";
+import PageSection from "../../../components/ui/page/PageSection";
+import PageStack from "../../../components/ui/page/PageStack";
+import UIPageHeader from "../../../components/ui/page/PageHeader";
+import UIEmptyState from "../../../components/ui/states/EmptyState";
+import { t } from "../../../utils/i18n";
 
 export default function UsersPage() {
   const router = useRouter();

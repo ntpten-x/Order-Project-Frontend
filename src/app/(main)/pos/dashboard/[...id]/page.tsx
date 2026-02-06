@@ -19,7 +19,7 @@ import { ItemStatus } from "../../../../../types/api/pos/salesOrderItem";
 import { useSocket } from "../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../../utils/realtimeEvents";
-import PageContainer from "@/components/ui/page/PageContainer";
+import PageContainer from "../../../../../components/ui/page/PageContainer";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');

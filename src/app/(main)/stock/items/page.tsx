@@ -39,14 +39,13 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { authService } from "../../../../services/auth.service";
 import ItemsPageStyle from "./style";
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
-import PageStack from "@/components/ui/page/PageStack";
-import UIPageHeader from "@/components/ui/page/PageHeader";
-import UIEmptyState from "@/components/ui/states/EmptyState";
-import PageState from "@/components/ui/states/PageState";
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../components/ui/page/PageSection";
+import PageStack from "../../../../components/ui/page/PageStack";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import PageState from "../../../../components/ui/states/PageState";
 import { LegacyRealtimeEvents, RealtimeEvents } from "../../../../utils/realtimeEvents";
-import { t } from "@/utils/i18n";
+import { t } from "../../../../utils/i18n";
 
 const { Text } = Typography;
 
@@ -590,7 +589,7 @@ export default function ItemsPage() {
                             </Tag>
                             <Space wrap>
                               <Button size="small" icon={<EyeOutlined />} onClick={() => setViewingOrder(order)}>{t("stock.view")}</Button>
-                              <Button size="small" type="primary" icon={<ShoppingCartOutlined />} disabled={order.status !== OrderStatus.PENDING} onClick={() => router.push(f`/stock/buying?orderId=${order.id}`)}>{t("stock.buy")}</Button>
+                              <Button size="small" type="primary" icon={<ShoppingCartOutlined />} disabled={order.status !== OrderStatus.PENDING} onClick={() => router.push(`/stock/buying?orderId=${order.id}`)}>{t("stock.buy")}</Button>
                             </Space>
                           </Space>
                         </Card>

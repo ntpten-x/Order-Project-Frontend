@@ -5,10 +5,10 @@ import { ReloadOutlined, WifiOutlined } from "@ant-design/icons";
 import { Button, Space, theme } from "antd";
 import { useRouter } from "next/navigation";
 
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
-import UIPageHeader from "@/components/ui/page/PageHeader";
-import UIEmptyState from "@/components/ui/states/EmptyState";
+import PageContainer from "../../components/ui/page/PageContainer";
+import PageSection from "../../components/ui/page/PageSection";
+import UIPageHeader from "../../components/ui/page/PageHeader";
+import UIEmptyState from "../../components/ui/states/EmptyState";
 
 export default function OfflinePage() {
   const router = useRouter();

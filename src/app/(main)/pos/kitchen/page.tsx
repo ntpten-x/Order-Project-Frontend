@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useContext, useMemo, useRef, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Typography, Button, Row, Col, Tag, Empty, Spin, message, Space, Tooltip } from "antd";
+import { Typography, Button, Row, Col, Tag, Empty, Spin, message, Tooltip } from "antd";
 import { 
     CheckOutlined, 
     ClockCircleOutlined, 
@@ -23,8 +23,8 @@ import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import PageContainer from "@/components/ui/page/PageContainer";
-import { t } from "@/utils/i18n";
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import { t } from "../../../../utils/i18n";
 
 dayjs.extend(relativeTime);
 dayjs.locale('th');

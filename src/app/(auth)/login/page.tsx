@@ -5,9 +5,9 @@ import { Form, notification, Typography } from "antd";
 import { UserOutlined, LockOutlined } from "@ant-design/icons";
 import { useAuth } from "../../../contexts/AuthContext";
 import { LoginCredentials } from "../../../types/api/auth";
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
-import UIPageHeader from "@/components/ui/page/PageHeader";
+import PageContainer from "../../../components/ui/page/PageContainer";
+import PageSection from "../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../components/ui/page/PageHeader";
 import {
     LoginContainer,
     StyledCard,

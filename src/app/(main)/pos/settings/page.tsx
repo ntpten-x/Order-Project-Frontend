@@ -13,9 +13,9 @@ import { useSocket } from "../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
 import { useRoleGuard } from "../../../../utils/pos/accessControl";
 import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
-import PageContainer from "@/components/ui/page/PageContainer";
-import PageSection from "@/components/ui/page/PageSection";
-import UIPageHeader from "@/components/ui/page/PageHeader";
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../components/ui/page/PageSection";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 
 const { Text } = Typography;
