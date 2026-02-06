@@ -1,8 +1,14 @@
 {
+  "/api/auth/me/route": "app/api/auth/me/route.js",
+  "/api/pos/shifts/current/route": "app/api/pos/shifts/current/route.js",
+  "/api/csrf/route": "app/api/csrf/route.js",
+  "/api/pos/shifts/current/summary/route": "app/api/pos/shifts/current/summary/route.js",
   "/api/pos/tables/route": "app/api/pos/tables/route.js",
-  "/(main)/pos/delivery/page": "app/(main)/pos/delivery/page.js",
+  "/api/pos/products/route": "app/api/pos/products/route.js",
+  "/api/pos/category/route": "app/api/pos/category/route.js",
   "/(main)/pos/delivery/manager/[...mode]/page": "app/(main)/pos/delivery/manager/[...mode]/page.js",
   "/(main)/pos/orders/page": "app/(main)/pos/orders/page.js",
   "/(main)/pos/tables/page": "app/(main)/pos/tables/page.js",
-  "/(main)/pos/tables/manager/[...mode]/page": "app/(main)/pos/tables/manager/[...mode]/page.js"
+  "/(main)/pos/tables/manager/[...mode]/page": "app/(main)/pos/tables/manager/[...mode]/page.js",
+  "/(main)/pos/shift/page": "app/(main)/pos/shift/page.js"
 }
