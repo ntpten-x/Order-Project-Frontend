@@ -1,9 +1,5 @@
 {
   "/(auth)/login/page": "app/(auth)/login/page.js",
-  "/api/csrf/route": "app/api/csrf/route.js",
-  "/api/auth/login/route": "app/api/auth/login/route.js",
-  "/api/auth/me/route": "app/api/auth/me/route.js",
-  "/api/pos/category/route": "app/api/pos/category/route.js",
-  "/api/pos/products/route": "app/api/pos/products/route.js",
+  "/_not-found/page": "app/_not-found/page.js",
   "/(main)/page": "app/(main)/page.js"
 }
