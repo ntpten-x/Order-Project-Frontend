@@ -1,8 +1,8 @@
-'use client';
+﻿'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { message, Modal, Typography, Button, Input, Space } from 'antd';
-import { 
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import { message, Modal, Typography, Button, Input, Space, Segmented, Tag, Switch } from 'antd';
+import {
     TagsOutlined,
     PlusOutlined,
     ReloadOutlined,
@@ -10,27 +10,27 @@ import {
     DeleteOutlined,
     SearchOutlined
 } from '@ant-design/icons';
-import { Category } from "../../../../types/api/pos/category";
+import { Category } from '../../../../types/api/pos/category';
 import { useRouter } from 'next/navigation';
-import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
-import { useAsyncAction } from "../../../../hooks/useAsyncAction";
-import { useSocket } from "../../../../hooks/useSocket";
-import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
-import { useRoleGuard } from "../../../../utils/pos/accessControl";
-import { useRealtimeList } from "../../../../utils/pos/realtime";
-import { readCache, writeCache } from "../../../../utils/pos/cache";
+import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
+import { useAsyncAction } from '../../../../hooks/useAsyncAction';
+import { useSocket } from '../../../../hooks/useSocket';
+import { getCsrfTokenCached } from '../../../../utils/pos/csrf';
+import { useRoleGuard } from '../../../../utils/pos/accessControl';
+import { useRealtimeList } from '../../../../utils/pos/realtime';
+import { readCache, writeCache } from '../../../../utils/pos/cache';
 import { pageStyles, globalStyles } from '../../../../theme/pos/category/style';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
-import PageContainer from "../../../../components/ui/page/PageContainer";
-import PageSection from "../../../../components/ui/page/PageSection";
-import PageStack from "../../../../components/ui/page/PageStack";
-import UIPageHeader from "../../../../components/ui/page/PageHeader";
-import UIEmptyState from "../../../../components/ui/states/EmptyState";
-import { RealtimeEvents } from "../../../../utils/realtimeEvents";
+import PageContainer from '../../../../components/ui/page/PageContainer';
+import PageSection from '../../../../components/ui/page/PageSection';
+import PageStack from '../../../../components/ui/page/PageStack';
+import UIPageHeader from '../../../../components/ui/page/PageHeader';
+import UIEmptyState from '../../../../components/ui/states/EmptyState';
+import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 
 const { Text } = Typography;
 
-// ============ STATS CARD COMPONENT ============
+type StatusFilter = 'all' | 'active' | 'inactive';
 
 interface StatsCardProps {
     totalCategories: number;
@@ -39,105 +39,115 @@ interface StatsCardProps {
 }
 
 const StatsCard = ({ totalCategories, activeCategories, inactiveCategories }: StatsCardProps) => (
-    <div style={pageStyles.statsCard}>
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#7C3AED' }}>{totalCategories}</span>
-            <Text style={pageStyles.statLabel}>ทั้งหมด</Text>
+    <div style={{
+        background: '#fff',
+        borderRadius: 16,
+        border: '1px solid #e2e8f0',
+        display: 'grid',
+        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
+        gap: 8,
+        padding: 14
+    }}>
+        <div style={{ textAlign: 'center' }}>
+            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', display: 'block' }}>{totalCategories}</span>
+            <Text style={{ fontSize: 12, color: '#64748b' }}>ทั้งหมด</Text>
         </div>
-        <div style={{ width: 1, height: 24, background: '#f0f0f0', alignSelf: 'center' }} />
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#10B981' }}>{activeCategories}</span>
-            <Text style={pageStyles.statLabel}>ใช้งาน</Text>
+        <div style={{ textAlign: 'center' }}>
+            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f766e', display: 'block' }}>{activeCategories}</span>
+            <Text style={{ fontSize: 12, color: '#64748b' }}>ใช้งาน</Text>
         </div>
-        <div style={{ width: 1, height: 24, background: '#f0f0f0', alignSelf: 'center' }} />
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#EF4444' }}>{inactiveCategories}</span>
-            <Text style={pageStyles.statLabel}>ไม่ใช้งาน</Text>
+        <div style={{ textAlign: 'center' }}>
+            <span style={{ fontSize: 24, fontWeight: 700, color: '#b91c1c', display: 'block' }}>{inactiveCategories}</span>
+            <Text style={{ fontSize: 12, color: '#64748b' }}>ปิดใช้งาน</Text>
         </div>
     </div>
 );
 
-// ============ CATEGORY CARD COMPONENT ============
-
 interface CategoryCardProps {
     category: Category;
-    index: number;
     onEdit: (category: Category) => void;
     onDelete: (category: Category) => void;
+    onToggleActive: (category: Category, next: boolean) => void;
+    updatingStatusId: string | null;
 }
 
-const CategoryCard = ({ category, index, onEdit, onDelete }: CategoryCardProps) => {
+const formatDate = (raw: string | Date) => {
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return '-';
+    return new Intl.DateTimeFormat('th-TH', {
+        dateStyle: 'medium',
+        timeStyle: 'short'
+    }).format(date);
+};
+
+const CategoryCard = ({ category, onEdit, onDelete, onToggleActive, updatingStatusId }: CategoryCardProps) => {
     return (
         <div
             className="category-card"
             style={{
                 ...pageStyles.categoryCard(category.is_active),
-                animationDelay: `${index * 0.05}s`
+                borderRadius: 16,
             }}
             onClick={() => onEdit(category)}
         >
             <div style={pageStyles.categoryCardInner}>
-                {/* Icon */}
                 <div style={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 16,
-                    background: category.is_active 
-                        ? 'linear-gradient(135deg, #F3E8FF 0%, #E9D5FF 100%)' 
-                        : '#F1F5F9',
+                    width: 52,
+                    height: 52,
+                    borderRadius: 14,
+                    background: category.is_active
+                        ? 'linear-gradient(135deg, #ccfbf1 0%, #99f6e4 100%)'
+                        : '#f1f5f9',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
-                    boxShadow: category.is_active ? '0 4px 10px rgba(124, 58, 237, 0.1)' : 'none'
+                    boxShadow: category.is_active ? '0 4px 10px rgba(15, 118, 110, 0.18)' : 'none'
                 }}>
-                    <TagsOutlined style={{ 
-                        fontSize: 24, 
-                        color: category.is_active ? '#7C3AED' : '#94A3B8' 
+                    <TagsOutlined style={{
+                        fontSize: 22,
+                        color: category.is_active ? '#0f766e' : '#94a3b8'
                     }} />
                 </div>
 
-                {/* Info */}
                 <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                        <Text 
-                            strong 
-                            style={{ 
-                                fontSize: 16, 
-                                color: category.is_active ? '#1E293B' : '#64748B' 
+                        <Text
+                            strong
+                            style={{
+                                fontSize: 16,
+                                color: '#0f172a'
                             }}
                             ellipsis={{ tooltip: category.display_name }}
                         >
                             {category.display_name}
                         </Text>
-                        {category.is_active ? (
-                            <div style={{
-                                width: 8,
-                                height: 8,
-                                borderRadius: '50%',
-                                background: '#10B981',
-                                boxShadow: '0 0 0 2px #ecfdf5'
-                            }} />
-                        ) : (
-                            <div style={{
-                                width: 6,
-                                height: 6,
-                                borderRadius: '50%',
-                                background: '#CBD5E1'
-                            }} />
-                        )}
+                        <Tag color={category.is_active ? 'green' : 'default'}>
+                            {category.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}
+                        </Tag>
                     </div>
-                    <Text 
-                        type="secondary" 
-                        style={{ fontSize: 13, display: 'block', color: '#64748B' }}
+                    <Text
+                        type="secondary"
+                        style={{ fontSize: 13, display: 'block', color: '#334155' }}
                         ellipsis={{ tooltip: category.category_name }}
                     >
                         {category.category_name}
                     </Text>
+                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
+                        อัปเดตล่าสุด {formatDate(category.update_date)}
+                    </Text>
                 </div>
 
-                {/* Actions */}
-                <div style={{ display: 'flex', gap: 8 }}>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <Switch
+                        size="small"
+                        checked={category.is_active}
+                        loading={updatingStatusId === category.id}
+                        onClick={(checked, event) => {
+                            event?.stopPropagation();
+                            onToggleActive(category, checked);
+                        }}
+                    />
                     <Button
                         type="text"
                         icon={<EditOutlined />}
@@ -146,9 +156,9 @@ const CategoryCard = ({ category, index, onEdit, onDelete }: CategoryCardProps) 
                             onEdit(category);
                         }}
                         style={{
-                            borderRadius: 12,
-                            color: '#7C3AED',
-                            background: '#F3E8FF',
+                            borderRadius: 10,
+                            color: '#0369a1',
+                            background: '#e0f2fe',
                             width: 36,
                             height: 36
                         }}
@@ -162,8 +172,8 @@ const CategoryCard = ({ category, index, onEdit, onDelete }: CategoryCardProps) 
                             onDelete(category);
                         }}
                         style={{
-                            borderRadius: 12,
-                            background: '#FEF2F2',
+                            borderRadius: 10,
+                            background: '#fef2f2',
                             width: 36,
                             height: 36
                         }}
@@ -177,19 +187,20 @@ const CategoryCard = ({ category, index, onEdit, onDelete }: CategoryCardProps) 
 export default function CategoryPage() {
     const router = useRouter();
     const [categories, setCategories] = useState<Category[]>([]);
-    const [filteredCategories, setFilteredCategories] = useState<Category[]>([]);
     const [searchText, setSearchText] = useState('');
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+    const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ["Admin", "Manager"] });
+    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager'] });
 
     useEffect(() => {
         getCsrfTokenCached();
     }, []);
 
     useEffect(() => {
-        const cached = readCache<Category[]>("pos:categories", 5 * 60 * 1000);
+        const cached = readCache<Category[]>('pos:categories', 5 * 60 * 1000);
         if (cached && cached.length > 0) {
             setCategories(cached);
         }
@@ -202,7 +213,9 @@ export default function CategoryPage() {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลหมวดหมู่ได้');
             }
-            const data = await response.json();
+            const payload = await response.json();
+            const data = Array.isArray(payload) ? payload : payload?.data;
+            if (!Array.isArray(data)) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
             setCategories(data);
         }, 'กำลังโหลดข้อมูลหมวดหมู่...');
     }, [execute]);
@@ -219,37 +232,39 @@ export default function CategoryPage() {
         setCategories
     );
 
-    // Centralized filtering logic
-    useEffect(() => {
-        if (searchText) {
-            const lower = searchText.toLowerCase();
-            const filtered = categories.filter((c: Category) => 
-                c.display_name.toLowerCase().includes(lower) || 
-                c.category_name.toLowerCase().includes(lower)
-            );
-            setFilteredCategories(filtered);
-        } else {
-            setFilteredCategories(categories);
+    const filteredCategories = useMemo(() => {
+        let result = categories;
+
+        if (statusFilter === 'active') {
+            result = result.filter((item) => item.is_active);
+        } else if (statusFilter === 'inactive') {
+            result = result.filter((item) => !item.is_active);
         }
-    }, [categories, searchText]);
+
+        const keyword = searchText.trim().toLowerCase();
+        if (keyword) {
+            result = result.filter((item) =>
+                item.display_name.toLowerCase().includes(keyword) ||
+                item.category_name.toLowerCase().includes(keyword)
+            );
+        }
+
+        return result;
+    }, [categories, searchText, statusFilter]);
 
     useEffect(() => {
         if (categories.length > 0) {
-            writeCache("pos:categories", categories);
+            writeCache('pos:categories', categories);
         }
     }, [categories]);
 
-    const handleSearch = (value: string) => {
-        setSearchText(value);
-    };
-
     const handleAdd = () => {
-        showLoading("กำลังเปิดหน้าจัดการหมวดหมู่...");
+        showLoading('กำลังเปิดหน้าจัดการหมวดหมู่...');
         router.push('/pos/category/manager/add');
     };
 
     const handleEdit = (category: Category) => {
-        showLoading("กำลังเปิดหน้าแก้ไขหมวดหมู่...");
+        showLoading('กำลังเปิดหน้าแก้ไขหมวดหมู่...');
         router.push(`/pos/category/manager/edit/${category.id}`);
     };
 
@@ -262,7 +277,6 @@ export default function CategoryPage() {
             cancelText: 'ยกเลิก',
             centered: true,
             icon: <DeleteOutlined style={{ color: '#EF4444' }} />,
-            maskClosable: true,
             onOk: async () => {
                 await execute(async () => {
                     const csrfToken = await getCsrfTokenCached();
@@ -275,10 +289,40 @@ export default function CategoryPage() {
                     if (!response.ok) {
                         throw new Error('ไม่สามารถลบหมวดหมู่ได้');
                     }
+                    setCategories((prev) => prev.filter((item) => item.id !== category.id));
                     message.success(`ลบหมวดหมู่ "${category.display_name}" สำเร็จ`);
-                }, "กำลังลบหมวดหมู่...");
+                }, 'กำลังลบหมวดหมู่...');
             },
         });
+    };
+
+    const handleToggleActive = async (category: Category, next: boolean) => {
+        setUpdatingStatusId(category.id);
+        try {
+            const csrfToken = await getCsrfTokenCached();
+            const response = await fetch(`/api/pos/category/update/${category.id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-Token': csrfToken
+                },
+                body: JSON.stringify({ is_active: next })
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || errorData.message || 'ไม่สามารถเปลี่ยนสถานะหมวดหมู่ได้');
+            }
+
+            const updated = await response.json();
+            setCategories((prev) => prev.map((item) => item.id === category.id ? updated : item));
+            message.success(next ? 'เปิดใช้งานหมวดหมู่แล้ว' : 'ปิดใช้งานหมวดหมู่แล้ว');
+        } catch (error) {
+            console.error(error);
+            message.error(error instanceof Error ? error.message : 'ไม่สามารถเปลี่ยนสถานะหมวดหมู่ได้');
+        } finally {
+            setUpdatingStatusId(null);
+        }
     };
 
     if (isChecking) {
@@ -295,33 +339,13 @@ export default function CategoryPage() {
     return (
         <div className="category-page" style={pageStyles.container}>
             <style>{globalStyles}</style>
-            <style jsx global>{`
-                .search-input-placeholder-white input::placeholder {
-                    color: rgba(255, 255, 255, 0.6) !important;
-                }
-                .search-input-placeholder-white input {
-                    color: white !important;
-                }
-                .category-card {
-                    cursor: pointer;
-                    -webkit-tap-highlight-color: transparent;
-                }
-            `}</style>
-            
-            {/* Header */}
+
             <UIPageHeader
                 title="หมวดหมู่สินค้า"
-                subtitle={`${categories.length} รายการ`}
+                subtitle={`ทั้งหมด ${categories.length} รายการ`}
                 icon={<TagsOutlined />}
                 actions={
                     <Space size={8} wrap>
-                        <Input
-                            prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
-                            allowClear
-                            placeholder="ค้นหาหมวดหมู่..."
-                            onChange={(e) => handleSearch(e.target.value)}
-                            style={{ minWidth: 220 }}
-                        />
                         <Button icon={<ReloadOutlined />} onClick={fetchCategories} />
                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                             เพิ่มหมวดหมู่
@@ -338,31 +362,53 @@ export default function CategoryPage() {
                         inactiveCategories={inactiveCategories.length}
                     />
 
+                    <PageSection title="ค้นหาและตัวกรอง">
+                        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: '1fr', alignItems: 'center' }}>
+                            <Input
+                                prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
+                                allowClear
+                                placeholder="ค้นหาจากชื่อแสดงหรือชื่อระบบ..."
+                                value={searchText}
+                                onChange={(e) => setSearchText(e.target.value)}
+                            />
+                            <Segmented<StatusFilter>
+                                options={[
+                                    { label: `ทั้งหมด (${categories.length})`, value: 'all' },
+                                    { label: `ใช้งาน (${activeCategories.length})`, value: 'active' },
+                                    { label: `ปิดใช้งาน (${inactiveCategories.length})`, value: 'inactive' }
+                                ]}
+                                value={statusFilter}
+                                onChange={(value) => setStatusFilter(value)}
+                            />
+                        </div>
+                    </PageSection>
+
                     <PageSection
                         title="รายการหมวดหมู่"
                         extra={<span style={{ fontWeight: 600 }}>{filteredCategories.length}</span>}
                     >
                         {filteredCategories.length > 0 ? (
-                            filteredCategories.map((category, index) => (
+                            filteredCategories.map((category) => (
                                 <CategoryCard
                                     key={category.id}
                                     category={category}
-                                    index={index}
                                     onEdit={handleEdit}
                                     onDelete={handleDelete}
+                                    onToggleActive={handleToggleActive}
+                                    updatingStatusId={updatingStatusId}
                                 />
                             ))
                         ) : (
                             <UIEmptyState
                                 title={
                                     searchText.trim()
-                                        ? "ไม่พบหมวดหมู่ที่ค้นหา"
-                                        : "ยังไม่มีหมวดหมู่"
+                                        ? 'ไม่พบหมวดหมู่ตามคำค้น'
+                                        : 'ยังไม่มีหมวดหมู่'
                                 }
                                 description={
                                     searchText.trim()
-                                        ? "ลองค้นหาด้วยคำอื่นหรือล้างการค้นหา"
-                                        : "เพิ่มหมวดหมู่แรกเพื่อเริ่มต้นใช้งาน"
+                                        ? 'ลองเปลี่ยนคำค้น หรือตัวกรองสถานะ'
+                                        : 'เพิ่มหมวดหมู่แรกเพื่อเริ่มใช้งาน'
                                 }
                                 action={
                                     !searchText.trim() ? (
@@ -376,7 +422,6 @@ export default function CategoryPage() {
                     </PageSection>
                 </PageStack>
             </PageContainer>
-
         </div>
     );
 }
