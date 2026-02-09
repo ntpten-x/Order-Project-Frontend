@@ -9,30 +9,38 @@ export default function Loading() {
     <div
       style={{
         position: "fixed",
-        inset: 0,
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
         zIndex: 9999,
-        display: "grid",
-        placeItems: "center",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
         pointerEvents: "auto",
-        background: "rgba(255, 255, 255, 0.6)",
-        backdropFilter: "blur(12px)",
-        WebkitBackdropFilter: "blur(12px)",
+        background: "rgba(255, 255, 255, 0.8)",
+        backdropFilter: "blur(8px)",
+        WebkitBackdropFilter: "blur(8px)",
       }}
     >
-      <div
-        style={{
-          padding: 24,
-          borderRadius: 20,
-          background: "rgba(255, 255, 255, 0.9)",
-          border: `1px solid ${token.colorBorderSecondary}`,
-          boxShadow: token.boxShadowSecondary,
-        }}
-      >
-        <Flex vertical align="center" gap={12}>
+        <div
+          style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            gap: "12px",
+            padding: "24px",
+            background: "rgba(255, 255, 255, 0.9)",
+            borderRadius: "20px",
+            border: "1px solid #f1f5f9",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.08)"
+          }}
+        >
           <Spin size="large" />
-          <Typography.Text type="secondary">กำลังโหลด...</Typography.Text>
-        </Flex>
-      </div>
+          <Typography.Text type="secondary" style={{ fontSize: "14px" }}>
+            กำลังโหลด...
+          </Typography.Text>
+        </div>
     </div>
   );
 }
