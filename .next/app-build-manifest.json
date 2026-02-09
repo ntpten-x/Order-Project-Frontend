@@ -36,6 +36,71 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/not-found.js"
+    ],
+    "/(main)/pos/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/pos/page.js"
+    ],
+    "/(main)/pos/layout": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/pos/layout.js"
+    ],
+    "/(main)/pos/channels/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/pos/channels/page.js"
+    ],
+    "/(main)/stock/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/stock/page.js"
+    ],
+    "/(main)/stock/layout": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/stock/layout.js"
+    ],
+    "/(main)/stock/items/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/stock/items/page.js"
+    ],
+    "/(main)/pos/kitchen/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/pos/kitchen/page.js"
+    ],
+    "/(main)/pos/orders/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/pos/orders/page.js"
+    ],
+    "/(main)/pos/channels/dine-in/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/pos/channels/dine-in/page.js"
+    ],
+    "/(main)/pos/items/payment/[...paymentId]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/pos/items/payment/[...paymentId]/page.js"
+    ],
+    "/(main)/pos/channels/dine-in/[tableId]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/pos/channels/dine-in/[tableId]/page.js"
+    ],
+    "/(main)/pos/orders/[...ordersId]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/pos/orders/[...ordersId]/page.js"
+    ],
+    "/(auth)/login/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(auth)/login/page.js"
     ]
   }
 }

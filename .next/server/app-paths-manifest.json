@@ -1,6 +1,8 @@
 {
-  "/api/auth/me/route": "app/api/auth/me/route.js",
-  "/api/pos/products/route": "app/api/pos/products/route.js",
-  "/api/pos/category/route": "app/api/pos/category/route.js",
-  "/(main)/page": "app/(main)/page.js"
+  "/(auth)/login/page": "app/(auth)/login/page.js",
+  "/(main)/page": "app/(main)/page.js",
+  "/(main)/pos/items/payment/[...paymentId]/page": "app/(main)/pos/items/payment/[...paymentId]/page.js",
+  "/(main)/pos/channels/dine-in/[tableId]/page": "app/(main)/pos/channels/dine-in/[tableId]/page.js",
+  "/(main)/pos/page": "app/(main)/pos/page.js",
+  "/(main)/pos/orders/[...ordersId]/page": "app/(main)/pos/orders/[...ordersId]/page.js"
 }
