@@ -56,6 +56,11 @@
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/(main)/pos/items/delivery/[...deliveryId]/page.js"
+    ],
+    "/(main)/pos/kitchen/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/pos/kitchen/page.js"
     ]
   }
 }
