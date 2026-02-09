@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useContext, useMemo, useRef, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Typography, Button, Row, Col, Tag, Empty, Spin, message, Badge } from "antd";
+import { Typography, Button, Row, Col, Tag, Empty, Spin, message, Badge, Tooltip } from "antd";
 import { 
     CheckOutlined, 
     ClockCircleOutlined, 
@@ -15,11 +15,13 @@ import {
     WifiOutlined,
     FilterOutlined,
     UpOutlined,
-    DownOutlined
+    DownOutlined,
+    UndoOutlined
 } from "@ant-design/icons";
 import { SocketContext } from "../../../../contexts/SocketContext";
 import { ordersService } from "../../../../services/pos/orders.service";
 import { SalesOrderItem, ItemStatus } from "../../../../types/api/pos/salesOrderItem";
+import { SalesOrder, OrderStatus, OrderType } from "../../../../types/api/pos/salesOrder";
 import { useGlobalLoadingDispatch } from "../../../../contexts/pos/GlobalLoadingContext";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { RealtimeEvents } from "../../../../utils/realtimeEvents";
@@ -332,6 +334,11 @@ const kitchenResponsiveStyles = `
         background: rgba(16, 185, 129, 0.08);
     }
 
+    .kitchen-item-row.served {
+        border-left-color: #64748b;
+        opacity: 0.7;
+    }
+
     .kitchen-item-qty {
         font-size: 20px;
         font-weight: 800;
@@ -562,16 +569,19 @@ export default function KitchenDisplayPage() {
     const { data: allItems = [], isLoading, refetch, error } = useQuery<SalesOrderItem[]>({
         queryKey: ["orderItems", "kitchen"],
         queryFn: async () => {
-            const [pending, cooking] = await Promise.all([
+            const [pending, cooking, served] = await Promise.all([
                 ordersService.getItems(ItemStatus.Pending),
                 ordersService.getItems(ItemStatus.Cooking),
+                ordersService.getItems(ItemStatus.Served),
             ]);
 
-            const merged = [...pending, ...cooking];
+            const merged = [...pending, ...cooking, ...served];
 
+            // Filter items: Only show items from orders that are currently "Processing"
+            // matching the Orders page logic (Not Paid, Not Cancelled, Not WaitingForPayment)
             return merged.filter((item: SalesOrderItem) =>
-                item.status !== ItemStatus.Served &&
-                item.status !== ItemStatus.Cancelled
+                item.status !== ItemStatus.Cancelled &&
+                item.order && (item.order.status === OrderStatus.Pending || item.order.status === OrderStatus.Cooking)
             );
         },
         staleTime: 2000,
@@ -581,9 +591,16 @@ export default function KitchenDisplayPage() {
     const groupedOrders = useMemo((): GroupedOrder[] => {
         const grouped: Record<string, GroupedOrder> = {};
         
-        const filteredItems = filterStatus === 'all' 
-            ? allItems.filter(item => item.status !== ItemStatus.Served && item.status !== ItemStatus.Cancelled)
-            : allItems.filter(item => item.status === filterStatus);
+        let filteredItems = allItems;
+        
+        if (filterStatus === 'all') {
+            // Default view: Show Pending + Cooking (User wants Pending to be seen as working mode)
+            filteredItems = allItems.filter(item => 
+                item.status === ItemStatus.Pending || item.status === ItemStatus.Cooking
+            );
+        } else {
+            filteredItems = allItems.filter(item => item.status === filterStatus);
+        }
 
         filteredItems.forEach(item => {
             const orderId = item.order_id;
@@ -676,7 +693,7 @@ export default function KitchenDisplayPage() {
             await Promise.all(updatePromises);
             
             queryClient.setQueryData<SalesOrderItem[]>(["orderItems", "kitchen"], (prev = []) =>
-                prev.filter(item => item.order_id !== orderId)
+                prev.map(item => item.order_id === orderId ? { ...item, status: ItemStatus.Served } : item)
             );
             
             message.success(`เสิร์ฟออเดอร์ #${order.order_no} เรียบร้อย`);
@@ -688,19 +705,19 @@ export default function KitchenDisplayPage() {
         }
     };
 
-    const pendingCount = allItems.filter(i => i.status === ItemStatus.Pending).length;
-    const cookingCount = allItems.filter(i => i.status === ItemStatus.Cooking).length;
+    const cookingCount = allItems.filter(i => i.status === ItemStatus.Cooking || i.status === ItemStatus.Pending).length;
+    const servedCount = allItems.filter(i => i.status === ItemStatus.Served).length;
 
     const stats = [
         { label: 'คิวทั้งหมด', value: allItems.length, color: '#38bdf8' },
-        { label: 'รอทำ', value: pendingCount, color: '#f59e0b' },
-        { label: 'กำลังทำ', value: cookingCount, color: '#10b981' },
+        { label: 'กำลังทำ', value: cookingCount, color: '#f59e0b' },
+        { label: 'ทำแล้ว', value: servedCount, color: '#10b981' },
     ];
 
     const filters = [
         { key: 'all', label: 'ทั้งหมด', count: allItems.length, color: '#38bdf8' },
-        { key: ItemStatus.Pending, label: 'รอทำ', count: pendingCount, color: '#f59e0b' },
-        { key: ItemStatus.Cooking, label: 'กำลังทำ', count: cookingCount, color: '#10b981' },
+        { key: ItemStatus.Cooking, label: 'กำลังทำ', count: cookingCount, color: '#f59e0b' },
+        { key: ItemStatus.Served, label: 'ทำแล้ว', count: servedCount, color: '#10b981' },
     ];
 
     return (
@@ -759,7 +776,7 @@ export default function KitchenDisplayPage() {
                 >
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                         <Badge count={allItems.length} style={{ backgroundColor: '#38bdf8' }} />
-                        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>รายการในคิว</Text>
+                        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>รายการงานครัว</Text>
                     </div>
                     <Button type="text" size="small" icon={statsExpanded ? <UpOutlined /> : <DownOutlined />} style={{ color: 'rgba(255,255,255,0.5)' }} />
                 </div>
@@ -817,7 +834,7 @@ export default function KitchenDisplayPage() {
                         <div className="kitchen-empty-icon">
                             <CheckOutlined style={{ fontSize: 48, color: '#10b981' }} />
                         </div>
-                        <Text className="kitchen-empty-text">ไม่มีออเดอร์ในครัวขณะนี้</Text>
+                        <Text className="kitchen-empty-text">ไม่มีออเดอร์ในหน้าจอนี้</Text>
                         <Button 
                             onClick={() => refetch()} 
                             type="default"
@@ -833,6 +850,9 @@ export default function KitchenDisplayPage() {
                             const urgency = getUrgencyConfig(order.created_at);
                             const isHighUrgency = urgency.level === 3;
                             const progress = Math.min(1, Math.max(0.1, dayjs().diff(dayjs(order.created_at), 'minute') / 25));
+
+                            // Only show Serve All if there are items NOT served in this order view
+                            const hasItemsToServe = order.items.some(i => i.status !== ItemStatus.Served);
 
                             return (
                                 <Col xs={24} sm={24} md={12} lg={8} xl={6} key={order.order_id}>
@@ -875,7 +895,10 @@ export default function KitchenDisplayPage() {
                                             {order.items.map((item) => (
                                                 <div 
                                                     key={item.id} 
-                                                    className={`kitchen-item-row ${item.status === ItemStatus.Cooking ? 'cooking' : 'pending'}`}
+                                                    className={`kitchen-item-row ${
+                                                        item.status === ItemStatus.Cooking ? 'cooking' : 
+                                                        item.status === ItemStatus.Served ? 'served' : 'pending'
+                                                    }`}
                                                 >
                                                     <div className="kitchen-item-qty">{item.quantity}</div>
                                                     <div className="kitchen-item-info">
@@ -884,36 +907,41 @@ export default function KitchenDisplayPage() {
                                                             <div className="kitchen-item-notes">⚠️ {item.notes}</div>
                                                         )}
                                                         <div className="kitchen-item-status">
-                                                            {item.status === ItemStatus.Cooking && '🍳 กำลังปรุง...'}
-                                                            {item.status === ItemStatus.Pending && '⏳ รอคิว'}
+                                                            {item.status === ItemStatus.Cooking && '🍳 กำลังทำ...'}
+                                                            {item.status === ItemStatus.Pending && '⏳ รอปรุง (กำลังทำ)'}
+                                                            {item.status === ItemStatus.Served && '✅ ทำแล้ว'}
                                                         </div>
                                                     </div>
 
                                                     <div className="kitchen-item-action">
-                                                        {item.status === ItemStatus.Pending && (
-                                                            <Button 
-                                                                type="text"
-                                                                icon={<ThunderboltOutlined />}
-                                                                onClick={() => updateItemStatus(item.id, ItemStatus.Cooking)}
-                                                                className="kitchen-item-action-btn"
-                                                                style={{ 
-                                                                    color: '#f59e0b', 
-                                                                    background: 'rgba(245, 158, 11, 0.15)',
-                                                                }}
-                                                            />
+                                                        {(item.status === ItemStatus.Pending || item.status === ItemStatus.Cooking) && (
+                                                            <Tooltip title="เสร็จแล้ว">
+                                                                <Button 
+                                                                    type="text"
+                                                                    icon={<CheckOutlined />}
+                                                                    onClick={() => updateItemStatus(item.id, ItemStatus.Served)}
+                                                                    className="kitchen-item-action-btn"
+                                                                    style={{ 
+                                                                        color: '#10b981', 
+                                                                        background: 'rgba(16, 185, 129, 0.2)',
+                                                                        border: '1px solid rgba(16, 185, 129, 0.3)'
+                                                                    }}
+                                                                />
+                                                            </Tooltip>
                                                         )}
-                                                        {item.status === ItemStatus.Cooking && (
-                                                            <Button 
-                                                                type="text"
-                                                                icon={<CheckOutlined />}
-                                                                onClick={() => updateItemStatus(item.id, ItemStatus.Served)}
-                                                                className="kitchen-item-action-btn"
-                                                                style={{ 
-                                                                    color: '#10b981', 
-                                                                    background: 'rgba(16, 185, 129, 0.2)',
-                                                                    border: '1px solid rgba(16, 185, 129, 0.3)'
-                                                                }}
-                                                            />
+                                                        {item.status === ItemStatus.Served && (
+                                                            <Tooltip title="ยกเลิก/กลับไปทำ">
+                                                                <Button 
+                                                                    type="text"
+                                                                    icon={<UndoOutlined />}
+                                                                    onClick={() => updateItemStatus(item.id, ItemStatus.Cooking)}
+                                                                    className="kitchen-item-action-btn"
+                                                                    style={{ 
+                                                                        color: '#64748b', 
+                                                                        background: 'rgba(100, 116, 139, 0.15)',
+                                                                    }}
+                                                                />
+                                                            </Tooltip>
                                                         )}
                                                     </div>
                                                 </div>
@@ -921,18 +949,20 @@ export default function KitchenDisplayPage() {
                                         </div>
 
                                         {/* Action Footer */}
-                                        <div className="kitchen-order-footer">
-                                            <Button
-                                                block
-                                                type="primary"
-                                                size="large"
-                                                icon={<DoubleRightOutlined />}
-                                                onClick={() => serveAllItems(order.order_id)}
-                                                className="kitchen-serve-all-btn"
-                                            >
-                                                เสิร์ฟทั้งหมด ({order.items.length} รายการ)
-                                            </Button>
-                                        </div>
+                                        {hasItemsToServe && (
+                                            <div className="kitchen-order-footer">
+                                                <Button
+                                                    block
+                                                    type="primary"
+                                                    size="large"
+                                                    icon={<DoubleRightOutlined />}
+                                                    onClick={() => serveAllItems(order.order_id)}
+                                                    className="kitchen-serve-all-btn"
+                                                >
+                                                    เสิร์ฟทั้งหมด ({order.items.filter(i => i.status !== ItemStatus.Served).length} รายการ)
+                                                </Button>
+                                            </div>
+                                        )}
                                     </div>
                                 </Col>
                             );
