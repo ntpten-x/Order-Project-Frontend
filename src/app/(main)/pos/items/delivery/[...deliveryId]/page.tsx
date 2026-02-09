@@ -2,8 +2,8 @@
 
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Typography, Row, Col, Card, Button, Empty, Divider, message, Tag, Avatar, Space, Alert } from "antd";
-import { ShopOutlined, RocketOutlined, CheckCircleOutlined, EditOutlined, InfoCircleOutlined } from "@ant-design/icons";
+import { Typography, Row, Col, Card, Button, Empty, Divider, message, Tag, Avatar } from "antd";
+import { ArrowLeftOutlined, ShopOutlined, RocketOutlined, CheckCircleOutlined, EditOutlined, InfoCircleOutlined, DownOutlined, UpOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 import { ordersService } from "../../../../../../services/pos/orders.service";
 import { paymentMethodService } from "../../../../../../services/pos/paymentMethod.service";
 import { paymentsService } from "../../../../../../services/pos/payments.service";
@@ -11,7 +11,7 @@ import { getCsrfTokenCached } from "../../../../../../utils/pos/csrf";
 import { groupOrderItems } from "../../../../../../utils/orderGrouping";
 import { SalesOrder, OrderStatus, OrderType } from "../../../../../../types/api/pos/salesOrder";
 import { PaymentStatus } from "../../../../../../types/api/pos/payments";
-import { itemsDeliveryStyles, itemsColors, itemsResponsiveStyles } from "../../../../../../theme/pos/items/style";
+import { itemsResponsiveStyles, itemsColors } from "../../../../../../theme/pos/items/style";
 import { calculatePaymentTotals } from "../../../../../../utils/payments";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
@@ -21,9 +21,6 @@ import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingCo
 import { useSocket } from "../../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../../../utils/realtimeEvents";
-import PageContainer from "../../../../../../components/ui/page/PageContainer";
-import PageSection from "../../../../../../components/ui/page/PageSection";
-import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -37,6 +34,7 @@ export default function POSDeliverySummaryPage() {
     const [order, setOrder] = useState<SalesOrder | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [hasDeliveryMethod, setHasDeliveryMethod] = useState(true);
+    const [summaryExpanded, setSummaryExpanded] = useState(false);
     const { showLoading, hideLoading } = useGlobalLoading();
     const { socket } = useSocket();
 
@@ -133,7 +131,7 @@ export default function POSDeliverySummaryPage() {
                     <div style={{ fontSize: 16, marginBottom: 12 }}>
                         คุณกำลังจะส่งมอบสินค้าให้ไรเดอร์สำหรับออเดอร์ <Text strong>#{order.order_no}</Text>
                     </div>
-                    <Tag color="blue" style={{ fontSize: 14, padding: '4px 12px' }}>
+                    <Tag color="magenta" style={{ fontSize: 14, padding: '6px 16px', borderRadius: 8 }}>
                         {order.delivery?.delivery_name} {order.delivery_code ? `(${order.delivery_code})` : ''}
                     </Tag>
                 </div>
@@ -150,8 +148,6 @@ export default function POSDeliverySummaryPage() {
                     const deliveryMethod = await paymentMethodService.getByName('Delivery');
 
                     // 2. Create Payment Record (to record sales data)
-                    // The backend PaymentsService already handles order completion 
-                    // and item status updates upon successful payment.
                     const paymentData = {
                         order_id: order.id,
                         payment_method_id: deliveryMethod?.id,
@@ -251,171 +247,226 @@ export default function POSDeliverySummaryPage() {
         });
     };
 
+    const handleBack = () => {
+        router.push('/pos/channels/delivery');
+    };
+
     if (isLoading && !order) return null;
     if (!order) return <Empty description="ไม่พบข้อมูลออเดอร์" />;
 
     return (
-        <div style={itemsDeliveryStyles.container}>
+        <div className="delivery-page-container">
             <style jsx global>{itemsResponsiveStyles}</style>
             {contextHolder}
-            
-            <UIPageHeader
-                title="สรุปออเดอร์เดลิเวอรี่"
-                subtitle={`#${order.order_no}`}
-                icon={<RocketOutlined />}
-                onBack={() => router.back()}
-                actions={
-                    <>
-                        <Button icon={<EditOutlined />} onClick={handleEditOrder}>
-                            แก้ไขออเดอร์
-                        </Button>
-                        <Button danger onClick={handleCancelOrder}>
-                            ยกเลิกออเดอร์
-                        </Button>
-                    </>
-                }
-            />
+                
+            {/* Hero Header - Pink/Magenta Theme */}
+            <div className="delivery-hero-mobile">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                    <Button 
+                        type="text" 
+                        icon={<ArrowLeftOutlined style={{ fontSize: 18, color: '#fff' }} />} 
+                        style={{ 
+                            height: 44, 
+                            width: 44, 
+                            borderRadius: 14,
+                            background: 'rgba(255,255,255,0.2)',
+                            backdropFilter: 'blur(10px)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }} 
+                        onClick={handleBack}
+                    />
+                    <div style={{ flex: 1 }}>
+                        <Title level={4} style={{ margin: 0, color: '#fff', fontSize: 20, fontWeight: 700 }}>ส่งมอบสินค้า</Title>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                            <Tag color="rgba(255,255,255,0.2)" style={{ border: 'none', color: '#fff', fontSize: 12 }}>
+                                <RocketOutlined style={{ marginRight: 4 }} />Delivery
+                            </Tag>
+                            <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13, fontWeight: 500 }}>#{order.order_no}</Text>
+                        </div>
+                    </div>
+                </div>
+                
+                {/* Action Buttons */}
+                <div className="delivery-action-buttons">
+                    <Button 
+                        icon={<EditOutlined />} 
+                        onClick={handleEditOrder}
+                        className="delivery-action-btn"
+                        style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff' }}
+                    >
+                        แก้ไข
+                    </Button>
+                    <Button 
+                        danger
+                        onClick={handleCancelOrder}
+                        className="delivery-action-btn"
+                    >
+                        ยกเลิก
+                    </Button>
+                </div>
+            </div>
 
-            <PageContainer maxWidth={1400}>
-                <PageSection style={{ background: "transparent", border: "none" }}>
-                    <div style={{ ...itemsDeliveryStyles.contentWrapper, marginTop: 0, paddingBottom: 40 }}>
-                <Row gutter={[24, 24]}>
-                    <Col xs={24} lg={14}>
-                        <Card style={itemsDeliveryStyles.card}>
-                             <Title level={4} style={{ marginBottom: 20 }}>รายการอาหาร</Title>
-                            <div style={{ overflowY: 'auto', paddingRight: 8, minHeight: 300, maxHeight: 600 }}>
-                                {groupedItems.map((item, idx) => (
-                                    <div key={item.id || idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${itemsColors.borderLight}` }}>
-                                         <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 0 }}>
-                                            <Avatar 
-                                                shape="square" 
-                                                size={56} 
-                                                src={item.product?.img_url} 
-                                                icon={<ShopOutlined />}
-                                                style={{ backgroundColor: '#f0f2f5', flexShrink: 0, borderRadius: 10 }} 
-                                            />
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <Text strong style={{ display: 'block', fontSize: 15 }} ellipsis>{item.product?.display_name}</Text>
-                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
-                                                    <Text type="secondary" style={{ fontSize: 13 }}>{formatCurrency(item.price)}</Text>
-                                                    <Tag style={{ margin: 0, fontSize: 11, borderRadius: 4 }}>x{item.quantity}</Tag>
+            {/* Main Content */}
+            <div style={{ padding: '16px', maxWidth: 1200, margin: '0 auto' }}>
+                <Row gutter={[20, 20]}>
+                    {/* Left: Order Summary */}
+                    <Col xs={24} lg={12}>
+                        {/* Collapsible Order Summary */}
+                        <div className="delivery-order-summary">
+                            <div 
+                                className="delivery-summary-header"
+                                onClick={() => setSummaryExpanded(!summaryExpanded)}
+                            >
+                                <div>
+                                    <Text strong style={{ fontSize: 16, color: '#be185d' }}>รายการอาหาร</Text>
+                                    <Text type="secondary" style={{ marginLeft: 8 }}>({groupedItems.length} รายการ)</Text>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                    <Text strong style={{ fontSize: 18, color: '#EC4899' }}>{formatCurrency(subtotal)}</Text>
+                                    {summaryExpanded ? <UpOutlined style={{ color: '#be185d' }} /> : <DownOutlined style={{ color: '#be185d' }} />}
+                                </div>
+                            </div>
+                            <div className={`delivery-summary-content ${summaryExpanded ? 'expanded' : ''}`}>
+                                <div className="delivery-summary-items">
+                                    {groupedItems.map((item, idx) => (
+                                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${itemsColors.borderLight}` }}>
+                                            <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 0 }}>
+                                                <Avatar 
+                                                    shape="square" 
+                                                    size={52} 
+                                                    src={item.product?.img_url} 
+                                                    icon={<ShopOutlined />}
+                                                    style={{ backgroundColor: '#fdf2f8', flexShrink: 0, borderRadius: 12, border: '1px solid #fce7f3' }} 
+                                                />
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <Text strong style={{ display: 'block', fontSize: 15 }} ellipsis>{item.product?.display_name}</Text>
+                                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center', marginTop: 4 }}>
+                                                        <Text type="secondary" style={{ fontSize: 13 }}>{formatCurrency(item.price)}</Text>
+                                                        <Tag color="magenta" style={{ margin: 0, fontSize: 11, padding: '0 8px', borderRadius: 6 }}>x{item.quantity}</Tag>
+                                                    </div>
+                                                    {item.notes && (
+                                                        <Text style={{ display: 'block', fontSize: 12, fontStyle: 'italic', color: '#f43f5e', marginTop: 4 }}>
+                                                            * {item.notes}
+                                                        </Text>
+                                                    )}
+                                                    {item.details && item.details.length > 0 && (
+                                                        <div style={{ marginTop: 4 }}>
+                                                            {item.details.map((detail: { detail_name: string; extra_price: number }, dIdx: number) => (
+                                                                <Text key={dIdx} style={{ color: '#10b981', fontSize: 11, display: 'block' }}>
+                                                                    + {detail.detail_name} {Number(detail.extra_price) > 0 ? `(+${Number(detail.extra_price)})` : ''}
+                                                                </Text>
+                                                            ))}
+                                                        </div>
+                                                    )}
                                                 </div>
-                                                {item.notes && <Text type="secondary" style={{ display: 'block', fontSize: 12, fontStyle: 'italic', marginTop: 4 }}>* {item.notes}</Text>}
                                             </div>
-                                         </div>
-                                         <Text strong style={{ fontSize: 15 }}>{formatCurrency(Number(item.total_price))}</Text>
-                                    </div>
-                                ))}
+                                            <Text strong style={{ fontSize: 15, color: '#1f2937' }}>{formatCurrency(Number(item.total_price || (Number(item.price) * item.quantity)))}</Text>
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
-                            
-                            <div style={{ ...itemsDeliveryStyles.summaryBox, background: '#f8fafc', borderRadius: 16, padding: 20 }}>
-                                <Row justify="space-between" style={{ marginBottom: 8 }}>
-                                    <Text type="secondary">ยอดรวม (Subtotal)</Text>
-                                    <Text>{formatCurrency(subtotal)}</Text>
+                        </div>
+
+                        {/* Price Summary Card */}
+                        <Card style={{ borderRadius: 20, marginBottom: 16, border: '1px solid #fce7f3' }} styles={{ body: { padding: 20 } }}>
+                            <Row justify="space-between" style={{ marginBottom: 10 }}>
+                                <Text type="secondary">ยอดรวม</Text>
+                                <Text>{formatCurrency(subtotal)}</Text>
+                            </Row>
+                            {discount > 0 && (
+                                <Row justify="space-between" style={{ marginBottom: 10 }}>
+                                    <Text type="success">ส่วนลด</Text>
+                                    <Text type="success">-{formatCurrency(discount)}</Text>
                                 </Row>
-                                {discount > 0 && (
-                                    <Row justify="space-between" style={{ marginBottom: 8, color: itemsColors.success }}>
-                                        <Text type="success">ส่วนลด (Discount)</Text>
-                                        <Text type="success">-{formatCurrency(discount)}</Text>
-                                    </Row>
-                                )}
-                                {vat > 0 && (
-                                    <Row justify="space-between" style={{ marginBottom: 8 }}>
-                                        <Text type="secondary">VAT (7%)</Text>
-                                        <Text>{formatCurrency(vat)}</Text>
-                                    </Row>
-                                )}
-                                <Divider style={{ margin: '12px 0' }} />
-                                <Row justify="space-between" align="middle">
-                                    <Title level={4} style={{ margin: 0 }}>ยอดรวมสุทธิ</Title>
-                                    <Title level={3} style={{ color: '#eb2f96', margin: 0 }}>{formatCurrency(total)}</Title>
+                            )}
+                            {vat > 0 && (
+                                <Row justify="space-between" style={{ marginBottom: 10 }}>
+                                    <Text type="secondary">VAT (7%)</Text>
+                                    <Text>{formatCurrency(vat)}</Text>
                                 </Row>
-                            </div>
+                            )}
+                            <Divider style={{ margin: '14px 0', borderColor: '#fce7f3' }} />
+                            <Row justify="space-between" align="middle">
+                                <Title level={5} style={{ margin: 0, color: '#374151' }}>ยอดสุทธิ</Title>
+                                <Title level={3} style={{ color: '#EC4899', margin: 0 }}>{formatCurrency(total)}</Title>
+                            </Row>
                         </Card>
+
+                        {/* Delivery Info Card - Mobile Only */}
+                        <div className="delivery-info-card" style={{ display: 'block' }}>
+                            <div className="delivery-info-row">
+                                <span className="delivery-info-label">ผู้ให้บริการ</span>
+                                <span className="delivery-info-value">{order.delivery?.delivery_name || '-'}</span>
+                            </div>
+                            <div className="delivery-info-row">
+                                <span className="delivery-info-label">รหัสออเดอร์ไรเดอร์</span>
+                                <span className="delivery-info-value">{order.delivery_code || '-'}</span>
+                            </div>
+                            <div className="delivery-info-row">
+                                <span className="delivery-info-label">เลขที่ออเดอร์ POS</span>
+                                <span className="delivery-info-value">{order.order_no}</span>
+                            </div>
+                        </div>
                     </Col>
                     
-                    <Col xs={24} lg={10}>
-                         <Card style={{ ...itemsDeliveryStyles.card, textAlign: 'center', padding: '24px 0' }}>
-                            <div style={{ marginBottom: 32 }}>
-                                <div style={{ 
-                                    width: 80, 
-                                    height: 80, 
-                                    borderRadius: '50%', 
-                                    background: '#fff0f6', 
-                                    display: 'flex', 
-                                    alignItems: 'center', 
-                                    justifyContent: 'center', 
-                                    margin: '0 auto 16px' 
-                                }}>
-                                    <RocketOutlined style={{ fontSize: 40, color: '#eb2f96' }} />
-                                </div>
-                                <Title level={4}>พร้อมสำหรับการจัดส่ง</Title>
-                                <Text type="secondary">ตรวจสอบความถูกต้องของรายการอาหารและเครื่องดื่ม ก่อนส่งมอบให้ไรเดอร์</Text>
+                    {/* Right: Rider Handover Section */}
+                    <Col xs={24} lg={12}>
+                        <div className="delivery-rider-section">
+                            <div className="delivery-rider-icon-wrapper">
+                                <RocketOutlined className="delivery-rider-icon" />
+                            </div>
+                            <div className="delivery-rider-title">พร้อมสำหรับการจัดส่ง</div>
+                            <div className="delivery-rider-subtitle">
+                                ตรวจสอบความถูกต้องของรายการอาหารและเครื่องดื่ม<br />ก่อนส่งมอบให้ไรเดอร์
                             </div>
 
-                            <Card 
-                                style={{ background: '#f9fafb', borderRadius: 16, border: '1px dashed #d1d5db', marginBottom: 32 }}
-                                bodyStyle={{ padding: 16 }}
-                            >
-                                <Space orientation="vertical" style={{ width: '100%' }} size={12}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <Text type="secondary">ผู้ให้บริการ</Text>
-                                        <Text strong>{order.delivery?.delivery_name || '-'}</Text>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <Text type="secondary">รหัสออเดอร์ไรเดอร์</Text>
-                                        <Text strong>{order.delivery_code || '-'}</Text>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <Text type="secondary">เลขที่ออเดอร์ POS</Text>
-                                        <Text strong>{order.order_no}</Text>
-                                    </div>
-                                </Space>
-                            </Card>
+                            {/* Delivery Provider Badge */}
+                            <div className="delivery-provider-badge">
+                                <span className="delivery-provider-name">{order.delivery?.delivery_name || 'ไม่ระบุ'}</span>
+                                {order.delivery_code && (
+                                    <span className="delivery-code-badge">{order.delivery_code}</span>
+                                )}
+                            </div>
 
+                            {/* Warning if no delivery method */}
                             {!hasDeliveryMethod && (
-                                <Alert
-                                    message="ไม่พบวิธีการชำระเงิน 'Delivery'"
-                                    description="กรุณาเพิ่มวิธีการชำระเงินชื่อ 'Delivery' ในเมนูตั้งค่า เพื่อให้สามารถส่งมอบสินค้าได้"
-                                    type="error"
-                                    showIcon
-                                    style={{ marginBottom: 16, textAlign: 'left' }}
-                                />
+                                <div className="delivery-warning-card">
+                                    <div className="delivery-warning-icon">
+                                        <ExclamationCircleOutlined />
+                                    </div>
+                                    <div className="delivery-warning-text">
+                                        <strong>ไม่พบวิธีการชำระเงิน &apos;Delivery&apos;</strong><br />
+                                        กรุณาเพิ่มวิธีการชำระเงินชื่อ &apos;Delivery&apos; ในเมนูตั้งค่า เพื่อให้สามารถส่งมอบสินค้าได้
+                                    </div>
+                                </div>
                             )}
 
+                            {/* Desktop Confirm Button */}
                             <Button 
                                 type="primary" 
                                 size="large" 
                                 block 
-                                icon={<CheckCircleOutlined />}
-                                disabled={!hasDeliveryMethod}
-                                style={{ 
-                                    height: 64, 
-                                    fontSize: 18, 
-                                    borderRadius: 16, 
-                                    background: hasDeliveryMethod ? '#eb2f96' : undefined, 
-                                    borderColor: hasDeliveryMethod ? '#eb2f96' : undefined, 
-                                    fontWeight: 700,
-                                    boxShadow: hasDeliveryMethod ? '0 8px 16px rgba(235, 47, 150, 0.25)' : 'none'
-                                }}
+                                className="delivery-confirm-btn"
                                 onClick={handleHandoverToRider}
+                                disabled={!hasDeliveryMethod}
+                                icon={<CheckCircleOutlined />}
                             >
                                 ส่งมอบสินค้าให้ไรเดอร์
                             </Button>
 
-                            <div style={{ marginTop: 20, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
-                                <InfoCircleOutlined style={{ color: '#8c8c8c' }} />
-                                <Text type="secondary" style={{ fontSize: 13 }}>
+                            <div className="delivery-info-note">
+                                <InfoCircleOutlined style={{ color: '#9ca3af' }} />
+                                <span className="delivery-info-note-text">
                                     เมื่อกดแล้ว ระบบจะบันทึกยอดขายและปิดออเดอร์นี้
-                                </Text>
+                                </span>
                             </div>
-                         </Card>
+                        </div>
                     </Col>
                 </Row>
-                    </div>
-                </PageSection>
-            </PageContainer>
-            
+            </div>
+
             <ConfirmationDialog
                 open={confirmConfig.open}
                 type={confirmConfig.type}

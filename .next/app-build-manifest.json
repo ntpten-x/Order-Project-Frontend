@@ -6,10 +6,15 @@
       "static/css/app/global-error.css",
       "static/chunks/app/global-error.js"
     ],
-    "/(main)/page": [
+    "/(main)/pos/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(main)/page.js"
+      "static/chunks/app/(main)/pos/page.js"
+    ],
+    "/(main)/pos/layout": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/pos/layout.js"
     ],
     "/(main)/layout": [
       "static/chunks/webpack.js",
@@ -37,30 +42,20 @@
       "static/chunks/main-app.js",
       "static/chunks/app/not-found.js"
     ],
-    "/(main)/pos/page": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(main)/pos/page.js"
-    ],
-    "/(main)/pos/layout": [
-      "static/chunks/webpack.js",
-      "static/chunks/main-app.js",
-      "static/chunks/app/(main)/pos/layout.js"
-    ],
     "/(main)/pos/channels/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
       "static/chunks/app/(main)/pos/channels/page.js"
     ],
-    "/(main)/pos/channels/dine-in/page": [
+    "/(main)/pos/channels/delivery/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(main)/pos/channels/dine-in/page.js"
+      "static/chunks/app/(main)/pos/channels/delivery/page.js"
     ],
-    "/(main)/pos/items/payment/[...paymentId]/page": [
+    "/(main)/pos/items/delivery/[...deliveryId]/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(main)/pos/items/payment/[...paymentId]/page.js"
+      "static/chunks/app/(main)/pos/items/delivery/[...deliveryId]/page.js"
     ]
   }
 }
