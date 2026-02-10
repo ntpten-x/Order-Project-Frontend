@@ -7,7 +7,7 @@ import { PaymentMethod } from "../../../types/api/pos/paymentMethod";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import { groupOrderItems } from "../../../utils/orderGrouping";
-import { ItemStatus } from "../../../types/api/pos/salesOrderItem";
+import { isCancelledStatus } from "../../../utils/orders";
 
 dayjs.locale('th');
 
@@ -26,7 +26,7 @@ interface ReceiptProps {
 
 const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(({ order, shopName, shopAddress, shopPhone, shopTaxId, shopLogo }, ref) => {
     // Filter out cancelled items
-    const items = (order.items || []).filter(item => item.status !== ItemStatus.Cancelled);
+    const items = (order.items || []).filter(item => !isCancelledStatus(item.status));
     const payments = (order.payments || []) as PaymentWithMethod[];
 
     // Calculate totals for the receipt based on non-cancelled items

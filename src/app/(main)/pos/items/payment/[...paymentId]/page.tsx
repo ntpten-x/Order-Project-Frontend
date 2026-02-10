@@ -24,7 +24,7 @@ import { itemsResponsiveStyles, itemsColors } from "../../../../../../theme/pos/
 import { calculatePaymentTotals, isCashMethod, isPromptPayMethod, quickCashAmounts, getPostCancelPaymentRedirect, getEditOrderRedirect, isPaymentMethodConfigured } from "../../../../../../utils/payments";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
-import { getOrderChannelText, getOrderReference, ConfirmationConfig, formatCurrency } from "../../../../../../utils/orders";
+import { getOrderChannelText, getOrderReference, ConfirmationConfig, formatCurrency, isCancelledStatus } from "../../../../../../utils/orders";
 import ConfirmationDialog from "../../../../../../components/dialog/ConfirmationDialog";
 import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../../../../hooks/useSocket";
@@ -232,7 +232,7 @@ export default function POSPaymentPage() {
     // Group items for display
     const groupedItems = useMemo(() => {
         if (!order?.items) return [];
-        const activeItems = order.items.filter(item => item.status !== OrderStatus.Cancelled);
+        const activeItems = order.items.filter(item => !isCancelledStatus(item.status));
         return groupOrderItems(activeItems);
     }, [order?.items]);
 
@@ -357,7 +357,7 @@ export default function POSPaymentPage() {
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
                     
-                    const activeItems = order.items?.filter(item => item.status !== OrderStatus.Cancelled) || [];
+                    const activeItems = order.items?.filter(item => !isCancelledStatus(item.status)) || [];
                     await Promise.all(
                         activeItems.map(item => 
                             ordersService.updateItemStatus(item.id, OrderStatus.Served, undefined, csrfToken)
@@ -394,7 +394,7 @@ export default function POSPaymentPage() {
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
 
-                    const activeItems = order.items?.filter(item => item.status !== OrderStatus.Cancelled) || [];
+                    const activeItems = order.items?.filter(item => !isCancelledStatus(item.status)) || [];
                     await Promise.all(
                         activeItems.map(item => 
                             ordersService.updateItemStatus(item.id, OrderStatus.Cancelled, undefined, csrfToken)
