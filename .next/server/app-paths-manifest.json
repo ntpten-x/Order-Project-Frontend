@@ -1,16 +1,11 @@
 {
-  "/api/auth/me/route": "app/api/auth/me/route.js",
+  "/api/pos/shifts/history/route": "app/api/pos/shifts/history/route.js",
   "/api/csrf/route": "app/api/csrf/route.js",
-  "/api/pos/paymentMethod/route": "app/api/pos/paymentMethod/route.js",
-  "/api/pos/shifts/current/route": "app/api/pos/shifts/current/route.js",
-  "/api/pos/category/route": "app/api/pos/category/route.js",
-  "/api/pos/products/route": "app/api/pos/products/route.js",
-  "/api/pos/paymentMethod/getByName/[name]/route": "app/api/pos/paymentMethod/getByName/[name]/route.js",
-  "/api/pos/paymentMethod/create/route": "app/api/pos/paymentMethod/create/route.js",
-  "/api/pos/paymentMethod/getById/[id]/route": "app/api/pos/paymentMethod/getById/[id]/route.js",
-  "/(main)/page": "app/(main)/page.js",
+  "/api/pos/orders/summary/route": "app/api/pos/orders/summary/route.js",
+  "/(main)/pos/paymentMethod/manager/[...mode]/page": "app/(main)/pos/paymentMethod/manager/[...mode]/page.js",
+  "/(main)/pos/shift/page": "app/(main)/pos/shift/page.js",
+  "/(main)/pos/shiftHistory/page": "app/(main)/pos/shiftHistory/page.js",
   "/(main)/pos/page": "app/(main)/pos/page.js",
   "/(main)/pos/channels/page": "app/(main)/pos/channels/page.js",
-  "/(main)/pos/paymentMethod/page": "app/(main)/pos/paymentMethod/page.js",
-  "/(main)/pos/paymentMethod/manager/[...mode]/page": "app/(main)/pos/paymentMethod/manager/[...mode]/page.js"
+  "/(main)/pos/orders/page": "app/(main)/pos/orders/page.js"
 }

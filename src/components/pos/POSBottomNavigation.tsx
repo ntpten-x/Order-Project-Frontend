@@ -11,10 +11,12 @@ import {
   FireOutlined,
   HomeOutlined,
   PoweroffOutlined,
-  SettingOutlined,
-  ShopOutlined,
   TableOutlined,
   TagsOutlined,
+  ClockCircleOutlined,
+  HistoryOutlined,
+  ShopOutlined,
+  SettingOutlined,
 } from "@ant-design/icons";
 import { Badge, Button, Drawer, List } from "antd";
 
@@ -60,16 +62,16 @@ const POSBottomNavigation = () => {
   );
 
   const secondaryItems: MenuItem[] = useMemo(() => {
-    if (user?.role === "Employee") return [];
-
     const items: MenuItem[] = [
-      { key: "dashboard", label: "สรุป", icon: <AppstoreOutlined />, path: "/pos/dashboard" },
-      { key: "tables", label: "โต๊ะ", icon: <TableOutlined />, path: "/pos/tables" },
-      { key: "delivery", label: "เดลิเวอรี่", icon: <CarOutlined />, path: "/pos/delivery" },
+      { key: "shift", label: "กะการทำงาน", icon: <ClockCircleOutlined />, path: "/pos/shift" },
+      { key: "shiftHistory", label: "ประวัติกะ", icon: <HistoryOutlined />, path: "/pos/shiftHistory" },
     ];
 
     if (user?.role === "Admin" || user?.role === "Manager") {
       items.push(
+        { key: "dashboard", label: "สรุป", icon: <AppstoreOutlined />, path: "/pos/dashboard" },
+        { key: "tables", label: "โต๊ะ", icon: <TableOutlined />, path: "/pos/tables" },
+        { key: "delivery", label: "เดลิเวอรี่", icon: <CarOutlined />, path: "/pos/delivery" },
         {
           key: "category",
           label: "หมวดหมู่",
