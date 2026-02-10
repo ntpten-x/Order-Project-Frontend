@@ -1,11 +1,7 @@
 {
-  "/api/pos/shifts/history/route": "app/api/pos/shifts/history/route.js",
-  "/api/csrf/route": "app/api/csrf/route.js",
+  "/api/pos/orders/[id]/route": "app/api/pos/orders/[id]/route.js",
   "/api/pos/orders/summary/route": "app/api/pos/orders/summary/route.js",
-  "/(main)/pos/paymentMethod/manager/[...mode]/page": "app/(main)/pos/paymentMethod/manager/[...mode]/page.js",
-  "/(main)/pos/shift/page": "app/(main)/pos/shift/page.js",
-  "/(main)/pos/shiftHistory/page": "app/(main)/pos/shiftHistory/page.js",
-  "/(main)/pos/page": "app/(main)/pos/page.js",
-  "/(main)/pos/channels/page": "app/(main)/pos/channels/page.js",
+  "/api/pos/orders/route": "app/api/pos/orders/route.js",
+  "/(main)/pos/orders/[...ordersId]/page": "app/(main)/pos/orders/[...ordersId]/page.js",
   "/(main)/pos/orders/page": "app/(main)/pos/orders/page.js"
 }
