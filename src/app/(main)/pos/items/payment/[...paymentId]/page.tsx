@@ -24,7 +24,7 @@ import { itemsResponsiveStyles, itemsColors } from "../../../../../../theme/pos/
 import { calculatePaymentTotals, isCashMethod, isPromptPayMethod, quickCashAmounts, getPostCancelPaymentRedirect, getEditOrderRedirect, isPaymentMethodConfigured } from "../../../../../../utils/payments";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
-import { getOrderChannelText, getOrderReference, getOrderStatusColor, getOrderStatusText, ConfirmationConfig, formatCurrency } from "../../../../../../utils/orders";
+import { getOrderChannelText, getOrderReference, ConfirmationConfig, formatCurrency } from "../../../../../../utils/orders";
 import ConfirmationDialog from "../../../../../../components/dialog/ConfirmationDialog";
 import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../../../../hooks/useSocket";

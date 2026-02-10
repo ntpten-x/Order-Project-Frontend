@@ -2,7 +2,6 @@
 
 import React, { forwardRef } from "react";
 import { SalesOrder, OrderType } from "../../../types/api/pos/salesOrder";
-import { SalesOrderItem } from "../../../types/api/pos/salesOrderItem";
 import { Payments } from "../../../types/api/pos/payments";
 import { PaymentMethod } from "../../../types/api/pos/paymentMethod";
 import dayjs from "dayjs";
@@ -47,12 +46,6 @@ const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(({ order, shopN
             case OrderType.Delivery: return 'เดลิเวอรี่';
             default: return type;
         }
-    };
-
-    const flexBetweenStyle: React.CSSProperties = {
-        display: 'flex',
-        justifyContent: 'space-between',
-        marginBottom: '4px',
     };
 
     return (

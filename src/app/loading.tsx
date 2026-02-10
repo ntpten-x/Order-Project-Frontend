@@ -1,9 +1,9 @@
 ﻿"use client";
 
-import { Flex, Spin, Typography, theme } from "antd";
+import { Spin, Typography, theme } from "antd";
 
 export default function Loading() {
-  const { token } = theme.useToken();
+  theme.useToken();
 
   return (
     <div

@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Form, Input, Select, message, Spin, Switch, Modal, Button, Card, Row, Col, Typography, Alert, Tag } from 'antd';
+import { Form, Input, message, Spin, Switch, Modal, Button, Card, Row, Col, Typography, Alert, Tag } from 'antd';
 import { useRouter } from 'next/navigation';
 import PageContainer from '../../../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../../../components/ui/page/PageSection';
@@ -158,7 +158,7 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                 if (response.ok) {
                     const data = await response.json();
                     if (data?.data) {
-                        setExistingMethods(data.data.map((m: any) => m.payment_method_name.trim().toLowerCase()));
+                        setExistingMethods(data.data.map((m: PaymentMethod) => m.payment_method_name.trim().toLowerCase()));
                     }
                 }
             } catch (err) {

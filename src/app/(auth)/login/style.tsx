@@ -13,11 +13,6 @@ const pulse = keyframes`
   50% { opacity: 0.6; transform: scale(1.05); }
 `;
 
-const shimmer = keyframes`
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
-`;
-
 const fadeInUp = keyframes`
   from {
     opacity: 0;

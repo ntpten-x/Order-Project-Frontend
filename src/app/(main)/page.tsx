@@ -14,7 +14,6 @@ import { useAuth } from "../../contexts/AuthContext";
 import { pageStyles, DashboardStyles } from "./style";
 import PageContainer from "../../components/ui/page/PageContainer";
 import PageSection from "../../components/ui/page/PageSection";
-import UIPageHeader from "../../components/ui/page/PageHeader";
 
 const { Title, Text } = Typography;
 

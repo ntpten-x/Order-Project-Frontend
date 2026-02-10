@@ -2,14 +2,14 @@
 
 import React, { useEffect, useState, useContext, useMemo, useRef, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Typography, Button, Row, Col, Tag, Empty, Spin, message, Badge, Tooltip } from "antd";
+import { Typography, Button, Row, Col, Tag, Spin, message, Badge, Tooltip } from "antd";
 import { 
     CheckOutlined, 
     ClockCircleOutlined, 
     FireOutlined, 
     SoundOutlined, 
     ReloadOutlined,
-    ThunderboltOutlined,
+
     DoubleRightOutlined,
     NotificationOutlined,
     WifiOutlined,
@@ -21,7 +21,7 @@ import {
 import { SocketContext } from "../../../../contexts/SocketContext";
 import { ordersService } from "../../../../services/pos/orders.service";
 import { SalesOrderItem, ItemStatus } from "../../../../types/api/pos/salesOrderItem";
-import { SalesOrder, OrderStatus, OrderType } from "../../../../types/api/pos/salesOrder";
+import { OrderStatus } from "../../../../types/api/pos/salesOrder";
 import { useGlobalLoadingDispatch } from "../../../../contexts/pos/GlobalLoadingContext";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { RealtimeEvents } from "../../../../utils/realtimeEvents";

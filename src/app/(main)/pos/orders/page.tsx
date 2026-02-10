@@ -20,10 +20,9 @@ import { useRouter } from "next/navigation";
 import { SalesOrder, OrderStatus, OrderType } from "../../../../types/api/pos/salesOrder";
 import { ItemStatus } from "../../../../types/api/pos/salesOrderItem";
 import { 
-  getOrderStatusColor, 
+ 
   getOrderStatusText, 
   getOrderChannelText,
-  getOrderReference,
   formatCurrency,
   getOrderNavigationPath
 } from "../../../../utils/orders";
@@ -428,7 +427,7 @@ export default function POSOrdersPage() {
                                     const effStatus = getEffectiveStatus(order);
                                     const statusConf = STATUS_CONFIG[effStatus] || { color: '#64748B', bg: '#F1F5F9', glow: 'rgba(100,116,139,0.1)' };
                                     const channelConf = CHANNEL_CONFIG[order.order_type] || { icon: <ContainerOutlined />, color: '#64748B', bg: '#F1F5F9' };
-                                    const ref = getOrderReference(order);
+
                                     const activeItems = order.items?.filter(i => i.status !== ItemStatus.Cancelled) || [];
                                     const totalQty = activeItems.reduce((sum, item) => sum + Number(item.quantity), 0) || 0;
                                     const cookingQty = activeItems.filter(i => i.status === ItemStatus.Cooking).reduce((sum, item) => sum + Number(item.quantity), 0) || 0;

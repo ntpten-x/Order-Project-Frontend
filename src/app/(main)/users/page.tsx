@@ -7,12 +7,10 @@ import {
     SearchOutlined,
     ReloadOutlined,
     UserAddOutlined,
-    UserOutlined,
     EditOutlined,
     DeleteOutlined,
     ClockCircleOutlined,
     BranchesOutlined,
-    RightOutlined,
 } from '@ant-design/icons';
 import { User } from "../../../types/api/users";
 import { useRouter } from 'next/navigation';

@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { message, Modal, Typography, Tag, Button, Input, Alert, Space, Segmented, Select, Switch } from 'antd';
+import { message, Modal, Typography, Tag, Button, Input, Alert, Space, Segmented, Switch } from 'antd';
 import Image from 'next/image';
 import {
     ShopOutlined,
@@ -14,7 +14,7 @@ import {
     CheckCircleOutlined,
 } from '@ant-design/icons';
 import { Products } from '../../../../types/api/pos/products';
-import { Category } from '../../../../types/api/pos/category';
+
 import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useAsyncAction } from '../../../../hooks/useAsyncAction';
