@@ -30,6 +30,7 @@ export default function LandingPage() {
             iconColor: "#f59e0b",
             path: "/pos",
             enabled: true,
+            allowedRoles: ["Admin", "Manager", "Employee"],
         },
         {
             title: "จัดการสต๊อก",
@@ -37,6 +38,7 @@ export default function LandingPage() {
             iconColor: "#3b82f6",
             path: "/stock",
             enabled: true,
+            allowedRoles: ["Admin", "Manager", "Employee"],
         },
         {
             title: "ตั้งค่าและสิทธิ์ผู้ใช้",
@@ -44,6 +46,7 @@ export default function LandingPage() {
             iconColor: "#10b981",
             path: "/users",
             enabled: true,
+            allowedRoles: ["Admin", "Manager"],
         },
         {
             title: "จัดการสาขา",
@@ -51,6 +54,7 @@ export default function LandingPage() {
             iconColor: "#8b5cf6",
             path: "/branch",
             enabled: true,
+            allowedRoles: ["Admin", "Manager"],
         },
         {
             title: "Audit Logs",
@@ -58,8 +62,9 @@ export default function LandingPage() {
             iconColor: "#ef4444",
             path: "/audit",
             enabled: isAdmin,
+            allowedRoles: ["Admin"],
         },
-    ];
+    ].filter(module => module.allowedRoles.includes(user?.role as string || ""));
 
     const handleModuleClick = (module: typeof modules[0]) => {
         if (module.enabled && module.path) {
@@ -70,7 +75,6 @@ export default function LandingPage() {
     return (
         <>
             <DashboardStyles />
-            <UIPageHeader title="หน้าหลัก" subtitle="เลือกเมนูที่ต้องการ" />
             <PageContainer>
                 <PageSection>
                     <div style={pageStyles.container}>

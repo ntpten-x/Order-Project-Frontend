@@ -21,7 +21,10 @@ import {
     SearchOutlined,
     ClockCircleOutlined,
     RiseOutlined,
-    SafetyCertificateOutlined
+    SafetyCertificateOutlined,
+    CalendarOutlined,
+    DownOutlined,
+    CheckCircleOutlined
 } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import duration from 'dayjs/plugin/duration';
@@ -159,6 +162,8 @@ export default function ShiftHistoryPage() {
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
     const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
     const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
+    const [isDateModalVisible, setIsDateModalVisible] = useState(false);
+    const [isCustomDate, setIsCustomDate] = useState(false);
 
     const dateFrom = useMemo(
         () => (dateRange?.[0] ? dateRange[0].startOf('day').toISOString() : undefined),
@@ -168,6 +173,22 @@ export default function ShiftHistoryPage() {
         () => (dateRange?.[1] ? dateRange[1].endOf('day').toISOString() : undefined),
         [dateRange]
     );
+
+    const dateLabel = useMemo(() => {
+        if (!dateRange || (!dateRange[0] && !dateRange[1])) return 'ทั้งหมด';
+        if (dateRange[0] && dateRange[1] && dateRange[0].isSame(dateRange[1], 'day')) {
+            return dateRange[0].format('DD/MM/YYYY');
+        }
+        return `${dateRange[0]?.format('DD/MM/YYYY') ?? ''} - ${dateRange[1]?.format('DD/MM/YYYY') ?? ''}`;
+    }, [dateRange]);
+
+    const datePresets = [
+        { label: 'ทั้งหมด', value: null },
+        { label: 'วันนี้', value: [dayjs().startOf('day'), dayjs().endOf('day')] as [Dayjs, Dayjs] },
+        { label: 'เมื่อวาน', value: [dayjs().subtract(1, 'day').startOf('day'), dayjs().subtract(1, 'day').endOf('day')] as [Dayjs, Dayjs] },
+        { label: '7 วันล่าสุด', value: [dayjs().subtract(6, 'days').startOf('day'), dayjs().endOf('day')] as [Dayjs, Dayjs] },
+        { label: 'เดือนนี้', value: [dayjs().startOf('month'), dayjs().endOf('month')] as [Dayjs, Dayjs] },
+    ];
 
     const historyQuery = useQuery<ShiftHistoryResponse>({
         queryKey: ['shiftHistory', page, pageSize, searchText, statusFilter, dateFrom, dateTo],
@@ -282,17 +303,25 @@ export default function ShiftHistoryPage() {
                                 ]}
                             />
 
-                            <RangePicker
-                                value={dateRange}
-                                onChange={(values) => {
-                                    setPage(1);
-                                    setDateRange(values);
+                            <div 
+                                onClick={() => setIsDateModalVisible(true)}
+                                style={{
+                                    padding: '10px 14px',
+                                    border: '1px solid #e2e8f0',
+                                    borderRadius: 12,
+                                    background: '#fff',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    cursor: 'pointer'
                                 }}
-                                format="DD/MM/YYYY"
-                                allowClear
-                                style={{ width: '100%' }}
-                                placeholder={['วันที่เริ่มต้น', 'วันที่สิ้นสุด']}
-                            />
+                            >
+                                <Space>
+                                    <CalendarOutlined style={{ color: '#64748b' }} />
+                                    <Text>{dateLabel}</Text>
+                                </Space>
+                                <DownOutlined style={{ fontSize: 12, color: '#94a3b8' }} />
+                            </div>
                         </div>
                     </PageSection>
 
@@ -393,6 +422,94 @@ export default function ShiftHistoryPage() {
                 ) : (
                     <Text type="secondary">ไม่พบข้อมูลสรุปกะ</Text>
                 )}
+            </Modal>
+
+            {/* Date Selection Modal */}
+            <Modal
+                title="เลือกช่วงเวลา"
+                open={isDateModalVisible}
+                onCancel={() => {
+                    setIsDateModalVisible(false);
+                    setIsCustomDate(false);
+                }}
+                footer={null}
+                centered
+                width={400}
+            >
+                <div id="date-selection-container" style={{ display: 'flex', flexDirection: 'column', gap: 10, position: 'relative' }}>
+                    {!isCustomDate ? (
+                        <>
+                            {datePresets.map((preset) => {
+                                const isPresetActive = Boolean(
+                                    (!dateRange && !preset.value) || 
+                                    (dateRange && preset.value && 
+                                     dateRange[0]?.isSame(preset.value[0], 'day') && 
+                                     dateRange[1]?.isSame(preset.value[1], 'day'))
+                                );
+
+                                return (
+                                    <div
+                                        key={preset.label}
+                                        onClick={() => {
+                                            setPage(1);
+                                            setDateRange(preset.value);
+                                            setIsDateModalVisible(false);
+                                        }}
+                                        style={{
+                                            padding: '14px 18px',
+                                            border: '1px solid #e5e7eb',
+                                            borderRadius: 12,
+                                            cursor: 'pointer',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            background: isPresetActive ? '#f0f9ff' : '#fff',
+                                            borderColor: isPresetActive ? '#0ea5e9' : '#e5e7eb'
+                                        }}
+                                    >
+                                        <Text strong={isPresetActive}>
+                                            {preset.label}
+                                        </Text>
+                                        {isPresetActive && (
+                                            <CheckCircleOutlined style={{ color: '#0ea5e9' }} />
+                                        )}
+                                    </div>
+                                );
+                            })}
+                            <Button 
+                                type="dashed" 
+                                style={{ height: 48, borderRadius: 12 }} 
+                                onClick={() => setIsCustomDate(true)}
+                            >
+                                เลือกช่วงวันที่เอง...
+                            </Button>
+                        </>
+                    ) : (
+                        <div style={{ padding: '8px 0' }}>
+                            <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>เลือกช่วงวันที่ของคุณ</Text>
+                            <RangePicker
+                                value={dateRange}
+                                onChange={(values) => {
+                                    setPage(1);
+                                    setDateRange(values);
+                                    if (values && values[0] && values[1]) {
+                                        setIsDateModalVisible(false);
+                                        setIsCustomDate(false);
+                                    }
+                                }}
+                                format="DD/MM/YYYY"
+                                allowClear
+                                style={{ width: '100%' }}
+                                getPopupContainer={(trigger) => trigger.parentElement || document.body}
+                                defaultOpen
+                                placeholder={['วันที่เริ่มต้น', 'วันที่สิ้นสุด']}
+                            />
+                            <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end' }}>
+                                <Button onClick={() => setIsCustomDate(false)}>ย้อนกลับ</Button>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </Modal>
         </div>
     );

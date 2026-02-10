@@ -12,7 +12,9 @@ import {
     ShopOutlined,
     AppstoreOutlined,
     InfoCircleOutlined,
-    ExclamationCircleOutlined
+    ExclamationCircleOutlined,
+    DownOutlined,
+    CheckCircleOutlined,
 } from '@ant-design/icons';
 import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
 import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
@@ -68,6 +70,8 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     const [csrfToken, setCsrfToken] = useState<string>('');
     const [currentProductName, setCurrentProductName] = useState<string>('');
     const [originalProduct, setOriginalProduct] = useState<Products | null>(null);
+    const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
+    const [isUnitModalVisible, setIsUnitModalVisible] = useState(false);
 
     const mode = params.mode?.[0] as ManageMode | undefined;
     const id = params.mode?.[1] || null;
@@ -406,19 +410,29 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                                     name="category_id"
                                                     label={<span style={{ fontWeight: 600, color: '#334155' }}>หมวดหมู่</span>}
                                                     rules={[{ required: true, message: 'กรุณาเลือกหมวดหมู่' }]}
-                                                    extra={activeCategories.length === 0 ? 'ยังไม่มีหมวดหมู่ที่ใช้งานได้' : undefined}
                                                 >
-                                                    <Select
-                                                        size="large"
-                                                        placeholder="เลือกหมวดหมู่"
-                                                        showSearch
-                                                        optionFilterProp="label"
-                                                        options={categories.map((item) => ({
-                                                            value: item.id,
-                                                            label: `${item.display_name} (${item.category_name})`,
-                                                            disabled: !item.is_active && item.id !== selectedCategoryId,
-                                                        }))}
-                                                    />
+                                                    <div 
+                                                        onClick={() => setIsCategoryModalVisible(true)}
+                                                        style={{
+                                                            padding: '10px 16px',
+                                                            borderRadius: 12,
+                                                            border: '2px solid',
+                                                            cursor: 'pointer',
+                                                            background: selectedCategoryId ? 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)' : '#fff',
+                                                            borderColor: selectedCategoryId ? '#4F46E5' : '#e2e8f0',
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between',
+                                                            alignItems: 'center',
+                                                            minHeight: 46
+                                                        }}
+                                                    >
+                                                        <span style={{ color: selectedCategoryId ? '#1e293b' : '#94a3b8', fontWeight: selectedCategoryId ? 600 : 400 }}>
+                                                            {selectedCategoryId 
+                                                                ? categories.find(c => c.id === selectedCategoryId)?.display_name 
+                                                                : 'เลือกหมวดหมู่'}
+                                                        </span>
+                                                        <DownOutlined style={{ fontSize: 12, color: '#94a3b8' }} />
+                                                    </div>
                                                 </Form.Item>
                                             </Col>
                                             <Col xs={24} md={12}>
@@ -426,19 +440,29 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                                     name="unit_id"
                                                     label={<span style={{ fontWeight: 600, color: '#334155' }}>หน่วยสินค้า</span>}
                                                     rules={[{ required: true, message: 'กรุณาเลือกหน่วยสินค้า' }]}
-                                                    extra={activeUnits.length === 0 ? 'ยังไม่มีหน่วยสินค้าที่ใช้งานได้' : undefined}
                                                 >
-                                                    <Select
-                                                        size="large"
-                                                        placeholder="เลือกหน่วยสินค้า"
-                                                        showSearch
-                                                        optionFilterProp="label"
-                                                        options={units.map((item) => ({
-                                                            value: item.id,
-                                                            label: `${item.display_name} (${item.unit_name})`,
-                                                            disabled: !item.is_active && item.id !== selectedUnitId,
-                                                        }))}
-                                                    />
+                                                    <div 
+                                                        onClick={() => setIsUnitModalVisible(true)}
+                                                        style={{
+                                                            padding: '10px 16px',
+                                                            borderRadius: 12,
+                                                            border: '2px solid',
+                                                            cursor: 'pointer',
+                                                            background: selectedUnitId ? 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)' : '#fff',
+                                                            borderColor: selectedUnitId ? '#4F46E5' : '#e2e8f0',
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between',
+                                                            alignItems: 'center',
+                                                            minHeight: 46
+                                                        }}
+                                                    >
+                                                        <span style={{ color: selectedUnitId ? '#1e293b' : '#94a3b8', fontWeight: selectedUnitId ? 600 : 400 }}>
+                                                            {selectedUnitId 
+                                                                ? units.find(u => u.id === selectedUnitId)?.display_name 
+                                                                : 'เลือกหน่วยสินค้า'}
+                                                        </span>
+                                                        <DownOutlined style={{ fontSize: 12, color: '#94a3b8' }} />
+                                                    </div>
                                                 </Form.Item>
                                             </Col>
                                         </Row>
@@ -555,6 +579,86 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                     )}
                 </PageSection>
             </PageContainer>
+
+            {/* Category Selection Modal */}
+            <Modal
+                title="เลือกหมวดหมู่"
+                open={isCategoryModalVisible}
+                onCancel={() => setIsCategoryModalVisible(false)}
+                footer={null}
+                centered
+                width={400}
+                styles={{ body: { padding: '12px 16px 24px' } }}
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
+                    {activeCategories.map(cat => (
+                        <div
+                            key={cat.id}
+                            onClick={() => {
+                                form.setFieldsValue({ category_id: cat.id });
+                                setIsCategoryModalVisible(false);
+                            }}
+                            style={{
+                                padding: '14px 18px',
+                                border: '2px solid',
+                                borderRadius: 12,
+                                cursor: 'pointer',
+                                background: selectedCategoryId === cat.id ? '#eff6ff' : '#fff',
+                                borderColor: selectedCategoryId === cat.id ? '#3b82f6' : '#e5e7eb',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                minHeight: 54
+                            }}
+                        >
+                            <span style={{ fontWeight: selectedCategoryId === cat.id ? 600 : 400 }}>
+                                {cat.display_name}
+                            </span>
+                            {selectedCategoryId === cat.id && <CheckCircleOutlined style={{ color: '#3b82f6', fontSize: 18 }} />}
+                        </div>
+                    ))}
+                </div>
+            </Modal>
+
+            {/* Unit Selection Modal */}
+            <Modal
+                title="เลือกหน่วยสินค้า"
+                open={isUnitModalVisible}
+                onCancel={() => setIsUnitModalVisible(false)}
+                footer={null}
+                centered
+                width={400}
+                styles={{ body: { padding: '12px 16px 24px' } }}
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
+                    {activeUnits.map(unit => (
+                        <div
+                            key={unit.id}
+                            onClick={() => {
+                                form.setFieldsValue({ unit_id: unit.id });
+                                setIsUnitModalVisible(false);
+                            }}
+                            style={{
+                                padding: '14px 18px',
+                                border: '2px solid',
+                                borderRadius: 12,
+                                cursor: 'pointer',
+                                background: selectedUnitId === unit.id ? '#eff6ff' : '#fff',
+                                borderColor: selectedUnitId === unit.id ? '#3b82f6' : '#e5e7eb',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                minHeight: 54
+                            }}
+                        >
+                            <span style={{ fontWeight: selectedUnitId === unit.id ? 600 : 400 }}>
+                                {unit.display_name}
+                            </span>
+                            {selectedUnitId === unit.id && <CheckCircleOutlined style={{ color: '#3b82f6', fontSize: 18 }} />}
+                        </div>
+                    ))}
+                </div>
+            </Modal>
         </div>
     );
 }

@@ -68,49 +68,52 @@ export const GlobalLoadingProvider = ({ children }: { children: ReactNode }) => 
             <GlobalLoadingStateContext.Provider value={stateValue}>
                 {children}
                 {isLoading && (
-                    <div
-                        role="status"
-                        aria-live="polite"
-                        className="global-loading-overlay"
-                        style={{
-                            position: "fixed",
-                            inset: 0,
-                            zIndex: 13000,
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            background: "rgba(255, 255, 255, 0.6)",
-                            backdropFilter: "blur(8px)",
-                            WebkitBackdropFilter: "blur(8px)",
-                            transition: "opacity 0.25s ease",
-                        }}
-                    >
-                        <div style={{
-                            display: "flex",
-                            flexDirection: "column",
-                            alignItems: "center",
-                            gap: 16,
-                            background: "rgba(255, 255, 255, 0.92)",
-                            padding: "28px 40px",
-                            borderRadius: 20,
-                            boxShadow: "0 10px 32px rgba(15, 23, 42, 0.14)",
-                            border: "1px solid rgba(148, 163, 184, 0.35)",
-                            minWidth: 240
-                        }}>
-                            <Spin size="large" />
-                            {loadingMessage && (
-                                <div style={{
-                                    fontSize: 16,
-                                    color: "#334155",
-                                    fontWeight: 600,
-                                    letterSpacing: "0.01em",
-                                    textAlign: "center"
-                                }}>
-                                    {loadingMessage}
-                                </div>
-                            )}
+                        <div
+                            role="status"
+                            aria-live="polite"
+                            className="global-loading-overlay"
+                            style={{
+                                position: "fixed",
+                                top: 0,
+                                left: 0,
+                                right: 0,
+                                bottom: 0,
+                                zIndex: 13000,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                background: "rgba(255, 255, 255, 0.7)",
+                                backdropFilter: "blur(6px)",
+                                WebkitBackdropFilter: "blur(6px)",
+                                transition: "opacity 0.25s ease",
+                            }}
+                        >
+                            <div style={{
+                                display: "flex",
+                                flexDirection: "column",
+                                alignItems: "center",
+                                gap: 16,
+                                background: "rgba(255, 255, 255, 0.95)",
+                                padding: "28px 40px",
+                                borderRadius: 20,
+                                boxShadow: "0 10px 32px rgba(15, 23, 42, 0.14)",
+                                border: "1px solid rgba(148, 163, 184, 0.35)",
+                                minWidth: 240,
+                                textAlign: "center"
+                            }}>
+                                <Spin size="large" />
+                                {loadingMessage && (
+                                    <div style={{
+                                        fontSize: 16,
+                                        color: "#334155",
+                                        fontWeight: 600,
+                                        letterSpacing: "0.01em",
+                                    }}>
+                                        {loadingMessage}
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
                 )}
             </GlobalLoadingStateContext.Provider>
         </GlobalLoadingDispatchContext.Provider>

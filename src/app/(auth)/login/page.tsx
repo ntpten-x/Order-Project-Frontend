@@ -1,29 +1,38 @@
 "use client";
 
-import React, { useState } from "react";
-import { Form, notification, Typography } from "antd";
-import { UserOutlined, LockOutlined } from "@ant-design/icons";
+import React, { useState, useEffect, useRef } from "react";
+import { Form, notification, InputRef } from "antd";
+import { UserOutlined, LockOutlined, SafetyOutlined } from "@ant-design/icons";
 import { useAuth } from "../../../contexts/AuthContext";
 import { LoginCredentials } from "../../../types/api/auth";
-import PageContainer from "../../../components/ui/page/PageContainer";
-import PageSection from "../../../components/ui/page/PageSection";
-import UIPageHeader from "../../../components/ui/page/PageHeader";
 import {
     LoginContainer,
+    FloatingOrb,
     StyledCard,
+    LogoContainer,
+    LogoIcon,
     LoginTitle,
+    LoginSubtitle,
     FormContainer,
     FormItemWrapper,
     StyledInput,
     StyledPasswordInput,
     GradientButton,
+    SecureBadge,
 } from "./style";
-
-const { Text } = Typography;
 
 export default function LoginPage() {
     const { login } = useAuth();
     const [loading, setLoading] = useState(false);
+    const usernameRef = useRef<InputRef>(null);
+
+    // Auto-focus username field on mount
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            usernameRef.current?.focus();
+        }, 100);
+        return () => clearTimeout(timer);
+    }, []);
 
     const onFinish = async (values: LoginCredentials) => {
         setLoading(true);
@@ -49,72 +58,95 @@ export default function LoginPage() {
     };
 
     return (
-        <>
-            <UIPageHeader title="เข้าสู่ระบบ" subtitle="ยินดีต้อนรับ" />
-            <PageContainer>
-                <PageSection>
-                    <LoginContainer>
-                        <StyledCard>
-                            <LoginTitle>เข้าสู่ระบบ</LoginTitle>
-                            <div style={{ textAlign: "center", marginBottom: 18 }}>
-                                <Text style={{ color: "#475569" }}>ศูนย์ควบคุมร้านค้า POS • ปลอดภัยและรวดเร็ว</Text>
-                            </div>
-                            
-                            <FormContainer>
-                                <Form
-                                    name="login"
-                                    onFinish={onFinish}
-                                    layout="vertical"
-                                    requiredMark={false}
-                                >
-                                    <FormItemWrapper>
-                                        <Form.Item
-                                            name="username"
-                                            rules={[
-                                                { required: true, message: "กรุณากรอกชื่อผู้ใช้" },
-                                                { pattern: /^[a-zA-Z0-9\-_@.]*$/, message: "กรุณากรอกภาษาอังกฤษ ตัวเลข หรืออักขระพิเศษ (- _ @ .)" }
-                                            ]}
-                                        >
-                                            <StyledInput
-                                                prefix={<UserOutlined />}
-                                                placeholder="ชื่อผู้ใช้"
-                                                autoComplete="username"
-                                            />
-                                        </Form.Item>
-                                    </FormItemWrapper>
+        <LoginContainer>
+            {/* Decorative floating orb */}
+            <FloatingOrb />
+            
+            <StyledCard>
+                {/* Logo */}
+                <LogoContainer>
+                    <LogoIcon>
+                        <svg 
+                            viewBox="0 0 24 24" 
+                            fill="none" 
+                            stroke="currentColor" 
+                            strokeWidth="2" 
+                            strokeLinecap="round" 
+                            strokeLinejoin="round"
+                        >
+                            <path d="M12 2L2 7l10 5 10-5-10-5z" />
+                            <path d="M2 17l10 5 10-5" />
+                            <path d="M2 12l10 5 10-5" />
+                        </svg>
+                    </LogoIcon>
+                </LogoContainer>
 
-                                    <FormItemWrapper>
-                                        <Form.Item
-                                            name="password"
-                                            rules={[
-                                                { required: true, message: "กรุณากรอกรหัสผ่าน" },
-                                                { pattern: /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]*$/, message: "กรุณากรอกภาษาอังกฤษ ตัวเลข หรืออักขระพิเศษเท่านั้น" }
-                                            ]}
-                                        >
-                                            <StyledPasswordInput
-                                                prefix={<LockOutlined />}
-                                                placeholder="รหัสผ่าน"
-                                                autoComplete="current-password"
-                                            />
-                                        </Form.Item>
-                                    </FormItemWrapper>
+                {/* Title */}
+                <LoginTitle>ยินดีต้อนรับ</LoginTitle>
+                <LoginSubtitle>เข้าสู่ระบบเพื่อจัดการร้านค้าของคุณ</LoginSubtitle>
+                
+                {/* Login Form */}
+                <FormContainer>
+                    <Form
+                        name="login"
+                        onFinish={onFinish}
+                        layout="vertical"
+                        requiredMark={false}
+                        autoComplete="on"
+                    >
+                        <FormItemWrapper>
+                            <Form.Item
+                                name="username"
+                                rules={[
+                                    { required: true, message: "กรุณากรอกชื่อผู้ใช้" },
+                                ]}
+                            >
+                                <StyledInput
+                                    ref={usernameRef}
+                                    prefix={<UserOutlined />}
+                                    placeholder="ชื่อผู้ใช้"
+                                    autoComplete="username"
+                                    aria-label="ชื่อผู้ใช้"
+                                />
+                            </Form.Item>
+                        </FormItemWrapper>
 
-                                    <Form.Item style={{ marginBottom: 0 }}>
-                                        <GradientButton
-                                            type="primary"
-                                            htmlType="submit"
-                                            loading={loading}
-                                            block
-                                        >
-                                            เข้าสู่ระบบ
-                                        </GradientButton>
-                                    </Form.Item>
-                                </Form>
-                            </FormContainer>
-                        </StyledCard>
-                    </LoginContainer>
-                </PageSection>
-            </PageContainer>
-        </>
+                        <FormItemWrapper>
+                            <Form.Item
+                                name="password"
+                                rules={[
+                                    { required: true, message: "กรุณากรอกรหัสผ่าน" },
+                                    { pattern: /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]*$/, message: "กรุณากรอกภาษาอังกฤษ ตัวเลข หรืออักขระพิเศษเท่านั้น" }
+                                ]}
+                            >
+                                <StyledPasswordInput
+                                    prefix={<LockOutlined />}
+                                    placeholder="รหัสผ่าน"
+                                    autoComplete="current-password"
+                                    aria-label="รหัสผ่าน"
+                                />
+                            </Form.Item>
+                        </FormItemWrapper>
+
+                        <Form.Item style={{ marginBottom: 0 }}>
+                            <GradientButton
+                                type="primary"
+                                htmlType="submit"
+                                loading={loading}
+                                block
+                            >
+                                เข้าสู่ระบบ
+                            </GradientButton>
+                        </Form.Item>
+                    </Form>
+                </FormContainer>
+
+                {/* Secure Badge */}
+                <SecureBadge>
+                    <SafetyOutlined />
+                    <span>การเชื่อมต่อที่ปลอดภัย</span>
+                </SecureBadge>
+            </StyledCard>
+        </LoginContainer>
     );
 }

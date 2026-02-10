@@ -7,6 +7,8 @@ import { Payments } from "../../../types/api/pos/payments";
 import { PaymentMethod } from "../../../types/api/pos/paymentMethod";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
+import { groupOrderItems } from "../../../utils/orderGrouping";
+import { ItemStatus } from "../../../types/api/pos/salesOrderItem";
 
 dayjs.locale('th');
 
@@ -24,8 +26,19 @@ interface ReceiptProps {
 }
 
 const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(({ order, shopName, shopAddress, shopPhone, shopTaxId, shopLogo }, ref) => {
-    const items = order.items || [];
+    // Filter out cancelled items
+    const items = (order.items || []).filter(item => item.status !== ItemStatus.Cancelled);
     const payments = (order.payments || []) as PaymentWithMethod[];
+
+    // Calculate totals for the receipt based on non-cancelled items
+    // This ensures consistency if the backend amounts still include cancelled items
+    const subTotal = items.reduce((sum, item) => sum + Number(item.total_price || 0), 0);
+    const discountAmount = Number(order.discount_amount || 0);
+    
+    // Recalculate VAT and Total based on the filtered subtotal
+    // Assuming 7% VAT if any
+    const vat = order.vat > 0 ? (subTotal - discountAmount) * 0.07 : 0;
+    const totalAmount = subTotal - discountAmount + vat;
     
     const orderTypeLabel = (type: OrderType) => {
         switch (type) {
@@ -53,7 +66,7 @@ const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(({ order, shopN
                     )}
                     <div className="shop-name">{shopName || 'ร้านค้า POS'}</div>
                     {shopAddress && <div className="shop-info">{shopAddress}</div>}
-                    {shopPhone && <div className="shop-info">โทร: {shopPhone}</div>}
+                    {shopPhone && <div className="shop-info shop-phone">โทร: {shopPhone}</div>}
                     {shopTaxId && <div className="shop-info">TAX ID: {shopTaxId}</div>}
                 </div>
 
@@ -61,25 +74,25 @@ const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(({ order, shopN
 
                 {/* Order Info */}
                 <div className="section">
-                    <div style={flexBetweenStyle}>
+                    <div className="flex-between">
                         <span>เลขที่ออเดอร์:</span>
                         <span className="font-bold">#{order.order_no}</span>
                     </div>
-                    <div style={flexBetweenStyle}>
+                    <div className="flex-between">
                         <span>วันที่:</span>
                         <span>{dayjs(order.create_date).format('DD/MM/YYYY HH:mm')}</span>
                     </div>
-                    <div style={flexBetweenStyle}>
+                    <div className="flex-between">
                         <span>ประเภท:</span>
                         <span>{orderTypeLabel(order.order_type)}</span>
                     </div>
                     {order.order_type === OrderType.DineIn && order.table && (
-                        <div style={flexBetweenStyle}>
+                        <div className="flex-between">
                             <span>โต๊ะ:</span>
                             <span>{order.table.table_name}</span>
                         </div>
                     )}
-                    <div style={flexBetweenStyle}>
+                    <div className="flex-between">
                         <span>พนักงาน:</span>
                         <span>{order.created_by?.name || order.created_by?.username || '-'}</span>
                     </div>
@@ -90,15 +103,20 @@ const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(({ order, shopN
                 {/* Items */}
                 <div className="section">
                     <div className="section-header">รายการสินค้า</div>
-                    {items.map((item: SalesOrderItem, index: number) => (
+                    {groupOrderItems(items).map((item, index: number) => (
                         <div key={item.id || index} className="item-row">
-                            <div style={flexBetweenStyle}>
+                            <div className="flex-between">
                                 <span>{item.product?.display_name || item.product?.product_name || 'สินค้า'}</span>
                             </div>
-                            <div style={{ ...flexBetweenStyle, paddingLeft: 10, fontSize: '11px', color: '#4b5563' }}>
+                            <div className="item-details">
                                 <span>{item.quantity} x ฿{Number(item.price).toLocaleString()}</span>
                                 <span>฿{Number(item.total_price).toLocaleString()}</span>
                             </div>
+                            {item.details && item.details.map((detail, dIdx) => (
+                                <div key={dIdx} className="item-note" style={{ color: '#16a34a', fontStyle: 'normal' }}>
+                                    + {detail.detail_name} {detail.extra_price > 0 && `(+฿${Number(detail.extra_price).toLocaleString()})`}
+                                </div>
+                            ))}
                             {item.notes && (
                                 <div className="item-note">
                                     *{item.notes}
@@ -112,25 +130,25 @@ const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(({ order, shopN
 
                 {/* Summary */}
                 <div className="section">
-                    <div style={flexBetweenStyle}>
+                    <div className="flex-between">
                         <span>รวมรายการ:</span>
-                        <span>฿{Number(order.sub_total).toLocaleString()}</span>
+                        <span>฿{Number(subTotal).toLocaleString()}</span>
                     </div>
-                    {order.discount_amount > 0 && (
-                        <div style={flexBetweenStyle}>
+                    {discountAmount > 0 && (
+                        <div className="flex-between">
                             <span>ส่วนลด ({order.discount?.display_name || order.discount?.discount_name || 'ส่วนลด'}):</span>
-                            <span style={{ color: '#ef4444' }}>-฿{Number(order.discount_amount).toLocaleString()}</span>
+                            <span style={{ color: '#ef4444' }}>-฿{Number(discountAmount).toLocaleString()}</span>
                         </div>
                     )}
-                    {order.vat > 0 && (
-                        <div style={flexBetweenStyle}>
+                    {vat > 0 && (
+                        <div className="flex-between">
                             <span>VAT 7%:</span>
-                            <span>฿{Number(order.vat).toLocaleString()}</span>
+                            <span>฿{Number(vat).toLocaleString()}</span>
                         </div>
                     )}
                     <div className="total-row">
                         <span>ยอดสุทธิ:</span>
-                        <span>฿{Number(order.total_amount).toLocaleString()}</span>
+                        <span>฿{Number(totalAmount).toLocaleString()}</span>
                     </div>
                 </div>
 
@@ -141,13 +159,13 @@ const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(({ order, shopN
                     <div className="section">
                         <div className="section-header">การชำระเงิน</div>
                         {payments.map((p: PaymentWithMethod, index: number) => (
-                            <div key={p.id || index} style={flexBetweenStyle}>
+                            <div key={p.id || index} className="flex-between">
                                 <span>{p.payment_method?.display_name || p.payment_method?.payment_method_name || 'ไม่ระบุ'}</span>
                                 <span>฿{Number(p.amount).toLocaleString()}</span>
                             </div>
                         ))}
                         {payments.some((p: PaymentWithMethod) => p.change_amount > 0) && (
-                            <div style={flexBetweenStyle}>
+                            <div className="flex-between">
                                 <span>เงินทอน:</span>
                                 <span>฿{payments.reduce((sum: number, p: PaymentWithMethod) => sum + Number(p.change_amount || 0), 0).toLocaleString()}</span>
                             </div>
@@ -185,57 +203,85 @@ const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(({ order, shopN
                     box-shadow: 0 4px 12px rgba(0,0,0,0.1);
                     position: relative;
                 }
+                .text-center { 
+                    text-align: center;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    width: 100%;
+                }
+                .mb-4 { margin-bottom: 16px; }
                 .dashed-line {
                     border-top: 1px dashed #000;
                     margin: 12px 0;
                     opacity: 0.5;
                 }
-                .text-center { text-align: center; }
-                .mb-4 { margin-bottom: 16px; }
-                .font-bold { fontWeight: bold; }
-                
-                .receipt-logo {
-                    width: 60px;
-                    height: 60px;
-                    object-fit: contain;
-                    margin-bottom: 8px;
-                    filter: grayscale(100%); /* Receipt feeling */
-                }
                 .shop-name {
-                    font-weight: bold;
-                    font-size: 16px;
+                    font-weight: 900;
+                    font-size: 28px;
                     margin-bottom: 4px;
+                    text-align: center;
+                    width: 100%;
                 }
                 .shop-info {
-                    font-size: 10px;
+                    font-size: 12px;
                     margin-bottom: 2px;
+                    text-align: center;
+                    width: 100%;
                 }
-                
+                .shop-phone {
+                    font-size: 16px;
+                    font-weight: 700;
+                    margin-top: 4px;
+                }
                 .section { margin-bottom: 8px; }
                 .section-header {
                     font-weight: bold;
                     margin-bottom: 8px;
                     font-size: 13px;
                 }
-                
+                .flex-between {
+                    display: flex;
+                    justify-content: space-between;
+                    margin-bottom: 4px;
+                }
+                .font-bold { font-weight: bold; }
+                .receipt-logo {
+                    width: 60px;
+                    height: 60px;
+                    object-fit: contain;
+                    margin-bottom: 8px;
+                    margin-left: auto;
+                    margin-right: auto;
+                    display: block;
+                    filter: grayscale(100%); /* Receipt feeling */
+                }
                 .item-row { margin-bottom: 6px; }
+                .item-details {
+                    display: flex;
+                    justify-content: space-between;
+                    padding-left: 10px;
+                    font-size: 12px;
+                    font-weight: 600;
+                    color: #000;
+                }
                 .item-note {
                     padding-left: 10px;
-                    font-size: 10px;
+                    font-size: 9px;
+                    font-weight: 300;
                     font-style: italic;
-                    color: #666;
+                    color: #4b5563;
                 }
-                
                 .total-row {
                     display: flex;
                     justify-content: space-between;
-                    font-weight: bold;
-                    font-size: 16px;
+                    font-weight: 900;
+                    font-size: 26px;
                     margin-top: 12px;
                     border-top: 2px solid #000;
                     padding-top: 8px;
                 }
-                
                 .receipt-footer {
                     text-align: center;
                     margin-top: 16px;
