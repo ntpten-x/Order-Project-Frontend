@@ -1,13 +1,1 @@
-{
-  "/api/csrf/route": "app/api/csrf/route.js",
-  "/api/roles/getAll/route": "app/api/roles/getAll/route.js",
-  "/api/branches/route": "app/api/branches/route.js",
-  "/api/users/[id]/route": "app/api/users/[id]/route.js",
-  "/api/users/route": "app/api/users/route.js",
-  "/(main)/page": "app/(main)/page.js",
-  "/(main)/pos/orders/page": "app/(main)/pos/orders/page.js",
-  "/(main)/pos/orders/[...ordersId]/page": "app/(main)/pos/orders/[...ordersId]/page.js",
-  "/(main)/users/page": "app/(main)/users/page.js",
-  "/(main)/users/manage/[...mode]/page": "app/(main)/users/manage/[...mode]/page.js",
-  "/(main)/branch/page": "app/(main)/branch/page.js"
-}
+{}
