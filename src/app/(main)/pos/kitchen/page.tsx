@@ -2,28 +2,32 @@
 
 import React, { useEffect, useState, useContext, useMemo, useRef, useCallback } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Typography, Button, Row, Col, Tag, Empty, Spin, message, Tooltip } from "antd";
+import { Typography, Button, Row, Col, Tag, Spin, message, Badge, Tooltip } from "antd";
 import { 
     CheckOutlined, 
     ClockCircleOutlined, 
     FireOutlined, 
     SoundOutlined, 
     ReloadOutlined,
-    ThunderboltOutlined,
+
     DoubleRightOutlined,
     NotificationOutlined,
-    WifiOutlined
+    WifiOutlined,
+    FilterOutlined,
+    UpOutlined,
+    DownOutlined,
+    UndoOutlined
 } from "@ant-design/icons";
 import { SocketContext } from "../../../../contexts/SocketContext";
 import { ordersService } from "../../../../services/pos/orders.service";
 import { SalesOrderItem, ItemStatus } from "../../../../types/api/pos/salesOrderItem";
+import { OrderStatus } from "../../../../types/api/pos/salesOrder";
 import { useGlobalLoadingDispatch } from "../../../../contexts/pos/GlobalLoadingContext";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import relativeTime from 'dayjs/plugin/relativeTime';
-import PageContainer from "../../../../components/ui/page/PageContainer";
 import { t } from "../../../../utils/i18n";
 
 dayjs.extend(relativeTime);
@@ -31,78 +35,498 @@ dayjs.locale('th');
 
 const { Title, Text } = Typography;
 
-// KDS Specific Styles
-const kdsStyles = {
-    container: {
-        minHeight: '100vh',
-        background: 'radial-gradient(circle at 20% 20%, rgba(59,130,246,0.08), transparent 25%), radial-gradient(circle at 80% 0%, rgba(16,185,129,0.08), transparent 22%), #0b1020',
-        padding: '24px',
-        color: '#f8fafc',
-        fontFamily: "var(--font-sans), 'Sarabun', sans-serif",
-        position: 'relative' as const,
-        overflow: 'hidden',
-    },
-    header: {
-        marginBottom: 28,
-        background: 'linear-gradient(135deg, rgba(30,41,59,0.9) 0%, rgba(15,23,42,0.9) 40%, rgba(28,43,68,0.92) 100%)',
-        padding: '18px 22px',
-        borderRadius: 24,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        border: '1px solid rgba(255,255,255,0.08)',
-        boxShadow: '0 20px 50px rgba(0,0,0,0.25)',
-        position: 'relative' as const,
-        overflow: 'hidden',
-    },
-    card: (urgencyColor: string, isHighUrgency: boolean) => ({
-        background: 'linear-gradient(180deg, rgba(30,41,59,0.96) 0%, rgba(17,24,39,0.94) 100%)',
-        borderRadius: 18,
-        overflow: 'hidden',
-        border: `1px solid ${isHighUrgency ? urgencyColor : 'rgba(255,255,255,0.08)'}`,
-        boxShadow: isHighUrgency
-            ? `0 0 0 2px ${urgencyColor}33, 0 16px 32px rgba(0,0,0,0.28)`
-            : '0 12px 30px rgba(0,0,0,0.18)',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column' as const,
-        transition: 'transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s ease',
-        animation: isHighUrgency ? 'pulse-border 1.8s infinite' : 'none'
-    }),
-    itemRow: (status: ItemStatus) => ({
-        padding: '12px',
-        background: status === ItemStatus.Cooking ? 'rgba(16, 185, 129, 0.12)' : 'rgba(255,255,255,0.05)',
-        marginBottom: 10,
-        borderRadius: 10,
-        borderLeft: `5px solid ${
-            status === ItemStatus.Cooking ? '#10b981' :
-            status === ItemStatus.Served ? '#64748b' : '#f59e0b'
-        }`,
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        gap: 10
-    })
-};
+// Responsive Kitchen Styles CSS
+const kitchenResponsiveStyles = `
+    /* =====================================================
+       KITCHEN PAGE - MOBILE FIRST STYLES
+       ===================================================== */
+    
+    .kitchen-page-container {
+        min-height: 100vh;
+        background: radial-gradient(ellipse at 20% 0%, rgba(249, 115, 22, 0.15) 0%, transparent 50%),
+                    radial-gradient(ellipse at 80% 100%, rgba(16, 185, 129, 0.1) 0%, transparent 50%),
+                    #0a0f1a;
+        padding: 0;
+        padding-bottom: 100px;
+        color: #f8fafc;
+        font-family: var(--font-sans), 'Sarabun', sans-serif;
+    }
+
+    /* Hero Header - Mobile First */
+    .kitchen-hero {
+        background: linear-gradient(145deg, rgba(249, 115, 22, 0.2) 0%, rgba(15, 23, 42, 0.95) 50%, rgba(16, 185, 129, 0.1) 100%);
+        padding: 16px;
+        border-radius: 0 0 24px 24px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+        position: sticky;
+        top: 0;
+        z-index: 100;
+        backdrop-filter: blur(20px);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .kitchen-hero-top {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-bottom: 12px;
+    }
+
+    .kitchen-title-section {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .kitchen-fire-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 4px 20px rgba(249, 115, 22, 0.4);
+        flex-shrink: 0;
+    }
+
+    .kitchen-title {
+        font-size: 20px !important;
+        font-weight: 700 !important;
+        margin: 0 !important;
+        color: #fff !important;
+        white-space: nowrap;
+    }
+
+    .kitchen-subtitle {
+        display: none;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 12px;
+    }
+
+    /* Stats Row - Scrollable on Mobile */
+    .kitchen-stats-row {
+        display: flex;
+        gap: 10px;
+        overflow-x: auto;
+        padding: 4px 0;
+        margin: 0 -4px;
+        scroll-snap-type: x mandatory;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+    }
+
+    .kitchen-stats-row::-webkit-scrollbar {
+        display: none;
+    }
+
+    .kitchen-stat-card {
+        flex-shrink: 0;
+        background: rgba(255, 255, 255, 0.06);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 14px;
+        padding: 12px 16px;
+        min-width: 90px;
+        text-align: center;
+        scroll-snap-align: start;
+        transition: all 0.2s ease;
+    }
+
+    .kitchen-stat-card:active {
+        transform: scale(0.95);
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .kitchen-stat-value {
+        font-size: 24px;
+        font-weight: 800;
+        display: block;
+        line-height: 1.2;
+    }
+
+    .kitchen-stat-label {
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.6);
+        display: block;
+        margin-top: 2px;
+    }
+
+    /* Filter Tabs - Mobile */
+    .kitchen-filter-row {
+        display: flex;
+        gap: 8px;
+        overflow-x: auto;
+        padding: 12px 0 4px;
+        scrollbar-width: none;
+    }
+
+    .kitchen-filter-row::-webkit-scrollbar {
+        display: none;
+    }
+
+    .kitchen-filter-btn {
+        flex-shrink: 0;
+        height: 40px !important;
+        padding: 0 16px !important;
+        border-radius: 12px !important;
+        font-weight: 600 !important;
+        font-size: 14px !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .kitchen-filter-btn.active {
+        border-color: transparent !important;
+    }
+
+    /* Action Buttons */
+    .kitchen-action-btns {
+        display: flex;
+        gap: 8px;
+    }
+
+    .kitchen-action-btn {
+        width: 44px !important;
+        height: 44px !important;
+        border-radius: 12px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+    }
+
+    /* Content Area */
+    .kitchen-content {
+        padding: 16px;
+        max-width: 1600px;
+        margin: 0 auto;
+    }
+
+    /* Order Cards - Mobile First */
+    .kitchen-order-card {
+        background: linear-gradient(180deg, rgba(30, 41, 59, 0.95) 0%, rgba(15, 23, 42, 0.98) 100%);
+        border-radius: 20px;
+        overflow: hidden;
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+        margin-bottom: 16px;
+        transition: all 0.3s ease;
+    }
+
+    .kitchen-order-card.urgent {
+        border-color: #ef4444;
+        box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.3), 0 8px 32px rgba(239, 68, 68, 0.15);
+        animation: pulse-urgent 2s infinite;
+    }
+
+    @keyframes pulse-urgent {
+        0%, 100% { box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.3), 0 8px 32px rgba(239, 68, 68, 0.15); }
+        50% { box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.5), 0 8px 32px rgba(239, 68, 68, 0.25); }
+    }
+
+    .kitchen-order-header {
+        padding: 16px;
+        background: rgba(255, 255, 255, 0.03);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+
+    .kitchen-order-header-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .kitchen-order-number {
+        background: #fff;
+        color: #0f172a;
+        font-weight: 800;
+        padding: 4px 12px;
+        border-radius: 8px;
+        font-size: 16px;
+    }
+
+    .kitchen-order-table {
+        color: #94a3b8;
+        font-size: 15px;
+        font-weight: 600;
+        margin-left: 10px;
+    }
+
+    .kitchen-order-time {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-weight: 700;
+        font-size: 14px;
+    }
+
+    .kitchen-order-meta {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .kitchen-order-type-tag {
+        margin: 0 !important;
+        border: none !important;
+        font-weight: 600;
+    }
+
+    .kitchen-order-urgency {
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+    }
+
+    /* Progress Bar */
+    .kitchen-progress-bar {
+        height: 5px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 999px;
+        overflow: hidden;
+        margin-top: 10px;
+    }
+
+    .kitchen-progress-fill {
+        height: 100%;
+        border-radius: 999px;
+        transition: width 0.5s ease;
+    }
+
+    /* Items List */
+    .kitchen-items-list {
+        padding: 12px;
+        max-height: 400px;
+        overflow-y: auto;
+    }
+
+    .kitchen-item-row {
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+        padding: 14px;
+        background: rgba(255, 255, 255, 0.04);
+        border-radius: 14px;
+        margin-bottom: 10px;
+        border-left: 4px solid transparent;
+        transition: all 0.2s ease;
+    }
+
+    .kitchen-item-row:active {
+        transform: scale(0.99);
+        background: rgba(255, 255, 255, 0.08);
+    }
+
+    .kitchen-item-row.pending {
+        border-left-color: #f59e0b;
+    }
+
+    .kitchen-item-row.cooking {
+        border-left-color: #10b981;
+        background: rgba(16, 185, 129, 0.08);
+    }
+
+    .kitchen-item-row.served {
+        border-left-color: #64748b;
+        opacity: 0.7;
+    }
+
+    .kitchen-item-qty {
+        font-size: 20px;
+        font-weight: 800;
+        color: #fff;
+        min-width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 10px;
+        flex-shrink: 0;
+    }
+
+    .kitchen-item-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .kitchen-item-name {
+        font-size: 16px;
+        font-weight: 600;
+        color: #f1f5f9;
+        line-height: 1.4;
+        word-break: break-word;
+    }
+
+    .kitchen-item-notes {
+        display: inline-block;
+        margin-top: 8px;
+        background: #f59e0b;
+        color: #000;
+        padding: 5px 10px;
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 13px;
+    }
+
+    .kitchen-item-status {
+        font-size: 12px;
+        color: #94a3b8;
+        margin-top: 6px;
+    }
+
+    .kitchen-item-action {
+        flex-shrink: 0;
+    }
+
+    .kitchen-item-action-btn {
+        width: 52px !important;
+        height: 52px !important;
+        border-radius: 14px !important;
+        font-size: 22px !important;
+    }
+
+    /* Order Footer */
+    .kitchen-order-footer {
+        padding: 14px;
+        border-top: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .kitchen-serve-all-btn {
+        height: 54px !important;
+        border-radius: 14px !important;
+        font-size: 16px !important;
+        font-weight: 700 !important;
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%) !important;
+        border: none !important;
+        box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3) !important;
+    }
+
+    .kitchen-serve-all-btn:active {
+        transform: scale(0.98) !important;
+    }
+
+    /* Empty State */
+    .kitchen-empty {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 60px 20px;
+        text-align: center;
+    }
+
+    .kitchen-empty-icon {
+        width: 100px;
+        height: 100px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, rgba(16, 185, 129, 0.2) 0%, rgba(16, 185, 129, 0.05) 100%);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-bottom: 20px;
+    }
+
+    .kitchen-empty-text {
+        font-size: 18px;
+        color: #64748b;
+        margin-bottom: 16px;
+    }
+
+    /* =====================================================
+       TABLET & DESKTOP OVERRIDES
+       ===================================================== */
+    @media (min-width: 768px) {
+        .kitchen-page-container {
+            padding-bottom: 40px;
+        }
+
+        .kitchen-hero {
+            padding: 20px 24px;
+            border-radius: 0 0 28px 28px;
+            position: relative;
+        }
+
+        .kitchen-fire-icon {
+            width: 56px;
+            height: 56px;
+            border-radius: 16px;
+        }
+
+        .kitchen-title {
+            font-size: 26px !important;
+        }
+
+        .kitchen-subtitle {
+            display: block;
+        }
+
+        .kitchen-stat-card {
+            min-width: 110px;
+            padding: 14px 20px;
+        }
+
+        .kitchen-stat-value {
+            font-size: 28px;
+        }
+
+        .kitchen-content {
+            padding: 24px;
+        }
+
+        .kitchen-order-card {
+            margin-bottom: 0;
+        }
+
+        .kitchen-items-list {
+            max-height: 50vh;
+        }
+    }
+
+    @media (min-width: 1024px) {
+        .kitchen-hero {
+            padding: 24px 32px;
+        }
+
+        .kitchen-fire-icon {
+            width: 64px;
+            height: 64px;
+        }
+
+        .kitchen-title {
+            font-size: 30px !important;
+        }
+
+        .kitchen-order-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+        }
+    }
+`;
 
 // Urgency Logic
 const getUrgencyConfig = (createdAt: string) => {
     const minutes = dayjs().diff(dayjs(createdAt), 'minute');
     if (minutes < 10) return { 
-        color: '#10b981', // Emerald 500
-        bgColor: 'rgba(16, 185, 129, 0.2)', 
+        color: '#10b981',
         label: 'ปกติ',
         level: 1
     };
     if (minutes < 20) return { 
-        color: '#f59e0b', // Amber 500
-        bgColor: 'rgba(245, 158, 11, 0.2)', 
+        color: '#f59e0b',
         label: 'เริ่มช้า',
         level: 2
     };
     return { 
-        color: '#ef4444', // Red 500
-        bgColor: 'rgba(239, 68, 68, 0.2)', 
+        color: '#ef4444',
         label: 'ด่วน!',
         level: 3
     };
@@ -124,6 +548,7 @@ export default function KitchenDisplayPage() {
     const [soundEnabled, setSoundEnabled] = useState(true);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [filterStatus, setFilterStatus] = useState<ItemStatus | 'all'>('all');
+    const [statsExpanded, setStatsExpanded] = useState(false);
 
     // Initialize audio
     useEffect(() => {
@@ -144,29 +569,38 @@ export default function KitchenDisplayPage() {
     const { data: allItems = [], isLoading, refetch, error } = useQuery<SalesOrderItem[]>({
         queryKey: ["orderItems", "kitchen"],
         queryFn: async () => {
-            // Backend sometimes needs explicit status filter; fetch both important statuses
-            const [pending, cooking] = await Promise.all([
+            const [pending, cooking, served] = await Promise.all([
                 ordersService.getItems(ItemStatus.Pending),
                 ordersService.getItems(ItemStatus.Cooking),
+                ordersService.getItems(ItemStatus.Served),
             ]);
 
-            const merged = [...pending, ...cooking];
+            const merged = [...pending, ...cooking, ...served];
 
+            // Filter items: Only show items from orders that are currently "Processing"
+            // matching the Orders page logic (Not Paid, Not Cancelled, Not WaitingForPayment)
             return merged.filter((item: SalesOrderItem) =>
-                item.status !== ItemStatus.Served &&
-                item.status !== ItemStatus.Cancelled
+                item.status !== ItemStatus.Cancelled &&
+                item.order && (item.order.status === OrderStatus.Pending || item.order.status === OrderStatus.Cooking)
             );
         },
         staleTime: 2000,
-        refetchInterval: 30000, // Safety polling every 30s
+        refetchInterval: 30000,
     });
 
     const groupedOrders = useMemo((): GroupedOrder[] => {
         const grouped: Record<string, GroupedOrder> = {};
         
-        const filteredItems = filterStatus === 'all' 
-            ? allItems.filter(item => item.status !== ItemStatus.Served && item.status !== ItemStatus.Cancelled)
-            : allItems.filter(item => item.status === filterStatus);
+        let filteredItems = allItems;
+        
+        if (filterStatus === 'all') {
+            // Default view: Show Pending + Cooking (User wants Pending to be seen as working mode)
+            filteredItems = allItems.filter(item => 
+                item.status === ItemStatus.Pending || item.status === ItemStatus.Cooking
+            );
+        } else {
+            filteredItems = allItems.filter(item => item.status === filterStatus);
+        }
 
         filteredItems.forEach(item => {
             const orderId = item.order_id;
@@ -184,7 +618,6 @@ export default function KitchenDisplayPage() {
             grouped[orderId].items.push(item);
         });
 
-        // Sort: Urgent (Oldest) First
         return Object.values(grouped).sort((a, b) => 
             dayjs(a.created_at).valueOf() - dayjs(b.created_at).valueOf()
         );
@@ -234,7 +667,6 @@ export default function KitchenDisplayPage() {
 
     const updateItemStatus = async (itemId: string, newStatus: ItemStatus) => {
         try {
-            // Optimistic Update
             queryClient.setQueryData<SalesOrderItem[]>(["orderItems", "kitchen"], (prev = []) =>
                 prev.map(item => (item.id === itemId ? { ...item, status: newStatus } : item))
             );
@@ -243,7 +675,7 @@ export default function KitchenDisplayPage() {
             await ordersService.updateItemStatus(itemId, newStatus, undefined, csrfToken);
         } catch {
             message.error("อัปเดตสถานะไม่สำเร็จ");
-            refetch(); // Revert on failure
+            refetch();
         }
     };
 
@@ -260,9 +692,8 @@ export default function KitchenDisplayPage() {
 
             await Promise.all(updatePromises);
             
-            // Remove locally immediately for snappy feel
             queryClient.setQueryData<SalesOrderItem[]>(["orderItems", "kitchen"], (prev = []) =>
-                prev.filter(item => item.order_id !== orderId)
+                prev.map(item => item.order_id === orderId ? { ...item, status: ItemStatus.Served } : item)
             );
             
             message.success(`เสิร์ฟออเดอร์ #${order.order_no} เรียบร้อย`);
@@ -274,331 +705,271 @@ export default function KitchenDisplayPage() {
         }
     };
 
-    const pendingCount = allItems.filter(i => i.status === ItemStatus.Pending).length;
-    const cookingCount = allItems.filter(i => i.status === ItemStatus.Cooking).length;
+    const cookingCount = allItems.filter(i => i.status === ItemStatus.Cooking || i.status === ItemStatus.Pending).length;
+    const servedCount = allItems.filter(i => i.status === ItemStatus.Served).length;
+
+    const stats = [
+        { label: 'คิวทั้งหมด', value: allItems.length, color: '#38bdf8' },
+        { label: 'กำลังทำ', value: cookingCount, color: '#f59e0b' },
+        { label: 'ทำแล้ว', value: servedCount, color: '#10b981' },
+    ];
+
+    const filters = [
+        { key: 'all', label: 'ทั้งหมด', count: allItems.length, color: '#38bdf8' },
+        { key: ItemStatus.Cooking, label: 'กำลังทำ', count: cookingCount, color: '#f59e0b' },
+        { key: ItemStatus.Served, label: 'ทำแล้ว', count: servedCount, color: '#10b981' },
+    ];
 
     return (
-        <PageContainer maxWidth={99999} style={{ padding: 0 }}>
-        <div style={kdsStyles.container}>
-            <style jsx global>{`
-                @keyframes pulse-border {
-                    0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
-                    70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-                    100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-                }
-                .kds-notification .ant-message-custom-content {
-                    display: flex;
-                    align-items: center;
-                    font-size: 16px;
-                    font-weight: 600;
-                }
-            `}</style>
+        <div className="kitchen-page-container">
+            <style jsx global>{kitchenResponsiveStyles}</style>
             
-            {/* Header */}
-            <div style={kdsStyles.header}>
-                <div style={{ position: 'absolute', inset: 0, opacity: 0.6, pointerEvents: 'none' }} className="header-pattern" />
-                <div style={{ display: 'flex', alignItems: 'center', gap: 18, flexWrap: 'wrap', position: 'relative', zIndex: 2 }}>
-                    <div style={{
-                        width: 62,
-                        height: 62,
-                        borderRadius: 18,
-                        background: 'linear-gradient(135deg, #f59e0b 0%, #f97316 60%, #fb923c 100%)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        boxShadow: '0 0 24px rgba(249, 115, 22, 0.4)',
-                        position: 'relative',
-                        overflow: 'hidden'
-                    }}>
-                        <FireOutlined style={{ fontSize: 30, color: '#fff' }} className="header-icon-animate" />
-                    </div>
-                    <div style={{ minWidth: 0 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
-                            <Title level={2} style={{ margin: 0, color: '#fff', fontSize: 28, letterSpacing: '0.5px' }}>
-                                Kitchen Pulse
-                            </Title>
-                            {isConnected ? (
-                                <Tag icon={<WifiOutlined />} color="#10b981" style={{ margin: 0, borderRadius: 12, padding: '2px 12px', fontWeight: 700 }}>LIVE</Tag>
-                            ) : (
-                                <Tag icon={<WifiOutlined />} color="#ef4444" style={{ margin: 0, borderRadius: 12, padding: '2px 12px', fontWeight: 700 }}>OFFLINE</Tag>
-                            )}
+            {/* Hero Header */}
+            <div className="kitchen-hero">
+                <div className="kitchen-hero-top">
+                    <div className="kitchen-title-section">
+                        <div className="kitchen-fire-icon">
+                            <FireOutlined style={{ fontSize: 26, color: '#fff' }} />
                         </div>
-                        <Text style={{ color: '#cbd5e1', fontSize: 14 }}>มอนิเตอร์งานครัวแบบเรียลไทม์ • เน้นงานด่วนก่อน</Text>
-                    </div>
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: 14, flexWrap: 'wrap', justifyContent: 'flex-end', position: 'relative', zIndex: 2 }}>
-                    <div style={{
-                        display: 'grid',
-                        gridTemplateColumns: 'repeat(auto-fit, minmax(120px, 1fr))',
-                        gap: 10,
-                        background: 'rgba(255,255,255,0.04)',
-                        padding: '10px 12px',
-                        borderRadius: 16,
-                        border: '1px solid rgba(255,255,255,0.08)',
-                        minWidth: 320
-                    }}>
-                        {[
-                            { label: 'คิวทั้งหมด', value: allItems.length, color: '#38bdf8' },
-                            { label: 'รอทำ', value: pendingCount, color: '#f59e0b' },
-                            { label: 'กำลังทำ', value: cookingCount, color: '#10b981' },
-                        ].map((stat) => (
-                            <div key={stat.label} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                                <Text style={{ color: '#cbd5e1', fontSize: 12 }}>{stat.label}</Text>
-                                <Text strong style={{ color: stat.color, fontSize: 18 }}>{stat.value}</Text>
+                        <div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                <Title className="kitchen-title">Kitchen Pulse</Title>
+                                {isConnected ? (
+                                    <Tag icon={<WifiOutlined />} color="#10b981" style={{ margin: 0, borderRadius: 10, fontSize: 11, padding: '2px 8px', fontWeight: 700 }}>LIVE</Tag>
+                                ) : (
+                                    <Tag icon={<WifiOutlined />} color="#ef4444" style={{ margin: 0, borderRadius: 10, fontSize: 11, padding: '2px 8px', fontWeight: 700 }}>OFFLINE</Tag>
+                                )}
                             </div>
-                        ))}
+                            <Text className="kitchen-subtitle">มอนิเตอร์งานครัวแบบเรียลไทม์</Text>
+                        </div>
                     </div>
-
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, background: '#0b1222', padding: 6, borderRadius: 14, border: '1px solid rgba(255,255,255,0.06)' }}>
-                        {['all', ItemStatus.Pending, ItemStatus.Cooking].map((status) => {
-                            const isActive = filterStatus === status;
-                            let count = allItems.length;
-                            let label = 'ทั้งหมด';
-                            let activeColor = '#38bdf8';
-
-                            if (status === ItemStatus.Pending) {
-                                count = pendingCount;
-                                label = 'รอทำ';
-                                activeColor = '#f59e0b';
-                            } else if (status === ItemStatus.Cooking) {
-                                count = cookingCount;
-                                label = 'กำลังทำ';
-                                activeColor = '#10b981';
-                            }
-
-                            return (
-                                <Button
-                                    key={status}
-                                    type="text"
-                                    onClick={() => setFilterStatus(status as ItemStatus | 'all')}
-                                    style={{
-                                        color: isActive ? '#0b1222' : '#cbd5e1',
-                                        background: isActive ? activeColor : 'transparent',
-                                        borderRadius: 10,
-                                        fontWeight: isActive ? 700 : 500,
-                                        height: 36,
-                                        padding: '0 14px'
-                                    }}
-                                >
-                                    {label} <span style={{ opacity: 0.7, marginLeft: 6, fontSize: 12 }}>{count}</span>
-                                </Button>
-                            );
-                        })}
-                    </div>
-
-                    <Tooltip title="เปิด/ปิดเสียงแจ้งเตือน">
+                    
+                    <div className="kitchen-action-btns">
                         <Button 
                             type="text"
                             icon={<SoundOutlined style={{ fontSize: 18 }} />}
                             onClick={() => setSoundEnabled(!soundEnabled)}
+                            className="kitchen-action-btn"
                             style={{ 
-                                color: soundEnabled ? '#10b981' : '#94a3b8',
-                                background: soundEnabled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.05)',
-                                width: 44,
-                                height: 44,
-                                borderRadius: 12
+                                color: soundEnabled ? '#10b981' : '#64748b',
+                                background: soundEnabled ? 'rgba(16, 185, 129, 0.15)' : 'rgba(255,255,255,0.08)',
                             }}
                         />
-                    </Tooltip>
-                    
-                    <Button 
-                        icon={<ReloadOutlined />}
-                        onClick={() => refetch()}
-                        loading={isLoading}
-                        style={{ 
-                            background: 'linear-gradient(135deg, #38bdf8 0%, #6366f1 100%)',
-                            border: 'none',
-                            color: 'white',
-                            borderRadius: 12,
-                            height: 44,
-                            boxShadow: '0 10px 24px rgba(99,102,241,0.3)'
-                        }}
-                    >
-                        รีเฟรช
-                    </Button>
+                        <Button 
+                            icon={<ReloadOutlined style={{ fontSize: 18 }} />}
+                            onClick={() => refetch()}
+                            loading={isLoading}
+                            className="kitchen-action-btn"
+                            style={{ 
+                                background: 'linear-gradient(135deg, #38bdf8 0%, #6366f1 100%)',
+                                border: 'none',
+                                color: 'white',
+                            }}
+                        />
+                    </div>
+                </div>
+
+                {/* Stats Row - Collapsible on Mobile */}
+                <div 
+                    style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', cursor: 'pointer', marginBottom: statsExpanded ? 8 : 0 }}
+                    onClick={() => setStatsExpanded(!statsExpanded)}
+                >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                        <Badge count={allItems.length} style={{ backgroundColor: '#38bdf8' }} />
+                        <Text style={{ color: 'rgba(255,255,255,0.7)', fontSize: 13 }}>รายการงานครัว</Text>
+                    </div>
+                    <Button type="text" size="small" icon={statsExpanded ? <UpOutlined /> : <DownOutlined />} style={{ color: 'rgba(255,255,255,0.5)' }} />
+                </div>
+
+                {statsExpanded && (
+                    <div className="kitchen-stats-row">
+                        {stats.map((stat) => (
+                            <div key={stat.label} className="kitchen-stat-card">
+                                <span className="kitchen-stat-value" style={{ color: stat.color }}>{stat.value}</span>
+                                <span className="kitchen-stat-label">{stat.label}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
+
+                {/* Filter Tabs */}
+                <div className="kitchen-filter-row">
+                    {filters.map((filter) => {
+                        const isActive = filterStatus === filter.key;
+                        return (
+                            <Button
+                                key={filter.key}
+                                type="text"
+                                onClick={() => setFilterStatus(filter.key as ItemStatus | 'all')}
+                                className={`kitchen-filter-btn ${isActive ? 'active' : ''}`}
+                                style={{
+                                    color: isActive ? '#0f172a' : '#94a3b8',
+                                    background: isActive ? filter.color : 'rgba(255,255,255,0.06)',
+                                }}
+                            >
+                                <FilterOutlined style={{ fontSize: 14 }} />
+                                {filter.label}
+                                <span style={{ opacity: 0.7, fontSize: 12 }}>({filter.count})</span>
+                            </Button>
+                        );
+                    })}
                 </div>
             </div>
 
-            {/* Grid */}
-            {error && (
-                <div style={{ textAlign: 'center', padding: '60px 16px', color: '#cbd5e1' }}>
-                    <Text style={{ color: '#fca5a5' }}>โหลดข้อมูลไม่สำเร็จ</Text>
-                    <div style={{ marginTop: 10 }}>
-                        <Button onClick={() => refetch()} type="primary">ลองใหม่</Button>
+            {/* Content */}
+            <div className="kitchen-content">
+                {error && (
+                    <div className="kitchen-empty">
+                        <Text style={{ color: '#fca5a5', fontSize: 16 }}>โหลดข้อมูลไม่สำเร็จ</Text>
+                        <Button onClick={() => refetch()} type="primary" style={{ marginTop: 16 }}>ลองใหม่</Button>
                     </div>
-                </div>
-            )}
-            {!error && isLoading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 100 }}>
-                    <Spin size="large" />
-                </div>
-            ) : groupedOrders.length === 0 ? (
-                <Empty
-                    image={Empty.PRESENTED_IMAGE_SIMPLE}
-                    description={<Text style={{ color: '#64748b', fontSize: 18 }}>ไม่มีออเดอร์ในครัวขณะนี้</Text>}
-                    style={{ marginTop: 100 }}
-                />
-            ) : (
-                <Row gutter={[20, 20]}>
-                    {groupedOrders.map((order) => {
-                        const urgency = getUrgencyConfig(order.created_at);
-                        const isHighUrgency = urgency.level === 3;
-                        const progress = Math.min(1, Math.max(0.1, dayjs().diff(dayjs(order.created_at), 'minute') / 25));
+                )}
 
-                        return (
-                            <Col xs={24} sm={24} md={12} lg={8} xl={6} key={order.order_id}>
-                                <div style={kdsStyles.card(urgency.color, isHighUrgency)}>
-                                    
-                                    {/* Card Header */}
-                                    <div style={{ 
-                                        padding: '16px', 
-                                        background: isHighUrgency ? 'rgba(239, 68, 68, 0.1)' : 'transparent',
-                                        borderBottom: '1px solid rgba(255,255,255,0.05)' 
-                                    }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                                            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                                <span style={{ 
-                                                    background: '#fff', 
-                                                    color: '#0f172a', 
-                                                    fontWeight: 800, 
-                                                    padding: '2px 8px', 
-                                                    borderRadius: 6,
-                                                    fontSize: 16
-                                                }}>
-                                                    #{order.order_no}
-                                                </span>
-                                                {order.table_name && (
-                                                    <span style={{ color: '#94a3b8', fontSize: 16, fontWeight: 600 }}>
-                                                        โต๊ะ {order.table_name}
+                {!error && isLoading ? (
+                    <div style={{ display: 'flex', justifyContent: 'center', paddingTop: 80 }}>
+                        <Spin size="large" />
+                    </div>
+                ) : groupedOrders.length === 0 ? (
+                    <div className="kitchen-empty">
+                        <div className="kitchen-empty-icon">
+                            <CheckOutlined style={{ fontSize: 48, color: '#10b981' }} />
+                        </div>
+                        <Text className="kitchen-empty-text">ไม่มีออเดอร์ในหน้าจอนี้</Text>
+                        <Button 
+                            onClick={() => refetch()} 
+                            type="default"
+                            icon={<ReloadOutlined />}
+                            style={{ borderRadius: 12, height: 44, background: 'rgba(255,255,255,0.1)', border: 'none', color: '#94a3b8' }}
+                        >
+                            รีเฟรช
+                        </Button>
+                    </div>
+                ) : (
+                    <Row gutter={[16, 16]}>
+                        {groupedOrders.map((order) => {
+                            const urgency = getUrgencyConfig(order.created_at);
+                            const isHighUrgency = urgency.level === 3;
+                            const progress = Math.min(1, Math.max(0.1, dayjs().diff(dayjs(order.created_at), 'minute') / 25));
+
+                            // Only show Serve All if there are items NOT served in this order view
+                            const hasItemsToServe = order.items.some(i => i.status !== ItemStatus.Served);
+
+                            return (
+                                <Col xs={24} sm={24} md={12} lg={8} xl={6} key={order.order_id}>
+                                    <div className={`kitchen-order-card ${isHighUrgency ? 'urgent' : ''}`}>
+                                        
+                                        {/* Card Header */}
+                                        <div className="kitchen-order-header" style={{ background: isHighUrgency ? 'rgba(239, 68, 68, 0.08)' : undefined }}>
+                                            <div className="kitchen-order-header-top">
+                                                <div style={{ display: 'flex', alignItems: 'center' }}>
+                                                    <span className="kitchen-order-number">#{order.order_no}</span>
+                                                    {order.table_name && (
+                                                        <span className="kitchen-order-table">โต๊ะ {order.table_name}</span>
+                                                    )}
+                                                </div>
+                                                <div className="kitchen-order-time" style={{ color: urgency.color }}>
+                                                    <ClockCircleOutlined />
+                                                    <span>{dayjs(order.created_at).fromNow(true)}</span>
+                                                </div>
+                                            </div>
+                                            <div className="kitchen-order-meta">
+                                                <Tag color={isHighUrgency ? 'red' : 'blue'} className="kitchen-order-type-tag">
+                                                    {order.order_type}
+                                                </Tag>
+                                                {isHighUrgency && (
+                                                    <span className="kitchen-order-urgency" style={{ color: '#ef4444' }}>
+                                                        ⚠️ LATE
                                                     </span>
                                                 )}
                                             </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 6, color: urgency.color }}>
-                                                <ClockCircleOutlined />
-                                                <span style={{ fontWeight: 700, fontSize: 14 }}>
-                                                    {dayjs(order.created_at).fromNow(true)}
-                                                </span>
+                                            <div className="kitchen-progress-bar">
+                                                <div 
+                                                    className="kitchen-progress-fill" 
+                                                    style={{ width: `${progress * 100}%`, background: urgency.color }} 
+                                                />
                                             </div>
                                         </div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                            <Tag color={isHighUrgency ? 'red' : 'blue'} style={{ margin: 0, border: 'none' }}>
-                                                {order.order_type}
-                                            </Tag>
-                                            {isHighUrgency && (
-                                                <span style={{ color: '#ef4444', fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>
-                                                    LATE
-                                                </span>
-                                            )}
-                                        </div>
-                                        <div style={{ marginTop: 10, height: 6, background: 'rgba(255,255,255,0.08)', borderRadius: 999, overflow: 'hidden' }}>
-                                            <div style={{ width: `${progress * 100}%`, height: '100%', background: urgency.color, transition: 'width 0.3s ease' }} />
-                                        </div>
-                                    </div>
 
-                                    {/* Items List */}
-                                    <div style={{ flex: 1, padding: 16, overflowY: 'auto', maxHeight: '50vh' }}>
-                                        {order.items.map((item) => (
-                                            <div key={item.id} style={kdsStyles.itemRow(item.status as ItemStatus)}>
-                                                <div style={{ flex: 1 }}>
-                                                    <div style={{ display: 'flex', gap: 12 }}>
-                                                        <span style={{ 
-                                                            fontSize: 18, 
-                                                            fontWeight: 800, 
-                                                            color: '#f8fafc',
-                                                            minWidth: 32
-                                                        }}>
-                                                            {item.quantity}
-                                                        </span>
-                                                        <div style={{ flex: 1 }}>
-                                                            <div style={{ fontSize: 16, fontWeight: 600, color: '#f1f5f9', lineHeight: 1.4 }}>
-                                                                {item.product?.display_name}
-                                                            </div>
-                                                            {item.notes && (
-                                                                <div style={{ 
-                                                                    marginTop: 8, 
-                                                                    background: '#f59e0b', 
-                                                                    color: '#000', 
-                                                                    padding: '4px 8px', 
-                                                                    borderRadius: 6, 
-                                                                    fontWeight: 600,
-                                                                    fontSize: 13,
-                                                                    display: 'inline-block'
-                                                                }}>
-                                                                    ⚠️ {item.notes}
-                                                                </div>
-                                                            )}
-                                                            <div style={{ marginTop: 6, fontSize: 12, color: '#94a3b8' }}>
-                                                                {item.status === ItemStatus.Cooking && 'กำลังปรุง...'}
-                                                                {item.status === ItemStatus.Pending && 'รอคิว'}
-                                                            </div>
+                                        {/* Items List */}
+                                        <div className="kitchen-items-list">
+                                            {order.items.map((item) => (
+                                                <div 
+                                                    key={item.id} 
+                                                    className={`kitchen-item-row ${
+                                                        item.status === ItemStatus.Cooking ? 'cooking' : 
+                                                        item.status === ItemStatus.Served ? 'served' : 'pending'
+                                                    }`}
+                                                >
+                                                    <div className="kitchen-item-qty">{item.quantity}</div>
+                                                    <div className="kitchen-item-info">
+                                                        <div className="kitchen-item-name">{item.product?.display_name}</div>
+                                                        {item.notes && (
+                                                            <div className="kitchen-item-notes">⚠️ {item.notes}</div>
+                                                        )}
+                                                        <div className="kitchen-item-status">
+                                                            {item.status === ItemStatus.Cooking && '🍳 กำลังทำ...'}
+                                                            {item.status === ItemStatus.Pending && '⏳ รอปรุง (กำลังทำ)'}
+                                                            {item.status === ItemStatus.Served && '✅ ทำแล้ว'}
                                                         </div>
                                                     </div>
-                                                </div>
 
-                                                {/* Action Button */}
-                                                <div style={{ marginLeft: 8 }}>
-                                                    {item.status === ItemStatus.Pending && (
-                                                        <Button 
-                                                            type="text"
-                                                            icon={<ThunderboltOutlined style={{ fontSize: 18 }} />}
-                                                            onClick={() => updateItemStatus(item.id, ItemStatus.Cooking)}
-                                                            style={{ 
-                                                                color: '#f59e0b', 
-                                                                background: 'rgba(245, 158, 11, 0.1)',
-                                                                width: 44, 
-                                                                height: 44,
-                                                                borderRadius: 12
-                                                            }}
-                                                        />
-                                                    )}
-                                                    {item.status === ItemStatus.Cooking && (
-                                                        <Button 
-                                                            type="text"
-                                                            icon={<CheckOutlined style={{ fontSize: 20 }} />}
-                                                            onClick={() => updateItemStatus(item.id, ItemStatus.Served)}
-                                                            style={{ 
-                                                                color: '#10b981', 
-                                                                background: 'rgba(16, 185, 129, 0.2)',
-                                                                width: 44, 
-                                                                height: 44,
-                                                                borderRadius: 12,
-                                                                border: '1px solid rgba(16, 185, 129, 0.3)'
-                                                            }}
-                                                        />
-                                                    )}
+                                                    <div className="kitchen-item-action">
+                                                        {(item.status === ItemStatus.Pending || item.status === ItemStatus.Cooking) && (
+                                                            <Tooltip title="เสร็จแล้ว">
+                                                                <Button 
+                                                                    type="text"
+                                                                    icon={<CheckOutlined />}
+                                                                    onClick={() => updateItemStatus(item.id, ItemStatus.Served)}
+                                                                    className="kitchen-item-action-btn"
+                                                                    style={{ 
+                                                                        color: '#10b981', 
+                                                                        background: 'rgba(16, 185, 129, 0.2)',
+                                                                        border: '1px solid rgba(16, 185, 129, 0.3)'
+                                                                    }}
+                                                                />
+                                                            </Tooltip>
+                                                        )}
+                                                        {item.status === ItemStatus.Served && (
+                                                            <Tooltip title="ยกเลิก/กลับไปทำ">
+                                                                <Button 
+                                                                    type="text"
+                                                                    icon={<UndoOutlined />}
+                                                                    onClick={() => updateItemStatus(item.id, ItemStatus.Cooking)}
+                                                                    className="kitchen-item-action-btn"
+                                                                    style={{ 
+                                                                        color: '#64748b', 
+                                                                        background: 'rgba(100, 116, 139, 0.15)',
+                                                                    }}
+                                                                />
+                                                            </Tooltip>
+                                                        )}
+                                                    </div>
                                                 </div>
+                                            ))}
+                                        </div>
+
+                                        {/* Action Footer */}
+                                        {hasItemsToServe && (
+                                            <div className="kitchen-order-footer">
+                                                <Button
+                                                    block
+                                                    type="primary"
+                                                    size="large"
+                                                    icon={<DoubleRightOutlined />}
+                                                    onClick={() => serveAllItems(order.order_id)}
+                                                    className="kitchen-serve-all-btn"
+                                                >
+                                                    เสิร์ฟทั้งหมด ({order.items.filter(i => i.status !== ItemStatus.Served).length} รายการ)
+                                                </Button>
                                             </div>
-                                        ))}
+                                        )}
                                     </div>
-
-                                    {/* Action Footer */}
-                                    <div style={{ padding: 16, borderTop: '1px solid rgba(255,255,255,0.05)' }}>
-                                        <Button
-                                            block
-                                            type="primary"
-                                            size="large"
-                                            icon={<DoubleRightOutlined />}
-                                            onClick={() => serveAllItems(order.order_id)}
-                                            style={{
-                                                background: '#10b981',
-                                                borderColor: '#10b981',
-                                                borderRadius: 12,
-                                                height: 48,
-                                                fontWeight: 700,
-                                                fontSize: 16
-                                            }}
-                                        >
-                                            เสิร์ฟทั้งหมด
-                                        </Button>
-                                    </div>
-                                </div>
-                            </Col>
-                        );
-                    })}
-                </Row>
-            )}
+                                </Col>
+                            );
+                        })}
+                    </Row>
+                )}
+            </div>
         </div>
-        </PageContainer>
     );
 }

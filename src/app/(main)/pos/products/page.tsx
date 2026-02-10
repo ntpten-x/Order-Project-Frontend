@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { message, Modal, Typography, Tag, Button, Input, Alert, Space, Segmented, Select, Switch } from 'antd';
+import { message, Modal, Typography, Tag, Button, Input, Alert, Space, Segmented, Switch } from 'antd';
 import Image from 'next/image';
 import {
     ShopOutlined,
@@ -10,9 +10,11 @@ import {
     EditOutlined,
     DeleteOutlined,
     SearchOutlined,
+    DownOutlined,
+    CheckCircleOutlined,
 } from '@ant-design/icons';
 import { Products } from '../../../../types/api/pos/products';
-import { Category } from '../../../../types/api/pos/category';
+
 import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useAsyncAction } from '../../../../hooks/useAsyncAction';
@@ -218,6 +220,7 @@ export default function ProductsPage() {
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
     const [categoryFilter, setCategoryFilter] = useState<string>('all');
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+    const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
 
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
@@ -535,17 +538,93 @@ export default function ProductsPage() {
                                 value={statusFilter}
                                 onChange={(value) => setStatusFilter(value)}
                             />
-                            <Select
-                                value={categoryFilter}
-                                onChange={setCategoryFilter}
-                                options={[
-                                    { value: 'all', label: 'ทุกหมวดหมู่' },
-                                    ...categories.map((item: Category) => ({ value: item.id, label: item.display_name })),
-                                ]}
-                                placeholder="กรองตามหมวดหมู่"
-                            />
+                            <div 
+                                className={`modal-select-trigger ${categoryFilter !== 'all' ? 'has-value' : ''}`}
+                                onClick={() => setIsCategoryModalVisible(true)}
+                                style={{
+                                    padding: '12px 16px',
+                                    borderRadius: 14,
+                                    border: '2px solid #e2e8f0',
+                                    background: categoryFilter !== 'all' ? 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)' : '#fff',
+                                    borderColor: categoryFilter !== 'all' ? '#4F46E5' : '#e2e8f0',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    cursor: 'pointer',
+                                    minHeight: 48,
+                                    transition: 'all 0.2s ease'
+                                }}
+                            >
+                                <span style={{ color: categoryFilter !== 'all' ? '#1e293b' : '#94a3b8', fontWeight: categoryFilter !== 'all' ? 600 : 400 }}>
+                                    {categoryFilter === 'all' 
+                                        ? 'ทุกหมวดหมู่' 
+                                        : categories.find(c => c.id === categoryFilter)?.display_name || 'ทุกหมวดหมู่'}
+                                </span>
+                                <DownOutlined style={{ fontSize: 12, color: '#94a3b8' }} />
+                            </div>
                         </div>
                     </PageSection>
+
+                    {/* Category Selection Modal */}
+                    <Modal
+                        title="เลือกหมวดหมู่"
+                        open={isCategoryModalVisible}
+                        onCancel={() => setIsCategoryModalVisible(false)}
+                        footer={null}
+                        centered
+                        width={400}
+                        styles={{ body: { padding: '12px 16px 24px' } }}
+                    >
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
+                            <div
+                                onClick={() => {
+                                    setCategoryFilter('all');
+                                    setIsCategoryModalVisible(false);
+                                }}
+                                style={{
+                                    padding: '14px 18px',
+                                    border: '2px solid',
+                                    borderRadius: 12,
+                                    cursor: 'pointer',
+                                    background: categoryFilter === 'all' ? '#eff6ff' : '#fff',
+                                    borderColor: categoryFilter === 'all' ? '#3b82f6' : '#e5e7eb',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    minHeight: 54
+                                }}
+                            >
+                                <span style={{ fontWeight: categoryFilter === 'all' ? 600 : 400 }}>ทุกหมวดหมู่</span>
+                                {categoryFilter === 'all' && <CheckCircleOutlined style={{ color: '#3b82f6', fontSize: 18 }} />}
+                            </div>
+                            {categories.map(cat => (
+                                <div
+                                    key={cat.id}
+                                    onClick={() => {
+                                        setCategoryFilter(cat.id);
+                                        setIsCategoryModalVisible(false);
+                                    }}
+                                    style={{
+                                        padding: '14px 18px',
+                                        border: '2px solid',
+                                        borderRadius: 12,
+                                        cursor: 'pointer',
+                                        background: categoryFilter === cat.id ? '#eff6ff' : '#fff',
+                                        borderColor: categoryFilter === cat.id ? '#3b82f6' : '#e5e7eb',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        minHeight: 54
+                                    }}
+                                >
+                                    <span style={{ fontWeight: categoryFilter === cat.id ? 600 : 400 }}>
+                                        {cat.display_name}
+                                    </span>
+                                    {categoryFilter === cat.id && <CheckCircleOutlined style={{ color: '#3b82f6', fontSize: 18 }} />}
+                                </div>
+                            ))}
+                        </div>
+                    </Modal>
 
                     <PageSection
                         title="รายการสินค้า"

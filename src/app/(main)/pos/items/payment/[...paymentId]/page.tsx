@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { Typography, Row, Col, Card, Button, Empty, Divider, message, InputNumber, Tag, Avatar, Alert, Modal } from "antd";
-import { ArrowLeftOutlined, ShopOutlined, DollarOutlined, CreditCardOutlined, QrcodeOutlined, UndoOutlined, EditOutlined, SettingOutlined } from "@ant-design/icons";
+import { ArrowLeftOutlined, ShopOutlined, DollarOutlined, CreditCardOutlined, QrcodeOutlined, UndoOutlined, EditOutlined, SettingOutlined, DownOutlined, UpOutlined, CheckCircleOutlined } from "@ant-design/icons";
 import { QRCodeSVG } from 'qrcode.react';
 import generatePayload from 'promptpay-qr';
 import { ordersService } from "../../../../../../services/pos/orders.service";
@@ -20,17 +20,16 @@ import { PaymentMethod } from "../../../../../../types/api/pos/paymentMethod";
 import { TableStatus } from "../../../../../../types/api/pos/tables";
 import { Discounts, DiscountType } from "../../../../../../types/api/pos/discounts";
 import { PaymentStatus } from "../../../../../../types/api/pos/payments";
-import { itemsPaymentStyles, itemsColors, itemsResponsiveStyles } from "../../../../../../theme/pos/items/style";
+import { itemsResponsiveStyles, itemsColors } from "../../../../../../theme/pos/items/style";
 import { calculatePaymentTotals, isCashMethod, isPromptPayMethod, quickCashAmounts, getPostCancelPaymentRedirect, getEditOrderRedirect, isPaymentMethodConfigured } from "../../../../../../utils/payments";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
-import { getOrderChannelText, getOrderReference, getOrderStatusColor, getOrderStatusText, ConfirmationConfig, formatCurrency } from "../../../../../../utils/orders";
+import { getOrderChannelText, getOrderReference, ConfirmationConfig, formatCurrency } from "../../../../../../utils/orders";
 import ConfirmationDialog from "../../../../../../components/dialog/ConfirmationDialog";
 import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../../../utils/realtimeEvents";
-import PageContainer from "../../../../../../components/ui/page/PageContainer";
 
 
 const { Title, Text } = Typography;
@@ -48,6 +47,7 @@ export default function POSPaymentPage() {
     const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
     const [discounts, setDiscounts] = useState<Discounts[]>([]);
     const [shopProfile, setShopProfile] = useState<ShopProfile | null>(null);
+    const [summaryExpanded, setSummaryExpanded] = useState(false);
     
     // Payment State
     const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string | null>(null);
@@ -104,8 +104,6 @@ export default function POSPaymentPage() {
             setPaymentMethods(filteredMethods);
             
             // Ensure discounts is always an array
-            // discountsService.getAll() should always return Discounts[]
-            // but handle edge cases just in case
             let discountsArray: Discounts[] = [];
             if (Array.isArray(discountsRes)) {
                 discountsArray = discountsRes;
@@ -113,7 +111,6 @@ export default function POSPaymentPage() {
                 const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object";
                 const record = discountsRes as Record<string, unknown>;
 
-                // Handle single object response
                 if (
                     "id" in record &&
                     (typeof record.discount_name === "string" || typeof record.display_name === "string")
@@ -173,7 +170,6 @@ export default function POSPaymentPage() {
         }
         
         const options = activeDiscounts.map(d => {
-            // Use display_name first, fallback to discount_name
             const displayName = d.display_name || d.discount_name;
             if (!displayName || !d.id) {
                 return null;
@@ -224,9 +220,7 @@ export default function POSPaymentPage() {
     
     // Prevent auto-scroll when component re-renders
     useEffect(() => {
-        // Disable Next.js auto-scroll behavior
         if (typeof window !== 'undefined') {
-            // Prevent scroll restoration
             if ('scrollRestoration' in window.history) {
                 window.history.scrollRestoration = 'manual';
             }
@@ -251,14 +245,13 @@ export default function POSPaymentPage() {
             
             const updatedOrder = await ordersService.update(
                 order.id, 
-                { discount_id: value || null }, // Send null if cleared
+                { discount_id: value || null },
                 undefined,
                 csrfToken
             );
 
             setOrder(updatedOrder);
             
-            // Update applied discount state
             if (value) {
                 const selected = discounts.find(d => d.id === value);
                 if (selected) {
@@ -270,7 +263,6 @@ export default function POSPaymentPage() {
                 messageApi.info("ยกเลิกการใช้ส่วนลด");
             }
 
-            // Update received amount to match new total for convenience
             setReceivedAmount(Number(updatedOrder.total_amount));
 
         } catch {
@@ -321,7 +313,6 @@ export default function POSPaymentPage() {
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
                     
-                    // 1. Create Payment Record
                     const paymentData = {
                         order_id: order!.id,
                         payment_method_id: selectedPaymentMethod,
@@ -332,17 +323,14 @@ export default function POSPaymentPage() {
                     };
 
                     await paymentsService.create(paymentData, undefined, csrfToken);
-
-                    // 2. Update Order Status to Paid
                     await ordersService.updateStatus(order!.id, OrderStatus.Paid, csrfToken);
 
-                    // 3. Update Table Status if DineIn
                     if (order!.table_id) {
                          await tablesService.update(order!.table_id, { status: TableStatus.Available }, undefined, csrfToken);
                     }
 
                     messageApi.success("ชำระเงินเรียบร้อย");
-                    router.push(`/pos/dashboard/${order!.id}`); // Go to order detail/dashboard
+                    router.push(`/pos/dashboard/${order!.id}`);
 
                 } catch {
                     messageApi.error("การชำระเงินล้มเหลว");
@@ -369,7 +357,6 @@ export default function POSPaymentPage() {
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
                     
-                    // 1. Revert all non-cancelled items to 'Served' status
                     const activeItems = order.items?.filter(item => item.status !== OrderStatus.Cancelled) || [];
                     await Promise.all(
                         activeItems.map(item => 
@@ -377,7 +364,6 @@ export default function POSPaymentPage() {
                         )
                     );
 
-                    // 2. Revert order status back to 'Pending'
                     await ordersService.updateStatus(order.id, OrderStatus.Pending, csrfToken);
 
                     messageApi.success("ย้อนกลับไปแก้ไขออเดอร์เรียบร้อย");
@@ -408,7 +394,6 @@ export default function POSPaymentPage() {
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
 
-                    // 1. Cancel all non-cancelled items
                     const activeItems = order.items?.filter(item => item.status !== OrderStatus.Cancelled) || [];
                     await Promise.all(
                         activeItems.map(item => 
@@ -416,10 +401,8 @@ export default function POSPaymentPage() {
                         )
                     );
 
-                    // 2. Set Order status to Cancelled
                     await ordersService.updateStatus(order.id, OrderStatus.Cancelled, csrfToken);
 
-                    // 3. Set Table to Available if Dine-In
                     if (order.table_id) {
                         await tablesService.update(order.table_id, { status: TableStatus.Available }, undefined, csrfToken);
                     }
@@ -448,437 +431,470 @@ export default function POSPaymentPage() {
         }
     };
 
+    const getPaymentMethodIcon = (methodName?: string, displayName?: string) => {
+        if (isCashMethod(methodName, displayName)) return <DollarOutlined />;
+        if (isPromptPayMethod(methodName, displayName)) return <QrcodeOutlined />;
+        return <CreditCardOutlined />;
+    };
+
+    const getPaymentMethodDescription = (methodName?: string, displayName?: string) => {
+        if (isCashMethod(methodName, displayName)) return "ชำระด้วยเงินสด";
+        if (isPromptPayMethod(methodName, displayName)) return "สแกน QR Code";
+        return "ชำระด้วยบัตร";
+    };
+
     if (isLoading && !order) return null;
     if (!order) return <Empty description="ไม่พบข้อมูลออเดอร์" />;
 
+    const selectedMethod = paymentMethods.find(m => m.id === selectedPaymentMethod);
+    const isCash = isCashMethod(selectedMethod?.payment_method_name, selectedMethod?.display_name);
+    const isPromptPay = isPromptPayMethod(selectedMethod?.payment_method_name, selectedMethod?.display_name);
+    const canConfirm = selectedPaymentMethod && 
+        receivedAmount >= total && 
+        isPaymentMethodConfigured(selectedMethod?.payment_method_name, selectedMethod?.display_name, shopProfile);
+
     return (
-        <PageContainer maxWidth={99999} style={{ padding: 0 }}>
-        <div style={itemsPaymentStyles.container}>
+        <div className="payment-page-container">
             <style jsx global>{itemsResponsiveStyles}</style>
             {contextHolder}
                 
-                {/* Hero Header */}
-                <div style={itemsPaymentStyles.heroSection} className="payment-hero-mobile">
-                <div style={itemsPaymentStyles.contentWrapper} className="payment-content-mobile">
-                    <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 16 }}>
-                         <div style={{ display: 'flex', alignItems: 'flex-start', gap: 16 }}>
-                             <Button 
-                                type="text" 
-                                icon={<ArrowLeftOutlined style={{ fontSize: 20 }} />} 
-                                style={{ color: '#fff', padding: 0, height: 'auto', marginTop: 4 }} 
-                                onClick={handleBack}
-                              />
-                             <div>
-                                <Title level={3} style={itemsPaymentStyles.pageTitle}>ชำระเงิน</Title>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, flexWrap: 'wrap' }}>
-                                    <Tag color="blue" style={{ borderRadius: 4, border: 'none' }}>
-                                        {getOrderChannelText(order.order_type)} {getOrderReference(order)}
-                                    </Tag>
-                                    <Tag color={getOrderStatusColor(order.status)} style={{ borderRadius: 4, border: 'none' }}>
-                                        {getOrderStatusText(order.status)}
-                                    </Tag>
-                                    <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 13 }}>#{order.order_no}</Text>
-                                </div>
-                            </div>
-                        </div>
-
-                         <div style={{ display: 'flex', gap: 8 }}>
-                            <Button 
-                                icon={<EditOutlined />} 
-                                onClick={handleEditOrder}
-                                style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff' }}
-                            >
-                                แก้ไขออเดอร์
-                            </Button>
-                            <Button 
-                                danger
-                                onClick={handleCancelOrder}
-                            >
-                                ยกเลิกออเดอร์
-                            </Button>
+            {/* Hero Header - Compact Mobile */}
+            <div className="payment-hero-mobile">
+                <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                    <Button 
+                        type="text" 
+                        icon={<ArrowLeftOutlined style={{ fontSize: 18, color: '#fff' }} />} 
+                        style={{ 
+                            height: 40, 
+                            width: 40, 
+                            borderRadius: 12,
+                            background: 'rgba(255,255,255,0.15)',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                        }} 
+                        onClick={handleBack}
+                    />
+                    <div style={{ flex: 1 }}>
+                        <Title level={4} style={{ margin: 0, color: '#fff', fontSize: 20 }}>ชำระเงิน</Title>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
+                            <Tag color="rgba(255,255,255,0.2)" style={{ border: 'none', color: '#fff', fontSize: 12 }}>
+                                {getOrderChannelText(order.order_type)} {getOrderReference(order)}
+                            </Tag>
+                            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>#{order.order_no}</Text>
                         </div>
                     </div>
                 </div>
+                
+                {/* Action Buttons */}
+                <div className="action-buttons-row">
+                    <Button 
+                        icon={<EditOutlined />} 
+                        onClick={handleEditOrder}
+                        className="action-btn"
+                        style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff' }}
+                    >
+                        แก้ไข
+                    </Button>
+                    <Button 
+                        danger
+                        onClick={handleCancelOrder}
+                        className="action-btn"
+                    >
+                        ยกเลิก
+                    </Button>
+                </div>
             </div>
 
-            <div style={{ ...itemsPaymentStyles.contentWrapper, marginTop: -30, paddingBottom: 40 }}>
-                <Row gutter={[24, 24]}>
-                    {/* Left: Summary */}
-                    <Col xs={24} lg={14}>
-                        <Card 
-                            style={itemsPaymentStyles.card} 
-                            styles={{ body: { height: '100%', display: 'flex', flexDirection: 'column' } }}
-                        >
-                             <Title level={4} style={{ marginBottom: 16, marginTop: 0 }}>รายการสรุป (Order Summary)</Title>
-                            <div style={{ flex: 1, overflowY: 'auto', paddingRight: 8, minHeight: 300, maxHeight: 500 }}>
-                                {groupedItems.map((item, idx) => (
-                                    <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, paddingBottom: 16, borderBottom: `1px solid ${itemsColors.borderLight}` }}>
-                                         <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 0 }}>
-                                            <Avatar 
-                                                shape="square" 
-                                                size={50} 
-                                                src={item.product?.img_url} 
-                                                icon={<ShopOutlined />}
-                                                style={{ backgroundColor: itemsColors.backgroundSecondary, flexShrink: 0, borderRadius: 8 }} 
-                                            />
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <Text strong style={{ display: 'block' }} ellipsis>{item.product?.display_name}</Text>
-                                                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                                                    <Text type="secondary" style={{ fontSize: 13 }}>{formatCurrency(item.price)}</Text>
-                                                    <Tag style={{ margin: 0, fontSize: 11 }}>x{item.quantity}</Tag>
-                                                </div>
-                                                {item.notes && (
-                                                    <Text style={{ display: 'block', fontSize: 12, fontStyle: 'italic', color: '#ef4444', marginTop: 2 }}>
-                                                        * {item.notes}
-                                                    </Text>
-                                                )}
-                                                {item.details && item.details.length > 0 && (
-                                                    <div style={{ marginTop: 2, display: 'flex', flexDirection: 'column', gap: 0 }}>
-                                                        {item.details.map((detail: { detail_name: string; extra_price: number }, dIdx: number) => (
-                                                            <div key={dIdx}>
-                                                                <Text style={{ color: '#10b981', fontSize: 12 }}>
-                                                                    + {detail.detail_name} {Number(detail.extra_price) > 0 ? `(+${Number(detail.extra_price)})` : ''}
-                                                                </Text>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                )}
-                                            </div>
-                                         </div>
-                                         <Text strong>{formatCurrency(Number(item.total_price || (Number(item.price) * item.quantity)))}</Text>
-                                    </div>
-                                ))}
-                            </div>
-                            
-                            <div style={itemsPaymentStyles.summaryBox}>
-                                <Row justify="space-between" style={{ marginBottom: 8 }}>
-                                    <Text type="secondary">ยอดรวม (Subtotal)</Text>
-                                    <Text>{formatCurrency(subtotal)}</Text>
-                                </Row>
-                                {discount > 0 && (
-                                    <Row justify="space-between" style={{ marginBottom: 8, color: itemsColors.success }}>
-                                        <Text type="success">ส่วนลด (Discount)</Text>
-                                        <Text type="success">-{formatCurrency(discount)}</Text>
-                                    </Row>
-                                )}
-                                {vat > 0 && (
-                                    <Row justify="space-between" style={{ marginBottom: 8 }}>
-                                        <Text type="secondary">VAT (7%)</Text>
-                                        <Text>{formatCurrency(vat)}</Text>
-                                    </Row>
-                                )}
-                                <Divider style={{ margin: '12px 0' }} />
-                                <Row justify="space-between" align="middle">
-                                    <Title level={4} style={{ margin: 0 }}>ยอดสุทธิ (Total)</Title>
-                                    <Title level={3} style={{ color: itemsColors.primary, margin: 0 }}>{formatCurrency(total)}</Title>
-                                </Row>
-                            </div>
-                        </Card>
-                    </Col>
-                    
-                    {/* Right: Payment Actions */}
-                    <Col xs={24} lg={10}>
-                         <Card 
-                            style={{ ...itemsPaymentStyles.card, height: 'auto', marginBottom: 12, overflow: 'visible' }} 
-                            styles={{ body: { padding: '12px 16px', overflow: 'visible' } }}
-                        >
-                            <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 13 }}>ส่วนลด (Discount)</Text>
-                            {/* Discount Selection - Switched to Modal for better Mobile/Touch experience */}
+            {/* Main Content */}
+            <div style={{ padding: '16px', maxWidth: 1200, margin: '0 auto' }}>
+                <Row gutter={[20, 20]}>
+                    {/* Left: Order Summary */}
+                    <Col xs={24} lg={12}>
+                        {/* Collapsible Order Summary */}
+                        <div className="order-summary-collapsible">
                             <div 
-                                style={{ 
-                                    border: `1px solid ${appliedDiscount ? '#4F46E5' : '#d9d9d9'}`,
-                                    borderRadius: 8,
-                                    padding: '8px 12px',
-                                    cursor: 'pointer',
-                                    background: '#fff',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    height: 48, // Touch friendly height
-                                    transition: 'all 0.2s'
-                                }}
-                                onClick={() => {
-                                    if (!isLoading) {
-                                        setDiscountModalVisible(true);
-                                    }
-                                }}
+                                className="order-summary-header"
+                                onClick={() => setSummaryExpanded(!summaryExpanded)}
                             >
-                                <span style={{ color: appliedDiscount ? '#1f2937' : '#9ca3af' }}>
-                                    {appliedDiscount 
-                                        ? `${appliedDiscount.display_name || appliedDiscount.discount_name} (${appliedDiscount.discount_type === 'Percentage' ? `${appliedDiscount.discount_amount}%` : `-${appliedDiscount.discount_amount}฿`})`
-                                        : "เลือกส่วนลด (Select Discount)"}
-                                </span>
-                                {appliedDiscount ? (
-                                    <span 
-                                        onClick={(e) => {
-                                            e.stopPropagation();
-                                            handleDiscountChange(undefined);
-                                        }}
-                                        style={{ color: '#ef4444', padding: 4 }}
-                                    >
-                                        ✕
-                                    </span>
-                                ) : (
-                                    <span style={{ color: '#9ca3af' }}>▼</span>
-                                )}
-                            </div>
-                         </Card>
-                         
-                         {/* Discount Selection Modal */}
-                         <Modal
-                            title="เลือกส่วนลด"
-                            open={discountModalVisible}
-                            onCancel={() => setDiscountModalVisible(false)}
-                            footer={null}
-                            centered
-                            width={400}
-                            zIndex={10001} // Ensure above everything
-                         >
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '60vh', overflowY: 'auto' }}>
-                                {discountOptions.length === 0 ? (
-                                    <div style={{ textAlign: 'center', padding: 24, color: '#9ca3af' }}>
-                                        ไม่มีส่วนลดที่ใช้งานได้
-                                    </div>
-                                ) : (
-                                    discountOptions.map(opt => (
-                                        <div
-                                            key={opt.value}
-                                            onClick={() => {
-                                                handleDiscountChange(opt.value);
-                                                setDiscountModalVisible(false);
-                                            }}
-                                            style={{
-                                                padding: '12px 16px',
-                                                border: '1px solid #e5e7eb',
-                                                borderRadius: 8,
-                                                cursor: 'pointer',
-                                                background: appliedDiscount?.id === opt.value ? '#eff6ff' : '#fff',
-                                                borderColor: appliedDiscount?.id === opt.value ? '#3b82f6' : '#e5e7eb',
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center'
-                                            }}
-                                        >
-                                            <span style={{ fontWeight: appliedDiscount?.id === opt.value ? 500 : 400 }}>
-                                                {opt.label}
-                                            </span>
-                                            {appliedDiscount?.id === opt.value && (
-                                                <span style={{ color: '#3b82f6' }}>✓</span>
-                                            )}
-                                        </div>
-                                    ))
-                                )}
-                                <div
-                                    onClick={() => {
-                                        handleDiscountChange(undefined);
-                                        setDiscountModalVisible(false);
-                                    }}
-                                    style={{
-                                        padding: '12px 16px',
-                                        marginTop: 8,
-                                        textAlign: 'center',
-                                        color: '#ef4444',
-                                        cursor: 'pointer',
-                                        border: '1px dashed #ef4444',
-                                        borderRadius: 8
-                                    }}
-                                >
-                                    ไม่ใช้ส่วนลด
+                                <div>
+                                    <Text strong style={{ fontSize: 16 }}>รายการสรุป</Text>
+                                    <Text type="secondary" style={{ marginLeft: 8 }}>({groupedItems.length} รายการ)</Text>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                    <Text strong style={{ fontSize: 18, color: itemsColors.primary }}>{formatCurrency(subtotal)}</Text>
+                                    {summaryExpanded ? <UpOutlined /> : <DownOutlined />}
                                 </div>
                             </div>
-                         </Modal>
-
-                          <Card style={itemsPaymentStyles.card}>
-                             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                                <Text strong style={{ fontSize: 16 }}>วิธีการชำระเงิน (Payment Method)</Text>
-                                {paymentMethods.length === 0 ? (
-                                    <Alert
-                                        message="ยังไม่มีวิธีการชำระเงิน"
-                                        description="กรุณาเพิ่มวิธีการชำระเงินในเมนูตั้งค่าก่อนทำรายการ"
-                                        type="warning"
-                                        showIcon
-                                        style={{ marginTop: 16 }}
-                                    />
-                                ) : (
-                                    <Row gutter={[12, 12]}>
-                                        {paymentMethods.map(method => {
-                                            const isSelected = selectedPaymentMethod === method.id;
-                                            return (
-                                                <Col span={12} key={method.id}>
-                                                    <div 
-                                                        onClick={() => {
-                                                            setSelectedPaymentMethod(method.id);
-                                                            // Auto-fill amount based on payment type
-                                                            if (isPromptPayMethod(method.payment_method_name, method.display_name)) {
-                                                                setReceivedAmount(total);
-                                                            } else if (isCashMethod(method.payment_method_name, method.display_name)) {
-                                                                setReceivedAmount(0);
-                                                            } else {
-                                                                setReceivedAmount(total);
-                                                            }
-                                                        }}
-                                                        style={{ 
-                                                            ...itemsPaymentStyles.methodCard,
-                                                            ...(isSelected ? itemsPaymentStyles.methodCardSelected : {})
-                                                        }}
-                                                    >   
-                                                        <div style={{ fontSize: 24, marginBottom: 8, color: isSelected ? itemsColors.primary : '#595959' }}>
-                                                            {isCashMethod(method.payment_method_name, method.display_name) ? <DollarOutlined /> : 
-                                                             isPromptPayMethod(method.payment_method_name, method.display_name) ? <QrcodeOutlined /> : <CreditCardOutlined />}
-                                                        </div>
-                                                        <Text strong style={{ color: isSelected ? itemsColors.primary : undefined }}>{method.display_name}</Text>
+                            <div className={`order-summary-content ${summaryExpanded ? 'expanded' : ''}`}>
+                                <div className="order-summary-items">
+                                    {groupedItems.map((item, idx) => (
+                                        <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${itemsColors.borderLight}` }}>
+                                            <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 0 }}>
+                                                <Avatar 
+                                                    shape="square" 
+                                                    size={48} 
+                                                    src={item.product?.img_url} 
+                                                    icon={<ShopOutlined />}
+                                                    style={{ backgroundColor: itemsColors.backgroundSecondary, flexShrink: 0, borderRadius: 10 }} 
+                                                />
+                                                <div style={{ flex: 1, minWidth: 0 }}>
+                                                    <Text strong style={{ display: 'block', fontSize: 14 }} ellipsis>{item.product?.display_name}</Text>
+                                                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                                                        <Text type="secondary" style={{ fontSize: 12 }}>{formatCurrency(item.price)}</Text>
+                                                        <Tag style={{ margin: 0, fontSize: 10, padding: '0 6px' }}>x{item.quantity}</Tag>
                                                     </div>
-                                                </Col>
-                                            );
-                                        })}
-                                    </Row>
-                                )}
-
-                                {selectedPaymentMethod && (
-                                    <div style={{ animation: 'fadeIn 0.5s' }}>
-                                        <Divider style={{ margin: '16px 0' }} />
-                                        {(() => {
-                                            const method = paymentMethods.find(m => m.id === selectedPaymentMethod);
-                                            const isCash = isCashMethod(method?.payment_method_name, method?.display_name);
-                                            const isPromptPay = isPromptPayMethod(method?.payment_method_name, method?.display_name);
-
-                                             if (isPromptPay) {
-                                                if (!shopProfile?.promptpay_number) {
-                                                     return (
-                                                        <div style={{textAlign: 'center', padding: '16px 0'}}>
-                                                            <div style={{color: '#ff4d4f', marginBottom: 12, fontWeight: 500}}>
-                                                                กรุณาตั้งค่าเบอร์ PromptPay ในระบบก่อน (Shop Profile)
-                                                            </div>
-                                                            <Button 
-                                                                type="primary" 
-                                                                danger 
-                                                                ghost 
-                                                                icon={<SettingOutlined />}
-                                                                onClick={() => router.push('/pos/settings')}
-                                                            >
-                                                                ไปตั้งค่าที่ Shop Profile
-                                                            </Button>
-                                                        </div>
-                                                     );
-                                                }
-                                                const payload = generatePayload(shopProfile.promptpay_number, { amount: total });
-                                                return (
-                                                    <div style={itemsPaymentStyles.qrArea}>
-                                                        <Text style={{ display: 'block', marginBottom: 16, fontSize: 16 }}>สแกน QR เพื่อชำระเงิน</Text>
-                                                        <div style={{ background: 'white', padding: 12, display: 'inline-block', borderRadius: 8 }}>
-                                                            <QRCodeSVG value={payload} size={180} level="L" includeMargin />
-                                                        </div>
-                                                        <div style={{ marginTop: 16 }}>
-                                                            <Title level={3} style={{ color: itemsColors.primary, margin: 0 }}>{formatCurrency(total)}</Title>
-                                                        </div>
-                                                        <Text type="secondary" style={{ display: 'block', marginTop: 8 }}>
-                                                            {shopProfile.promptpay_number}
-                                                            {shopProfile.promptpay_name && <><br/>({shopProfile.promptpay_name})</>}
+                                                    {item.notes && (
+                                                        <Text style={{ display: 'block', fontSize: 11, fontStyle: 'italic', color: '#ef4444', marginTop: 2 }}>
+                                                            * {item.notes}
                                                         </Text>
-                                                    </div>
-                                                );
-                                            }
-
-                                            if (isCash) {
-                                                return (
-                                                    <div style={itemsPaymentStyles.inputArea}>
-                                                        <Text style={{ display: 'block', marginBottom: 8 }}>รับเงินมา (Received)</Text>
-                                                        <InputNumber
-                                                            style={{ width: '100%', fontSize: 24, padding: 8, borderRadius: 8, marginBottom: 12 }} 
-                                                            size="large"
-                                                            min={0}
-                                                            value={receivedAmount}
-                                                            onChange={(val) => setReceivedAmount(val || 0)}
-                                                            formatter={value => `฿ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                                                            parser={value => Number(value!.replace(/฿\s?|(,*)/g, ''))}
-                                                            onFocus={(e) => e.target.select()}
-                                                            controls={false}
-                                                            inputMode="decimal"
-                                                            onKeyDown={(e) => {
-                                                                const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Escape', '.', ',', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-                                                                if (!allowedKeys.includes(e.key) && !e.ctrlKey && !e.metaKey) {
-                                                                    e.preventDefault();
-                                                                }
-                                                            }}
-                                                        />
-                                                        
-                                                        {/* Quick Buttons */}
-                                                        <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginBottom: 16 }}>
-                                                            <Button onClick={() => setReceivedAmount(total)} type="primary" ghost size="small">พอดี</Button>
-                                                            {quickCashAmounts.map(amt => (
-                                                                <Button key={amt} onClick={() => setReceivedAmount(amt)} size="small">฿{amt}</Button>
+                                                    )}
+                                                    {item.details && item.details.length > 0 && (
+                                                        <div style={{ marginTop: 2 }}>
+                                                            {item.details.map((detail: { detail_name: string; extra_price: number }, dIdx: number) => (
+                                                                <Text key={dIdx} style={{ color: '#10b981', fontSize: 11, display: 'block' }}>
+                                                                    + {detail.detail_name} {Number(detail.extra_price) > 0 ? `(+${Number(detail.extra_price)})` : ''}
+                                                                </Text>
                                                             ))}
-                                                            <Button icon={<UndoOutlined />} onClick={() => setReceivedAmount(0)} danger size="small" />
                                                         </div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <Text strong style={{ fontSize: 14 }}>{formatCurrency(Number(item.total_price || (Number(item.price) * item.quantity)))}</Text>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
 
-                                                        <Divider style={{ margin: '12px 0' }} />
-                                                        
-                                                        <Row justify="space-between" align="middle" style={{ 
-                                                            background: change >= 0 ? '#f6ffed' : '#fff1f0', 
-                                                            padding: 12, 
-                                                            borderRadius: 8, 
-                                                            border: `1px solid ${change >= 0 ? '#b7eb8f' : '#ffa39e'}` 
-                                                        }}>
-                                                            <Text style={{ fontSize: 16 }}>เงินทอน (Change)</Text>
-                                                            <Text strong style={{ fontSize: 24, color: change >= 0 ? itemsColors.success : itemsColors.cancelled }}>
-                                                                {formatCurrency(Math.max(0, change))}
-                                                            </Text>
-                                                        </Row>
-                                                    </div>
-                                                );
-                                            }
+                        {/* Price Summary Card */}
+                        <Card style={{ borderRadius: 20, marginBottom: 16 }} styles={{ body: { padding: 20 } }}>
+                            <Row justify="space-between" style={{ marginBottom: 8 }}>
+                                <Text type="secondary">ยอดรวม</Text>
+                                <Text>{formatCurrency(subtotal)}</Text>
+                            </Row>
+                            {discount > 0 && (
+                                <Row justify="space-between" style={{ marginBottom: 8 }}>
+                                    <Text type="success">ส่วนลด</Text>
+                                    <Text type="success">-{formatCurrency(discount)}</Text>
+                                </Row>
+                            )}
+                            {vat > 0 && (
+                                <Row justify="space-between" style={{ marginBottom: 8 }}>
+                                    <Text type="secondary">VAT (7%)</Text>
+                                    <Text>{formatCurrency(vat)}</Text>
+                                </Row>
+                            )}
+                            <Divider style={{ margin: '12px 0' }} />
+                            <Row justify="space-between" align="middle">
+                                <Title level={5} style={{ margin: 0 }}>ยอดสุทธิ</Title>
+                                <Title level={3} style={{ color: itemsColors.primary, margin: 0 }}>{formatCurrency(total)}</Title>
+                            </Row>
+                        </Card>
 
-                                            // Credit Card / Other
-                                            return (
-                                                <div style={{ textAlign: 'center', padding: 20 }}>
-                                                    <Text type="secondary">ตรวจสอบยอดเงินและชำระผ่านช่องทางที่เลือก</Text>
-                                                    <div style={{ marginTop: 16 }}>
-                                                        <InputNumber
-                                                            style={{ width: '100%', fontSize: 24 }} 
-                                                            value={receivedAmount} 
-                                                            onChange={val => setReceivedAmount(val || 0)} 
-                                                            formatter={value => `฿ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                                                            parser={value => Number(value!.replace(/฿\s?|(,*)/g, ''))}
-                                                            controls={false}
-                                                            inputMode="decimal"
-                                                            onKeyDown={(e) => {
-                                                                const allowedKeys = ['Backspace', 'Delete', 'ArrowLeft', 'ArrowRight', 'Tab', 'Enter', 'Escape', '.', ',', '0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
-                                                                if (!allowedKeys.includes(e.key) && !e.ctrlKey && !e.metaKey) {
-                                                                    e.preventDefault();
-                                                                }
-                                                            }}
-                                                        />
+                        {/* Discount Selector */}
+                        <div 
+                            className={`discount-selector ${appliedDiscount ? 'has-discount' : ''}`}
+                            onClick={() => !isLoading && setDiscountModalVisible(true)}
+                        >
+                            <span style={{ color: appliedDiscount ? '#1f2937' : '#9ca3af' }}>
+                                {appliedDiscount 
+                                    ? `🎁 ${appliedDiscount.display_name || appliedDiscount.discount_name} (${appliedDiscount.discount_type === 'Percentage' ? `${appliedDiscount.discount_amount}%` : `-${appliedDiscount.discount_amount}฿`})`
+                                    : "เลือกส่วนลด (ถ้ามี)"}
+                            </span>
+                            {appliedDiscount ? (
+                                <span 
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDiscountChange(undefined);
+                                    }}
+                                    style={{ color: '#ef4444', padding: 8 }}
+                                >
+                                    ✕
+                                </span>
+                            ) : (
+                                <span style={{ color: '#9ca3af' }}>▼</span>
+                            )}
+                        </div>
+                    </Col>
+                    
+                    {/* Right: Payment Methods */}
+                    <Col xs={24} lg={12}>
+                        <Card style={{ borderRadius: 20 }} styles={{ body: { padding: 20 } }}>
+                            <Text strong style={{ display: 'block', marginBottom: 16, fontSize: 16 }}>
+                                เลือกวิธีการชำระเงิน
+                            </Text>
+                            
+                            {paymentMethods.length === 0 ? (
+                                <Alert
+                                    message="ยังไม่มีวิธีการชำระเงิน"
+                                    description="กรุณาเพิ่มวิธีการชำระเงินในเมนูตั้งค่าก่อนทำรายการ"
+                                    type="warning"
+                                    showIcon
+                                />
+                            ) : (
+                                <div className="payment-method-grid">
+                                    {paymentMethods.map(method => {
+                                        const isSelected = selectedPaymentMethod === method.id;
+                                        return (
+                                            <div 
+                                                key={method.id}
+                                                className={`payment-method-card ${isSelected ? 'selected' : ''}`}
+                                                onClick={() => {
+                                                    setSelectedPaymentMethod(method.id);
+                                                    if (isPromptPayMethod(method.payment_method_name, method.display_name)) {
+                                                        setReceivedAmount(total);
+                                                    } else if (isCashMethod(method.payment_method_name, method.display_name)) {
+                                                        setReceivedAmount(0);
+                                                    } else {
+                                                        setReceivedAmount(total);
+                                                    }
+                                                }}
+                                            >
+                                                <div className="payment-method-icon">
+                                                    {getPaymentMethodIcon(method.payment_method_name, method.display_name)}
+                                                </div>
+                                                <div className="payment-method-info">
+                                                    <div className="payment-method-name">{method.display_name}</div>
+                                                    <div className="payment-method-desc">
+                                                        {getPaymentMethodDescription(method.payment_method_name, method.display_name)}
                                                     </div>
                                                 </div>
-                                            );
-                                        })()}
-                                    </div>
-                                )}
+                                                {isSelected && <CheckCircleOutlined style={{ fontSize: 20, color: '#4F46E5' }} />}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                            )}
 
-                                 <Button 
+                            {/* Payment Method Details */}
+                            {selectedPaymentMethod && (
+                                <div style={{ marginTop: 20 }}>
+                                    <Divider style={{ margin: '0 0 20px' }} />
+                                    
+                                    {isPromptPay && (
+                                        <>
+                                            {!shopProfile?.promptpay_number ? (
+                                                <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                                                    <div style={{ color: '#ff4d4f', marginBottom: 12, fontWeight: 500 }}>
+                                                        กรุณาตั้งค่าเบอร์ PromptPay ในระบบก่อน
+                                                    </div>
+                                                    <Button 
+                                                        type="primary" 
+                                                        danger 
+                                                        ghost 
+                                                        icon={<SettingOutlined />}
+                                                        onClick={() => router.push('/pos/settings')}
+                                                    >
+                                                        ไปตั้งค่าที่ Shop Profile
+                                                    </Button>
+                                                </div>
+                                            ) : (
+                                                <div className="qr-display-wrapper">
+                                                    <Text style={{ display: 'block', marginBottom: 16, fontSize: 14, color: '#6b7280' }}>
+                                                        สแกน QR Code เพื่อชำระเงิน
+                                                    </Text>
+                                                    <QRCodeSVG 
+                                                        value={generatePayload(shopProfile.promptpay_number, { amount: total })} 
+                                                        size={200} 
+                                                        level="L" 
+                                                        includeMargin 
+                                                    />
+                                                    <div className="qr-amount">{formatCurrency(total)}</div>
+                                                    <div className="qr-account-info">
+                                                        {shopProfile.promptpay_number}
+                                                        {shopProfile.promptpay_name && <><br/>({shopProfile.promptpay_name})</>}
+                                                    </div>
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
+
+                                    {isCash && (
+                                        <>
+                                            <div className="amount-input-wrapper">
+                                                <Text style={{ display: 'block', marginBottom: 12, fontSize: 14, fontWeight: 500 }}>
+                                                    รับเงินมา
+                                                </Text>
+                                                <InputNumber
+                                                    style={{ width: '100%' }} 
+                                                    size="large"
+                                                    min={0}
+                                                    value={receivedAmount}
+                                                    onChange={(val) => setReceivedAmount(val || 0)}
+                                                    formatter={value => `฿ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                                    parser={value => Number(value!.replace(/฿\s?|(,*)/g, ''))}
+                                                    onFocus={(e) => e.target.select()}
+                                                    controls={false}
+                                                    inputMode="decimal"
+                                                />
+                                            </div>
+                                            
+                                            {/* Quick Buttons */}
+                                            <div className="quick-cash-grid">
+                                                <Button 
+                                                    onClick={() => setReceivedAmount(total)} 
+                                                    type="primary" 
+                                                    className="quick-cash-btn quick-cash-btn-exact"
+                                                >
+                                                    พอดี ({formatCurrency(total)})
+                                                </Button>
+                                                {quickCashAmounts.map(amt => (
+                                                    <Button 
+                                                        key={amt} 
+                                                        onClick={() => setReceivedAmount(amt)} 
+                                                        className="quick-cash-btn"
+                                                    >
+                                                        ฿{amt.toLocaleString()}
+                                                    </Button>
+                                                ))}
+                                                <Button 
+                                                    icon={<UndoOutlined />} 
+                                                    onClick={() => setReceivedAmount(0)} 
+                                                    danger 
+                                                    className="quick-cash-btn"
+                                                />
+                                            </div>
+
+                                            {/* Change Display */}
+                                            <div className={`change-display ${change < 0 ? 'insufficient' : ''}`}>
+                                                <div className="change-label">
+                                                    {change >= 0 ? 'เงินทอน' : 'ยังขาดอีก'}
+                                                </div>
+                                                <div className="change-amount">
+                                                    {formatCurrency(Math.abs(change))}
+                                                </div>
+                                            </div>
+                                        </>
+                                    )}
+
+                                    {!isCash && !isPromptPay && (
+                                        <div style={{ textAlign: 'center', padding: 20 }}>
+                                            <Text type="secondary">ตรวจสอบยอดเงินและชำระผ่านช่องทางที่เลือก</Text>
+                                            <div style={{ marginTop: 16 }}>
+                                                <InputNumber
+                                                    style={{ width: '100%', fontSize: 24 }} 
+                                                    value={receivedAmount} 
+                                                    onChange={val => setReceivedAmount(val || 0)} 
+                                                    formatter={value => `฿ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
+                                                    parser={value => Number(value!.replace(/฿\s?|(,*)/g, ''))}
+                                                    controls={false}
+                                                    inputMode="decimal"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Desktop Confirm Button */}
+                            <div className="payment-sticky-footer" style={{ marginTop: 20 }}>
+                                <Button 
                                     type="primary" 
                                     size="large" 
                                     block 
-                                    style={{ height: 56, fontSize: 18, marginTop: 8, background: itemsColors.success, border: `1px solid ${itemsColors.success}`, fontWeight: 700 }}
+                                    className="payment-confirm-btn"
                                     onClick={handleConfirmPayment}
-                                    disabled={
-                                        !selectedPaymentMethod || 
-                                        (receivedAmount < total) || 
-                                        !isPaymentMethodConfigured(
-                                            paymentMethods.find(m => m.id === selectedPaymentMethod)?.payment_method_name,
-                                            paymentMethods.find(m => m.id === selectedPaymentMethod)?.display_name,
-                                            shopProfile
-                                        )
-                                    }
+                                    disabled={!canConfirm}
+                                    icon={<CheckCircleOutlined />}
                                 >
-                                    ยืนยันการชำระเงิน
-                                    {receivedAmount >= total && ` (${formatCurrency(total)})`}
+                                    ยืนยันการชำระเงิน {canConfirm && `(${formatCurrency(total)})`}
                                 </Button>
-                             </div>
-                         </Card>
+                            </div>
+                        </Card>
                     </Col>
                 </Row>
             </div>
+
+            {/* Mobile Sticky Footer */}
+            <div className="payment-sticky-footer" style={{ display: 'block' }}>
+                <div className="payment-sticky-footer-content">
+                    <div className="payment-total-row">
+                        <span className="payment-total-label">ยอดสุทธิ</span>
+                        <span className="payment-total-amount">{formatCurrency(total)}</span>
+                    </div>
+                    <Button 
+                        type="primary" 
+                        size="large" 
+                        block 
+                        className="payment-confirm-btn"
+                        onClick={handleConfirmPayment}
+                        disabled={!canConfirm}
+                        icon={<CheckCircleOutlined />}
+                    >
+                        ยืนยันการชำระเงิน
+                    </Button>
+                </div>
+            </div>
+            
+            {/* Discount Selection Modal */}
+            <Modal
+                title="เลือกส่วนลด"
+                open={discountModalVisible}
+                onCancel={() => setDiscountModalVisible(false)}
+                footer={null}
+                centered
+                width={400}
+                zIndex={10001}
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
+                    {discountOptions.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: 24, color: '#9ca3af' }}>
+                            ไม่มีส่วนลดที่ใช้งานได้
+                        </div>
+                    ) : (
+                        discountOptions.map(opt => (
+                            <div
+                                key={opt.value}
+                                onClick={() => {
+                                    handleDiscountChange(opt.value);
+                                    setDiscountModalVisible(false);
+                                }}
+                                style={{
+                                    padding: '14px 18px',
+                                    border: '2px solid',
+                                    borderRadius: 12,
+                                    cursor: 'pointer',
+                                    background: appliedDiscount?.id === opt.value ? '#eff6ff' : '#fff',
+                                    borderColor: appliedDiscount?.id === opt.value ? '#3b82f6' : '#e5e7eb',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    minHeight: 54
+                                }}
+                            >
+                                <span style={{ fontWeight: appliedDiscount?.id === opt.value ? 600 : 400 }}>
+                                    {opt.label}
+                                </span>
+                                {appliedDiscount?.id === opt.value && (
+                                    <CheckCircleOutlined style={{ color: '#3b82f6', fontSize: 18 }} />
+                                )}
+                            </div>
+                        ))
+                    )}
+                    <div
+                        onClick={() => {
+                            handleDiscountChange(undefined);
+                            setDiscountModalVisible(false);
+                        }}
+                        style={{
+                            padding: '14px 18px',
+                            marginTop: 8,
+                            textAlign: 'center',
+                            color: '#ef4444',
+                            cursor: 'pointer',
+                            border: '2px dashed #ef4444',
+                            borderRadius: 12,
+                            minHeight: 54,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center'
+                        }}
+                    >
+                        ไม่ใช้ส่วนลด
+                    </div>
+                </div>
+            </Modal>
             
             <ConfirmationDialog
                 open={confirmConfig.open}
@@ -891,6 +907,5 @@ export default function POSPaymentPage() {
                 onCancel={closeConfirm}
             />
         </div>
-        </PageContainer>
     );
 }

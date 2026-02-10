@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Form, Input, Select, message, Spin, Switch, Modal, Button, Card, Row, Col, Typography, Alert } from 'antd';
+import { Form, Input, message, Spin, Switch, Modal, Button, Card, Row, Col, Typography, Alert, Tag } from 'antd';
 import { useRouter } from 'next/navigation';
 import PageContainer from '../../../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../../../components/ui/page/PageSection';
@@ -13,7 +13,9 @@ import {
     CheckCircleFilled,
     AppstoreOutlined,
     InfoCircleOutlined,
-    ExclamationCircleOutlined
+    ExclamationCircleOutlined,
+    DownOutlined,
+    CheckCircleOutlined,
 } from '@ant-design/icons';
 import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
 import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
@@ -123,6 +125,8 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
     const [csrfToken, setCsrfToken] = useState<string>('');
     const [originalPaymentMethod, setOriginalPaymentMethod] = useState<PaymentMethod | null>(null);
     const [currentMethodName, setCurrentMethodName] = useState<string>('');
+    const [isMethodModalVisible, setIsMethodModalVisible] = useState(false);
+    const [existingMethods, setExistingMethods] = useState<string[]>([]);
 
     const mode = params.mode?.[0] as ManageMode | undefined;
     const id = params.mode?.[1] || null;
@@ -147,7 +151,23 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
             const token = await getCsrfTokenCached();
             setCsrfToken(token);
         };
+
+        const fetchExistingMethods = async () => {
+            try {
+                const response = await fetch('/api/pos/paymentMethod?limit=100');
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data?.data) {
+                        setExistingMethods(data.data.map((m: PaymentMethod) => m.payment_method_name.trim().toLowerCase()));
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to fetch existing methods:', err);
+            }
+        };
+
         fetchCsrf();
+        fetchExistingMethods();
     }, []);
 
     const fetchPaymentMethod = useCallback(async () => {
@@ -357,24 +377,28 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                                                     style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
                                                 />
                                             ) : (
-                                                <Select
-                                                    size="large"
-                                                    placeholder="เลือกชื่อในระบบ"
-                                                    getPopupContainer={() => document.body}
-                                                    style={{ borderRadius: 12 }}
-                                                    options={ALLOWED_PAYMENT_METHODS.map((method) => ({
-                                                        value: method.payment_method_name,
-                                                        label: `${method.payment_method_name} (${method.display_name})`,
-                                                    }))}
-                                                    onChange={(value) => {
-                                                        const selected = ALLOWED_PAYMENT_METHODS.find((method) => method.payment_method_name === value);
-                                                        if (selected) {
-                                                            form.setFieldsValue({ display_name: selected.display_name });
-                                                            setDisplayName(selected.display_name);
-                                                            setPaymentMethodName(selected.payment_method_name);
-                                                        }
+                                                <div 
+                                                    onClick={() => setIsMethodModalVisible(true)}
+                                                    style={{
+                                                        padding: '10px 16px',
+                                                        borderRadius: 12,
+                                                        border: '2px solid',
+                                                        cursor: 'pointer',
+                                                        background: paymentMethodName ? 'linear-gradient(135deg, #ECFDF5 0%, #D1FAE5 100%)' : '#fff',
+                                                        borderColor: paymentMethodName ? '#059669' : '#e2e8f0',
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'center',
+                                                        minHeight: 46
                                                     }}
-                                                />
+                                                >
+                                                    <span style={{ color: paymentMethodName ? '#1e293b' : '#94a3b8', fontWeight: paymentMethodName ? 600 : 400 }}>
+                                                        {paymentMethodName 
+                                                            ? `${paymentMethodName} (${ALLOWED_PAYMENT_METHODS.find(m => m.payment_method_name === paymentMethodName)?.display_name})` 
+                                                            : 'เลือกชื่อในระบบ'}
+                                                    </span>
+                                                    <DownOutlined style={{ fontSize: 12, color: '#94a3b8' }} />
+                                                </div>
                                             )}
                                         </Form.Item>
 
@@ -470,6 +494,77 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                     )}
                 </PageSection>
             </PageContainer>
+
+            {/* Payment Method Selection Modal */}
+            <Modal
+                title="เลือกชื่อในระบบ"
+                open={isMethodModalVisible}
+                onCancel={() => setIsMethodModalVisible(false)}
+                footer={null}
+                centered
+                width={400}
+                styles={{ body: { padding: '12px 16px 24px' } }}
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
+                    {ALLOWED_PAYMENT_METHODS.map(method => {
+                        const methodKey = method.payment_method_name.trim().toLowerCase();
+                        const isAlreadyExists = existingMethods.includes(methodKey);
+                        
+                        return (
+                            <div
+                                key={method.payment_method_name}
+                                onClick={() => {
+                                    if (isAlreadyExists) return;
+                                    form.setFieldsValue({ 
+                                        payment_method_name: method.payment_method_name,
+                                        display_name: method.display_name 
+                                    });
+                                    setDisplayName(method.display_name);
+                                    setPaymentMethodName(method.payment_method_name);
+                                    setIsMethodModalVisible(false);
+                                }}
+                                style={{
+                                    padding: '14px 18px',
+                                    border: '2px solid',
+                                    borderRadius: 12,
+                                    cursor: isAlreadyExists ? 'not-allowed' : 'pointer',
+                                    background: paymentMethodName === method.payment_method_name 
+                                        ? '#f0fdf4' 
+                                        : isAlreadyExists ? '#f8fafc' : '#fff',
+                                    borderColor: paymentMethodName === method.payment_method_name 
+                                        ? '#10B981' 
+                                        : isAlreadyExists ? '#e2e8f0' : '#e5e7eb',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    minHeight: 54,
+                                    opacity: isAlreadyExists ? 0.6 : 1
+                                }}
+                            >
+                                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ 
+                                        fontWeight: paymentMethodName === method.payment_method_name ? 600 : 400, 
+                                        fontSize: 16,
+                                        textDecoration: isAlreadyExists ? 'line-through' : 'none',
+                                        color: isAlreadyExists ? '#94a3b8' : 'inherit'
+                                    }}>
+                                        {method.payment_method_name}
+                                    </span>
+                                    <span style={{ fontSize: 12, color: isAlreadyExists ? '#cbd5e1' : '#64748b' }}>
+                                        {isAlreadyExists ? 'มีในระบบแล้ว' : method.display_name}
+                                    </span>
+                                </div>
+                                {paymentMethodName === method.payment_method_name && (
+                                    <CheckCircleOutlined style={{ color: '#10B981', fontSize: 18 }} />
+                                )}
+                                {isAlreadyExists && (
+                                    <Tag bordered={false} color="default">มีแล้ว</Tag>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </Modal>
         </div>
     );
 }

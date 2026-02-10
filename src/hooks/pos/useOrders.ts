@@ -13,16 +13,18 @@ interface UseOrdersParams {
     page?: number;
     limit?: number;
     status?: string;
+    type?: string;
+    query?: string;
 }
 
-export function useOrders({ page = 1, limit = 50, status }: UseOrdersParams) {
+export function useOrders({ page = 1, limit = 50, status, type, query }: UseOrdersParams) {
     // Construct query string for key
-    const queryKey = ['orders', page, limit, status || 'all'];
+    const queryKey = ['orders', page, limit, status || 'all', type || 'all', query || ''];
 
-    const { data, error, isLoading, refetch } = useQuery<OrdersResponse>({
+    const { data, error, isLoading, isFetching, refetch } = useQuery<OrdersResponse>({
         queryKey,
         queryFn: async () => {
-            return await ordersService.getAll(undefined, page, limit, status);
+            return await ordersService.getAll(undefined, page, limit, status, type, query);
         },
         placeholderData: keepPreviousData,
         staleTime: 2000,
@@ -38,7 +40,8 @@ export function useOrders({ page = 1, limit = 50, status }: UseOrdersParams) {
         currentPage: data?.page || 1,
         lastPage: data?.last_page || 1,
         isLoading,
+        isFetching,
         isError: error,
-        mutate: refetch,
+        refetch,
     };
 }
