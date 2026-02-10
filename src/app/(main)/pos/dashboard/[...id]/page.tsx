@@ -15,7 +15,7 @@ import 'dayjs/locale/th';
 import ReceiptTemplate from "../../../../../components/pos/shared/ReceiptTemplate";
 import { sortOrderItems, getStatusTextStyle } from "../../../../../utils/dashboard/orderUtils";
 import { groupOrderItems } from "../../../../../utils/orderGrouping";
-import { ItemStatus } from "../../../../../types/api/pos/salesOrderItem";
+import { isCancelledStatus } from "../../../../../utils/orders";
 import { useSocket } from "../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../../utils/realtimeEvents";
@@ -231,9 +231,19 @@ export default function DashboardOrderDetailPage({ params }: Props) {
     };
 
     const items = useMemo(() => {
-        const grouped = groupOrderItems(order?.items || []);
+        // Dashboard receipt: do not show cancelled items at all (including legacy 'cancelled' casing).
+        const nonCancelled = (order?.items || []).filter(i => !isCancelledStatus(i.status));
+        const grouped = groupOrderItems(nonCancelled);
         return sortOrderItems(grouped);
     }, [order?.items]);
+
+    const itemsSubTotal = useMemo(
+        () => items.reduce((sum, i) => sum + Number(i.total_price || 0), 0),
+        [items],
+    );
+    const discountAmount = Number(order?.discount_amount || 0);
+    const vatAmount = Number(order?.vat || 0);
+    const netTotal = Math.max(0, itemsSubTotal - discountAmount + vatAmount);
 
     if (isLoading) {
         return (
@@ -381,7 +391,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                             fontWeight: 800, 
                             color: dashboardColors.salesColor 
                         }}>
-                            ฿{Number(order.total_amount).toLocaleString()}
+                            ฿{Number(netTotal).toLocaleString()}
                         </Text>
                     </div>
                     
@@ -533,7 +543,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                     <div style={{ padding: '8px 0' }}>
                         {items.map((item, index) => {
                             const textStyle = getStatusTextStyle(item.status);
-                            const isCancelled = item.status === ItemStatus.Cancelled;
+                            const isCancelled = isCancelledStatus(item.status);
 
                             return (
                                 <div 
@@ -645,9 +655,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                             <Text type="secondary" style={{ fontSize: 13 }}>รวมรายการ</Text>
                             <Text style={{ fontSize: 13 }}>
-                                ฿{items.filter(i => i.status !== ItemStatus.Cancelled)
-                                    .reduce((sum, i) => sum + Number(i.total_price || 0), 0)
-                                    .toLocaleString()}
+                                ฿{Number(itemsSubTotal).toLocaleString()}
                             </Text>
                         </div>
                         {order.discount_amount > 0 && (
@@ -670,11 +678,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                         }}>
                             <Text strong style={{ fontSize: 15 }}>ยอดสุทธิ</Text>
                             <Text strong style={{ fontSize: 18, color: dashboardColors.salesColor }}>
-                                ฿{(items.filter(i => i.status !== ItemStatus.Cancelled)
-                                    .reduce((sum, i) => sum + Number(i.total_price || 0), 0) 
-                                    - Number(order.discount_amount || 0) 
-                                    + Number(order.vat || 0))
-                                    .toLocaleString()}
+                                ฿{Number(netTotal).toLocaleString()}
                             </Text>
                         </div>
                     </div>
