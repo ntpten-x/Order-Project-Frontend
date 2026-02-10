@@ -52,10 +52,20 @@
       "static/chunks/main-app.js",
       "static/chunks/app/(main)/pos/channels/page.js"
     ],
-    "/(main)/pos/kitchen/page": [
+    "/(main)/pos/paymentMethod/page": [
       "static/chunks/webpack.js",
       "static/chunks/main-app.js",
-      "static/chunks/app/(main)/pos/kitchen/page.js"
+      "static/chunks/app/(main)/pos/paymentMethod/page.js"
+    ],
+    "/(main)/pos/paymentMethod/manager/[...mode]/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/(main)/pos/paymentMethod/manager/[...mode]/page.js"
+    ],
+    "/_not-found/page": [
+      "static/chunks/webpack.js",
+      "static/chunks/main-app.js",
+      "static/chunks/app/_not-found/page.js"
     ]
   }
 }

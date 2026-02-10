@@ -120,13 +120,104 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                             <head>
                                 <title>ใบเสร็จ #${order?.order_no}</title>
                                 <style>
-                                    body { font-family: 'Courier New', Courier, monospace; padding: 0; margin: 0; }
+                                    body { 
+                                        font-family: 'Courier New', Courier, monospace; 
+                                        padding: 0; 
+                                        margin: 0; 
+                                        background: #fff;
+                                    }
+                                    .receipt-paper {
+                                        width: 80mm;
+                                        padding: 16px;
+                                        margin: 0 auto;
+                                    }
+                                    .text-center { 
+                                        text-align: center;
+                                        display: flex;
+                                        flex-direction: column;
+                                        align-items: center;
+                                        justify-content: center;
+                                        width: 100%;
+                                    }
+                                    .shop-name {
+                                        font-weight: 900;
+                                        font-size: 28px;
+                                        margin-bottom: 4px;
+                                        text-align: center;
+                                        width: 100%;
+                                    }
+                                    .shop-info {
+                                        font-size: 12px;
+                                        margin-bottom: 2px;
+                                        text-align: center;
+                                        width: 100%;
+                                    }
+                                    .shop-phone {
+                                        font-size: 16px;
+                                        font-weight: 700;
+                                        margin-top: 4px;
+                                    }
+                                    .receipt-logo {
+                                        width: 60px;
+                                        height: 60px;
+                                        object-fit: contain;
+                                        margin-bottom: 8px;
+                                        margin-left: auto;
+                                        margin-right: auto;
+                                        display: block;
+                                        filter: grayscale(100%);
+                                    }
+                                    .dashed-line {
+                                        border-top: 1px dashed #000;
+                                        margin: 12px 0;
+                                        opacity: 0.5;
+                                    }
+                                    .section { margin-bottom: 8px; }
+                                    .flex-between {
+                                        display: flex;
+                                        justify-content: space-between;
+                                        margin-bottom: 4px;
+                                    }
+                                    .font-bold { font-weight: bold; }
+                                    .item-details {
+                                        display: flex;
+                                        justify-content: space-between;
+                                        padding-left: 10px;
+                                        font-size: 12px;
+                                        font-weight: 600;
+                                        color: #000;
+                                    }
+                                    .item-note {
+                                        padding-left: 10px;
+                                        font-size: 9px;
+                                        font-weight: 300;
+                                        font-style: italic;
+                                        color: #4b5563;
+                                    }
+                                    .total-row {
+                                        display: flex;
+                                        justify-content: space-between;
+                                        font-weight: 900;
+                                        font-size: 26px;
+                                        margin-top: 12px;
+                                        border-top: 2px solid #000;
+                                        padding-top: 8px;
+                                    }
+                                    .receipt-footer {
+                                        text-align: center;
+                                        margin-top: 16px;
+                                    }
                                     @media print {
                                         body { -webkit-print-color-adjust: exact; }
+                                        .receipt-paper { width: 100%; max-width: 80mm; box-shadow: none; }
                                     }
                                 </style>
                             </head>
-                            <body>${printContents}</body>
+                            <body>
+                                <div class="receipt-paper">
+                                    ${printContents}
+                                </div>
+                            </body>
                         </html>
                     `);
                     printWindow.document.close();
@@ -553,7 +644,11 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                     }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                             <Text type="secondary" style={{ fontSize: 13 }}>รวมรายการ</Text>
-                            <Text style={{ fontSize: 13 }}>฿{Number(order.sub_total).toLocaleString()}</Text>
+                            <Text style={{ fontSize: 13 }}>
+                                ฿{items.filter(i => i.status !== ItemStatus.Cancelled)
+                                    .reduce((sum, i) => sum + Number(i.total_price || 0), 0)
+                                    .toLocaleString()}
+                            </Text>
                         </div>
                         {order.discount_amount > 0 && (
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
@@ -575,7 +670,11 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                         }}>
                             <Text strong style={{ fontSize: 15 }}>ยอดสุทธิ</Text>
                             <Text strong style={{ fontSize: 18, color: dashboardColors.salesColor }}>
-                                ฿{Number(order.total_amount).toLocaleString()}
+                                ฿{(items.filter(i => i.status !== ItemStatus.Cancelled)
+                                    .reduce((sum, i) => sum + Number(i.total_price || 0), 0) 
+                                    - Number(order.discount_amount || 0) 
+                                    + Number(order.vat || 0))
+                                    .toLocaleString()}
                             </Text>
                         </div>
                     </div>
