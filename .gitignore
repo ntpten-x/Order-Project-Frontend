@@ -11,7 +11,8 @@
 
 # next.js
 .next/cache/
-# /.next/ (Commented out to allow pushing build results for deployment)
+/.next/
+/.next-guard/
 /out/
 
 # production
