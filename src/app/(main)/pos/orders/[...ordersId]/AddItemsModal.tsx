@@ -140,6 +140,12 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
         setDetails(prev => prev.filter(d => d.id !== id));
     };
 
+    const getDisplayPrice = useCallback((product: Products): number => {
+        return orderType === OrderType.Delivery
+            ? (product.price_delivery ?? product.price)
+            : product.price;
+    }, [orderType]);
+
     const handleConfirmAdd = async () => {
         if (!selectedProduct) return;
         try {
@@ -161,10 +167,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
 
     const calculateTotalPrice = () => {
         if (!selectedProduct) return 0;
-        const basePrice =
-            orderType === OrderType.Delivery
-                ? (selectedProduct.price_delivery ?? selectedProduct.price)
-                : selectedProduct.price;
+        const basePrice = getDisplayPrice(selectedProduct);
         const formattedDetails = details.map(d => ({
             detail_name: d.name,
             extra_price: d.price
@@ -324,7 +327,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                                 {item.display_name}
                                             </div>
                                             <Text style={{...addItemsModalStyles.productPrice}} className="product-price">
-                                                {formatCurrency(item.price)}
+                                                {formatCurrency(getDisplayPrice(item))}
                                             </Text>
                                         </div>
                                     </div>
