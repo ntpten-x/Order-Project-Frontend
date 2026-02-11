@@ -237,13 +237,11 @@ export default function DashboardOrderDetailPage({ params }: Props) {
         return sortOrderItems(grouped);
     }, [order?.items]);
 
-    const itemsSubTotal = useMemo(
-        () => items.reduce((sum, i) => sum + Number(i.total_price || 0), 0),
-        [items],
-    );
+    // Keep financial summary consistent with backend-calculated values.
+    const summarySubTotal = Number(order?.sub_total || 0);
     const discountAmount = Number(order?.discount_amount || 0);
     const vatAmount = Number(order?.vat || 0);
-    const netTotal = Math.max(0, itemsSubTotal - discountAmount + vatAmount);
+    const netTotal = Number(order?.total_amount || 0);
 
     if (isLoading) {
         return (
@@ -296,6 +294,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
     const getStatusInfo = (status: OrderStatus) => {
         switch (status) {
             case OrderStatus.Paid: return { bg: '#DCFCE7', color: '#16A34A', label: 'ชำระเงินแล้ว', icon: <CheckCircleOutlined /> };
+            case OrderStatus.Completed: return { bg: '#DCFCE7', color: '#16A34A', label: 'เสร็จสิ้น', icon: <CheckCircleOutlined /> };
             case OrderStatus.Cancelled: return { bg: '#FEE2E2', color: '#DC2626', label: 'ยกเลิก', icon: <CloseCircleOutlined /> };
             default: return { bg: '#F3F4F6', color: '#6B7280', label: status, icon: null };
         }
@@ -655,19 +654,19 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                             <Text type="secondary" style={{ fontSize: 13 }}>รวมรายการ</Text>
                             <Text style={{ fontSize: 13 }}>
-                                ฿{Number(itemsSubTotal).toLocaleString()}
+                                ฿{Number(summarySubTotal).toLocaleString()}
                             </Text>
                         </div>
-                        {order.discount_amount > 0 && (
+                        {discountAmount > 0 && (
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                                 <Text type="secondary" style={{ fontSize: 13 }}>ส่วนลด</Text>
-                                <Text style={{ fontSize: 13, color: '#DC2626' }}>-฿{Number(order.discount_amount).toLocaleString()}</Text>
+                                <Text style={{ fontSize: 13, color: '#DC2626' }}>-฿{Number(discountAmount).toLocaleString()}</Text>
                             </div>
                         )}
-                        {order.vat > 0 && (
+                        {vatAmount > 0 && (
                             <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                                <Text type="secondary" style={{ fontSize: 13 }}>VAT 7%</Text>
-                                <Text style={{ fontSize: 13 }}>฿{Number(order.vat).toLocaleString()}</Text>
+                                <Text type="secondary" style={{ fontSize: 13 }}>VAT 0%</Text>
+                                <Text style={{ fontSize: 13 }}>฿{Number(vatAmount).toLocaleString()}</Text>
                             </div>
                         )}
                         <div style={{ 

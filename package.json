@@ -14,7 +14,17 @@
     "test": "npm run test:unit",
     "test:unit": "jest --config jest.config.ts",
     "test:watch": "jest --config jest.config.ts --watch",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:e2e:api": "playwright test --config playwright.api.config.ts",
+    "test:e2e:deterministic": "node scripts/run-e2e-deterministic.mjs",
+    "test:smoke:api": "jest --config jest.config.ts --runInBand src/__tests__/api/health.route.test.ts",
+    "test:smoke:api:all": "jest --config jest.config.ts --runInBand src/__tests__/api/health.route.test.ts src/__tests__/api/pos-orders-summary.route.test.ts src/__tests__/api/pos-dashboard-sales.route.test.ts",
+    "test:smoke:resilience": "jest --config jest.config.ts --runInBand src/__tests__/services/orders.service.contract.test.ts src/__tests__/services/dashboard.service.contract.test.ts",
+    "test:go-live:phase4": "npm --prefix ../Order-Project-Backend run test:go-live:phase4",
+    "test:go-live:phase5": "npm run lint && npm run test:smoke:api:all",
+    "test:go-live:phase6": "npm run test:smoke:resilience",
+    "test:go-live:phase7": "node scripts/run-go-live-phase7.mjs",
+    "test:go-live:phase7:signoff": "node scripts/run-go-live-phase7-signoff.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",

@@ -29,15 +29,11 @@ const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(({ order, shopN
     const items = (order.items || []).filter(item => !isCancelledStatus(item.status));
     const payments = (order.payments || []) as PaymentWithMethod[];
 
-    // Calculate totals for the receipt based on non-cancelled items
-    // This ensures consistency if the backend amounts still include cancelled items
-    const subTotal = items.reduce((sum, item) => sum + Number(item.total_price || 0), 0);
+    // Source of truth for financial fields must come from backend to keep every page consistent.
+    const subTotal = Number(order.sub_total || 0);
     const discountAmount = Number(order.discount_amount || 0);
-    
-    // Recalculate VAT and Total based on the filtered subtotal
-    // Assuming 7% VAT if any
-    const vat = order.vat > 0 ? (subTotal - discountAmount) * 0.07 : 0;
-    const totalAmount = subTotal - discountAmount + vat;
+    const vat = Number(order.vat || 0);
+    const totalAmount = Number(order.total_amount || 0);
     
     const orderTypeLabel = (type: OrderType) => {
         switch (type) {
@@ -135,7 +131,7 @@ const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(({ order, shopN
                     )}
                     {vat > 0 && (
                         <div className="flex-between">
-                            <span>VAT 7%:</span>
+                            <span>VAT 0%:</span>
                             <span>฿{Number(vat).toLocaleString()}</span>
                         </div>
                     )}
