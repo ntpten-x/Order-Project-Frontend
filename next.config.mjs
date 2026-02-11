@@ -29,44 +29,8 @@ const nextConfig = {
     productionBrowserSourceMaps: false,
     // Webpack optimizations
     webpack: (config, { isServer }) => {
-        if (!isServer) {
-            // Optimize bundle size
-            config.optimization = {
-                ...config.optimization,
-                splitChunks: {
-                    chunks: 'all',
-                    cacheGroups: {
-                        default: false,
-                        vendors: false,
-                        // Vendor chunk - more specific to avoid conflicts
-                        vendor: {
-                            name: 'vendor',
-                            chunks: 'all',
-                            test: /[\\/]node_modules[\\/]/,
-                            priority: 20,
-                            reuseExistingChunk: true,
-                        },
-                        // Common chunk
-                        common: {
-                            name: 'common',
-                            minChunks: 2,
-                            chunks: 'all',
-                            priority: 10,
-                            reuseExistingChunk: true,
-                            enforce: true,
-                        },
-                        // Ant Design chunk
-                        antd: {
-                            name: 'antd',
-                            test: /[\\/]node_modules[\\/](antd|@ant-design)[\\/]/,
-                            chunks: 'all',
-                            priority: 30,
-                            reuseExistingChunk: true,
-                        },
-                    },
-                },
-            };
-        }
+        // Next.js default optimizations are usually sufficient.
+        // Custom splitChunks can sometimes cause issues with CSS/JS injection.
         return config;
     },
 };

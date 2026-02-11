@@ -25,11 +25,13 @@ export const groupOrderItems = <T extends OrderItemLike>(items: T[]): GroupedOrd
   for (const item of items) {
     const detailsKey = item.details?.length
       ? JSON.stringify(
-          [...item.details].sort((a, b) => a.detail_name.localeCompare(b.detail_name)),
-        )
+        item.details
+          .map(d => ({ n: d.detail_name, p: d.extra_price }))
+          .sort((a, b) => a.n.localeCompare(b.n)),
+      )
       : "[]";
 
-    const noteKey = (item.notes ?? "").trim();
+    const noteKey = (item.notes ?? "").trim().toLowerCase();
     const statusKey = String(item.status ?? "");
     const productId = item.product?.id ?? item.product_id ?? "unknown";
 

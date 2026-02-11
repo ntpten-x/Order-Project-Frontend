@@ -94,8 +94,13 @@ export const getOrderStatusColor = (status: OrderStatus | string): string => {
         case OrderStatus.WaitingForPayment:
             return 'gold';
         default:
+            if (String(status ?? '').trim().toLowerCase() === 'cancelled') return 'red';
             return 'default';
     }
+};
+
+export const isCancelledStatus = (status: unknown): boolean => {
+    return String(status ?? '').trim().toLowerCase() === 'cancelled';
 };
 
 export const getOrderStatusText = (status: OrderStatus | string, orderType?: string): string => {
@@ -118,6 +123,7 @@ export const getOrderStatusText = (status: OrderStatus | string, orderType?: str
         case OrderStatus.WaitingForPayment:
             return 'รอชำระเงิน';
         default:
+            if (isCancelledStatus(status)) return 'ยกเลิก';
             return status;
     }
 };
@@ -183,7 +189,7 @@ export const getOrderReference = (order: OrderLike): string => {
 };
 
 export const getNonCancelledItems = (items?: OrderItemLike[]): OrderItemLike[] => {
-    return (items ?? []).filter(item => item.status !== OrderStatus.Cancelled);
+    return (items ?? []).filter(item => !isCancelledStatus(item.status));
 };
 
 export const calculateItemExtras = (details?: OrderItemDetailLike[]): number => {

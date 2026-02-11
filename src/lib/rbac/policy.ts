@@ -3,7 +3,11 @@ export type Role = "Admin" | "Manager" | "Employee";
 export const ALL_ROLES: Role[] = ["Admin", "Manager", "Employee"];
 
 export function asRole(value: unknown): Role | null {
-  if (value === "Admin" || value === "Manager" || value === "Employee") return value;
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (!raw) return null;
+  if (raw === "admin") return "Admin";
+  if (raw === "manager") return "Manager";
+  if (raw === "employee") return "Employee";
   return null;
 }
 
@@ -27,7 +31,7 @@ export function requiredRolesForPath(
   if (pathname.startsWith("/audit")) return { allowed: ["Admin"], redirectTo: "/pos" };
   if (pathname.startsWith("/users")) return { allowed: ["Admin", "Manager"], redirectTo: "/pos" };
   if (pathname.startsWith("/branch")) return { allowed: ["Admin", "Manager"], redirectTo: "/pos" };
-  if (pathname.startsWith("/stock")) return { allowed: ["Admin", "Manager"], redirectTo: "/pos" };
+  if (pathname.startsWith("/stock")) return { allowed: ["Admin", "Manager", "Employee"], redirectTo: "/pos" };
 
   // POS settings/management pages
   if (pathname.startsWith("/pos/settings")) return { allowed: ["Admin", "Manager"], redirectTo: "/pos" };
@@ -48,7 +52,7 @@ export function requiredRolesForPath(
     // Admin/Manager API endpoints
     if (pathname.startsWith("/api/users")) return { allowed: ["Admin", "Manager"] };
     if (pathname.startsWith("/api/audit")) return { allowed: ["Admin"] };
-    if (pathname.startsWith("/api/stock")) return { allowed: ["Admin", "Manager"] };
+    if (pathname.startsWith("/api/stock")) return { allowed: ["Admin", "Manager", "Employee"] };
     if (pathname.startsWith("/api/branches")) {
       if (m === "GET") return { allowed: ["Admin", "Manager"] };
       return { allowed: ["Admin"] };

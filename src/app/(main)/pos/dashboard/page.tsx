@@ -50,7 +50,7 @@ export default function DashboardPage() {
             const [salesRes, itemsRes, ordersRes] = await Promise.all([
                 dashboardService.getSalesSummary(startDate, endDate),
                 dashboardService.getTopSellingItems(5),
-                ordersService.getAllSummary(undefined, 1, 10, 'Paid,Cancelled')
+                ordersService.getAllSummary(undefined, 1, 10, 'Paid,Completed,Cancelled')
             ]);
 
             setSalesData(salesRes);
@@ -438,6 +438,7 @@ export default function DashboardPage() {
                                     };
                                     const statusConfig: Record<string, { label: string, bg: string, color: string }> = {
                                         [OrderStatus.Paid]: { label: 'ชำระแล้ว', bg: '#DCFCE7', color: '#16A34A' },
+                                        [OrderStatus.Completed]: { label: 'เสร็จสิ้น', bg: '#DCFCE7', color: '#16A34A' },
                                         [OrderStatus.Cancelled]: { label: 'ยกเลิก', bg: '#FEE2E2', color: '#DC2626' },
                                     };
                                     const type = typeConfig[order.order_type] || { label: '-', color: '#fff', bg: '#6B7280' };

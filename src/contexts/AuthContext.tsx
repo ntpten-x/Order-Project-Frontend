@@ -8,6 +8,7 @@ import { User, LoginCredentials } from "../types/api/auth";
 import { Spin } from "antd";
 import { useGlobalLoading } from "./pos/GlobalLoadingContext";
 import { t } from "../utils/i18n";
+import { asRole } from "../lib/rbac/policy";
 
 interface AuthContextType {
     user: User | null;
@@ -19,6 +20,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+const normalizeUserRole = (incoming: User): User => {
+    const normalized = asRole(incoming.role);
+    return normalized ? { ...incoming, role: normalized } : incoming;
+};
+
 export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [user, setUser] = useState<User | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
@@ -28,7 +34,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const checkAuth = async () => {
         try {
             const user = await authService.getMe();
-            setUser(user);
+            setUser(normalizeUserRole(user));
         } catch {
             setUser(null);
         } finally {
@@ -57,7 +63,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             
             // eslint-disable-next-line @typescript-eslint/no-unused-vars
             const { token: _, ...userData } = await authService.login(credentials, csrfToken);
-            setUser(userData);
+            setUser(normalizeUserRole(userData));
             router.push("/"); // Redirect to dashboard
         } catch (error: unknown) {
             throw error;
@@ -83,8 +89,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     if (loading) {
         return (
-            <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-white">
-                <Spin size="large" />
+            <div style={{
+                position: "fixed",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                zIndex: 9999,
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                background: "#ffffff"
+            }}>
+                <div style={{
+                    display: "flex",
+                    flexDirection: "column",
+                    alignItems: "center",
+                    gap: "12px",
+                    padding: "24px",
+                    background: "#ffffff",
+                    borderRadius: "20px",
+                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)"
+                }}>
+                    <Spin size="large" />
+                    <div style={{ color: "#64748b", fontSize: "14px", fontWeight: 500 }}>
+                        กำลังตรวจสอบสิทธิ์...
+                    </div>
+                </div>
             </div>
         );
     }

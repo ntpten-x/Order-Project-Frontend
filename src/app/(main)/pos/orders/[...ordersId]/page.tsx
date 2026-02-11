@@ -831,6 +831,16 @@ export default function POSOrderDetailsPage() {
                             >
                                 {getOrderStatusText(order.status, order.order_type)}
                             </Tag>
+                            {order.order_type === OrderType.DineIn && order.table?.table_name && (
+                                <Tag color="blue" style={{ margin: 0, borderRadius: 8, fontWeight: 600 }}>
+                                    โต๊ะ: {order.table.table_name}
+                                </Tag>
+                            )}
+                            {order.order_type === OrderType.Delivery && (order.delivery_code || order.delivery?.delivery_name) && (
+                                <Tag color="purple" style={{ margin: 0, borderRadius: 8, fontWeight: 600 }}>
+                                    {order.delivery_code ? `รหัส: ${order.delivery_code}` : order.delivery?.delivery_name}
+                                </Tag>
+                            )}
                             {currentQueueItem && (
                                 <Tag
                                     color={

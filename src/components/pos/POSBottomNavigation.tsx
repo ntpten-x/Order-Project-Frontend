@@ -11,10 +11,12 @@ import {
   FireOutlined,
   HomeOutlined,
   PoweroffOutlined,
-  SettingOutlined,
-  ShopOutlined,
   TableOutlined,
   TagsOutlined,
+  ClockCircleOutlined,
+  HistoryOutlined,
+  ShopOutlined,
+  SettingOutlined,
 } from "@ant-design/icons";
 import { Badge, Button, Drawer, List } from "antd";
 
@@ -50,10 +52,10 @@ const POSBottomNavigation = () => {
         path: "/pos/orders",
       },
       {
-        key: "dashboard",
-        label: "สรุป",
-        icon: <AppstoreOutlined />,
-        path: "/pos/dashboard",
+        key: "kitchen",
+        label: "ครัว",
+        icon: <FireOutlined />,
+        path: "/pos/kitchen",
       },
     ],
     [],
@@ -61,13 +63,15 @@ const POSBottomNavigation = () => {
 
   const secondaryItems: MenuItem[] = useMemo(() => {
     const items: MenuItem[] = [
-      { key: "kitchen", label: "ครัว", icon: <FireOutlined />, path: "/pos/kitchen" },
-      { key: "tables", label: "โต๊ะ", icon: <TableOutlined />, path: "/pos/tables" },
-      { key: "delivery", label: "เดลิเวอรี่", icon: <CarOutlined />, path: "/pos/delivery" },
+      { key: "shift", label: "กะการทำงาน", icon: <ClockCircleOutlined />, path: "/pos/shift" },
+      { key: "shiftHistory", label: "ประวัติกะ", icon: <HistoryOutlined />, path: "/pos/shiftHistory" },
     ];
 
     if (user?.role === "Admin" || user?.role === "Manager") {
       items.push(
+        { key: "dashboard", label: "สรุป", icon: <AppstoreOutlined />, path: "/pos/dashboard" },
+        { key: "tables", label: "โต๊ะ", icon: <TableOutlined />, path: "/pos/tables" },
+        { key: "delivery", label: "เดลิเวอรี่", icon: <CarOutlined />, path: "/pos/delivery" },
         {
           key: "category",
           label: "หมวดหมู่",
@@ -156,22 +160,24 @@ const POSBottomNavigation = () => {
         zIndex={2000}
       >
         <div style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom))" }}>
-          <List
-            dataSource={secondaryItems}
-            renderItem={(item) => (
-              <List.Item style={{ paddingInline: 0 }}>
-                <Button
-                  type="text"
-                  block
-                  icon={item.icon}
-                  style={{ height: 48, justifyContent: "flex-start" }}
-                  onClick={() => handleNavigate(item.path)}
-                >
-                  {item.label}
-                </Button>
-              </List.Item>
-            )}
-          />
+          {secondaryItems.length > 0 && (
+            <List
+              dataSource={secondaryItems}
+              renderItem={(item) => (
+                <List.Item style={{ paddingInline: 0 }}>
+                  <Button
+                    type="text"
+                    block
+                    icon={item.icon}
+                    style={{ height: 48, justifyContent: "flex-start" }}
+                    onClick={() => handleNavigate(item.path)}
+                  >
+                    {item.label}
+                  </Button>
+                </List.Item>
+              )}
+            />
+          )}
 
           {currentShift && (
             <Button
