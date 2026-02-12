@@ -581,7 +581,7 @@ export default function POSPaymentPage() {
                             )}
                             {vat > 0 && (
                                 <Row justify="space-between" style={{ marginBottom: 8 }}>
-                                    <Text type="secondary">VAT (7%)</Text>
+                                    <Text type="secondary">VAT (0%)</Text>
                                     <Text>{formatCurrency(vat)}</Text>
                                 </Row>
                             )}

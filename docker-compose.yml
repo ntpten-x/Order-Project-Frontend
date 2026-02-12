@@ -1,0 +1,15 @@
+services:
+  web:
+    build: .
+    ports:
+      - "8001:8001"
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=production
+      - PORT=8001
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+      - NEXT_PUBLIC_BACKEND_API=http://localhost:8000
+      - BACKEND_API_INTERNAL=http://host.docker.internal:8000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

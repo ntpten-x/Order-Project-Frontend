@@ -3,7 +3,11 @@ export type Role = "Admin" | "Manager" | "Employee";
 export const ALL_ROLES: Role[] = ["Admin", "Manager", "Employee"];
 
 export function asRole(value: unknown): Role | null {
-  if (value === "Admin" || value === "Manager" || value === "Employee") return value;
+  const raw = String(value ?? "").trim().toLowerCase();
+  if (!raw) return null;
+  if (raw === "admin") return "Admin";
+  if (raw === "manager") return "Manager";
+  if (raw === "employee") return "Employee";
   return null;
 }
 

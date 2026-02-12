@@ -104,7 +104,12 @@ export const ordersService = {
         if (!response.ok) {
             const errorText = await response.text();
             console.error("Order Stats Backend Error:", errorText);
-            const errorData = await JSON.parse(errorText).catch(() => ({}));
+            let errorData: unknown = {};
+            try {
+                errorData = JSON.parse(errorText);
+            } catch {
+                errorData = {};
+            }
             throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลสถิติได้"));
         }
         const json = await response.json();
