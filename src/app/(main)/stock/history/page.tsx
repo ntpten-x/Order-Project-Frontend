@@ -8,6 +8,7 @@ import { Order, OrderStatus } from "../../../../types/api/stock/orders";
 import OrderDetailModal from "../../../../components/stock/OrderDetailModal";
 import { useSocket } from "../../../../hooks/useSocket";
 import { useAuth } from "../../../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
 import { authService } from "../../../../services/auth.service";
 import PageContainer from "../../../../components/ui/page/PageContainer";
 import UIPageHeader from "../../../../components/ui/page/PageHeader";
@@ -26,6 +27,8 @@ export default function HistoryPage() {
     const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
     const { socket } = useSocket();
     const { user } = useAuth();
+    const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canDeleteOrders = can("stock.orders.page", "delete");
     const queryClient = useQueryClient();
     
     // Pagination State
@@ -118,7 +121,6 @@ export default function HistoryPage() {
 
     const completedOrders = orders.filter(o => o.status === OrderStatus.COMPLETED);
     const cancelledOrders = orders.filter(o => o.status === OrderStatus.CANCELLED);
-    const isAdmin = user?.role === 'Admin';
 
     if (isLoading && orders.length === 0) {
         return (
@@ -183,7 +185,7 @@ export default function HistoryPage() {
                                         index={index}
                                         onView={setViewingOrder}
                                         onDelete={handleDeleteOrder}
-                                        isAdmin={isAdmin}
+                                        canDelete={canDeleteOrders}
                                     />
                                 ))}
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { branchService } from "../../../../services/branch.service";
+import { handleApiRouteError } from "../../_utils/route-error";
 
 export async function GET(req: NextRequest, { params }: { params: { id: string } }) {
     try {
@@ -7,10 +8,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
         const data = await branchService.getById(params.id, cookie);
         return NextResponse.json(data);
     } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to fetch branch" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }
 
@@ -23,10 +21,7 @@ export async function PUT(req: NextRequest, { params }: { params: { id: string }
         const data = await branchService.update(params.id, body, cookie, csrfToken);
         return NextResponse.json(data);
     } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to update branch" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }
 
@@ -38,9 +33,6 @@ export async function DELETE(req: NextRequest, { params }: { params: { id: strin
         await branchService.delete(params.id, cookie, csrfToken);
         return NextResponse.json({ message: "Branch deleted successfully" });
     } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to delete branch" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }

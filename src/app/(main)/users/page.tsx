@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { Button, message, Modal, Grid, Input, Skeleton, Typography } from 'antd';
@@ -18,6 +18,7 @@ import { useSocket } from "../../../hooks/useSocket";
 import { useAsyncAction } from "../../../hooks/useAsyncAction";
 import { useGlobalLoading } from "../../../contexts/pos/GlobalLoadingContext";
 import { useAuth } from "../../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../../hooks/useEffectivePermissions";
 import { Spin } from 'antd';
 import { authService } from "../../../services/auth.service";
 import { userService } from "../../../services/users.service";
@@ -30,18 +31,18 @@ import { useDebouncedValue } from "../../../utils/useDebouncedValue";
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
 
-// ── Role Config ──
+// โ”€โ”€ Role Config โ”€โ”€
 const ROLE_CONFIG: Record<string, { color: string; bg: string; emoji: string }> = {
-    'Admin': { color: '#D97706', bg: '#FFFBEB', emoji: '👑' },
-    'Manager': { color: '#DB2777', bg: '#FDF2F8', emoji: '⭐' },
-    'Cashier': { color: '#2563EB', bg: '#EFF6FF', emoji: '💳' },
-    'Chef': { color: '#059669', bg: '#ECFDF5', emoji: '👨‍🍳' },
-    'Waiter': { color: '#7C3AED', bg: '#F5F3FF', emoji: '🍽️' },
+    'Admin': { color: '#D97706', bg: '#FFFBEB', emoji: '๐‘‘' },
+    'Manager': { color: '#DB2777', bg: '#FDF2F8', emoji: 'โญ' },
+    'Cashier': { color: '#2563EB', bg: '#EFF6FF', emoji: '๐’ณ' },
+    'Chef': { color: '#059669', bg: '#ECFDF5', emoji: '๐‘จโ€๐ณ' },
+    'Waiter': { color: '#7C3AED', bg: '#F5F3FF', emoji: '๐ฝ๏ธ' },
 };
 
-const DEFAULT_ROLE_CONFIG = { color: '#64748B', bg: '#F1F5F9', emoji: '👤' };
+const DEFAULT_ROLE_CONFIG = { color: '#64748B', bg: '#F1F5F9', emoji: '๐‘ค' };
 
-// ── Responsive CSS ──
+// โ”€โ”€ Responsive CSS โ”€โ”€
 const responsiveCSS = `
   @keyframes fadeInUp {
     from { opacity: 0; transform: translateY(12px); }
@@ -107,6 +108,11 @@ export default function UsersPage() {
     const { execute } = useAsyncAction();
     const { showLoading, hideLoading } = useGlobalLoading();
     const { user, loading: authLoading } = useAuth();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canViewUsers = can("users.page", "view");
+    const canCreateUsers = can("users.page", "create");
+    const canUpdateUsers = can("users.page", "update");
+    const canDeleteUsers = can("users.page", "delete");
     const [csrfToken, setCsrfToken] = useState<string>("");
     const [searchValue, setSearchValue] = useState('');
     const [showSearch, setShowSearch] = useState(false);
@@ -122,37 +128,37 @@ export default function UsersPage() {
 
     // Protect Route
     useEffect(() => {
-        if (!authLoading) {
-            if (!user || !['Admin', 'Manager'].includes(user.role)) {
+        if (!authLoading && !permissionLoading) {
+            if (!user || !canViewUsers) {
                 const timer = setTimeout(() => {
-                    message.error("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
+                    message.error("เธเธธเธ“เนเธกเนเธกเธตเธชเธดเธ—เธเธดเนเน€เธเนเธฒเธ–เธถเธเธซเธเนเธฒเธเธตเน");
                     router.push('/');
                 }, 1000);
                 return () => clearTimeout(timer);
             }
         }
-    }, [user, authLoading, router]);
+    }, [user, authLoading, canViewUsers, permissionLoading, router]);
 
     const fetchUsers = useCallback(async () => {
         execute(async () => {
             const data = await userService.getAllUsers();
             setUsers(data);
-        }, 'กำลังโหลดข้อมูลผู้ใช้...');
+        }, 'เธเธณเธฅเธฑเธเนเธซเธฅเธ”เธเนเธญเธกเธนเธฅเธเธนเนเนเธเน...');
     }, [execute]);
 
     useEffect(() => {
         if (authLoading) return;
-        if (user?.role === 'Admin' || user?.role === 'Manager') {
+        if (canViewUsers) {
             fetchUsers();
         }
-    }, [authLoading, user, fetchUsers]);
+    }, [authLoading, canViewUsers, fetchUsers]);
 
     useEffect(() => {
         if (!socket) return;
 
         socket.on(RealtimeEvents.users.create, (newUser: User) => {
             setUsers((prevUsers) => [...prevUsers, newUser]);
-            message.success(`ผู้ใช้ใหม่ ${newUser.name || newUser.username} ถูกเพิ่มแล้ว`);
+            message.success(`เธเธนเนเนเธเนเนเธซเธกเน ${newUser.name || newUser.username} เธ–เธนเธเน€เธเธดเนเธกเนเธฅเนเธง`);
         });
         socket.on(RealtimeEvents.users.update, (updatedUser: User) => {
             setUsers((prevUsers) =>
@@ -176,7 +182,7 @@ export default function UsersPage() {
         };
     }, [socket]);
 
-    // ── Filtered Users ──
+    // โ”€โ”€ Filtered Users โ”€โ”€
     const filteredUsers = useMemo(() => {
         if (!debouncedSearch) return users;
         const q = debouncedSearch.toLowerCase();
@@ -188,7 +194,7 @@ export default function UsersPage() {
         );
     }, [users, debouncedSearch]);
 
-    // ── Stats ──
+    // โ”€โ”€ Stats โ”€โ”€
     const stats = useMemo(() => {
         const activeUsers = users.filter(u => u.is_active).length;
         const adminUsers = users.filter(u => u.roles?.roles_name === 'Admin').length;
@@ -196,28 +202,40 @@ export default function UsersPage() {
     }, [users]);
 
     const handleAdd = () => {
+        if (!canCreateUsers) {
+            message.error("You do not have permission to create users.");
+            return;
+        }
         showLoading();
         router.push('/users/manage/add');
         setTimeout(() => hideLoading(), 1000);
     };
 
     const handleEdit = (user: User) => {
+        if (!canUpdateUsers) {
+            message.error("You do not have permission to update users.");
+            return;
+        }
         router.push(`/users/manage/edit/${user.id}`);
     };
 
     const handleDelete = (userToDelete: User) => {
+        if (!canDeleteUsers) {
+            message.error("You do not have permission to delete users.");
+            return;
+        }
         Modal.confirm({
-            title: 'ยืนยันการลบผู้ใช้',
-            content: `คุณต้องการลบผู้ใช้ "${userToDelete.name || userToDelete.username}" หรือไม่?`,
-            okText: 'ลบ',
+            title: 'เธขเธทเธเธขเธฑเธเธเธฒเธฃเธฅเธเธเธนเนเนเธเน',
+            content: `เธเธธเธ“เธ•เนเธญเธเธเธฒเธฃเธฅเธเธเธนเนเนเธเน "${userToDelete.name || userToDelete.username}" เธซเธฃเธทเธญเนเธกเน?`,
+            okText: 'เธฅเธ',
             okType: 'danger',
-            cancelText: 'ยกเลิก',
+            cancelText: 'เธขเธเน€เธฅเธดเธ',
             centered: true,
             onOk: async () => {
                 await execute(async () => {
                     await userService.deleteUser(userToDelete.id, undefined, csrfToken);
-                    message.success(`ลบผู้ใช้ "${userToDelete.name || userToDelete.username}" สำเร็จ`);
-                }, "กำลังลบผู้ใช้งาน...");
+                    message.success(`เธฅเธเธเธนเนเนเธเน "${userToDelete.name || userToDelete.username}" เธชเธณเน€เธฃเนเธ`);
+                }, "เธเธณเธฅเธฑเธเธฅเธเธเธนเนเนเธเนเธเธฒเธ...");
             },
         });
     };
@@ -227,17 +245,17 @@ export default function UsersPage() {
         const d = new Date(date);
         const diffMs = now.getTime() - d.getTime();
         const diffMins = Math.floor(diffMs / 60000);
-        if (diffMins < 1) return 'เมื่อกี้';
-        if (diffMins < 60) return `${diffMins} นาทีที่แล้ว`;
+        if (diffMins < 1) return 'เน€เธกเธทเนเธญเธเธตเน';
+        if (diffMins < 60) return `${diffMins} เธเธฒเธ—เธตเธ—เธตเนเนเธฅเนเธง`;
         const hours = Math.floor(diffMins / 60);
-        if (hours < 24) return `${hours} ชม.ที่แล้ว`;
+        if (hours < 24) return `${hours} เธเธก.เธ—เธตเนเนเธฅเนเธง`;
         const days = Math.floor(hours / 24);
-        if (days < 30) return `${days} วันที่แล้ว`;
+        if (days < 30) return `${days} เธงเธฑเธเธ—เธตเนเนเธฅเนเธง`;
         return d.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' });
     };
 
-    // ── Auth Guard ──
-    if (authLoading || !user || !['Admin', 'Manager'].includes(user.role)) {
+    // โ”€โ”€ Auth Guard โ”€โ”€
+    if (authLoading || permissionLoading || !user || !canViewUsers) {
         return (
             <div style={{
                 height: '100vh',
@@ -258,10 +276,10 @@ export default function UsersPage() {
         <div style={{ minHeight: '100vh', background: '#F8FAFC', paddingBottom: 100 }}>
             <style dangerouslySetInnerHTML={{ __html: responsiveCSS }} />
 
-            {/* ═══ Header ═══ */}
+            {/* โ•โ•โ• Header โ•โ•โ• */}
             <UIPageHeader
-                title="จัดการผู้ใช้"
-                subtitle={`ทั้งหมด ${users.length} คน`}
+                title="เธเธฑเธ”เธเธฒเธฃเธเธนเนเนเธเน"
+                subtitle={`เธ—เธฑเนเธเธซเธกเธ” ${users.length} เธเธ`}
                 icon={<TeamOutlined style={{ fontSize: 20 }} />}
                 actions={
                     <div style={{ display: 'flex', gap: 8 }}>
@@ -295,26 +313,28 @@ export default function UsersPage() {
                         >
                             <ReloadOutlined style={{ fontSize: 18 }} />
                         </button>
-                        <Button
-                            type="primary"
-                            icon={<UserAddOutlined />}
-                            onClick={handleAdd}
-                            style={{
-                                height: 40,
-                                borderRadius: 12,
-                                fontWeight: 600,
-                                background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
-                                border: 'none',
-                                boxShadow: '0 4px 12px rgba(59,130,246,0.25)',
-                            }}
-                        >
-                            {!isMobile && 'เพิ่มผู้ใช้'}
-                        </Button>
+                        {canCreateUsers && (
+                            <Button
+                                type="primary"
+                                icon={<UserAddOutlined />}
+                                onClick={handleAdd}
+                                style={{
+                                    height: 40,
+                                    borderRadius: 12,
+                                    fontWeight: 600,
+                                    background: 'linear-gradient(135deg, #3B82F6 0%, #2563EB 100%)',
+                                    border: 'none',
+                                    boxShadow: '0 4px 12px rgba(59,130,246,0.25)',
+                                }}
+                            >
+                                {!isMobile && 'เน€เธเธดเนเธกเธเธนเนเนเธเน'}
+                            </Button>
+                        )}
                     </div>
                 }
             />
 
-            {/* ═══ Search Bar ═══ */}
+            {/* โ•โ•โ• Search Bar โ•โ•โ• */}
             {showSearch && (
                 <div style={{
                     maxWidth: 1200,
@@ -330,7 +350,7 @@ export default function UsersPage() {
                     }}>
                         <Input
                             prefix={<SearchOutlined style={{ color: '#94A3B8', fontSize: 16 }} />}
-                            placeholder="ค้นหาผู้ใช้ตามชื่อ, username, บทบาท หรือสาขา..."
+                            placeholder="เธเนเธเธซเธฒเธเธนเนเนเธเนเธ•เธฒเธกเธเธทเนเธญ, username, เธเธ—เธเธฒเธ— เธซเธฃเธทเธญเธชเธฒเธเธฒ..."
                             value={searchValue}
                             onChange={e => setSearchValue(e.target.value)}
                             allowClear
@@ -346,7 +366,7 @@ export default function UsersPage() {
             )}
 
             <PageContainer>
-                {/* ═══ Stats Strip ═══ */}
+                {/* โ•โ•โ• Stats Strip โ•โ•โ• */}
                 <div style={{
                     display: 'flex',
                     gap: 10,
@@ -359,9 +379,9 @@ export default function UsersPage() {
                     paddingBottom: 4,
                 }}>
                     {[
-                        { label: 'ทั้งหมด', count: stats.total, color: '#3B82F6', bg: '#EFF6FF', emoji: '👥' },
-                        { label: 'ใช้งาน', count: stats.active, color: '#10B981', bg: '#ECFDF5', emoji: '✅' },
-                        { label: 'แอดมิน', count: stats.admin, color: '#D97706', bg: '#FFFBEB', emoji: '👑' },
+                        { label: 'เธ—เธฑเนเธเธซเธกเธ”', count: stats.total, color: '#3B82F6', bg: '#EFF6FF', emoji: '๐‘ฅ' },
+                        { label: 'เนเธเนเธเธฒเธ', count: stats.active, color: '#10B981', bg: '#ECFDF5', emoji: 'โ…' },
+                        { label: 'เนเธญเธ”เธกเธดเธ', count: stats.admin, color: '#D97706', bg: '#FFFBEB', emoji: '๐‘‘' },
                     ].map(stat => (
                         <div key={stat.label} style={{
                             flex: '1 0 0',
@@ -384,7 +404,7 @@ export default function UsersPage() {
                     ))}
                 </div>
 
-                {/* ═══ Users List ═══ */}
+                {/* โ•โ•โ• Users List โ•โ•โ• */}
                 <PageSection>
                     {isLoading ? (
                         <div style={{ padding: 20 }}>
@@ -405,14 +425,14 @@ export default function UsersPage() {
                             textAlign: 'center',
                             padding: '60px 20px',
                         }}>
-                            <div style={{ fontSize: 56, marginBottom: 16, opacity: 0.7 }}>👤</div>
+                            <div style={{ fontSize: 56, marginBottom: 16, opacity: 0.7 }}>๐‘ค</div>
                             <Text strong style={{ fontSize: 17, display: 'block', color: '#1E293B', marginBottom: 6 }}>
-                                {searchValue ? 'ไม่พบผู้ใช้ที่ค้นหา' : 'ยังไม่มีผู้ใช้ในระบบ'}
+                                {searchValue ? 'เนเธกเนเธเธเธเธนเนเนเธเนเธ—เธตเนเธเนเธเธซเธฒ' : 'เธขเธฑเธเนเธกเนเธกเธตเธเธนเนเนเธเนเนเธเธฃเธฐเธเธ'}
                             </Text>
                             <Text style={{ color: '#94A3B8', fontSize: 14 }}>
-                                {searchValue ? 'ลองค้นหาด้วยคำอื่น' : 'กดปุ่ม "เพิ่มผู้ใช้" เพื่อเริ่มต้น'}
+                                {searchValue ? 'เธฅเธญเธเธเนเธเธซเธฒเธ”เนเธงเธขเธเธณเธญเธทเนเธ' : 'เธเธ”เธเธธเนเธก "เน€เธเธดเนเธกเธเธนเนเนเธเน" เน€เธเธทเนเธญเน€เธฃเธดเนเธกเธ•เนเธ'}
                             </Text>
-                            {!searchValue && (
+                            {!searchValue && canCreateUsers && (
                                 <div style={{ marginTop: 20 }}>
                                     <Button type="primary" icon={<UserAddOutlined />} onClick={handleAdd}
                                         style={{
@@ -423,7 +443,7 @@ export default function UsersPage() {
                                             border: 'none',
                                         }}
                                     >
-                                        เพิ่มผู้ใช้คนแรก
+                                        เน€เธเธดเนเธกเธเธนเนเนเธเนเธเธเนเธฃเธ
                                     </Button>
                                 </div>
                             )}
@@ -455,7 +475,7 @@ export default function UsersPage() {
                                             animationDelay: `${index * 0.04}s`,
                                         }}
                                     >
-                                        {/* ── Card Header ── */}
+                                        {/* โ”€โ”€ Card Header โ”€โ”€ */}
                                         <div style={{
                                             display: 'flex',
                                             alignItems: 'center',
@@ -565,11 +585,11 @@ export default function UsersPage() {
                                                 whiteSpace: 'nowrap',
                                                 flexShrink: 0,
                                             }}>
-                                                {isActive ? '🟢 ออนไลน์' : '⚪ ออฟไลน์'}
+                                                {isActive ? '๐ข เธญเธญเธเนเธฅเธเน' : 'โช เธญเธญเธเนเธฅเธเน'}
                                             </span>
                                         </div>
 
-                                        {/* ── Card Footer ── */}
+                                        {/* โ”€โ”€ Card Footer โ”€โ”€ */}
                                         <div style={{
                                             display: 'flex',
                                             alignItems: 'center',
@@ -588,7 +608,7 @@ export default function UsersPage() {
                                             }}>
                                                 <span style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
                                                     <ClockCircleOutlined style={{ fontSize: 12 }} />
-                                                    {u.last_login_at ? getTimeSince(u.last_login_at) : 'ยังไม่เคยเข้า'}
+                                                    {u.last_login_at ? getTimeSince(u.last_login_at) : 'เธขเธฑเธเนเธกเนเน€เธเธขเน€เธเนเธฒ'}
                                                 </span>
                                                 {u.is_use !== undefined && (
                                                     <span style={{
@@ -599,45 +619,49 @@ export default function UsersPage() {
                                                         fontSize: 11, fontWeight: 600,
                                                         whiteSpace: 'nowrap',
                                                     }}>
-                                                        {u.is_use ? '✓ ใช้งานได้' : '✕ ระงับ'}
+                                                        {u.is_use ? 'โ“ เนเธเนเธเธฒเธเนเธ”เน' : 'โ• เธฃเธฐเธเธฑเธ'}
                                                     </span>
                                                 )}
                                             </div>
 
                                             {/* Actions */}
                                             <div style={{ display: 'flex', gap: 6 }}>
-                                                <button
-                                                    className="users-action-btn"
-                                                    onClick={(e) => { e.stopPropagation(); handleEdit(u); }}
-                                                    style={{
-                                                        width: 34, height: 34,
-                                                        borderRadius: 10,
-                                                        border: '1px solid #E2E8F0',
-                                                        background: '#fff',
-                                                        display: 'grid', placeItems: 'center',
-                                                        cursor: 'pointer',
-                                                        color: '#3B82F6',
-                                                    }}
-                                                    aria-label={`แก้ไข ${displayName}`}
-                                                >
-                                                    <EditOutlined style={{ fontSize: 14 }} />
-                                                </button>
-                                                <button
-                                                    className="users-action-btn"
-                                                    onClick={(e) => { e.stopPropagation(); handleDelete(u); }}
-                                                    style={{
-                                                        width: 34, height: 34,
-                                                        borderRadius: 10,
-                                                        border: '1px solid #FEE2E2',
-                                                        background: '#FEF2F2',
-                                                        display: 'grid', placeItems: 'center',
-                                                        cursor: 'pointer',
-                                                        color: '#EF4444',
-                                                    }}
-                                                    aria-label={`ลบ ${displayName}`}
-                                                >
-                                                    <DeleteOutlined style={{ fontSize: 14 }} />
-                                                </button>
+                                                {canUpdateUsers && (
+                                                    <button
+                                                        className="users-action-btn"
+                                                        onClick={(e) => { e.stopPropagation(); handleEdit(u); }}
+                                                        style={{
+                                                            width: 34, height: 34,
+                                                            borderRadius: 10,
+                                                            border: '1px solid #E2E8F0',
+                                                            background: '#fff',
+                                                            display: 'grid', placeItems: 'center',
+                                                            cursor: 'pointer',
+                                                            color: '#3B82F6',
+                                                        }}
+                                                        aria-label={`เนเธเนเนเธ ${displayName}`}
+                                                    >
+                                                        <EditOutlined style={{ fontSize: 14 }} />
+                                                    </button>
+                                                )}
+                                                {canDeleteUsers && (
+                                                    <button
+                                                        className="users-action-btn"
+                                                        onClick={(e) => { e.stopPropagation(); handleDelete(u); }}
+                                                        style={{
+                                                            width: 34, height: 34,
+                                                            borderRadius: 10,
+                                                            border: '1px solid #FEE2E2',
+                                                            background: '#FEF2F2',
+                                                            display: 'grid', placeItems: 'center',
+                                                            cursor: 'pointer',
+                                                            color: '#EF4444',
+                                                        }}
+                                                        aria-label={`เธฅเธ ${displayName}`}
+                                                    >
+                                                        <DeleteOutlined style={{ fontSize: 14 }} />
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -650,3 +674,4 @@ export default function UsersPage() {
         </div>
     );
 }
+

@@ -32,6 +32,7 @@ import {
   hasProductImage, 
   getProductCategoryName 
 } from "../../../utils/products/productDisplay.utils";
+import PageState from "../../ui/states/PageState";
 
 const { Title, Text } = Typography;
 
@@ -66,7 +67,13 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
     };
   }, [searchQuery]);
 
-  const { products, isLoading, total } = useProducts(page, LIMIT, selectedCategory, debouncedQuery);
+  const {
+    products,
+    isLoading,
+    isError: productsError,
+    mutate: refetchProducts,
+    total,
+  } = useProducts(page, LIMIT, selectedCategory, debouncedQuery);
 
   // UI State
   const [cartVisible, setCartVisible] = useState(false);
@@ -370,6 +377,13 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                 กำลังโหลดสินค้า...
               </Text>
             </div>
+          ) : productsError ? (
+            <PageState
+              status="error"
+              title="โหลดข้อมูลสินค้าไม่สำเร็จ"
+              error={productsError}
+              onRetry={() => refetchProducts()}
+            />
           ) : products.length > 0 ? (
             <>
               <div style={posLayoutStyles.productGrid} className="pos-product-grid pos-product-grid-mobile">

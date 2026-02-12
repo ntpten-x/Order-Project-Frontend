@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { Form, Input, Button, Card, message, Typography, Spin, Popconfirm, Switch, Modal } from 'antd';
@@ -16,6 +16,7 @@ import { userService } from "../../../../../services/users.service";
 import { branchService } from "../../../../../services/branch.service";
 import { Branch } from '../../../../../types/api/branch';
 import { useAuth } from "../../../../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../../../../hooks/useEffectivePermissions";
 import PageContainer from "../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../components/ui/page/PageSection";
 import UIPageHeader from "../../../../../components/ui/page/PageHeader";
@@ -25,8 +26,15 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   const router = useRouter();
   const [form] = Form.useForm();
   const { user } = useAuth();
-  const isAdmin = user?.role === "Admin";
-  const isManager = user?.role === "Manager";
+  const { can, rows, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+  const canViewUsers = can("users.page", "view");
+  const canCreateUsers = can("users.page", "create");
+  const canUpdateUsers = can("users.page", "update");
+  const canDeleteUsers = can("users.page", "delete");
+  const canManageRoles = can("roles.page", "view") || can("roles.page", "update");
+  const canManageBranches = can("branches.page", "view") || can("branches.page", "update");
+  const userPermission = rows.find((row) => row.resourceKey === "users.page");
+  const isBranchScopedUser = userPermission?.dataScope === "branch";
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [roles, setRoles] = useState<Role[]>([]);
@@ -45,6 +53,15 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   const userId = params.mode[1] || null;
   const isEdit = mode === 'edit' && !!userId;
   const isEditingSelf = isEdit && !!userId && userId === user?.id;
+  const canSubmit = isEdit ? canUpdateUsers : canCreateUsers;
+
+  useEffect(() => {
+    if (permissionLoading) return;
+    if (!canViewUsers || !canSubmit) {
+      message.error("You do not have permission to manage users.");
+      router.push("/users");
+    }
+  }, [canSubmit, canViewUsers, permissionLoading, router]);
 
   useEffect(() => {
     const fetchCsrf = async () => {
@@ -100,29 +117,50 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   }, [userId, form, router]);
 
   useEffect(() => {
-    if (isAdmin) {
+    if (canManageRoles) {
       fetchRoles();
+    }
+    if (canManageBranches) {
       fetchBranches();
     }
 
-    if (isManager && user?.branch_id) {
+    if (isBranchScopedUser && user?.branch_id) {
       form.setFieldValue('branch_id', user.branch_id);
     }
 
     if (isEdit) {
       fetchUser();
     }
-  }, [isEdit, userId, fetchRoles, fetchBranches, fetchUser, isAdmin, isManager, user?.branch_id, form]);
+  }, [
+    isEdit,
+    userId,
+    fetchRoles,
+    fetchBranches,
+    fetchUser,
+    isBranchScopedUser,
+    user?.branch_id,
+    form,
+    canManageRoles,
+    canManageBranches,
+  ]);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onFinish = async (values: any) => {
+    if (isEdit && !canUpdateUsers) {
+      message.error("You do not have permission to update users.");
+      return;
+    }
+    if (!isEdit && !canCreateUsers) {
+      message.error("You do not have permission to create users.");
+      return;
+    }
     setSubmitting(true);
     try {
       if (isEdit && userId) {
         // Edit Mode
         const payload = { ...values };
         if (!payload.password) delete payload.password;
-        if (isManager) {
+        if (isBranchScopedUser) {
           delete payload.roles_id;
           delete payload.branch_id;
           if (isEditingSelf) {
@@ -136,7 +174,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
       } else {
         // Create mode
         const payload = { ...values };
-        if (isManager) {
+        if (isBranchScopedUser) {
           delete payload.roles_id;
           delete payload.branch_id;
         }
@@ -154,6 +192,10 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
 
   const handleDelete = async () => {
     if (!userId) return;
+    if (!canDeleteUsers) {
+      message.error("You do not have permission to delete users.");
+      return;
+    }
     try {
       await userService.deleteUser(userId, undefined, csrfToken);
       message.success(t("users.manage.deleteSuccess"));
@@ -169,6 +211,18 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   const managerRoleLabel = "Employee";
   const managerBranchLabel =
     user?.branch ? `${user.branch.branch_name} (${user.branch.branch_code})` : (user?.branch_id || "-");
+
+  if (permissionLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <Spin size="large" />
+      </div>
+    );
+  }
+
+  if (!canViewUsers || !canSubmit) {
+    return null;
+  }
 
   return (
       <>
@@ -192,7 +246,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
             <Title level={2} style={{ margin: 0 }}>
                 {isEdit ? t("users.manage.headingEdit") : t("users.manage.headingCreate")}
             </Title>
-            {isEdit && (
+            {isEdit && canDeleteUsers && (
                 <Popconfirm
                     title={t("users.manage.deleteTitle")}
                     description={t("users.manage.deleteDescription")}
@@ -253,12 +307,12 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
               <Form.Item
                 name="roles_id"
                 label={t("users.manage.form.roleLabel")}
-                rules={[{ required: isAdmin, message: t("users.manage.form.roleRequired") }]}
+                rules={[{ required: canManageRoles, message: t("users.manage.form.roleRequired") }]}
               >
                 {/* Custom Select Trigger for Role */}
                 <div 
-                    className={`ant-input ant-input-lg flex items-center justify-between ${isAdmin ? 'cursor-pointer' : ''}`}
-                    onClick={() => isAdmin && setRoleModalVisible(true)}
+                    className={`ant-input ant-input-lg flex items-center justify-between ${canManageRoles ? 'cursor-pointer' : ''}`}
+                    onClick={() => canManageRoles && setRoleModalVisible(true)}
                     style={{ 
                         border: '1px solid #d9d9d9', 
                         borderRadius: 8,
@@ -267,7 +321,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
                     }}
                 >
                     <span className={currentRole ? 'text-black' : 'text-gray-400'}>
-                        {isAdmin ? (currentRole ? currentRole.display_name : t("users.manage.form.rolePlaceholder")) : managerRoleLabel}
+                        {canManageRoles ? (currentRole ? currentRole.display_name : t("users.manage.form.rolePlaceholder")) : managerRoleLabel}
                     </span>
                     <DownOutlined className="text-gray-400" />
                 </div>
@@ -276,12 +330,12 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
               <Form.Item
                 name="branch_id"
                 label={t("users.manage.form.branchLabel")}
-                rules={[{ required: isAdmin, message: t("users.manage.form.branchRequired") }]}
+                rules={[{ required: canManageBranches, message: t("users.manage.form.branchRequired") }]}
               >
                  {/* Custom Select Trigger for Branch */}
                  <div 
-                    className={`ant-input ant-input-lg flex items-center justify-between ${isAdmin ? 'cursor-pointer' : ''}`}
-                    onClick={() => isAdmin && setBranchModalVisible(true)}
+                    className={`ant-input ant-input-lg flex items-center justify-between ${canManageBranches ? 'cursor-pointer' : ''}`}
+                    onClick={() => canManageBranches && setBranchModalVisible(true)}
                     style={{ 
                         border: '1px solid #d9d9d9', 
                         borderRadius: 8,
@@ -290,14 +344,14 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
                     }}
                 >
                     <span className={currentBranch ? 'text-black' : 'text-gray-400'}>
-                        {isAdmin ? (currentBranch ? `${currentBranch.branch_name} (${currentBranch.branch_code})` : t("users.manage.form.branchPlaceholder")) : managerBranchLabel}
+                        {canManageBranches ? (currentBranch ? `${currentBranch.branch_name} (${currentBranch.branch_code})` : t("users.manage.form.branchPlaceholder")) : managerBranchLabel}
                     </span>
                     <DownOutlined className="text-gray-400" />
                 </div>
               </Form.Item>
 
               {/* Role Selection Modal */}
-              {isAdmin && (
+              {canManageRoles && (
               <Modal
                 title={t("users.manage.form.roleModalTitle")}
                 open={roleModalVisible}
@@ -327,7 +381,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
               )}
 
               {/* Branch Selection Modal */}
-              {isAdmin && (
+              {canManageBranches && (
               <Modal
                 title={t("users.manage.form.branchModalTitle")}
                 open={branchModalVisible}
@@ -356,7 +410,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
               </Modal>
               )}
 
-              {isEdit && (!isManager || !isEditingSelf) && (
+              {isEdit && canUpdateUsers && (!isBranchScopedUser || !isEditingSelf) && (
                 <div className="flex gap-8 mb-4">
                   <Form.Item
                     name="is_active"
@@ -384,6 +438,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
                   type="primary" 
                   htmlType="submit" 
                   size="large" 
+                  disabled={permissionLoading || !canSubmit}
                   loading={submitting}
                   icon={<SaveOutlined />}
                   className="bg-blue-600 hover:bg-blue-700"
@@ -404,3 +459,4 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
       </>
   );
 }
+

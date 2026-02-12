@@ -1,6 +1,6 @@
 import { SalesOrderItem } from "../../types/api/pos/salesOrderItem";
 import { getProxyUrl } from "../../lib/proxy-utils";
-import { getBackendErrorMessage, unwrapBackendData } from "../../utils/api/backendResponse";
+import { throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = "/pos/salesOrderItem";
 
@@ -22,7 +22,7 @@ export const salesOrderItemService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลรายการสินค้าได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลรายการสินค้าได้");
         }
         return unwrapBackendData(await response.json()) as SalesOrderItem[];
     },
@@ -37,7 +37,7 @@ export const salesOrderItemService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลรายการสินค้าได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลรายการสินค้าได้");
         }
         return unwrapBackendData(await response.json()) as SalesOrderItem;
     },
@@ -54,7 +54,7 @@ export const salesOrderItemService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถสร้างรายการสินค้าได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถสร้างรายการสินค้าได้");
         }
         return unwrapBackendData(await response.json()) as SalesOrderItem;
     },
@@ -71,7 +71,7 @@ export const salesOrderItemService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถแก้ไขรายการสินค้าได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถแก้ไขรายการสินค้าได้");
         }
         return unwrapBackendData(await response.json()) as SalesOrderItem;
     },
@@ -87,7 +87,7 @@ export const salesOrderItemService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถลบรายการสินค้าได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถลบรายการสินค้าได้");
         }
     }
 };

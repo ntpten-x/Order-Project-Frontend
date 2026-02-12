@@ -109,6 +109,9 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
                             }}
                         />
                     </Form.Item>
+                    <Text type="secondary" style={{ display: 'block', marginTop: -6, marginBottom: 12 }}>
+                        ระบบจะเทียบกับยอดคาดหวังจากเงินเริ่มต้น + ยอดชำระเงินสดของกะนี้
+                    </Text>
 
                     <div className="flex gap-4" style={{ display: 'flex', gap: 12, marginTop: 24 }}>
                         <Button 

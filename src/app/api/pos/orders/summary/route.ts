@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ordersService } from "../../../../../services/pos/orders.service";
+import { handleApiRouteError } from "../../../_utils/route-error";
 
 export async function GET(request: NextRequest) {
     try {
@@ -14,9 +15,6 @@ export async function GET(request: NextRequest) {
         const data = await ordersService.getAllSummary(cookie, page, limit, status, type, query);
         return NextResponse.json(data);
     } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to fetch orders summary" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }

@@ -179,7 +179,12 @@ export default function DeliverySelectionPage() {
 
         <PageContainer>
             {deliveryError ? (
-                <PageState status="error" title={t("page.error")} onRetry={() => refetchProviders()} />
+                <PageState
+                    status="error"
+                    title={t("page.error")}
+                    error={deliveryError}
+                    onRetry={() => refetchProviders()}
+                />
             ) : !isLoadingProviders && deliveryProviders.length === 0 ? (
                 <PageState status="empty" title={t("delivery.noProviders")} action={
                     <Button onClick={() => refetchProviders()}>{t("delivery.retry")}</Button>

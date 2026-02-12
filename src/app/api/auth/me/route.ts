@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authService } from "../../../../services/auth.service";
+import { handleApiRouteError } from "../../_utils/route-error";
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,6 @@ export async function GET(request: NextRequest) {
 
     } catch (error) {
         console.error("GetMe Route Error:", error);
-        return NextResponse.json({ message: "Internal Server Error" }, { status: 500 });
+        return handleApiRouteError(error);
     }
 }

@@ -210,7 +210,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
     const { socket } = useSocket();
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.md;
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager'] });
+    const { isAuthorized, isChecking } = useRoleGuard();
 
     const [form] = Form.useForm<PaymentAccountFormValues>();
     const [accounts, setAccounts] = useState<ShopPaymentAccount[]>([]);

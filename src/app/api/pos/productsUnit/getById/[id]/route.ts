@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { productsUnitService } from "../../../../../../services/pos/productsUnit.service";
+import { handleApiRouteError } from "../../../../_utils/route-error";
 
 export const dynamic = 'force-dynamic';
 
@@ -8,7 +9,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         const cookie = request.headers.get("cookie") || "";
         const productsUnit = await productsUnitService.findOne(params.id, cookie);
         return NextResponse.json(productsUnit);
-    } catch {
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    } catch (error) {
+        return handleApiRouteError(error);
     }
 }

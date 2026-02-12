@@ -17,13 +17,15 @@
     "test:e2e": "playwright test",
     "test:e2e:api": "playwright test --config playwright.api.config.ts",
     "test:e2e:deterministic": "node scripts/run-e2e-deterministic.mjs",
+    "security:check:api-route-guards": "node scripts/check-api-route-guards.mjs",
     "test:smoke:api": "jest --config jest.config.ts --runInBand src/__tests__/api/health.route.test.ts",
-    "test:smoke:api:all": "jest --config jest.config.ts --runInBand src/__tests__/api/health.route.test.ts src/__tests__/api/pos-orders-summary.route.test.ts src/__tests__/api/pos-dashboard-sales.route.test.ts",
+    "test:smoke:api:all": "jest --config jest.config.ts --runInBand src/__tests__/api/health.route.test.ts src/__tests__/api/pos-orders-summary.route.test.ts src/__tests__/api/pos-dashboard-sales.route.test.ts src/__tests__/api/permissions-users-update.route.test.ts src/__tests__/api/permissions-audits.route.test.ts src/__tests__/api/pos-products-delete.route.test.ts src/__tests__/api/route-error.util.test.ts",
     "test:smoke:resilience": "jest --config jest.config.ts --runInBand src/__tests__/services/orders.service.contract.test.ts src/__tests__/services/dashboard.service.contract.test.ts",
     "test:go-live:phase4": "npm --prefix ../Order-Project-Backend run test:go-live:phase4",
-    "test:go-live:phase5": "npm run lint && npm run test:smoke:api:all",
+    "test:go-live:phase5": "npm run lint && npm run security:check:api-route-guards && npm run test:smoke:api:all && npm run test:unit -- --runInBand src/__tests__/rbac/page-permission-map.test.ts",
     "test:go-live:phase6": "npm run test:smoke:resilience",
     "test:go-live:phase7": "node scripts/run-go-live-phase7.mjs",
+    "test:go-live:phase8": "node scripts/run-go-live-phase8.mjs",
     "test:go-live:phase7:signoff": "node scripts/run-go-live-phase7-signoff.mjs"
   },
   "dependencies": {

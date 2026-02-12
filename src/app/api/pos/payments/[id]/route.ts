@@ -1,5 +1,6 @@
 import { paymentsService } from "../../../../../services/pos/payments.service";
 import { NextRequest, NextResponse } from "next/server";
+import { handleApiRouteError } from "../../../_utils/route-error";
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         return NextResponse.json(payment);
     } catch (error: unknown) {
         console.error("API Error (GET ID):", error);
-        return NextResponse.json({ error: (error as Error).message || "Internal Server Error" }, { status: 500 });
+        return handleApiRouteError(error);
     }
 }
 
@@ -25,7 +26,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         return NextResponse.json(payment);
     } catch (error: unknown) {
         console.error("API Error (PUT):", error);
-        return NextResponse.json({ error: (error as Error).message || "Internal Server Error" }, { status: 500 });
+        return handleApiRouteError(error);
     }
 }
 
@@ -38,6 +39,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
         return NextResponse.json({ message: "Payment deleted successfully" });
     } catch (error: unknown) {
         console.error("API Error (DELETE):", error);
-        return NextResponse.json({ error: (error as Error).message || "Internal Server Error" }, { status: 500 });
+        return handleApiRouteError(error);
     }
 }

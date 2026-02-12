@@ -1,13 +1,17 @@
-import { Shift, ShiftHistoryQuery, ShiftHistoryResponse } from "../../types/api/pos/shifts";
+﻿import { Shift, ShiftHistoryQuery, ShiftHistoryResponse } from "../../types/api/pos/shifts";
 import { getCsrfTokenCached } from "../../utils/pos/csrf";
-import { unwrapBackendData } from "../../utils/api/backendResponse";
+import { throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
+
+const parsePayload = async (response: Response): Promise<unknown> => {
+    return response.json().catch(() => ({}));
+};
 
 export const shiftsService = {
     getCurrentShift: async (): Promise<Shift | null> => {
         const response = await fetch("/api/pos/shifts/current", {
             method: "GET",
             headers: { "Content-Type": "application/json" },
-            credentials: "include"
+            credentials: "include",
         });
 
         if (response.status === 404) {
@@ -15,10 +19,11 @@ export const shiftsService = {
         }
 
         if (!response.ok) {
-            throw new Error("Failed to fetch current shift");
+            const errorData = await parsePayload(response);
+            throwBackendHttpError(response, errorData, "Failed to fetch current shift");
         }
 
-        return unwrapBackendData(await response.json()) as Shift;
+        return unwrapBackendData(await parsePayload(response)) as Shift;
     },
 
     openShift: async (startAmount: number): Promise<Shift> => {
@@ -28,18 +33,18 @@ export const shiftsService = {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "X-CSRF-Token": csrfToken
+                "X-CSRF-Token": csrfToken,
             },
             credentials: "include",
-            body: JSON.stringify({ start_amount: startAmount })
+            body: JSON.stringify({ start_amount: startAmount }),
         });
 
         if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new Error(error?.error?.message || error.message || "Failed to open shift");
+            const errorData = await parsePayload(response);
+            throwBackendHttpError(response, errorData, "Failed to open shift");
         }
 
-        return unwrapBackendData(await response.json()) as Shift;
+        return unwrapBackendData(await parsePayload(response)) as Shift;
     },
 
     closeShift: async (endAmount: number): Promise<Shift> => {
@@ -49,46 +54,48 @@ export const shiftsService = {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
-                "X-CSRF-Token": csrfToken
+                "X-CSRF-Token": csrfToken,
             },
             credentials: "include",
-            body: JSON.stringify({ end_amount: endAmount })
+            body: JSON.stringify({ end_amount: endAmount }),
         });
 
         if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new Error(error?.error?.message || error.message || "Failed to close shift");
+            const errorData = await parsePayload(response);
+            throwBackendHttpError(response, errorData, "Failed to close shift");
         }
 
-        return unwrapBackendData(await response.json()) as Shift;
+        return unwrapBackendData(await parsePayload(response)) as Shift;
     },
 
     getCurrentSummary: async (): Promise<unknown> => {
         const response = await fetch("/api/pos/shifts/current/summary", {
             method: "GET",
             headers: { "Content-Type": "application/json" },
-            credentials: "include"
+            credentials: "include",
         });
 
         if (!response.ok) {
-            throw new Error("Failed to fetch shift summary");
+            const errorData = await parsePayload(response);
+            throwBackendHttpError(response, errorData, "Failed to fetch shift summary");
         }
 
-        return unwrapBackendData(await response.json());
+        return unwrapBackendData(await parsePayload(response));
     },
 
     getSummary: async (id: string): Promise<unknown> => {
         const response = await fetch(`/api/pos/shifts/summary/${id}`, {
             method: "GET",
             headers: { "Content-Type": "application/json" },
-            credentials: "include"
+            credentials: "include",
         });
 
         if (!response.ok) {
-            throw new Error("Failed to fetch shift summary");
+            const errorData = await parsePayload(response);
+            throwBackendHttpError(response, errorData, "Failed to fetch shift summary");
         }
 
-        return unwrapBackendData(await response.json());
+        return unwrapBackendData(await parsePayload(response));
     },
 
     getHistory: async (params: ShiftHistoryQuery = {}): Promise<ShiftHistoryResponse> => {
@@ -105,14 +112,14 @@ export const shiftsService = {
         const response = await fetch(`/api/pos/shifts/history${suffix ? `?${suffix}` : ""}`, {
             method: "GET",
             headers: { "Content-Type": "application/json" },
-            credentials: "include"
+            credentials: "include",
         });
 
         if (!response.ok) {
-            const error = await response.json().catch(() => ({}));
-            throw new Error(error?.error?.message || error?.error || error.message || "Failed to fetch shift history");
+            const errorData = await parsePayload(response);
+            throwBackendHttpError(response, errorData, "Failed to fetch shift history");
         }
 
-        return unwrapBackendData(await response.json()) as ShiftHistoryResponse;
-    }
+        return unwrapBackendData(await parsePayload(response)) as ShiftHistoryResponse;
+    },
 };

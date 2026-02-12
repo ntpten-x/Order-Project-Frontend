@@ -16,6 +16,7 @@ import { useGlobalLoading } from "../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../hooks/useSocket";
 import { useRealtimeList } from "../../../utils/pos/realtime";
 import { useAuth } from "../../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../../hooks/useEffectivePermissions";
 import { branchService } from "../../../services/branch.service";
 import { authService } from "../../../services/auth.service";
 import { getCsrfTokenCached } from '../../../utils/pos/csrf';
@@ -43,7 +44,9 @@ export default function BranchPage() {
   const { showLoading, hideLoading } = useGlobalLoading();
   const { socket } = useSocket();
   const { user, loading: authLoading } = useAuth();
-  const isAdmin = user?.role === "Admin";
+  const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+  const canViewBranches = can("branches.page", "view");
+  const canManageBranches = can("branches.page", "update");
   const { message, modal } = App.useApp();
   const { execute } = useAsyncAction();
 
@@ -76,30 +79,30 @@ export default function BranchPage() {
   }, [branches]);
 
   useEffect(() => {
-    if (!authLoading && user) {
-        if (!["Admin", "Manager"].includes(user.role)) {
-            message.error(t("branch.noPermission"));
-            router.push('/');
-            return;
-        }
-        fetchBranches();
+    if (!authLoading && !permissionLoading && user) {
+      if (!canViewBranches) {
+        message.error(t("branch.noPermission"));
+        router.push('/');
+        return;
+      }
+      fetchBranches();
     }
-  }, [user, authLoading, router, fetchBranches, message]);
+  }, [user, authLoading, permissionLoading, canViewBranches, router, fetchBranches, message]);
   
   const handleAdd = () => {
-    if (!isAdmin) return;
+    if (!canManageBranches) return;
     showLoading();
     router.push('/branch/manager/add');
     setTimeout(() => hideLoading(), 500);
   };
 
   const handleEdit = (branch: Branch) => {
-    if (!isAdmin) return;
+    if (!canManageBranches) return;
     router.push(`/branch/manager/edit/${branch.id}`);
   };
 
   const handleDelete = (branch: Branch) => {
-    if (!isAdmin) return;
+    if (!canManageBranches) return;
     modal.confirm({
         title: t("branch.delete.title"),
         content: t("branch.delete.content", { name: branch.branch_name }),
@@ -121,7 +124,7 @@ export default function BranchPage() {
   };
 
   const handleSwitchBranch = (branch: Branch) => {
-    if (!isAdmin) {
+    if (!canManageBranches) {
       message.error(t("branch.noPermission"));
       return;
     }
@@ -189,7 +192,7 @@ export default function BranchPage() {
         actions={
           <>
             <Button onClick={fetchBranches}>{t("branch.actions.refresh")}</Button>
-            {isAdmin && <Button type="primary" onClick={handleAdd}>{t("branch.actions.add")}</Button>}
+            {canManageBranches && <Button type="primary" onClick={handleAdd}>{t("branch.actions.add")}</Button>}
           </>
         }
       />
@@ -250,9 +253,9 @@ export default function BranchPage() {
                   >
                     <BranchCard
                       branch={branch}
-                      onEdit={isAdmin ? handleEdit : undefined}
-                      onDelete={isAdmin ? handleDelete : undefined}
-                      onSwitch={isAdmin ? handleSwitchBranch : undefined}
+                      onEdit={canManageBranches ? handleEdit : undefined}
+                      onDelete={canManageBranches ? handleDelete : undefined}
+                      onSwitch={canManageBranches ? handleSwitchBranch : undefined}
                     />
                   </div>
                 ))}

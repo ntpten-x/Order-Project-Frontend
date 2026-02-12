@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ordersService } from "../../../../../services/pos/orders.service";
+import { handleApiRouteError } from "../../../_utils/route-error";
 
 interface Params {
     params: {
@@ -14,10 +15,7 @@ export async function GET(request: NextRequest, { params }: Params) {
         const order = await ordersService.getById(params.id, cookie);
         return NextResponse.json(order);
     } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to fetch order" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }
 
@@ -31,10 +29,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
         const updatedOrder = await ordersService.update(params.id, body, cookie, csrfToken);
         return NextResponse.json(updatedOrder);
     } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to update order" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }
 
@@ -47,9 +42,6 @@ export async function DELETE(request: NextRequest, { params }: Params) {
         await ordersService.delete(params.id, cookie, csrfToken);
         return NextResponse.json({ success: true });
     } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to delete order" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }

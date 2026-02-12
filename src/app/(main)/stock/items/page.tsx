@@ -46,13 +46,15 @@ import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import PageState from "../../../../components/ui/states/PageState";
 import { LegacyRealtimeEvents, RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { t } from "../../../../utils/i18n";
+import { throwBackendHttpError } from "../../../../utils/api/backendResponse";
+import { resolveHttpErrorMessage } from "../../../../utils/ui/httpError";
 
 const { Text } = Typography;
 
 export default function ItemsPage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [error, setError] = useState<unknown>(null);
   const { socket } = useSocket();
   const router = useRouter();
   const { user } = useAuth();
@@ -68,14 +70,15 @@ export default function ItemsPage() {
         headers: { 'Content-Type': 'application/json' } 
       });
       if (!response.ok) {
-        throw new Error("Failed to fetch orders");
+        const payload = await response.json().catch(() => ({}));
+        throwBackendHttpError(response, payload, "Failed to fetch orders");
       }
       const data = await response.json();
       // Handle paginated response format: { data: [...], total, page, limit }
       setOrders(Array.isArray(data) ? data : (data.data || []));
-    } catch {
-      setError(t("stock.error"));
-      message.error(t("stock.error"));
+    } catch (caughtError) {
+      setError(caughtError);
+      message.error(resolveHttpErrorMessage(caughtError) || t("stock.error"));
     } finally {
       setLoading(false);
     }
@@ -551,7 +554,12 @@ export default function ItemsPage() {
               {loading ? (
                 <LoadingSkeleton />
               ) : error ? (
-                <PageState status="error" title={error} onRetry={fetchOrders} />
+                <PageState
+                  status="error"
+                  title={t("stock.error")}
+                  error={error}
+                  onRetry={fetchOrders}
+                />
               ) : orders.length === 0 ? (
                 <PageState
                   status="empty"
@@ -642,7 +650,6 @@ export default function ItemsPage() {
     </div>
   );
 }
-
 
 
 

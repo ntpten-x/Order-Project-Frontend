@@ -1,7 +1,7 @@
 import { Discounts } from "../../types/api/pos/discounts";
 import { getProxyUrl } from "../../lib/proxy-utils";
 import { API_ROUTES } from "../../config/api";
-import { getBackendErrorMessage, unwrapBackendData } from "../../utils/api/backendResponse";
+import { throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = API_ROUTES.POS.DISCOUNTS;
 
@@ -28,7 +28,7 @@ export const discountsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลส่วนลดได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลส่วนลดได้");
         }
         const json = await response.json();
 
@@ -78,7 +78,7 @@ export const discountsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลส่วนลดได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลส่วนลดได้");
         }
         return unwrapBackendData(await response.json()) as Discounts;
     },
@@ -94,7 +94,7 @@ export const discountsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลส่วนลดได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลส่วนลดได้");
         }
         return unwrapBackendData(await response.json()) as Discounts;
     },
@@ -112,7 +112,7 @@ export const discountsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถสร้างส่วนลดได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถสร้างส่วนลดได้");
         }
         return unwrapBackendData(await response.json()) as Discounts;
     },
@@ -130,7 +130,7 @@ export const discountsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถแก้ไขส่วนลดได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถแก้ไขส่วนลดได้");
         }
         return unwrapBackendData(await response.json()) as Discounts;
     },
@@ -147,7 +147,7 @@ export const discountsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถลบส่วนลดได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถลบส่วนลดได้");
         }
     }
 };

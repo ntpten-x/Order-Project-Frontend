@@ -114,7 +114,7 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
     const id = params.mode?.[1] || null;
     const isValidMode = mode === 'add' || mode === 'edit';
     const isEdit = mode === 'edit' && Boolean(id);
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager'] });
+    const { isAuthorized, isChecking } = useRoleGuard();
 
     const modeTitle = useMemo(() => {
         if (isEdit) return 'แก้ไขหน่วยสินค้า';

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProxyUrl } from "../../../../../../lib/proxy-utils";
+import { handleApiRouteError } from "../../../../_utils/route-error";
 
 export const dynamic = "force-dynamic";
 
@@ -20,13 +21,13 @@ export async function GET(
             cache: "no-store",
         });
 
+        const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
-            return NextResponse.json({ error: "Failed to fetch shift summary" }, { status: response.status });
+            return NextResponse.json(payload, { status: response.status });
         }
 
-        const data = await response.json();
-        return NextResponse.json(data);
-    } catch {
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+        return NextResponse.json(payload);
+    } catch (error) {
+        return handleApiRouteError(error);
     }
 }

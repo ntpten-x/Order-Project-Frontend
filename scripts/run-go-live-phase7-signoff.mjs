@@ -14,11 +14,13 @@ const allSteps = [
   { id: "P5", name: "Phase 5 Frontend lint + API smoke", cmd: "npm run test:go-live:phase5" },
   { id: "P6", name: "Phase 6 Frontend resilience", cmd: "npm run test:go-live:phase6" },
   { id: "P7", name: "Phase 7 Operational sign-off", cmd: "npm run test:go-live:phase7" },
+  { id: "P8", name: "Phase 8 Permission matrix e2e", cmd: "npm run test:go-live:phase8" },
 ];
 
 function pickSteps() {
   const scope = (process.env.SIGNOFF_SCOPE || "full").toLowerCase();
   if (scope === "phase7") return allSteps.filter((s) => s.id === "P7");
+  if (scope === "phase8") return allSteps.filter((s) => s.id === "P8");
   if (scope === "quick") return allSteps.filter((s) => ["P4", "P5", "P6", "P7"].includes(s.id));
   return allSteps;
 }

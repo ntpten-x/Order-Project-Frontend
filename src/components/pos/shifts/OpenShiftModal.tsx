@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Modal, InputNumber, Button, Typography, Form } from 'antd';
 import { useShift } from '../../../contexts/pos/ShiftContext';
 import { DollarOutlined } from '@ant-design/icons';
 import { usePathname } from 'next/navigation';
+import { useEffectivePermissions } from '../../../hooks/useEffectivePermissions';
 
 
 const { Title, Text } = Typography;
@@ -16,19 +17,44 @@ interface OpenShiftModalProps {
 
 export default function OpenShiftModal({ open, onCancel }: OpenShiftModalProps = {}) {
     const { currentShift, loading, openShift } = useShift();
+    const { can, loading: permissionLoading } = useEffectivePermissions();
     const [submitting, setSubmitting] = useState(false);
+    const [dismissedGlobal, setDismissedGlobal] = useState(false);
     const [form] = Form.useForm();
     const pathname = usePathname();
+    const canCreateShift = can("shifts.page", "create");
+
+    useEffect(() => {
+        if (currentShift) {
+            setDismissedGlobal(false);
+        }
+    }, [currentShift]);
 
     // Visibility controlled by parent OR auto-check if global
-    const isVisible = open !== undefined 
-        ? open 
-        : (!loading && !currentShift && pathname !== '/pos/shift');
+    const isControlled = open !== undefined;
+    const isVisible = isControlled
+        ? Boolean(open) && canCreateShift
+        : (!loading &&
+            !permissionLoading &&
+            canCreateShift &&
+            !dismissedGlobal &&
+            !currentShift &&
+            pathname !== "/pos/shift");
+
+    const handleCancel = () => {
+        if (isControlled) {
+            onCancel?.();
+            return;
+        }
+        setDismissedGlobal(true);
+    };
 
     const handleOpenShift = async (values: { startAmount: number }) => {
         setSubmitting(true);
         try {
             await openShift(values.startAmount);
+            form.resetFields();
+            handleCancel();
         } catch {
             // Error handled in context
         } finally {
@@ -36,16 +62,17 @@ export default function OpenShiftModal({ open, onCancel }: OpenShiftModalProps =
         }
     };
 
-    if (loading) return null; // Or return a spinner overlay?
+    if (loading || permissionLoading) return null;
+    if (!canCreateShift) return null;
 
     return (
         <Modal
             open={isVisible}
-            onCancel={onCancel}
+            onCancel={handleCancel}
             title={null}
             centered
-            closable={false}
-            maskClosable={false}
+            closable
+            maskClosable
             footer={null}
             width={400}
             className="soft-modal"
@@ -102,6 +129,20 @@ export default function OpenShiftModal({ open, onCancel }: OpenShiftModalProps =
                     </Form.Item>
 
                     <Button 
+                        onClick={handleCancel}
+                        block
+                        size="large"
+                        disabled={submitting}
+                        style={{
+                            height: 48,
+                            borderRadius: 16,
+                            fontWeight: 600
+                        }}
+                    >
+                        Cancel
+                    </Button>
+
+                    <Button 
                         type="primary" 
                         htmlType="submit" 
                         block 
@@ -115,7 +156,7 @@ export default function OpenShiftModal({ open, onCancel }: OpenShiftModalProps =
                             background: '#10b981',
                             boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
                             border: 'none',
-                            marginTop: 16
+                            marginTop: 12
                         }}
                     >
                         ยืนยันเปิดกะ

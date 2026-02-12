@@ -91,12 +91,7 @@ export default function BuyingPage() {
             router.push("/login");
             return;
         }
-        if (user.role !== "Admin" && user.role !== "Manager") {
-            message.error("คุณไม่มีสิทธิ์เข้าถึงหน้านี้");
-            router.push("/items");
-            return;
-        }
-        if (orderId) {
+if (orderId) {
             fetchOrder();
         }
     }, [orderId, user, fetchOrder, router]);

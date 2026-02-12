@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { userService } from "../../../services/users.service";
+import { handleApiRouteError } from "../_utils/route-error";
 
 export async function GET(req: NextRequest) {
     try {
@@ -8,10 +9,7 @@ export async function GET(req: NextRequest) {
         const data = await userService.getAllUsers(cookie, searchParams);
         return NextResponse.json(data);
     } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to fetch users" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }
 
@@ -24,9 +22,6 @@ export async function POST(req: NextRequest) {
         const data = await userService.createUser(body, cookie, csrfToken);
         return NextResponse.json(data);
     } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to create user" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProxyUrl } from "../../../../../lib/proxy-utils";
+import { handleApiRouteError } from "../../../_utils/route-error";
 
 export async function GET(request: NextRequest) {
     try {
@@ -23,7 +24,7 @@ export async function GET(request: NextRequest) {
 
         const data = await response.json();
         return NextResponse.json(data);
-    } catch {
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    } catch (error) {
+        return handleApiRouteError(error);
     }
 }

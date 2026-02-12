@@ -14,6 +14,7 @@ import {
 } from "@ant-design/icons";
 
 import { useAuth } from "../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../hooks/useEffectivePermissions";
 import { useSocket } from "../../hooks/useSocket";
 import { ordersService } from "../../services/stock/orders.service";
 import FloatingBottomNav from "../navigation/FloatingBottomNav";
@@ -23,6 +24,7 @@ const StockBottomNavigation = () => {
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuth();
+  const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
   const [pendingCount, setPendingCount] = useState(0);
   const [moreOpen, setMoreOpen] = useState(false);
   const { socket } = useSocket();
@@ -80,7 +82,7 @@ const StockBottomNavigation = () => {
       path: "/stock/items",
     },
     { key: "history", label: "ประวัติ", icon: <HistoryOutlined />, path: "/stock/history" },
-    ...((user?.role === "Admin" || user?.role === "Manager")
+    ...(can("stock.ingredients.page", "view")
       ? [
           {
             key: "ingredients",
@@ -88,6 +90,10 @@ const StockBottomNavigation = () => {
             icon: <UnorderedListOutlined />,
             path: "/stock/ingredients",
           },
+        ]
+      : []),
+    ...(can("stock.ingredients_unit.page", "view")
+      ? [
           {
             key: "ingredientsUnit",
             label: "หน่วย",
