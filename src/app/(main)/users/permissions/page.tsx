@@ -14,7 +14,6 @@ import {
     Progress,
     Row,
     Segmented,
-    Select,
     Space,
     Switch,
     Table,
@@ -241,7 +240,7 @@ function permissionFieldLabel(field: string) {
 interface ModalSelectorProps {
     value?: string | number;
     options: { label: React.ReactNode; value: string | number }[];
-    onChange: (value: any) => void;
+    onChange: (value: string | number) => void;
     title: string;
     placeholder?: string;
     style?: React.CSSProperties;
