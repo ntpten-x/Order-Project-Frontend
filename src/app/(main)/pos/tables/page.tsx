@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { message, Modal, Typography, Button, Input, Space, Segmented, Tag, Switch } from 'antd';
 import {
     TableOutlined,
@@ -12,7 +12,7 @@ import {
     CheckCircleFilled
 } from '@ant-design/icons';
 import { Tables, TableStatus } from '../../../../types/api/pos/tables';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useAsyncAction } from '../../../../hooks/useAsyncAction';
 import { useSocket } from '../../../../hooks/useSocket';
@@ -28,6 +28,7 @@ import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
+import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 
 const { Text } = Typography;
 
@@ -204,11 +205,15 @@ const TableCard = ({ table, onEdit, onDelete, onToggleActive, updatingStatusId }
 
 export default function TablesPage() {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const isUrlReadyRef = useRef(false);
     const [tables, setTables] = useState<Tables[]>([]);
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
     const [tableStateFilter, setTableStateFilter] = useState<TableStateFilter>('all');
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+    const debouncedSearch = useDebouncedValue(searchText, 300);
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
@@ -217,6 +222,38 @@ export default function TablesPage() {
     useEffect(() => {
         getCsrfTokenCached();
     }, []);
+
+    useEffect(() => {
+        if (isUrlReadyRef.current) return;
+
+        const qParam = searchParams.get('q') || '';
+        const statusParam = searchParams.get('status');
+        const tableStateParam = searchParams.get('table_state');
+
+        const nextStatus: StatusFilter =
+            statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all';
+        const nextTableState: TableStateFilter =
+            tableStateParam === TableStatus.Available || tableStateParam === TableStatus.Unavailable
+                ? tableStateParam
+                : 'all';
+
+        setSearchText(qParam);
+        setStatusFilter(nextStatus);
+        setTableStateFilter(nextTableState);
+        isUrlReadyRef.current = true;
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!isUrlReadyRef.current) return;
+
+        const params = new URLSearchParams();
+        if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+        if (statusFilter !== 'all') params.set('status', statusFilter);
+        if (tableStateFilter !== 'all') params.set('table_state', tableStateFilter);
+
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }, [router, pathname, debouncedSearch, statusFilter, tableStateFilter]);
 
     useEffect(() => {
         const cached = readCache<Tables[]>('pos:tables', 5 * 60 * 1000);
@@ -270,7 +307,7 @@ export default function TablesPage() {
             result = result.filter((item) => item.status === tableStateFilter);
         }
 
-        const keyword = searchText.trim().toLowerCase();
+        const keyword = debouncedSearch.trim().toLowerCase();
         if (keyword) {
             result = result.filter((item) =>
                 item.table_name.toLowerCase().includes(keyword) ||
@@ -279,7 +316,7 @@ export default function TablesPage() {
         }
 
         return result;
-    }, [tables, searchText, statusFilter, tableStateFilter]);
+    }, [tables, debouncedSearch, statusFilter, tableStateFilter]);
 
     const handleAdd = () => {
         showLoading('กำลังเปิดหน้าจัดการโต๊ะ...');
@@ -437,17 +474,17 @@ export default function TablesPage() {
                         ) : (
                             <UIEmptyState
                                 title={
-                                    searchText.trim()
+                                    debouncedSearch.trim()
                                         ? 'ไม่พบโต๊ะตามคำค้น'
                                         : 'ยังไม่มีโต๊ะในระบบ'
                                 }
                                 description={
-                                    searchText.trim()
+                                    debouncedSearch.trim()
                                         ? 'ลองเปลี่ยนคำค้น หรือตัวกรองสถานะ'
                                         : 'เพิ่มโต๊ะแรกเพื่อเริ่มใช้งาน'
                                 }
                                 action={
-                                    !searchText.trim() ? (
+                                    !debouncedSearch.trim() ? (
                                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                                             เพิ่มโต๊ะ
                                         </Button>

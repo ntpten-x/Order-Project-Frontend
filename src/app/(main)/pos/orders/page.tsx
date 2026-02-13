@@ -2,7 +2,7 @@
 
 import { useOrderListPrefetching } from "../../../../hooks/pos/usePrefetching";
 
-import React, { useEffect, useMemo, useState, useCallback } from "react";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import { Typography, Button, Grid, Input, Skeleton } from "antd";
 import { 
   ReloadOutlined, 
@@ -16,7 +16,7 @@ import {
   FireOutlined,
   WalletOutlined,
 } from "@ant-design/icons";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SalesOrder, OrderStatus, OrderType } from "../../../../types/api/pos/salesOrder";
 import { ItemStatus } from "../../../../types/api/pos/salesOrderItem";
 import { 
@@ -152,8 +152,11 @@ const responsiveCSS = `
 
 export default function POSOrdersPage() {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const screens = useBreakpoint();
     const isMobile = !screens.md;
+    const isUrlReadyRef = useRef(false);
     
     useOrderListPrefetching();
 
@@ -167,8 +170,30 @@ export default function POSOrdersPage() {
     const currentTabConfig = STATUS_TABS.find(t => t.key === activeTab)!;
 
     useEffect(() => {
-        setPage(1);
-    }, [debouncedSearch, activeTab]);
+        if (isUrlReadyRef.current) return;
+        const pageParam = Number(searchParams.get("page") || "1");
+        const qParam = searchParams.get("q") || "";
+        const tabParam = searchParams.get("tab");
+        const nextTab: StatusTab =
+            tabParam === "in-progress" || tabParam === "waiting-payment" ? tabParam : "all";
+
+        setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
+        setSearchValue(qParam);
+        setShowSearch(Boolean(qParam.trim()));
+        setActiveTab(nextTab);
+        isUrlReadyRef.current = true;
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!isUrlReadyRef.current) return;
+        const params = new URLSearchParams();
+        if (page > 1) params.set("page", String(page));
+        if (debouncedSearch) params.set("q", debouncedSearch);
+        if (activeTab !== "all") params.set("tab", activeTab);
+
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }, [router, pathname, page, debouncedSearch, activeTab]);
 
     const { orders, total, isLoading, isFetching, isError, refetch } = useOrders({
         page,
@@ -324,7 +349,10 @@ export default function POSOrdersPage() {
                             prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
                             placeholder="ค้นหาเลขที่ออเดอร์ โต๊ะ หรือรหัสอ้างอิง..."
                             value={searchValue}
-                            onChange={(e) => setSearchValue(e.target.value)}
+                            onChange={(e) => {
+                                setPage(1);
+                                setSearchValue(e.target.value);
+                            }}
                             variant="borderless"
                             style={{ fontSize: 15 }}
                         />
@@ -353,7 +381,10 @@ export default function POSOrdersPage() {
                             <button
                                 key={tab.key}
                                 className="orders-tab-btn"
-                                onClick={() => setActiveTab(tab.key)}
+                                onClick={() => {
+                                    setPage(1);
+                                    setActiveTab(tab.key);
+                                }}
                                 style={{
                                     display: 'flex',
                                     alignItems: 'center',

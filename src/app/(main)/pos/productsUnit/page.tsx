@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { message, Modal, Typography, Button, Input, Space, Segmented, Tag, Switch } from 'antd';
 import {
     UnorderedListOutlined,
@@ -11,7 +11,7 @@ import {
     SearchOutlined
 } from '@ant-design/icons';
 import { ProductsUnit } from '../../../../types/api/pos/productsUnit';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useAsyncAction } from '../../../../hooks/useAsyncAction';
 import { useSocket } from '../../../../hooks/useSocket';
@@ -27,6 +27,8 @@ import PageSection from '../../../../components/ui/page/PageSection';
 import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
+import ListPagination from '../../../../components/ui/pagination/ListPagination';
+import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 
 const { Text } = Typography;
 
@@ -186,10 +188,17 @@ const UnitCard = ({ unit, onEdit, onDelete, onToggleActive, updatingStatusId }: 
 
 export default function ProductsUnitPage() {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const isUrlReadyRef = useRef(false);
     const [units, setUnits] = useState<ProductsUnit[]>([]);
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(20);
+    const [totalUnits, setTotalUnits] = useState(0);
+    const debouncedSearch = useDebouncedValue(searchText, 300);
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
@@ -206,25 +215,57 @@ export default function ProductsUnitPage() {
         }
     }, []);
 
-    const fetchUnits = useCallback(async () => {
+    useEffect(() => {
+        if (isUrlReadyRef.current) return;
+        const pageParam = parseInt(searchParams.get('page') || '1', 10);
+        const limitParam = parseInt(searchParams.get('limit') || '20', 10);
+        const qParam = searchParams.get('q') || '';
+        const statusParam = searchParams.get('status');
+        setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
+        setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 20);
+        setSearchText(qParam);
+        setStatusFilter(statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all');
+        isUrlReadyRef.current = true;
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!isUrlReadyRef.current) return;
+        const params = new URLSearchParams();
+        params.set('page', String(page));
+        params.set('limit', String(pageSize));
+        if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+        if (statusFilter !== 'all') params.set('status', statusFilter);
+        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter]);
+
+    const fetchUnits = useCallback(async (nextPage: number = page, nextPageSize: number = pageSize) => {
         execute(async () => {
-            const response = await fetch('/api/pos/productsUnit');
+            const params = new URLSearchParams();
+            params.set('page', String(nextPage));
+            params.set('limit', String(nextPageSize));
+            if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+            if (statusFilter !== 'all') params.set('status', statusFilter);
+            const response = await fetch(`/api/pos/productsUnit?${params.toString()}`);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลหน่วยสินค้าได้');
             }
             const payload = await response.json();
-            const data = Array.isArray(payload) ? payload : payload?.data;
+            const data = Array.isArray(payload?.data) ? payload.data : [];
             if (!Array.isArray(data)) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
             setUnits(data);
+            setTotalUnits(typeof payload?.total === 'number' ? payload.total : 0);
+            setPage(typeof payload?.page === 'number' ? payload.page : nextPage);
+            setPageSize(nextPageSize);
         }, 'กำลังโหลดข้อมูลหน่วยสินค้า...');
-    }, [execute]);
+    }, [execute, page, pageSize, debouncedSearch, statusFilter]);
 
     useEffect(() => {
+        if (!isUrlReadyRef.current) return;
         if (isAuthorized) {
             fetchUnits();
         }
-    }, [isAuthorized, fetchUnits]);
+    }, [isAuthorized, fetchUnits, page, pageSize]);
 
     useRealtimeList(
         socket,
@@ -232,25 +273,7 @@ export default function ProductsUnitPage() {
         setUnits
     );
 
-    const filteredUnits = useMemo(() => {
-        let result = units;
-
-        if (statusFilter === 'active') {
-            result = result.filter((item) => item.is_active);
-        } else if (statusFilter === 'inactive') {
-            result = result.filter((item) => !item.is_active);
-        }
-
-        const keyword = searchText.trim().toLowerCase();
-        if (keyword) {
-            result = result.filter((item) =>
-                item.display_name.toLowerCase().includes(keyword) ||
-                item.unit_name.toLowerCase().includes(keyword)
-            );
-        }
-
-        return result;
-    }, [units, searchText, statusFilter]);
+    const filteredUnits = useMemo(() => units, [units]);
 
     useEffect(() => {
         if (units.length > 0) {
@@ -289,7 +312,7 @@ export default function ProductsUnitPage() {
                     if (!response.ok) {
                         throw new Error('ไม่สามารถลบหน่วยสินค้าได้');
                     }
-                    setUnits((prev) => prev.filter((item) => item.id !== unit.id));
+                    await fetchUnits(page, pageSize);
                     message.success(`ลบหน่วย "${unit.display_name}" สำเร็จ`);
                 }, 'กำลังลบหน่วยสินค้า...');
             },
@@ -314,8 +337,7 @@ export default function ProductsUnitPage() {
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถเปลี่ยนสถานะหน่วยสินค้าได้');
             }
 
-            const updated = await response.json();
-            setUnits((prev) => prev.map((item) => item.id === unit.id ? updated : item));
+            await fetchUnits(page, pageSize);
             message.success(next ? 'เปิดใช้งานหน่วยสินค้าแล้ว' : 'ปิดใช้งานหน่วยสินค้าแล้ว');
         } catch (error) {
             console.error(error);
@@ -342,7 +364,7 @@ export default function ProductsUnitPage() {
 
             <UIPageHeader
                 title="หน่วยสินค้า"
-                subtitle={`ทั้งหมด ${units.length} รายการ`}
+                subtitle={`ทั้งหมด ${totalUnits} รายการ`}
                 icon={<UnorderedListOutlined />}
                 actions={
                     <Space size={8} wrap>
@@ -357,7 +379,7 @@ export default function ProductsUnitPage() {
             <PageContainer>
                 <PageStack>
                     <StatsCard
-                        totalUnits={units.length}
+                        totalUnits={totalUnits}
                         activeUnits={activeUnits.length}
                         inactiveUnits={inactiveUnits.length}
                     />
@@ -369,7 +391,10 @@ export default function ProductsUnitPage() {
                                 allowClear
                                 placeholder="ค้นหาจากชื่อแสดงหรือชื่อระบบ..."
                                 value={searchText}
-                                onChange={(e) => setSearchText(e.target.value)}
+                                onChange={(e) => {
+                                    setPage(1);
+                                    setSearchText(e.target.value);
+                                }}
                             />
                             <Segmented<StatusFilter>
                                 options={[
@@ -378,7 +403,10 @@ export default function ProductsUnitPage() {
                                     { label: `ปิดใช้งาน (${inactiveUnits.length})`, value: 'inactive' }
                                 ]}
                                 value={statusFilter}
-                                onChange={(value) => setStatusFilter(value)}
+                                onChange={(value) => {
+                                    setPage(1);
+                                    setStatusFilter(value);
+                                }}
                             />
                         </div>
                     </PageSection>
@@ -419,6 +447,16 @@ export default function ProductsUnitPage() {
                                 }
                             />
                         )}
+                        <ListPagination
+                            page={page}
+                            pageSize={pageSize}
+                            total={totalUnits}
+                            onPageChange={setPage}
+                            onPageSizeChange={(size) => {
+                                setPage(1);
+                                setPageSize(size);
+                            }}
+                        />
                     </PageSection>
                 </PageStack>
             </PageContainer>

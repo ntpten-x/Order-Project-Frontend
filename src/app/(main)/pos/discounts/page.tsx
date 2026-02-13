@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { message, Modal, Typography, Button, Input, Space, Segmented, Tag, Switch } from 'antd';
 import {
     PercentageOutlined,
@@ -12,7 +12,7 @@ import {
     DollarOutlined
 } from '@ant-design/icons';
 import { Discounts, DiscountType } from '../../../../types/api/pos/discounts';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useAsyncAction } from '../../../../hooks/useAsyncAction';
 import { useSocket } from '../../../../hooks/useSocket';
@@ -28,6 +28,8 @@ import PageSection from '../../../../components/ui/page/PageSection';
 import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
+import ListPagination from '../../../../components/ui/pagination/ListPagination';
+import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 
 const { Text } = Typography;
 
@@ -214,11 +216,18 @@ const DiscountCard = ({ discount, onEdit, onDelete, onToggleActive, updatingStat
 
 export default function DiscountsPage() {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const isUrlReadyRef = useRef(false);
     const [discounts, setDiscounts] = useState<Discounts[]>([]);
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
     const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(20);
+    const [totalDiscounts, setTotalDiscounts] = useState(0);
+    const debouncedSearch = useDebouncedValue(searchText, 300);
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
@@ -235,25 +244,61 @@ export default function DiscountsPage() {
         }
     }, []);
 
-    const fetchDiscounts = useCallback(async () => {
+    useEffect(() => {
+        if (isUrlReadyRef.current) return;
+        const pageParam = parseInt(searchParams.get('page') || '1', 10);
+        const limitParam = parseInt(searchParams.get('limit') || '20', 10);
+        const qParam = searchParams.get('q') || '';
+        const statusParam = searchParams.get('status');
+        const typeParam = searchParams.get('type');
+        setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
+        setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 20);
+        setSearchText(qParam);
+        setStatusFilter(statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all');
+        setTypeFilter(typeParam === DiscountType.Fixed || typeParam === DiscountType.Percentage ? typeParam : 'all');
+        isUrlReadyRef.current = true;
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!isUrlReadyRef.current) return;
+        const params = new URLSearchParams();
+        params.set('page', String(page));
+        params.set('limit', String(pageSize));
+        if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+        if (statusFilter !== 'all') params.set('status', statusFilter);
+        if (typeFilter !== 'all') params.set('type', typeFilter);
+        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter, typeFilter]);
+
+    const fetchDiscounts = useCallback(async (nextPage: number = page, nextPageSize: number = pageSize) => {
         execute(async () => {
-            const response = await fetch('/api/pos/discounts');
+            const params = new URLSearchParams();
+            params.set('page', String(nextPage));
+            params.set('limit', String(nextPageSize));
+            if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+            if (statusFilter !== 'all') params.set('status', statusFilter);
+            if (typeFilter !== 'all') params.set('type', typeFilter);
+            const response = await fetch(`/api/pos/discounts?${params.toString()}`);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลส่วนลดได้');
             }
             const payload = await response.json();
-            const data = Array.isArray(payload) ? payload : payload?.data;
+            const data = Array.isArray(payload?.data) ? payload.data : [];
             if (!Array.isArray(data)) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
             setDiscounts(data);
+            setTotalDiscounts(typeof payload?.total === 'number' ? payload.total : 0);
+            setPage(typeof payload?.page === 'number' ? payload.page : nextPage);
+            setPageSize(nextPageSize);
         }, 'กำลังโหลดข้อมูลส่วนลด...');
-    }, [execute]);
+    }, [execute, page, pageSize, debouncedSearch, statusFilter, typeFilter]);
 
     useEffect(() => {
+        if (!isUrlReadyRef.current) return;
         if (isAuthorized) {
             fetchDiscounts();
         }
-    }, [isAuthorized, fetchDiscounts]);
+    }, [isAuthorized, fetchDiscounts, page, pageSize]);
 
     useRealtimeList(
         socket,
@@ -267,30 +312,7 @@ export default function DiscountsPage() {
         }
     }, [discounts]);
 
-    const filteredDiscounts = useMemo(() => {
-        let result = discounts;
-
-        if (statusFilter === 'active') {
-            result = result.filter((item) => item.is_active);
-        } else if (statusFilter === 'inactive') {
-            result = result.filter((item) => !item.is_active);
-        }
-
-        if (typeFilter !== 'all') {
-            result = result.filter((item) => item.discount_type === typeFilter);
-        }
-
-        const keyword = searchText.trim().toLowerCase();
-        if (keyword) {
-            result = result.filter((item) =>
-                item.display_name.toLowerCase().includes(keyword) ||
-                item.discount_name.toLowerCase().includes(keyword) ||
-                (item.description || '').toLowerCase().includes(keyword)
-            );
-        }
-
-        return result;
-    }, [discounts, searchText, statusFilter, typeFilter]);
+    const filteredDiscounts = useMemo(() => discounts, [discounts]);
 
     const handleAdd = () => {
         showLoading('กำลังเปิดหน้าจัดการส่วนลด...');
@@ -323,7 +345,7 @@ export default function DiscountsPage() {
                     if (!response.ok) {
                         throw new Error('ไม่สามารถลบส่วนลดได้');
                     }
-                    setDiscounts((prev) => prev.filter((item) => item.id !== discount.id));
+                    await fetchDiscounts(page, pageSize);
                     message.success(`ลบส่วนลด "${discount.display_name}" สำเร็จ`);
                 }, 'กำลังลบส่วนลด...');
             },
@@ -348,8 +370,7 @@ export default function DiscountsPage() {
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถเปลี่ยนสถานะส่วนลดได้');
             }
 
-            const updated = await response.json();
-            setDiscounts((prev) => prev.map((item) => item.id === discount.id ? updated : item));
+            await fetchDiscounts(page, pageSize);
             message.success(next ? 'เปิดใช้งานส่วนลดแล้ว' : 'ปิดใช้งานส่วนลดแล้ว');
         } catch (error) {
             console.error(error);
@@ -378,7 +399,7 @@ export default function DiscountsPage() {
 
             <UIPageHeader
                 title="ส่วนลด"
-                subtitle={`ทั้งหมด ${discounts.length} รายการ`}
+                subtitle={`ทั้งหมด ${totalDiscounts} รายการ`}
                 icon={<PercentageOutlined />}
                 actions={
                     <Space size={8} wrap>
@@ -393,7 +414,7 @@ export default function DiscountsPage() {
             <PageContainer>
                 <PageStack>
                     <StatsCard
-                        total={discounts.length}
+                        total={totalDiscounts}
                         active={activeCount}
                         inactive={inactiveCount}
                         fixed={fixedCount}
@@ -407,7 +428,10 @@ export default function DiscountsPage() {
                                 allowClear
                                 placeholder="ค้นหาจากชื่อแสดง ชื่อระบบ หรือคำอธิบาย..."
                                 value={searchText}
-                                onChange={(e) => setSearchText(e.target.value)}
+                                onChange={(e) => {
+                                    setPage(1);
+                                    setSearchText(e.target.value);
+                                }}
                             />
                             <Segmented<StatusFilter>
                                 options={[
@@ -416,7 +440,10 @@ export default function DiscountsPage() {
                                     { label: `ปิดใช้งาน (${inactiveCount})`, value: 'inactive' }
                                 ]}
                                 value={statusFilter}
-                                onChange={(value) => setStatusFilter(value)}
+                                onChange={(value) => {
+                                    setPage(1);
+                                    setStatusFilter(value);
+                                }}
                             />
                             <Segmented<TypeFilter>
                                 options={[
@@ -425,7 +452,10 @@ export default function DiscountsPage() {
                                     { label: `ลด % (${percentageCount})`, value: DiscountType.Percentage }
                                 ]}
                                 value={typeFilter}
-                                onChange={(value) => setTypeFilter(value)}
+                                onChange={(value) => {
+                                    setPage(1);
+                                    setTypeFilter(value);
+                                }}
                             />
                         </div>
                     </PageSection>
@@ -466,6 +496,16 @@ export default function DiscountsPage() {
                                 }
                             />
                         )}
+                        <ListPagination
+                            page={page}
+                            pageSize={pageSize}
+                            total={totalDiscounts}
+                            onPageChange={setPage}
+                            onPageSizeChange={(size) => {
+                                setPage(1);
+                                setPageSize(size);
+                            }}
+                        />
                     </PageSection>
                 </PageStack>
             </PageContainer>

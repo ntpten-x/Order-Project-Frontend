@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
     Button,
     Card,
@@ -30,6 +30,7 @@ import {
 } from "@ant-design/icons";
 import { useQuery } from "@tanstack/react-query";
 import dayjs, { Dayjs } from "dayjs";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 
 import PageContainer from "../../../components/ui/page/PageContainer";
 import UIPageHeader from "../../../components/ui/page/PageHeader";
@@ -39,6 +40,7 @@ import { AuditPageStyles, pageStyles } from "./style";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../hooks/useEffectivePermissions";
 import { branchService } from "../../../services/branch.service";
+import { useDebouncedValue } from "../../../utils/useDebouncedValue";
 
 const { RangePicker } = DatePicker;
 const { Text } = Typography;
@@ -64,6 +66,10 @@ function getActionColor(action: string): string {
 }
 
 export default function AuditPage() {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const isUrlReadyRef = useRef(false);
     const { user } = useAuth();
     const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     const canViewBranches = can("branches.page", "view");
@@ -76,6 +82,53 @@ export default function AuditPage() {
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
     const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
+    const debouncedSearch = useDebouncedValue(search, 300);
+    const debouncedEntityType = useDebouncedValue(entityType ?? "", 300);
+
+    useEffect(() => {
+        if (isUrlReadyRef.current) return;
+
+        const pageParam = Number(searchParams.get("page") || "1");
+        const limitParam = Number(searchParams.get("limit") || "20");
+        const searchParam = searchParams.get("search") || "";
+        const actionParam = searchParams.get("action_type") || undefined;
+        const entityParam = searchParams.get("entity_type") || undefined;
+        const branchParam = searchParams.get("branch_id") || undefined;
+        const startParam = searchParams.get("start_date");
+        const endParam = searchParams.get("end_date");
+
+        const startDate = startParam ? dayjs(startParam) : null;
+        const endDate = endParam ? dayjs(endParam) : null;
+
+        setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
+        setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 20);
+        setSearch(searchParam);
+        setActionType(actionParam);
+        setEntityType(entityParam);
+        setBranchFilter(branchParam);
+        if ((startDate && startDate.isValid()) || (endDate && endDate.isValid())) {
+            setDateRange([startDate && startDate.isValid() ? startDate : null, endDate && endDate.isValid() ? endDate : null]);
+        }
+
+        isUrlReadyRef.current = true;
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!isUrlReadyRef.current) return;
+
+        const params = new URLSearchParams();
+        if (page > 1) params.set("page", String(page));
+        if (pageSize !== 20) params.set("limit", String(pageSize));
+        if (debouncedSearch.trim()) params.set("search", debouncedSearch.trim());
+        if (actionType) params.set("action_type", actionType);
+        if (debouncedEntityType.trim()) params.set("entity_type", debouncedEntityType.trim());
+        if (branchFilter) params.set("branch_id", branchFilter);
+        if (dateRange?.[0]) params.set("start_date", dateRange[0].startOf("day").toISOString());
+        if (dateRange?.[1]) params.set("end_date", dateRange[1].endOf("day").toISOString());
+
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }, [router, pathname, page, pageSize, debouncedSearch, actionType, debouncedEntityType, branchFilter, dateRange]);
 
     const filtersActive = useMemo(
         () =>
@@ -104,9 +157,9 @@ export default function AuditPage() {
             "auditLogs",
             page,
             pageSize,
-            search,
+            debouncedSearch,
             actionType,
-            entityType,
+            debouncedEntityType,
             branchFilter,
             dateRange?.[0]?.toISOString(),
             dateRange?.[1]?.toISOString(),
@@ -115,9 +168,9 @@ export default function AuditPage() {
             const params = new URLSearchParams();
             params.set("page", String(page));
             params.set("limit", String(pageSize));
-            if (search) params.set("search", search.trim());
+            if (debouncedSearch) params.set("search", debouncedSearch.trim());
             if (actionType) params.set("action_type", actionType);
-            if (entityType) params.set("entity_type", entityType.trim());
+            if (debouncedEntityType) params.set("entity_type", debouncedEntityType.trim());
             if (branchFilter) params.set("branch_id", branchFilter);
             if (dateRange?.[0]) params.set("start_date", dateRange[0].startOf("day").toISOString());
             if (dateRange?.[1]) params.set("end_date", dateRange[1].endOf("day").toISOString());
@@ -353,7 +406,10 @@ export default function AuditPage() {
                                 placeholder="ค้นหา (ผู้ใช้, รายละเอียด, Entity)"
                                 value={search}
                                 prefix={<FileSearchOutlined />}
-                                onChange={(e) => setSearch(e.target.value)}
+                                onChange={(e) => {
+                                    setPage(1);
+                                    setSearch(e.target.value);
+                                }}
                                 onPressEnter={() => auditQuery.refetch()}
                             />
                             <Select
@@ -374,7 +430,10 @@ export default function AuditPage() {
                                 style={{ width: 200 }}
                                 placeholder="Entity type (เช่น Users, Orders)"
                                 value={entityType}
-                                onChange={(e) => setEntityType(e.target.value)}
+                                onChange={(e) => {
+                                    setPage(1);
+                                    setEntityType(e.target.value);
+                                }}
                             />
                             <RangePicker
                                 allowClear

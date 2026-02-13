@@ -1,9 +1,10 @@
 ﻿"use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Button, message, Modal, Pagination, Spin } from "antd";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { HistoryOutlined } from "@ant-design/icons";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Order, OrderStatus } from "../../../../types/api/stock/orders";
 import OrderDetailModal from "../../../../components/stock/OrderDetailModal";
 import { useSocket } from "../../../../hooks/useSocket";
@@ -24,6 +25,10 @@ import {
 } from "./style";
 
 export default function HistoryPage() {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const isUrlReadyRef = useRef(false);
     const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
     const { socket } = useSocket();
     const { user } = useAuth();
@@ -34,6 +39,28 @@ export default function HistoryPage() {
     // Pagination State
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
+
+    useEffect(() => {
+        if (isUrlReadyRef.current) return;
+
+        const pageParam = Number(searchParams.get("page") || "1");
+        const limitParam = Number(searchParams.get("limit") || "10");
+
+        setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
+        setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 10);
+        isUrlReadyRef.current = true;
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!isUrlReadyRef.current) return;
+
+        const params = new URLSearchParams();
+        if (page > 1) params.set("page", String(page));
+        if (pageSize !== 10) params.set("limit", String(pageSize));
+
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }, [router, pathname, page, pageSize]);
 
     const { data: csrfToken = "" } = useQuery({
         queryKey: ['csrfToken'],

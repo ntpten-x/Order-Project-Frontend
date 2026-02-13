@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Button, App, Typography, Spin, Badge, Grid } from 'antd';
 import { ShopOutlined } from '@ant-design/icons';
 import { Branch } from "../../../types/api/branch";
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { 
     BranchPageStyles, 
     pageStyles, 
@@ -21,26 +21,32 @@ import { branchService } from "../../../services/branch.service";
 import { authService } from "../../../services/auth.service";
 import { getCsrfTokenCached } from '../../../utils/pos/csrf';
 import { useAsyncAction } from "../../../hooks/useAsyncAction";
-import { readCache, writeCache } from "../../../utils/pos/cache";
 import { RealtimeEvents } from "../../../utils/realtimeEvents";
 import PageContainer from "../../../components/ui/page/PageContainer";
 import PageSection from "../../../components/ui/page/PageSection";
 import PageStack from "../../../components/ui/page/PageStack";
 import UIEmptyState from "../../../components/ui/states/EmptyState";
 import UIPageHeader from "../../../components/ui/page/PageHeader";
+import ListPagination from "../../../components/ui/pagination/ListPagination";
 import { t } from "../../../utils/i18n";
-
+import { useDebouncedValue } from "../../../utils/useDebouncedValue";
 const { Title, Text } = Typography;
-const BRANCH_CACHE_KEY = "pos:branches";
-const BRANCH_CACHE_TTL = 5 * 60 * 1000;
 
 type FilterType = 'all' | 'active' | 'inactive';
 
 export default function BranchPage() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const isUrlReadyRef = useRef(false);
   const [branches, setBranches] = useState<Branch[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<FilterType>('all');
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(20);
+  const [totalBranches, setTotalBranches] = useState(0);
+  const [isFetching, setIsFetching] = useState(false);
+  const debouncedSearch = useDebouncedValue(searchQuery, 300);
   const { showLoading, hideLoading } = useGlobalLoading();
   const { socket } = useSocket();
   const { user, loading: authLoading } = useAuth();
@@ -50,12 +56,50 @@ export default function BranchPage() {
   const { message, modal } = App.useApp();
   const { execute } = useAsyncAction();
 
-  const fetchBranches = useCallback(async () => {
-    execute(async () => {
-      const data = await branchService.getAll();
-      setBranches(data);
-    }, t("branch.loading"));
-  }, [execute]);
+  useEffect(() => {
+    if (isUrlReadyRef.current) return;
+    const pageParam = parseInt(searchParams.get('page') || '1', 10);
+    const limitParam = parseInt(searchParams.get('limit') || '20', 10);
+    const qParam = searchParams.get('q') || '';
+    const statusParam = searchParams.get('status');
+    setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
+    setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 20);
+    setSearchQuery(qParam);
+    setFilter(statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all');
+    isUrlReadyRef.current = true;
+  }, [searchParams]);
+
+  useEffect(() => {
+    if (!isUrlReadyRef.current) return;
+    const params = new URLSearchParams();
+    params.set('page', String(page));
+    params.set('limit', String(pageSize));
+    if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+    if (filter !== 'all') params.set('status', filter);
+    router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+  }, [router, pathname, page, pageSize, debouncedSearch, filter]);
+
+  const fetchBranches = useCallback(async (nextPage: number = page, nextPageSize: number = pageSize) => {
+    setIsFetching(true);
+    try {
+      await execute(async () => {
+        const params = new URLSearchParams();
+        params.set("page", String(nextPage));
+        params.set("limit", String(nextPageSize));
+        if (filter === "active") params.set("active", "true");
+        if (filter === "inactive") params.set("active", "false");
+        if (debouncedSearch.trim()) params.set("q", debouncedSearch.trim());
+
+        const result = await branchService.getAllPaginated(undefined, params);
+        setBranches(result.data);
+        setTotalBranches(result.total);
+        setPage(result.page);
+        setPageSize(nextPageSize);
+      }, t("branch.loading"));
+    } finally {
+      setIsFetching(false);
+    }
+  }, [execute, filter, page, pageSize, debouncedSearch]);
 
   useRealtimeList(
     socket,
@@ -66,28 +110,16 @@ export default function BranchPage() {
   );
 
   useEffect(() => {
-    const cached = readCache<Branch[]>(BRANCH_CACHE_KEY, BRANCH_CACHE_TTL);
-    if (cached?.length) {
-      setBranches(cached);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (branches.length > 0) {
-      writeCache(BRANCH_CACHE_KEY, branches);
-    }
-  }, [branches]);
-
-  useEffect(() => {
     if (!authLoading && !permissionLoading && user) {
       if (!canViewBranches) {
         message.error(t("branch.noPermission"));
         router.push('/');
         return;
       }
+      if (!isUrlReadyRef.current) return;
       fetchBranches();
     }
-  }, [user, authLoading, permissionLoading, canViewBranches, router, fetchBranches, message]);
+  }, [user, authLoading, permissionLoading, canViewBranches, router, fetchBranches, message, page, pageSize, filter]);
   
   const handleAdd = () => {
     if (!canManageBranches) return;
@@ -137,29 +169,7 @@ export default function BranchPage() {
   };
 
   // Filter and search branches
-  const filteredBranches = useMemo(() => {
-    let result = branches;
-
-    // Apply status filter
-    if (filter === 'active') {
-      result = result.filter(b => b.is_active);
-    } else if (filter === 'inactive') {
-      result = result.filter(b => !b.is_active);
-    }
-
-    // Apply search query
-    if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase().trim();
-      result = result.filter(b => 
-        b.branch_name.toLowerCase().includes(query) ||
-        b.branch_code.toLowerCase().includes(query) ||
-        (b.address && b.address.toLowerCase().includes(query)) ||
-        (b.phone && b.phone.includes(query))
-      );
-    }
-
-    return result;
-  }, [branches, filter, searchQuery]);
+  const filteredBranches = useMemo(() => branches, [branches]);
 
   const activeBranches = branches.filter(b => b.is_active).length;
   const { useBreakpoint } = Grid;
@@ -187,7 +197,7 @@ export default function BranchPage() {
       
       <UIPageHeader
         title={t("branch.page.title")}
-        subtitle={t("branch.page.subtitle", { count: branches.length })}
+        subtitle={t("branch.page.subtitle", { count: totalBranches })}
         icon={<ShopOutlined />}
         actions={
           <>
@@ -201,16 +211,22 @@ export default function BranchPage() {
         <PageContainer>
         <PageStack gap={isMobile ? 16 : 12}>
           {/* Stats */}
-          <StatsCard totalBranches={branches.length} activeBranches={activeBranches} />
+          <StatsCard totalBranches={totalBranches} activeBranches={activeBranches} />
 
           {/* Search and Filter */}
           <SearchBar
             searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
+            onSearchChange={(value) => {
+              setPage(1);
+              setSearchQuery(value);
+            }}
             filter={filter}
-            onFilterChange={setFilter}
+            onFilterChange={(next) => {
+              setPage(1);
+              setFilter(next);
+            }}
             resultCount={filteredBranches.length}
-            totalCount={branches.length}
+            totalCount={totalBranches}
           />
 
           {/* Branch List */}
@@ -229,7 +245,7 @@ export default function BranchPage() {
             } 
             extra={
               <Text strong style={{ color: '#6366f1', background: '#eef2ff', padding: '4px 12px', borderRadius: 10 }}>
-                {t("branch.section.countTag", { filtered: filteredBranches.length, total: branches.length })}
+                {t("branch.section.countTag", { filtered: filteredBranches.length, total: totalBranches })}
               </Text>
             }
           >
@@ -281,6 +297,17 @@ export default function BranchPage() {
                 }
               />
             )}
+            <ListPagination
+              page={page}
+              pageSize={pageSize}
+              total={totalBranches}
+              loading={isFetching}
+              onPageChange={setPage}
+              onPageSizeChange={(size) => {
+                setPage(1);
+                setPageSize(size);
+              }}
+            />
           </PageSection>
         </PageStack>
         </PageContainer>

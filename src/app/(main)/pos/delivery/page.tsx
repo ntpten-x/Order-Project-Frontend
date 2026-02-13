@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { message, Modal, Typography, Button, Input, Space, Segmented, Tag, Switch, Avatar } from 'antd';
 import {
     CarOutlined,
@@ -12,7 +12,7 @@ import {
     ShopOutlined
 } from '@ant-design/icons';
 import { Delivery } from '../../../../types/api/pos/delivery';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useAsyncAction } from '../../../../hooks/useAsyncAction';
 import { useSocket } from '../../../../hooks/useSocket';
@@ -21,6 +21,7 @@ import { useRoleGuard } from '../../../../utils/pos/accessControl';
 import { useRealtimeList } from '../../../../utils/pos/realtime';
 import { readCache, writeCache } from '../../../../utils/pos/cache';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
+import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 import { pageStyles, globalStyles } from '../../../../theme/pos/delivery/style';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 import PageContainer from '../../../../components/ui/page/PageContainer';
@@ -180,10 +181,14 @@ const DeliveryCard = ({ delivery, onEdit, onDelete, onToggleActive, updatingStat
 
 export default function DeliveryPage() {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const isUrlReadyRef = useRef(false);
     const [deliveries, setDeliveries] = useState<Delivery[]>([]);
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+    const debouncedSearch = useDebouncedValue(searchText, 300);
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
@@ -192,6 +197,30 @@ export default function DeliveryPage() {
     useEffect(() => {
         getCsrfTokenCached();
     }, []);
+
+    useEffect(() => {
+        if (isUrlReadyRef.current) return;
+
+        const qParam = searchParams.get('q') || '';
+        const statusParam = searchParams.get('status');
+        const nextStatus: StatusFilter =
+            statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all';
+
+        setSearchText(qParam);
+        setStatusFilter(nextStatus);
+        isUrlReadyRef.current = true;
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!isUrlReadyRef.current) return;
+
+        const params = new URLSearchParams();
+        if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+        if (statusFilter !== 'all') params.set('status', statusFilter);
+
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }, [router, pathname, debouncedSearch, statusFilter]);
 
     useEffect(() => {
         const cached = readCache<Delivery[]>('pos:delivery-providers', 5 * 60 * 1000);
@@ -241,7 +270,7 @@ export default function DeliveryPage() {
             result = result.filter((item) => !item.is_active);
         }
 
-        const keyword = searchText.trim().toLowerCase();
+        const keyword = debouncedSearch.trim().toLowerCase();
         if (keyword) {
             result = result.filter((item) =>
                 item.delivery_name.toLowerCase().includes(keyword) ||
@@ -250,7 +279,7 @@ export default function DeliveryPage() {
         }
 
         return result;
-    }, [deliveries, searchText, statusFilter]);
+    }, [deliveries, debouncedSearch, statusFilter]);
 
     const handleAdd = () => {
         showLoading('กำลังเปิดหน้าจัดการช่องทางจัดส่ง...');
@@ -398,17 +427,17 @@ export default function DeliveryPage() {
                         ) : (
                             <UIEmptyState
                                 title={
-                                    searchText.trim()
+                                    debouncedSearch.trim()
                                         ? 'ไม่พบช่องทางจัดส่งตามคำค้น'
                                         : 'ยังไม่มีช่องทางจัดส่ง'
                                 }
                                 description={
-                                    searchText.trim()
+                                    debouncedSearch.trim()
                                         ? 'ลองเปลี่ยนคำค้น หรือตัวกรองสถานะ'
                                         : 'เพิ่มช่องทางจัดส่งแรกเพื่อเริ่มใช้งาน'
                                 }
                                 action={
-                                    !searchText.trim() ? (
+                                    !debouncedSearch.trim() ? (
                                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                                             เพิ่มช่องทางจัดส่ง
                                         </Button>

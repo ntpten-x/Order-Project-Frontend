@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { message, Modal, Typography, Tag, Button, Select, Badge } from 'antd';
 import {
     UnorderedListOutlined,
@@ -12,6 +12,7 @@ import {
     SortAscendingOutlined,
     ClockCircleOutlined,
 } from '@ant-design/icons';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 
 import { useOrderQueue } from '../../../../hooks/pos/useOrderQueue';
 import { OrderQueue, QueueStatus, QueuePriority } from '../../../../types/api/pos/orderQueue';
@@ -59,12 +60,37 @@ const statusLabels: Record<QueueStatus, string> = {
 };
 
 export default function OrderQueuePage() {
+    const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const isUrlReadyRef = useRef(false);
     const [statusFilter, setStatusFilter] = useState<QueueStatus | undefined>(undefined);
     const { queue, isLoading, error, updateStatus, removeFromQueue, reorderQueue, isReordering, refetch } = useOrderQueue(statusFilter);
     const { isAuthorized, isChecking } = useRoleGuard();
     
     // Prefetch queue data
     useQueuePrefetching();
+
+    useEffect(() => {
+        if (isUrlReadyRef.current) return;
+        const statusParam = searchParams.get('status');
+        const validStatuses = Object.values(QueueStatus);
+        const nextStatus = validStatuses.includes(statusParam as QueueStatus)
+            ? (statusParam as QueueStatus)
+            : undefined;
+
+        setStatusFilter(nextStatus);
+        isUrlReadyRef.current = true;
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!isUrlReadyRef.current) return;
+        const params = new URLSearchParams();
+        if (statusFilter) params.set('status', statusFilter);
+
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }, [router, pathname, statusFilter]);
 
     const handleUpdateStatus = (queueItem: OrderQueue, newStatus: QueueStatus) => {
         updateStatus(

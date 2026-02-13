@@ -6,8 +6,11 @@ export async function GET(request: NextRequest) {
     try {
         const searchParams = request.nextUrl.searchParams;
         const cookie = request.headers.get("cookie") || "";
+        const hasPaging = searchParams.has("page") || searchParams.has("limit");
 
-        const data = await categoryService.findAll(cookie, searchParams);
+        const data = hasPaging
+            ? await categoryService.findAllPaginated(cookie, searchParams)
+            : await categoryService.findAll(cookie, searchParams);
         return NextResponse.json(data);
     } catch (error) {
         return handleApiRouteError(error);
