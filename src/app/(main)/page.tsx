@@ -12,6 +12,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../hooks/useEffectivePermissions";
+import { canViewMenu } from "../../lib/rbac/menu-visibility";
 import { pageStyles, DashboardStyles } from "./style";
 import PageContainer from "../../components/ui/page/PageContainer";
 import PageSection from "../../components/ui/page/PageSection";
@@ -21,18 +22,11 @@ const { Title, Text } = Typography;
 export default function LandingPage() {
     const router = useRouter();
     const { user } = useAuth();
-    const { can, canAny } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-
-    const canAccessPos = canAny([
-        { resourceKey: "orders.page", action: "view" },
-        { resourceKey: "products.page", action: "view" },
-        { resourceKey: "reports.sales.page", action: "view" },
-    ]);
-    const canAccessStock = canAny([
-        { resourceKey: "stock.orders.page", action: "view" },
-        { resourceKey: "stock.ingredients.page", action: "view" },
-        { resourceKey: "stock.ingredients_unit.page", action: "view" },
-    ]);
+    const { can, canAny, rows } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canSeeMenu = React.useCallback(
+        (menuKey: string) => canViewMenu(menuKey, { rows, can, canAny }),
+        [rows, can, canAny]
+    );
 
     const modules = [
         {
@@ -40,35 +34,35 @@ export default function LandingPage() {
             icon: ShopOutlined,
             iconColor: "#f59e0b",
             path: "/pos",
-            enabled: canAccessPos,
+            enabled: canSeeMenu("menu.module.pos"),
         },
         {
             title: "จัดการสต๊อก",
             icon: AppstoreOutlined,
             iconColor: "#3b82f6",
             path: "/stock",
-            enabled: canAccessStock,
+            enabled: canSeeMenu("menu.module.stock"),
         },
         {
             title: "ตั้งค่าและสิทธิ์ผู้ใช้",
             icon: SettingOutlined,
             iconColor: "#10b981",
             path: "/users",
-            enabled: can("users.page", "view"),
+            enabled: canSeeMenu("menu.module.users"),
         },
         {
             title: "จัดการสาขา",
             icon: BranchesOutlined,
             iconColor: "#8b5cf6",
             path: "/branch",
-            enabled: can("branches.page", "view"),
+            enabled: canSeeMenu("menu.module.branch"),
         },
         {
             title: "Audit Logs",
             icon: SafetyCertificateOutlined,
             iconColor: "#ef4444",
             path: "/audit",
-            enabled: can("audit.page", "view"),
+            enabled: canSeeMenu("menu.module.audit"),
         },
     ].filter((module) => module.enabled);
 

@@ -19,7 +19,9 @@ import { POSGlobalStyles } from "../../../../../theme/pos/GlobalStyles";
 import { getOrderChannelStats, getOrderColorScheme, formatOrderStatus } from "../../../../../utils/channels";
 import { getOrderNavigationPath } from "../../../../../utils/orders";
 import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
+import { useShift } from "../../../../../contexts/pos/ShiftContext";
 import { useChannelOrders } from "../../../../../utils/pos/channelOrders";
+import OpenShiftModal from "../../../../../components/pos/shifts/OpenShiftModal";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import 'dayjs/locale/th';
@@ -31,9 +33,11 @@ dayjs.locale('th');
 export default function DeliverySelectionPage() {
     const router = useRouter();
     const { showLoading, hideLoading } = useGlobalLoading();
+    const { currentShift, loading: isShiftLoading } = useShift();
     const { deliveryProviders, isLoading: isLoadingProviders, isError: deliveryError, mutate: refetchProviders } = useDelivery();
     const { orders, isLoading } = useChannelOrders({ orderType: OrderType.Delivery });
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isOpenShiftModalVisible, setIsOpenShiftModalVisible] = useState(false);
 
     const stats = useMemo(() => getOrderChannelStats(orders), [orders]);
 
@@ -51,6 +55,14 @@ export default function DeliverySelectionPage() {
             hideLoading();
         }
     }, [isLoading, isLoadingProviders, showLoading, hideLoading]);
+
+    useEffect(() => {
+        if (!isShiftLoading && !currentShift) {
+            setIsOpenShiftModalVisible(true);
+            return;
+        }
+        setIsOpenShiftModalVisible(false);
+    }, [isShiftLoading, currentShift]);
 
     const handleBack = () => {
         router.push('/pos/channels');
@@ -160,6 +172,10 @@ export default function DeliverySelectionPage() {
             `}</style>
             
             <div style={posPageStyles.container}>
+                <OpenShiftModal
+                    open={isOpenShiftModalVisible}
+                    onCancel={() => setIsOpenShiftModalVisible(false)}
+                />
                 <UIPageHeader
                     title="เดลิเวอรี่"
                     subtitle={

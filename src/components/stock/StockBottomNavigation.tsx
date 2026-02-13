@@ -16,6 +16,7 @@ import {
 import { useAuth } from "../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../hooks/useEffectivePermissions";
 import { useSocket } from "../../hooks/useSocket";
+import { canViewMenu } from "../../lib/rbac/menu-visibility";
 import { ordersService } from "../../services/stock/orders.service";
 import FloatingBottomNav from "../navigation/FloatingBottomNav";
 import { LegacyRealtimeEvents, RealtimeEvents } from "../../utils/realtimeEvents";
@@ -24,10 +25,16 @@ const StockBottomNavigation = () => {
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuth();
-  const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+  const { can, canAny, rows } = useEffectivePermissions({ enabled: Boolean(user?.id) });
   const [pendingCount, setPendingCount] = useState(0);
   const [moreOpen, setMoreOpen] = useState(false);
   const { socket } = useSocket();
+
+  const canSeeMenu = React.useCallback(
+    (menuKey: string) => canViewMenu(menuKey, { rows, can, canAny }),
+    [rows, can, canAny]
+  );
+  const canViewOrdersMenu = canSeeMenu("menu.stock.orders");
 
   const checkPendingOrders = useCallback(async () => {
     try {
@@ -43,11 +50,11 @@ const StockBottomNavigation = () => {
   }, []);
 
   useEffect(() => {
-    if (user) checkPendingOrders();
-  }, [user, checkPendingOrders]);
+    if (user && canViewOrdersMenu) checkPendingOrders();
+  }, [user, canViewOrdersMenu, checkPendingOrders]);
 
   useEffect(() => {
-    if (!socket) return;
+    if (!socket || !canViewOrdersMenu) return;
 
     const scheduleRefresh = () => setTimeout(checkPendingOrders, 500);
     const handleLegacyUpdate = (payload: { action?: string }) => {
@@ -70,39 +77,34 @@ const StockBottomNavigation = () => {
       socket.off(LegacyRealtimeEvents.stockOrdersUpdated, handleLegacyUpdate);
       window.removeEventListener("focus", onFocus);
     };
-  }, [socket, checkPendingOrders]);
+  }, [socket, canViewOrdersMenu, checkPendingOrders]);
 
   const menuItems = [
-    { key: "home", label: "หน้าแรก", icon: <HomeOutlined />, path: "/" },
-    { key: "shopping", label: "สั่งซื้อ", icon: <ShoppingOutlined />, path: "/stock" },
+    { key: "home", visibilityKey: "menu.stock.home", label: "หน้าแรก", icon: <HomeOutlined />, path: "/" },
+    { key: "shopping", visibilityKey: "menu.stock.buying", label: "สั่งซื้อ", icon: <ShoppingOutlined />, path: "/stock" },
     {
       key: "orders",
+      visibilityKey: "menu.stock.orders",
       label: "รายการ",
       icon: <FileTextOutlined />,
       path: "/stock/items",
     },
-    { key: "history", label: "ประวัติ", icon: <HistoryOutlined />, path: "/stock/history" },
-    ...(can("stock.ingredients.page", "view")
-      ? [
-          {
-            key: "ingredients",
-            label: "วัตถุดิบ",
-            icon: <UnorderedListOutlined />,
-            path: "/stock/ingredients",
-          },
-        ]
-      : []),
-    ...(can("stock.ingredients_unit.page", "view")
-      ? [
-          {
-            key: "ingredientsUnit",
-            label: "หน่วย",
-            icon: <InfoCircleOutlined />,
-            path: "/stock/ingredientsUnit",
-          },
-        ]
-      : []),
-  ];
+    { key: "history", visibilityKey: "menu.stock.history", label: "ประวัติ", icon: <HistoryOutlined />, path: "/stock/history" },
+    {
+      key: "ingredients",
+      visibilityKey: "menu.stock.ingredients",
+      label: "วัตถุดิบ",
+      icon: <UnorderedListOutlined />,
+      path: "/stock/ingredients",
+    },
+    {
+      key: "ingredientsUnit",
+      visibilityKey: "menu.stock.ingredientsUnit",
+      label: "หน่วย",
+      icon: <InfoCircleOutlined />,
+      path: "/stock/ingredientsUnit",
+    },
+  ].filter((item) => canSeeMenu(item.visibilityKey));
 
   const isActivePath = (itemPath: string) => {
     if (itemPath === "/") return pathname === "/";
@@ -124,7 +126,7 @@ const StockBottomNavigation = () => {
             icon: item.icon,
             onClick: () => router.push(item.path),
             active: isActivePath(item.path),
-            badgeDot: item.key === "orders" && pendingCount > 0,
+            badgeDot: item.key === "orders" && canViewOrdersMenu && pendingCount > 0,
           })),
           ...(secondaryItems.length
             ? [
