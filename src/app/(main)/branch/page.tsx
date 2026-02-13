@@ -27,9 +27,10 @@ import PageSection from "../../../components/ui/page/PageSection";
 import PageStack from "../../../components/ui/page/PageStack";
 import UIEmptyState from "../../../components/ui/states/EmptyState";
 import UIPageHeader from "../../../components/ui/page/PageHeader";
-import ListPagination from "../../../components/ui/pagination/ListPagination";
+import ListPagination, { type CreatedSort } from "../../../components/ui/pagination/ListPagination";
 import { t } from "../../../utils/i18n";
 import { useDebouncedValue } from "../../../utils/useDebouncedValue";
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from "../../../lib/list-sort";
 const { Title, Text } = Typography;
 
 type FilterType = 'all' | 'active' | 'inactive';
@@ -44,6 +45,7 @@ export default function BranchPage() {
   const [filter, setFilter] = useState<FilterType>('all');
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(20);
+  const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
   const [totalBranches, setTotalBranches] = useState(0);
   const [isFetching, setIsFetching] = useState(false);
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
@@ -62,10 +64,12 @@ export default function BranchPage() {
     const limitParam = parseInt(searchParams.get('limit') || '20', 10);
     const qParam = searchParams.get('q') || '';
     const statusParam = searchParams.get('status');
+    const sortParam = searchParams.get('sort_created');
     setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
     setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 20);
     setSearchQuery(qParam);
     setFilter(statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all');
+    setCreatedSort(parseCreatedSort(sortParam));
     isUrlReadyRef.current = true;
   }, [searchParams]);
 
@@ -76,8 +80,9 @@ export default function BranchPage() {
     params.set('limit', String(pageSize));
     if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
     if (filter !== 'all') params.set('status', filter);
+    if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-  }, [router, pathname, page, pageSize, debouncedSearch, filter]);
+  }, [router, pathname, page, pageSize, debouncedSearch, filter, createdSort]);
 
   const fetchBranches = useCallback(async (nextPage: number = page, nextPageSize: number = pageSize) => {
     setIsFetching(true);
@@ -89,6 +94,7 @@ export default function BranchPage() {
         if (filter === "active") params.set("active", "true");
         if (filter === "inactive") params.set("active", "false");
         if (debouncedSearch.trim()) params.set("q", debouncedSearch.trim());
+        params.set("sort_created", createdSort);
 
         const result = await branchService.getAllPaginated(undefined, params);
         setBranches(result.data);
@@ -99,7 +105,7 @@ export default function BranchPage() {
     } finally {
       setIsFetching(false);
     }
-  }, [execute, filter, page, pageSize, debouncedSearch]);
+  }, [execute, filter, page, pageSize, debouncedSearch, createdSort]);
 
   useRealtimeList(
     socket,
@@ -201,7 +207,7 @@ export default function BranchPage() {
         icon={<ShopOutlined />}
         actions={
           <>
-            <Button onClick={fetchBranches}>{t("branch.actions.refresh")}</Button>
+            <Button onClick={() => { void fetchBranches(); }}>{t("branch.actions.refresh")}</Button>
             {canManageBranches && <Button type="primary" onClick={handleAdd}>{t("branch.actions.add")}</Button>}
           </>
         }
@@ -306,6 +312,11 @@ export default function BranchPage() {
               onPageSizeChange={(size) => {
                 setPage(1);
                 setPageSize(size);
+              }}
+              sortCreated={createdSort}
+              onSortCreatedChange={(next) => {
+                setPage(1);
+                setCreatedSort(next);
               }}
             />
           </PageSection>

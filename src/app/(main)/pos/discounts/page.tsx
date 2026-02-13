@@ -28,8 +28,9 @@ import PageSection from '../../../../components/ui/page/PageSection';
 import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
-import ListPagination from '../../../../components/ui/pagination/ListPagination';
+import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
 import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../../lib/list-sort';
 
 const { Text } = Typography;
 
@@ -226,6 +227,7 @@ export default function DiscountsPage() {
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
     const [totalDiscounts, setTotalDiscounts] = useState(0);
     const debouncedSearch = useDebouncedValue(searchText, 300);
     const { execute } = useAsyncAction();
@@ -251,11 +253,13 @@ export default function DiscountsPage() {
         const qParam = searchParams.get('q') || '';
         const statusParam = searchParams.get('status');
         const typeParam = searchParams.get('type');
+        const sortParam = searchParams.get('sort_created');
         setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
         setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 20);
         setSearchText(qParam);
         setStatusFilter(statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all');
         setTypeFilter(typeParam === DiscountType.Fixed || typeParam === DiscountType.Percentage ? typeParam : 'all');
+        setCreatedSort(parseCreatedSort(sortParam));
         isUrlReadyRef.current = true;
     }, [searchParams]);
 
@@ -267,8 +271,9 @@ export default function DiscountsPage() {
         if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
         if (statusFilter !== 'all') params.set('status', statusFilter);
         if (typeFilter !== 'all') params.set('type', typeFilter);
+        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
         router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter, typeFilter]);
+    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter, typeFilter, createdSort]);
 
     const fetchDiscounts = useCallback(async (nextPage: number = page, nextPageSize: number = pageSize) => {
         execute(async () => {
@@ -278,6 +283,7 @@ export default function DiscountsPage() {
             if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
             if (statusFilter !== 'all') params.set('status', statusFilter);
             if (typeFilter !== 'all') params.set('type', typeFilter);
+            params.set('sort_created', createdSort);
             const response = await fetch(`/api/pos/discounts?${params.toString()}`);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
@@ -291,7 +297,7 @@ export default function DiscountsPage() {
             setPage(typeof payload?.page === 'number' ? payload.page : nextPage);
             setPageSize(nextPageSize);
         }, 'กำลังโหลดข้อมูลส่วนลด...');
-    }, [execute, page, pageSize, debouncedSearch, statusFilter, typeFilter]);
+    }, [execute, page, pageSize, debouncedSearch, statusFilter, typeFilter, createdSort]);
 
     useEffect(() => {
         if (!isUrlReadyRef.current) return;
@@ -403,7 +409,7 @@ export default function DiscountsPage() {
                 icon={<PercentageOutlined />}
                 actions={
                     <Space size={8} wrap>
-                        <Button icon={<ReloadOutlined />} onClick={fetchDiscounts} />
+                        <Button icon={<ReloadOutlined />} onClick={() => { void fetchDiscounts(); }} />
                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                             เพิ่มส่วนลด
                         </Button>
@@ -504,6 +510,11 @@ export default function DiscountsPage() {
                             onPageSizeChange={(size) => {
                                 setPage(1);
                                 setPageSize(size);
+                            }}
+                            sortCreated={createdSort}
+                            onSortCreatedChange={(next) => {
+                                setPage(1);
+                                setCreatedSort(next);
                             }}
                         />
                     </PageSection>

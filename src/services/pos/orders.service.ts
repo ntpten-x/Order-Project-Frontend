@@ -16,11 +16,12 @@ const getHeaders = (cookie?: string, contentType: string = "application/json"): 
 };
 
 export const ordersService = {
-    getAll: async (cookie?: string, page: number = 1, limit: number = 50, status?: string, type?: string, query?: string): Promise<{ data: SalesOrder[], total: number, page: number, last_page: number }> => {
+    getAll: async (cookie?: string, page: number = 1, limit: number = 50, status?: string, type?: string, query?: string, sortCreated: "old" | "new" = "old"): Promise<{ data: SalesOrder[], total: number, page: number, last_page: number }> => {
         // Construct URL with query parameters manually or use URLSearchParams
         const queryParams = new URLSearchParams({
             page: page.toString(),
             limit: limit.toString(),
+            sort_created: sortCreated,
             ...(status && { status }),
             ...(type && { type }),
             ...(query && { q: query })

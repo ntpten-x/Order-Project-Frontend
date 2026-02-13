@@ -41,6 +41,8 @@ import { useAuth } from "../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../hooks/useEffectivePermissions";
 import { branchService } from "../../../services/branch.service";
 import { useDebouncedValue } from "../../../utils/useDebouncedValue";
+import type { CreatedSort } from "../../../components/ui/pagination/ListPagination";
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from "../../../lib/list-sort";
 
 const { RangePicker } = DatePicker;
 const { Text } = Typography;
@@ -81,6 +83,7 @@ export default function AuditPage() {
     const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
     const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
     const debouncedSearch = useDebouncedValue(search, 300);
     const debouncedEntityType = useDebouncedValue(entityType ?? "", 300);
@@ -94,6 +97,7 @@ export default function AuditPage() {
         const actionParam = searchParams.get("action_type") || undefined;
         const entityParam = searchParams.get("entity_type") || undefined;
         const branchParam = searchParams.get("branch_id") || undefined;
+        const sortParam = searchParams.get("sort_created");
         const startParam = searchParams.get("start_date");
         const endParam = searchParams.get("end_date");
 
@@ -106,6 +110,7 @@ export default function AuditPage() {
         setActionType(actionParam);
         setEntityType(entityParam);
         setBranchFilter(branchParam);
+        setCreatedSort(parseCreatedSort(sortParam));
         if ((startDate && startDate.isValid()) || (endDate && endDate.isValid())) {
             setDateRange([startDate && startDate.isValid() ? startDate : null, endDate && endDate.isValid() ? endDate : null]);
         }
@@ -123,12 +128,13 @@ export default function AuditPage() {
         if (actionType) params.set("action_type", actionType);
         if (debouncedEntityType.trim()) params.set("entity_type", debouncedEntityType.trim());
         if (branchFilter) params.set("branch_id", branchFilter);
+        if (createdSort !== DEFAULT_CREATED_SORT) params.set("sort_created", createdSort);
         if (dateRange?.[0]) params.set("start_date", dateRange[0].startOf("day").toISOString());
         if (dateRange?.[1]) params.set("end_date", dateRange[1].endOf("day").toISOString());
 
         const query = params.toString();
         router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [router, pathname, page, pageSize, debouncedSearch, actionType, debouncedEntityType, branchFilter, dateRange]);
+    }, [router, pathname, page, pageSize, debouncedSearch, actionType, debouncedEntityType, branchFilter, createdSort, dateRange]);
 
     const filtersActive = useMemo(
         () =>
@@ -161,6 +167,7 @@ export default function AuditPage() {
             actionType,
             debouncedEntityType,
             branchFilter,
+            createdSort,
             dateRange?.[0]?.toISOString(),
             dateRange?.[1]?.toISOString(),
         ],
@@ -172,6 +179,7 @@ export default function AuditPage() {
             if (actionType) params.set("action_type", actionType);
             if (debouncedEntityType) params.set("entity_type", debouncedEntityType.trim());
             if (branchFilter) params.set("branch_id", branchFilter);
+            params.set("sort_created", createdSort);
             if (dateRange?.[0]) params.set("start_date", dateRange[0].startOf("day").toISOString());
             if (dateRange?.[1]) params.set("end_date", dateRange[1].endOf("day").toISOString());
 
@@ -212,8 +220,6 @@ export default function AuditPage() {
             dataIndex: "created_at",
             width: 170,
             render: (value: Date) => dayjs(value).format("DD MMM YYYY HH:mm"),
-            sorter: (a, b) => dayjs(a.created_at).valueOf() - dayjs(b.created_at).valueOf(),
-            defaultSortOrder: "descend",
         },
         {
             title: "การกระทำ",
@@ -324,6 +330,7 @@ export default function AuditPage() {
         setEntityType(undefined);
         setDateRange(null);
         if (canViewBranches) setBranchFilter(undefined);
+        setCreatedSort(DEFAULT_CREATED_SORT);
         setPage(1);
         setPageSize(20);
     };
@@ -441,6 +448,18 @@ export default function AuditPage() {
                                 onChange={(range) => {
                                     setDateRange(range);
                                     setPage(1);
+                                }}
+                            />
+                            <Select
+                                style={{ width: 140 }}
+                                value={createdSort}
+                                options={[
+                                    { label: "เก่าก่อน", value: "old" },
+                                    { label: "ใหม่ก่อน", value: "new" },
+                                ]}
+                                onChange={(val: CreatedSort) => {
+                                    setPage(1);
+                                    setCreatedSort(val);
                                 }}
                             />
                             {canViewBranches && (

@@ -42,7 +42,8 @@ import PageSection from '../../../components/ui/page/PageSection';
 import PageStack from '../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../components/ui/states/EmptyState';
-import ListPagination from '../../../components/ui/pagination/ListPagination';
+import ListPagination, { type CreatedSort } from '../../../components/ui/pagination/ListPagination';
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../lib/list-sort';
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -255,6 +256,7 @@ export default function UsersPage() {
     const [hasLoaded, setHasLoaded] = useState(false);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
     const [totalUsers, setTotalUsers] = useState(0);
 
     const debouncedSearch = useDebouncedValue(searchValue, 300);
@@ -266,12 +268,14 @@ export default function UsersPage() {
         const qParam = searchParams.get('q') || '';
         const statusParam = searchParams.get('status');
         const roleParam = searchParams.get('role') || 'all';
+        const sortParam = searchParams.get('sort_created');
 
         setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
         setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 20);
         setSearchValue(qParam);
         setStatusFilter(statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all');
         setRoleFilter(roleParam || 'all');
+        setCreatedSort(parseCreatedSort(sortParam));
         isUrlReadyRef.current = true;
     }, [searchParams]);
 
@@ -283,9 +287,10 @@ export default function UsersPage() {
         if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
         if (statusFilter !== 'all') params.set('status', statusFilter);
         if (roleFilter !== 'all') params.set('role', roleFilter);
+        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
         const href = `${pathname}?${params.toString()}`;
         router.replace(href, { scroll: false });
-    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter, roleFilter]);
+    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter, roleFilter, createdSort]);
 
     const { socket } = useSocket();
     const { execute } = useAsyncAction();
@@ -308,6 +313,7 @@ export default function UsersPage() {
                 if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
                 if (statusFilter !== 'all') params.set('status', statusFilter);
                 if (roleFilter !== 'all') params.set('role', roleFilter);
+                params.set('sort_created', createdSort);
                 const data = await userService.getAllUsersPaginated(undefined, params);
                 setUsers(data.data);
                 setTotalUsers(data.total);
@@ -318,7 +324,7 @@ export default function UsersPage() {
         } finally {
             setIsFetching(false);
         }
-    }, [execute, page, pageSize, debouncedSearch, roleFilter, statusFilter]);
+    }, [execute, page, pageSize, debouncedSearch, roleFilter, statusFilter, createdSort]);
 
     useEffect(() => {
         const fetchCsrf = async () => {
@@ -475,7 +481,7 @@ export default function UsersPage() {
                 icon={<TeamOutlined style={{ fontSize: 20 }} />}
                 actions={
                     <Space size={8} wrap>
-                        <Button icon={<ReloadOutlined />} onClick={fetchUsers} loading={isFetching} />
+                        <Button icon={<ReloadOutlined />} onClick={() => { void fetchUsers(); }} loading={isFetching} />
                         <Button icon={<SafetyCertificateOutlined />} onClick={handleGoPermissions}>
                             {!isMobile ? 'จัดการสิทธิ์' : ''}
                         </Button>
@@ -586,6 +592,11 @@ export default function UsersPage() {
                             onPageSizeChange={(size) => {
                                 setPage(1);
                                 setPageSize(size);
+                            }}
+                            sortCreated={createdSort}
+                            onSortCreatedChange={(next) => {
+                                setPage(1);
+                                setCreatedSort(next);
                             }}
                         />
                     </PageSection>

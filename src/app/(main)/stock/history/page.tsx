@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { Button, message, Modal, Pagination, Spin } from "antd";
+import { Button, message, Modal, Spin } from "antd";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { HistoryOutlined } from "@ant-design/icons";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
@@ -23,6 +23,8 @@ import {
     StatsCard,
     OrderCard,
 } from "./style";
+import ListPagination, { type CreatedSort } from "../../../../components/ui/pagination/ListPagination";
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from "../../../../lib/list-sort";
 
 export default function HistoryPage() {
     const router = useRouter();
@@ -39,15 +41,18 @@ export default function HistoryPage() {
     // Pagination State
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
 
     useEffect(() => {
         if (isUrlReadyRef.current) return;
 
         const pageParam = Number(searchParams.get("page") || "1");
         const limitParam = Number(searchParams.get("limit") || "10");
+        const sortParam = searchParams.get("sort_created");
 
         setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
         setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 10);
+        setCreatedSort(parseCreatedSort(sortParam));
         isUrlReadyRef.current = true;
     }, [searchParams]);
 
@@ -57,10 +62,11 @@ export default function HistoryPage() {
         const params = new URLSearchParams();
         if (page > 1) params.set("page", String(page));
         if (pageSize !== 10) params.set("limit", String(pageSize));
+        if (createdSort !== DEFAULT_CREATED_SORT) params.set("sort_created", createdSort);
 
         const query = params.toString();
         router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [router, pathname, page, pageSize]);
+    }, [router, pathname, page, pageSize, createdSort]);
 
     const { data: csrfToken = "" } = useQuery({
         queryKey: ['csrfToken'],
@@ -69,9 +75,15 @@ export default function HistoryPage() {
     });
 
     const { data: ordersResult, isLoading, isFetching } = useQuery<{ data: Order[]; total: number }, Error>({
-        queryKey: ['stockHistory', page, pageSize],
+        queryKey: ['stockHistory', page, pageSize, createdSort],
         queryFn: async () => {
-            const response = await fetch(`/api/stock/orders?status=completed,cancelled&page=${page}&limit=${pageSize}`, { cache: "no-store" });
+            const params = new URLSearchParams();
+            params.set("status", "completed,cancelled");
+            params.set("page", String(page));
+            params.set("limit", String(pageSize));
+            params.set("sort_created", createdSort);
+
+            const response = await fetch(`/api/stock/orders?${params.toString()}`, { cache: "no-store" });
             if (!response.ok) throw new Error(t('stockHistory.fetch.error'));
             const result = await response.json();
             if (Array.isArray(result)) {
@@ -216,17 +228,22 @@ export default function HistoryPage() {
                                     />
                                 ))}
 
-                                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 24 }}>
-                                    <Pagination
-                                        current={page}
+                                <div style={{ marginTop: 24 }}>
+                                    <ListPagination
+                                        page={page}
                                         pageSize={pageSize}
                                         total={total}
-                                        onChange={(p, s) => {
-                                            setPage(p);
-                                            setPageSize(s);
+                                        loading={isFetching}
+                                        onPageChange={(nextPage) => setPage(nextPage)}
+                                        onPageSizeChange={(nextSize) => {
+                                            setPage(1);
+                                            setPageSize(nextSize);
                                         }}
-                                        showSizeChanger
-                                        showTotal={(tCount) => t('stockHistory.paginationTotal', { total: tCount })}
+                                        sortCreated={createdSort}
+                                        onSortCreatedChange={(nextSort) => {
+                                            setPage(1);
+                                            setCreatedSort(nextSort);
+                                        }}
                                     />
                                 </div>
                             </>

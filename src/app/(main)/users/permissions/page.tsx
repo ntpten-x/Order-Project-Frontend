@@ -52,6 +52,8 @@ const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
 type PermissionRow = EffectiveRolePermissionRow & { key: string };
+type SystemGroup = "pos" | "stock" | "admin" | "other";
+type ResourceKind = "menu" | "page";
 type PermissionSnapshot = {
     resourceKey: string;
     pageLabel?: string;
@@ -158,16 +160,78 @@ function buildSemanticDiffRows(beforeRaw: PermissionSnapshot[], afterRaw: Permis
 }
 
 function scopeTag(scope: PermissionScope) {
-    if (scope === "all") return <Tag color="gold">All data</Tag>;
-    if (scope === "branch") return <Tag color="blue">Branch</Tag>;
-    if (scope === "own") return <Tag color="purple">Own</Tag>;
-    return <Tag color="default">No data</Tag>;
+    if (scope === "all") return <Tag color="gold">ทุกข้อมูล</Tag>;
+    if (scope === "branch") return <Tag color="blue">ตามสาขา</Tag>;
+    if (scope === "own") return <Tag color="purple">เฉพาะของตนเอง</Tag>;
+    return <Tag color="default">ไม่เห็นข้อมูล</Tag>;
 }
 
 function approvalStatusTag(status: PermissionOverrideApprovalStatus) {
-    if (status === "approved") return <Tag color="green">Approved</Tag>;
-    if (status === "rejected") return <Tag color="red">Rejected</Tag>;
-    return <Tag color="orange">Pending</Tag>;
+    if (status === "approved") return <Tag color="green">อนุมัติแล้ว</Tag>;
+    if (status === "rejected") return <Tag color="red">ไม่อนุมัติ</Tag>;
+    return <Tag color="orange">รออนุมัติ</Tag>;
+}
+
+function getResourceKind(resourceKey: string): ResourceKind {
+    return resourceKey.startsWith("menu.") ? "menu" : "page";
+}
+
+function getSystemGroup(resourceKey: string, route?: string): SystemGroup {
+    const key = resourceKey.toLowerCase();
+    const path = (route || "").toLowerCase();
+
+    if (key.includes("stock") || path.startsWith("/stock")) return "stock";
+    if (key.includes("pos") || path.startsWith("/pos")) return "pos";
+    if (
+        key.includes("users") ||
+        key.includes("permissions") ||
+        key.includes("branch") ||
+        key.includes("audit") ||
+        path.startsWith("/users") ||
+        path.startsWith("/branch") ||
+        path.startsWith("/audit")
+    ) {
+        return "admin";
+    }
+    return "other";
+}
+
+function systemGroupTag(group: SystemGroup) {
+    if (group === "pos") return <Tag color="geekblue">POS</Tag>;
+    if (group === "stock") return <Tag color="green">Stock</Tag>;
+    if (group === "admin") return <Tag color="purple">ผู้ใช้/แอดมิน</Tag>;
+    return <Tag>อื่น ๆ</Tag>;
+}
+
+function resourceKindTag(kind: ResourceKind) {
+    if (kind === "menu") return <Tag color="cyan">เมนู</Tag>;
+    return <Tag color="blue">หน้าใช้งาน</Tag>;
+}
+
+function riskLevelLabel(level: string) {
+    const normalized = String(level).toLowerCase();
+    if (normalized === "high") return "สูง";
+    if (normalized === "medium") return "กลาง";
+    if (normalized === "low") return "ต่ำ";
+    return "ไม่มี";
+}
+
+function changeTypeLabel(changeType: string) {
+    if (changeType === "Grant") return "เพิ่มสิทธิ์";
+    if (changeType === "Revoke") return "ลดสิทธิ์";
+    if (changeType === "Scope Widen") return "ขยายขอบเขต";
+    if (changeType === "Scope Tighten") return "จำกัดขอบเขต";
+    return changeType;
+}
+
+function permissionFieldLabel(field: string) {
+    if (field === "canAccess") return "เข้าใช้งาน";
+    if (field === "canView") return "ดู";
+    if (field === "canCreate") return "เพิ่ม";
+    if (field === "canUpdate") return "แก้ไข";
+    if (field === "canDelete") return "ลบ";
+    if (field === "dataScope") return "ขอบเขตข้อมูล";
+    return field;
 }
 
 export default function PermissionsPage() {
@@ -202,12 +266,15 @@ export default function PermissionsPage() {
     const [rejectApprovalId, setRejectApprovalId] = useState<string>("");
     const [rejectReason, setRejectReason] = useState("");
     const [lastApprovalRequestId, setLastApprovalRequestId] = useState<string>("");
+    const [tableSearch, setTableSearch] = useState("");
+    const [systemFilter, setSystemFilter] = useState<SystemGroup | "all">("all");
+    const [resourceKindFilter, setResourceKindFilter] = useState<ResourceKind | "all">("all");
     const editable = targetType === "user";
     const riskTag = (risk: "none" | "low" | "medium" | "high") => {
-        if (risk === "high") return <Tag color="red">High</Tag>;
-        if (risk === "medium") return <Tag color="orange">Medium</Tag>;
-        if (risk === "low") return <Tag color="green">Low</Tag>;
-        return <Tag>None</Tag>;
+        if (risk === "high") return <Tag color="red">สูง</Tag>;
+        if (risk === "medium") return <Tag color="orange">กลาง</Tag>;
+        if (risk === "low") return <Tag color="green">ต่ำ</Tag>;
+        return <Tag>ไม่มี</Tag>;
     };
 
     const semanticDiffRows = useMemo<SemanticDiffRow[]>(() => {
@@ -276,11 +343,46 @@ export default function PermissionsPage() {
     const userOptions = useMemo(
         () =>
             users.map((u) => ({
-                label: `${u.name || u.username} (${u.roles?.display_name || u.roles?.roles_name || "No role"})`,
+                label: `${u.name || u.username} (${u.roles?.display_name || u.roles?.roles_name || "ไม่ระบุบทบาท"})`,
                 value: u.id,
             })),
         [users]
     );
+
+    const filteredRows = useMemo(() => {
+        const q = tableSearch.trim().toLowerCase();
+        return rows.filter((row) => {
+            const kind = getResourceKind(row.resourceKey);
+            const system = getSystemGroup(row.resourceKey, row.route);
+            if (resourceKindFilter !== "all" && kind !== resourceKindFilter) return false;
+            if (systemFilter !== "all" && system !== systemFilter) return false;
+            if (!q) return true;
+            return (
+                row.resourceKey.toLowerCase().includes(q) ||
+                (row.pageLabel || "").toLowerCase().includes(q) ||
+                (row.route || "").toLowerCase().includes(q)
+            );
+        });
+    }, [rows, tableSearch, resourceKindFilter, systemFilter]);
+
+    const sectionSummary = useMemo(() => {
+        const base = {
+            total: rows.length,
+            pos: 0,
+            stock: 0,
+            admin: 0,
+            other: 0,
+            menu: 0,
+            page: 0,
+        };
+        for (const row of rows) {
+            const system = getSystemGroup(row.resourceKey, row.route);
+            const kind = getResourceKind(row.resourceKey);
+            base[system] += 1;
+            base[kind] += 1;
+        }
+        return base;
+    }, [rows]);
 
     useEffect(() => {
         const bootstrap = async () => {
@@ -294,7 +396,7 @@ export default function PermissionsPage() {
                 if (roleData.length > 0) setSelectedRole((prev) => prev || roleData[0].id);
                 if (userData.length > 0) setSelectedUser((prev) => prev || userData[0].id);
             } catch (error) {
-                message.error(error instanceof Error ? error.message : "Failed to initialize permissions page");
+                message.error(error instanceof Error ? error.message : "ไม่สามารถเริ่มต้นหน้าจัดการสิทธิ์ได้");
             }
         };
         bootstrap();
@@ -311,7 +413,7 @@ export default function PermissionsPage() {
                 setRows(mapped);
                 setBaselineRows(mapped);
             } catch (error) {
-                message.error(error instanceof Error ? error.message : "Failed to load role permissions");
+                message.error(error instanceof Error ? error.message : "ไม่สามารถโหลดสิทธิ์ของบทบาทได้");
                 setRows([]);
             } finally {
                 setLoading(false);
@@ -331,7 +433,7 @@ export default function PermissionsPage() {
                 setRows(mapped);
                 setBaselineRows(mapped);
             } catch (error) {
-                message.error(error instanceof Error ? error.message : "Failed to load user permissions");
+                message.error(error instanceof Error ? error.message : "ไม่สามารถโหลดสิทธิ์ของผู้ใช้ได้");
                 setRows([]);
             } finally {
                 setLoading(false);
@@ -356,7 +458,7 @@ export default function PermissionsPage() {
             });
             setAudits(data.data);
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "Failed to load permission audits");
+            message.error(error instanceof Error ? error.message : "ไม่สามารถโหลดบันทึกการเปลี่ยนสิทธิ์ได้");
             setAudits([]);
         } finally {
             setAuditLoading(false);
@@ -379,7 +481,7 @@ export default function PermissionsPage() {
             });
             setApprovals(data.data);
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "Failed to load approval requests");
+            message.error(error instanceof Error ? error.message : "ไม่สามารถโหลดรายการคำขออนุมัติได้");
             setApprovals([]);
         } finally {
             setApprovalsLoading(false);
@@ -432,84 +534,98 @@ export default function PermissionsPage() {
     };
 
     const columns = [
-            {
-                title: "Page",
-                dataIndex: "pageLabel",
-                key: "pageLabel",
-                render: (value: string, row: PermissionRow) => (
-                    <Space direction="vertical" size={0}>
-                        <Text strong>{value}</Text>
-                        <Text type="secondary">{row.route}</Text>
-                    </Space>
-                ),
-                fixed: "left" as const,
-                width: 220,
+        {
+            title: "ทรัพยากร",
+            dataIndex: "pageLabel",
+            key: "pageLabel",
+            render: (value: string, row: PermissionRow) => (
+                <Space direction="vertical" size={0}>
+                    <Text strong>{value}</Text>
+                    <Text type="secondary">{row.route || row.resourceKey}</Text>
+                </Space>
+            ),
+            fixed: "left" as const,
+            width: 240,
+        },
+        {
+            title: "ระบบ",
+            key: "system",
+            align: "center" as const,
+            render: (_: unknown, row: PermissionRow) => systemGroupTag(getSystemGroup(row.resourceKey, row.route)),
+            width: 130,
+        },
+        {
+            title: "ประเภท",
+            key: "kind",
+            align: "center" as const,
+            render: (_: unknown, row: PermissionRow) => resourceKindTag(getResourceKind(row.resourceKey)),
+            width: 110,
+        },
+        {
+            title: "เข้าใช้งาน",
+            dataIndex: "canAccess",
+            key: "canAccess",
+            align: "center" as const,
+            render: (value: boolean, row: PermissionRow) => renderActionSwitch(value, row, "access"),
+            width: 100,
+        },
+        {
+            title: "ดู",
+            dataIndex: "canView",
+            key: "canView",
+            align: "center" as const,
+            render: (value: boolean, row: PermissionRow) => renderActionSwitch(value, row, "view"),
+            width: 90,
+        },
+        {
+            title: "เพิ่ม",
+            dataIndex: "canCreate",
+            key: "canCreate",
+            align: "center" as const,
+            render: (value: boolean, row: PermissionRow) => renderActionSwitch(value, row, "create"),
+            width: 90,
+        },
+        {
+            title: "แก้ไข",
+            dataIndex: "canUpdate",
+            key: "canUpdate",
+            align: "center" as const,
+            render: (value: boolean, row: PermissionRow) => renderActionSwitch(value, row, "update"),
+            width: 90,
+        },
+        {
+            title: "ลบ",
+            dataIndex: "canDelete",
+            key: "canDelete",
+            align: "center" as const,
+            render: (value: boolean, row: PermissionRow) => renderActionSwitch(value, row, "delete"),
+            width: 90,
+        },
+        {
+            title: "ขอบเขตข้อมูล",
+            dataIndex: "dataScope",
+            key: "dataScope",
+            render: (scope: PermissionScope, row: PermissionRow) => {
+                if (!editable) return scopeTag(scope);
+                return (
+                    <Select
+                        value={scope}
+                        size="small"
+                        style={{ width: 130 }}
+                        disabled={!row.canView}
+                        options={[
+                            { label: "ไม่เห็นข้อมูล", value: "none" },
+                            { label: "เฉพาะของตนเอง", value: "own" },
+                            { label: "ตามสาขา", value: "branch" },
+                            { label: "ทุกข้อมูล", value: "all" },
+                        ]}
+                        onChange={(value) => updateRow(row.key, { dataScope: value as PermissionScope })}
+                    />
+                );
             },
-            {
-                title: "Access",
-                dataIndex: "canAccess",
-                key: "canAccess",
-                align: "center" as const,
-                render: (value: boolean, row: PermissionRow) => renderActionSwitch(value, row, "access"),
-                width: 90,
-            },
-            {
-                title: "View",
-                dataIndex: "canView",
-                key: "canView",
-                align: "center" as const,
-                render: (value: boolean, row: PermissionRow) => renderActionSwitch(value, row, "view"),
-                width: 90,
-            },
-            {
-                title: "Create",
-                dataIndex: "canCreate",
-                key: "canCreate",
-                align: "center" as const,
-                render: (value: boolean, row: PermissionRow) => renderActionSwitch(value, row, "create"),
-                width: 90,
-            },
-            {
-                title: "Update",
-                dataIndex: "canUpdate",
-                key: "canUpdate",
-                align: "center" as const,
-                render: (value: boolean, row: PermissionRow) => renderActionSwitch(value, row, "update"),
-                width: 90,
-            },
-            {
-                title: "Delete",
-                dataIndex: "canDelete",
-                key: "canDelete",
-                align: "center" as const,
-                render: (value: boolean, row: PermissionRow) => renderActionSwitch(value, row, "delete"),
-                width: 90,
-            },
-            {
-                title: "Data Scope",
-                dataIndex: "dataScope",
-                key: "dataScope",
-                render: (scope: PermissionScope, row: PermissionRow) => {
-                    if (!editable) return scopeTag(scope);
-                    return (
-                        <Select
-                            value={scope}
-                            size="small"
-                            style={{ width: 110 }}
-                            disabled={!row.canView}
-                            options={[
-                                { label: "No data", value: "none" },
-                                { label: "Own", value: "own" },
-                                { label: "Branch", value: "branch" },
-                                { label: "All", value: "all" },
-                            ]}
-                            onChange={(value) => updateRow(row.key, { dataScope: value as PermissionScope })}
-                        />
-                    );
-                },
-                width: 130,
-            },
-        ];
+            width: 150,
+        },
+    ];
 
     const permissionCoverage = useMemo(() => {
         if (!rows.length) return 0;
@@ -540,11 +656,11 @@ export default function PermissionsPage() {
     const handleSaveUserOverrides = async () => {
         if (!editable || !selectedUser || !dirty) return;
         if (pendingRiskSummary.level === "High" && saveReason.trim().length < 10) {
-            message.error("High-risk changes require a reason with at least 10 characters.");
+            message.error("การเปลี่ยนแปลงความเสี่ยงสูง ต้องระบุเหตุผลอย่างน้อย 10 ตัวอักษร");
             return;
         }
         if (pendingRiskSummary.level === "High" && !highRiskConfirmed) {
-            message.error("High-risk changes require explicit admin confirmation.");
+            message.error("การเปลี่ยนแปลงความเสี่ยงสูง ต้องยืนยันโดยผู้ดูแลระบบก่อนบันทึก");
             return;
         }
 
@@ -577,16 +693,16 @@ export default function PermissionsPage() {
                 if (result.updated && !result.approvalRequired) {
                     setDirty(false);
                     setBaselineRows(rows);
-                    message.success("User permission overrides updated");
+                    message.success("บันทึกสิทธิ์ผู้ใช้เรียบร้อย");
                 } else if (!result.updated && result.approvalRequired) {
                     setLastApprovalRequestId(result.approvalRequest.id);
-                    message.warning(`Approval request submitted (${result.approvalRequest.id})`);
+                    message.warning(`ส่งคำขออนุมัติแล้ว (${result.approvalRequest.id})`);
                     await reloadSelectedUserEffective();
                 }
 
                 await Promise.all([loadAudits(), loadApprovals()]);
             } catch (error) {
-                message.error(error instanceof Error ? error.message : "Failed to save user permissions");
+                message.error(error instanceof Error ? error.message : "บันทึกสิทธิ์ผู้ใช้ไม่สำเร็จ");
             } finally {
                 setSaving(false);
             }
@@ -594,10 +710,10 @@ export default function PermissionsPage() {
 
         if (pendingRiskSummary.total > 0) {
             Modal.confirm({
-                title: "Confirm Permission Update",
-                content: `This change has ${pendingRiskSummary.level} risk (score ${pendingRiskSummary.total}). Continue?`,
-                okText: "Confirm",
-                cancelText: "Cancel",
+                title: "ยืนยันการบันทึกสิทธิ์",
+                content: `การเปลี่ยนแปลงนี้มีความเสี่ยงระดับ ${riskLevelLabel(pendingRiskSummary.level)} (คะแนน ${pendingRiskSummary.total}) ต้องการดำเนินการต่อหรือไม่`,
+                okText: "ยืนยัน",
+                cancelText: "ยกเลิก",
                 centered: true,
                 onOk: doSave,
             });
@@ -612,13 +728,13 @@ export default function PermissionsPage() {
         try {
             const csrfToken = await authService.getCsrfToken();
             await permissionsService.approveOverride(approval.id, {}, csrfToken);
-            message.success("Approval request approved");
+            message.success("อนุมัติคำขอเรียบร้อย");
             if (selectedUser && approval.targetUserId === selectedUser) {
                 await reloadSelectedUserEffective();
             }
             await Promise.all([loadAudits(), loadApprovals()]);
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "Failed to approve request");
+            message.error(error instanceof Error ? error.message : "ไม่สามารถอนุมัติคำขอได้");
         } finally {
             setApprovalActionLoadingId("");
         }
@@ -633,7 +749,7 @@ export default function PermissionsPage() {
     const submitReject = async () => {
         if (!rejectApprovalId) return;
         if (rejectReason.trim().length < 3) {
-            message.error("Reject reason must be at least 3 characters.");
+            message.error("เหตุผลการไม่อนุมัติต้องมีอย่างน้อย 3 ตัวอักษร");
             return;
         }
         setApprovalActionLoadingId(rejectApprovalId);
@@ -647,10 +763,10 @@ export default function PermissionsPage() {
             setRejectModalOpen(false);
             setRejectApprovalId("");
             setRejectReason("");
-            message.success("Approval request rejected");
+            message.success("ไม่อนุมัติคำขอเรียบร้อย");
             await Promise.all([loadAudits(), loadApprovals()]);
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "Failed to reject request");
+            message.error(error instanceof Error ? error.message : "ไม่สามารถไม่อนุมัติคำขอได้");
         } finally {
             setApprovalActionLoadingId("");
         }
@@ -667,7 +783,7 @@ export default function PermissionsPage() {
             });
             setSimulateResult(result);
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "Failed to simulate permission");
+            message.error(error instanceof Error ? error.message : "จำลองสิทธิ์ไม่สำเร็จ");
             setSimulateResult(null);
         } finally {
             setSimulating(false);
@@ -706,12 +822,12 @@ export default function PermissionsPage() {
                             <Space align="center">
                                 <SafetyCertificateOutlined style={{ color: "#2563eb", fontSize: 20 }} />
                                 <Title level={3} style={{ margin: 0 }}>
-                                    User Permissions
+                                    จัดการสิทธิ์ผู้ใช้งาน
                                 </Title>
-                                <Badge status="processing" text="Phase 2" />
+                                <Badge status="processing" text="ระบบอนุมัติ 2 ชั้น" />
                             </Space>
                             <Text type="secondary">
-                                Configure page access, action permissions, and data visibility scope by role or by user override.
+                                กำหนดสิทธิ์การเข้าถึงแบบละเอียด แยกตามระบบ POS/Stock และแยกประเภท เมนู/หน้าใช้งาน ได้ในหน้าเดียว
                             </Text>
                         </Space>
                     </Card>
@@ -722,7 +838,7 @@ export default function PermissionsPage() {
                         title={
                             <Space>
                                 <ControlOutlined />
-                                <span>Permission Matrix</span>
+                                <span>ตารางกำหนดสิทธิ์</span>
                             </Space>
                         }
                         extra={
@@ -737,7 +853,7 @@ export default function PermissionsPage() {
                                 }
                                 loading={saving}
                             >
-                                Save Overrides
+                                บันทึกสิทธิ์เฉพาะผู้ใช้
                             </Button>
                         }
                         bordered={false}
@@ -750,7 +866,7 @@ export default function PermissionsPage() {
                                         label: (
                                             <Space>
                                                 <UserOutlined />
-                                                User
+                                                ผู้ใช้
                                             </Space>
                                         ),
                                         value: "user",
@@ -759,7 +875,7 @@ export default function PermissionsPage() {
                                         label: (
                                             <Space>
                                                 <AppstoreOutlined />
-                                                Role Template
+                                                แม่แบบบทบาท
                                             </Space>
                                         ),
                                         value: "role",
@@ -774,7 +890,7 @@ export default function PermissionsPage() {
                                     onChange={setSelectedUser}
                                     options={userOptions}
                                     style={{ width: 420, maxWidth: "100%" }}
-                                    placeholder="Select user"
+                                    placeholder="เลือกผู้ใช้"
                                     showSearch
                                     optionFilterProp="label"
                                 />
@@ -784,16 +900,91 @@ export default function PermissionsPage() {
                                     onChange={setSelectedRole}
                                     options={roleOptions}
                                     style={{ width: 320, maxWidth: "100%" }}
-                                    placeholder="Select role"
+                                    placeholder="เลือกบทบาท"
                                 />
                             )}
+
+                            <Row gutter={[8, 8]}>
+                                <Col xs={24} md={12}>
+                                    <Input
+                                        allowClear
+                                        value={tableSearch}
+                                        onChange={(event) => setTableSearch(event.target.value)}
+                                        placeholder="ค้นหา ชื่อหน้า / เส้นทาง / resource key"
+                                    />
+                                </Col>
+                                <Col xs={24} md={6}>
+                                    <Segmented
+                                        block
+                                        value={systemFilter}
+                                        onChange={(value) => setSystemFilter(value as SystemGroup | "all")}
+                                        options={[
+                                            { label: "ทั้งหมด", value: "all" },
+                                            { label: "POS", value: "pos" },
+                                            { label: "Stock", value: "stock" },
+                                            { label: "ผู้ใช้/แอดมิน", value: "admin" },
+                                        ]}
+                                    />
+                                </Col>
+                                <Col xs={24} md={6}>
+                                    <Segmented
+                                        block
+                                        value={resourceKindFilter}
+                                        onChange={(value) => setResourceKindFilter(value as ResourceKind | "all")}
+                                        options={[
+                                            { label: "ทุกประเภท", value: "all" },
+                                            { label: "เมนู", value: "menu" },
+                                            { label: "หน้าใช้งาน", value: "page" },
+                                        ]}
+                                    />
+                                </Col>
+                            </Row>
+
+                            <Row gutter={[8, 8]}>
+                                <Col xs={12} md={4}>
+                                    <Card size="small">
+                                        <Text type="secondary">ทั้งหมด</Text>
+                                        <Title level={5} style={{ margin: 0 }}>{sectionSummary.total}</Title>
+                                    </Card>
+                                </Col>
+                                <Col xs={12} md={4}>
+                                    <Card size="small">
+                                        <Text type="secondary">POS</Text>
+                                        <Title level={5} style={{ margin: 0 }}>{sectionSummary.pos}</Title>
+                                    </Card>
+                                </Col>
+                                <Col xs={12} md={4}>
+                                    <Card size="small">
+                                        <Text type="secondary">Stock</Text>
+                                        <Title level={5} style={{ margin: 0 }}>{sectionSummary.stock}</Title>
+                                    </Card>
+                                </Col>
+                                <Col xs={12} md={4}>
+                                    <Card size="small">
+                                        <Text type="secondary">เมนู</Text>
+                                        <Title level={5} style={{ margin: 0 }}>{sectionSummary.menu}</Title>
+                                    </Card>
+                                </Col>
+                                <Col xs={12} md={4}>
+                                    <Card size="small">
+                                        <Text type="secondary">หน้าใช้งาน</Text>
+                                        <Title level={5} style={{ margin: 0 }}>{sectionSummary.page}</Title>
+                                    </Card>
+                                </Col>
+                                <Col xs={12} md={4}>
+                                    <Card size="small">
+                                        <Text type="secondary">ผู้ใช้/แอดมิน</Text>
+                                        <Title level={5} style={{ margin: 0 }}>{sectionSummary.admin}</Title>
+                                    </Card>
+                                </Col>
+                            </Row>
 
                             {editable && dirty && (
                                 <Alert
                                     type="info"
                                     showIcon
-                                    message="Unsaved changes"
-                                    description="You have modified permission overrides for this user."
+                                    message="มีการเปลี่ยนแปลงที่ยังไม่บันทึก"
+                                    description="คุณได้แก้ไขสิทธิ์เฉพาะของผู้ใช้นี้แล้ว"
                                 />
                             )}
 
@@ -801,8 +992,8 @@ export default function PermissionsPage() {
                                 <Alert
                                     type={pendingRiskSummary.level === "High" ? "error" : pendingRiskSummary.level === "Medium" ? "warning" : "info"}
                                     showIcon
-                                    message={`Pending risk: ${pendingRiskSummary.level} (score ${pendingRiskSummary.total})`}
-                                    description="Approval gate will require confirmation before saving."
+                                    message={`ความเสี่ยงปัจจุบัน: ${riskLevelLabel(pendingRiskSummary.level)} (คะแนน ${pendingRiskSummary.total})`}
+                                    description="ระบบจะตรวจสอบความเสี่ยงและขอการยืนยันก่อนบันทึก"
                                 />
                             )}
 
@@ -812,8 +1003,8 @@ export default function PermissionsPage() {
                                     showIcon
                                     closable
                                     onClose={() => setLastApprovalRequestId("")}
-                                    message="Approval required"
-                                    description={`Request submitted and waiting for reviewer: ${lastApprovalRequestId}`}
+                                    message="ต้องรอการอนุมัติ"
+                                    description={`ส่งคำขอแล้ว กำลังรอผู้อนุมัติ: ${lastApprovalRequestId}`}
                                 />
                             )}
 
@@ -821,11 +1012,11 @@ export default function PermissionsPage() {
                                 <Alert
                                     type="error"
                                     showIcon
-                                    message="High-risk admin confirmation"
+                                    message="ยืนยันโดยผู้ดูแลระบบ (ความเสี่ยงสูง)"
                                     description={
                                         <Space align="center">
                                             <Switch checked={highRiskConfirmed} onChange={setHighRiskConfirmed} />
-                                            <Text>I acknowledge and approve this high-risk permission change.</Text>
+                                            <Text>ฉันยืนยันและรับทราบการเปลี่ยนแปลงสิทธิ์ความเสี่ยงสูงนี้</Text>
                                         </Space>
                                     }
                                 />
@@ -837,8 +1028,8 @@ export default function PermissionsPage() {
                                     onChange={(e) => setSaveReason(e.target.value)}
                                     placeholder={
                                         pendingRiskSummary.level === "High"
-                                            ? "Reason is required for high-risk changes (min 10 chars)"
-                                            : "Reason for permission change (optional)"
+                                            ? "เหตุผลสำหรับการเปลี่ยนแปลงความเสี่ยงสูง (อย่างน้อย 10 ตัวอักษร)"
+                                            : "เหตุผลการเปลี่ยนสิทธิ์ (ไม่บังคับ)"
                                     }
                                     maxLength={500}
                                     status={pendingRiskSummary.level === "High" && saveReason.trim().length < 10 ? "error" : ""}
@@ -848,11 +1039,12 @@ export default function PermissionsPage() {
                             <Table
                                 rowKey="key"
                                 columns={columns}
-                                dataSource={rows}
+                                dataSource={filteredRows}
                                 pagination={false}
                                 size="middle"
-                                scroll={{ x: 920 }}
+                                scroll={{ x: 1160 }}
                                 loading={loading}
+                                locale={{ emptyText: "ไม่พบรายการตามเงื่อนไขที่เลือก" }}
                             />
                         </Space>
                     </Card>
@@ -863,88 +1055,91 @@ export default function PermissionsPage() {
                         title={
                             <Space>
                                 <DatabaseOutlined />
-                                <span>Policy Summary</span>
+                                <span>สรุปนโยบายสิทธิ์</span>
                             </Space>
                         }
                         bordered={false}
                     >
                         <Space direction="vertical" size={12} style={{ width: "100%" }}>
-                            <Text strong>Permission coverage</Text>
+                            <Text strong>ความครอบคลุมของสิทธิ์</Text>
                             <Progress percent={permissionCoverage} />
                             <Divider style={{ margin: "8px 0" }} />
                             <Alert
                                 type="info"
                                 showIcon
-                                message="Conflict resolution"
-                                description="Deny-first strategy is applied when explicit deny exists."
+                                message="หลักการแก้ความขัดแย้ง"
+                                description="หากมีสิทธิ์แบบปฏิเสธชัดเจน ระบบจะยึดปฏิเสธก่อนเสมอ"
                             />
                             <Alert
                                 type="success"
                                 showIcon
-                                message="Phase 8 enabled"
-                                description="User override, simulator, audit trail, and two-person approval workflow are active."
+                                message="ระบบอนุมัติหลายขั้นเปิดใช้งานแล้ว"
+                                description="รองรับสิทธิ์เฉพาะผู้ใช้, ตัวจำลองสิทธิ์, ประวัติการเปลี่ยนแปลง และอนุมัติ 2 ชั้น"
                             />
                             <Alert
                                 type="warning"
                                 showIcon
-                                message="Scope control"
-                                description="Data scope only applies when View permission is enabled."
+                                message="ขอบเขตข้อมูล"
+                                description="ขอบเขตข้อมูลจะมีผลเมื่อเปิดสิทธิ์ ดู เท่านั้น"
                             />
                         </Space>
                     </Card>
 
-                    <Card title="Permission Simulator" bordered={false} style={{ marginTop: 16 }}>
+                    <Card title="ตัวจำลองสิทธิ์" bordered={false} style={{ marginTop: 16 }}>
                         <Space direction="vertical" size={10} style={{ width: "100%" }}>
                             <Select
                                 value={simulateResource || undefined}
                                 onChange={setSimulateResource}
-                                options={rows.map((r) => ({ label: r.pageLabel, value: r.resourceKey }))}
-                                placeholder="Resource"
+                                options={rows.map((r) => ({
+                                    label: `[${getSystemGroup(r.resourceKey, r.route).toUpperCase()}] ${getResourceKind(r.resourceKey) === "menu" ? "เมนู" : "หน้า"} - ${r.pageLabel}`,
+                                    value: r.resourceKey,
+                                }))}
+                                placeholder="เลือกทรัพยากร"
                             />
                             <Select
                                 value={simulateAction}
                                 onChange={(v) => setSimulateAction(v)}
                                 options={[
-                                    { label: "Access", value: "access" },
-                                    { label: "View", value: "view" },
-                                    { label: "Create", value: "create" },
-                                    { label: "Update", value: "update" },
-                                    { label: "Delete", value: "delete" },
+                                    { label: "เข้าใช้งาน", value: "access" },
+                                    { label: "ดู", value: "view" },
+                                    { label: "เพิ่ม", value: "create" },
+                                    { label: "แก้ไข", value: "update" },
+                                    { label: "ลบ", value: "delete" },
                                 ]}
                             />
                             <Button onClick={handleSimulate} loading={simulating} disabled={!selectedUser || !simulateResource}>
-                                Simulate
+                                จำลองสิทธิ์
                             </Button>
                             {simulateResult && (
                                 <Alert
                                     type={simulateResult.allowed ? "success" : "error"}
                                     showIcon
-                                    message={simulateResult.allowed ? "Allowed" : "Denied"}
-                                    description={`Scope: ${simulateResult.scope}`}
+                                    message={simulateResult.allowed ? "อนุญาต" : "ไม่อนุญาต"}
+                                    description={`ขอบเขตข้อมูล: ${simulateResult.scope}`}
                                 />
                             )}
                         </Space>
                     </Card>
 
-                    <Card title="Permission Audits" bordered={false} style={{ marginTop: 16 }}>
+                    <Card title="บันทึกการเปลี่ยนสิทธิ์" bordered={false} style={{ marginTop: 16 }}>
                         <Space direction="vertical" size={8} style={{ width: "100%", marginBottom: 12 }}>
                             <Select
                                 allowClear
-                                placeholder="Filter action"
+                                placeholder="กรองตามการกระทำ"
                                 value={auditActionFilter || undefined}
                                 onChange={(v) => setAuditActionFilter(v || "")}
                                 options={[
-                                    { label: "update_overrides", value: "update_overrides" },
-                                    { label: "override_update_request", value: "override_update_request" },
-                                    { label: "override_update_approve", value: "override_update_approve" },
-                                    { label: "override_update_reject", value: "override_update_reject" },
+                                    { label: "แก้ไขสิทธิ์เฉพาะผู้ใช้", value: "update_overrides" },
+                                    { label: "ส่งคำขออนุมัติ", value: "override_update_request" },
+                                    { label: "อนุมัติคำขอ", value: "override_update_approve" },
+                                    { label: "ไม่อนุมัติคำขอ", value: "override_update_reject" },
                                 ]}
                             />
                             <Select
                                 allowClear
                                 showSearch
                                 optionFilterProp="label"
-                                placeholder="Filter actor"
+                                placeholder="กรองตามผู้ดำเนินการ"
                                 value={auditActorFilter || undefined}
                                 onChange={(v) => setAuditActorFilter(v || "")}
                                 options={userOptions}
@@ -960,7 +1155,7 @@ export default function PermissionsPage() {
                                 }}
                             />
                             <Button icon={<DownloadOutlined />} onClick={handleExportAudits} disabled={audits.length === 0}>
-                                Export CSV
+                                ส่งออก CSV
                             </Button>
                         </Space>
                         <Table
@@ -971,28 +1166,28 @@ export default function PermissionsPage() {
                             dataSource={audits}
                             columns={[
                                 {
-                                    title: "When",
+                                    title: "เวลา",
                                     dataIndex: "created_at",
                                     key: "created_at",
                                     render: (v: string) => new Date(v).toLocaleString(),
                                 },
                                 {
-                                    title: "Action",
+                                    title: "การกระทำ",
                                     dataIndex: "action_type",
                                     key: "action_type",
                                 },
                                 {
-                                    title: "Reason",
+                                    title: "เหตุผล",
                                     dataIndex: "reason",
                                     key: "reason",
                                     render: (v: string | null) => v || "-",
                                 },
                                 {
-                                    title: "Diff",
+                                    title: "รายละเอียด",
                                     key: "diff",
                                     render: (_: unknown, row: PermissionAuditItem) => (
                                         <Button icon={<DiffOutlined />} size="small" onClick={() => setSelectedAudit(row)}>
-                                            View
+                                            ดู Diff
                                         </Button>
                                     ),
                                 },
@@ -1000,24 +1195,24 @@ export default function PermissionsPage() {
                         />
                     </Card>
 
-                    <Card title="Override Approvals" bordered={false} style={{ marginTop: 16 }}>
+                    <Card title="รายการอนุมัติสิทธิ์เฉพาะผู้ใช้" bordered={false} style={{ marginTop: 16 }}>
                         <Space direction="vertical" size={8} style={{ width: "100%", marginBottom: 12 }}>
                             <Select
                                 allowClear
-                                placeholder="Filter status"
+                                placeholder="กรองตามสถานะ"
                                 value={approvalStatusFilter || undefined}
                                 onChange={(v) => setApprovalStatusFilter((v as PermissionOverrideApprovalStatus) || "")}
                                 options={[
-                                    { label: "pending", value: "pending" },
-                                    { label: "approved", value: "approved" },
-                                    { label: "rejected", value: "rejected" },
+                                    { label: "รออนุมัติ", value: "pending" },
+                                    { label: "อนุมัติแล้ว", value: "approved" },
+                                    { label: "ไม่อนุมัติ", value: "rejected" },
                                 ]}
                             />
                             <Switch
                                 checked={approvalsOnlySelectedUser}
                                 onChange={setApprovalsOnlySelectedUser}
                             />
-                            <Text type="secondary">Show only selected user</Text>
+                            <Text type="secondary">แสดงเฉพาะผู้ใช้ที่เลือก</Text>
                         </Space>
                         <Table
                             rowKey="id"
@@ -1027,25 +1222,25 @@ export default function PermissionsPage() {
                             dataSource={approvals}
                             columns={[
                                 {
-                                    title: "When",
+                                    title: "เวลา",
                                     dataIndex: "createdAt",
                                     key: "createdAt",
                                     render: (v: string) => new Date(v).toLocaleString(),
                                 },
                                 {
-                                    title: "Status",
+                                    title: "สถานะ",
                                     dataIndex: "status",
                                     key: "status",
                                     render: (status: PermissionOverrideApprovalStatus) => approvalStatusTag(status),
                                 },
                                 {
-                                    title: "Risk",
+                                    title: "ความเสี่ยง",
                                     dataIndex: "riskFlags",
                                     key: "riskFlags",
                                     render: (flags: string[]) => flags.length ? flags.join(", ") : "-",
                                 },
                                 {
-                                    title: "Action",
+                                    title: "ดำเนินการ",
                                     key: "action",
                                     render: (_: unknown, row: PermissionOverrideApprovalItem) => (
                                         <Space size={4}>
@@ -1057,13 +1252,13 @@ export default function PermissionsPage() {
                                                 loading={approvalActionLoadingId === row.id}
                                                 onClick={() =>
                                                     Modal.confirm({
-                                                        title: "Approve permission request?",
+                                                        title: "ยืนยันอนุมัติคำขอนี้หรือไม่",
                                                         centered: true,
                                                         onOk: () => handleApprove(row),
                                                     })
                                                 }
                                             >
-                                                Approve
+                                                อนุมัติ
                                             </Button>
                                             <Button
                                                 size="small"
@@ -1073,7 +1268,7 @@ export default function PermissionsPage() {
                                                 loading={approvalActionLoadingId === row.id}
                                                 onClick={() => openRejectModal(row)}
                                             >
-                                                Reject
+                                                ไม่อนุมัติ
                                             </Button>
                                         </Space>
                                     ),
@@ -1082,19 +1277,19 @@ export default function PermissionsPage() {
                         />
                     </Card>
 
-                    <Card title="Phased Delivery" bordered={false} style={{ marginTop: 16 }}>
+                    <Card title="สถานะฟีเจอร์ความปลอดภัย" bordered={false} style={{ marginTop: 16 }}>
                         <Space direction="vertical" size={8}>
-                            <Tag color="blue">Phase 1: RBAC baseline</Tag>
-                            <Tag color="purple">Phase 2: user override active</Tag>
-                            <Tag color="cyan">Phase 3: ABAC / policy engine</Tag>
-                            <Tag color="green">Phase 4: simulator + audit trail</Tag>
-                            <Tag color="orange">Phase 8: two-person approval</Tag>
+                            <Tag color="blue">Phase 1: โครง RBAC พื้นฐาน</Tag>
+                            <Tag color="purple">Phase 2: สิทธิ์เฉพาะผู้ใช้ (Override)</Tag>
+                            <Tag color="cyan">Phase 3: Policy Engine / ABAC</Tag>
+                            <Tag color="green">Phase 4: จำลองสิทธิ์ + Audit Trail</Tag>
+                            <Tag color="orange">Phase 8: อนุมัติ 2 ชั้น</Tag>
                         </Space>
                     </Card>
                 </Col>
             </Row>
             <Modal
-                title="Permission Change Diff"
+                title="รายละเอียดความแตกต่างของสิทธิ์"
                 open={!!selectedAudit}
                 onCancel={() => setSelectedAudit(null)}
                 footer={null}
@@ -1105,8 +1300,8 @@ export default function PermissionsPage() {
                         <Alert
                             type={riskSummary.level === "High" ? "error" : riskSummary.level === "Medium" ? "warning" : "info"}
                             showIcon
-                            message={`Risk Score: ${riskSummary.total}`}
-                            description={`Risk Level: ${riskSummary.level}`}
+                            message={`คะแนนความเสี่ยง: ${riskSummary.total}`}
+                            description={`ระดับความเสี่ยง: ${riskLevelLabel(riskSummary.level)}`}
                         />
                         <Table
                             rowKey="key"
@@ -1114,22 +1309,27 @@ export default function PermissionsPage() {
                             pagination={false}
                             dataSource={semanticDiffRows}
                             columns={[
-                                { title: "Page", dataIndex: "pageLabel", key: "pageLabel" },
-                                { title: "Field", dataIndex: "field", key: "field" },
+                                { title: "ทรัพยากร", dataIndex: "pageLabel", key: "pageLabel" },
                                 {
-                                    title: "Change",
+                                    title: "ฟิลด์",
+                                    dataIndex: "field",
+                                    key: "field",
+                                    render: (value: string) => permissionFieldLabel(value),
+                                },
+                                {
+                                    title: "การเปลี่ยนแปลง",
                                     dataIndex: "changeType",
                                     key: "changeType",
                                     render: (v: string) => {
-                                        if (v === "Grant" || v === "Scope Widen") return <Tag color="red">{v}</Tag>;
-                                        if (v === "Revoke" || v === "Scope Tighten") return <Tag color="green">{v}</Tag>;
-                                        return <Tag>{v}</Tag>;
+                                        if (v === "Grant" || v === "Scope Widen") return <Tag color="red">{changeTypeLabel(v)}</Tag>;
+                                        if (v === "Revoke" || v === "Scope Tighten") return <Tag color="green">{changeTypeLabel(v)}</Tag>;
+                                        return <Tag>{changeTypeLabel(v)}</Tag>;
                                     },
                                 },
-                                { title: "Before", dataIndex: "before", key: "before" },
-                                { title: "After", dataIndex: "after", key: "after" },
+                                { title: "ค่าเดิม", dataIndex: "before", key: "before" },
+                                { title: "ค่าใหม่", dataIndex: "after", key: "after" },
                                 {
-                                    title: "Risk",
+                                    title: "ความเสี่ยง",
                                     dataIndex: "riskLevel",
                                     key: "riskLevel",
                                     render: (risk: "none" | "low" | "medium" | "high") => riskTag(risk),
@@ -1140,13 +1340,13 @@ export default function PermissionsPage() {
                 ) : (
                     <Row gutter={16}>
                         <Col span={12}>
-                            <Text strong>Before</Text>
+                            <Text strong>ก่อนเปลี่ยน</Text>
                             <pre style={{ background: "#f5f5f5", padding: 12, borderRadius: 8, maxHeight: 420, overflow: "auto" }}>
                                 {JSON.stringify(selectedAudit?.payload_before ?? {}, null, 2)}
                             </pre>
                         </Col>
                         <Col span={12}>
-                            <Text strong>After</Text>
+                            <Text strong>หลังเปลี่ยน</Text>
                             <pre style={{ background: "#f5f5f5", padding: 12, borderRadius: 8, maxHeight: 420, overflow: "auto" }}>
                                 {JSON.stringify(selectedAudit?.payload_after ?? {}, null, 2)}
                             </pre>
@@ -1155,7 +1355,7 @@ export default function PermissionsPage() {
                 )}
             </Modal>
             <Modal
-                title="Reject Approval Request"
+                title="ไม่อนุมัติคำขอเปลี่ยนสิทธิ์"
                 open={rejectModalOpen}
                 onCancel={() => {
                     setRejectModalOpen(false);
@@ -1163,7 +1363,7 @@ export default function PermissionsPage() {
                     setRejectReason("");
                 }}
                 onOk={submitReject}
-                okText="Reject"
+                okText="ยืนยันไม่อนุมัติ"
                 okButtonProps={{
                     danger: true,
                     loading: approvalActionLoadingId === rejectApprovalId,
@@ -1171,7 +1371,7 @@ export default function PermissionsPage() {
                 }}
             >
                 <Space direction="vertical" style={{ width: "100%" }} size={8}>
-                    <Text type="secondary">Please provide a reason for rejection (at least 3 characters).</Text>
+                    <Text type="secondary">กรุณาระบุเหตุผลการไม่อนุมัติ อย่างน้อย 3 ตัวอักษร</Text>
                     <Input.TextArea
                         value={rejectReason}
                         onChange={(event) => setRejectReason(event.target.value)}

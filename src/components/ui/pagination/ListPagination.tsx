@@ -5,6 +5,8 @@ import { Pagination, Select, Space, Typography } from 'antd';
 
 const { Text } = Typography;
 
+export type CreatedSort = "old" | "new";
+
 type ListPaginationProps = {
     page: number;
     pageSize: number;
@@ -13,6 +15,8 @@ type ListPaginationProps = {
     pageSizeOptions?: number[];
     onPageChange: (page: number) => void;
     onPageSizeChange: (size: number) => void;
+    sortCreated?: CreatedSort;
+    onSortCreatedChange?: (sort: CreatedSort) => void;
 };
 
 export default function ListPagination({
@@ -23,6 +27,8 @@ export default function ListPagination({
     pageSizeOptions = [10, 20, 50, 100],
     onPageChange,
     onPageSizeChange,
+    sortCreated = "old",
+    onSortCreatedChange,
 }: ListPaginationProps) {
     const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
     const end = Math.min(page * pageSize, total);
@@ -41,9 +47,9 @@ export default function ListPagination({
             }}
         >
             <Space size={12} wrap>
-                <Text type="secondary">เนเธชเธ”เธ {start}-{end} เธเธฒเธ {total} เธฃเธฒเธขเธเธฒเธฃ</Text>
+                <Text type="secondary">แสดง {start}-{end} จาก {total} รายการ</Text>
                 <Space size={6}>
-                    <Text type="secondary">เธ•เนเธญเธซเธเนเธฒ</Text>
+                    <Text type="secondary">ต่อหน้า</Text>
                     <Select
                         size="small"
                         value={pageSize}
@@ -53,6 +59,22 @@ export default function ListPagination({
                         style={{ width: 84 }}
                     />
                 </Space>
+                {onSortCreatedChange ? (
+                    <Space size={6}>
+                        <Text type="secondary">เรียงตาม</Text>
+                        <Select<CreatedSort>
+                            size="small"
+                            value={sortCreated}
+                            disabled={loading}
+                            onChange={onSortCreatedChange}
+                            options={[
+                                { value: 'old', label: 'เก่าก่อน' },
+                                { value: 'new', label: 'ใหม่ก่อน' },
+                            ]}
+                            style={{ width: 108 }}
+                        />
+                    </Space>
+                ) : null}
             </Space>
 
             <Pagination

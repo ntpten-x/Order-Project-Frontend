@@ -29,6 +29,8 @@ import PageSection from '../../../../components/ui/page/PageSection';
 import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
+import type { CreatedSort } from '../../../../components/ui/pagination/ListPagination';
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../../lib/list-sort';
 
 const { Text } = Typography;
 
@@ -187,6 +189,7 @@ export default function DeliveryPage() {
     const [deliveries, setDeliveries] = useState<Delivery[]>([]);
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
     const debouncedSearch = useDebouncedValue(searchText, 300);
     const { execute } = useAsyncAction();
@@ -203,11 +206,13 @@ export default function DeliveryPage() {
 
         const qParam = searchParams.get('q') || '';
         const statusParam = searchParams.get('status');
+        const sortParam = searchParams.get('sort_created');
         const nextStatus: StatusFilter =
             statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all';
 
         setSearchText(qParam);
         setStatusFilter(nextStatus);
+        setCreatedSort(parseCreatedSort(sortParam));
         isUrlReadyRef.current = true;
     }, [searchParams]);
 
@@ -217,21 +222,26 @@ export default function DeliveryPage() {
         const params = new URLSearchParams();
         if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
         if (statusFilter !== 'all') params.set('status', statusFilter);
+        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
 
         const query = params.toString();
         router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [router, pathname, debouncedSearch, statusFilter]);
+    }, [router, pathname, debouncedSearch, statusFilter, createdSort]);
 
     useEffect(() => {
+        if (createdSort !== DEFAULT_CREATED_SORT) return;
         const cached = readCache<Delivery[]>('pos:delivery-providers', 5 * 60 * 1000);
         if (cached && cached.length > 0) {
             setDeliveries(cached);
         }
-    }, []);
+    }, [createdSort]);
 
     const fetchDeliveries = useCallback(async () => {
         execute(async () => {
-            const response = await fetch('/api/pos/delivery?limit=200');
+            const params = new URLSearchParams();
+            params.set('limit', '200');
+            params.set('sort_created', createdSort);
+            const response = await fetch(`/api/pos/delivery?${params.toString()}`);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลช่องทางจัดส่งได้');
@@ -241,7 +251,7 @@ export default function DeliveryPage() {
             if (!Array.isArray(data)) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
             setDeliveries(data);
         }, 'กำลังโหลดข้อมูลช่องทางจัดส่ง...');
-    }, [execute]);
+    }, [execute, createdSort]);
 
     useEffect(() => {
         if (isAuthorized) {
@@ -256,10 +266,10 @@ export default function DeliveryPage() {
     );
 
     useEffect(() => {
-        if (deliveries.length > 0) {
+        if (createdSort === DEFAULT_CREATED_SORT && deliveries.length > 0) {
             writeCache('pos:delivery-providers', deliveries);
         }
-    }, [deliveries]);
+    }, [deliveries, createdSort]);
 
     const filteredDeliveries = useMemo(() => {
         let result = deliveries;
@@ -405,6 +415,14 @@ export default function DeliveryPage() {
                                 ]}
                                 value={statusFilter}
                                 onChange={(value) => setStatusFilter(value)}
+                            />
+                            <Segmented<CreatedSort>
+                                options={[
+                                    { label: 'เก่าก่อน', value: 'old' },
+                                    { label: 'ใหม่ก่อน', value: 'new' },
+                                ]}
+                                value={createdSort}
+                                onChange={(value) => setCreatedSort(value)}
                             />
                         </div>
                     </PageSection>

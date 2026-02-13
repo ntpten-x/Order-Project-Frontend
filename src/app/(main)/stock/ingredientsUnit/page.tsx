@@ -21,9 +21,10 @@ import PageSection from "../../../../components/ui/page/PageSection";
 import PageStack from "../../../../components/ui/page/PageStack";
 import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import UIEmptyState from "../../../../components/ui/states/EmptyState";
-import ListPagination from "../../../../components/ui/pagination/ListPagination";
+import ListPagination, { type CreatedSort } from "../../../../components/ui/pagination/ListPagination";
 import { t } from "../../../../utils/i18n";
 import { useDebouncedValue } from "../../../../utils/useDebouncedValue";
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from "../../../../lib/list-sort";
 
 const { Text } = Typography;
 
@@ -41,6 +42,7 @@ export default function IngredientsUnitPage() {
     const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
     const debouncedSearch = useDebouncedValue(searchText, 300);
@@ -51,10 +53,12 @@ export default function IngredientsUnitPage() {
         const limitParam = parseInt(searchParams.get('limit') || '20', 10);
         const qParam = searchParams.get('q') || '';
         const statusParam = searchParams.get('status');
+        const sortParam = searchParams.get('sort_created');
         setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
         setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 20);
         setSearchText(qParam);
         setStatusFilter(statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all');
+        setCreatedSort(parseCreatedSort(sortParam));
         isUrlReadyRef.current = true;
     }, [searchParams]);
 
@@ -65,8 +69,9 @@ export default function IngredientsUnitPage() {
         params.set('limit', String(pageSize));
         if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
         if (statusFilter !== 'all') params.set('status', statusFilter);
+        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
         router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter]);
+    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter, createdSort]);
 
     useEffect(() => {
         if (!authLoading) {
@@ -93,13 +98,14 @@ export default function IngredientsUnitPage() {
         page: number;
         last_page: number;
     }>({
-        queryKey: ['ingredientsUnits', page, pageSize, debouncedSearch, statusFilter],
+        queryKey: ['ingredientsUnits', page, pageSize, debouncedSearch, statusFilter, createdSort],
         queryFn: async () => {
             const params = new URLSearchParams();
             params.set('page', String(page));
             params.set('limit', String(pageSize));
             if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
             if (statusFilter !== 'all') params.set('status', statusFilter);
+            params.set('sort_created', createdSort);
             const response = await fetch(`/api/stock/ingredientsUnit/getAll?${params.toString()}`, { cache: 'no-store' });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
@@ -321,6 +327,11 @@ export default function IngredientsUnitPage() {
                             onPageSizeChange={(size) => {
                                 setPage(1);
                                 setPageSize(size);
+                            }}
+                            sortCreated={createdSort}
+                            onSortCreatedChange={(next) => {
+                                setPage(1);
+                                setCreatedSort(next);
                             }}
                         />
                     </PageSection>

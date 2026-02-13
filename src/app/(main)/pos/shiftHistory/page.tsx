@@ -12,7 +12,6 @@ import {
     DatePicker,
     Modal,
     Spin,
-    Pagination,
     Card
 } from 'antd';
 import {
@@ -50,6 +49,8 @@ import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import PageState from '../../../../components/ui/states/PageState';
 import { pageStyles, globalStyles } from '../../../../theme/pos/shiftHistory/style';
 import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
+import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../../lib/list-sort';
 
 dayjs.extend(duration);
 dayjs.locale('th');
@@ -171,6 +172,7 @@ export default function ShiftHistoryPage() {
 
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
     const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
@@ -197,6 +199,7 @@ export default function ShiftHistoryPage() {
         const statusParam = searchParams.get('status');
         const fromParam = searchParams.get('date_from');
         const toParam = searchParams.get('date_to');
+        const sortParam = searchParams.get('sort_created');
 
         const parsedFrom = fromParam ? dayjs(fromParam) : null;
         const parsedTo = toParam ? dayjs(toParam) : null;
@@ -205,6 +208,7 @@ export default function ShiftHistoryPage() {
 
         setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
         setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 10);
+        setCreatedSort(parseCreatedSort(sortParam));
         setSearchText(qParam);
         setStatusFilter(nextStatus);
         if (parsedFrom?.isValid() || parsedTo?.isValid()) {
@@ -220,12 +224,13 @@ export default function ShiftHistoryPage() {
         if (pageSize !== 10) params.set('limit', String(pageSize));
         if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
         if (statusFilter !== 'all') params.set('status', statusFilter);
+        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
         if (dateFrom) params.set('date_from', dateFrom);
         if (dateTo) params.set('date_to', dateTo);
 
         const query = params.toString();
         router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter, dateFrom, dateTo]);
+    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter, createdSort, dateFrom, dateTo]);
 
     const dateLabel = useMemo(() => {
         if (!dateRange || (!dateRange[0] && !dateRange[1])) return 'ทั้งหมด';
@@ -244,13 +249,14 @@ export default function ShiftHistoryPage() {
     ];
 
     const historyQuery = useQuery<ShiftHistoryResponse>({
-        queryKey: ['shiftHistory', page, pageSize, debouncedSearch, statusFilter, dateFrom, dateTo],
+        queryKey: ['shiftHistory', page, pageSize, debouncedSearch, statusFilter, createdSort, dateFrom, dateTo],
         queryFn: async () => {
             return shiftsService.getHistory({
                 page,
                 limit: pageSize,
                 q: debouncedSearch.trim() || undefined,
                 status: statusFilter === 'all' ? undefined : statusFilter,
+                sort_created: createdSort,
                 date_from: dateFrom,
                 date_to: dateTo
             });
@@ -400,15 +406,23 @@ export default function ShiftHistoryPage() {
                                     />
                                 ))}
 
-                                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
-                                    <Pagination
-                                        current={pagination?.page || page}
+                                <div style={{ marginTop: 16 }}>
+                                    <ListPagination
+                                        page={pagination?.page || page}
                                         pageSize={pagination?.limit || pageSize}
                                         total={pagination?.total || 0}
-                                        showSizeChanger
-                                        onChange={(nextPage, nextPageSize) => {
+                                        loading={historyQuery.isFetching}
+                                        onPageChange={(nextPage) => {
                                             setPage(nextPage);
+                                        }}
+                                        onPageSizeChange={(nextPageSize) => {
+                                            setPage(1);
                                             setPageSize(nextPageSize);
+                                        }}
+                                        sortCreated={createdSort}
+                                        onSortCreatedChange={(nextSort) => {
+                                            setPage(1);
+                                            setCreatedSort(nextSort);
                                         }}
                                     />
                                 </div>

@@ -36,6 +36,8 @@ import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
+import type { CreatedSort } from '../../../../components/ui/pagination/ListPagination';
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../../lib/list-sort';
 
 const { Text } = Typography;
 
@@ -222,6 +224,7 @@ export default function ProductsPage() {
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
     const [categoryFilter, setCategoryFilter] = useState<string>('all');
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
     const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
     const debouncedSearch = useDebouncedValue(searchText, 300);
@@ -247,6 +250,7 @@ export default function ProductsPage() {
         const qParam = searchParams.get('q') || '';
         const statusParam = searchParams.get('status');
         const categoryParam = searchParams.get('category_id');
+        const sortParam = searchParams.get('sort_created');
 
         const nextStatus: StatusFilter =
             statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all';
@@ -255,6 +259,7 @@ export default function ProductsPage() {
         setSearchText(qParam);
         setStatusFilter(nextStatus);
         setCategoryFilter(categoryParam || 'all');
+        setCreatedSort(parseCreatedSort(sortParam));
         isUrlReadyRef.current = true;
     }, [searchParams]);
 
@@ -265,12 +270,14 @@ export default function ProductsPage() {
         if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
         if (statusFilter !== 'all') params.set('status', statusFilter);
         if (categoryFilter !== 'all') params.set('category_id', categoryFilter);
+        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
 
         const query = params.toString();
         router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [router, pathname, page, debouncedSearch, statusFilter, categoryFilter]);
+    }, [router, pathname, page, debouncedSearch, statusFilter, categoryFilter, createdSort]);
 
     useEffect(() => {
+        if (createdSort !== DEFAULT_CREATED_SORT) return;
         const cached = readCache<CachedProducts>('pos:products:v3', 10 * 60 * 1000);
         if (cached?.items) {
             setProducts(cached.items);
@@ -279,7 +286,7 @@ export default function ProductsPage() {
             setLastPage(cached.last_page || 1);
             setActiveProductsTotal(typeof cached.active_total === 'number' ? cached.active_total : null);
         }
-    }, []);
+    }, [createdSort]);
 
     const fetchProducts = useCallback(async () => {
         execute(async () => {
@@ -290,12 +297,14 @@ export default function ProductsPage() {
             if (statusFilter === 'active') params.set('is_active', 'true');
             if (statusFilter === 'inactive') params.set('is_active', 'false');
             if (categoryFilter !== 'all') params.set('category_id', categoryFilter);
+            params.set('sort_created', createdSort);
 
             const activeParams = new URLSearchParams();
             activeParams.set('page', '1');
             activeParams.set('limit', '1');
             activeParams.set('is_active', 'true');
             if (categoryFilter !== 'all') activeParams.set('category_id', categoryFilter);
+            activeParams.set('sort_created', createdSort);
 
             const [listResponse, activeResponse] = await Promise.all([
                 fetch(`/api/pos/products?${params.toString()}`),
@@ -326,7 +335,7 @@ export default function ProductsPage() {
             setLastPage(last);
             setActiveProductsTotal(activeTotal);
 
-            if (!debouncedSearch.trim() && statusFilter === 'all' && categoryFilter === 'all' && page === 1) {
+            if (!debouncedSearch.trim() && statusFilter === 'all' && categoryFilter === 'all' && createdSort === DEFAULT_CREATED_SORT && page === 1) {
                 writeCache('pos:products:v3', {
                     items: list,
                     total,
@@ -336,7 +345,7 @@ export default function ProductsPage() {
                 });
             }
         }, 'กำลังโหลดข้อมูลสินค้า...');
-    }, [execute, page, debouncedSearch, statusFilter, categoryFilter]);
+    }, [execute, page, debouncedSearch, statusFilter, categoryFilter, createdSort]);
 
     useEffect(() => {
         if (!isAuthorized) return;
@@ -370,6 +379,7 @@ export default function ProductsPage() {
             if (statusFilter === 'active') params.set('is_active', 'true');
             if (statusFilter === 'inactive') params.set('is_active', 'false');
             if (categoryFilter !== 'all') params.set('category_id', categoryFilter);
+            params.set('sort_created', createdSort);
 
             const response = await fetch(`/api/pos/products?${params.toString()}`);
             if (!response.ok) {
@@ -396,7 +406,7 @@ export default function ProductsPage() {
         } finally {
             setIsLoadingMore(false);
         }
-    }, [isLoadingMore, page, lastPage, debouncedSearch, statusFilter, categoryFilter, totalProducts]);
+    }, [isLoadingMore, page, lastPage, debouncedSearch, statusFilter, categoryFilter, createdSort, totalProducts]);
 
     const handleAdd = () => {
         showLoading('กำลังเปิดหน้าจัดการสินค้า...');
@@ -572,6 +582,17 @@ export default function ProductsPage() {
                                 onChange={(value) => {
                                     setPage(1);
                                     setStatusFilter(value);
+                                }}
+                            />
+                            <Segmented<CreatedSort>
+                                options={[
+                                    { label: 'เก่าก่อน', value: 'old' },
+                                    { label: 'ใหม่ก่อน', value: 'new' },
+                                ]}
+                                value={createdSort}
+                                onChange={(value) => {
+                                    setPage(1);
+                                    setCreatedSort(value);
                                 }}
                             />
                             <div 

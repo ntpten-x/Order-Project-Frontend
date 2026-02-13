@@ -29,6 +29,8 @@ import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
+import type { CreatedSort } from '../../../../components/ui/pagination/ListPagination';
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../../lib/list-sort';
 
 const { Text } = Typography;
 
@@ -212,6 +214,7 @@ export default function TablesPage() {
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
     const [tableStateFilter, setTableStateFilter] = useState<TableStateFilter>('all');
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
     const debouncedSearch = useDebouncedValue(searchText, 300);
     const { execute } = useAsyncAction();
@@ -229,6 +232,7 @@ export default function TablesPage() {
         const qParam = searchParams.get('q') || '';
         const statusParam = searchParams.get('status');
         const tableStateParam = searchParams.get('table_state');
+        const sortParam = searchParams.get('sort_created');
 
         const nextStatus: StatusFilter =
             statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all';
@@ -240,6 +244,7 @@ export default function TablesPage() {
         setSearchText(qParam);
         setStatusFilter(nextStatus);
         setTableStateFilter(nextTableState);
+        setCreatedSort(parseCreatedSort(sortParam));
         isUrlReadyRef.current = true;
     }, [searchParams]);
 
@@ -250,21 +255,26 @@ export default function TablesPage() {
         if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
         if (statusFilter !== 'all') params.set('status', statusFilter);
         if (tableStateFilter !== 'all') params.set('table_state', tableStateFilter);
+        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
 
         const query = params.toString();
         router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [router, pathname, debouncedSearch, statusFilter, tableStateFilter]);
+    }, [router, pathname, debouncedSearch, statusFilter, tableStateFilter, createdSort]);
 
     useEffect(() => {
+        if (createdSort !== DEFAULT_CREATED_SORT) return;
         const cached = readCache<Tables[]>('pos:tables', 5 * 60 * 1000);
         if (cached && cached.length > 0) {
             setTables(cached);
         }
-    }, []);
+    }, [createdSort]);
 
     const fetchTables = useCallback(async () => {
         execute(async () => {
-            const response = await fetch('/api/pos/tables?limit=200');
+            const params = new URLSearchParams();
+            params.set('limit', '200');
+            params.set('sort_created', createdSort);
+            const response = await fetch(`/api/pos/tables?${params.toString()}`);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลโต๊ะได้');
@@ -274,7 +284,7 @@ export default function TablesPage() {
             if (!Array.isArray(data)) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
             setTables(data);
         }, 'กำลังโหลดข้อมูลโต๊ะ...');
-    }, [execute]);
+    }, [execute, createdSort]);
 
     useEffect(() => {
         if (isAuthorized) {
@@ -289,10 +299,10 @@ export default function TablesPage() {
     );
 
     useEffect(() => {
-        if (tables.length > 0) {
+        if (createdSort === DEFAULT_CREATED_SORT && tables.length > 0) {
             writeCache('pos:tables', tables);
         }
-    }, [tables]);
+    }, [tables, createdSort]);
 
     const filteredTables = useMemo(() => {
         let result = tables;
@@ -452,6 +462,14 @@ export default function TablesPage() {
                                 ]}
                                 value={tableStateFilter}
                                 onChange={(value) => setTableStateFilter(value)}
+                            />
+                            <Segmented<CreatedSort>
+                                options={[
+                                    { label: 'เก่าก่อน', value: 'old' },
+                                    { label: 'ใหม่ก่อน', value: 'new' },
+                                ]}
+                                value={createdSort}
+                                onChange={(value) => setCreatedSort(value)}
                             />
                         </div>
                     </PageSection>

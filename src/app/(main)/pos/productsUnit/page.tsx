@@ -27,8 +27,9 @@ import PageSection from '../../../../components/ui/page/PageSection';
 import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
-import ListPagination from '../../../../components/ui/pagination/ListPagination';
+import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
 import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../../lib/list-sort';
 
 const { Text } = Typography;
 
@@ -197,6 +198,7 @@ export default function ProductsUnitPage() {
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
     const [totalUnits, setTotalUnits] = useState(0);
     const debouncedSearch = useDebouncedValue(searchText, 300);
     const { execute } = useAsyncAction();
@@ -221,10 +223,12 @@ export default function ProductsUnitPage() {
         const limitParam = parseInt(searchParams.get('limit') || '20', 10);
         const qParam = searchParams.get('q') || '';
         const statusParam = searchParams.get('status');
+        const sortParam = searchParams.get('sort_created');
         setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
         setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 20);
         setSearchText(qParam);
         setStatusFilter(statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all');
+        setCreatedSort(parseCreatedSort(sortParam));
         isUrlReadyRef.current = true;
     }, [searchParams]);
 
@@ -235,8 +239,9 @@ export default function ProductsUnitPage() {
         params.set('limit', String(pageSize));
         if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
         if (statusFilter !== 'all') params.set('status', statusFilter);
+        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
         router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter]);
+    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter, createdSort]);
 
     const fetchUnits = useCallback(async (nextPage: number = page, nextPageSize: number = pageSize) => {
         execute(async () => {
@@ -245,6 +250,7 @@ export default function ProductsUnitPage() {
             params.set('limit', String(nextPageSize));
             if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
             if (statusFilter !== 'all') params.set('status', statusFilter);
+            params.set('sort_created', createdSort);
             const response = await fetch(`/api/pos/productsUnit?${params.toString()}`);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
@@ -258,7 +264,7 @@ export default function ProductsUnitPage() {
             setPage(typeof payload?.page === 'number' ? payload.page : nextPage);
             setPageSize(nextPageSize);
         }, 'กำลังโหลดข้อมูลหน่วยสินค้า...');
-    }, [execute, page, pageSize, debouncedSearch, statusFilter]);
+    }, [execute, page, pageSize, debouncedSearch, statusFilter, createdSort]);
 
     useEffect(() => {
         if (!isUrlReadyRef.current) return;
@@ -368,7 +374,7 @@ export default function ProductsUnitPage() {
                 icon={<UnorderedListOutlined />}
                 actions={
                     <Space size={8} wrap>
-                        <Button icon={<ReloadOutlined />} onClick={fetchUnits} />
+                        <Button icon={<ReloadOutlined />} onClick={() => { void fetchUnits(); }} />
                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                             เพิ่มหน่วยสินค้า
                         </Button>
@@ -455,6 +461,11 @@ export default function ProductsUnitPage() {
                             onPageSizeChange={(size) => {
                                 setPage(1);
                                 setPageSize(size);
+                            }}
+                            sortCreated={createdSort}
+                            onSortCreatedChange={(next) => {
+                                setPage(1);
+                                setCreatedSort(next);
                             }}
                         />
                     </PageSection>

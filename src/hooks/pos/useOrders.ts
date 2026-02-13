@@ -15,16 +15,17 @@ interface UseOrdersParams {
     status?: string;
     type?: string;
     query?: string;
+    sortCreated?: "old" | "new";
 }
 
-export function useOrders({ page = 1, limit = 50, status, type, query }: UseOrdersParams) {
+export function useOrders({ page = 1, limit = 50, status, type, query, sortCreated = "old" }: UseOrdersParams) {
     // Construct query string for key
-    const queryKey = ['orders', page, limit, status || 'all', type || 'all', query || ''];
+    const queryKey = ['orders', page, limit, status || 'all', type || 'all', query || '', sortCreated];
 
     const { data, error, isLoading, isFetching, refetch } = useQuery<OrdersResponse>({
         queryKey,
         queryFn: async () => {
-            return await ordersService.getAll(undefined, page, limit, status, type, query);
+            return await ordersService.getAll(undefined, page, limit, status, type, query, sortCreated);
         },
         placeholderData: keepPreviousData,
         staleTime: 2000,

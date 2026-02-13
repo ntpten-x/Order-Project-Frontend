@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { message, Modal, Typography, Tag, Button, Input, Space, Segmented, Switch, Pagination } from 'antd';
+import { message, Modal, Typography, Tag, Button, Input, Space, Segmented, Switch } from 'antd';
 import {
     CreditCardOutlined,
     PlusOutlined,
@@ -32,6 +32,8 @@ import PageSection from '../../../../components/ui/page/PageSection';
 import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
+import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../../lib/list-sort';
 
 const { Text } = Typography;
 
@@ -202,9 +204,9 @@ export default function PaymentMethodPage() {
     const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
     const [page, setPage] = useState(1);
     const [total, setTotal] = useState(0);
-    const [lastPage, setLastPage] = useState(1);
     const [searchValue, setSearchValue] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
     const debouncedSearch = useDebouncedValue(searchValue.trim(), 350);
 
@@ -223,12 +225,14 @@ export default function PaymentMethodPage() {
         const pageParam = Number(searchParams.get('page') || '1');
         const qParam = searchParams.get('q') || '';
         const statusParam = searchParams.get('status');
+        const sortParam = searchParams.get('sort_created');
         const nextStatus: StatusFilter =
             statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all';
 
         setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
         setSearchValue(qParam);
         setStatusFilter(nextStatus);
+        setCreatedSort(parseCreatedSort(sortParam));
         isUrlReadyRef.current = true;
     }, [searchParams]);
 
@@ -238,20 +242,20 @@ export default function PaymentMethodPage() {
         if (page > 1) params.set('page', String(page));
         if (debouncedSearch) params.set('q', debouncedSearch);
         if (statusFilter !== 'all') params.set('status', statusFilter);
+        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
 
         const query = params.toString();
         router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [router, pathname, page, debouncedSearch, statusFilter]);
+    }, [router, pathname, page, debouncedSearch, statusFilter, createdSort]);
 
     useEffect(() => {
-        if (debouncedSearch || page !== 1) return;
+        if (debouncedSearch || page !== 1 || createdSort !== DEFAULT_CREATED_SORT) return;
         const cached = readCache<PaymentMethodCacheResult>(PAYMENT_METHOD_CACHE_KEY, PAYMENT_METHOD_CACHE_TTL);
         if (cached?.data?.length) {
             setPaymentMethods(cached.data);
             setTotal(cached.total);
-            setLastPage(cached.last_page);
         }
-    }, [debouncedSearch, page]);
+    }, [debouncedSearch, page, createdSort]);
 
     const fetchPaymentMethods = useCallback(async () => {
         execute(async () => {
@@ -264,17 +268,17 @@ export default function PaymentMethodPage() {
             if (statusFilter !== 'all') {
                 params.set('status', statusFilter);
             }
+            params.set('sort_created', createdSort);
 
             const result = await paymentMethodService.getAll(undefined, params);
             setPaymentMethods(result.data || []);
             setTotal(result.total || 0);
-            setLastPage(result.last_page || 1);
 
-            if (!debouncedSearch && page === 1) {
+            if (!debouncedSearch && page === 1 && createdSort === DEFAULT_CREATED_SORT) {
                 writeCache(PAYMENT_METHOD_CACHE_KEY, result);
             }
         }, 'กำลังโหลดข้อมูลวิธีการชำระเงิน...');
-    }, [debouncedSearch, execute, page, statusFilter]);
+    }, [debouncedSearch, execute, page, statusFilter, createdSort]);
 
     useEffect(() => {
         if (isAuthorized) {
@@ -442,17 +446,23 @@ export default function PaymentMethodPage() {
                                     />
                                 ))}
 
-                                {lastPage > 1 ? (
-                                    <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
-                                        <Pagination
-                                            current={page}
-                                            total={total}
-                                            pageSize={PAYMENT_METHOD_LIMIT}
-                                            onChange={(p) => setPage(p)}
-                                            showSizeChanger={false}
-                                        />
-                                    </div>
-                                ) : null}
+                                <div style={{ marginTop: 16 }}>
+                                    <ListPagination
+                                        page={page}
+                                        pageSize={PAYMENT_METHOD_LIMIT}
+                                        pageSizeOptions={[PAYMENT_METHOD_LIMIT]}
+                                        total={total}
+                                        onPageChange={(p) => setPage(p)}
+                                        onPageSizeChange={() => {
+                                            setPage(1);
+                                        }}
+                                        sortCreated={createdSort}
+                                        onSortCreatedChange={(nextSort) => {
+                                            setPage(1);
+                                            setCreatedSort(nextSort);
+                                        }}
+                                    />
+                                </div>
                             </>
                         ) : (
                             <UIEmptyState
