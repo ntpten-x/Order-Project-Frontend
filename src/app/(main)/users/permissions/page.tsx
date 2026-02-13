@@ -41,6 +41,7 @@ import { roleService } from "../../../../services/roles.service";
 import { permissionsService } from "../../../../services/permissions.service";
 import { userService } from "../../../../services/users.service";
 import { authService } from "../../../../services/auth.service";
+import { useAuth } from "../../../../contexts/AuthContext";
 import { Role } from "../../../../types/api/roles";
 import { User } from "../../../../types/api/users";
 import {
@@ -478,6 +479,7 @@ const ModalSelector = <T extends string | number,>({
 export default function PermissionsPage() {
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.md;
+    const { user: authUser } = useAuth();
     const [targetType, setTargetType] = useState<"user" | "role">("user");
     const [selectedUser, setSelectedUser] = useState<string>("");
     const [selectedRole, setSelectedRole] = useState<string>("");
@@ -598,6 +600,14 @@ export default function PermissionsPage() {
             })),
         [users]
     );
+
+    const usersById = useMemo(() => {
+        const map = new Map<string, User>();
+        for (const u of users) {
+            map.set(u.id, u);
+        }
+        return map;
+    }, [users]);
 
     const selectedRoleName = useMemo(() => {
         if (isRoleMode) {
@@ -1144,6 +1154,10 @@ export default function PermissionsPage() {
     };
 
     const handleApprove = async (approval: PermissionOverrideApprovalItem) => {
+        if (authUser?.id && approval.requestedByUserId === authUser.id) {
+            message.warning("ไม่สามารถอนุมัติคำขอของตนเองได้ (Two-person approval required)");
+            return;
+        }
         setApprovalActionLoadingId(approval.id);
         try {
             const csrfToken = await authService.getCsrfToken();
@@ -1161,6 +1175,10 @@ export default function PermissionsPage() {
     };
 
     const openRejectModal = (approval: PermissionOverrideApprovalItem) => {
+        if (authUser?.id && approval.requestedByUserId === authUser.id) {
+            message.warning("ไม่สามารถรีวิวคำขอของตนเองได้ (Two-person approval required)");
+            return;
+        }
         setRejectApprovalId(approval.id);
         setRejectReason("");
         setRejectModalOpen(true);
@@ -1721,7 +1739,7 @@ export default function PermissionsPage() {
                             loading={approvalsLoading}
                             size="small"
                             pagination={false}
-                            scroll={{ x: isMobile ? 760 : 900 }}
+                            scroll={{ x: isMobile ? 980 : 1120 }}
                             tableLayout="fixed"
                             dataSource={approvals}
                             columns={[
@@ -1735,6 +1753,26 @@ export default function PermissionsPage() {
                                             {new Date(v).toLocaleString()}
                                         </Text>
                                     ),
+                                },
+                                {
+                                    title: "ผู้ส่งคำขอ",
+                                    dataIndex: "requestedByUserId",
+                                    key: "requestedByUserId",
+                                    width: 260,
+                                    render: (requestedByUserId: string) => {
+                                        const requester = usersById.get(requestedByUserId);
+                                        const username = requester?.username || requester?.name || "-";
+                                        return (
+                                            <Space direction="vertical" size={0}>
+                                                <Text strong ellipsis={{ tooltip: username }} style={{ maxWidth: 230 }}>
+                                                    {username}
+                                                </Text>
+                                                <Text type="secondary" ellipsis={{ tooltip: requestedByUserId }} style={{ maxWidth: 230 }}>
+                                                    ID: {requestedByUserId}
+                                                </Text>
+                                            </Space>
+                                        );
+                                    },
                                 },
                                 {
                                     title: "สถานะ",
@@ -1766,36 +1804,42 @@ export default function PermissionsPage() {
                                     title: "ดำเนินการ",
                                     key: "action",
                                     width: 260,
-                                    render: (_: unknown, row: PermissionOverrideApprovalItem) => (
-                                        <Space size={4}>
-                                            <Button
-                                                size="small"
-                                                type="primary"
-                                                icon={<CheckCircleOutlined />}
-                                                disabled={row.status !== "pending"}
-                                                loading={approvalActionLoadingId === row.id}
-                                                onClick={() =>
-                                                    Modal.confirm({
-                                                        title: "ยืนยันอนุมัติคำขอนี้หรือไม่",
-                                                        centered: true,
-                                                        onOk: () => handleApprove(row),
-                                                    })
-                                                }
-                                            >
-                                                อนุมัติ
-                                            </Button>
-                                            <Button
-                                                size="small"
-                                                danger
-                                                icon={<StopOutlined />}
-                                                disabled={row.status !== "pending"}
-                                                loading={approvalActionLoadingId === row.id}
-                                                onClick={() => openRejectModal(row)}
-                                            >
-                                                ไม่อนุมัติ
-                                            </Button>
-                                        </Space>
-                                    ),
+                                    render: (_: unknown, row: PermissionOverrideApprovalItem) => {
+                                        const selfReviewBlocked = Boolean(authUser?.id && row.requestedByUserId === authUser.id);
+                                        const disableAction = row.status !== "pending" || selfReviewBlocked;
+                                        return (
+                                            <Space size={4}>
+                                                <Button
+                                                    size="small"
+                                                    type="primary"
+                                                    icon={<CheckCircleOutlined />}
+                                                    disabled={disableAction}
+                                                    loading={approvalActionLoadingId === row.id}
+                                                    title={selfReviewBlocked ? "คำขอนี้ถูกส่งโดยผู้ใช้ปัจจุบัน จึงรีวิวเองไม่ได้" : undefined}
+                                                    onClick={() =>
+                                                        Modal.confirm({
+                                                            title: "ยืนยันอนุมัติคำขอนี้หรือไม่",
+                                                            centered: true,
+                                                            onOk: () => handleApprove(row),
+                                                        })
+                                                    }
+                                                >
+                                                    อนุมัติ
+                                                </Button>
+                                                <Button
+                                                    size="small"
+                                                    danger
+                                                    icon={<StopOutlined />}
+                                                    disabled={disableAction}
+                                                    loading={approvalActionLoadingId === row.id}
+                                                    title={selfReviewBlocked ? "คำขอนี้ถูกส่งโดยผู้ใช้ปัจจุบัน จึงรีวิวเองไม่ได้" : undefined}
+                                                    onClick={() => openRejectModal(row)}
+                                                >
+                                                    ไม่อนุมัติ
+                                                </Button>
+                                            </Space>
+                                        );
+                                    },
                                 },
                             ]}
                         />
