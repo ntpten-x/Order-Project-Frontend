@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Typography,
@@ -29,7 +29,7 @@ import {
 import dayjs, { Dayjs } from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import 'dayjs/locale/th';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useSocket } from '../../../../hooks/useSocket';
 import { useRoleGuard } from '../../../../utils/pos/accessControl';
 import { shiftsService } from '../../../../services/pos/shifts.service';
@@ -49,6 +49,7 @@ import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import PageState from '../../../../components/ui/states/PageState';
 import { pageStyles, globalStyles } from '../../../../theme/pos/shiftHistory/style';
+import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 
 dayjs.extend(duration);
 dayjs.locale('th');
@@ -161,9 +162,12 @@ function MiniMetric({ label, value, color }: { label: string; value: string; col
 
 export default function ShiftHistoryPage() {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const queryClient = useQueryClient();
     const { socket } = useSocket();
     const { isAuthorized, isChecking } = useRoleGuard();
+    const isUrlReadyRef = useRef(false);
 
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
@@ -173,6 +177,7 @@ export default function ShiftHistoryPage() {
     const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
     const [isDateModalVisible, setIsDateModalVisible] = useState(false);
     const [isCustomDate, setIsCustomDate] = useState(false);
+    const debouncedSearch = useDebouncedValue(searchText, 300);
 
     const dateFrom = useMemo(
         () => (dateRange?.[0] ? dateRange[0].startOf('day').toISOString() : undefined),
@@ -182,6 +187,45 @@ export default function ShiftHistoryPage() {
         () => (dateRange?.[1] ? dateRange[1].endOf('day').toISOString() : undefined),
         [dateRange]
     );
+
+    useEffect(() => {
+        if (isUrlReadyRef.current) return;
+
+        const pageParam = Number(searchParams.get('page') || '1');
+        const limitParam = Number(searchParams.get('limit') || '10');
+        const qParam = searchParams.get('q') || '';
+        const statusParam = searchParams.get('status');
+        const fromParam = searchParams.get('date_from');
+        const toParam = searchParams.get('date_to');
+
+        const parsedFrom = fromParam ? dayjs(fromParam) : null;
+        const parsedTo = toParam ? dayjs(toParam) : null;
+        const nextStatus: StatusFilter =
+            statusParam === ShiftStatus.OPEN || statusParam === ShiftStatus.CLOSED ? statusParam : 'all';
+
+        setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
+        setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 10);
+        setSearchText(qParam);
+        setStatusFilter(nextStatus);
+        if (parsedFrom?.isValid() || parsedTo?.isValid()) {
+            setDateRange([parsedFrom?.isValid() ? parsedFrom : null, parsedTo?.isValid() ? parsedTo : null]);
+        }
+        isUrlReadyRef.current = true;
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!isUrlReadyRef.current) return;
+        const params = new URLSearchParams();
+        if (page > 1) params.set('page', String(page));
+        if (pageSize !== 10) params.set('limit', String(pageSize));
+        if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+        if (statusFilter !== 'all') params.set('status', statusFilter);
+        if (dateFrom) params.set('date_from', dateFrom);
+        if (dateTo) params.set('date_to', dateTo);
+
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter, dateFrom, dateTo]);
 
     const dateLabel = useMemo(() => {
         if (!dateRange || (!dateRange[0] && !dateRange[1])) return 'ทั้งหมด';
@@ -200,12 +244,12 @@ export default function ShiftHistoryPage() {
     ];
 
     const historyQuery = useQuery<ShiftHistoryResponse>({
-        queryKey: ['shiftHistory', page, pageSize, searchText, statusFilter, dateFrom, dateTo],
+        queryKey: ['shiftHistory', page, pageSize, debouncedSearch, statusFilter, dateFrom, dateTo],
         queryFn: async () => {
             return shiftsService.getHistory({
                 page,
                 limit: pageSize,
-                q: searchText.trim() || undefined,
+                q: debouncedSearch.trim() || undefined,
                 status: statusFilter === 'all' ? undefined : statusFilter,
                 date_from: dateFrom,
                 date_to: dateTo

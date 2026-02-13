@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Button,
     Grid,
@@ -26,7 +26,7 @@ import {
     TeamOutlined,
     UserAddOutlined,
 } from '@ant-design/icons';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { User } from '../../../types/api/users';
 import { useSocket } from '../../../hooks/useSocket';
 import { useAsyncAction } from '../../../hooks/useAsyncAction';
@@ -42,6 +42,7 @@ import PageSection from '../../../components/ui/page/PageSection';
 import PageStack from '../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../components/ui/states/EmptyState';
+import ListPagination from '../../../components/ui/pagination/ListPagination';
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -239,8 +240,11 @@ function getTimeSince(date: string) {
 
 export default function UsersPage() {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const screens = useBreakpoint();
     const isMobile = !screens.md;
+    const isUrlReadyRef = useRef(false);
 
     const [users, setUsers] = useState<User[]>([]);
     const [csrfToken, setCsrfToken] = useState('');
@@ -249,8 +253,39 @@ export default function UsersPage() {
     const [roleFilter, setRoleFilter] = useState<string>('all');
     const [isFetching, setIsFetching] = useState(false);
     const [hasLoaded, setHasLoaded] = useState(false);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(20);
+    const [totalUsers, setTotalUsers] = useState(0);
 
     const debouncedSearch = useDebouncedValue(searchValue, 300);
+
+    useEffect(() => {
+        if (isUrlReadyRef.current) return;
+        const pageParam = parseInt(searchParams.get('page') || '1', 10);
+        const limitParam = parseInt(searchParams.get('limit') || '20', 10);
+        const qParam = searchParams.get('q') || '';
+        const statusParam = searchParams.get('status');
+        const roleParam = searchParams.get('role') || 'all';
+
+        setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
+        setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 20);
+        setSearchValue(qParam);
+        setStatusFilter(statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all');
+        setRoleFilter(roleParam || 'all');
+        isUrlReadyRef.current = true;
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!isUrlReadyRef.current) return;
+        const params = new URLSearchParams();
+        params.set('page', String(page));
+        params.set('limit', String(pageSize));
+        if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+        if (statusFilter !== 'all') params.set('status', statusFilter);
+        if (roleFilter !== 'all') params.set('role', roleFilter);
+        const href = `${pathname}?${params.toString()}`;
+        router.replace(href, { scroll: false });
+    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter, roleFilter]);
 
     const { socket } = useSocket();
     const { execute } = useAsyncAction();
@@ -263,18 +298,27 @@ export default function UsersPage() {
     const canUpdateUsers = can('users.page', 'update');
     const canDeleteUsers = can('users.page', 'delete');
 
-    const fetchUsers = useCallback(async () => {
+    const fetchUsers = useCallback(async (nextPage: number = page, nextPageSize: number = pageSize) => {
         setIsFetching(true);
         try {
             await execute(async () => {
-                const data = await userService.getAllUsers();
-                setUsers(data);
+                const params = new URLSearchParams();
+                params.set('page', String(nextPage));
+                params.set('limit', String(nextPageSize));
+                if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+                if (statusFilter !== 'all') params.set('status', statusFilter);
+                if (roleFilter !== 'all') params.set('role', roleFilter);
+                const data = await userService.getAllUsersPaginated(undefined, params);
+                setUsers(data.data);
+                setTotalUsers(data.total);
+                setPage(data.page);
+                setPageSize(nextPageSize);
                 setHasLoaded(true);
             }, 'กำลังโหลดข้อมูลผู้ใช้...');
         } finally {
             setIsFetching(false);
         }
-    }, [execute]);
+    }, [execute, page, pageSize, debouncedSearch, roleFilter, statusFilter]);
 
     useEffect(() => {
         const fetchCsrf = async () => {
@@ -297,10 +341,11 @@ export default function UsersPage() {
 
     useEffect(() => {
         if (authLoading) return;
+        if (!isUrlReadyRef.current) return;
         if (canViewUsers) {
             fetchUsers();
         }
-    }, [authLoading, canViewUsers, fetchUsers]);
+    }, [authLoading, canViewUsers, fetchUsers, page, pageSize]);
 
     useEffect(() => {
         if (!socket) return;
@@ -347,30 +392,12 @@ export default function UsersPage() {
     const stats = useMemo(() => {
         const activeUsers = users.filter((item) => item.is_active).length;
         const inactiveUsers = Math.max(users.length - activeUsers, 0);
-        return { total: users.length, active: activeUsers, inactive: inactiveUsers };
-    }, [users]);
+        return { total: totalUsers, active: activeUsers, inactive: inactiveUsers };
+    }, [users, totalUsers]);
 
     const filteredUsers = useMemo(() => {
-        const query = debouncedSearch.trim().toLowerCase();
-
-        return users.filter((item) => {
-            const matchSearch =
-                !query ||
-                (item.name || '').toLowerCase().includes(query) ||
-                item.username.toLowerCase().includes(query) ||
-                (item.roles?.display_name || item.roles?.roles_name || '').toLowerCase().includes(query) ||
-                (item.branch?.branch_name || '').toLowerCase().includes(query);
-
-            const matchStatus =
-                statusFilter === 'all' ||
-                (statusFilter === 'active' && Boolean(item.is_active)) ||
-                (statusFilter === 'inactive' && !item.is_active);
-
-            const matchRole = roleFilter === 'all' || item.roles?.roles_name === roleFilter;
-
-            return matchSearch && matchStatus && matchRole;
-        });
-    }, [users, debouncedSearch, statusFilter, roleFilter]);
+        return users;
+    }, [users]);
 
     const handleAdd = () => {
         if (!canCreateUsers) {
@@ -415,7 +442,7 @@ export default function UsersPage() {
                 await execute(async () => {
                     await userService.deleteUser(userToDelete.id, undefined, csrfToken);
                     message.success(`ลบผู้ใช้ "${userToDelete.name || userToDelete.username}" สำเร็จ`);
-                    setUsers((prevUsers) => prevUsers.filter((item) => item.id !== userToDelete.id));
+                    await fetchUsers(page, pageSize);
                 }, 'กำลังลบผู้ใช้งาน...');
             },
         });
@@ -444,7 +471,7 @@ export default function UsersPage() {
         <div style={{ minHeight: '100vh', background: '#F8FAFC', paddingBottom: 100 }}>
             <UIPageHeader
                 title="ผู้ใช้งาน"
-                subtitle={`ทั้งหมด ${users.length} คน`}
+                subtitle={`ทั้งหมด ${totalUsers} คน`}
                 icon={<TeamOutlined style={{ fontSize: 20 }} />}
                 actions={
                     <Space size={8} wrap>
@@ -472,7 +499,10 @@ export default function UsersPage() {
                                 allowClear
                                 placeholder="ค้นหาจากชื่อผู้ใช้, username, บทบาท หรือสาขา..."
                                 value={searchValue}
-                                onChange={(event) => setSearchValue(event.target.value)}
+                                onChange={(event) => {
+                                    setPage(1);
+                                    setSearchValue(event.target.value);
+                                }}
                             />
                             <Segmented<StatusFilter>
                                 options={[
@@ -481,12 +511,18 @@ export default function UsersPage() {
                                     { label: 'ระงับ', value: 'inactive' },
                                 ]}
                                 value={statusFilter}
-                                onChange={(value) => setStatusFilter(value)}
+                                onChange={(value) => {
+                                    setPage(1);
+                                    setStatusFilter(value);
+                                }}
                             />
                             <Select
                                 value={roleFilter}
                                 options={roleOptions}
-                                onChange={setRoleFilter}
+                                onChange={(value) => {
+                                    setPage(1);
+                                    setRoleFilter(value);
+                                }}
                                 placeholder="เลือกบทบาท"
                             />
                         </div>
@@ -541,6 +577,17 @@ export default function UsersPage() {
                                 ))}
                             </div>
                         )}
+                        <ListPagination
+                            page={page}
+                            pageSize={pageSize}
+                            total={totalUsers}
+                            loading={isFetching}
+                            onPageChange={setPage}
+                            onPageSizeChange={(size) => {
+                                setPage(1);
+                                setPageSize(size);
+                            }}
+                        />
                     </PageSection>
                 </PageStack>
             </PageContainer>

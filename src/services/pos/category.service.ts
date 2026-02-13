@@ -1,10 +1,35 @@
 import { Category } from "../../types/api/pos/category";
 import { getProxyUrl } from "../../lib/proxy-utils";
-import { throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
+import { normalizeBackendPaginated, throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = "/pos/category";
 
 export const categoryService = {
+    findAllPaginated: async (
+        cookie?: string,
+        searchParams?: URLSearchParams
+    ): Promise<{ data: Category[]; total: number; page: number; last_page: number }> => {
+        let url = getProxyUrl("GET", BASE_PATH);
+        if (searchParams) {
+            url += `?${searchParams.toString()}`;
+        }
+
+        const headers: HeadersInit = {};
+        if (cookie) headers.Cookie = cookie;
+
+        const response = await fetch(url!, {
+            cache: "no-store",
+            credentials: "include",
+            headers
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throwBackendHttpError(response, errorData, "Failed to fetch categories");
+        }
+
+        return normalizeBackendPaginated<Category>(await response.json());
+    },
+
     findAll: async (cookie?: string, searchParams?: URLSearchParams): Promise<Category[]> => {
         let url = getProxyUrl("GET", BASE_PATH);
         if (searchParams) {

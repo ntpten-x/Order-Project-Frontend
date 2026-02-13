@@ -6,7 +6,7 @@ export async function GET(req: NextRequest) {
     try {
         const cookie = req.headers.get("cookie") || "";
         const searchParams = req.nextUrl.searchParams;
-        const data = await userService.getAllUsers(cookie, searchParams);
+        const data = await userService.getAllUsersPaginated(cookie, searchParams);
         return NextResponse.json(data);
     } catch (error) {
         return handleApiRouteError(error);

@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { message, Modal, Typography, Tag, Button, Input, Space, Segmented, Switch, Pagination } from 'antd';
 import {
     CreditCardOutlined,
@@ -14,7 +14,7 @@ import {
     BankOutlined,
 } from '@ant-design/icons';
 import { PaymentMethod } from '../../../../types/api/pos/paymentMethod';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useAsyncAction } from '../../../../hooks/useAsyncAction';
 import { useSocket } from '../../../../hooks/useSocket';
@@ -196,6 +196,9 @@ const PaymentMethodCard = ({ paymentMethod, onEdit, onDelete, onToggleActive, up
 
 export default function PaymentMethodPage() {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const isUrlReadyRef = useRef(false);
     const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
     const [page, setPage] = useState(1);
     const [total, setTotal] = useState(0);
@@ -215,8 +218,30 @@ export default function PaymentMethodPage() {
     }, []);
 
     useEffect(() => {
-        setPage(1);
-    }, [debouncedSearch]);
+        if (isUrlReadyRef.current) return;
+
+        const pageParam = Number(searchParams.get('page') || '1');
+        const qParam = searchParams.get('q') || '';
+        const statusParam = searchParams.get('status');
+        const nextStatus: StatusFilter =
+            statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all';
+
+        setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
+        setSearchValue(qParam);
+        setStatusFilter(nextStatus);
+        isUrlReadyRef.current = true;
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!isUrlReadyRef.current) return;
+        const params = new URLSearchParams();
+        if (page > 1) params.set('page', String(page));
+        if (debouncedSearch) params.set('q', debouncedSearch);
+        if (statusFilter !== 'all') params.set('status', statusFilter);
+
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }, [router, pathname, page, debouncedSearch, statusFilter]);
 
     useEffect(() => {
         if (debouncedSearch || page !== 1) return;
@@ -236,6 +261,9 @@ export default function PaymentMethodPage() {
             if (debouncedSearch) {
                 params.set('q', debouncedSearch);
             }
+            if (statusFilter !== 'all') {
+                params.set('status', statusFilter);
+            }
 
             const result = await paymentMethodService.getAll(undefined, params);
             setPaymentMethods(result.data || []);
@@ -246,7 +274,7 @@ export default function PaymentMethodPage() {
                 writeCache(PAYMENT_METHOD_CACHE_KEY, result);
             }
         }, 'กำลังโหลดข้อมูลวิธีการชำระเงิน...');
-    }, [debouncedSearch, execute, page]);
+    }, [debouncedSearch, execute, page, statusFilter]);
 
     useEffect(() => {
         if (isAuthorized) {
@@ -380,7 +408,10 @@ export default function PaymentMethodPage() {
                                 placeholder="ค้นหาวิธีการชำระเงิน..."
                                 prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
                                 value={searchValue}
-                                onChange={(e) => setSearchValue(e.target.value)}
+                                onChange={(e) => {
+                                    setPage(1);
+                                    setSearchValue(e.target.value);
+                                }}
                             />
                             <Segmented<StatusFilter>
                                 options={[
@@ -389,7 +420,10 @@ export default function PaymentMethodPage() {
                                     { label: 'ปิดใช้งาน', value: 'inactive' },
                                 ]}
                                 value={statusFilter}
-                                onChange={(value) => setStatusFilter(value)}
+                                onChange={(value) => {
+                                    setPage(1);
+                                    setStatusFilter(value);
+                                }}
                             />
                         </div>
                     </PageSection>

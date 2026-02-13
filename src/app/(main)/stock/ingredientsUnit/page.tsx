@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
-import { message, Modal, Spin, Typography, Button, Space } from 'antd';
-import { ExperimentOutlined, ReloadOutlined, PlusOutlined } from '@ant-design/icons';
+import React, { useEffect, useRef, useState } from 'react';
+import { message, Modal, Spin, Typography, Button, Space, Input, Segmented } from 'antd';
+import { ExperimentOutlined, ReloadOutlined, PlusOutlined, SearchOutlined } from '@ant-design/icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { IngredientsUnit } from "../../../../types/api/stock/ingredientsUnit";
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../../hooks/useSocket";
 import { RealtimeEvents } from "../../../../utils/realtimeEvents";
@@ -21,7 +21,9 @@ import PageSection from "../../../../components/ui/page/PageSection";
 import PageStack from "../../../../components/ui/page/PageStack";
 import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import UIEmptyState from "../../../../components/ui/states/EmptyState";
+import ListPagination from "../../../../components/ui/pagination/ListPagination";
 import { t } from "../../../../utils/i18n";
+import { useDebouncedValue } from "../../../../utils/useDebouncedValue";
 
 const { Text } = Typography;
 
@@ -29,11 +31,42 @@ import { authService } from "../../../../services/auth.service";
 
 export default function IngredientsUnitPage() {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const isUrlReadyRef = useRef(false);
     const { user, loading: authLoading } = useAuth();
     const queryClient = useQueryClient();
     const { showLoading, hideLoading } = useGlobalLoading();
     const { socket } = useSocket();
     const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(20);
+    const [searchText, setSearchText] = useState('');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+    const debouncedSearch = useDebouncedValue(searchText, 300);
+
+    useEffect(() => {
+        if (isUrlReadyRef.current) return;
+        const pageParam = parseInt(searchParams.get('page') || '1', 10);
+        const limitParam = parseInt(searchParams.get('limit') || '20', 10);
+        const qParam = searchParams.get('q') || '';
+        const statusParam = searchParams.get('status');
+        setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
+        setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 20);
+        setSearchText(qParam);
+        setStatusFilter(statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all');
+        isUrlReadyRef.current = true;
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!isUrlReadyRef.current) return;
+        const params = new URLSearchParams();
+        params.set('page', String(page));
+        params.set('limit', String(pageSize));
+        if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+        if (statusFilter !== 'all') params.set('status', statusFilter);
+        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter]);
 
     useEffect(() => {
         if (!authLoading) {
@@ -54,10 +87,20 @@ export default function IngredientsUnitPage() {
         staleTime: 10 * 60 * 1000,
     });
 
-    const { data: ingredientsData = [], isLoading, isFetching } = useQuery<IngredientsUnit[]>({
-        queryKey: ['ingredientsUnits'],
+    const { data: pagedData, isLoading, isFetching } = useQuery<{
+        data: IngredientsUnit[];
+        total: number;
+        page: number;
+        last_page: number;
+    }>({
+        queryKey: ['ingredientsUnits', page, pageSize, debouncedSearch, statusFilter],
         queryFn: async () => {
-            const response = await fetch('/api/stock/ingredientsUnit/getAll', { cache: 'no-store' });
+            const params = new URLSearchParams();
+            params.set('page', String(page));
+            params.set('limit', String(pageSize));
+            if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+            if (statusFilter !== 'all') params.set('status', statusFilter);
+            const response = await fetch(`/api/stock/ingredientsUnit/getAll?${params.toString()}`, { cache: 'no-store' });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.error || errorData.message || t('ingredientsUnit.fetch.error'));
@@ -67,6 +110,9 @@ export default function IngredientsUnitPage() {
         staleTime: 60 * 1000,
         enabled: isAuthorized === true,
     });
+
+    const ingredientsData = pagedData?.data || [];
+    const totalUnits = typeof pagedData?.total === 'number' ? pagedData.total : 0;
 
     const deleteMutation = useMutation({
         mutationFn: async (unit: IngredientsUnit) => {
@@ -96,23 +142,16 @@ export default function IngredientsUnitPage() {
         if (!socket || isAuthorized !== true) return;
 
         socket.on(RealtimeEvents.ingredientsUnit.create, (newItem: IngredientsUnit) => {
-            queryClient.setQueryData<IngredientsUnit[]>(['ingredientsUnits'], (prev = []) => {
-                if (prev.some((item) => item.id === newItem.id)) return prev;
-                return [...prev, newItem];
-            });
+            queryClient.invalidateQueries({ queryKey: ['ingredientsUnits'] });
             message.success(t('ingredientsUnit.create.toast', { name: newItem.unit_name }));
         });
 
-        socket.on(RealtimeEvents.ingredientsUnit.update, (updatedItem: IngredientsUnit) => {
-            queryClient.setQueryData<IngredientsUnit[]>(['ingredientsUnits'], (prev = []) =>
-                prev.map((item) => (item.id === updatedItem.id ? updatedItem : item))
-            );
+        socket.on(RealtimeEvents.ingredientsUnit.update, () => {
+            queryClient.invalidateQueries({ queryKey: ['ingredientsUnits'] });
         });
 
         socket.on(RealtimeEvents.ingredientsUnit.delete, ({ id }: { id: string }) => {
-            queryClient.setQueryData<IngredientsUnit[]>(['ingredientsUnits'], (prev = []) =>
-                prev.filter((item) => item.id !== id)
-            );
+            if (id) queryClient.invalidateQueries({ queryKey: ['ingredientsUnits'] });
         });
 
         return () => {
@@ -189,7 +228,7 @@ export default function IngredientsUnitPage() {
             
             <UIPageHeader
                 title={t('ingredientsUnit.title')}
-                subtitle={t('ingredientsUnit.subtitle', { count: ingredientsData.length })}
+                subtitle={t('ingredientsUnit.subtitle', { count: totalUnits })}
                 icon={<ExperimentOutlined />}
                 actions={
                     <Space size={8} wrap>
@@ -210,14 +249,41 @@ export default function IngredientsUnitPage() {
             <PageContainer>
                 <PageStack>
                     <StatsCard 
-                        totalUnits={ingredientsData.length}
+                        totalUnits={totalUnits}
                         activeUnits={activeUnits.length}
                         inactiveUnits={inactiveUnits.length}
                     />
 
+                    <PageSection title="ค้นหาและตัวกรอง">
+                        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: '1fr', alignItems: 'center' }}>
+                            <Input
+                                prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
+                                allowClear
+                                placeholder="ค้นหาจากชื่อหน่วยหรือชื่อแสดง..."
+                                value={searchText}
+                                onChange={(e) => {
+                                    setPage(1);
+                                    setSearchText(e.target.value);
+                                }}
+                            />
+                            <Segmented<'all' | 'active' | 'inactive'>
+                                options={[
+                                    { label: 'ทั้งหมด', value: 'all' },
+                                    { label: 'ใช้งาน', value: 'active' },
+                                    { label: 'ปิดใช้งาน', value: 'inactive' },
+                                ]}
+                                value={statusFilter}
+                                onChange={(value) => {
+                                    setPage(1);
+                                    setStatusFilter(value);
+                                }}
+                            />
+                        </div>
+                    </PageSection>
+
                     <PageSection
                         title={t('ingredientsUnit.section.list')}
-                        extra={<span style={{ fontWeight: 600 }}>{ingredientsData.length}</span>}
+                        extra={<span style={{ fontWeight: 600 }}>{totalUnits}</span>}
                     >
                         {isLoading ? (
                             <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
@@ -246,6 +312,17 @@ export default function IngredientsUnitPage() {
                                 }
                             />
                         )}
+                        <ListPagination
+                            page={page}
+                            pageSize={pageSize}
+                            total={totalUnits}
+                            loading={isFetching}
+                            onPageChange={setPage}
+                            onPageSizeChange={(size) => {
+                                setPage(1);
+                                setPageSize(size);
+                            }}
+                        />
                     </PageSection>
                 </PageStack>
             </PageContainer>

@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { message, Modal, Typography, Tag, Button, Input, Alert, Space, Segmented, Switch } from 'antd';
 import Image from 'next/image';
 import {
@@ -15,7 +15,7 @@ import {
 } from '@ant-design/icons';
 import { Products } from '../../../../types/api/pos/products';
 
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useAsyncAction } from '../../../../hooks/useAsyncAction';
 import { useSocket } from '../../../../hooks/useSocket';
@@ -35,11 +35,11 @@ import PageSection from '../../../../components/ui/page/PageSection';
 import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
+import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 
 const { Text } = Typography;
 
 const PAGE_SIZE = 50;
-const SEARCH_DEBOUNCE_MS = 300;
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 
@@ -210,6 +210,9 @@ const ProductCard = ({ product, onEdit, onDelete, onToggleActive, updatingStatus
 
 export default function ProductsPage() {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const isUrlReadyRef = useRef(false);
     const [products, setProducts] = useState<Products[]>([]);
     const [totalProducts, setTotalProducts] = useState(0);
     const [activeProductsTotal, setActiveProductsTotal] = useState<number | null>(null);
@@ -221,6 +224,7 @@ export default function ProductsPage() {
     const [categoryFilter, setCategoryFilter] = useState<string>('all');
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
     const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
+    const debouncedSearch = useDebouncedValue(searchText, 300);
 
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
@@ -237,6 +241,36 @@ export default function ProductsPage() {
     }, []);
 
     useEffect(() => {
+        if (isUrlReadyRef.current) return;
+
+        const pageParam = Number(searchParams.get('page') || '1');
+        const qParam = searchParams.get('q') || '';
+        const statusParam = searchParams.get('status');
+        const categoryParam = searchParams.get('category_id');
+
+        const nextStatus: StatusFilter =
+            statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all';
+
+        setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
+        setSearchText(qParam);
+        setStatusFilter(nextStatus);
+        setCategoryFilter(categoryParam || 'all');
+        isUrlReadyRef.current = true;
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!isUrlReadyRef.current) return;
+        const params = new URLSearchParams();
+        if (page > 1) params.set('page', String(page));
+        if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+        if (statusFilter !== 'all') params.set('status', statusFilter);
+        if (categoryFilter !== 'all') params.set('category_id', categoryFilter);
+
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }, [router, pathname, page, debouncedSearch, statusFilter, categoryFilter]);
+
+    useEffect(() => {
         const cached = readCache<CachedProducts>('pos:products:v3', 10 * 60 * 1000);
         if (cached?.items) {
             setProducts(cached.items);
@@ -250,9 +284,9 @@ export default function ProductsPage() {
     const fetchProducts = useCallback(async () => {
         execute(async () => {
             const params = new URLSearchParams();
-            params.set('page', '1');
+            params.set('page', String(page));
             params.set('limit', PAGE_SIZE.toString());
-            if (searchText.trim()) params.set('q', searchText.trim());
+            if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
             if (statusFilter === 'active') params.set('is_active', 'true');
             if (statusFilter === 'inactive') params.set('is_active', 'false');
             if (categoryFilter !== 'all') params.set('category_id', categoryFilter);
@@ -282,7 +316,7 @@ export default function ProductsPage() {
 
             const list: Products[] = Array.isArray(listData.data) ? listData.data : [];
             const total = typeof listData.total === 'number' ? listData.total : list.length;
-            const currentPage = typeof listData.page === 'number' ? listData.page : 1;
+            const currentPage = typeof listData.page === 'number' ? listData.page : page;
             const last = typeof listData.last_page === 'number' ? listData.last_page : 1;
             const activeTotal = typeof activeData.total === 'number' ? activeData.total : null;
 
@@ -292,7 +326,7 @@ export default function ProductsPage() {
             setLastPage(last);
             setActiveProductsTotal(activeTotal);
 
-            if (!searchText.trim() && statusFilter === 'all' && categoryFilter === 'all') {
+            if (!debouncedSearch.trim() && statusFilter === 'all' && categoryFilter === 'all' && page === 1) {
                 writeCache('pos:products:v3', {
                     items: list,
                     total,
@@ -302,15 +336,11 @@ export default function ProductsPage() {
                 });
             }
         }, 'กำลังโหลดข้อมูลสินค้า...');
-    }, [execute, searchText, statusFilter, categoryFilter]);
+    }, [execute, page, debouncedSearch, statusFilter, categoryFilter]);
 
     useEffect(() => {
         if (!isAuthorized) return;
-        const timer = setTimeout(() => {
-            fetchProducts();
-        }, SEARCH_DEBOUNCE_MS);
-
-        return () => clearTimeout(timer);
+        fetchProducts();
     }, [isAuthorized, fetchProducts]);
 
     useRealtimeRefresh({
@@ -336,7 +366,7 @@ export default function ProductsPage() {
             const params = new URLSearchParams();
             params.set('page', nextPage.toString());
             params.set('limit', PAGE_SIZE.toString());
-            if (searchText.trim()) params.set('q', searchText.trim());
+            if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
             if (statusFilter === 'active') params.set('is_active', 'true');
             if (statusFilter === 'inactive') params.set('is_active', 'false');
             if (categoryFilter !== 'all') params.set('category_id', categoryFilter);
@@ -366,7 +396,7 @@ export default function ProductsPage() {
         } finally {
             setIsLoadingMore(false);
         }
-    }, [isLoadingMore, page, lastPage, searchText, statusFilter, categoryFilter, totalProducts]);
+    }, [isLoadingMore, page, lastPage, debouncedSearch, statusFilter, categoryFilter, totalProducts]);
 
     const handleAdd = () => {
         showLoading('กำลังเปิดหน้าจัดการสินค้า...');
@@ -527,7 +557,10 @@ export default function ProductsPage() {
                                 allowClear
                                 placeholder="ค้นหาจากชื่อสินค้า ชื่อแสดง หรือคำค้นอื่น..."
                                 value={searchText}
-                                onChange={(e) => setSearchText(e.target.value)}
+                                onChange={(e) => {
+                                    setPage(1);
+                                    setSearchText(e.target.value);
+                                }}
                             />
                             <Segmented<StatusFilter>
                                 options={[
@@ -536,7 +569,10 @@ export default function ProductsPage() {
                                     { label: 'ปิดใช้งาน', value: 'inactive' },
                                 ]}
                                 value={statusFilter}
-                                onChange={(value) => setStatusFilter(value)}
+                                onChange={(value) => {
+                                    setPage(1);
+                                    setStatusFilter(value);
+                                }}
                             />
                             <div 
                                 className={`modal-select-trigger ${categoryFilter !== 'all' ? 'has-value' : ''}`}
@@ -578,6 +614,7 @@ export default function ProductsPage() {
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
                             <div
                                 onClick={() => {
+                                    setPage(1);
                                     setCategoryFilter('all');
                                     setIsCategoryModalVisible(false);
                                 }}
@@ -601,6 +638,7 @@ export default function ProductsPage() {
                                 <div
                                     key={cat.id}
                                     onClick={() => {
+                                        setPage(1);
                                         setCategoryFilter(cat.id);
                                         setIsCategoryModalVisible(false);
                                     }}
@@ -655,10 +693,10 @@ export default function ProductsPage() {
                             </>
                         ) : (
                             <UIEmptyState
-                                title={searchText.trim() ? 'ไม่พบสินค้าตามคำค้น' : 'ยังไม่มีสินค้า'}
-                                description={searchText.trim() ? 'ลองเปลี่ยนคำค้น หรือตัวกรอง' : 'เพิ่มสินค้าแรกเพื่อเริ่มใช้งาน'}
+                                title={debouncedSearch.trim() ? 'ไม่พบสินค้าตามคำค้น' : 'ยังไม่มีสินค้า'}
+                                description={debouncedSearch.trim() ? 'ลองเปลี่ยนคำค้น หรือตัวกรอง' : 'เพิ่มสินค้าแรกเพื่อเริ่มใช้งาน'}
                                 action={
-                                    !searchText.trim() ? (
+                                    !debouncedSearch.trim() ? (
                                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} disabled={!setupState.isReady}>
                                             เพิ่มสินค้า
                                         </Button>

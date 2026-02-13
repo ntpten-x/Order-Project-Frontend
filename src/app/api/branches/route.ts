@@ -5,7 +5,8 @@ import { handleApiRouteError } from "../_utils/route-error";
 export async function GET(req: NextRequest) {
     try {
         const cookie = req.headers.get("cookie") || "";
-        const data = await branchService.getAll(cookie);
+        const searchParams = req.nextUrl.searchParams;
+        const data = await branchService.getAllPaginated(cookie, searchParams);
         return NextResponse.json(data);
     } catch (error) {
         return handleApiRouteError(error);
