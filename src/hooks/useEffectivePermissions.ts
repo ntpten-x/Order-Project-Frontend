@@ -30,14 +30,19 @@ export function useEffectivePermissions(options?: UseEffectivePermissionsOptions
     const [rows, setRows] = useState<EffectiveRolePermissionRow[]>([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [hasResolvedInitial, setHasResolvedInitial] = useState(false);
 
     useEffect(() => {
         if (!enabled || !user?.id) {
             setRows([]);
+            setError(null);
+            setLoading(false);
+            setHasResolvedInitial(false);
             return;
         }
 
         let active = true;
+        setHasResolvedInitial(false);
         setLoading(true);
         setError(null);
 
@@ -53,13 +58,18 @@ export function useEffectivePermissions(options?: UseEffectivePermissionsOptions
                 setError(err instanceof Error ? err.message : "Failed to load effective permissions");
             })
             .finally(() => {
-                if (active) setLoading(false);
+                if (active) {
+                    setLoading(false);
+                    setHasResolvedInitial(true);
+                }
             });
 
         return () => {
             active = false;
         };
     }, [enabled, user?.id]);
+
+    const isInitialLoading = enabled && Boolean(user?.id) && !hasResolvedInitial;
 
     const byResource = useMemo(() => {
         const map = new Map<string, EffectiveRolePermissionRow>();
@@ -100,7 +110,7 @@ export function useEffectivePermissions(options?: UseEffectivePermissionsOptions
 
     return {
         rows,
-        loading,
+        loading: loading || isInitialLoading,
         error,
         can,
         canAny,
