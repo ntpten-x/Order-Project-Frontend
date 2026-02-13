@@ -21,6 +21,7 @@ import {
     Tag,
     message,
     Typography,
+    Spin,
 } from "antd";
 import {
     AppstoreOutlined,
@@ -32,6 +33,8 @@ import {
     DatabaseOutlined,
     SafetyCertificateOutlined,
     UserOutlined,
+    DownOutlined,
+    SearchOutlined,
 } from "@ant-design/icons";
 import { roleService } from "../../../../services/roles.service";
 import { permissionsService } from "../../../../services/permissions.service";
@@ -233,6 +236,143 @@ function permissionFieldLabel(field: string) {
     if (field === "dataScope") return "ขอบเขตข้อมูล";
     return field;
 }
+
+
+interface ModalSelectorProps {
+    value?: string | number;
+    options: { label: React.ReactNode; value: string | number }[];
+    onChange: (value: any) => void;
+    title: string;
+    placeholder?: string;
+    style?: React.CSSProperties;
+    disabled?: boolean;
+    showSearch?: boolean;
+    loading?: boolean;
+}
+
+const ModalSelector: React.FC<ModalSelectorProps> = ({
+    value,
+    options,
+    onChange,
+    title,
+    placeholder = "เลือกข้อมูล",
+    style,
+    disabled = false,
+    showSearch = false,
+    loading = false
+}) => {
+    const [open, setOpen] = useState(false);
+    const [searchText, setSearchText] = useState("");
+
+    const filteredOptions = useMemo(() => {
+        if (!showSearch || !searchText) return options;
+        const lowerSearch = searchText.toLowerCase();
+        return options.filter(opt => {
+            if (typeof opt.label === 'string') {
+                return opt.label.toLowerCase().includes(lowerSearch);
+            }
+            // If label is a ReactNode, we might need a better way to search, 
+            // but for now let's assume simple string search on value if label is complex?
+            // Or just skip complex label search. 
+            // Let's try to extract text from ReactNode if possible, or just search value.
+            return String(opt.value).toLowerCase().includes(lowerSearch);
+        });
+    }, [options, searchText, showSearch]);
+
+    const selectedOption = options.find(o => o.value === value);
+
+    return (
+        <>
+            <div
+                onClick={() => !disabled && !loading && setOpen(true)}
+                style={{
+                    padding: '8px 12px',
+                    borderRadius: 8,
+                    border: '1px solid #d9d9d9',
+                    cursor: disabled || loading ? 'not-allowed' : 'pointer',
+                    background: disabled ? '#f5f5f5' : '#fff',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    minHeight: 32,
+                    ...style
+                }}
+            >
+                <div style={{ 
+                    overflow: 'hidden', 
+                    textOverflow: 'ellipsis', 
+                    whiteSpace: 'nowrap', 
+                    color: value ? '#1f2937' : '#9ca3af',
+                    marginRight: 8 
+                }}>
+                    {loading ? <Spin size="small" /> : (selectedOption?.label || placeholder)}
+                </div>
+                <DownOutlined style={{ fontSize: 12, color: '#9ca3af' }} />
+            </div>
+            
+            <Modal
+                title={title}
+                open={open}
+                onCancel={() => {
+                    setOpen(false);
+                    setSearchText("");
+                }}
+                footer={null}
+                centered
+                width={400}
+                styles={{ body: { padding: '12px 0' } }}
+            >
+                {showSearch && (
+                    <div style={{ padding: '0 16px 12px' }}>
+                        <Input 
+                            placeholder="ค้นหา..." 
+                            value={searchText} 
+                            onChange={(e) => setSearchText(e.target.value)}
+                            prefix={<SearchOutlined style={{ color: '#9ca3af' }} />}
+                            allowClear
+                        />
+                    </div>
+                )}
+                <div style={{ maxHeight: '60vh', overflowY: 'auto', padding: '0 16px' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                        {filteredOptions.length > 0 ? (
+                            filteredOptions.map((opt) => (
+                                <div
+                                    key={opt.value}
+                                    onClick={() => {
+                                        onChange(opt.value);
+                                        setOpen(false);
+                                        setSearchText("");
+                                    }}
+                                    style={{
+                                        padding: '12px 16px',
+                                        borderRadius: 8,
+                                        border: '1px solid',
+                                        cursor: 'pointer',
+                                        background: value === opt.value ? '#eff6ff' : '#fff',
+                                        borderColor: value === opt.value ? '#3b82f6' : '#e5e7eb',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                    }}
+                                >
+                                    <span style={{ fontWeight: value === opt.value ? 500 : 400, color: '#374151' }}>
+                                        {opt.label}
+                                    </span>
+                                    {value === opt.value && <CheckCircleOutlined style={{ color: '#3b82f6' }} />}
+                                </div>
+                            ))
+                        ) : (
+                            <div style={{ textAlign: 'center', padding: '20px 0', color: '#9ca3af' }}>
+                                ไม่พบข้อมูล
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </Modal>
+        </>
+    );
+};
 
 export default function PermissionsPage() {
     const [targetType, setTargetType] = useState<"user" | "role">("user");
@@ -608,18 +748,18 @@ export default function PermissionsPage() {
             render: (scope: PermissionScope, row: PermissionRow) => {
                 if (!editable) return scopeTag(scope);
                 return (
-                    <Select
+                    <ModalSelector
                         value={scope}
-                        size="small"
-                        style={{ width: 130 }}
-                        disabled={!row.canView}
+                        title="เลือกขอบเขตข้อมูล"
+                        onChange={(value) => updateRow(row.key, { dataScope: value as PermissionScope })}
                         options={[
                             { label: "ไม่เห็นข้อมูล", value: "none" },
                             { label: "เฉพาะของตนเอง", value: "own" },
                             { label: "ตามสาขา", value: "branch" },
                             { label: "ทุกข้อมูล", value: "all" },
                         ]}
-                        onChange={(value) => updateRow(row.key, { dataScope: value as PermissionScope })}
+                        style={{ width: "100%", minWidth: 130 }}
+                        disabled={!row.canView}
                     />
                 );
             },
@@ -885,22 +1025,23 @@ export default function PermissionsPage() {
                             />
 
                             {targetType === "user" ? (
-                                <Select
-                                    value={selectedUser || undefined}
+                                <ModalSelector
+                                    title="เลือกผู้ใช้"
+                                    placeholder="เลือกผู้ใช้"
+                                    value={selectedUser}
                                     onChange={setSelectedUser}
                                     options={userOptions}
-                                    style={{ width: 420, maxWidth: "100%" }}
-                                    placeholder="เลือกผู้ใช้"
+                                    style={{ width: "100%", maxWidth: 420 }}
                                     showSearch
-                                    optionFilterProp="label"
                                 />
                             ) : (
-                                <Select
-                                    value={selectedRole || undefined}
+                                <ModalSelector
+                                    title="เลือกบทบาท"
+                                    placeholder="เลือกบทบาท"
+                                    value={selectedRole}
                                     onChange={setSelectedRole}
                                     options={roleOptions}
-                                    style={{ width: 320, maxWidth: "100%" }}
-                                    placeholder="เลือกบทบาท"
+                                    style={{ width: "100%", maxWidth: 320 }}
                                 />
                             )}
 
@@ -1087,16 +1228,19 @@ export default function PermissionsPage() {
 
                     <Card title="ตัวจำลองสิทธิ์" bordered={false} style={{ marginTop: 16 }}>
                         <Space direction="vertical" size={10} style={{ width: "100%" }}>
-                            <Select
-                                value={simulateResource || undefined}
+                            <ModalSelector
+                                title="เลือกทรัพยากรที่ต้องการจำลอง"
+                                placeholder="เลือกทรัพยากร"
+                                value={simulateResource}
                                 onChange={setSimulateResource}
                                 options={rows.map((r) => ({
                                     label: `[${getSystemGroup(r.resourceKey, r.route).toUpperCase()}] ${getResourceKind(r.resourceKey) === "menu" ? "เมนู" : "หน้า"} - ${r.pageLabel}`,
                                     value: r.resourceKey,
                                 }))}
-                                placeholder="เลือกทรัพยากร"
+                                showSearch
                             />
-                            <Select
+                            <ModalSelector
+                                title="เลือกการกระทำ"
                                 value={simulateAction}
                                 onChange={(v) => setSimulateAction(v)}
                                 options={[
@@ -1107,7 +1251,7 @@ export default function PermissionsPage() {
                                     { label: "ลบ", value: "delete" },
                                 ]}
                             />
-                            <Button onClick={handleSimulate} loading={simulating} disabled={!selectedUser || !simulateResource}>
+                            <Button onClick={handleSimulate} loading={simulating} disabled={!selectedUser || !simulateResource} style={{ marginTop: 8 }}>
                                 จำลองสิทธิ์
                             </Button>
                             {simulateResult && (
@@ -1123,26 +1267,26 @@ export default function PermissionsPage() {
 
                     <Card title="บันทึกการเปลี่ยนสิทธิ์" bordered={false} style={{ marginTop: 16 }}>
                         <Space direction="vertical" size={8} style={{ width: "100%", marginBottom: 12 }}>
-                            <Select
-                                allowClear
+                            <ModalSelector
+                                title="กรองตามการกระทำ"
                                 placeholder="กรองตามการกระทำ"
-                                value={auditActionFilter || undefined}
+                                value={auditActionFilter}
                                 onChange={(v) => setAuditActionFilter(v || "")}
                                 options={[
+                                    { label: "ทั้งหมด", value: "" },
                                     { label: "แก้ไขสิทธิ์เฉพาะผู้ใช้", value: "update_overrides" },
                                     { label: "ส่งคำขออนุมัติ", value: "override_update_request" },
                                     { label: "อนุมัติคำขอ", value: "override_update_approve" },
                                     { label: "ไม่อนุมัติคำขอ", value: "override_update_reject" },
                                 ]}
                             />
-                            <Select
-                                allowClear
-                                showSearch
-                                optionFilterProp="label"
+                            <ModalSelector
+                                title="กรองตามผู้ดำเนินการ"
                                 placeholder="กรองตามผู้ดำเนินการ"
-                                value={auditActorFilter || undefined}
+                                value={auditActorFilter}
                                 onChange={(v) => setAuditActorFilter(v || "")}
-                                options={userOptions}
+                                options={[{ label: "ทั้งหมด", value: "" }, ...userOptions]}
+                                showSearch
                             />
                             <RangePicker
                                 showTime
@@ -1197,12 +1341,13 @@ export default function PermissionsPage() {
 
                     <Card title="รายการอนุมัติสิทธิ์เฉพาะผู้ใช้" bordered={false} style={{ marginTop: 16 }}>
                         <Space direction="vertical" size={8} style={{ width: "100%", marginBottom: 12 }}>
-                            <Select
-                                allowClear
+                            <ModalSelector
+                                title="กรองตามสถานะ"
                                 placeholder="กรองตามสถานะ"
-                                value={approvalStatusFilter || undefined}
+                                value={approvalStatusFilter}
                                 onChange={(v) => setApprovalStatusFilter((v as PermissionOverrideApprovalStatus) || "")}
                                 options={[
+                                    { label: "ทั้งหมด", value: "" },
                                     { label: "รออนุมัติ", value: "pending" },
                                     { label: "อนุมัติแล้ว", value: "approved" },
                                     { label: "ไม่อนุมัติ", value: "rejected" },
