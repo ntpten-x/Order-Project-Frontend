@@ -60,14 +60,24 @@ export default function POSDeliverySummaryPage() {
                 paymentMethodService.getByName('Delivery').catch(() => null)
             ]);
             
-            if (orderData.status !== OrderStatus.WaitingForPayment) {
-                 router.push('/pos/channels');
-                 return;
-            }
-
             if (orderData.order_type !== OrderType.Delivery) {
                 messageApi.warning("รายการนี้ไม่ใช่ Order Delivery");
                 router.push('/pos/channels');
+                return;
+            }
+
+            if ([OrderStatus.Paid, OrderStatus.Completed].includes(orderData.status)) {
+                router.push(`/pos/dashboard/${orderData.id}`);
+                return;
+            }
+
+            if (orderData.status === OrderStatus.Cancelled) {
+                router.push('/pos/channels');
+                return;
+            }
+
+            if (orderData.status !== OrderStatus.WaitingForPayment) {
+                router.push(`/pos/orders/${orderData.id}`);
                 return;
             }
 

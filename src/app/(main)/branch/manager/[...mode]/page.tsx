@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Button, Col, Form, Input, Row, Spin, Switch, App } from 'antd';
 import { useRouter } from 'next/navigation';
 import { 
@@ -14,6 +14,7 @@ import { getCsrfTokenCached } from '../../../../../utils/pos/csrf';
 import PageContainer from "../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../components/ui/page/PageSection";
 import UIPageHeader from "../../../../../components/ui/page/PageHeader";
+import { AccessGuardFallback } from "../../../../../components/pos/AccessGuard";
 import type { CreateBranchInput } from "../../../../../types/api/branch";
 import { t } from "../../../../../utils/i18n";
 
@@ -28,6 +29,7 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     const canManageBranches = can("branches.page", "update");
     const { message, modal } = App.useApp();
+    const unauthorizedNotifiedRef = useRef(false);
 
     const mode = params.mode[0];
     const id = params.mode[1] || null;
@@ -58,14 +60,18 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
     useEffect(() => {
         if (!authLoading && !permissionLoading && user) {
             if (!canManageBranches) {
-                router.push('/');
+                if (!unauthorizedNotifiedRef.current) {
+                    message.error(t("branch.noPermission"));
+                    unauthorizedNotifiedRef.current = true;
+                }
                 return;
             }
+            unauthorizedNotifiedRef.current = false;
             if (isEdit) {
                 fetchBranch();
             }
         }
-    }, [authLoading, permissionLoading, user, canManageBranches, isEdit, fetchBranch, router]);
+    }, [authLoading, permissionLoading, user, canManageBranches, isEdit, fetchBranch, message]);
 
     type BranchFormValues = CreateBranchInput & { is_active: boolean };
 
@@ -120,6 +126,10 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
                  <Spin size="large" />
              </div>
          );
+    }
+
+    if (!permissionLoading && user && !canManageBranches) {
+        return <AccessGuardFallback message={t("branch.noPermission")} tone="danger" />;
     }
 
     return (

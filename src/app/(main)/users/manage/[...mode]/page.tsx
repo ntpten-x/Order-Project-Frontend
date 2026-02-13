@@ -21,6 +21,7 @@ import PageContainer from "../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../components/ui/page/PageSection";
 import UIPageHeader from "../../../../../components/ui/page/PageHeader";
 import { t } from "../../../../../utils/i18n";
+import { AccessGuardFallback } from "../../../../../components/pos/AccessGuard";
 
 export default function UserManagePage({ params }: { params: { mode: string[] } }) {
   const router = useRouter();
@@ -59,9 +60,9 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
     if (permissionLoading) return;
     if (!canViewUsers || !canSubmit) {
       message.error("You do not have permission to manage users.");
-      router.push("/users");
+      return;
     }
-  }, [canSubmit, canViewUsers, permissionLoading, router]);
+  }, [canSubmit, canViewUsers, permissionLoading]);
 
   useEffect(() => {
     const fetchCsrf = async () => {
@@ -218,6 +219,10 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
         <Spin size="large" />
       </div>
     );
+  }
+
+  if (!canViewUsers || !canSubmit) {
+    return <AccessGuardFallback message="You do not have permission to manage users." tone="danger" />;
   }
 
   if (!canViewUsers || !canSubmit) {
@@ -459,4 +464,3 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
       </>
   );
 }
-

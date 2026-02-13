@@ -55,7 +55,23 @@ export const userService = {
         }
 
         const json = await response.json();
-        return UsersResponseSchema.parse(unwrapBackendData(json)) as unknown as User[];
+        const payload = unwrapBackendData(json) as unknown;
+
+        if (Array.isArray(payload)) {
+            return UsersResponseSchema.parse(payload) as unknown as User[];
+        }
+
+        if (payload && typeof payload === "object") {
+            const record = payload as Record<string, unknown>;
+            if (Array.isArray(record.data)) {
+                return UsersResponseSchema.parse(record.data) as unknown as User[];
+            }
+            if (Array.isArray(record.users)) {
+                return UsersResponseSchema.parse(record.users) as unknown as User[];
+            }
+        }
+
+        throw new Error("Invalid users response shape");
     },
 
     getUserById: async (id: string, cookie?: string): Promise<User> => {

@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { Card, Typography, Button, message, Tag, Modal } from 'antd';
-import Image from 'next/image';
+import Image from '../ui/image/SmartImage';
 import { ShoppingCartOutlined, CheckOutlined, ZoomInOutlined, CloseOutlined } from '@ant-design/icons';
 import { Ingredients } from '../../types/api/stock/ingredients';
 import { useCart } from '../../contexts/stock/CartContext';
@@ -437,4 +437,3 @@ const IngredientCard: React.FC<IngredientCardProps> = ({ ingredient }) => {
 };
 
 export default IngredientCard;
-

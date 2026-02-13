@@ -1,58 +1,101 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requiredRolesForPath } from "./lib/rbac/policy";
 
-function jsonError(status: number, message: string) {
-  return NextResponse.json({ error: message }, { status });
+type GuardedRouteType = "orders" | "payment" | "delivery";
+
+type OrderLike = {
+    id?: string;
+    status?: string;
+    order_type?: string;
+};
+
+function parseGuardedRoute(pathname: string): { type: GuardedRouteType; orderId: string } | null {
+    const paymentMatch = pathname.match(/^\/pos\/items\/payment\/([^/]+)\/?$/);
+    if (paymentMatch?.[1]) return { type: "payment", orderId: paymentMatch[1] };
+
+    const deliveryMatch = pathname.match(/^\/pos\/items\/delivery\/([^/]+)\/?$/);
+    if (deliveryMatch?.[1]) return { type: "delivery", orderId: deliveryMatch[1] };
+
+    const ordersMatch = pathname.match(/^\/pos\/orders\/([^/]+)\/?$/);
+    if (ordersMatch?.[1]) return { type: "orders", orderId: ordersMatch[1] };
+
+    return null;
 }
 
-export function middleware(req: NextRequest) {
-  const { pathname } = req.nextUrl;
+function normalize(value: unknown): string {
+    return String(value ?? "").trim().toLowerCase();
+}
 
-  // Skip static assets
-  if (
-    pathname.startsWith("/_next") ||
-    pathname.startsWith("/favicon.ico") ||
-    pathname.startsWith("/robots.txt") ||
-    pathname.startsWith("/sitemap.xml")
-  ) {
-    return NextResponse.next();
-  }
+function getCancelRedirect(orderType: string): string {
+    const t = normalize(orderType);
+    if (t === "delivery") return "/pos/channels/delivery";
+    if (t === "takeaway") return "/pos/channels/takeaway";
+    if (t === "dinein") return "/pos/channels/dine-in";
+    return "/pos/channels";
+}
 
-  const policy = requiredRolesForPath(pathname, req.method);
-  if (policy.isPublic) return NextResponse.next();
+function getWaitingRedirect(orderType: string, orderId: string): string {
+    const t = normalize(orderType);
+    if (t === "delivery") return `/pos/items/delivery/${orderId}`;
+    return `/pos/items/payment/${orderId}`;
+}
 
-  const token = req.cookies.get("token")?.value;
+function buildRedirectPath(order: OrderLike, currentType: GuardedRouteType, fallbackOrderId: string): string | null {
+    const orderId = String(order.id || fallbackOrderId);
+    const status = normalize(order.status);
+    const orderType = String(order.order_type || "");
 
-  const denyByDefault = () => {
-    if (pathname.startsWith("/api")) {
-      return jsonError(403, `Forbidden (${policy.resourceKey}: deny-by-default)`);
+    if (status === "paid" || status === "completed") {
+        return `/pos/dashboard/${orderId}`;
     }
-    const url = req.nextUrl.clone();
-    url.pathname = policy.redirectTo || "/pos";
-    return NextResponse.redirect(url);
-  };
 
-  if (policy.deniedByDefault) {
-    return denyByDefault();
-  }
+    if (status === "cancelled") {
+        return getCancelRedirect(orderType);
+    }
 
-  const redirectToLogin = () => {
-    if (pathname.startsWith("/api")) return jsonError(401, "Unauthorized");
-    const url = req.nextUrl.clone();
-    url.pathname = "/login";
-    const res = NextResponse.redirect(url);
-    // Clear potentially invalid/stale token to prevent redirect loops.
-    res.cookies.delete("token");
-    return res;
-  };
+    if (status === "waitingforpayment") {
+        const target = getWaitingRedirect(orderType, orderId);
+        return currentType === "orders" ? target : null;
+    }
 
-  if (!token) {
-    return redirectToLogin();
-  }
+    // Pending/Cooking/Served should use order details page.
+    const detailsPath = `/pos/orders/${orderId}`;
+    if (currentType === "orders") return null;
+    return detailsPath;
+}
 
-  return NextResponse.next();
+export async function middleware(request: NextRequest) {
+    const parsed = parseGuardedRoute(request.nextUrl.pathname);
+    if (!parsed) return NextResponse.next();
+
+    try {
+        const apiUrl = new URL(`/api/pos/orders/${parsed.orderId}`, request.url);
+        const response = await fetch(apiUrl, {
+            method: "GET",
+            headers: {
+                Accept: "application/json",
+                ...(request.headers.get("cookie") ? { Cookie: request.headers.get("cookie") as string } : {}),
+            },
+            cache: "no-store",
+        });
+
+        if (!response.ok) return NextResponse.next();
+
+        const payload = await response.json().catch(() => null);
+        const order = (payload?.data ?? payload) as OrderLike | null;
+        if (!order) return NextResponse.next();
+
+        const redirectPath = buildRedirectPath(order, parsed.type, parsed.orderId);
+        if (!redirectPath || redirectPath === request.nextUrl.pathname) {
+            return NextResponse.next();
+        }
+
+        return NextResponse.redirect(new URL(redirectPath, request.url));
+    } catch {
+        return NextResponse.next();
+    }
 }
 
 export const config = {
-  matcher: ["/((?!_next/static|_next/image|favicon.ico).*)"],
+    matcher: ["/pos/orders/:path*", "/pos/items/payment/:path*", "/pos/items/delivery/:path*"],
 };
+

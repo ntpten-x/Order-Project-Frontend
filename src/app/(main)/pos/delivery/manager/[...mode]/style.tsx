@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
+import Image from "../../../../../../components/ui/image/SmartImage";
 import { Typography } from "antd";
 import { CarOutlined } from "@ant-design/icons";
 import {

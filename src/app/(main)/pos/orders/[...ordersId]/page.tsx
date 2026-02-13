@@ -39,6 +39,7 @@ import {
   getServedStatusText,
   groupItemsByCategory,
   getConfirmServeActionText,
+  getOrderNavigationPath,
 } from "../../../../../utils/orders"; 
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
@@ -107,9 +108,16 @@ export default function POSOrderDetailsPage() {
             setIsLoading(true);
             showLoading("กำลังโหลดข้อมูลออเดอร์...");
             const data = await ordersService.getById(id);
-            if ([OrderStatus.Paid, OrderStatus.Cancelled, OrderStatus.WaitingForPayment].includes(data.status)) {
-                const nextPath = getPostConfirmServeNavigationPath(data);
-                router.push(nextPath);
+            if ([OrderStatus.Paid, OrderStatus.Completed].includes(data.status)) {
+                router.push(`/pos/dashboard/${data.id}`);
+                return;
+            }
+            if (data.status === OrderStatus.Cancelled) {
+                router.push(getCancelOrderNavigationPath(data.order_type));
+                return;
+            }
+            if (data.status === OrderStatus.WaitingForPayment) {
+                router.push(getOrderNavigationPath(data));
                 return;
             }
             setOrder(data);

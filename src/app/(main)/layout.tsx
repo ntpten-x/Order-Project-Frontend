@@ -9,13 +9,17 @@ import { useRoleGuard } from "../../utils/pos/accessControl";
 import { AccessGuardFallback } from "../../components/pos/AccessGuard";
 
 function MainPermissionGate({ children }: { children: React.ReactNode }) {
-  const { isChecking } = useRoleGuard({
+  const { isChecking, isAuthorized } = useRoleGuard({
     requiredRole: undefined,
     unauthorizedMessage: "You do not have permission to access this page.",
   });
 
   if (isChecking) {
     return <AccessGuardFallback message="Checking permissions..." />;
+  }
+
+  if (!isAuthorized) {
+    return <AccessGuardFallback message="You do not have permission to access this page." tone="danger" />;
   }
 
   return <>{children}</>;

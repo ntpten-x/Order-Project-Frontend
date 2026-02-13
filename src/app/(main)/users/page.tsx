@@ -44,6 +44,7 @@ import UIPageHeader from '../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../components/ui/states/EmptyState';
 import ListPagination, { type CreatedSort } from '../../../components/ui/pagination/ListPagination';
 import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../lib/list-sort';
+import { AccessGuardFallback } from '../../../components/pos/AccessGuard';
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -335,15 +336,19 @@ export default function UsersPage() {
         fetchCsrf();
     }, []);
 
+    const unauthorizedNotifiedRef = useRef(false);
     useEffect(() => {
         if (!authLoading && !permissionLoading && (!user || !canViewUsers)) {
-            const timer = setTimeout(() => {
+            if (!unauthorizedNotifiedRef.current) {
+                unauthorizedNotifiedRef.current = true;
                 message.error('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
-                router.push('/');
-            }, 800);
-            return () => clearTimeout(timer);
+            }
+            return;
         }
-    }, [authLoading, permissionLoading, user, canViewUsers, router]);
+        if (user && canViewUsers) {
+            unauthorizedNotifiedRef.current = false;
+        }
+    }, [authLoading, permissionLoading, user, canViewUsers]);
 
     useEffect(() => {
         if (authLoading) return;
@@ -454,7 +459,7 @@ export default function UsersPage() {
         });
     };
 
-    if (authLoading || permissionLoading || !user || !canViewUsers) {
+    if (authLoading || permissionLoading) {
         return (
             <div
                 style={{
@@ -469,6 +474,10 @@ export default function UsersPage() {
                 <Spin size="large" />
             </div>
         );
+    }
+
+    if (!user || !canViewUsers) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
     }
 
     const showInitialSkeleton = !hasLoaded && isFetching;

@@ -48,7 +48,7 @@ export const PAGE_PERMISSION_MAP: Array<{ prefix: string; requirement: Permissio
     { prefix: "/stock/buying", requirement: { resourceKey: "stock.orders.page", action: "update" } },
     { prefix: "/stock/items", requirement: { resourceKey: "stock.orders.page", action: "view" } },
     { prefix: "/stock", requirement: { resourceKey: "stock.orders.page", action: "view" } },
-    { prefix: "/", requirement: { resourceKey: "orders.page", action: "view" } },
+    { prefix: "/", requirement: { resourceKey: "menu.main.home", action: "view" } },
 ];
 
 export function inferPermissionFromPath(pathname: string): PermissionRequirement | undefined {

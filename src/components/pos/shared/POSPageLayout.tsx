@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useMemo, useState } from "react";
-import Image from "next/image";
+import Image from "../../ui/image/SmartImage";
 import { Typography, Button, Spin, Empty, Badge, Drawer, List, message, Pagination, Input, Modal, Tag, InputNumber } from "antd";
 import { 
   ShoppingCartOutlined, 

@@ -23,6 +23,7 @@ import { pageStyles, ProductPreview } from './style';
 import { Category } from '../../../../../../types/api/pos/category';
 import { ProductsUnit } from '../../../../../../types/api/pos/productsUnit';
 import { Products } from '../../../../../../types/api/pos/products';
+import { isSupportedImageSource } from '../../../../../../utils/image/source';
 
 const { TextArea } = Input;
 const { Title, Text } = Typography;
@@ -470,7 +471,16 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                         <Form.Item
                                             name="img_url"
                                             label={<span style={{ fontWeight: 600, color: '#334155' }}>รูปภาพ URL</span>}
-                                            rules={[{ type: 'url', message: 'รูปแบบ URL ไม่ถูกต้อง' }]}
+                                            rules={[
+                                                {
+                                                    validator: async (_, value: string | undefined) => {
+                                                        if (!value?.trim()) return;
+                                                        if (!isSupportedImageSource(value)) {
+                                                            throw new Error('รองรับเฉพาะ URL รูปภาพแบบ http(s), data:image และ blob');
+                                                        }
+                                                    }
+                                                }
+                                            ]}
                                         >
                                             <Input size="large" placeholder="https://example.com/image.jpg" />
                                         </Form.Item>

@@ -85,8 +85,18 @@ export default function POSPaymentPage() {
                 discountsService.getAll()
             ]);
             
-            if ([OrderStatus.Paid, OrderStatus.Cancelled].includes(orderData.status)) {
+            if ([OrderStatus.Paid, OrderStatus.Completed].includes(orderData.status)) {
+                router.push(`/pos/dashboard/${orderData.id}`);
+                return;
+            }
+
+            if (orderData.status === OrderStatus.Cancelled) {
                 router.push('/pos/channels');
+                return;
+            }
+
+            if (orderData.status !== OrderStatus.WaitingForPayment) {
+                router.push(`/pos/orders/${orderData.id}`);
                 return;
             }
 
@@ -323,17 +333,15 @@ export default function POSPaymentPage() {
                     };
 
                     await paymentsService.create(paymentData, undefined, csrfToken);
-                    await ordersService.updateStatus(order!.id, OrderStatus.Paid, csrfToken);
-
-                    if (order!.table_id) {
-                         await tablesService.update(order!.table_id, { status: TableStatus.Available }, undefined, csrfToken);
-                    }
 
                     messageApi.success("ชำระเงินเรียบร้อย");
                     router.push(`/pos/dashboard/${order!.id}`);
 
-                } catch {
-                    messageApi.error("การชำระเงินล้มเหลว");
+                } catch (error) {
+                    const errorMessage = error instanceof Error && error.message
+                        ? error.message
+                        : "การชำระเงินล้มเหลว";
+                    messageApi.error(errorMessage);
                 } finally {
                     hideLoading();
                 }

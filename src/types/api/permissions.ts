@@ -44,6 +44,11 @@ export interface UpdateUserPermissionsPayload {
     reason?: string;
 }
 
+export interface UpdateRolePermissionsPayload {
+    permissions: EffectiveRolePermissionRow[];
+    reason?: string;
+}
+
 export type UpdateUserPermissionsResult =
     | {
         updated: true;
@@ -59,8 +64,12 @@ export type UpdateUserPermissionsResult =
             requestedByUserId: string;
             riskFlags: PermissionApprovalRiskFlag[];
             createdAt: string;
-        };
+            };
     };
+
+export type UpdateRolePermissionsResult = {
+    updated: true;
+};
 
 export interface SimulatePermissionPayload {
     userId: string;

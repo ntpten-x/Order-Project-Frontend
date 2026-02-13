@@ -40,7 +40,7 @@ type GuardOptions = {
     requiredPermission?: PermissionRequirement;
     requiredAnyPermissions?: PermissionRequirement[];
     redirectUnauthenticated?: string;
-    redirectUnauthorized?: string;
+    redirectUnauthorized?: string | null;
     unauthorizedMessage?: string;
 };
 
@@ -50,7 +50,7 @@ export function useRoleGuard({
     requiredPermission,
     requiredAnyPermissions,
     redirectUnauthenticated = "/login",
-    redirectUnauthorized = "/pos",
+    redirectUnauthorized = null,
     unauthorizedMessage = "You do not have permission to access this page.",
 }: GuardOptions = {}) {
     const router = useRouter();
@@ -109,7 +109,9 @@ export function useRoleGuard({
                 notifiedRef.current = true;
                 message.error(unauthorizedMessage);
             }
-            router.replace(redirectUnauthorized);
+            if (redirectUnauthorized) {
+                router.replace(redirectUnauthorized);
+            }
             return;
         }
 

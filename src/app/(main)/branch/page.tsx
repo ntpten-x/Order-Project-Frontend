@@ -27,6 +27,7 @@ import PageSection from "../../../components/ui/page/PageSection";
 import PageStack from "../../../components/ui/page/PageStack";
 import UIEmptyState from "../../../components/ui/states/EmptyState";
 import UIPageHeader from "../../../components/ui/page/PageHeader";
+import { AccessGuardFallback } from "../../../components/pos/AccessGuard";
 import ListPagination, { type CreatedSort } from "../../../components/ui/pagination/ListPagination";
 import { t } from "../../../utils/i18n";
 import { useDebouncedValue } from "../../../utils/useDebouncedValue";
@@ -57,6 +58,7 @@ export default function BranchPage() {
   const canManageBranches = can("branches.page", "update");
   const { message, modal } = App.useApp();
   const { execute } = useAsyncAction();
+  const unauthorizedNotifiedRef = useRef(false);
 
   useEffect(() => {
     if (isUrlReadyRef.current) return;
@@ -118,14 +120,19 @@ export default function BranchPage() {
   useEffect(() => {
     if (!authLoading && !permissionLoading && user) {
       if (!canViewBranches) {
-        message.error(t("branch.noPermission"));
-        router.push('/');
+        if (!unauthorizedNotifiedRef.current) {
+          unauthorizedNotifiedRef.current = true;
+          message.error(t("branch.noPermission"));
+        }
         return;
       }
       if (!isUrlReadyRef.current) return;
       fetchBranches();
     }
-  }, [user, authLoading, permissionLoading, canViewBranches, router, fetchBranches, message, page, pageSize, filter]);
+    if (canViewBranches) {
+      unauthorizedNotifiedRef.current = false;
+    }
+  }, [user, authLoading, permissionLoading, canViewBranches, fetchBranches, message, page, pageSize, filter]);
   
   const handleAdd = () => {
     if (!canManageBranches) return;
@@ -195,6 +202,10 @@ export default function BranchPage() {
             <Spin size="large" />
         </div>
     );
+  }
+
+  if (!permissionLoading && user && !canViewBranches) {
+    return <AccessGuardFallback message={t("branch.noPermission")} tone="danger" />;
   }
 
   return (

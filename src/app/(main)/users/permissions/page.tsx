@@ -9,6 +9,7 @@ import {
     Col,
     DatePicker,
     Divider,
+    Grid,
     Input,
     Modal,
     Progress,
@@ -34,6 +35,7 @@ import {
     UserOutlined,
     DownOutlined,
     SearchOutlined,
+    ReloadOutlined,
 } from "@ant-design/icons";
 import { roleService } from "../../../../services/roles.service";
 import { permissionsService } from "../../../../services/permissions.service";
@@ -54,7 +56,7 @@ const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
 
 type PermissionRow = EffectiveRolePermissionRow & { key: string };
-type SystemGroup = "pos" | "stock" | "admin" | "other";
+type SystemGroup = "main" | "pos" | "stock" | "users" | "branch" | "audit" | "other";
 type ResourceKind = "menu" | "page";
 type PermissionSnapshot = {
     resourceKey: string;
@@ -78,6 +80,51 @@ type SemanticDiffRow = {
     after: string;
     riskLevel: "none" | "low" | "medium" | "high";
     riskPoints: number;
+};
+
+const SYSTEM_FILTER_OPTIONS: Array<{ label: string; value: SystemGroup | "all" }> = [
+    { label: "ทั้งหมด", value: "all" },
+    { label: "หน้าหลัก (/)", value: "main" },
+    { label: "POS", value: "pos" },
+    { label: "Stock", value: "stock" },
+    { label: "Users", value: "users" },
+    { label: "Branch", value: "branch" },
+    { label: "Audit", value: "audit" },
+];
+
+const MAIN_PAGE_LABEL_BY_RESOURCE_KEY: Record<string, string> = {
+    "menu.module.pos": "ระบบขาย (POS)",
+    "menu.module.stock": "จัดการสต๊อก",
+    "menu.module.users": "ตั้งค่าและสิทธิ์ผู้ใช้",
+    "menu.module.branch": "จัดการสาขา",
+    "menu.module.audit": "Audit Logs",
+};
+
+const MENU_NAV_LABEL_BY_RESOURCE_KEY: Record<string, string> = {
+    "menu.pos.home": "หน้าแรก",
+    "menu.pos.sell": "ขาย",
+    "menu.pos.orders": "ออเดอร์",
+    "menu.pos.kitchen": "ครัว",
+    "menu.pos.shift": "กะการทำงาน",
+    "menu.pos.shiftHistory": "ประวัติกะ",
+    "menu.pos.dashboard": "สรุป",
+    "menu.pos.tables": "โต๊ะ",
+    "menu.pos.delivery": "เดลิเวอรี่",
+    "menu.pos.category": "หมวดหมู่",
+    "menu.pos.products": "สินค้า",
+    "menu.pos.productsUnit": "หน่วยสินค้า",
+    "menu.pos.discounts": "ส่วนลด",
+    "menu.pos.payment": "วิธีชำระเงิน",
+    "menu.pos.settings": "ตั้งค่า",
+    "menu.stock.home": "หน้าแรก",
+    "menu.stock.buying": "สั่งซื้อ",
+    "menu.stock.orders": "รายการ",
+    "menu.stock.history": "ประวัติ",
+    "menu.stock.ingredients": "วัตถุดิบ",
+    "menu.stock.ingredientsUnit": "หน่วยวัตถุดิบ",
+    "menu.users.home": "ผู้ใช้",
+    "menu.branch.home": "สาขา",
+    "menu.module.audit": "Audit Logs",
 };
 
 const SCOPE_RANK: Record<PermissionScope, number> = {
@@ -175,6 +222,7 @@ function approvalStatusTag(status: PermissionOverrideApprovalStatus) {
 }
 
 function getResourceKind(resourceKey: string): ResourceKind {
+    if (resourceKey in MAIN_PAGE_LABEL_BY_RESOURCE_KEY) return "page";
     return resourceKey.startsWith("menu.") ? "menu" : "page";
 }
 
@@ -182,26 +230,22 @@ function getSystemGroup(resourceKey: string, route?: string): SystemGroup {
     const key = resourceKey.toLowerCase();
     const path = (route || "").toLowerCase();
 
+    if (resourceKey in MAIN_PAGE_LABEL_BY_RESOURCE_KEY || path === "/" || path.startsWith("/?")) return "main";
     if (key.includes("stock") || path.startsWith("/stock")) return "stock";
     if (key.includes("pos") || path.startsWith("/pos")) return "pos";
-    if (
-        key.includes("users") ||
-        key.includes("permissions") ||
-        key.includes("branch") ||
-        key.includes("audit") ||
-        path.startsWith("/users") ||
-        path.startsWith("/branch") ||
-        path.startsWith("/audit")
-    ) {
-        return "admin";
-    }
+    if (key.includes("audit") || path.startsWith("/audit")) return "audit";
+    if (key.includes("branch") || path.startsWith("/branch")) return "branch";
+    if (key.includes("users") || key.includes("permissions") || path.startsWith("/users")) return "users";
     return "other";
 }
 
 function systemGroupTag(group: SystemGroup) {
+    if (group === "main") return <Tag color="magenta">หน้าหลัก</Tag>;
     if (group === "pos") return <Tag color="geekblue">POS</Tag>;
     if (group === "stock") return <Tag color="green">Stock</Tag>;
-    if (group === "admin") return <Tag color="purple">ผู้ใช้/แอดมิน</Tag>;
+    if (group === "users") return <Tag color="purple">Users</Tag>;
+    if (group === "branch") return <Tag color="gold">Branch</Tag>;
+    if (group === "audit") return <Tag color="red">Audit</Tag>;
     return <Tag>อื่น ๆ</Tag>;
 }
 
@@ -236,11 +280,69 @@ function permissionFieldLabel(field: string) {
     return field;
 }
 
+function normalizeResourceToken(token: string) {
+    const withSpaces = token
+        .replace(/([a-z])([A-Z])/g, "$1 $2")
+        .replace(/[_-]/g, " ")
+        .trim();
+    if (!withSpaces) return token;
+    return withSpaces.charAt(0).toUpperCase() + withSpaces.slice(1);
+}
 
-interface ModalSelectorProps {
-    value?: string | number;
-    options: { label: React.ReactNode; value: string | number }[];
-    onChange: (value: string | number) => void;
+function fallbackPermissionLabel(resourceKey: string) {
+    const parts = resourceKey.split(".").filter(Boolean);
+    if (parts.length === 0) return resourceKey;
+    if (parts[0] === "menu") {
+        const menuPath = parts.slice(1).map(normalizeResourceToken).join(" > ");
+        return menuPath ? `เมนู ${menuPath}` : "เมนู";
+    }
+    return parts.map(normalizeResourceToken).join(" > ");
+}
+
+function resolvePermissionLabel(resourceKey: string, pageLabel?: string | null) {
+    const trimmed = (pageLabel ?? "").trim();
+    return trimmed || fallbackPermissionLabel(resourceKey);
+}
+
+function mapPermissionRow(item: EffectiveRolePermissionRow): PermissionRow {
+    return {
+        ...item,
+        key: item.resourceKey,
+        pageLabel: resolvePermissionLabel(item.resourceKey, item.pageLabel),
+        route: (item.route ?? "").trim(),
+        canAccess: Boolean(item.canAccess),
+        canView: Boolean(item.canView),
+        canCreate: Boolean(item.canCreate),
+        canUpdate: Boolean(item.canUpdate),
+        canDelete: Boolean(item.canDelete),
+        dataScope: (item.dataScope ?? "none") as PermissionScope,
+    };
+}
+
+function normalizeRoleName(name?: string | null) {
+    return String(name ?? "").trim().toLowerCase();
+}
+
+function getDefaultScopeByRoleName(roleName?: string | null): PermissionScope {
+    const normalized = normalizeRoleName(roleName);
+    if (normalized === "admin") return "all";
+    if (normalized === "manager" || normalized === "employee") return "branch";
+    return "own";
+}
+
+function resolvePageName(row: PermissionRow): string {
+    const byMenu = MENU_NAV_LABEL_BY_RESOURCE_KEY[row.resourceKey];
+    if (byMenu) return byMenu;
+    const byResource = MAIN_PAGE_LABEL_BY_RESOURCE_KEY[row.resourceKey];
+    if (byResource) return byResource;
+    return resolvePermissionLabel(row.resourceKey, row.pageLabel);
+}
+
+
+interface ModalSelectorProps<T extends string | number = string | number> {
+    value?: T;
+    options: { label: React.ReactNode; value: T }[];
+    onChange: (value: T) => void;
     title: string;
     placeholder?: string;
     style?: React.CSSProperties;
@@ -249,7 +351,7 @@ interface ModalSelectorProps {
     loading?: boolean;
 }
 
-const ModalSelector: React.FC<ModalSelectorProps> = ({
+const ModalSelector = <T extends string | number,>({
     value,
     options,
     onChange,
@@ -259,7 +361,7 @@ const ModalSelector: React.FC<ModalSelectorProps> = ({
     disabled = false,
     showSearch = false,
     loading = false
-}) => {
+}: ModalSelectorProps<T>) => {
     const [open, setOpen] = useState(false);
     const [searchText, setSearchText] = useState("");
 
@@ -374,6 +476,8 @@ const ModalSelector: React.FC<ModalSelectorProps> = ({
 };
 
 export default function PermissionsPage() {
+    const screens = Grid.useBreakpoint();
+    const isMobile = !screens.md;
     const [targetType, setTargetType] = useState<"user" | "role">("user");
     const [selectedUser, setSelectedUser] = useState<string>("");
     const [selectedRole, setSelectedRole] = useState<string>("");
@@ -407,8 +511,9 @@ export default function PermissionsPage() {
     const [lastApprovalRequestId, setLastApprovalRequestId] = useState<string>("");
     const [tableSearch, setTableSearch] = useState("");
     const [systemFilter, setSystemFilter] = useState<SystemGroup | "all">("all");
-    const [resourceKindFilter, setResourceKindFilter] = useState<ResourceKind | "all">("all");
-    const editable = targetType === "user";
+    const isUserMode = targetType === "user";
+    const isRoleMode = targetType === "role";
+    const canEditPermissions = isUserMode || isRoleMode;
     const riskTag = (risk: "none" | "low" | "medium" | "high") => {
         if (risk === "high") return <Tag color="red">สูง</Tag>;
         if (risk === "medium") return <Tag color="orange">กลาง</Tag>;
@@ -435,7 +540,7 @@ export default function PermissionsPage() {
     }, [semanticDiffRows]);
 
     const pendingDiffRows = useMemo(() => {
-        if (!editable || !dirty) return [] as SemanticDiffRow[];
+        if (!dirty) return [] as SemanticDiffRow[];
         const beforeRaw: PermissionSnapshot[] = baselineRows.map((row) => ({
             resourceKey: row.resourceKey,
             pageLabel: row.pageLabel,
@@ -459,7 +564,7 @@ export default function PermissionsPage() {
             dataScope: row.dataScope,
         }));
         return buildSemanticDiffRows(beforeRaw, afterRaw);
-    }, [editable, dirty, baselineRows, rows]);
+    }, [dirty, baselineRows, rows]);
 
     const pendingRiskSummary = useMemo(() => {
         const total = pendingDiffRows.reduce((acc, row) => acc + row.riskPoints, 0);
@@ -469,6 +574,12 @@ export default function PermissionsPage() {
                     total > 0 ? "Low" : "None";
         return { total, level };
     }, [pendingDiffRows]);
+
+    const pendingChangeCount = pendingDiffRows.length;
+    const editedResourceCount = useMemo(
+        () => new Set(pendingDiffRows.map((row) => row.resourceKey)).size,
+        [pendingDiffRows]
+    );
 
     const roleOptions = useMemo(
         () =>
@@ -488,12 +599,33 @@ export default function PermissionsPage() {
         [users]
     );
 
+    const selectedRoleName = useMemo(() => {
+        if (isRoleMode) {
+            const role = roles.find((r) => r.id === selectedRole);
+            return role?.display_name || role?.roles_name || "";
+        }
+        const user = users.find((u) => u.id === selectedUser);
+        return user?.roles?.display_name || user?.roles?.roles_name || "";
+    }, [isRoleMode, roles, selectedRole, users, selectedUser]);
+
+    const isAdminTarget = useMemo(() => normalizeRoleName(selectedRoleName) === "admin", [selectedRoleName]);
+
+    const defaultViewScope = useMemo(() => getDefaultScopeByRoleName(selectedRoleName), [selectedRoleName]);
+
+    const normalizeScopeByTargetRole = useCallback(
+        (scope: PermissionScope, canView: boolean): PermissionScope => {
+            if (!canView) return "none";
+            if (isAdminTarget) return scope === "none" ? "all" : scope;
+            if (scope === "all" || scope === "none") return "branch";
+            return scope;
+        },
+        [isAdminTarget]
+    );
+
     const filteredRows = useMemo(() => {
         const q = tableSearch.trim().toLowerCase();
         return rows.filter((row) => {
-            const kind = getResourceKind(row.resourceKey);
             const system = getSystemGroup(row.resourceKey, row.route);
-            if (resourceKindFilter !== "all" && kind !== resourceKindFilter) return false;
             if (systemFilter !== "all" && system !== systemFilter) return false;
             if (!q) return true;
             return (
@@ -502,14 +634,32 @@ export default function PermissionsPage() {
                 (row.route || "").toLowerCase().includes(q)
             );
         });
-    }, [rows, tableSearch, resourceKindFilter, systemFilter]);
+    }, [rows, tableSearch, systemFilter]);
+
+    const selectedSystemLabel = useMemo(() => {
+        if (systemFilter === "all") return "ทั้งหมด";
+        return SYSTEM_FILTER_OPTIONS.find((item) => item.value === systemFilter)?.label || "ทั้งหมด";
+    }, [systemFilter]);
+
+    const pageRows = useMemo(
+        () => filteredRows.filter((row) => getResourceKind(row.resourceKey) === "page"),
+        [filteredRows]
+    );
+
+    const menuRows = useMemo(
+        () => filteredRows.filter((row) => getResourceKind(row.resourceKey) === "menu"),
+        [filteredRows]
+    );
 
     const sectionSummary = useMemo(() => {
         const base = {
             total: rows.length,
+            main: 0,
             pos: 0,
             stock: 0,
-            admin: 0,
+            users: 0,
+            branch: 0,
+            audit: 0,
             other: 0,
             menu: 0,
             page: 0,
@@ -548,7 +698,13 @@ export default function PermissionsPage() {
             setDirty(false);
             try {
                 const data = await permissionsService.getRoleEffectivePermissions(selectedRole);
-                const mapped = data.permissions.map((item) => ({ ...item, key: item.resourceKey }));
+                const mapped = data.permissions.map((item) => {
+                    const row = mapPermissionRow(item);
+                    return {
+                        ...row,
+                        dataScope: normalizeScopeByTargetRole(row.dataScope, row.canView),
+                    };
+                });
                 setRows(mapped);
                 setBaselineRows(mapped);
             } catch (error) {
@@ -559,7 +715,7 @@ export default function PermissionsPage() {
             }
         };
         loadRolePermissions();
-    }, [selectedRole, targetType]);
+    }, [selectedRole, targetType, normalizeScopeByTargetRole]);
 
     useEffect(() => {
         const loadUserPermissions = async () => {
@@ -568,7 +724,13 @@ export default function PermissionsPage() {
             setDirty(false);
             try {
                 const data = await permissionsService.getUserEffectivePermissions(selectedUser);
-                const mapped = data.permissions.map((item) => ({ ...item, key: item.resourceKey }));
+                const mapped = data.permissions.map((item) => {
+                    const row = mapPermissionRow(item);
+                    return {
+                        ...row,
+                        dataScope: normalizeScopeByTargetRole(row.dataScope, row.canView),
+                    };
+                });
                 setRows(mapped);
                 setBaselineRows(mapped);
             } catch (error) {
@@ -579,7 +741,7 @@ export default function PermissionsPage() {
             }
         };
         loadUserPermissions();
-    }, [selectedUser, targetType]);
+    }, [selectedUser, targetType, normalizeScopeByTargetRole]);
 
     const loadAudits = useCallback(async () => {
         if (!selectedUser || targetType !== "user") return;
@@ -653,7 +815,7 @@ export default function PermissionsPage() {
         if (action === "access") patch.canAccess = checked;
         if (action === "view") {
             patch.canView = checked;
-            if (!checked) patch.dataScope = "none";
+            patch.dataScope = checked ? defaultViewScope : "none";
         }
         if (action === "create") patch.canCreate = checked;
         if (action === "update") patch.canUpdate = checked;
@@ -661,29 +823,34 @@ export default function PermissionsPage() {
         updateRow(key, patch);
     };
 
-    const renderActionSwitch = (value: boolean, row: PermissionRow, action: "access" | "view" | "create" | "update" | "delete") => {
-        return (
-            <Switch
-                checked={value}
-                disabled={!editable}
-                size="small"
-                onChange={(checked) => toggleAction(row.key, action, checked)}
-            />
-        );
-    };
+    const renderActionSwitch = (value: boolean, row: PermissionRow, action: "access" | "view" | "create" | "update" | "delete") => (
+        <Switch
+            checked={value}
+            disabled={!canEditPermissions}
+            size="small"
+            onChange={(checked) => toggleAction(row.key, action, checked)}
+        />
+    );
 
-    const columns = [
+    const pageColumns = [
+        {
+            title: "หน้า",
+            key: "page",
+            render: (_: unknown, row: PermissionRow) => (
+                <Text strong>{resolvePageName(row)}</Text>
+            ),
+            width: 220,
+        },
         {
             title: "ทรัพยากร",
             dataIndex: "pageLabel",
             key: "pageLabel",
             render: (value: string, row: PermissionRow) => (
                 <Space direction="vertical" size={0}>
-                    <Text strong>{value}</Text>
+                    <Text strong>{resolvePermissionLabel(row.resourceKey, value)}</Text>
                     <Text type="secondary">{row.route || row.resourceKey}</Text>
                 </Space>
             ),
-            fixed: "left" as const,
             width: 240,
         },
         {
@@ -745,7 +912,7 @@ export default function PermissionsPage() {
             dataIndex: "dataScope",
             key: "dataScope",
             render: (scope: PermissionScope, row: PermissionRow) => {
-                if (!editable) return scopeTag(scope);
+                if (!canEditPermissions) return scopeTag(scope);
                 return (
                     <ModalSelector
                         value={scope}
@@ -755,7 +922,7 @@ export default function PermissionsPage() {
                             { label: "ไม่เห็นข้อมูล", value: "none" },
                             { label: "เฉพาะของตนเอง", value: "own" },
                             { label: "ตามสาขา", value: "branch" },
-                            { label: "ทุกข้อมูล", value: "all" },
+                            ...(isAdminTarget ? [{ label: "ทุกข้อมูล", value: "all" }] : []),
                         ]}
                         style={{ width: "100%", minWidth: 130 }}
                         disabled={!row.canView}
@@ -763,6 +930,66 @@ export default function PermissionsPage() {
                 );
             },
             width: 150,
+        },
+    ];
+
+    const menuColumns = [
+        {
+            title: "หน้า",
+            key: "page",
+            render: (_: unknown, row: PermissionRow) => (
+                <Text strong>{resolvePageName(row)}</Text>
+            ),
+            width: 220,
+        },
+        {
+            title: "ทรัพยากร",
+            dataIndex: "resourceKey",
+            key: "resourceKey",
+            render: (value: string) => <Text type="secondary">{value}</Text>,
+            width: 240,
+        },
+        {
+            title: "ระบบ",
+            key: "system",
+            align: "center" as const,
+            render: (_: unknown, row: PermissionRow) => systemGroupTag(getSystemGroup(row.resourceKey, row.route)),
+            width: 130,
+        },
+        {
+            title: "ประเภท",
+            key: "kind",
+            align: "center" as const,
+            render: () => resourceKindTag("menu"),
+            width: 110,
+        },
+        {
+            title: "การมองเห็นเมนู",
+            key: "menuVisibility",
+            width: 180,
+            render: (_: unknown, row: PermissionRow) => {
+                const visible = row.canView || row.canAccess;
+                if (!canEditPermissions) return <Tag color={visible ? "green" : "default"}>{visible ? "เห็น" : "ไม่เห็น"}</Tag>;
+                return (
+                    <ModalSelector
+                        value={visible ? "visible" : "hidden"}
+                        title="เลือกการมองเห็นเมนู"
+                        onChange={(value) => {
+                            const canSee = value === "visible";
+                            updateRow(row.key, {
+                                canAccess: canSee,
+                                canView: canSee,
+                                dataScope: canSee ? defaultViewScope : "none",
+                            });
+                        }}
+                        options={[
+                            { label: "ไม่เห็น", value: "hidden" },
+                            { label: "เห็น", value: "visible" },
+                        ]}
+                        style={{ width: "100%", minWidth: 140 }}
+                    />
+                );
+            },
         },
     ];
 
@@ -786,14 +1013,69 @@ export default function PermissionsPage() {
     const reloadSelectedUserEffective = useCallback(async () => {
         if (!selectedUser || targetType !== "user") return;
         const data = await permissionsService.getUserEffectivePermissions(selectedUser);
-        const mapped = data.permissions.map((item) => ({ ...item, key: item.resourceKey }));
+        const mapped = data.permissions.map(mapPermissionRow);
         setRows(mapped);
         setBaselineRows(mapped);
         setDirty(false);
     }, [selectedUser, targetType]);
 
-    const handleSaveUserOverrides = async () => {
-        if (!editable || !selectedUser || !dirty) return;
+    const saveDisabled = isUserMode
+        ? (
+            !selectedUser ||
+            !dirty ||
+            (pendingRiskSummary.level === "High" && saveReason.trim().length < 10) ||
+            (pendingRiskSummary.level === "High" && !highRiskConfirmed)
+        )
+        : (
+            !selectedRole ||
+            !dirty
+        );
+
+    const handleSavePermissions = async () => {
+        if (!dirty) return;
+        const normalizedReason = saveReason.trim();
+        const reasonPayload = normalizedReason.length >= 3 ? normalizedReason : undefined;
+
+        const serializedPermissions = rows.map((row) => ({
+            resourceKey: row.resourceKey,
+            pageLabel: row.pageLabel,
+            route: row.route,
+            canAccess: row.canAccess,
+            canView: row.canView,
+            canCreate: row.canCreate,
+            canUpdate: row.canUpdate,
+            canDelete: row.canDelete,
+            dataScope: row.dataScope,
+        }));
+
+        if (isRoleMode) {
+            if (!selectedRole) return;
+            setSaving(true);
+            try {
+                const csrfToken = await authService.getCsrfToken();
+                await permissionsService.updateRolePermissions(
+                    selectedRole,
+                    {
+                        permissions: serializedPermissions,
+                        reason: reasonPayload,
+                    },
+                    csrfToken
+                );
+                setDirty(false);
+                setBaselineRows(rows);
+                setSaveReason("");
+                setHighRiskConfirmed(false);
+                setLastApprovalRequestId("");
+                message.success("บันทึกแม่แบบบทบาทเรียบร้อย");
+            } catch (error) {
+                message.error(error instanceof Error ? error.message : "บันทึกแม่แบบบทบาทไม่สำเร็จ");
+            } finally {
+                setSaving(false);
+            }
+            return;
+        }
+
+        if (!selectedUser) return;
         if (pendingRiskSummary.level === "High" && saveReason.trim().length < 10) {
             message.error("การเปลี่ยนแปลงความเสี่ยงสูง ต้องระบุเหตุผลอย่างน้อย 10 ตัวอักษร");
             return;
@@ -810,18 +1092,8 @@ export default function PermissionsPage() {
                 const result = await permissionsService.updateUserPermissions(
                     selectedUser,
                     {
-                        permissions: rows.map((row) => ({
-                            resourceKey: row.resourceKey,
-                            pageLabel: row.pageLabel,
-                            route: row.route,
-                            canAccess: row.canAccess,
-                            canView: row.canView,
-                            canCreate: row.canCreate,
-                            canUpdate: row.canUpdate,
-                            canDelete: row.canDelete,
-                            dataScope: row.dataScope,
-                        })),
-                        reason: saveReason || undefined,
+                        permissions: serializedPermissions,
+                        reason: reasonPayload,
                     },
                     csrfToken
                 );
@@ -860,6 +1132,15 @@ export default function PermissionsPage() {
         }
 
         await doSave();
+    };
+
+    const handleResetUnsavedChanges = () => {
+        if (!dirty) return;
+        setRows(baselineRows.map((row) => ({ ...row })));
+        setDirty(false);
+        setHighRiskConfirmed(false);
+        setSaveReason("");
+        message.success(`ล้างการแก้ไขที่ยังไม่บันทึกแล้ว (${pendingChangeCount} รายการเปลี่ยนแปลง)`);
     };
 
     const handleApprove = async (approval: PermissionOverrideApprovalItem) => {
@@ -953,14 +1234,14 @@ export default function PermissionsPage() {
     };
 
     return (
-        <div style={{ padding: 24, background: "#f6f8fb", minHeight: "100vh" }}>
-            <Row gutter={[16, 16]}>
+        <div style={{ padding: isMobile ? 12 : 24, background: "#f6f8fb", minHeight: "100vh" }}>
+            <Row gutter={[isMobile ? 12 : 16, isMobile ? 12 : 16]}>
                 <Col span={24}>
                     <Card bordered={false}>
                         <Space direction="vertical" size={4} style={{ width: "100%" }}>
-                            <Space align="center">
+                            <Space align="center" wrap>
                                 <SafetyCertificateOutlined style={{ color: "#2563eb", fontSize: 20 }} />
-                                <Title level={3} style={{ margin: 0 }}>
+                                <Title level={isMobile ? 4 : 3} style={{ margin: 0 }}>
                                     จัดการสิทธิ์ผู้ใช้งาน
                                 </Title>
                                 <Badge status="processing" text="ระบบอนุมัติ 2 ชั้น" />
@@ -980,24 +1261,49 @@ export default function PermissionsPage() {
                                 <span>ตารางกำหนดสิทธิ์</span>
                             </Space>
                         }
-                        extra={
-                            <Button
-                                type="primary"
-                                onClick={handleSaveUserOverrides}
-                                disabled={
-                                    !editable ||
-                                    !dirty ||
-                                    (pendingRiskSummary.level === "High" && saveReason.trim().length < 10) ||
-                                    (pendingRiskSummary.level === "High" && !highRiskConfirmed)
-                                }
-                                loading={saving}
-                            >
-                                บันทึกสิทธิ์เฉพาะผู้ใช้
-                            </Button>
-                        }
+                        extra={!isMobile ? (
+                            <Space>
+                                <Button
+                                    icon={<ReloadOutlined />}
+                                    onClick={handleResetUnsavedChanges}
+                                    disabled={!dirty || saving}
+                                >
+                                    รีเฟรช ({pendingChangeCount})
+                                </Button>
+                                <Button
+                                    type="primary"
+                                    onClick={handleSavePermissions}
+                                    disabled={saveDisabled}
+                                    loading={saving}
+                                >
+                                    {isRoleMode ? "บันทึกแม่แบบบทบาท" : "บันทึกสิทธิ์เฉพาะผู้ใช้"}
+                                </Button>
+                            </Space>
+                        ) : undefined}
                         bordered={false}
                     >
                         <Space direction="vertical" style={{ width: "100%" }} size={12}>
+                            {isMobile && (
+                                <Space style={{ width: "100%" }}>
+                                    <Button
+                                        icon={<ReloadOutlined />}
+                                        onClick={handleResetUnsavedChanges}
+                                        disabled={!dirty || saving}
+                                        style={{ flex: 1 }}
+                                    >
+                                        รีเฟรช ({pendingChangeCount})
+                                    </Button>
+                                    <Button
+                                        type="primary"
+                                        onClick={handleSavePermissions}
+                                        disabled={saveDisabled}
+                                        loading={saving}
+                                        style={{ flex: 1 }}
+                                    >
+                                        {isRoleMode ? "บันทึกแม่แบบบทบาท" : "บันทึกสิทธิ์เฉพาะผู้ใช้"}
+                                    </Button>
+                                </Space>
+                            )}
                             <Segmented
                                 value={targetType}
                                 options={[
@@ -1045,7 +1351,7 @@ export default function PermissionsPage() {
                             )}
 
                             <Row gutter={[8, 8]}>
-                                <Col xs={24} md={12}>
+                                <Col xs={24} md={10}>
                                     <Input
                                         allowClear
                                         value={tableSearch}
@@ -1053,30 +1359,21 @@ export default function PermissionsPage() {
                                         placeholder="ค้นหา ชื่อหน้า / เส้นทาง / resource key"
                                     />
                                 </Col>
-                                <Col xs={24} md={6}>
-                                    <Segmented
-                                        block
-                                        value={systemFilter}
-                                        onChange={(value) => setSystemFilter(value as SystemGroup | "all")}
-                                        options={[
-                                            { label: "ทั้งหมด", value: "all" },
-                                            { label: "POS", value: "pos" },
-                                            { label: "Stock", value: "stock" },
-                                            { label: "ผู้ใช้/แอดมิน", value: "admin" },
-                                        ]}
-                                    />
-                                </Col>
-                                <Col xs={24} md={6}>
-                                    <Segmented
-                                        block
-                                        value={resourceKindFilter}
-                                        onChange={(value) => setResourceKindFilter(value as ResourceKind | "all")}
-                                        options={[
-                                            { label: "ทุกประเภท", value: "all" },
-                                            { label: "เมนู", value: "menu" },
-                                            { label: "หน้าใช้งาน", value: "page" },
-                                        ]}
-                                    />
+                                <Col xs={24} md={14}>
+                                    <div style={{ overflowX: "auto", paddingBottom: 2 }}>
+                                        <Space size={8} style={{ minWidth: "max-content" }}>
+                                            {SYSTEM_FILTER_OPTIONS.map((opt) => (
+                                                <Button
+                                                    key={opt.value}
+                                                    type={systemFilter === opt.value ? "primary" : "default"}
+                                                    onClick={() => setSystemFilter(opt.value)}
+                                                    style={{ whiteSpace: "nowrap" }}
+                                                >
+                                                    {opt.label}
+                                                </Button>
+                                            ))}
+                                        </Space>
+                                    </div>
                                 </Col>
                             </Row>
 
@@ -1085,6 +1382,12 @@ export default function PermissionsPage() {
                                     <Card size="small">
                                         <Text type="secondary">ทั้งหมด</Text>
                                         <Title level={5} style={{ margin: 0 }}>{sectionSummary.total}</Title>
+                                    </Card>
+                                </Col>
+                                <Col xs={12} md={4}>
+                                    <Card size="small">
+                                        <Text type="secondary">หน้าหลัก</Text>
+                                        <Title level={5} style={{ margin: 0 }}>{sectionSummary.main}</Title>
                                     </Card>
                                 </Col>
                                 <Col xs={12} md={4}>
@@ -1113,22 +1416,34 @@ export default function PermissionsPage() {
                                 </Col>
                                 <Col xs={12} md={4}>
                                     <Card size="small">
-                                        <Text type="secondary">ผู้ใช้/แอดมิน</Text>
-                                        <Title level={5} style={{ margin: 0 }}>{sectionSummary.admin}</Title>
+                                        <Text type="secondary">Users</Text>
+                                        <Title level={5} style={{ margin: 0 }}>{sectionSummary.users}</Title>
+                                    </Card>
+                                </Col>
+                                <Col xs={12} md={4}>
+                                    <Card size="small">
+                                        <Text type="secondary">Branch</Text>
+                                        <Title level={5} style={{ margin: 0 }}>{sectionSummary.branch}</Title>
+                                    </Card>
+                                </Col>
+                                <Col xs={12} md={4}>
+                                    <Card size="small">
+                                        <Text type="secondary">Audit</Text>
+                                        <Title level={5} style={{ margin: 0 }}>{sectionSummary.audit}</Title>
                                     </Card>
                                 </Col>
                             </Row>
 
-                            {editable && dirty && (
+                            {canEditPermissions && dirty && (
                                 <Alert
                                     type="info"
                                     showIcon
                                     message="มีการเปลี่ยนแปลงที่ยังไม่บันทึก"
-                                    description="คุณได้แก้ไขสิทธิ์เฉพาะของผู้ใช้นี้แล้ว"
+                                    description={`${isRoleMode ? "คุณได้แก้ไขแม่แบบบทบาทนี้แล้ว" : "คุณได้แก้ไขสิทธิ์เฉพาะของผู้ใช้นี้แล้ว"} (${pendingChangeCount} รายการเปลี่ยนแปลง / ${editedResourceCount} ทรัพยากร)`}
                                 />
                             )}
 
-                            {editable && dirty && pendingRiskSummary.total > 0 && (
+                            {canEditPermissions && dirty && pendingRiskSummary.total > 0 && (
                                 <Alert
                                     type={pendingRiskSummary.level === "High" ? "error" : pendingRiskSummary.level === "Medium" ? "warning" : "info"}
                                     showIcon
@@ -1137,7 +1452,7 @@ export default function PermissionsPage() {
                                 />
                             )}
 
-                            {lastApprovalRequestId && (
+                            {isUserMode && lastApprovalRequestId && (
                                 <Alert
                                     type="warning"
                                     showIcon
@@ -1148,7 +1463,7 @@ export default function PermissionsPage() {
                                 />
                             )}
 
-                            {editable && dirty && pendingRiskSummary.level === "High" && (
+                            {isUserMode && dirty && pendingRiskSummary.level === "High" && (
                                 <Alert
                                     type="error"
                                     showIcon
@@ -1162,30 +1477,45 @@ export default function PermissionsPage() {
                                 />
                             )}
 
-                            {editable && (
+                            {canEditPermissions && (
                                 <Input
                                     value={saveReason}
                                     onChange={(e) => setSaveReason(e.target.value)}
                                     placeholder={
-                                        pendingRiskSummary.level === "High"
+                                        isUserMode && pendingRiskSummary.level === "High"
                                             ? "เหตุผลสำหรับการเปลี่ยนแปลงความเสี่ยงสูง (อย่างน้อย 10 ตัวอักษร)"
                                             : "เหตุผลการเปลี่ยนสิทธิ์ (ไม่บังคับ)"
                                     }
                                     maxLength={500}
-                                    status={pendingRiskSummary.level === "High" && saveReason.trim().length < 10 ? "error" : ""}
+                                    status={isUserMode && pendingRiskSummary.level === "High" && saveReason.trim().length < 10 ? "error" : ""}
                                 />
                             )}
 
-                            <Table
-                                rowKey="key"
-                                columns={columns}
-                                dataSource={filteredRows}
-                                pagination={false}
-                                size="middle"
-                                scroll={{ x: 1160 }}
-                                loading={loading}
-                                locale={{ emptyText: "ไม่พบรายการตามเงื่อนไขที่เลือก" }}
-                            />
+                            <Card size="small" title={`ส่วนหน้า (${selectedSystemLabel})`} style={{ borderRadius: 12 }}>
+                                <Table
+                                    rowKey="key"
+                                    columns={pageColumns}
+                                    dataSource={pageRows}
+                                    pagination={false}
+                                    size="middle"
+                                    scroll={{ x: 1500 }}
+                                    loading={loading}
+                                    locale={{ emptyText: `ไม่มีหน้าในระบบ ${selectedSystemLabel}` }}
+                                />
+                            </Card>
+
+                            <Card size="small" title={`ส่วนเมนู (${selectedSystemLabel})`} style={{ borderRadius: 12 }}>
+                                <Table
+                                    rowKey="key"
+                                    columns={menuColumns}
+                                    dataSource={menuRows}
+                                    pagination={false}
+                                    size="middle"
+                                    scroll={{ x: 980 }}
+                                    loading={loading}
+                                    locale={{ emptyText: `ไม่มีเมนูในระบบ ${selectedSystemLabel}` }}
+                                />
+                            </Card>
                         </Space>
                     </Card>
                 </Col>
@@ -1233,7 +1563,7 @@ export default function PermissionsPage() {
                                 value={simulateResource}
                                 onChange={setSimulateResource}
                                 options={rows.map((r) => ({
-                                    label: `[${getSystemGroup(r.resourceKey, r.route).toUpperCase()}] ${getResourceKind(r.resourceKey) === "menu" ? "เมนู" : "หน้า"} - ${r.pageLabel}`,
+                                    label: `[${getSystemGroup(r.resourceKey, r.route).toUpperCase()}] ${getResourceKind(r.resourceKey) === "menu" ? "เมนู" : "หน้า"} - ${resolvePermissionLabel(r.resourceKey, r.pageLabel)}`,
                                     value: r.resourceKey,
                                 }))}
                                 showSearch
@@ -1306,28 +1636,56 @@ export default function PermissionsPage() {
                             loading={auditLoading}
                             size="small"
                             pagination={false}
+                            scroll={{ x: isMobile ? 720 : 860 }}
+                            tableLayout="fixed"
                             dataSource={audits}
                             columns={[
                                 {
                                     title: "เวลา",
                                     dataIndex: "created_at",
                                     key: "created_at",
-                                    render: (v: string) => new Date(v).toLocaleString(),
+                                    width: 170,
+                                    render: (v: string) => (
+                                        <Text style={{ whiteSpace: "nowrap" }}>
+                                            {new Date(v).toLocaleString()}
+                                        </Text>
+                                    ),
                                 },
                                 {
                                     title: "การกระทำ",
                                     dataIndex: "action_type",
                                     key: "action_type",
+                                    width: 180,
+                                    ellipsis: true,
+                                    render: (v: string) => (
+                                        <Text
+                                            ellipsis={{ tooltip: v || "-" }}
+                                            style={{ maxWidth: 170, display: "inline-block" }}
+                                        >
+                                            {v || "-"}
+                                        </Text>
+                                    ),
                                 },
                                 {
                                     title: "เหตุผล",
                                     dataIndex: "reason",
                                     key: "reason",
-                                    render: (v: string | null) => v || "-",
+                                    width: 320,
+                                    ellipsis: true,
+                                    render: (v: string | null) => (
+                                        <Text
+                                            ellipsis={{ tooltip: v || "-" }}
+                                            style={{ maxWidth: 300, display: "inline-block" }}
+                                        >
+                                            {v || "-"}
+                                        </Text>
+                                    ),
                                 },
                                 {
                                     title: "รายละเอียด",
                                     key: "diff",
+                                    width: 140,
+                                    align: "center",
                                     render: (_: unknown, row: PermissionAuditItem) => (
                                         <Button icon={<DiffOutlined />} size="small" onClick={() => setSelectedAudit(row)}>
                                             ดู Diff
@@ -1363,29 +1721,51 @@ export default function PermissionsPage() {
                             loading={approvalsLoading}
                             size="small"
                             pagination={false}
+                            scroll={{ x: isMobile ? 760 : 900 }}
+                            tableLayout="fixed"
                             dataSource={approvals}
                             columns={[
                                 {
                                     title: "เวลา",
                                     dataIndex: "createdAt",
                                     key: "createdAt",
-                                    render: (v: string) => new Date(v).toLocaleString(),
+                                    width: 170,
+                                    render: (v: string) => (
+                                        <Text style={{ whiteSpace: "nowrap" }}>
+                                            {new Date(v).toLocaleString()}
+                                        </Text>
+                                    ),
                                 },
                                 {
                                     title: "สถานะ",
                                     dataIndex: "status",
                                     key: "status",
+                                    width: 120,
+                                    align: "center",
                                     render: (status: PermissionOverrideApprovalStatus) => approvalStatusTag(status),
                                 },
                                 {
                                     title: "ความเสี่ยง",
                                     dataIndex: "riskFlags",
                                     key: "riskFlags",
-                                    render: (flags: string[]) => flags.length ? flags.join(", ") : "-",
+                                    width: 280,
+                                    ellipsis: true,
+                                    render: (flags: string[]) => {
+                                        const text = flags.length ? flags.join(", ") : "-";
+                                        return (
+                                            <Text
+                                                ellipsis={{ tooltip: text }}
+                                                style={{ maxWidth: 260, display: "inline-block" }}
+                                            >
+                                                {text}
+                                            </Text>
+                                        );
+                                    },
                                 },
                                 {
                                     title: "ดำเนินการ",
                                     key: "action",
+                                    width: 260,
                                     render: (_: unknown, row: PermissionOverrideApprovalItem) => (
                                         <Space size={4}>
                                             <Button

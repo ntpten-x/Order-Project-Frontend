@@ -47,9 +47,9 @@ export default function ListPagination({
             }}
         >
             <Space size={12} wrap>
-                <Text type="secondary">�ʴ� {start}-{end} �ҡ {total} ��¡��</Text>
+                <Text type="secondary">แสดง {start}-{end} จาก {total} รายการ</Text>
                 <Space size={6}>
-                    <Text type="secondary">���˹��</Text>
+                    <Text type="secondary">ต่อหน้า</Text>
                     <Select
                         size="small"
                         value={pageSize}
@@ -61,15 +61,15 @@ export default function ListPagination({
                 </Space>
                 {onSortCreatedChange ? (
                     <Space size={6}>
-                        <Text type="secondary">���§���</Text>
+                        <Text type="secondary">เรียงตาม</Text>
                         <Select<CreatedSort>
                             size="small"
                             value={sortCreated}
                             disabled={loading}
                             onChange={onSortCreatedChange}
                             options={[
-                                { value: 'old', label: '��ҡ�͹' },
-                                { value: 'new', label: '�����͹' },
+                                { value: 'old', label: 'เก่าก่อน' },
+                                { value: 'new', label: 'ใหม่ก่อน' },
                             ]}
                             style={{ width: 108 }}
                         />

@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
 import { message, Modal, Typography, Tag, Button, Input, Alert, Space, Segmented, Switch } from 'antd';
-import Image from 'next/image';
+import Image from '../../../../components/ui/image/SmartImage';
 import {
     ShopOutlined,
     PlusOutlined,
