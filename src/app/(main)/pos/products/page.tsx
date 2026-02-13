@@ -225,7 +225,7 @@ export default function ProductsPage() {
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager'] });
+    const { isAuthorized, isChecking } = useRoleGuard();
 
     const { data: categories = [], isLoading: isLoadingCategories } = useCategories();
     const { data: units = [], isLoading: isLoadingUnits } = useProductsUnit();

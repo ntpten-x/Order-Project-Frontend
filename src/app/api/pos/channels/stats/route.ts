@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ordersService } from "../../../../../services/pos/orders.service";
+import { handleApiRouteError } from "../../../_utils/route-error";
 
 export async function GET(request: NextRequest) {
     try {
@@ -7,9 +8,6 @@ export async function GET(request: NextRequest) {
         const stats = await ordersService.getStats(cookie);
         return NextResponse.json(stats);
     } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to fetch channel stats" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }

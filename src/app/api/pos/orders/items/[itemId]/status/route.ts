@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ordersService } from "../../../../../../../services/pos/orders.service";
+import { handleApiRouteError } from "../../../../../_utils/route-error";
 
 interface Params {
     params: {
@@ -18,9 +19,6 @@ export async function PATCH(request: NextRequest, { params }: Params) {
         await ordersService.updateItemStatus(params.itemId, status, cookie, csrfToken);
         return NextResponse.json({ success: true });
     } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to update item status" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }

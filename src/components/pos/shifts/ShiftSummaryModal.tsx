@@ -1,259 +1,126 @@
-"use client";
+﻿"use client";
 
-import React, { useRef } from 'react';
-import { Modal, Button, Typography, message } from 'antd';
-import { PrinterOutlined, FilePdfOutlined } from '@ant-design/icons';
-import dayjs from 'dayjs';
-import 'dayjs/locale/th';
-import { exportShiftSummaryPDF, ShiftSummaryExport } from '../../../utils/export.utils';
+import React from "react";
+import { Modal, Card, Typography, Spin } from "antd";
+import { ShiftSummary } from "../../../types/api/pos/shifts";
+import PageState from "../../ui/states/PageState";
 
-dayjs.locale('th');
+const { Text } = Typography;
 
-const { Title, Text } = Typography;
-
-interface ShiftOrder {
-    order_no: string;
-    total_amount: number;
-    payment_method: string;
-    create_date: string;
-    status: string;
+function toNumber(value: number | string | null | undefined): number {
+    return Number(value || 0);
 }
 
-interface ShiftSummaryData {
-    id: string;
-    user: { name: string; display_name?: string };
-    open_time: string;
-    close_time: string;
-    start_amount: number;
-    end_amount: number;
-    expected_amount: number;
-    diff_amount: number;
-    payments?: Array<{
-        amount: number;
-        payment_method?: { display_name?: string; payment_method_name?: string };
-    }>;
+function formatMoney(value: number | string | null | undefined, options?: { dashWhenNull?: boolean }): string {
+    if (options?.dashWhenNull && (value === null || value === undefined || value === "")) return "-";
+    return `฿${toNumber(value).toLocaleString("th-TH")}`;
 }
 
-interface ShiftSummaryModalProps {
+type ShiftSummaryModalProps = {
     open: boolean;
     onClose: () => void;
-    shiftData: ShiftSummaryData | null;
-    orders?: ShiftOrder[];
-    shopName?: string;
-}
+    summary: ShiftSummary | null;
+    loading?: boolean;
+    error?: unknown;
+    onRetry?: () => void;
+};
 
-export default function ShiftSummaryModal({ open, onClose, shiftData, orders = [], shopName = 'ร้านค้า POS' }: ShiftSummaryModalProps) {
-    const printRef = useRef<HTMLDivElement>(null);
-
-    if (!shiftData) return null;
-
-    const userName = shiftData.user?.name || shiftData.user?.display_name || 'Unknown';
-    
-    // Calculate payment method breakdown from orders
-    const paymentBreakdown: Record<string, number> = {};
-    orders.forEach(order => {
-        const method = order.payment_method || 'ไม่ระบุ';
-        paymentBreakdown[method] = (paymentBreakdown[method] || 0) + Number(order.total_amount);
-    });
-
-    const totalSales = orders.reduce((sum, o) => sum + Number(o.total_amount), 0);
-    const cashSales = paymentBreakdown['เงินสด'] || 0;
-    const qrSales = paymentBreakdown['QR Payment'] || paymentBreakdown['QR'] || 0;
-
-    const handlePrint = () => {
-        const printContent = printRef.current;
-        if (!printContent) return;
-
-        const printWindow = window.open('', '_blank');
-        if (!printWindow) {
-            message.error('ไม่สามารถเปิดหน้าต่างพิมพ์ได้ กรุณาอนุญาต popup');
-            return;
-        }
-
-        printWindow.document.write(`
-            <html>
-                <head>
-                    <title>รายงานสรุปกะ - ${userName}</title>
-                    <style>
-                        body { font-family: 'Courier New', monospace; padding: 20px; text-align: center; }
-                        .print-container { width: 80mm; margin: 0 auto; text-align: left; }
-                        .header { text-align: center; margin-bottom: 20px; border-bottom: 1px dashed black; padding-bottom: 10px; }
-                        .stat-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
-                        .total-row { display: flex; justify-content: space-between; font-weight: bold; margin-top: 10px; border-top: 1px dashed black; padding-top: 5px; }
-                        .divider { border-bottom: 1px dashed black; margin: 10px 0; }
-                        @media print { 
-                            @page { margin: 0; size: 80mm auto; }
-                            body { margin: 0; padding: 5px; }
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div class="print-container">
-                        ${printContent.innerHTML}
-                    </div>
-                </body>
-            </html>
-        `);
-        printWindow.document.close();
-        // Allow images/styles to load
-        setTimeout(() => printWindow.print(), 500);
-    };
-
-    const handleExportPDF = () => {
-        try {
-            const exportData: ShiftSummaryExport = {
-                shift_id: shiftData.id,
-                user_name: userName,
-                open_time: dayjs(shiftData.open_time).format('DD/MM/YYYY HH:mm'),
-                close_time: dayjs(shiftData.close_time).format('DD/MM/YYYY HH:mm'),
-                start_amount: Number(shiftData.start_amount),
-                expected_amount: Number(shiftData.expected_amount),
-                end_amount: Number(shiftData.end_amount),
-                diff_amount: Number(shiftData.diff_amount),
-                total_sales: totalSales,
-                cash_sales: cashSales,
-                qr_sales: qrSales,
-                order_count: orders.length
-            };
-
-            exportShiftSummaryPDF(exportData, orders, shopName);
-            message.success('ส่งออก PDF สำเร็จ');
-        } catch (error) {
-            console.error(error);
-            message.error('เกิดข้อผิดพลาดในการส่งออก PDF');
-        }
-    };
-
-    const diffIsPositive = Number(shiftData.diff_amount) >= 0;
+export default function ShiftSummaryModal({
+    open,
+    onClose,
+    summary,
+    loading = false,
+    error = null,
+    onRetry,
+}: ShiftSummaryModalProps) {
+    const diffAmount = summary?.shift_info?.diff_amount;
+    const diffColor =
+        diffAmount === null || diffAmount === undefined
+            ? "#64748b"
+            : toNumber(diffAmount) >= 0
+                ? "#059669"
+                : "#dc2626";
 
     return (
-        <Modal
-            open={open}
-            onCancel={onClose}
-            title={null}
-            width={720}
-            centered
-            footer={null}
-            className="soft-modal"
-            styles={{ 
-                body: { padding: 0, borderRadius: 24, overflow: 'hidden', background: '#f0f2f5' } // Grey background for contrast
-            }}
-        >
-            <div style={{ display: 'flex', flexDirection: 'column', height: '85vh' }}>
-                {/* Header */}
-                <div style={{ padding: '20px 24px', background: 'white', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 4px 6px rgba(0,0,0,0.02)', zIndex: 1 }}>
-                    <div>
-                        <Title level={4} style={{ margin: 0 }}>สรุปกะการขาย</Title>
-                        <Text type="secondary" style={{ fontSize: 13 }}>Z-Report Summary</Text>
-                    </div>
-                    <div style={{ display: 'flex', gap: 8 }}>
-                        <Button shape="circle" icon={<PrinterOutlined />} onClick={handlePrint} title="พิมพ์" />
-                        <Button shape="circle" icon={<FilePdfOutlined />} onClick={handleExportPDF} title="PDF" />
-                        <Button type="primary" shape="round" onClick={onClose} style={{ minWidth: 80 }}>ปิด</Button>
-                    </div>
+        <Modal open={open} title="สรุปข้อมูลกะ" onCancel={onClose} footer={null} width={760}>
+            {loading ? (
+                <div style={{ padding: "40px 0", textAlign: "center" }}>
+                    <Spin />
                 </div>
+            ) : error ? (
+                <PageState
+                    status="error"
+                    title="โหลดสรุปกะไม่สำเร็จ"
+                    error={error}
+                    onRetry={onRetry}
+                />
+            ) : summary ? (
+                <div style={{ display: "grid", gap: 12 }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 10 }}>
+                        <ModalMetric label="ยอดขายรวม" value={formatMoney(summary.summary.total_sales)} color="#10b981" />
+                        <ModalMetric label="กำไรสุทธิ" value={formatMoney(summary.summary.net_profit)} color="#0369a1" />
+                        <ModalMetric label="เงินเริ่มต้น" value={formatMoney(summary.shift_info.start_amount)} color="#334155" />
+                        <ModalMetric label="ยอดคาดหวัง" value={formatMoney(summary.shift_info.expected_amount, { dashWhenNull: true })} color="#0f766e" />
+                        <ModalMetric label="ยอดนับจริง" value={formatMoney(summary.shift_info.end_amount, { dashWhenNull: true })} color="#0369a1" />
+                        <ModalMetric label="ผลต่าง" value={formatMoney(summary.shift_info.diff_amount, { dashWhenNull: true })} color={diffColor} />
+                    </div>
 
-                {/* Content */}
-                <div style={{ flex: 1, overflowY: 'auto', padding: '24px', display: 'flex', justifyContent: 'center' }}>
-                    <div ref={printRef} className="paper-receipt">
-                        {/* Receipt Header */}
-                        <div className="text-center" style={{ textAlign: 'center', marginBottom: 16 }}>
-                            <Title level={5} style={{ margin: 0 }}>{shopName}</Title>
-                            <Text style={{ fontSize: 12 }}>รายงานสรุปยอดขายประจำกะ (Z-Report)</Text>
+                    <Card size="small" title="วิธีชำระเงิน">
+                        <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))" }}>
+                            {Object.entries(summary.summary.payment_methods || {}).length > 0 ? (
+                                Object.entries(summary.summary.payment_methods || {}).map(([method, amount]) => (
+                                    <div key={method} style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "8px 10px" }}>
+                                        <Text type="secondary">{method}</Text>
+                                        <div style={{ fontWeight: 700 }}>{formatMoney(amount)}</div>
+                                    </div>
+                                ))
+                            ) : (
+                                <Text type="secondary">ไม่พบข้อมูลวิธีชำระเงิน</Text>
+                            )}
                         </div>
-                        
-                        <div className="dashed-divider" />
+                    </Card>
 
-                        {/* Shift Info */}
-                        <div className="receipt-section">
-                            <div className="receipt-row"><span>พนักงาน:</span><span>{userName}</span></div>
-                            <div className="receipt-row"><span>เปิดกะ:</span><span>{dayjs(shiftData.open_time).format('DD/MM/YYYY HH:mm')}</span></div>
-                            <div className="receipt-row"><span>ปิดกะ:</span><span>{dayjs(shiftData.close_time).format('DD/MM/YYYY HH:mm')}</span></div>
-                            <div className="receipt-row"><span>จำนวนบิล:</span><span>{orders.length}</span></div>
-                        </div>
-
-                        <div className="dashed-divider" />
-
-                        {/* Financials */}
-                        <div className="receipt-section">
-                            <div className="receipt-row"><span>เงินทอนเริ่มต้น:</span><span>{Number(shiftData.start_amount).toFixed(2)}</span></div>
-                            <div className="receipt-row bold"><span>ยอดขายรวม:</span><span>{totalSales.toFixed(2)}</span></div>
-                            <div className="receipt-row"><span>ยอดคาดหวัง:</span><span>{Number(shiftData.expected_amount).toFixed(2)}</span></div>
-                        </div>
-        
-                        <div className="dashed-divider" />
-
-                        {/* Cash Control */}
-                        <div className="receipt-section">
-                            <div className="receipt-row"><span>นับเงินสดได้:</span><span>{Number(shiftData.end_amount).toFixed(2)}</span></div>
-                            <div className="receipt-row">
-                                <span>ผลต่าง:</span>
-                                <span style={{ color: diffIsPositive ? '#52c41a' : '#ef4444' }}>
-                                    {Number(shiftData.diff_amount) > 0 ? '+' : ''}{Number(shiftData.diff_amount).toFixed(2)}
-                                </span>
+                    <Card size="small" title="สินค้าขายดี">
+                        {summary.top_products.length > 0 ? (
+                            <div style={{ display: "grid", gap: 8 }}>
+                                {summary.top_products.map((item, idx) => (
+                                    <div
+                                        key={`${item.id}-${idx}`}
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "space-between",
+                                            border: "1px solid #e2e8f0",
+                                            borderRadius: 10,
+                                            padding: "8px 10px",
+                                        }}
+                                    >
+                                        <Text strong>
+                                            {idx + 1}. {item.name}
+                                        </Text>
+                                        <Text>
+                                            {item.quantity} {item.unit || "หน่วย"} | {formatMoney(item.revenue)}
+                                        </Text>
+                                    </div>
+                                ))}
                             </div>
-                        </div>
-
-                        <div className="dashed-divider" />
-
-                        {/* Payments */}
-                        <div className="receipt-section">
-                            <div className="receipt-header">แยกตามวิธีชำระ</div>
-                             {Object.entries(paymentBreakdown).map(([method, amount]) => (
-                                <div key={method} className="receipt-row">
-                                    <span>{method}:</span>
-                                    <span>{amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                                </div>
-                            ))}
-                        </div>
-
-                         <div className="dashed-divider" />
-
-                         {/* Footer */}
-                         <div style={{ textAlign: 'center', marginTop: 16 }}>
-                            <Text style={{ fontSize: 10, color: '#999' }}>พิมพ์เมื่อ: {dayjs().format('DD/MM/YYYY HH:mm:ss')}</Text>
-                            <div style={{ fontSize: 10, color: '#999', marginTop: 2 }}>*** End of Report ***</div>
-                         </div>
-                    </div>
+                        ) : (
+                            <Text type="secondary">ไม่พบข้อมูลสินค้าขายดี</Text>
+                        )}
+                    </Card>
                 </div>
-            </div>
-
-            <style jsx global>{`
-                .paper-receipt {
-                    background: white;
-                    width: 380px; /* Approx 80mm scaled up slightly for screen */
-                    padding: 24px;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                    font-family: 'Courier New', Courier, monospace;
-                    font-size: 13px;
-                    color: #000;
-                    margin: 0 auto;
-                }
-                .dashed-divider {
-                    border-bottom: 1px dashed #ccc;
-                    margin: 12px 0;
-                }
-                .receipt-row {
-                    display: flex;
-                    justify-content: space-between;
-                    margin-bottom: 4px;
-                }
-                .receipt-row.bold {
-                    font-weight: bold;
-                    font-size: 14px;
-                }
-                .receipt-header {
-                    font-weight: bold;
-                    margin-bottom: 6px;
-                    text-align: left;
-                }
-                /* Mobile responsiveness */
-                @media (max-width: 768px) {
-                    .paper-receipt {
-                        width: 100%;
-                    }
-                }
-            `}</style>
+            ) : (
+                <Text type="secondary">ไม่พบข้อมูลสรุปกะ</Text>
+            )}
         </Modal>
+    );
+}
+
+function ModalMetric({ label, value, color }: { label: string; value: string; color: string }) {
+    return (
+        <div style={{ border: "1px solid #e2e8f0", borderRadius: 10, padding: "10px 12px" }}>
+            <Text type="secondary">{label}</Text>
+            <div style={{ fontSize: 20, fontWeight: 700, color }}>{value}</div>
+        </div>
     );
 }

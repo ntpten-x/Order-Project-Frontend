@@ -1,10 +1,7 @@
 import { LoginCredentials, LoginResponse, User } from "../types/api/auth";
 import { API_ROUTES, API_PREFIX } from "../config/api";
 import { getProxyUrl } from "../lib/proxy-utils";
-import { getBackendErrorMessage, unwrapBackendData } from "../utils/api/backendResponse";
-
-// 4000 is the usual backend port if not specified
-// const BACKEND_API = process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:4000";
+import { throwBackendHttpError, unwrapBackendData } from "../utils/api/backendResponse";
 
 export const authService = {
     login: async (credentials: LoginCredentials, csrfToken?: string, cookieHeader?: string): Promise<User & { token: string }> => {
@@ -36,7 +33,6 @@ export const authService = {
                     errorData.detail ||
                     "Login failed";
                 throw new Error(message);
-                throw new Error(errorData.message || errorData.detail || "เข้าสู่ระบบไม่สำเร็จ");
             }
 
             const data = unwrapBackendData<LoginResponse>(await response.json());
@@ -100,7 +96,7 @@ export const authService = {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to switch branch"));
+            throwBackendHttpError(response, errorData, "Failed to switch branch");
         }
 
         return unwrapBackendData(await response.json()) as { active_branch_id: string | null };

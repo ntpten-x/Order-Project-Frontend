@@ -92,7 +92,7 @@ export default function POSSettingsPage() {
     const { socket } = useSocket();
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.md;
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager'] });
+    const { isAuthorized, isChecking } = useRoleGuard();
 
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);

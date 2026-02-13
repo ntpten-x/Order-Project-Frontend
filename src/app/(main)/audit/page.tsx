@@ -37,6 +37,7 @@ import PageSection from "../../../components/ui/page/PageSection";
 import { AuditLog, AuditActionType } from "../../../types/api/audit";
 import { AuditPageStyles, pageStyles } from "./style";
 import { useAuth } from "../../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../../hooks/useEffectivePermissions";
 import { branchService } from "../../../services/branch.service";
 
 const { RangePicker } = DatePicker;
@@ -64,7 +65,8 @@ function getActionColor(action: string): string {
 
 export default function AuditPage() {
     const { user } = useAuth();
-    const isAdmin = user?.role === "Admin";
+    const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canViewBranches = can("branches.page", "view");
 
     const [search, setSearch] = useState("");
     const [actionType, setActionType] = useState<string>();
@@ -91,9 +93,9 @@ export default function AuditPage() {
     );
 
     const branchQuery = useQuery({
-        queryKey: ["branches", isAdmin],
+        queryKey: ["branches", canViewBranches],
         queryFn: () => branchService.getAll(),
-        enabled: isAdmin,
+        enabled: canViewBranches,
         staleTime: 5 * 60 * 1000,
     });
 
@@ -268,7 +270,7 @@ export default function AuditPage() {
         setActionType(undefined);
         setEntityType(undefined);
         setDateRange(null);
-        if (isAdmin) setBranchFilter(undefined);
+        if (canViewBranches) setBranchFilter(undefined);
         setPage(1);
         setPageSize(20);
     };
@@ -330,7 +332,7 @@ export default function AuditPage() {
                                 valueStyle={{ fontWeight: 700, color: filtersActive ? "#fa8c16" : undefined }}
                             />
                         </Card>
-                        {!isAdmin && (
+                        {!canViewBranches && (
                             <Card size="small" style={{ borderRadius: 16 }}>
                                 <Statistic
                                     title="สาขาที่กำลังดู"
@@ -382,7 +384,7 @@ export default function AuditPage() {
                                     setPage(1);
                                 }}
                             />
-                            {isAdmin && (
+                            {canViewBranches && (
                                 <Select
                                     allowClear
                                     style={{ width: 220 }}

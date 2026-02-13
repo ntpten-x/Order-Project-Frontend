@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { handleApiRouteError } from "../../_utils/route-error";
 
 export const dynamic = 'force-dynamic';
 
@@ -24,7 +25,7 @@ export async function GET() {
 
     } catch (error) {
         console.error('Keep-alive failed:', error);
-        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
+        return handleApiRouteError(error);
     }
 }
 

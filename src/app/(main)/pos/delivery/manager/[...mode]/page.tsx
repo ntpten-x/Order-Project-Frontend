@@ -122,7 +122,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
     const id = params.mode?.[1] || null;
     const isValidMode = mode === 'add' || mode === 'edit';
     const isEdit = mode === 'edit' && Boolean(id);
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager'] });
+    const { isAuthorized, isChecking } = useRoleGuard();
 
     const modeTitle = useMemo(() => {
         if (isEdit) return 'แก้ไขช่องทางจัดส่ง';

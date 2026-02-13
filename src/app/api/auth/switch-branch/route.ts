@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authService } from "../../../../services/auth.service";
+import { handleApiRouteError } from "../../_utils/route-error";
 
 export async function POST(request: NextRequest) {
     try {
@@ -26,9 +27,6 @@ export async function POST(request: NextRequest) {
 
         return nextResponse;
     } catch (error: unknown) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to switch branch" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }

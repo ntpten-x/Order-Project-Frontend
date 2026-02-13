@@ -1,3 +1,4 @@
+import { handleApiRouteError } from "../_utils/route-error";
 
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
@@ -26,6 +27,7 @@ export async function GET() {
         if (!response.ok) {
             const errorText = await response.text();
             console.error("CSRF token fetch failed:", response.status, errorText);
+            const fetchError = new Error(`CSRF token fetch failed with status ${response.status}`);
             // Retry once if first attempt fails
             try {
                 const retryResponse = await fetch(url, {
@@ -44,10 +46,7 @@ export async function GET() {
                 console.error("CSRF token retry failed:", retryError);
             }
             // If retry also fails, return error (don't return empty token)
-            return NextResponse.json({
-                error: "Failed to fetch CSRF token",
-                message: "Please refresh the page"
-            }, { status: 500 });
+            return handleApiRouteError(fetchError);
         }
 
         const data = await response.json();
@@ -90,9 +89,6 @@ export async function GET() {
     } catch (error) {
         console.error("CSRF Token Error:", error);
         // Don't return empty token - return error to force proper handling
-        return NextResponse.json({
-            error: "Failed to fetch CSRF token",
-            message: "Please refresh the page and try again"
-        }, { status: 500 });
+        return handleApiRouteError(error);
     }
 }

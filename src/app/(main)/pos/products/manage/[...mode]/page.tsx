@@ -77,7 +77,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     const id = params.mode?.[1] || null;
     const isEdit = mode === 'edit' && Boolean(id);
     const isValidMode = mode === 'add' || mode === 'edit';
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager'] });
+    const { isAuthorized, isChecking } = useRoleGuard();
 
     const selectedCategoryId = Form.useWatch('category_id', form);
     const selectedUnitId = Form.useWatch('unit_id', form);

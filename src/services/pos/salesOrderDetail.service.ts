@@ -1,6 +1,6 @@
 import { SalesOrderDetail } from "../../types/api/pos/salesOrderDetail";
 import { getProxyUrl } from "../../lib/proxy-utils";
-import { getBackendErrorMessage, unwrapBackendData } from "../../utils/api/backendResponse";
+import { throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = "/pos/salesOrderDetail";
 
@@ -22,7 +22,7 @@ export const salesOrderDetailService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลรายละเอียดเพิ่มเติมได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลรายละเอียดเพิ่มเติมได้");
         }
         return unwrapBackendData(await response.json()) as SalesOrderDetail[];
     },
@@ -37,7 +37,7 @@ export const salesOrderDetailService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลรายละเอียดเพิ่มเติมได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลรายละเอียดเพิ่มเติมได้");
         }
         return unwrapBackendData(await response.json()) as SalesOrderDetail;
     },
@@ -54,7 +54,7 @@ export const salesOrderDetailService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถสร้างรายละเอียดเพิ่มเติมได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถสร้างรายละเอียดเพิ่มเติมได้");
         }
         return unwrapBackendData(await response.json()) as SalesOrderDetail;
     },
@@ -71,7 +71,7 @@ export const salesOrderDetailService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถแก้ไขรายละเอียดเพิ่มเติมได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถแก้ไขรายละเอียดเพิ่มเติมได้");
         }
         return unwrapBackendData(await response.json()) as SalesOrderDetail;
     },
@@ -87,7 +87,7 @@ export const salesOrderDetailService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถลบรายละเอียดเพิ่มเติมได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถลบรายละเอียดเพิ่มเติมได้");
         }
     }
 };

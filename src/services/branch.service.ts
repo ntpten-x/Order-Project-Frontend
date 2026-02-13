@@ -2,7 +2,7 @@ import { Branch, CreateBranchInput, UpdateBranchInput } from "../types/api/branc
 import { API_ROUTES } from "../config/api";
 import { getProxyUrl } from "../lib/proxy-utils";
 import { BranchSchema, BranchesResponseSchema } from "../schemas/api/branch.schema";
-import { getBackendErrorMessage, unwrapBackendData } from "../utils/api/backendResponse";
+import { throwBackendHttpError, unwrapBackendData } from "../utils/api/backendResponse";
 
 const BASE_PATH = API_ROUTES.POS.BRANCH;
 
@@ -53,7 +53,7 @@ export const branchService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, 'Failed to create branch'));
+            throwBackendHttpError(response, errorData, 'Failed to create branch');
         }
         return unwrapBackendData(await response.json()) as Branch;
     },
@@ -72,7 +72,7 @@ export const branchService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, 'Failed to update branch'));
+            throwBackendHttpError(response, errorData, 'Failed to update branch');
         }
         return unwrapBackendData(await response.json()) as Branch;
     },
@@ -90,7 +90,7 @@ export const branchService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, 'Failed to delete branch'));
+            throwBackendHttpError(response, errorData, 'Failed to delete branch');
         }
     }
 };

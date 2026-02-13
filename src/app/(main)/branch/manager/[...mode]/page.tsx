@@ -9,6 +9,7 @@ import {
 } from './style';
 import { branchService } from "../../../../../services/branch.service";
 import { useAuth } from "../../../../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../../../../hooks/useEffectivePermissions";
 import { getCsrfTokenCached } from '../../../../../utils/pos/csrf';
 import PageContainer from "../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../components/ui/page/PageSection";
@@ -24,6 +25,8 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const { user, loading: authLoading } = useAuth();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canManageBranches = can("branches.page", "update");
     const { message, modal } = App.useApp();
 
     const mode = params.mode[0];
@@ -53,8 +56,8 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
     }, [id, form, router, message]);
 
     useEffect(() => {
-        if (!authLoading && user) {
-            if (user.role !== 'Admin') {
+        if (!authLoading && !permissionLoading && user) {
+            if (!canManageBranches) {
                 router.push('/');
                 return;
             }
@@ -62,7 +65,7 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
                 fetchBranch();
             }
         }
-    }, [authLoading, user, isEdit, fetchBranch, router]);
+    }, [authLoading, permissionLoading, user, canManageBranches, isEdit, fetchBranch, router]);
 
     type BranchFormValues = CreateBranchInput & { is_active: boolean };
 

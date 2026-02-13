@@ -1,7 +1,7 @@
 import { Order, OrderStatus } from "../../types/api/stock/orders";
 import { OrdersDetail } from "../../types/api/stock/ordersDetail";
 import { getProxyUrl } from "../../lib/proxy-utils";
-import { getBackendErrorMessage, normalizeBackendPaginated, unwrapBackendData } from "../../utils/api/backendResponse";
+import { normalizeBackendPaginated, throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = "/stock/orders";
 
@@ -43,7 +43,7 @@ export const ordersService = {
                 errorData = JSON.parse(errorText);
             } catch { /* ignore */ }
             // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            throw new Error(getBackendErrorMessage(errorData, `ไม่สามารถสร้างออเดอร์ได้ (${response.status})`));
+            throwBackendHttpError(response, errorData, `ไม่สามารถสร้างออเดอร์ได้ (${response.status})`);
         }
         return unwrapBackendData(await response.json()) as Order;
     },
@@ -62,7 +62,7 @@ export const ordersService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลออเดอร์ได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลออเดอร์ได้");
         }
         return normalizeBackendPaginated<Order>(await response.json());
     },
@@ -77,7 +77,7 @@ export const ordersService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลออเดอร์ได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลออเดอร์ได้");
         }
         return unwrapBackendData(await response.json()) as Order;
     },
@@ -96,7 +96,7 @@ export const ordersService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถอัปเดตสถานะออเดอร์ได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถอัปเดตสถานะออเดอร์ได้");
         }
         return unwrapBackendData(await response.json()) as Order;
     },
@@ -156,7 +156,7 @@ export const ordersService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถอัปเดตข้อมูลการซื้อได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถอัปเดตข้อมูลการซื้อได้");
         }
         return unwrapBackendData(await response.json()) as OrdersDetail;
     },

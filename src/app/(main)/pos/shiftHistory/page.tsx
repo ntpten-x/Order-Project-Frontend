@@ -41,11 +41,13 @@ import {
 } from '../../../../types/api/pos/shifts';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
+import ShiftSummaryModal from '../../../../components/pos/shifts/ShiftSummaryModal';
 import PageContainer from '../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../components/ui/page/PageSection';
 import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
+import PageState from '../../../../components/ui/states/PageState';
 import { pageStyles, globalStyles } from '../../../../theme/pos/shiftHistory/style';
 
 dayjs.extend(duration);
@@ -60,7 +62,13 @@ function toNumber(value: number | string | null | undefined) {
     return Number(value || 0);
 }
 
-function formatMoney(value: number | string | null | undefined) {
+function formatMoney(
+    value: number | string | null | undefined,
+    options?: { dashWhenNull?: boolean }
+) {
+    if (options?.dashWhenNull && (value === null || value === undefined || value === "")) {
+        return "-";
+    }
     return `฿${toNumber(value).toLocaleString('th-TH')}`;
 }
 
@@ -90,6 +98,7 @@ function ShiftHistoryCard({
     onViewSummary: (id: string) => void;
 }) {
     const isClosed = shift.status === ShiftStatus.CLOSED;
+    const diffNumber = shift.diff_amount === null || shift.diff_amount === undefined ? null : toNumber(shift.diff_amount);
 
     return (
         <div
@@ -123,12 +132,12 @@ function ShiftHistoryCard({
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, marginTop: 10 }}>
                         <MiniMetric label="เงินเริ่มต้น" value={formatMoney(shift.start_amount)} color="#334155" />
-                        <MiniMetric label="ยอดคาดหวัง" value={formatMoney(shift.expected_amount)} color="#0369a1" />
-                        <MiniMetric label="ยอดนับจริง" value={formatMoney(shift.end_amount)} color="#0f766e" />
+                        <MiniMetric label="ยอดคาดหวัง" value={formatMoney(shift.expected_amount, { dashWhenNull: true })} color="#0369a1" />
+                        <MiniMetric label="ยอดนับจริง" value={formatMoney(shift.end_amount, { dashWhenNull: true })} color="#0f766e" />
                         <MiniMetric
                             label="ผลต่าง"
-                            value={formatMoney(shift.diff_amount)}
-                            color={toNumber(shift.diff_amount) >= 0 ? '#059669' : '#dc2626'}
+                            value={formatMoney(shift.diff_amount, { dashWhenNull: true })}
+                            color={diffNumber === null ? '#64748b' : diffNumber >= 0 ? '#059669' : '#dc2626'}
                         />
                     </div>
                 </div>
@@ -154,7 +163,7 @@ export default function ShiftHistoryPage() {
     const router = useRouter();
     const queryClient = useQueryClient();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager', 'Employee'] });
+    const { isAuthorized, isChecking } = useRoleGuard();
 
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
@@ -330,6 +339,13 @@ export default function ShiftHistoryPage() {
                             <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
                                 <Spin size="large" />
                             </div>
+                        ) : historyQuery.isError ? (
+                            <PageState
+                                status="error"
+                                title="โหลดประวัติกะไม่สำเร็จ"
+                                error={historyQuery.error}
+                                onRetry={() => historyQuery.refetch()}
+                            />
                         ) : rows.length > 0 ? (
                             <>
                                 {rows.map((shift) => (
@@ -363,66 +379,14 @@ export default function ShiftHistoryPage() {
                 </PageStack>
             </PageContainer>
 
-            <Modal
+            <ShiftSummaryModal
                 open={Boolean(selectedShiftId)}
-                title="สรุปข้อมูลกะ"
-                onCancel={() => setSelectedShiftId(null)}
-                footer={null}
-                width={760}
-            >
-                {summaryQuery.isLoading ? (
-                    <div style={{ padding: '40px 0', textAlign: 'center' }}>
-                        <Spin />
-                    </div>
-                ) : summaryQuery.data ? (
-                    <div style={{ display: 'grid', gap: 12 }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-                            <ModalMetric label="ยอดขายรวม" value={formatMoney(summaryQuery.data.summary.total_sales)} color="#10b981" />
-                            <ModalMetric label="กำไรสุทธิ" value={formatMoney(summaryQuery.data.summary.net_profit)} color="#0369a1" />
-                            <ModalMetric label="เงินเริ่มต้น" value={formatMoney(summaryQuery.data.shift_info.start_amount)} color="#334155" />
-                            <ModalMetric label="ผลต่าง" value={formatMoney(summaryQuery.data.shift_info.diff_amount)} color={toNumber(summaryQuery.data.shift_info.diff_amount) >= 0 ? '#059669' : '#dc2626'} />
-                        </div>
-
-                        <Card size="small" title="วิธีชำระเงิน">
-                            <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
-                                {Object.entries(summaryQuery.data.summary.payment_methods || {}).map(([method, amount]) => (
-                                    <div key={method} style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: '8px 10px' }}>
-                                        <Text type="secondary">{method}</Text>
-                                        <div style={{ fontWeight: 700 }}>{formatMoney(amount)}</div>
-                                    </div>
-                                ))}
-                            </div>
-                        </Card>
-
-                        <Card size="small" title="สินค้าขายดี">
-                            {summaryQuery.data.top_products.length > 0 ? (
-                                <div style={{ display: 'grid', gap: 8 }}>
-                                    {summaryQuery.data.top_products.map((item, idx) => (
-                                        <div
-                                            key={`${item.id}-${idx}`}
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                border: '1px solid #e2e8f0',
-                                                borderRadius: 10,
-                                                padding: '8px 10px'
-                                            }}
-                                        >
-                                            <Text strong>{idx + 1}. {item.name}</Text>
-                                            <Text>{item.quantity} {item.unit || 'หน่วย'} | {formatMoney(item.revenue)}</Text>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <Text type="secondary">ไม่พบข้อมูลสินค้าขายดี</Text>
-                            )}
-                        </Card>
-                    </div>
-                ) : (
-                    <Text type="secondary">ไม่พบข้อมูลสรุปกะ</Text>
-                )}
-            </Modal>
+                onClose={() => setSelectedShiftId(null)}
+                summary={summaryQuery.data ?? null}
+                loading={summaryQuery.isLoading}
+                error={summaryQuery.isError ? summaryQuery.error : null}
+                onRetry={() => summaryQuery.refetch()}
+            />
 
             {/* Date Selection Modal */}
             <Modal
@@ -524,15 +488,6 @@ function MetricCard({ label, value, color, icon }: { label: string; value: strin
             </div>
             <Title level={4} style={{ margin: '8px 0 0', color }}>{value}</Title>
         </Card>
-    );
-}
-
-function ModalMetric({ label, value, color }: { label: string; value: string; color: string }) {
-    return (
-        <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 12px' }}>
-            <Text type="secondary">{label}</Text>
-            <div style={{ fontSize: 20, fontWeight: 700, color }}>{value}</div>
-        </div>
     );
 }
 

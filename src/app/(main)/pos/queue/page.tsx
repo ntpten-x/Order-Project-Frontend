@@ -61,7 +61,7 @@ const statusLabels: Record<QueueStatus, string> = {
 export default function OrderQueuePage() {
     const [statusFilter, setStatusFilter] = useState<QueueStatus | undefined>(undefined);
     const { queue, isLoading, error, updateStatus, removeFromQueue, reorderQueue, isReordering, refetch } = useOrderQueue(statusFilter);
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ["Admin", "Manager", "Employee"] });
+    const { isAuthorized, isChecking } = useRoleGuard();
     
     // Prefetch queue data
     useQueuePrefetching();
@@ -204,7 +204,12 @@ export default function OrderQueuePage() {
                     {isLoading ? (
                         <PageState status="loading" title={t("queue.loading")} />
                     ) : error ? (
-                        <PageState status="error" title={t("queue.error")} onRetry={() => refetch()} />
+                        <PageState
+                            status="error"
+                            title={t("queue.error")}
+                            error={error}
+                            onRetry={() => refetch()}
+                        />
                     ) : queue.length === 0 ? (
                         <PageState status="empty" title={t("queue.empty")} />
                     ) : (

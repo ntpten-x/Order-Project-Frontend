@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ingredientsService } from "../../../../../../services/stock/ingredients.service";
+import { handleApiRouteError } from "../../../../_utils/route-error";
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
     try {
@@ -8,6 +9,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
         await ingredientsService.delete(params.id, cookie, csrfToken);
         return NextResponse.json({ success: true, message: "Ingredient deleted successfully" }, { status: 200 });
     } catch (error: unknown) {
-        return NextResponse.json({ error: (error instanceof Error ? error.message : "Internal Server Error") }, { status: 500 });
+        return handleApiRouteError(error);
     }
 }

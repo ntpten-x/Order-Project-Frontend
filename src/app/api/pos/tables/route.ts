@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { tablesService } from "../../../../services/pos/tables.service";
+import { handleApiRouteError } from "../../_utils/route-error";
 
 export async function GET(request: NextRequest) {
     try {
@@ -8,10 +9,7 @@ export async function GET(request: NextRequest) {
         const tables = await tablesService.getAll(cookie, searchParams);
         return NextResponse.json(tables);
     } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to fetch tables" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }
 // POST: Create a new table
@@ -24,9 +22,6 @@ export async function POST(request: NextRequest) {
         const newTable = await tablesService.create(body, cookie, csrfToken);
         return NextResponse.json(newTable);
     } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to create table" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }

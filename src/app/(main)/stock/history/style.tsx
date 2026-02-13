@@ -307,10 +307,10 @@ interface OrderCardProps {
     index: number;
     onView: (order: Order) => void;
     onDelete: (order: Order) => void;
-    isAdmin: boolean;
+    canDelete: boolean;
 }
 
-export const OrderCard = ({ order, index, onView, onDelete, isAdmin }: OrderCardProps) => {
+export const OrderCard = ({ order, index, onView, onDelete, canDelete }: OrderCardProps) => {
     const status = statusConfig[order.status] || statusConfig[OrderStatus.PENDING];
     const itemCount = order.ordersItems?.length || 0;
     const purchasedCount = order.ordersItems?.filter(i => i.ordersDetail?.is_purchased).length || 0;
@@ -377,7 +377,7 @@ export const OrderCard = ({ order, index, onView, onDelete, isAdmin }: OrderCard
                         >
                             ดู
                         </Button>
-                        {isAdmin && (
+                        {canDelete && (
                             <Button
                                 danger
                                 size="small"

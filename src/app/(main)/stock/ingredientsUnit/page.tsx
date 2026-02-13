@@ -37,10 +37,10 @@ export default function IngredientsUnitPage() {
 
     useEffect(() => {
         if (!authLoading) {
-            if (!user || !['Admin', 'Manager'].includes(user.role)) {
+            if (!user) {
                 setIsAuthorized(false);
                 setTimeout(() => {
-                    router.replace('/');
+                    router.replace('/login');
                 }, 1000); 
             } else {
                 setIsAuthorized(true);

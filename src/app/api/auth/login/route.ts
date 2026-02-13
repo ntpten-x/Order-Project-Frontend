@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authService } from "../../../../services/auth.service";
+import { handleApiRouteError } from "../../_utils/route-error";
 
 export async function POST(request: NextRequest) {
     try {
@@ -25,9 +26,6 @@ export async function POST(request: NextRequest) {
 
     } catch (error: unknown) {
         console.error("Login Route Error:", error);
-        return NextResponse.json({
-            message: "Internal Server Error",
-            detail: (error as Error).message,
-        }, { status: 500 });
+        return handleApiRouteError(error);
     }
 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { shopProfileService } from "../../../../services/pos/shopProfile.service";
+import { handleApiRouteError } from "../../_utils/route-error";
 
 export async function GET(request: NextRequest) {
     try {
@@ -7,10 +8,7 @@ export async function GET(request: NextRequest) {
         const profile = await shopProfileService.getProfile(cookie);
         return NextResponse.json(profile);
     } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to fetch shop profile" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }
 
@@ -23,9 +21,6 @@ export async function PUT(request: NextRequest) {
         const updatedProfile = await shopProfileService.updateProfile(body, cookie, csrfToken);
         return NextResponse.json(updatedProfile);
     } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to update shop profile" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }

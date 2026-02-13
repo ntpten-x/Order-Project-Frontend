@@ -2,6 +2,7 @@
 
 import { GET } from "../../app/api/pos/orders/summary/route";
 import { ordersService } from "../../services/pos/orders.service";
+import type { NextRequest } from "next/server";
 
 jest.mock("../../services/pos/orders.service", () => ({
     ordersService: {
@@ -10,20 +11,13 @@ jest.mock("../../services/pos/orders.service", () => ({
 }));
 
 describe("GET /api/pos/orders/summary", () => {
-    type RouteRequestStub = {
-        nextUrl: URL;
-        headers: {
-            get: (key: string) => string | null;
-        };
-    };
-
     const makeRequest = (url: string, cookie?: string) =>
         ({
             nextUrl: new URL(url),
             headers: {
                 get: (key: string) => (key.toLowerCase() === "cookie" ? (cookie ?? null) : null),
             },
-        }) as RouteRequestStub;
+        }) as unknown as NextRequest;
 
     beforeEach(() => {
         jest.clearAllMocks();

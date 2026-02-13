@@ -255,7 +255,12 @@ export default function POSOrdersPage() {
                 />
                 <PageContainer>
                     <PageSection>
-                        <PageState status="error" title="เกิดข้อผิดพลาด ไม่สามารถโหลดข้อมูลได้" onRetry={() => refetch()} />
+                        <PageState
+                            status="error"
+                            title="เกิดข้อผิดพลาด ไม่สามารถโหลดข้อมูลได้"
+                            error={isError}
+                            onRetry={() => refetch()}
+                        />
                     </PageSection>
                 </PageContainer>
             </div>
