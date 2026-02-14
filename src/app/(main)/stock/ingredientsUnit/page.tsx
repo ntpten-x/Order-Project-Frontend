@@ -2,8 +2,9 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { App, Button, Card, Col, Input, Modal, Row, Select, Space, Spin, Tag, Typography } from "antd";
+import { App, Button, Card, Col, Input, Modal, Row, Space, Spin, Tag, Typography } from "antd";
 import { DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, ExperimentOutlined } from "@ant-design/icons";
+import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
 import { IngredientsUnit } from "../../../../types/api/stock/ingredientsUnit";
 import { useSocket } from "../../../../hooks/useSocket";
 import { RealtimeEvents } from "../../../../utils/realtimeEvents";
@@ -248,9 +249,9 @@ export default function IngredientsUnitPage() {
                                 />
                             </Col>
                             <Col xs={24} md={10}>
-                                <Select
+                                <ModalSelector<"all" | "active" | "inactive">
+                                    title="เลือกสถานะ"
                                     value={statusFilter}
-                                    style={{ width: "100%" }}
                                     onChange={(value) => {
                                         setPage(1);
                                         setStatusFilter(value);
@@ -260,6 +261,7 @@ export default function IngredientsUnitPage() {
                                         { label: "ใช้งาน", value: "active" },
                                         { label: "ปิดใช้งาน", value: "inactive" },
                                     ]}
+                                    placeholder="เลือกสถานะ"
                                 />
                             </Col>
                         </Row>

@@ -185,7 +185,7 @@
   "branch.form.fields.taxIdLabel": "เลขประจำตัวผู้เสียภาษี (Tax ID)",
   "branch.form.fields.taxIdPlaceholder": "ระบุเลขผู้เสียภาษี",
   "branch.form.fields.statusLabel": "สถานะ",
-  "branch.form.back": "ยกเลิก",
+  "branch.form.back": "กลับไปหน้าสาขา",
   "branch.form.submitEdit": "บันทึกการแก้ไข",
   "branch.form.submitCreate": "สร้างสาขา",
   "users.manage.loadRolesError": "ไม่สามารถดึงข้อมูลบทบาทได้",

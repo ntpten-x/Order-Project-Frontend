@@ -11,7 +11,6 @@ import {
     Empty,
     Input,
     message,
-    Select,
     Space,
     Table,
     Tag,
@@ -422,14 +421,14 @@ export default function AuditPage() {
                                 </div>
                                 <div style={{ width: 140 }}>
                                     <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>เรียงลำดับ</Text>
-                                    <Select
-                                        style={{ width: '100%' }}
+                                    <ModalSelector<CreatedSort>
+                                        title="เลือกการเรียงลำดับ"
                                         value={createdSort}
                                         options={[
                                             { label: "เก่าก่อน", value: "old" },
                                             { label: "ใหม่ก่อน", value: "new" },
                                         ]}
-                                        onChange={(val: CreatedSort) => {
+                                        onChange={(val) => {
                                             setPage(1);
                                             setCreatedSort(val);
                                         }}
