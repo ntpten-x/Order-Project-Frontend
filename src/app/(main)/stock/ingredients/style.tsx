@@ -9,7 +9,7 @@ import {
     CloseCircleFilled
 } from "@ant-design/icons";
 import { Ingredients } from "../../../../types/api/stock/ingredients";
-
+import { resolveImageSource } from "../../../../utils/image/source";
 const { Text } = Typography;
 
 // ============ STYLES ============
@@ -194,7 +194,7 @@ export const IngredientCard = ({ ingredient, index, onEdit, onDelete }: Ingredie
             <div style={pageStyles.ingredientCardInner}>
                 {/* Image */}
                 <Avatar
-                    src={ingredient.img_url || 'https://placehold.co/64x64/f5f5f5/999999?text=📦'}
+                    src={resolveImageSource(ingredient.img_url, "https://placehold.co/64x64/f5f5f5/999999?text=Preview") || undefined}
                     size={64}
                     shape="square"
                     style={{

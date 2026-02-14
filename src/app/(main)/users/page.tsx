@@ -113,7 +113,7 @@ const UserCard = ({ user, canUpdateUsers, canDeleteUsers, onEdit, onDelete }: Us
                             {displayName}
                         </Text>
                         <Tag color={isActive ? 'green' : 'default'} style={{ marginInlineEnd: 0 }}>
-                            {isActive ? 'ใช้งาน' : 'ระงับ'}
+                            {isActive ? 'ใช้งาน' : 'ออฟไลน์'}
                         </Tag>
                         <Tag style={{ marginInlineEnd: 0, border: 'none', background: roleConf.bg, color: roleConf.color }}>
                             {user.roles?.display_name || roleName || 'N/A'}
@@ -480,7 +480,7 @@ export default function UsersPage() {
                         stats={[
                             { label: 'ทั้งหมด', value: stats.total },
                             { label: 'ใช้งาน', value: stats.active, color: '#0f766e' },
-                            { label: 'ระงับ', value: stats.inactive, color: '#b91c1c' }
+                            { label: 'ออฟไลน์', value: stats.inactive, color: '#b91c1c' }
                         ]} 
                     />
 
@@ -501,7 +501,7 @@ export default function UsersPage() {
                                         options={[
                                             { label: 'ทั้งหมด', value: 'all' },
                                             { label: 'ใช้งาน', value: 'active' },
-                                            { label: 'ระงับ', value: 'inactive' },
+                                            { label: 'ออฟไลน์', value: 'inactive' },
                                         ]}
                                         value={statusFilter}
                                         onChange={(value) => {

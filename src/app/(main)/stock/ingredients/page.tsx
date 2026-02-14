@@ -30,6 +30,7 @@ import PageContainer from "../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../components/ui/page/PageSection";
 import PageStack from "../../../../components/ui/page/PageStack";
 import PageState from "../../../../components/ui/states/PageState";
+import { resolveImageSource } from "../../../../utils/image/source";
 
 const { Text, Title, Paragraph } = Typography;
 
@@ -302,7 +303,7 @@ export default function IngredientsPage() {
                                             <Col xs={24} md={15}>
                                                 <Space align="start" size={12}>
                                                     <Avatar
-                                                        src={ingredient.img_url || undefined}
+                                                        src={resolveImageSource(ingredient.img_url) || undefined}
                                                         shape="square"
                                                         size={56}
                                                         icon={<ShoppingOutlined />}

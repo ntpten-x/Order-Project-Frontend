@@ -36,6 +36,7 @@ import PageContainer from "../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../components/ui/page/PageSection";
 import PageStack from "../../../../components/ui/page/PageStack";
 import PageState from "../../../../components/ui/states/PageState";
+import { resolveImageSource } from "../../../../utils/image/source";
 
 const { Text, Title } = Typography;
 
@@ -365,7 +366,12 @@ export default function StockBuyingPage() {
                           <Row gutter={[12, 12]} align="middle">
                             <Col xs={24} md={10}>
                               <Space>
-                                <Avatar src={item.img_url || undefined} shape="square" size={52} icon={<ShoppingCartOutlined />} />
+                                <Avatar
+                                  src={resolveImageSource(item.img_url) || undefined}
+                                  shape="square"
+                                  size={52}
+                                  icon={<ShoppingCartOutlined />}
+                                />
                                 <Space direction="vertical" size={0}>
                                   <Text strong>{item.display_name}</Text>
                                   <Text type="secondary" style={{ fontSize: 12 }}>

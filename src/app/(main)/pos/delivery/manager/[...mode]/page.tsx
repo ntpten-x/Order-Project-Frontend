@@ -20,6 +20,7 @@ import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
 import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuard';
 import { pageStyles } from '../../../../../../theme/pos/delivery/style';
 import { Delivery } from '../../../../../../types/api/pos/delivery';
+import { isSupportedImageSource, resolveImageSource } from '../../../../../../utils/image/source';
 
 type DeliveryManageMode = 'add' | 'edit';
 
@@ -75,7 +76,7 @@ const DeliveryPreviewCard = ({
             <Avatar
                 shape="square"
                 size={48}
-                src={logo || undefined}
+                src={resolveImageSource(logo) || undefined}
                 icon={<CarOutlined />}
                 style={{
                     borderRadius: 12,
@@ -373,10 +374,8 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                                 {
                                                     validator: async (_, value: string | undefined) => {
                                                         if (!value?.trim()) return;
-                                                        try {
-                                                            new URL(value.trim());
-                                                        } catch {
-                                                            throw new Error('กรุณากรอก URL ที่ถูกต้อง');
+                                                        if (!isSupportedImageSource(value.trim())) {
+                                                            throw new Error('รองรับเฉพาะ URL รูปภาพแบบ http(s), data:image, blob หรือ path ภายในระบบ');
                                                         }
                                                     }
                                                 }
@@ -384,7 +383,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                         >
                                             <Input
                                                 size="large"
-                                                placeholder="https://example.com/logo.png"
+                                                placeholder="https://example.com/logo.png หรือ data:image/...;base64,..."
                                                 style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
                                                 maxLength={255}
                                             />

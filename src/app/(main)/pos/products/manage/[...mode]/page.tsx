@@ -23,7 +23,7 @@ import { pageStyles, ProductPreview } from './style';
 import { Category } from '../../../../../../types/api/pos/category';
 import { ProductsUnit } from '../../../../../../types/api/pos/productsUnit';
 import { Products } from '../../../../../../types/api/pos/products';
-import { isSupportedImageSource } from '../../../../../../utils/image/source';
+import { isSupportedImageSource, normalizeImageSource } from '../../../../../../utils/image/source';
 
 const { TextArea } = Input;
 const { Title, Text } = Typography;
@@ -195,7 +195,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                 product_name: values.product_name.trim(),
                 display_name: values.display_name.trim(),
                 description: values.description?.trim() || undefined,
-                img_url: values.img_url?.trim() ? values.img_url.trim() : null,
+                img_url: normalizeImageSource(values.img_url) || null,
                 price: Number(values.price || 0),
                 price_delivery: values.price_delivery === undefined || values.price_delivery === null
                     ? Number(values.price || 0)
@@ -475,7 +475,8 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                                 {
                                                     validator: async (_, value: string | undefined) => {
                                                         if (!value?.trim()) return;
-                                                        if (!isSupportedImageSource(value)) {
+                                                        const normalized = normalizeImageSource(value);
+                                                        if (!isSupportedImageSource(normalized)) {
                                                             throw new Error('รองรับเฉพาะ URL รูปภาพแบบ http(s), data:image และ blob');
                                                         }
                                                     }

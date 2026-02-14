@@ -57,6 +57,7 @@ import { RealtimeEvents } from "../../../../../utils/realtimeEvents";
 import { useOrderQueue } from "../../../../../hooks/pos/useOrderQueue";
 import { QueueStatus, QueuePriority } from "../../../../../types/api/pos/orderQueue";
 import UIPageHeader from "../../../../../components/ui/page/PageHeader";
+import { resolveImageSource } from "../../../../../utils/image/source";
 
 
 const { Title, Text } = Typography;
@@ -554,7 +555,7 @@ export default function POSOrderDetailsPage() {
                     <>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                            src={record.product.img_url}
+                            src={resolveImageSource(record.product.img_url) || undefined}
                             alt={record.product?.display_name ?? "สินค้า"}
                             style={orderDetailStyles.productThumb}
                         />
@@ -681,7 +682,7 @@ export default function POSOrderDetailsPage() {
                     <>
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
-                            src={record.product.img_url}
+                            src={resolveImageSource(record.product.img_url) || undefined}
                             alt={record.product?.display_name ?? "สินค้า"}
                             style={{...orderDetailStyles.productThumb, opacity: 0.7}}
                         />
@@ -1053,7 +1054,7 @@ export default function POSOrderDetailsPage() {
                                                             <>
                                                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                                                 <img
-                                                                    src={item.product.img_url}
+                                                                    src={resolveImageSource(item.product.img_url) || undefined}
                                                                     alt={item.product?.display_name ?? "สินค้า"}
                                                                     style={{...orderDetailStyles.productThumb, width: 56, height: 56, borderRadius: 10}}
                                                                 />
@@ -1218,7 +1219,7 @@ export default function POSOrderDetailsPage() {
                                                             <>
                                                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                                                 <img
-                                                                    src={item.product.img_url}
+                                                                    src={resolveImageSource(item.product.img_url) || undefined}
                                                                     alt={item.product?.display_name ?? "สินค้า"}
                                                                     style={{...orderDetailStyles.productThumb, width: 52, height: 52, borderRadius: 10, opacity: 0.7}}
                                                                 />
@@ -1315,7 +1316,7 @@ export default function POSOrderDetailsPage() {
                                             <>
                                                 {/* eslint-disable-next-line @next/next/no-img-element */}
                                                 <img 
-                                                    src={item.product.img_url} 
+                                                    src={resolveImageSource(item.product.img_url) || undefined} 
                                                     alt={item.product?.display_name || 'สินค้า'} 
                                                     style={orderDetailStyles.summaryItemImage} 
                                                 />

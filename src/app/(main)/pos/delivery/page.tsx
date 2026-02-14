@@ -34,6 +34,7 @@ import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
 import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
 import { SearchInput } from "../../../../components/ui/input/SearchInput";
 import { SearchBar } from "../../../../components/ui/page/SearchBar";
+import { resolveImageSource } from "../../../../utils/image/source";
 
 const { Text } = Typography;
 
@@ -72,7 +73,7 @@ const DeliveryCard = ({ delivery, onEdit, onDelete, onToggleActive, updatingStat
                 <Avatar
                     shape="square"
                     size={52}
-                    src={delivery.logo || undefined}
+                    src={resolveImageSource(delivery.logo) || undefined}
                     icon={<CarOutlined />}
                     style={{
                         borderRadius: 14,

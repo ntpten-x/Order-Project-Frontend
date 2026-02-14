@@ -203,10 +203,45 @@ export default function ProductsPage() {
     const { socket } = useSocket();
     const { isAuthorized, isChecking } = useRoleGuard();
 
-    const { data: categories = [], isLoading: isLoadingCategories } = useCategories();
-    const { data: units = [], isLoading: isLoadingUnits } = useProductsUnit();
+    const {
+        data: categories = [],
+        isLoading: isLoadingCategories,
+        refetch: refetchCategories,
+    } = useCategories();
+    const {
+        data: units = [],
+        isLoading: isLoadingUnits,
+        refetch: refetchUnits,
+    } = useProductsUnit();
 
-    const setupState = useMemo(() => checkProductSetupState(categories, units), [categories, units]);
+    const refreshSetupMetadata = useCallback(() => {
+        void refetchCategories();
+        void refetchUnits();
+    }, [refetchCategories, refetchUnits]);
+
+    const setupState = useMemo(() => {
+        const baseState = checkProductSetupState(categories, units);
+        if (baseState.isReady) return baseState;
+
+        // Fallback: if products already reference category/unit, setup should be treated as ready immediately.
+        const hasCategoriesFromProducts = products.some((item) => Boolean(item.category_id));
+        const hasUnitsFromProducts = products.some((item) => Boolean(item.unit_id));
+
+        const hasCategories = baseState.hasCategories || hasCategoriesFromProducts;
+        const hasUnits = baseState.hasUnits || hasUnitsFromProducts;
+        const isReady = hasCategories && hasUnits;
+
+        return {
+            ...baseState,
+            hasCategories,
+            hasUnits,
+            isReady,
+            missingFields: [
+                !hasCategories && "หมวดหมู่สินค้า",
+                !hasUnits && "หน่วยสินค้า",
+            ].filter(Boolean) as string[],
+        };
+    }, [categories, units, products]);
 
     useEffect(() => {
         getCsrfTokenCached();
@@ -318,6 +353,11 @@ export default function ProductsPage() {
 
     useEffect(() => {
         if (!isAuthorized) return;
+        refreshSetupMetadata();
+    }, [isAuthorized, refreshSetupMetadata]);
+
+    useEffect(() => {
+        if (!isAuthorized) return;
         fetchProducts();
     }, [isAuthorized, fetchProducts]);
 
@@ -327,6 +367,21 @@ export default function ProductsPage() {
         onRefresh: fetchProducts,
         enabled: isAuthorized,
         debounceMs: 400,
+    });
+
+    useRealtimeRefresh({
+        socket,
+        events: [
+            RealtimeEvents.categories.create,
+            RealtimeEvents.categories.update,
+            RealtimeEvents.categories.delete,
+            RealtimeEvents.productsUnit.create,
+            RealtimeEvents.productsUnit.update,
+            RealtimeEvents.productsUnit.delete,
+        ],
+        onRefresh: refreshSetupMetadata,
+        enabled: isAuthorized,
+        debounceMs: 200,
     });
 
     useRealtimeList(

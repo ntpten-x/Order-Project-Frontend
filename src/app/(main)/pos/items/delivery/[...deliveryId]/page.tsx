@@ -21,6 +21,7 @@ import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingCo
 import { useSocket } from "../../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../../../utils/realtimeEvents";
+import { resolveImageSource } from "../../../../../../utils/image/source";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -346,7 +347,7 @@ export default function POSDeliverySummaryPage() {
                                                 <Avatar 
                                                     shape="square" 
                                                     size={52} 
-                                                    src={item.product?.img_url} 
+                                                    src={resolveImageSource(item.product?.img_url) || undefined} 
                                                     icon={<ShopOutlined />}
                                                     style={{ backgroundColor: '#fdf2f8', flexShrink: 0, borderRadius: 12, border: '1px solid #fce7f3' }} 
                                                 />

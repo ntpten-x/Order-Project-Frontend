@@ -5,6 +5,7 @@ import { Avatar, Button, Card, Space, Tag, Typography, message } from "antd";
 import { CheckOutlined, PlusOutlined, ShoppingCartOutlined } from "@ant-design/icons";
 import { Ingredients } from "../../types/api/stock/ingredients";
 import { useCart } from "../../contexts/stock/CartContext";
+import { resolveImageSource } from "../../utils/image/source";
 
 const { Paragraph, Text, Title } = Typography;
 
@@ -26,31 +27,39 @@ const IngredientCard: React.FC<IngredientCardProps> = ({ ingredient }) => {
   return (
     <Card
       hoverable
-      style={{ borderRadius: 16, height: "100%" }}
-      styles={{ body: { display: "flex", flexDirection: "column", gap: 12 } }}
+      style={{ borderRadius: 14, height: "100%", borderColor: "#e5e7eb" }}
+      styles={{
+        body: {
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          padding: 14,
+        },
+      }}
       cover={
         <div
           style={{
-            height: 160,
+            height: 148,
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
-            background: "linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%)",
-            borderTopLeftRadius: 16,
-            borderTopRightRadius: 16,
+            background: "linear-gradient(180deg, #f8fafc 0%, #eef2f7 100%)",
+            borderTopLeftRadius: 14,
+            borderTopRightRadius: 14,
+            borderBottom: "1px solid #e5e7eb",
           }}
         >
           <Avatar
-            src={ingredient.img_url || undefined}
+            src={resolveImageSource(ingredient.img_url) || undefined}
             shape="square"
-            size={96}
+            size={88}
             icon={<ShoppingCartOutlined />}
-            style={{ borderRadius: 14 }}
+            style={{ borderRadius: 12 }}
           />
         </div>
       }
     >
-      <Space size={8} wrap>
+      <Space size={6} wrap>
         <Tag color={ingredient.is_active ? "success" : "default"} style={{ margin: 0 }}>
           {ingredient.is_active ? "พร้อมสั่งซื้อ" : "ปิดใช้งาน"}
         </Tag>
@@ -58,15 +67,15 @@ const IngredientCard: React.FC<IngredientCardProps> = ({ ingredient }) => {
       </Space>
 
       <div>
-        <Title level={5} style={{ marginBottom: 4 }}>
+        <Title level={5} style={{ margin: 0, lineHeight: 1.35 }}>
           {ingredient.display_name}
         </Title>
-        <Text type="secondary" style={{ fontSize: 12 }}>
+        <Text type="secondary" style={{ fontSize: 12, display: "block", marginTop: 2 }}>
           รหัส: {ingredient.ingredient_name}
         </Text>
       </div>
 
-      <Paragraph ellipsis={{ rows: 2 }} style={{ margin: 0, minHeight: 44 }}>
+      <Paragraph ellipsis={{ rows: 2 }} style={{ margin: 0, minHeight: 42, color: "#4b5563" }}>
         {ingredient.description || "ไม่มีคำอธิบายเพิ่มเติม"}
       </Paragraph>
 
@@ -74,8 +83,15 @@ const IngredientCard: React.FC<IngredientCardProps> = ({ ingredient }) => {
         type={added ? "default" : "primary"}
         icon={added ? <CheckOutlined /> : <PlusOutlined />}
         block
+        size="large"
         onClick={addItem}
         disabled={!ingredient.is_active}
+        style={{
+          marginTop: "auto",
+          borderRadius: 10,
+          fontWeight: 600,
+          height: 42,
+        }}
       >
         {added ? "เพิ่มแล้ว" : "เพิ่มลงรายการซื้อ"}
       </Button>

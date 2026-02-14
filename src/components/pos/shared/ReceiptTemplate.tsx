@@ -8,6 +8,7 @@ import dayjs from "dayjs";
 import "dayjs/locale/th";
 import { groupOrderItems } from "../../../utils/orderGrouping";
 import { isCancelledStatus } from "../../../utils/orders";
+import { resolveImageSource } from "../../../utils/image/source";
 
 dayjs.locale("th");
 
@@ -48,6 +49,7 @@ const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(
     const changeAmount = Number(order.change_amount || 0);
     const totalQty = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
     const paymentTotal = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const resolvedShopLogo = resolveImageSource(shopLogo);
 
     const rowStyle: React.CSSProperties = {
       display: "flex",
@@ -73,10 +75,10 @@ const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(
         }}
       >
         <div style={{ textAlign: "center", marginBottom: 8 }}>
-          {shopLogo ? (
+          {resolvedShopLogo ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
-              src={shopLogo}
+              src={resolvedShopLogo}
               alt="โลโก้ร้าน"
               style={{
                 width: 52,
@@ -233,3 +235,4 @@ const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(
 ReceiptTemplate.displayName = "ReceiptTemplate";
 
 export default ReceiptTemplate;
+

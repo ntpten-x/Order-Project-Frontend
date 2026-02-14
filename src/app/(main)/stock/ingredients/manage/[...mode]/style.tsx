@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Typography, Button, Avatar } from "antd";
-import { 
+import {
     ArrowLeftOutlined,
     SaveOutlined,
     DeleteOutlined,
@@ -11,6 +11,8 @@ import {
 } from "@ant-design/icons";
 
 const { Text, Title } = Typography;
+
+import { resolveImageSource } from "../../../../../../utils/image/source";
 
 // ============ STYLES ============
 
@@ -260,7 +262,7 @@ export const ImagePreview = ({ url, name }: ImagePreviewProps) => (
         marginTop: 12
     }}>
         <Avatar
-            src={url || 'https://placehold.co/80x80/f5f5f5/999999?text=Preview'}
+            src={resolveImageSource(url, "https://placehold.co/80x80/f5f5f5/999999?text=Preview") || undefined}
             size={80}
             shape="square"
             style={{

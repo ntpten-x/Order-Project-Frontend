@@ -1,15 +1,17 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useMemo, useState } from "react";
 import {
   Avatar,
   Badge,
   Button,
+  Card,
+  Divider,
   Drawer,
   Empty,
+  Grid,
   Input,
   InputNumber,
-  List,
   Modal,
   Space,
   Typography,
@@ -27,11 +29,15 @@ import { useCart } from "../../contexts/stock/CartContext";
 import { useAuth } from "../../contexts/AuthContext";
 import { authService } from "../../services/auth.service";
 import { ordersService } from "../../services/stock/orders.service";
+import { resolveImageSource } from "../../utils/image/source";
 
 const { Text, Title } = Typography;
 
 export default function CartDrawer() {
   const router = useRouter();
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
+
   const { user } = useAuth();
   const { items, clearCart, itemCount, updateItemNote, updateQuantity } = useCart();
 
@@ -61,7 +67,7 @@ export default function CartDrawer() {
 
   const totalRequired = useMemo(
     () => items.reduce((acc, item) => acc + Number(item.quantity || 0), 0),
-    [items]
+    [items],
   );
 
   const createOrder = async () => {
@@ -79,7 +85,10 @@ export default function CartDrawer() {
       .filter((item) => item.note?.trim())
       .map((item) => `${item.ingredient.display_name}: ${item.note?.trim()}`);
 
-    const mergedRemark = [remark.trim(), noteLines.length ? `หมายเหตุรายสินค้า\n- ${noteLines.join("\n- ")}` : ""]
+    const mergedRemark = [
+      remark.trim(),
+      noteLines.length ? `หมายเหตุรายสินค้า\n- ${noteLines.join("\n- ")}` : "",
+    ]
       .filter(Boolean)
       .join("\n\n");
 
@@ -95,7 +104,7 @@ export default function CartDrawer() {
           remark: mergedRemark || undefined,
         },
         undefined,
-        csrfToken
+        csrfToken,
       );
 
       message.success("สร้างใบซื้อเรียบร้อย");
@@ -108,6 +117,18 @@ export default function CartDrawer() {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const confirmClearCart = () => {
+    Modal.confirm({
+      title: "ล้างรายการทั้งหมด",
+      content: "ต้องการล้างรายการที่จดซื้อทั้งหมดหรือไม่",
+      okText: "ล้างรายการ",
+      okButtonProps: { danger: true },
+      cancelText: "ยกเลิก",
+      centered: true,
+      onOk: clearCart,
+    });
   };
 
   const openNoteModal = (ingredientId: string, currentNote?: string) => {
@@ -125,16 +146,29 @@ export default function CartDrawer() {
     message.success("บันทึกหมายเหตุแล้ว");
   };
 
+  const closeNoteModal = () => {
+    setNoteModalOpen(false);
+    setEditingIngredientId(null);
+    setNoteInput("");
+  };
+
   return (
     <>
-      <div style={{ position: "fixed", right: 20, bottom: 96, zIndex: 1000 }}>
-        <Badge count={itemCount} size="small">
+      <div
+        style={{
+          position: "fixed",
+          right: isMobile ? 16 : 20,
+          bottom: isMobile ? "calc(84px + env(safe-area-inset-bottom))" : 96,
+          zIndex: 1000,
+        }}
+      >
+        <Badge count={itemCount} size="small" overflowCount={99}>
           <Button
             type="primary"
             shape="circle"
             size="large"
             icon={<ShoppingCartOutlined />}
-            style={{ width: 58, height: 58 }}
+            style={{ width: isMobile ? 56 : 58, height: isMobile ? 56 : 58 }}
             onClick={() => setOpen(true)}
           />
         </Badge>
@@ -143,41 +177,50 @@ export default function CartDrawer() {
       <Drawer
         open={open}
         onClose={() => setOpen(false)}
-        placement="right"
-        width={420}
+        placement={isMobile ? "bottom" : "right"}
+        width={isMobile ? undefined : 460}
+        height={isMobile ? "86vh" : undefined}
         title={
           <Space direction="vertical" size={0}>
-            <Title level={5} style={{ margin: 0 }}>รายการที่ต้องซื้อ</Title>
-            <Text type="secondary">{items.length} รายการ | รวม {totalRequired.toLocaleString()} หน่วย</Text>
+            <Title level={5} style={{ margin: 0 }}>
+              รายการที่ต้องซื้อ
+            </Title>
+            <Text type="secondary">
+              {items.length} รายการ | รวม {totalRequired.toLocaleString()} หน่วย
+            </Text>
           </Space>
         }
         extra={
           items.length > 0 ? (
-            <Button
-              danger
-              type="text"
-              onClick={() => {
-                Modal.confirm({
-                  title: "ล้างรายการทั้งหมด",
-                  content: "ต้องการล้างรายการที่จดซื้อทั้งหมดหรือไม่",
-                  okText: "ล้างรายการ",
-                  okButtonProps: { danger: true },
-                  cancelText: "ยกเลิก",
-                  onOk: clearCart,
-                });
-              }}
-            >
+            <Button danger type="text" onClick={confirmClearCart}>
               ล้างทั้งหมด
             </Button>
           ) : null
         }
+        bodyStyle={{
+          padding: isMobile ? 12 : 16,
+          display: "flex",
+          flexDirection: "column",
+          gap: 10,
+          overflowX: "hidden",
+        }}
         footer={
-          <Space direction="vertical" style={{ width: "100%" }}>
+          <Space direction="vertical" size={10} style={{ width: "100%" }}>
+            <Card size="small" styles={{ body: { padding: "10px 12px" } }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                <Text type="secondary">รวมทั้งหมด</Text>
+                <Text strong style={{ fontSize: 16 }}>
+                  {totalRequired.toLocaleString()} หน่วย
+                </Text>
+              </div>
+            </Card>
             <Input.TextArea
               rows={3}
               placeholder="หมายเหตุเพิ่มเติมของใบซื้อ (ถ้ามี)"
               value={remark}
               onChange={(event) => setRemark(event.target.value)}
+              maxLength={600}
+              showCount
             />
             <Button
               type="primary"
@@ -196,76 +239,109 @@ export default function CartDrawer() {
           <Empty
             image={Empty.PRESENTED_IMAGE_SIMPLE}
             description="ยังไม่มีรายการ กรุณาเลือกวัตถุดิบที่ต้องซื้อ"
-            style={{ marginTop: 48 }}
+            style={{ marginTop: 40 }}
           />
         ) : (
-          <List
-            dataSource={items}
-            renderItem={(item) => (
-              <List.Item
-                actions={[
-                  <Space key="qty" size={4}>
-                    <Button
-                      icon={<MinusOutlined />}
-                      onClick={() => updateQuantity(item.ingredient.id, item.quantity - 1)}
+          <Space direction="vertical" size={10} style={{ width: "100%" }}>
+            {items.map((item) => {
+              const itemNote = item.note?.trim();
+              const unitLabel = item.ingredient.unit?.display_name || "หน่วย";
+
+              return (
+                <Card key={item.ingredient.id} size="small" style={{ borderRadius: 12 }}>
+                  <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
+                    <Avatar
+                      src={resolveImageSource(item.ingredient.img_url) || undefined}
+                      shape="square"
+                      size={54}
+                      icon={<ShoppingCartOutlined />}
+                      style={{ borderRadius: 10, flexShrink: 0 }}
                     />
-                    <InputNumber
-                      min={1}
-                      value={item.quantity}
-                      onChange={(value) => updateQuantity(item.ingredient.id, Number(value || 1))}
-                      controls={false}
-                    />
-                    <Button
-                      icon={<PlusOutlined />}
-                      onClick={() => updateQuantity(item.ingredient.id, item.quantity + 1)}
-                    />
-                  </Space>,
-                  <Button
-                    key="note"
-                    icon={<EditOutlined />}
-                    onClick={() => openNoteModal(item.ingredient.id, item.note)}
-                  >
-                    โน้ต
-                  </Button>,
-                  <Button
-                    key="delete"
-                    danger
-                    icon={<DeleteOutlined />}
-                    onClick={() => updateQuantity(item.ingredient.id, 0)}
-                  >
-                    ลบ
-                  </Button>,
-                ]}
-              >
-                <List.Item.Meta
-                  avatar={<Avatar src={item.ingredient.img_url || undefined} shape="square" />}
-                  title={item.ingredient.display_name}
-                  description={
-                    <Space direction="vertical" size={0}>
-                      <Text type="secondary">หน่วย: {item.ingredient.unit?.display_name || "หน่วย"}</Text>
-                      {item.note ? <Text style={{ fontSize: 12 }}>หมายเหตุ: {item.note}</Text> : null}
-                    </Space>
-                  }
-                />
-              </List.Item>
-            )}
-          />
+
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <Text strong style={{ display: "block" }} ellipsis={{ tooltip: item.ingredient.display_name }}>
+                        {item.ingredient.display_name}
+                      </Text>
+                      <Text type="secondary" style={{ fontSize: 12 }}>
+                        หน่วย: {unitLabel}
+                      </Text>
+
+                      {itemNote ? (
+                        <div style={{ marginTop: 4 }}>
+                          <Text style={{ fontSize: 12 }}>หมายเหตุ: {itemNote}</Text>
+                        </div>
+                      ) : null}
+
+                      <Divider style={{ margin: "10px 0" }} />
+
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: 8,
+                          flexWrap: "wrap",
+                          justifyContent: "space-between",
+                          alignItems: "center",
+                        }}
+                      >
+                        <Space.Compact>
+                          <Button
+                            icon={<MinusOutlined />}
+                            onClick={() => updateQuantity(item.ingredient.id, item.quantity - 1)}
+                          />
+                          <InputNumber
+                            min={1}
+                            value={item.quantity}
+                            onChange={(value) => updateQuantity(item.ingredient.id, Number(value || 1))}
+                            controls={false}
+                            style={{ width: isMobile ? 88 : 92 }}
+                          />
+                          <Button
+                            icon={<PlusOutlined />}
+                            onClick={() => updateQuantity(item.ingredient.id, item.quantity + 1)}
+                          />
+                        </Space.Compact>
+
+                        <Space size={6} wrap>
+                          <Button
+                            icon={<EditOutlined />}
+                            onClick={() => openNoteModal(item.ingredient.id, item.note)}
+                          >
+                            โน้ต
+                          </Button>
+                          <Button
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={() => updateQuantity(item.ingredient.id, 0)}
+                          >
+                            ลบ
+                          </Button>
+                        </Space>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </Space>
         )}
       </Drawer>
 
       <Modal
         open={noteModalOpen}
-        onCancel={() => setNoteModalOpen(false)}
+        onCancel={closeNoteModal}
         onOk={saveNote}
         okText="บันทึก"
         cancelText="ยกเลิก"
         title="หมายเหตุรายการ"
+        centered
       >
         <Input.TextArea
           rows={4}
           placeholder="เช่น ยี่ห้อที่ต้องการ / คุณภาพ / ข้อจำกัด"
           value={noteInput}
           onChange={(event) => setNoteInput(event.target.value)}
+          maxLength={240}
+          showCount
         />
       </Modal>
     </>

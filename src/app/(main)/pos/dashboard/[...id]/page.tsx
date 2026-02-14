@@ -47,6 +47,7 @@ import UIPageHeader from "../../../../../components/ui/page/PageHeader";
 import PageContainer from "../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../components/ui/page/PageSection";
 import PageStack from "../../../../../components/ui/page/PageStack";
+import { resolveImageSource } from "../../../../../utils/image/source";
 
 const { Title, Text } = Typography;
 
@@ -271,7 +272,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                                                     <Avatar
                                                         shape="square"
                                                         size={56}
-                                                        src={item.product?.img_url}
+                                                        src={resolveImageSource(item.product?.img_url) || undefined}
                                                         icon={<ShopOutlined />}
                                                     />
                                                     <div style={{ flex: 1, minWidth: 0 }}>

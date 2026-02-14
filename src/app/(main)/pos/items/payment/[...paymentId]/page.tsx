@@ -30,6 +30,7 @@ import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingCo
 import { useSocket } from "../../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../../../utils/realtimeEvents";
+import { resolveImageSource } from "../../../../../../utils/image/source";
 
 
 const { Title, Text } = Typography;
@@ -542,7 +543,7 @@ export default function POSPaymentPage() {
                                                 <Avatar 
                                                     shape="square" 
                                                     size={48} 
-                                                    src={item.product?.img_url} 
+                                                    src={resolveImageSource(item.product?.img_url) || undefined} 
                                                     icon={<ShopOutlined />}
                                                     style={{ backgroundColor: itemsColors.backgroundSecondary, flexShrink: 0, borderRadius: 10 }} 
                                                 />

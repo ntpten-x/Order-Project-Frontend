@@ -151,172 +151,322 @@ function buildFallbackSummary(dailySales: SalesSummaryExport[]): DashboardSummar
   };
 }
 
-async function loadImageAsDataUrl(url?: string): Promise<string | null> {
-  if (!url) return null;
-  try {
-    const response = await fetch(url);
-    if (!response.ok) return null;
-    const blob = await response.blob();
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
 
-    return await new Promise<string | null>((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        resolve(typeof reader.result === "string" ? reader.result : null);
-      };
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return null;
-  }
+function colorToCss(color: [number, number, number]): string {
+  return `rgb(${color[0]}, ${color[1]}, ${color[2]})`;
+}
+
+export interface SalesReportPdfOptions {
+  targetWindow?: Window | null;
+  autoPrint?: boolean;
 }
 
 export const exportSalesReportPDF = async (
   payload: SalesReportExportPayload,
   dateRange: [string, string],
   rangeLabel: string,
-  branding: SalesReportBranding = {}
+  branding: SalesReportBranding = {},
+  options: SalesReportPdfOptions = {}
 ): Promise<void> => {
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
   const summary = payload.summary || buildFallbackSummary(payload.daily_sales);
-
   const shopName = branding.shopName || "ร้านค้า POS";
   const branchName = branding.branchName;
   const primaryColor = parseHexColor(branding.primaryColor, [15, 118, 110]);
   const secondaryColor = parseHexColor(branding.secondaryColor, [30, 64, 175]);
-
-  doc.setFillColor(...primaryColor);
-  doc.rect(0, 0, pageWidth, 30, "F");
-
-  const logoDataUrl = await loadImageAsDataUrl(branding.logoUrl);
-  if (logoDataUrl) {
-    const isPng = logoDataUrl.startsWith("data:image/png");
-    doc.addImage(logoDataUrl, isPng ? "PNG" : "JPEG", 14, 7, 14, 14);
+  const printWindow = options.targetWindow ?? window.open("", "_blank", "width=1024,height=768");
+  if (!printWindow) {
+    throw new Error("เบราว์เซอร์บล็อกหน้าต่าง PDF");
   }
 
-  doc.setTextColor(255, 255, 255);
-  doc.setFontSize(14);
-  doc.text(shopName, logoDataUrl ? 32 : 14, 14);
-  if (branchName) {
-    doc.setFontSize(10);
-    doc.text(`สาขา: ${branchName}`, logoDataUrl ? 32 : 14, 21);
-  }
+  const summaryRows = [
+    ["ยอดขายรวม", formatMoney(summary.total_sales)],
+    ["จำนวนออเดอร์", Number(summary.total_orders || 0).toLocaleString()],
+    ["ยอดเฉลี่ยต่อบิล", formatMoney(summary.average_order_value)],
+    ["ส่วนลดรวม", formatMoney(summary.total_discount)],
+    ["ยอดชำระเงินสด", formatMoney(summary.cash_sales)],
+    ["ยอดชำระ QR/พร้อมเพย์", formatMoney(summary.qr_sales)],
+    ["ยอดขายทานที่ร้าน", formatMoney(summary.dine_in_sales)],
+    ["ยอดขายกลับบ้าน", formatMoney(summary.takeaway_sales)],
+    ["ยอดขายเดลิเวอรี่", formatMoney(summary.delivery_sales)],
+  ]
+    .map(([label, value]) => `<tr><td>${escapeHtml(label)}</td><td class="text-right">${escapeHtml(value)}</td></tr>`)
+    .join("");
 
-  doc.setTextColor(17, 24, 39);
-  doc.setFontSize(15);
-  doc.text("รายงานสรุปผลการขาย", pageWidth / 2, 38, { align: "center" });
-
-  doc.setFontSize(10);
-  doc.text(`ช่วงเวลา: ${dateRange[0]} ถึง ${dateRange[1]} (${rangeLabel})`, pageWidth / 2, 44, { align: "center" });
-  doc.text(`พิมพ์เมื่อ: ${dayjs().format("DD/MM/YYYY HH:mm:ss")}`, pageWidth / 2, 49, { align: "center" });
-
-  autoTable(doc, {
-    startY: 55,
-    head: [["หัวข้อ", "ค่า"]],
-    body: [
-      ["ยอดขายรวม", formatMoney(summary.total_sales)],
-      ["จำนวนออเดอร์", Number(summary.total_orders || 0).toLocaleString()],
-      ["ยอดเฉลี่ยต่อบิล", formatMoney(summary.average_order_value)],
-      ["ส่วนลดรวม", formatMoney(summary.total_discount)],
-      ["ยอดชำระเงินสด", formatMoney(summary.cash_sales)],
-      ["ยอดชำระ QR/พร้อมเพย์", formatMoney(summary.qr_sales)],
-      ["ยอดขายทานที่ร้าน", formatMoney(summary.dine_in_sales)],
-      ["ยอดขายกลับบ้าน", formatMoney(summary.takeaway_sales)],
-      ["ยอดขายเดลิเวอรี่", formatMoney(summary.delivery_sales)],
-    ],
-    theme: "grid",
-    headStyles: { fillColor: primaryColor },
-    styles: { fontSize: 9 },
-    columnStyles: {
-      0: { cellWidth: 70 },
-      1: { halign: "right" },
-    },
-  });
-
-  autoTable(doc, {
-    startY: getLastAutoTableY(doc) + 8,
-    head: [["วันที่", "ออเดอร์", "ยอดขาย", "ส่วนลด", "เฉลี่ย/บิล", "เงินสด", "QR/พร้อมเพย์", "ทานที่ร้าน", "กลับบ้าน", "เดลิเวอรี่"]],
-    body: payload.daily_sales.map((row) => {
+  const dailyRows = payload.daily_sales
+    .map((row) => {
       const orders = Number(row.total_orders || 0);
       const sales = Number(row.total_sales || 0);
-      return [
-        formatDate(row.date),
-        orders.toLocaleString(),
-        formatMoney(sales),
-        formatMoney(Number(row.total_discount || 0)),
-        formatMoney(orders > 0 ? sales / orders : 0),
-        formatMoney(Number(row.cash_sales || 0)),
-        formatMoney(Number(row.qr_sales || 0)),
-        formatMoney(Number(row.dine_in_sales || 0)),
-        formatMoney(Number(row.takeaway_sales || 0)),
-        formatMoney(Number(row.delivery_sales || 0)),
-      ];
-    }),
-    theme: "grid",
-    headStyles: { fillColor: secondaryColor },
-    styles: { fontSize: 8 },
-    columnStyles: {
-      0: { cellWidth: 22 },
-      1: { halign: "right", cellWidth: 14 },
-      2: { halign: "right", cellWidth: 19 },
-      3: { halign: "right", cellWidth: 16 },
-      4: { halign: "right", cellWidth: 17 },
-      5: { halign: "right", cellWidth: 14 },
-      6: { halign: "right", cellWidth: 16 },
-      7: { halign: "right", cellWidth: 14 },
-      8: { halign: "right", cellWidth: 14 },
-      9: { halign: "right", cellWidth: 14 },
-    },
-  });
+      return `
+        <tr>
+          <td>${escapeHtml(formatDate(row.date))}</td>
+          <td class="text-right">${orders.toLocaleString()}</td>
+          <td class="text-right">${escapeHtml(formatMoney(sales))}</td>
+          <td class="text-right">${escapeHtml(formatMoney(Number(row.total_discount || 0)))}</td>
+          <td class="text-right">${escapeHtml(formatMoney(orders > 0 ? sales / orders : 0))}</td>
+          <td class="text-right">${escapeHtml(formatMoney(Number(row.cash_sales || 0)))}</td>
+          <td class="text-right">${escapeHtml(formatMoney(Number(row.qr_sales || 0)))}</td>
+          <td class="text-right">${escapeHtml(formatMoney(Number(row.dine_in_sales || 0)))}</td>
+          <td class="text-right">${escapeHtml(formatMoney(Number(row.takeaway_sales || 0)))}</td>
+          <td class="text-right">${escapeHtml(formatMoney(Number(row.delivery_sales || 0)))}</td>
+        </tr>
+      `;
+    })
+    .join("");
 
-  const topItems = payload.top_items || [];
-  if (topItems.length > 0) {
-    autoTable(doc, {
-      startY: getLastAutoTableY(doc) + 8,
-      head: [["อันดับ", "สินค้า", "จำนวนขาย", "ยอดขายรวม"]],
-      body: topItems.map((item, index) => [
-        String(index + 1),
-        item.product_name,
-        Number(item.total_quantity || 0).toLocaleString(),
-        formatMoney(Number(item.total_revenue || 0)),
-      ]),
-      theme: "grid",
-      headStyles: { fillColor: [21, 128, 61] },
-      styles: { fontSize: 9 },
-      columnStyles: {
-        0: { halign: "center", cellWidth: 18 },
-        2: { halign: "right", cellWidth: 25 },
-        3: { halign: "right", cellWidth: 35 },
-      },
-    });
-  }
+  const topItemsRows = (payload.top_items || [])
+    .map(
+      (item, index) => `
+        <tr>
+          <td class="text-center">${index + 1}</td>
+          <td>${escapeHtml(item.product_name || "-")}</td>
+          <td class="text-right">${Number(item.total_quantity || 0).toLocaleString()}</td>
+          <td class="text-right">${escapeHtml(formatMoney(Number(item.total_revenue || 0)))}</td>
+        </tr>
+      `
+    )
+    .join("");
 
-  const recentOrders = payload.recent_orders || [];
-  if (recentOrders.length > 0) {
-    autoTable(doc, {
-      startY: getLastAutoTableY(doc) + 8,
-      head: [["เลขออเดอร์", "ประเภท", "สถานะ", "เวลา", "จำนวนสินค้า", "ยอดรวม"]],
-      body: recentOrders.slice(0, 20).map((order) => [
-        `#${order.order_no}`,
-        orderTypeThai(order.order_type),
-        orderStatusThai(order.status),
-        dayjs(order.create_date).format("DD/MM HH:mm"),
-        Number(order.items_count || 0).toLocaleString(),
-        formatMoney(Number(order.total_amount || 0)),
-      ]),
-      theme: "grid",
-      headStyles: { fillColor: [67, 56, 202] },
-      styles: { fontSize: 8 },
-      columnStyles: {
-        4: { halign: "right", cellWidth: 16 },
-        5: { halign: "right", cellWidth: 25 },
-      },
-    });
-  }
+  const recentOrdersRows = (payload.recent_orders || [])
+    .slice(0, 20)
+    .map(
+      (order) => `
+        <tr>
+          <td>#${escapeHtml(order.order_no || "-")}</td>
+          <td>${escapeHtml(orderTypeThai(order.order_type))}</td>
+          <td>${escapeHtml(orderStatusThai(order.status))}</td>
+          <td>${escapeHtml(dayjs(order.create_date).format("DD/MM HH:mm"))}</td>
+          <td class="text-right">${Number(order.items_count || 0).toLocaleString()}</td>
+          <td class="text-right">${escapeHtml(formatMoney(Number(order.total_amount || 0)))}</td>
+        </tr>
+      `
+    )
+    .join("");
 
+  const logoHtml = branding.logoUrl
+    ? `<img src="${escapeHtml(branding.logoUrl)}" alt="logo" class="shop-logo" />`
+    : "";
+  const primaryColorCss = colorToCss(primaryColor);
+  const secondaryColorCss = colorToCss(secondaryColor);
   const filename = `รายงานสรุปผลการขาย_${rangeLabel.replace(/\s+/g, "_")}_${dateRange[0]}_${dateRange[1]}.pdf`;
-  doc.save(filename);
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="th">
+      <head>
+        <meta charset="UTF-8" />
+        <title>${escapeHtml(filename)}</title>
+        <style>
+          * { box-sizing: border-box; }
+          @page { size: A4 portrait; margin: 10mm; }
+          body {
+            margin: 0;
+            background: #edf2f7;
+            color: #111827;
+            font-family: "Sarabun", "Tahoma", "Noto Sans Thai", sans-serif;
+          }
+          .sheet {
+            width: 210mm;
+            margin: 10mm auto;
+            background: #ffffff;
+            border-radius: 10px;
+            padding: 12mm;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            background: ${primaryColorCss};
+            color: #ffffff;
+            border-radius: 10px;
+            padding: 10px 12px;
+          }
+          .header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+          }
+          .shop-logo {
+            width: 42px;
+            height: 42px;
+            border-radius: 999px;
+            object-fit: cover;
+            border: 2px solid rgba(255, 255, 255, 0.7);
+            background: #ffffff;
+          }
+          .header-title {
+            margin: 0;
+            font-size: 20px;
+            line-height: 1.2;
+          }
+          .header-meta {
+            margin-top: 2px;
+            font-size: 12px;
+            opacity: 0.95;
+          }
+          .section {
+            margin-top: 14px;
+          }
+          .section-title {
+            margin: 0 0 6px;
+            font-size: 15px;
+            color: ${secondaryColorCss};
+          }
+          .summary-table,
+          .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 12px;
+          }
+          .summary-table td,
+          .report-table th,
+          .report-table td {
+            border: 1px solid #dbe4f0;
+            padding: 6px 8px;
+            vertical-align: top;
+          }
+          .report-table th {
+            background: #f8fafc;
+            color: #1f2937;
+            font-weight: 700;
+          }
+          .text-right { text-align: right; }
+          .text-center { text-align: center; }
+          .muted {
+            color: #64748b;
+            font-size: 12px;
+          }
+          .footer {
+            margin-top: 14px;
+            padding-top: 8px;
+            border-top: 1px solid #e2e8f0;
+            text-align: right;
+            font-size: 11px;
+            color: #64748b;
+          }
+          @media print {
+            body { background: #ffffff; }
+            .sheet {
+              width: auto;
+              margin: 0;
+              box-shadow: none;
+              border-radius: 0;
+              padding: 0;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <main class="sheet">
+          <header class="header">
+            <div class="header-left">
+              ${logoHtml}
+              <div>
+                <h1 class="header-title">${escapeHtml(shopName)}</h1>
+                ${branchName ? `<div class="header-meta">สาขา: ${escapeHtml(branchName)}</div>` : ""}
+              </div>
+            </div>
+            <div class="header-meta">รายงานสรุปผลการขาย</div>
+          </header>
+
+          <section class="section">
+            <div class="muted">ช่วงเวลา: ${escapeHtml(dateRange[0])} ถึง ${escapeHtml(dateRange[1])} (${escapeHtml(rangeLabel)})</div>
+            <div class="muted">พิมพ์เมื่อ: ${escapeHtml(dayjs().format("DD/MM/YYYY HH:mm:ss"))}</div>
+          </section>
+
+          <section class="section">
+            <h2 class="section-title">สรุปภาพรวม</h2>
+            <table class="summary-table">
+              <tbody>${summaryRows}</tbody>
+            </table>
+          </section>
+
+          <section class="section">
+            <h2 class="section-title">ยอดขายรายวัน</h2>
+            <table class="report-table">
+              <thead>
+                <tr>
+                  <th>วันที่</th>
+                  <th class="text-right">ออเดอร์</th>
+                  <th class="text-right">ยอดขาย</th>
+                  <th class="text-right">ส่วนลด</th>
+                  <th class="text-right">เฉลี่ย/บิล</th>
+                  <th class="text-right">เงินสด</th>
+                  <th class="text-right">QR/พร้อมเพย์</th>
+                  <th class="text-right">ทานที่ร้าน</th>
+                  <th class="text-right">กลับบ้าน</th>
+                  <th class="text-right">เดลิเวอรี่</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${dailyRows || `<tr><td colspan="10" class="text-center">ไม่มีข้อมูลยอดขายรายวัน</td></tr>`}
+              </tbody>
+            </table>
+          </section>
+
+          <section class="section">
+            <h2 class="section-title">สินค้าขายดี</h2>
+            <table class="report-table">
+              <thead>
+                <tr>
+                  <th class="text-center" style="width: 60px;">อันดับ</th>
+                  <th>สินค้า</th>
+                  <th class="text-right" style="width: 140px;">จำนวนขาย</th>
+                  <th class="text-right" style="width: 160px;">ยอดขายรวม</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${topItemsRows || `<tr><td colspan="4" class="text-center">ไม่มีข้อมูลสินค้าขายดี</td></tr>`}
+              </tbody>
+            </table>
+          </section>
+
+          <section class="section">
+            <h2 class="section-title">ออเดอร์ล่าสุด</h2>
+            <table class="report-table">
+              <thead>
+                <tr>
+                  <th style="width: 120px;">เลขออเดอร์</th>
+                  <th style="width: 100px;">ประเภท</th>
+                  <th style="width: 100px;">สถานะ</th>
+                  <th style="width: 90px;">เวลา</th>
+                  <th class="text-right" style="width: 110px;">จำนวนสินค้า</th>
+                  <th class="text-right" style="width: 130px;">ยอดรวม</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${recentOrdersRows || `<tr><td colspan="6" class="text-center">ไม่มีข้อมูลออเดอร์ล่าสุด</td></tr>`}
+              </tbody>
+            </table>
+          </section>
+
+          <footer class="footer">เอกสารจากระบบ POS Shop</footer>
+        </main>
+        <script>
+          window.addEventListener("load", () => {
+            setTimeout(() => {
+              window.focus();
+              ${options.autoPrint === false ? "" : "window.print();"}
+            }, 250);
+          });
+        </script>
+      </body>
+    </html>
+  `;
+
+  printWindow.document.open();
+  printWindow.document.write(html);
+  printWindow.document.close();
 };
 
 export const exportSalesReportExcel = (
