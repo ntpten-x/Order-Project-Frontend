@@ -1,11 +1,38 @@
 import { User } from "../types/api/users";
 import { getProxyUrl } from "../lib/proxy-utils";
 import { UserSchema, UsersResponseSchema } from "../schemas/api/users.schema";
-import { getBackendErrorMessage, unwrapBackendData } from "../utils/api/backendResponse";
+import { getBackendErrorMessage, normalizeBackendPaginated, unwrapBackendData } from "../utils/api/backendResponse";
 
 const BASE_PATH = "/users";
 
 export const userService = {
+    getAllUsersPaginated: async (
+        cookie?: string,
+        searchParams?: URLSearchParams
+    ): Promise<{ data: User[]; total: number; page: number; last_page: number }> => {
+        let url = getProxyUrl("GET", BASE_PATH);
+        if (searchParams) {
+            url += `?${searchParams.toString()}`;
+        }
+
+        const headers: HeadersInit = {};
+        if (cookie) headers.Cookie = cookie;
+
+        const response = await fetch(url!, {
+            headers,
+            credentials: "include",
+            cache: "no-store"
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            const detailedError = errorData.errors?.map((e: { message: string }) => e.message).join(", ");
+            throw new Error(detailedError || getBackendErrorMessage(errorData, "เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธเธนเนเนเธเนเนเธ”เน"));
+        }
+
+        return normalizeBackendPaginated<User>(await response.json());
+    },
+
     getAllUsers: async (cookie?: string, searchParams?: URLSearchParams): Promise<User[]> => {
         let url = getProxyUrl("GET", BASE_PATH);
         if (searchParams) {
@@ -28,7 +55,23 @@ export const userService = {
         }
 
         const json = await response.json();
-        return UsersResponseSchema.parse(unwrapBackendData(json)) as unknown as User[];
+        const payload = unwrapBackendData(json) as unknown;
+
+        if (Array.isArray(payload)) {
+            return UsersResponseSchema.parse(payload) as unknown as User[];
+        }
+
+        if (payload && typeof payload === "object") {
+            const record = payload as Record<string, unknown>;
+            if (Array.isArray(record.data)) {
+                return UsersResponseSchema.parse(record.data) as unknown as User[];
+            }
+            if (Array.isArray(record.users)) {
+                return UsersResponseSchema.parse(record.users) as unknown as User[];
+            }
+        }
+
+        throw new Error("Invalid users response shape");
     },
 
     getUserById: async (id: string, cookie?: string): Promise<User> => {

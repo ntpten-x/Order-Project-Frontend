@@ -23,6 +23,7 @@ import { pageStyles, ProductPreview } from './style';
 import { Category } from '../../../../../../types/api/pos/category';
 import { ProductsUnit } from '../../../../../../types/api/pos/productsUnit';
 import { Products } from '../../../../../../types/api/pos/products';
+import { isSupportedImageSource, normalizeImageSource } from '../../../../../../utils/image/source';
 
 const { TextArea } = Input;
 const { Title, Text } = Typography;
@@ -77,7 +78,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     const id = params.mode?.[1] || null;
     const isEdit = mode === 'edit' && Boolean(id);
     const isValidMode = mode === 'add' || mode === 'edit';
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager'] });
+    const { isAuthorized, isChecking } = useRoleGuard();
 
     const selectedCategoryId = Form.useWatch('category_id', form);
     const selectedUnitId = Form.useWatch('unit_id', form);
@@ -194,7 +195,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                 product_name: values.product_name.trim(),
                 display_name: values.display_name.trim(),
                 description: values.description?.trim() || undefined,
-                img_url: values.img_url?.trim() ? values.img_url.trim() : null,
+                img_url: normalizeImageSource(values.img_url) || null,
                 price: Number(values.price || 0),
                 price_delivery: values.price_delivery === undefined || values.price_delivery === null
                     ? Number(values.price || 0)
@@ -470,7 +471,17 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                         <Form.Item
                                             name="img_url"
                                             label={<span style={{ fontWeight: 600, color: '#334155' }}>รูปภาพ URL</span>}
-                                            rules={[{ type: 'url', message: 'รูปแบบ URL ไม่ถูกต้อง' }]}
+                                            rules={[
+                                                {
+                                                    validator: async (_, value: string | undefined) => {
+                                                        if (!value?.trim()) return;
+                                                        const normalized = normalizeImageSource(value);
+                                                        if (!isSupportedImageSource(normalized)) {
+                                                            throw new Error('รองรับเฉพาะ URL รูปภาพแบบ http(s), data:image และ blob');
+                                                        }
+                                                    }
+                                                }
+                                            ]}
                                         >
                                             <Input size="large" placeholder="https://example.com/image.jpg" />
                                         </Form.Item>

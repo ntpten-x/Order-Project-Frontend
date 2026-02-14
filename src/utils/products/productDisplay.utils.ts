@@ -1,4 +1,5 @@
 import { Products } from "../../types/api/pos/products";
+import { isSupportedImageSource, resolveImageSource } from "../image/source";
 
 /**
  * Format price to Thai Baht
@@ -20,7 +21,7 @@ export function formatItemCount(count: number): string {
  * Get product image URL or return null for fallback handling
  */
 export function getProductImageUrl(product: Products): string | null {
-    return product.img_url || null;
+    return resolveImageSource(product.img_url);
 }
 
 /**
@@ -41,7 +42,7 @@ export function getProductUnitName(product: Products): string {
  * Check if product has valid image
  */
 export function hasProductImage(product: Products): boolean {
-    return !!product.img_url && product.img_url.length > 0;
+    return isSupportedImageSource(product.img_url);
 }
 
 /**

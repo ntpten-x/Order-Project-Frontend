@@ -5,293 +5,234 @@ import { SalesOrder, OrderType } from "../../../types/api/pos/salesOrder";
 import { Payments } from "../../../types/api/pos/payments";
 import { PaymentMethod } from "../../../types/api/pos/paymentMethod";
 import dayjs from "dayjs";
-import 'dayjs/locale/th';
+import "dayjs/locale/th";
 import { groupOrderItems } from "../../../utils/orderGrouping";
 import { isCancelledStatus } from "../../../utils/orders";
+import { resolveImageSource } from "../../../utils/image/source";
 
-dayjs.locale('th');
+dayjs.locale("th");
 
 type PaymentWithMethod = Payments & {
-    payment_method?: PaymentMethod | null;
+  payment_method?: PaymentMethod | null;
 };
 
 interface ReceiptProps {
-    order: SalesOrder;
-    shopName?: string;
-    shopAddress?: string;
-    shopPhone?: string;
-    shopTaxId?: string;
-    shopLogo?: string;
+  order: SalesOrder;
+  shopName?: string;
+  shopAddress?: string;
+  shopPhone?: string;
+  shopTaxId?: string;
+  shopLogo?: string;
 }
 
-const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(({ order, shopName, shopAddress, shopPhone, shopTaxId, shopLogo }, ref) => {
-    // Filter out cancelled items
-    const items = (order.items || []).filter(item => !isCancelledStatus(item.status));
+function formatMoney(value: number): string {
+  return `฿${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
+}
+
+function getOrderTypeText(type: OrderType): string {
+  if (type === OrderType.DineIn) return "ทานที่ร้าน";
+  if (type === OrderType.TakeAway) return "กลับบ้าน";
+  if (type === OrderType.Delivery) return "เดลิเวอรี่";
+  return String(type || "-");
+}
+
+const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(
+  ({ order, shopName, shopAddress, shopPhone, shopTaxId, shopLogo }, ref) => {
+    const items = (order.items || []).filter((item) => !isCancelledStatus(item.status));
     const payments = (order.payments || []) as PaymentWithMethod[];
 
-    // Source of truth for financial fields must come from backend to keep every page consistent.
     const subTotal = Number(order.sub_total || 0);
     const discountAmount = Number(order.discount_amount || 0);
     const vat = Number(order.vat || 0);
     const totalAmount = Number(order.total_amount || 0);
-    
-    const orderTypeLabel = (type: OrderType) => {
-        switch (type) {
-            case OrderType.DineIn: return 'ทานที่ร้าน';
-            case OrderType.TakeAway: return 'สั่งกลับบ้าน';
-            case OrderType.Delivery: return 'เดลิเวอรี่';
-            default: return type;
-        }
+    const receivedAmount = Number(order.received_amount || 0);
+    const changeAmount = Number(order.change_amount || 0);
+    const totalQty = items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
+    const paymentTotal = payments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0);
+    const resolvedShopLogo = resolveImageSource(shopLogo);
+
+    const rowStyle: React.CSSProperties = {
+      display: "flex",
+      justifyContent: "space-between",
+      gap: 8,
+      alignItems: "flex-start",
+      marginBottom: 4,
+      fontSize: 12,
     };
 
     return (
-        <div className="receipt-container">
-            <div ref={ref} className="receipt-paper">
-                {/* Header */}
-                <div className="text-center mb-4">
-                    {shopLogo && (
-                        /* eslint-disable-next-line @next/next/no-img-element */
-                        <img src={shopLogo} alt="Logo" className="receipt-logo" />
-                    )}
-                    <div className="shop-name">{shopName || 'ร้านค้า POS'}</div>
-                    {shopAddress && <div className="shop-info">{shopAddress}</div>}
-                    {shopPhone && <div className="shop-info shop-phone">โทร: {shopPhone}</div>}
-                    {shopTaxId && <div className="shop-info">TAX ID: {shopTaxId}</div>}
-                </div>
-
-                <div className="dashed-line" />
-
-                {/* Order Info */}
-                <div className="section">
-                    <div className="flex-between">
-                        <span>เลขที่ออเดอร์:</span>
-                        <span className="font-bold">#{order.order_no}</span>
-                    </div>
-                    <div className="flex-between">
-                        <span>วันที่:</span>
-                        <span>{dayjs(order.create_date).format('DD/MM/YYYY HH:mm')}</span>
-                    </div>
-                    <div className="flex-between">
-                        <span>ประเภท:</span>
-                        <span>{orderTypeLabel(order.order_type)}</span>
-                    </div>
-                    {order.order_type === OrderType.DineIn && order.table && (
-                        <div className="flex-between">
-                            <span>โต๊ะ:</span>
-                            <span>{order.table.table_name}</span>
-                        </div>
-                    )}
-                    <div className="flex-between">
-                        <span>พนักงาน:</span>
-                        <span>{order.created_by?.name || order.created_by?.username || '-'}</span>
-                    </div>
-                </div>
-
-                <div className="dashed-line" />
-
-                {/* Items */}
-                <div className="section">
-                    <div className="section-header">รายการสินค้า</div>
-                    {groupOrderItems(items).map((item, index: number) => (
-                        <div key={item.id || index} className="item-row">
-                            <div className="flex-between">
-                                <span>{item.product?.display_name || item.product?.product_name || 'สินค้า'}</span>
-                            </div>
-                            <div className="item-details">
-                                <span>{item.quantity} x ฿{Number(item.price).toLocaleString()}</span>
-                                <span>฿{Number(item.total_price).toLocaleString()}</span>
-                            </div>
-                            {item.details && item.details.map((detail, dIdx) => (
-                                <div key={dIdx} className="item-note" style={{ color: '#16a34a', fontStyle: 'normal' }}>
-                                    + {detail.detail_name} {detail.extra_price > 0 && `(+฿${Number(detail.extra_price).toLocaleString()})`}
-                                </div>
-                            ))}
-                            {item.notes && (
-                                <div className="item-note">
-                                    *{item.notes}
-                                </div>
-                            )}
-                        </div>
-                    ))}
-                </div>
-
-                <div className="dashed-line" />
-
-                {/* Summary */}
-                <div className="section">
-                    <div className="flex-between">
-                        <span>รวมรายการ:</span>
-                        <span>฿{Number(subTotal).toLocaleString()}</span>
-                    </div>
-                    {discountAmount > 0 && (
-                        <div className="flex-between">
-                            <span>ส่วนลด ({order.discount?.display_name || order.discount?.discount_name || 'ส่วนลด'}):</span>
-                            <span style={{ color: '#ef4444' }}>-฿{Number(discountAmount).toLocaleString()}</span>
-                        </div>
-                    )}
-                    {vat > 0 && (
-                        <div className="flex-between">
-                            <span>VAT 0%:</span>
-                            <span>฿{Number(vat).toLocaleString()}</span>
-                        </div>
-                    )}
-                    <div className="total-row">
-                        <span>ยอดสุทธิ:</span>
-                        <span>฿{Number(totalAmount).toLocaleString()}</span>
-                    </div>
-                </div>
-
-                <div className="dashed-line" />
-
-                {/* Payment Info */}
-                {payments.length > 0 && (
-                    <div className="section">
-                        <div className="section-header">การชำระเงิน</div>
-                        {payments.map((p: PaymentWithMethod, index: number) => (
-                            <div key={p.id || index} className="flex-between">
-                                <span>{p.payment_method?.display_name || p.payment_method?.payment_method_name || 'ไม่ระบุ'}</span>
-                                <span>฿{Number(p.amount).toLocaleString()}</span>
-                            </div>
-                        ))}
-                        {payments.some((p: PaymentWithMethod) => p.change_amount > 0) && (
-                            <div className="flex-between">
-                                <span>เงินทอน:</span>
-                                <span>฿{payments.reduce((sum: number, p: PaymentWithMethod) => sum + Number(p.change_amount || 0), 0).toLocaleString()}</span>
-                            </div>
-                        )}
-                    </div>
-                )}
-
-                <div className="dashed-line" />
-
-                {/* Footer */}
-                <div className="receipt-footer">
-                    <div style={{ fontSize: '12px', fontWeight: 600, marginBottom: 4 }}>ขอบคุณที่ใช้บริการ</div>
-                    <div style={{ fontSize: '10px', color: '#666' }}>Thank you for your purchase!</div>
-                    <div style={{ fontSize: '9px', color: '#999', marginTop: 8 }}>
-                        พิมพ์เมื่อ: {dayjs().format('DD/MM/YYYY HH:mm:ss')}
-                    </div>
-                </div>
-            </div>
-
-            <style jsx>{`
-                .receipt-container {
-                    display: flex;
-                    justify-content: center;
-                    padding: 20px;
-                    background: #f0f2f5;
-                }
-                .receipt-paper {
-                    font-family: 'Courier New', Courier, monospace;
-                    font-size: 12px;
-                    width: 80mm;
-                    padding: 16px;
-                    background-color: #fff;
-                    color: #000;
-                    margin: 0 auto;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-                    position: relative;
-                }
-                .text-center { 
-                    text-align: center;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    width: 100%;
-                }
-                .mb-4 { margin-bottom: 16px; }
-                .dashed-line {
-                    border-top: 1px dashed #000;
-                    margin: 12px 0;
-                    opacity: 0.5;
-                }
-                .shop-name {
-                    font-weight: 900;
-                    font-size: 28px;
-                    margin-bottom: 4px;
-                    text-align: center;
-                    width: 100%;
-                }
-                .shop-info {
-                    font-size: 12px;
-                    margin-bottom: 2px;
-                    text-align: center;
-                    width: 100%;
-                }
-                .shop-phone {
-                    font-size: 16px;
-                    font-weight: 700;
-                    margin-top: 4px;
-                }
-                .section { margin-bottom: 8px; }
-                .section-header {
-                    font-weight: bold;
-                    margin-bottom: 8px;
-                    font-size: 13px;
-                }
-                .flex-between {
-                    display: flex;
-                    justify-content: space-between;
-                    margin-bottom: 4px;
-                }
-                .font-bold { font-weight: bold; }
-                .receipt-logo {
-                    width: 60px;
-                    height: 60px;
-                    object-fit: contain;
-                    margin-bottom: 8px;
-                    margin-left: auto;
-                    margin-right: auto;
-                    display: block;
-                    filter: grayscale(100%); /* Receipt feeling */
-                }
-                .item-row { margin-bottom: 6px; }
-                .item-details {
-                    display: flex;
-                    justify-content: space-between;
-                    padding-left: 10px;
-                    font-size: 12px;
-                    font-weight: 600;
-                    color: #000;
-                }
-                .item-note {
-                    padding-left: 10px;
-                    font-size: 9px;
-                    font-weight: 300;
-                    font-style: italic;
-                    color: #4b5563;
-                }
-                .total-row {
-                    display: flex;
-                    justify-content: space-between;
-                    font-weight: 900;
-                    font-size: 26px;
-                    margin-top: 12px;
-                    border-top: 2px solid #000;
-                    padding-top: 8px;
-                }
-                .receipt-footer {
-                    text-align: center;
-                    margin-top: 16px;
-                }
-
-                @media print {
-                    .receipt-container {
-                        padding: 0;
-                        background: none;
-                    }
-                    .receipt-paper {
-                        box-shadow: none;
-                        width: 100%;
-                        max-width: 80mm;
-                    }
-                }
-            `}</style>
+      <div
+        ref={ref}
+        style={{
+          width: "80mm",
+          margin: "0 auto",
+          padding: 12,
+          color: "#111827",
+          background: "#ffffff",
+          fontFamily: "'Noto Sans Thai', Tahoma, sans-serif",
+          fontSize: 12,
+          lineHeight: 1.45,
+        }}
+      >
+        <div style={{ textAlign: "center", marginBottom: 8 }}>
+          {resolvedShopLogo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={resolvedShopLogo}
+              alt="โลโก้ร้าน"
+              style={{
+                width: 52,
+                height: 52,
+                objectFit: "contain",
+                margin: "0 auto 8px",
+                display: "block",
+              }}
+            />
+          ) : null}
+          <div style={{ fontSize: 18, fontWeight: 800 }}>{shopName || "ร้านค้า POS"}</div>
+          {shopAddress ? <div style={{ color: "#4b5563", marginTop: 2 }}>{shopAddress}</div> : null}
+          {shopPhone ? <div style={{ color: "#4b5563" }}>โทร {shopPhone}</div> : null}
+          {shopTaxId ? <div style={{ color: "#4b5563" }}>เลขประจำตัวผู้เสียภาษี {shopTaxId}</div> : null}
         </div>
-    );
-});
 
-ReceiptTemplate.displayName = 'ReceiptTemplate';
+        <div style={{ borderTop: "1px dashed #9ca3af", margin: "8px 0" }} />
+
+        <div style={{ textAlign: "center", marginBottom: 8 }}>
+          <div style={{ fontSize: 14, fontWeight: 700 }}>ใบเสร็จรับเงิน / ใบกำกับอย่างย่อ</div>
+        </div>
+
+        <div style={rowStyle}>
+          <span style={{ color: "#4b5563" }}>เลขที่ออเดอร์</span>
+          <strong>#{order.order_no}</strong>
+        </div>
+        <div style={rowStyle}>
+          <span style={{ color: "#4b5563" }}>วันที่ทำรายการ</span>
+          <span>{dayjs(order.create_date).format("DD/MM/YYYY HH:mm")}</span>
+        </div>
+        <div style={rowStyle}>
+          <span style={{ color: "#4b5563" }}>ประเภทออเดอร์</span>
+          <span>{getOrderTypeText(order.order_type)}</span>
+        </div>
+        {order.order_type === OrderType.DineIn && order.table?.table_name ? (
+          <div style={rowStyle}>
+            <span style={{ color: "#4b5563" }}>โต๊ะ</span>
+            <span>{order.table.table_name}</span>
+          </div>
+        ) : null}
+        {order.order_type === OrderType.Delivery && order.delivery_code ? (
+          <div style={rowStyle}>
+            <span style={{ color: "#4b5563" }}>รหัสเดลิเวอรี่</span>
+            <span>{order.delivery_code}</span>
+          </div>
+        ) : null}
+        <div style={rowStyle}>
+          <span style={{ color: "#4b5563" }}>พนักงาน</span>
+          <span>{order.created_by?.name || order.created_by?.username || "-"}</span>
+        </div>
+
+        <div style={{ borderTop: "1px dashed #9ca3af", margin: "8px 0" }} />
+
+        <div style={{ display: "flex", justifyContent: "space-between", fontWeight: 700, marginBottom: 6 }}>
+          <span>รายการสินค้า</span>
+          <span>{items.length} รายการ</span>
+        </div>
+        {groupOrderItems(items).map((item) => (
+          <div key={item.id} style={{ marginBottom: 7 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ fontWeight: 600 }}>{item.product?.display_name || item.product?.product_name || "สินค้า"}</div>
+                <div style={{ color: "#4b5563", fontSize: 11 }}>
+                  {Number(item.quantity || 0).toLocaleString()} x {formatMoney(Number(item.price || 0))}
+                </div>
+              </div>
+              <strong>{formatMoney(Number(item.total_price || 0))}</strong>
+            </div>
+            {item.details?.map((detail, idx) => (
+              <div key={`${item.id}-${idx}`} style={{ marginTop: 2, marginLeft: 8, color: "#065f46", fontSize: 11 }}>
+                + {detail.detail_name} {Number(detail.extra_price || 0) > 0 ? `(${formatMoney(Number(detail.extra_price || 0))})` : ""}
+              </div>
+            ))}
+            {item.notes ? (
+              <div style={{ marginTop: 2, marginLeft: 8, color: "#b45309", fontSize: 11 }}>หมายเหตุ: {item.notes}</div>
+            ) : null}
+          </div>
+        ))}
+
+        <div style={{ borderTop: "1px dashed #9ca3af", margin: "8px 0" }} />
+
+        <div style={rowStyle}>
+          <span style={{ color: "#4b5563" }}>รวมก่อนส่วนลด</span>
+          <span>{formatMoney(subTotal)}</span>
+        </div>
+        {discountAmount > 0 ? (
+          <div style={rowStyle}>
+            <span style={{ color: "#4b5563" }}>ส่วนลด {order.discount?.display_name || order.discount?.discount_name || ""}</span>
+            <span style={{ color: "#b91c1c" }}>-{formatMoney(discountAmount)}</span>
+          </div>
+        ) : null}
+        {vat > 0 ? (
+          <div style={rowStyle}>
+            <span style={{ color: "#4b5563" }}>ภาษีมูลค่าเพิ่ม (VAT)</span>
+            <span>{formatMoney(vat)}</span>
+          </div>
+        ) : null}
+        <div style={{ ...rowStyle, borderTop: "1px solid #e5e7eb", paddingTop: 6, marginTop: 6 }}>
+          <strong style={{ fontSize: 14 }}>ยอดสุทธิ</strong>
+          <strong style={{ fontSize: 14 }}>{formatMoney(totalAmount)}</strong>
+        </div>
+
+        <div style={{ borderTop: "1px dashed #9ca3af", margin: "8px 0" }} />
+
+        <div style={{ fontWeight: 700, marginBottom: 4 }}>การชำระเงิน</div>
+        {payments.length > 0 ? (
+          <>
+            {payments.map((payment) => (
+              <div key={payment.id} style={rowStyle}>
+                <span style={{ color: "#4b5563" }}>
+                  {payment.payment_method?.display_name || payment.payment_method?.payment_method_name || "ไม่ระบุวิธีชำระ"}
+                </span>
+                <span>{formatMoney(Number(payment.amount || 0))}</span>
+              </div>
+            ))}
+            <div style={rowStyle}>
+              <span style={{ color: "#4b5563" }}>รวมชำระ</span>
+              <span>{formatMoney(paymentTotal)}</span>
+            </div>
+          </>
+        ) : (
+          <div style={{ color: "#6b7280", marginBottom: 4 }}>ยังไม่มีข้อมูลการชำระเงิน</div>
+        )}
+
+        {receivedAmount > 0 || changeAmount > 0 ? (
+          <>
+            {receivedAmount > 0 ? (
+              <div style={rowStyle}>
+                <span style={{ color: "#4b5563" }}>รับเงิน</span>
+                <span>{formatMoney(receivedAmount)}</span>
+              </div>
+            ) : null}
+            {changeAmount > 0 ? (
+              <div style={rowStyle}>
+                <span style={{ color: "#4b5563" }}>เงินทอน</span>
+                <span>{formatMoney(changeAmount)}</span>
+              </div>
+            ) : null}
+          </>
+        ) : null}
+
+        <div style={{ borderTop: "1px dashed #9ca3af", margin: "8px 0" }} />
+
+        <div style={{ textAlign: "center", color: "#374151" }}>
+          <div style={{ fontWeight: 700 }}>ขอบคุณที่ใช้บริการ</div>
+          <div style={{ fontSize: 11, color: "#6b7280", marginTop: 2 }}>จำนวนสินค้ารวม {totalQty.toLocaleString()} ชิ้น</div>
+          <div style={{ fontSize: 10, color: "#9ca3af", marginTop: 6 }}>พิมพ์เมื่อ {dayjs().format("DD/MM/YYYY HH:mm:ss")}</div>
+        </div>
+      </div>
+    );
+  }
+);
+
+ReceiptTemplate.displayName = "ReceiptTemplate";
 
 export default ReceiptTemplate;
+

@@ -20,6 +20,7 @@ import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import { isEqual } from "lodash";
+import { resolveImageSource } from "../../../../utils/image/source";
 
 const { Text } = Typography;
 dayjs.locale('th');
@@ -199,7 +200,7 @@ export default function POSItemsPage() {
                                                         <Avatar 
                                                             shape="square" 
                                                             size={40} 
-                                                            src={item.product.img_url} 
+                                                            src={resolveImageSource(item.product.img_url) || undefined} 
                                                             style={itemsStyles.itemImage}
                                                         />
                                                     ) : (

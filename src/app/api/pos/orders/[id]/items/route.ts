@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ordersService } from "../../../../../../services/pos/orders.service";
+import { handleApiRouteError } from "../../../../_utils/route-error";
 
 interface Params {
     params: {
@@ -17,9 +18,6 @@ export async function POST(request: NextRequest, { params }: Params) {
         const updatedOrder = await ordersService.addItem(params.id, body, cookie, csrfToken);
         return NextResponse.json(updatedOrder);
     } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to add item" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }

@@ -1,16 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { branchService } from "../../../services/branch.service";
+import { handleApiRouteError } from "../_utils/route-error";
 
 export async function GET(req: NextRequest) {
     try {
         const cookie = req.headers.get("cookie") || "";
-        const data = await branchService.getAll(cookie);
+        const searchParams = req.nextUrl.searchParams;
+        const data = await branchService.getAllPaginated(cookie, searchParams);
         return NextResponse.json(data);
     } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to fetch branches" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }
 
@@ -23,9 +22,6 @@ export async function POST(req: NextRequest) {
         const data = await branchService.create(body, cookie, csrfToken);
         return NextResponse.json(data);
     } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to create branch" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }

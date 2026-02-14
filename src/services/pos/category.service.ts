@@ -1,10 +1,35 @@
 import { Category } from "../../types/api/pos/category";
 import { getProxyUrl } from "../../lib/proxy-utils";
-import { getBackendErrorMessage, unwrapBackendData } from "../../utils/api/backendResponse";
+import { normalizeBackendPaginated, throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = "/pos/category";
 
 export const categoryService = {
+    findAllPaginated: async (
+        cookie?: string,
+        searchParams?: URLSearchParams
+    ): Promise<{ data: Category[]; total: number; page: number; last_page: number }> => {
+        let url = getProxyUrl("GET", BASE_PATH);
+        if (searchParams) {
+            url += `?${searchParams.toString()}`;
+        }
+
+        const headers: HeadersInit = {};
+        if (cookie) headers.Cookie = cookie;
+
+        const response = await fetch(url!, {
+            cache: "no-store",
+            credentials: "include",
+            headers
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throwBackendHttpError(response, errorData, "Failed to fetch categories");
+        }
+
+        return normalizeBackendPaginated<Category>(await response.json());
+    },
+
     findAll: async (cookie?: string, searchParams?: URLSearchParams): Promise<Category[]> => {
         let url = getProxyUrl("GET", BASE_PATH);
         if (searchParams) {
@@ -21,7 +46,7 @@ export const categoryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch categories"));
+            throwBackendHttpError(response, errorData, "Failed to fetch categories");
         }
 
         const json = await response.json();
@@ -42,7 +67,7 @@ export const categoryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch category"));
+            throwBackendHttpError(response, errorData, "Failed to fetch category");
         }
         return unwrapBackendData(await response.json()) as Category;
     },
@@ -59,7 +84,7 @@ export const categoryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch category by name"));
+            throwBackendHttpError(response, errorData, "Failed to fetch category by name");
         }
         return unwrapBackendData(await response.json()) as Category;
     },
@@ -78,7 +103,7 @@ export const categoryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to create category"));
+            throwBackendHttpError(response, errorData, "Failed to create category");
         }
         return unwrapBackendData(await response.json()) as Category;
     },
@@ -97,7 +122,7 @@ export const categoryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to update category"));
+            throwBackendHttpError(response, errorData, "Failed to update category");
         }
         return unwrapBackendData(await response.json()) as Category;
     },
@@ -115,7 +140,7 @@ export const categoryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to delete category"));
+            throwBackendHttpError(response, errorData, "Failed to delete category");
         }
     },
 };

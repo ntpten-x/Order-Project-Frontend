@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { productsService } from "../../../../services/pos/products.service";
+import { handleApiRouteError } from "../../_utils/route-error";
 
 export const dynamic = 'force-dynamic';
 
@@ -40,9 +41,6 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(response);
     } catch (error) {
         console.error('[API] Products fetch error:', error);
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to fetch products" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }

@@ -3,7 +3,7 @@
 import React, { memo, useCallback, CSSProperties, ReactNode } from 'react';
 import { Button, Typography } from 'antd';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
-import Image from 'next/image';
+import Image from '../../ui/image/SmartImage';
 
 const { Text } = Typography;
 

@@ -8,8 +8,64 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=8001
-      - NEXT_PUBLIC_API_URL=http://localhost:8000
-      - NEXT_PUBLIC_BACKEND_API=http://localhost:8000
-      - BACKEND_API_INTERNAL=http://host.docker.internal:8000
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
+      - NEXT_PUBLIC_API_URL=http://localhost:8002
+      - NEXT_PUBLIC_BACKEND_API=http://localhost:8002
+      - BACKEND_API_INTERNAL=http://api:3000
+    depends_on:
+      api:
+        condition: service_started
+
+  api:
+    build: ../Order-Project-Backend
+    ports:
+      - "8002:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - FRONTEND_URL=http://localhost:8001
+      - DATABASE_HOST=db
+      - DATABASE_PORT=5432
+      - DATABASE_USER=order_app
+      - DATABASE_PASSWORD=StrongPass_ChangeMe
+      - DATABASE_NAME=postgres
+      - DATABASE_SSL=false
+      - TYPEORM_SYNC=true
+      - ALLOW_TYPEORM_SYNC_WITH_NON_OWNER=1
+      - RUN_MIGRATIONS_ON_START=false
+      - REQUIRE_NO_PENDING_MIGRATIONS=false
+      - REDIS_URL=redis://redis:6379
+      - RATE_LIMIT_REDIS_URL=redis://redis:6379
+      - JWT_SECRET=f8a7b0bbdd1e218c8d9b8e6021c29b2870d32f1b5a08fd7a408c5e3ed5f16e6b
+      - BOOTSTRAP_ADMIN_USERNAME=admin
+      - BOOTSTRAP_ADMIN_PASSWORD=123456
+      - BOOTSTRAP_ADMIN_NAME=ผู้ดูแลระบบ
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_USER=order_app
+      - POSTGRES_PASSWORD=StrongPass_ChangeMe
+      - POSTGRES_DB=postgres
+    volumes:
+      - frontend_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U order_app -d postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  frontend_pgdata:

@@ -2,6 +2,7 @@
 
 import { GET } from "../../app/api/pos/dashboard/sales/route";
 import { getProxyUrl } from "../../lib/proxy-utils";
+import type { NextRequest } from "next/server";
 
 jest.mock("../../lib/proxy-utils", () => ({
     getProxyUrl: jest.fn(),
@@ -9,20 +10,13 @@ jest.mock("../../lib/proxy-utils", () => ({
 
 describe("GET /api/pos/dashboard/sales", () => {
     const fetchMock = jest.fn();
-    type RouteRequestStub = {
-        nextUrl: URL;
-        headers: {
-            get: (key: string) => string | null;
-        };
-    };
-
     const makeRequest = (url: string, cookie?: string) =>
         ({
             nextUrl: new URL(url),
             headers: {
                 get: (key: string) => (key.toLowerCase() === "cookie" ? (cookie ?? null) : null),
             },
-        }) as RouteRequestStub;
+        }) as unknown as NextRequest;
 
     beforeEach(() => {
         jest.clearAllMocks();

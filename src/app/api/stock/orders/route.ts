@@ -1,5 +1,6 @@
 import { ordersService } from "../../../../services/stock/orders.service";
 import { NextRequest, NextResponse } from "next/server";
+import { handleApiRouteError } from "../../_utils/route-error";
 
 export const dynamic = 'force-dynamic';
 
@@ -11,7 +12,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(orders);
     } catch (error: unknown) {
         console.error("API Error:", error);
-        return NextResponse.json({ error: (error as Error).message || "Internal Server Error" }, { status: 500 });
+        return handleApiRouteError(error);
     }
 }
 
@@ -24,6 +25,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(order);
     } catch (error: unknown) {
         console.error("API Error:", error);
-        return NextResponse.json({ error: (error as Error).message || "Internal Server Error" }, { status: 500 });
+        return handleApiRouteError(error);
     }
 }

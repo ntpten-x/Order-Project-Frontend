@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ordersService } from "../../../../../../services/stock/orders.service";
+import { handleApiRouteError } from "../../../../_utils/route-error";
 
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
     try {
@@ -12,6 +13,6 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
         return NextResponse.json(order);
     } catch (error: unknown) {
         console.error("API Error:", error);
-        return NextResponse.json({ error: (error as Error).message || "Internal Server Error" }, { status: 500 });
+        return handleApiRouteError(error);
     }
 }

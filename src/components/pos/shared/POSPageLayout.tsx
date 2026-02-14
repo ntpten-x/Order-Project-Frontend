@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useMemo, useState } from "react";
-import Image from "next/image";
+import Image from "../../ui/image/SmartImage";
 import { Typography, Button, Spin, Empty, Badge, Drawer, List, message, Pagination, Input, Modal, Tag, InputNumber } from "antd";
 import { 
   ShoppingCartOutlined, 
@@ -32,6 +32,8 @@ import {
   hasProductImage, 
   getProductCategoryName 
 } from "../../../utils/products/productDisplay.utils";
+import { resolveImageSource } from "../../../utils/image/source";
+import PageState from "../../ui/states/PageState";
 
 const { Title, Text } = Typography;
 
@@ -66,7 +68,13 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
     };
   }, [searchQuery]);
 
-  const { products, isLoading, total } = useProducts(page, LIMIT, selectedCategory, debouncedQuery);
+  const {
+    products,
+    isLoading,
+    isError: productsError,
+    mutate: refetchProducts,
+    total,
+  } = useProducts(page, LIMIT, selectedCategory, debouncedQuery);
 
   // UI State
   const [cartVisible, setCartVisible] = useState(false);
@@ -370,6 +378,13 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                 กำลังโหลดสินค้า...
               </Text>
             </div>
+          ) : productsError ? (
+            <PageState
+              status="error"
+              title="โหลดข้อมูลสินค้าไม่สำเร็จ"
+              error={productsError}
+              onRetry={() => refetchProducts()}
+            />
           ) : products.length > 0 ? (
             <>
               <div style={posLayoutStyles.productGrid} className="pos-product-grid pos-product-grid-mobile">
@@ -941,7 +956,7 @@ const CartItemRow = React.memo(function CartItemRow({
             <div style={posComponentStyles.cartItemImage}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={item.product.img_url}
+                src={resolveImageSource(item.product.img_url) || undefined}
                 alt={productName}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
@@ -1075,7 +1090,7 @@ const CheckoutItemRow = React.memo(function CheckoutItemRow({
       <div style={posComponentStyles.checkoutItemImage}>
         {item.product.img_url ? (
           /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={item.product.img_url} alt={item.product.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={resolveImageSource(item.product.img_url) || undefined} alt={item.product.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <div style={posComponentStyles.checkoutItemImagePlaceholder}>
             <ShopOutlined style={{ fontSize: 16, color: posColors.primary, opacity: 0.5 }} />

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PROXY_CONFIGS } from "../../../../../../lib/proxy-utils";
+import { handleApiRouteError } from "../../../../_utils/route-error";
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
     try {
@@ -31,7 +32,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         return NextResponse.json(data);
     } catch (error: unknown) {
         console.error("[API Proxy] Proxy Execution Error (PUT):", (error as Error).message);
-        return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+        return handleApiRouteError(error);
     }
 }
 
@@ -62,6 +63,6 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
         return new NextResponse(null, { status: 204 });
     } catch (error: unknown) {
         console.error("[API Proxy] Proxy Execution Error (DELETE):", (error as Error).message);
-        return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+        return handleApiRouteError(error);
     }
 }

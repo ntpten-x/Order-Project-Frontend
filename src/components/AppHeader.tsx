@@ -1,7 +1,7 @@
 ﻿"use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Layout, Avatar, Typography, Space, Button, theme, Grid } from "antd";
+import { Layout, Avatar, Typography, Space, Button, theme, Grid, Modal, Form, Input, App } from "antd";
 import { 
   UserOutlined, 
   LogoutOutlined, 
@@ -11,6 +11,7 @@ import {
 } from "@ant-design/icons";
 import { useAuth } from "../contexts/AuthContext";
 import { usePathname } from "next/navigation";
+import { authService } from "../services/auth.service";
 
 const { Header } = Layout;
 const { Text } = Typography;
@@ -18,11 +19,15 @@ const { useToken } = theme;
 const { useBreakpoint } = Grid;
 
 const AppHeader: React.FC = () => {
-  const { user, logout } = useAuth();
+  const { user, logout, checkAuth } = useAuth();
   const pathname = usePathname();
   const { token } = useToken();
+  const { message: messageApi } = App.useApp();
   const screens = useBreakpoint(); // xs, sm, md, lg, xl, xxl
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [accountModalOpen, setAccountModalOpen] = useState(false);
+  const [savingAccount, setSavingAccount] = useState(false);
+  const [accountForm] = Form.useForm();
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // Close dropdown when clicking outside
@@ -48,6 +53,56 @@ const AppHeader: React.FC = () => {
 
   const isMobile = !screens.md; // Mobile if screen is smaller than md (768px)
   const headerBaseHeight = isMobile ? 56 : 64;
+
+  const openAccountSettings = () => {
+    accountForm.setFieldsValue({
+      name: user?.name || "",
+      password: "",
+      confirmPassword: "",
+    });
+    setDropdownOpen(false);
+    setAccountModalOpen(true);
+  };
+
+  const handleSaveAccount = async (values: { name: string; password?: string; confirmPassword?: string }) => {
+    try {
+      setSavingAccount(true);
+      const payload: { name?: string; password?: string } = {
+        name: values.name?.trim(),
+      };
+      if (values.password?.trim()) {
+        payload.password = values.password.trim();
+      }
+
+      const csrfToken = await authService.getCsrfToken();
+      await fetch("/api/auth/me", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrfToken,
+        },
+        body: JSON.stringify(payload),
+      }).then(async (response) => {
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(
+            errorData?.error?.message ||
+            errorData?.message ||
+            "บันทึกข้อมูลบัญชีไม่สำเร็จ"
+          );
+        }
+      });
+
+      await checkAuth();
+      messageApi.success("อัปเดตบัญชีเรียบร้อย");
+      setAccountModalOpen(false);
+      accountForm.resetFields();
+    } catch (error) {
+      messageApi.error((error as Error)?.message || "บันทึกข้อมูลบัญชีไม่สำเร็จ");
+    } finally {
+      setSavingAccount(false);
+    }
+  };
 
   return (
     <Header
@@ -236,9 +291,10 @@ const AppHeader: React.FC = () => {
                   fontSize: '14px',
                   color: token.colorText
                 }}
+                onClick={openAccountSettings}
                 block
               >
-                การตั้งค่าระบบ
+                ตั้งค่าบัญชี
               </Button>
               <div style={{ height: '1px', background: token.colorBorderSecondary, margin: '4px 0' }} />
               <Button 
@@ -271,6 +327,67 @@ const AppHeader: React.FC = () => {
           background: ${token.colorFillTertiary} !important;
         }
       `}</style>
+
+      <Modal
+        open={accountModalOpen}
+        onCancel={() => setAccountModalOpen(false)}
+        title="ตั้งค่าบัญชี"
+        okText="บันทึก"
+        cancelText="ยกเลิก"
+        okButtonProps={{ loading: savingAccount }}
+        onOk={() => accountForm.submit()}
+        destroyOnClose
+      >
+        <Form
+          form={accountForm}
+          layout="vertical"
+          onFinish={handleSaveAccount}
+          initialValues={{ name: user?.name || "" }}
+        >
+          <Form.Item
+            label="ชื่อที่แสดง"
+            name="name"
+            rules={[
+              { required: true, message: "กรุณากรอกชื่อที่แสดง" },
+              { min: 1, message: "ชื่อสั้นเกินไป" },
+              { max: 100, message: "ชื่อยาวเกินไป" },
+            ]}
+          >
+            <Input placeholder="กรอกชื่อที่ต้องการแสดง" maxLength={100} />
+          </Form.Item>
+
+          <Form.Item
+            label="รหัสผ่านใหม่"
+            name="password"
+            rules={[
+              { min: 6, message: "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร" },
+            ]}
+          >
+            <Input.Password placeholder="เว้นว่างไว้หากไม่ต้องการเปลี่ยนรหัสผ่าน" />
+          </Form.Item>
+
+          <Form.Item
+            label="ยืนยันรหัสผ่านใหม่"
+            name="confirmPassword"
+            dependencies={["password"]}
+            rules={[
+              ({ getFieldValue }) => ({
+                validator(_, value) {
+                  const password = getFieldValue("password");
+                  if (!password && !value) return Promise.resolve();
+                  if (password && !value) {
+                    return Promise.reject(new Error("กรุณายืนยันรหัสผ่านใหม่"));
+                  }
+                  if (value === password) return Promise.resolve();
+                  return Promise.reject(new Error("รหัสผ่านยืนยันไม่ตรงกัน"));
+                },
+              }),
+            ]}
+          >
+            <Input.Password placeholder="กรอกรหัสผ่านใหม่ซ้ำอีกครั้ง" />
+          </Form.Item>
+        </Form>
+      </Modal>
     </Header>
   );
 };

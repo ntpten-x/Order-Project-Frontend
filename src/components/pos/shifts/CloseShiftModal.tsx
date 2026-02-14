@@ -5,6 +5,7 @@ import { Modal, InputNumber, Button, Typography, Form } from 'antd';
 import { useShift } from '../../../contexts/pos/ShiftContext';
 import { DollarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { useRouter } from 'next/navigation';
 
 const { Title, Text } = Typography;
 
@@ -16,6 +17,7 @@ interface CloseShiftModalProps {
 
 export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShiftModalProps) {
     const { currentShift, closeShift } = useShift();
+    const router = useRouter();
     const [submitting, setSubmitting] = useState(false);
     const [form] = Form.useForm();
 
@@ -26,6 +28,7 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
             onCancel();
             form.resetFields();
             if (onSuccess) onSuccess();
+            router.push("/");
         } catch {
             // Error handled in context
         } finally {
@@ -109,6 +112,9 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
                             }}
                         />
                     </Form.Item>
+                    <Text type="secondary" style={{ display: 'block', marginTop: -6, marginBottom: 12 }}>
+                        ระบบจะเทียบกับยอดคาดหวังจากเงินเริ่มต้น + ยอดชำระเงินสดของกะนี้
+                    </Text>
 
                     <div className="flex gap-4" style={{ display: 'flex', gap: 12, marginTop: 24 }}>
                         <Button 

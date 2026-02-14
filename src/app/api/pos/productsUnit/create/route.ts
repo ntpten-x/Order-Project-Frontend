@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { productsUnitService } from "../../../../../services/pos/productsUnit.service";
+import { handleApiRouteError } from "../../../_utils/route-error";
 
 export async function POST(request: NextRequest) {
     try {
@@ -10,8 +11,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(productsUnit, { status: 201 });
     } catch (error: unknown) {
         console.error("Error creating productsUnit:", error);
-        const errorMessage = error instanceof Error ? error.message : "Internal Server Error";
-        return NextResponse.json({ error: errorMessage }, { status: 500 });
+        return handleApiRouteError(error);
     }
 }
-

@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Form, Input, Select, message, Spin, Switch, Modal, Button, Card, Row, Col, Typography, Alert, Tag } from 'antd';
+import { Form, Input, message, Spin, Switch, Modal, Button, Card, Row, Col, Typography, Alert, Tag } from 'antd';
 import { useRouter } from 'next/navigation';
 import PageContainer from '../../../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../../../components/ui/page/PageSection';
@@ -13,7 +13,9 @@ import {
     CheckCircleFilled,
     AppstoreOutlined,
     InfoCircleOutlined,
-    ExclamationCircleOutlined
+    ExclamationCircleOutlined,
+    CheckCircleOutlined,
+    DownOutlined
 } from '@ant-design/icons';
 import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
 import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
@@ -126,12 +128,13 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
     const [csrfToken, setCsrfToken] = useState<string>('');
     const [originalTable, setOriginalTable] = useState<Tables | null>(null);
     const [currentTableName, setCurrentTableName] = useState<string>('');
+    const [isStatusModalVisible, setIsStatusModalVisible] = useState(false);
 
     const mode = params.mode?.[0] as TablesManageMode | undefined;
     const id = params.mode?.[1] || null;
     const isValidMode = mode === 'add' || mode === 'edit';
     const isEdit = mode === 'edit' && Boolean(id);
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager'] });
+    const { isAuthorized, isChecking } = useRoleGuard();
 
     const modeTitle = useMemo(() => {
         if (isEdit) return 'แก้ไขข้อมูลโต๊ะ';
@@ -364,14 +367,26 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                                             label={<span style={{ fontWeight: 600, color: '#334155' }}>สถานะโต๊ะ</span>}
                                             rules={[{ required: true, message: 'กรุณาเลือกสถานะโต๊ะ' }]}
                                         >
-                                            <Select
-                                                size="large"
-                                                style={{ borderRadius: 12 }}
-                                                options={[
-                                                    { value: TableStatus.Available, label: 'ว่าง (Available)' },
-                                                    { value: TableStatus.Unavailable, label: 'ไม่ว่าง (Unavailable)' }
-                                                ]}
-                                            />
+                                            <div 
+                                                onClick={() => setIsStatusModalVisible(true)}
+                                                style={{
+                                                    padding: '10px 16px',
+                                                    borderRadius: 12,
+                                                    border: '2px solid',
+                                                    cursor: 'pointer',
+                                                    background: status ? 'linear-gradient(135deg, #F5F3FF 0%, #EDE9FE 100%)' : '#fff',
+                                                    borderColor: status ? '#7C3AED' : '#e2e8f0',
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    minHeight: 46
+                                                }}
+                                            >
+                                                <span style={{ color: status ? '#1e293b' : '#94a3b8', fontWeight: status ? 600 : 400 }}>
+                                                    {status === TableStatus.Available ? 'ว่าง (Available)' : 'ไม่ว่าง (Unavailable)'}
+                                                </span>
+                                                <DownOutlined style={{ fontSize: 12, color: '#94a3b8' }} />
+                                            </div>
                                         </Form.Item>
 
                                         <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: 14, marginTop: 16, marginBottom: 18 }}>
@@ -452,6 +467,50 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                     )}
                 </PageSection>
             </PageContainer>
+            
+            {/* Status Selection Modal */}
+            <Modal
+                title="เลือกสถานะโต๊ะ"
+                open={isStatusModalVisible}
+                onCancel={() => setIsStatusModalVisible(false)}
+                footer={null}
+                centered
+                width={400}
+                styles={{ body: { padding: '12px 16px 24px' } }}
+            >
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+                    {[
+                        { value: TableStatus.Available, label: 'ว่าง (Available)' },
+                        { value: TableStatus.Unavailable, label: 'ไม่ว่าง (Unavailable)' }
+                    ].map(opt => (
+                        <div
+                            key={opt.value}
+                            onClick={() => {
+                                form.setFieldsValue({ status: opt.value });
+                                setStatus(opt.value);
+                                setIsStatusModalVisible(false);
+                            }}
+                            style={{
+                                padding: '14px 18px',
+                                border: '2px solid',
+                                borderRadius: 12,
+                                cursor: 'pointer',
+                                background: status === opt.value ? '#f5f3ff' : '#fff',
+                                borderColor: status === opt.value ? '#7c3aed' : '#e5e7eb',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center',
+                                minHeight: 54
+                            }}
+                        >
+                            <span style={{ fontWeight: status === opt.value ? 600 : 400 }}>
+                                {opt.label}
+                            </span>
+                            {status === opt.value && <CheckCircleOutlined style={{ color: '#7c3aed', fontSize: 18 }} />}
+                        </div>
+                    ))}
+                </div>
+            </Modal>
         </div>
     );
 }

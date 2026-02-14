@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PROXY_CONFIGS } from "../../../../../lib/proxy-utils";
+import { handleApiRouteError } from "../../../_utils/route-error";
 
 export async function GET(request: NextRequest) {
     try {
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json(data);
     } catch (error: unknown) {
         console.error("[API Proxy] Proxy Execution Error (GET):", (error as Error).message);
-        return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+        return handleApiRouteError(error);
     }
 }
 
@@ -63,6 +64,6 @@ export async function POST(request: NextRequest) {
         return NextResponse.json(data);
     } catch (error: unknown) {
         console.error("[API Proxy] Proxy Execution Error (POST):", (error as Error).message);
-        return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+        return handleApiRouteError(error);
     }
 }

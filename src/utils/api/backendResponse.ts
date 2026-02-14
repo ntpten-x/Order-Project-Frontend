@@ -60,6 +60,35 @@ export function getBackendErrorMessage(payload: unknown, fallback: string = "Req
     return fallback;
 }
 
+export class BackendHttpError extends Error {
+    status: number;
+    payload?: unknown;
+
+    constructor(status: number, message: string, payload?: unknown) {
+        super(message);
+        this.name = "BackendHttpError";
+        this.status = status;
+        this.payload = payload;
+    }
+}
+
+export function createBackendHttpError(
+    status: number,
+    payload: unknown,
+    fallback: string = "Request failed"
+): BackendHttpError {
+    return new BackendHttpError(status, getBackendErrorMessage(payload, fallback), payload);
+}
+
+export function throwBackendHttpError(
+    responseOrStatus: Response | number,
+    payload: unknown,
+    fallback: string = "Request failed"
+): never {
+    const status = typeof responseOrStatus === "number" ? responseOrStatus : responseOrStatus.status;
+    throw createBackendHttpError(status, payload, fallback);
+}
+
 export function normalizeBackendPaginated<T>(payload: unknown): {
     data: T[];
     total: number;

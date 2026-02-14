@@ -1,0 +1,20 @@
+{
+  "generatedAt": "2026-02-13T09:52:14.460Z",
+  "scannedFiles": [
+    "src/components/BottomNavigation.tsx",
+    "src/components/pos/POSBottomNavigation.tsx",
+    "src/components/stock/StockBottomNavigation.tsx",
+    "src/components/users/UsersBottomNavigation.tsx",
+    "src/components/branch/BranchBottomNavigation.tsx",
+    "src/app/(main)/page.tsx"
+  ],
+  "menuKeys": {
+    "usedCount": 32,
+    "ruleCount": 32,
+    "missingInRules": [],
+    "unusedRuleKeys": []
+  },
+  "permissionChecks": {
+    "uniqueResourceKeys": []
+  }
+}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { productsService } from "../../../../../../services/pos/products.service";
+import { handleApiRouteError } from "../../../../_utils/route-error";
 
 export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
     try {
@@ -7,7 +8,7 @@ export async function DELETE(request: NextRequest, { params }: { params: { id: s
         const csrfToken = request.headers.get("X-CSRF-Token") || "";
         await productsService.delete(params.id, cookie, csrfToken);
         return NextResponse.json({ message: "Product deleted successfully" });
-    } catch {
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    } catch (error) {
+        return handleApiRouteError(error);
     }
 }

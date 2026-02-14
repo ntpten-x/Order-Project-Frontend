@@ -2,17 +2,38 @@ import { Branch, CreateBranchInput, UpdateBranchInput } from "../types/api/branc
 import { API_ROUTES } from "../config/api";
 import { getProxyUrl } from "../lib/proxy-utils";
 import { BranchSchema, BranchesResponseSchema } from "../schemas/api/branch.schema";
-import { getBackendErrorMessage, unwrapBackendData } from "../utils/api/backendResponse";
+import { normalizeBackendPaginated, throwBackendHttpError, unwrapBackendData } from "../utils/api/backendResponse";
 
 const BASE_PATH = API_ROUTES.POS.BRANCH;
 
 export const branchService = {
-    getAll: async (cookie?: string): Promise<Branch[]> => {
-        const url = getProxyUrl("GET", BASE_PATH);
+    getAllPaginated: async (
+        cookie?: string,
+        searchParams?: URLSearchParams
+    ): Promise<{ data: Branch[]; total: number; page: number; last_page: number }> => {
+        let url = getProxyUrl("GET", BASE_PATH);
+        if (searchParams?.toString()) {
+            url += `?${searchParams.toString()}`;
+        }
         const headers: HeadersInit = {};
         if (cookie) headers.Cookie = cookie;
 
         const response = await fetch(url!, {
+            cache: "no-store",
+            credentials: "include",
+            headers
+        });
+        if (!response.ok) throw new Error("Failed to fetch branches");
+        return normalizeBackendPaginated<Branch>(await response.json());
+    },
+
+    getAll: async (cookie?: string, searchParams?: URLSearchParams): Promise<Branch[]> => {
+        const url = getProxyUrl("GET", BASE_PATH);
+        const finalUrl = searchParams?.toString() ? `${url}?${searchParams.toString()}` : url;
+        const headers: HeadersInit = {};
+        if (cookie) headers.Cookie = cookie;
+
+        const response = await fetch(finalUrl!, {
             cache: "no-store",
             credentials: 'include',
             headers
@@ -20,7 +41,21 @@ export const branchService = {
         if (!response.ok) throw new Error('Failed to fetch branches');
 
         const json = await response.json();
-        return BranchesResponseSchema.parse(unwrapBackendData(json)) as unknown as Branch[];
+        const unwrapped = unwrapBackendData<unknown>(json);
+        if (Array.isArray(unwrapped)) {
+            return BranchesResponseSchema.parse(unwrapped) as unknown as Branch[];
+        }
+
+        if (
+            unwrapped &&
+            typeof unwrapped === "object" &&
+            "data" in unwrapped &&
+            Array.isArray((unwrapped as { data: unknown }).data)
+        ) {
+            return BranchesResponseSchema.parse((unwrapped as { data: unknown[] }).data) as unknown as Branch[];
+        }
+
+        throw new Error("Invalid branches response");
     },
 
     getById: async (id: string, cookie?: string): Promise<Branch> => {
@@ -53,7 +88,7 @@ export const branchService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, 'Failed to create branch'));
+            throwBackendHttpError(response, errorData, 'Failed to create branch');
         }
         return unwrapBackendData(await response.json()) as Branch;
     },
@@ -72,7 +107,7 @@ export const branchService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, 'Failed to update branch'));
+            throwBackendHttpError(response, errorData, 'Failed to update branch');
         }
         return unwrapBackendData(await response.json()) as Branch;
     },
@@ -90,7 +125,7 @@ export const branchService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, 'Failed to delete branch'));
+            throwBackendHttpError(response, errorData, 'Failed to delete branch');
         }
     }
 };

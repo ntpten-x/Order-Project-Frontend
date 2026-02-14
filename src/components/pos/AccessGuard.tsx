@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Spin, Typography, ConfigProvider } from "antd";
+import { Spin, Typography, ConfigProvider, Button, Space, message as antdMessage } from "antd";
 import { LockFilled, LoadingOutlined } from "@ant-design/icons";
 
 const { Text, Title } = Typography;
@@ -37,6 +37,34 @@ export const AccessGuardFallback = ({ message, tone = "secondary" }: AccessGuard
                     </Title>
                     <Text type={tone} style={{ fontSize: 16 }}>{message}</Text>
                 </div>
+
+                {tone === "danger" ? (
+                    <Space size={8} wrap>
+                        <Button onClick={() => window.location.reload()}>ลองอีกครั้ง</Button>
+                        <Button onClick={() => { window.location.href = "/"; }}>
+                            กลับไปหน้าหลัก
+                        </Button>
+                        <Button
+                            type="primary"
+                            onClick={async () => {
+                                const path = typeof window !== "undefined" ? window.location.pathname : "";
+                                const requestText = `Request access\nPath: ${path}\nReason: access denied\nTime: ${new Date().toISOString()}`;
+                                if (typeof navigator !== "undefined" && navigator.clipboard) {
+                                    try {
+                                        await navigator.clipboard.writeText(requestText);
+                                        antdMessage.success("คัดลอกข้อความขอสิทธิ์แล้ว ส่งให้ผู้ดูแลระบบได้ทันที");
+                                        return;
+                                    } catch {
+                                        // Fall through to hint message.
+                                    }
+                                }
+                                antdMessage.info("กรุณาติดต่อผู้ดูแลระบบเพื่อขอสิทธิ์ใช้งาน");
+                            }}
+                        >
+                            ขอสิทธิ์ใช้งาน
+                        </Button>
+                    </Space>
+                ) : null}
             </div>
         </ConfigProvider>
 
