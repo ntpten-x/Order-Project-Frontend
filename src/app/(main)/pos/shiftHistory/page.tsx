@@ -1,35 +1,27 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Typography,
     Button,
-    Input,
     Space,
-    Segmented,
     Tag,
     DatePicker,
     Modal,
     Spin,
-    Pagination,
-    Card
 } from 'antd';
 import {
     HistoryOutlined,
     ReloadOutlined,
-    SearchOutlined,
     ClockCircleOutlined,
-    RiseOutlined,
-    SafetyCertificateOutlined,
     CalendarOutlined,
-    DownOutlined,
     CheckCircleOutlined
 } from '@ant-design/icons';
 import dayjs, { Dayjs } from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import 'dayjs/locale/th';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useSocket } from '../../../../hooks/useSocket';
 import { useRoleGuard } from '../../../../utils/pos/accessControl';
 import { shiftsService } from '../../../../services/pos/shifts.service';
@@ -41,17 +33,26 @@ import {
 } from '../../../../types/api/pos/shifts';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
+import ShiftSummaryModal from '../../../../components/pos/shifts/ShiftSummaryModal';
 import PageContainer from '../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../components/ui/page/PageSection';
 import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
+import PageState from '../../../../components/ui/states/PageState';
 import { pageStyles, globalStyles } from '../../../../theme/pos/shiftHistory/style';
+import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
+import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../../lib/list-sort';
+import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
+import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
+import { SearchInput } from "../../../../components/ui/input/SearchInput";
+import { SearchBar } from "../../../../components/ui/page/SearchBar";
 
 dayjs.extend(duration);
 dayjs.locale('th');
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 const { RangePicker } = DatePicker;
 
 type StatusFilter = 'all' | ShiftStatus;
@@ -60,7 +61,13 @@ function toNumber(value: number | string | null | undefined) {
     return Number(value || 0);
 }
 
-function formatMoney(value: number | string | null | undefined) {
+function formatMoney(
+    value: number | string | null | undefined,
+    options?: { dashWhenNull?: boolean }
+) {
+    if (options?.dashWhenNull && (value === null || value === undefined || value === "")) {
+        return "-";
+    }
     return `฿${toNumber(value).toLocaleString('th-TH')}`;
 }
 
@@ -90,6 +97,7 @@ function ShiftHistoryCard({
     onViewSummary: (id: string) => void;
 }) {
     const isClosed = shift.status === ShiftStatus.CLOSED;
+    const diffNumber = shift.diff_amount === null || shift.diff_amount === undefined ? null : toNumber(shift.diff_amount);
 
     return (
         <div
@@ -123,12 +131,12 @@ function ShiftHistoryCard({
 
                     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, marginTop: 10 }}>
                         <MiniMetric label="เงินเริ่มต้น" value={formatMoney(shift.start_amount)} color="#334155" />
-                        <MiniMetric label="ยอดคาดหวัง" value={formatMoney(shift.expected_amount)} color="#0369a1" />
-                        <MiniMetric label="ยอดนับจริง" value={formatMoney(shift.end_amount)} color="#0f766e" />
+                        <MiniMetric label="ยอดคาดหวัง" value={formatMoney(shift.expected_amount, { dashWhenNull: true })} color="#0369a1" />
+                        <MiniMetric label="ยอดนับจริง" value={formatMoney(shift.end_amount, { dashWhenNull: true })} color="#0f766e" />
                         <MiniMetric
                             label="ผลต่าง"
-                            value={formatMoney(shift.diff_amount)}
-                            color={toNumber(shift.diff_amount) >= 0 ? '#059669' : '#dc2626'}
+                            value={formatMoney(shift.diff_amount, { dashWhenNull: true })}
+                            color={diffNumber === null ? '#64748b' : diffNumber >= 0 ? '#059669' : '#dc2626'}
                         />
                     </div>
                 </div>
@@ -141,6 +149,8 @@ function ShiftHistoryCard({
     );
 }
 
+
+
 function MiniMetric({ label, value, color }: { label: string; value: string; color: string }) {
     return (
         <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: '8px 10px' }}>
@@ -152,18 +162,23 @@ function MiniMetric({ label, value, color }: { label: string; value: string; col
 
 export default function ShiftHistoryPage() {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const queryClient = useQueryClient();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager', 'Employee'] });
+    const { isAuthorized, isChecking } = useRoleGuard();
+    const isUrlReadyRef = useRef(false);
 
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(10);
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
     const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
     const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
     const [isDateModalVisible, setIsDateModalVisible] = useState(false);
     const [isCustomDate, setIsCustomDate] = useState(false);
+    const debouncedSearch = useDebouncedValue(searchText, 300);
 
     const dateFrom = useMemo(
         () => (dateRange?.[0] ? dateRange[0].startOf('day').toISOString() : undefined),
@@ -173,6 +188,48 @@ export default function ShiftHistoryPage() {
         () => (dateRange?.[1] ? dateRange[1].endOf('day').toISOString() : undefined),
         [dateRange]
     );
+
+    useEffect(() => {
+        if (isUrlReadyRef.current) return;
+
+        const pageParam = Number(searchParams.get('page') || '1');
+        const limitParam = Number(searchParams.get('limit') || '10');
+        const qParam = searchParams.get('q') || '';
+        const statusParam = searchParams.get('status');
+        const fromParam = searchParams.get('date_from');
+        const toParam = searchParams.get('date_to');
+        const sortParam = searchParams.get('sort_created');
+
+        const parsedFrom = fromParam ? dayjs(fromParam) : null;
+        const parsedTo = toParam ? dayjs(toParam) : null;
+        const nextStatus: StatusFilter =
+            statusParam === ShiftStatus.OPEN || statusParam === ShiftStatus.CLOSED ? statusParam : 'all';
+
+        setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
+        setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 10);
+        setCreatedSort(parseCreatedSort(sortParam));
+        setSearchText(qParam);
+        setStatusFilter(nextStatus);
+        if (parsedFrom?.isValid() || parsedTo?.isValid()) {
+            setDateRange([parsedFrom?.isValid() ? parsedFrom : null, parsedTo?.isValid() ? parsedTo : null]);
+        }
+        isUrlReadyRef.current = true;
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!isUrlReadyRef.current) return;
+        const params = new URLSearchParams();
+        if (page > 1) params.set('page', String(page));
+        if (pageSize !== 10) params.set('limit', String(pageSize));
+        if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+        if (statusFilter !== 'all') params.set('status', statusFilter);
+        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
+        if (dateFrom) params.set('date_from', dateFrom);
+        if (dateTo) params.set('date_to', dateTo);
+
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter, createdSort, dateFrom, dateTo]);
 
     const dateLabel = useMemo(() => {
         if (!dateRange || (!dateRange[0] && !dateRange[1])) return 'ทั้งหมด';
@@ -191,13 +248,14 @@ export default function ShiftHistoryPage() {
     ];
 
     const historyQuery = useQuery<ShiftHistoryResponse>({
-        queryKey: ['shiftHistory', page, pageSize, searchText, statusFilter, dateFrom, dateTo],
+        queryKey: ['shiftHistory', page, pageSize, debouncedSearch, statusFilter, createdSort, dateFrom, dateTo],
         queryFn: async () => {
             return shiftsService.getHistory({
                 page,
                 limit: pageSize,
-                q: searchText.trim() || undefined,
+                q: debouncedSearch.trim() || undefined,
                 status: statusFilter === 'all' ? undefined : statusFilter,
+                sort_created: createdSort,
                 date_from: dateFrom,
                 date_to: dateTo
             });
@@ -266,70 +324,83 @@ export default function ShiftHistoryPage() {
 
             <PageContainer>
                 <PageStack>
-                    <PageSection title="ภาพรวม">
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-                            <MetricCard label="จำนวนกะทั้งหมด" value={String(totalCount)} color="#0f172a" icon={<ClockCircleOutlined />} />
-                            <MetricCard label="กะที่เปิดอยู่" value={String(openCount)} color="#059669" icon={<Tag color="green">OPEN</Tag>} />
-                            <MetricCard label="กะที่ปิดแล้ว" value={String(closedCount)} color="#64748b" icon={<Tag>CLOSED</Tag>} />
-                            <MetricCard label="รวมเงินเริ่มต้น" value={formatMoney(stats?.total_start_amount)} color="#0369a1" icon={<SafetyCertificateOutlined />} />
-                            <MetricCard label="รวมยอดนับจริง" value={formatMoney(stats?.total_end_amount)} color="#0f766e" icon={<WalletIcon />} />
-                            <MetricCard label="รวมผลต่าง" value={formatMoney(stats?.total_diff_amount)} color={toNumber(stats?.total_diff_amount) >= 0 ? '#059669' : '#dc2626'} icon={<RiseOutlined />} />
-                        </div>
-                    </PageSection>
+                    <StatsGroup
+                        stats={[
+                            { label: 'จำนวนกะทั้งหมด', value: totalCount, color: '#0f172a' },
+                            { label: 'กะที่เปิดอยู่', value: openCount, color: '#059669' },
+                            { label: 'กะที่ปิดแล้ว', value: closedCount, color: '#64748b' },
+                            { label: 'รวมเงินเริ่มต้น', value: formatMoney(stats?.total_start_amount), color: '#0369a1' },
+                            { label: 'รวมยอดนับจริง', value: formatMoney(stats?.total_end_amount), color: '#0f766e' },
+                            { label: 'รวมผลต่าง', value: formatMoney(stats?.total_diff_amount), color: toNumber(stats?.total_diff_amount) >= 0 ? '#059669' : '#dc2626' },
+                        ]}
+                    />
 
-                    <PageSection title="ค้นหาและตัวกรอง">
-                        <div style={{ display: 'grid', gap: 10 }}>
-                            <Input
-                                allowClear
-                                prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
-                                placeholder="ค้นหาจาก Shift ID, username หรือชื่อผู้เปิดกะ"
-                                value={searchText}
-                                onChange={(e) => {
-                                    setPage(1);
-                                    setSearchText(e.target.value);
-                                }}
-                            />
-
-                            <Segmented<StatusFilter>
-                                value={statusFilter}
-                                onChange={(value) => {
-                                    setPage(1);
-                                    setStatusFilter(value);
-                                }}
-                                options={[
-                                    { label: `ทั้งหมด (${totalCount})`, value: 'all' },
-                                    { label: `OPEN (${openCount})`, value: ShiftStatus.OPEN },
-                                    { label: `CLOSED (${closedCount})`, value: ShiftStatus.CLOSED },
-                                ]}
-                            />
-
+                    <SearchBar>
+                        <SearchInput
+                            placeholder="ค้นหาจาก Shift ID, username หรือชื่อผู้เปิดกะ"
+                            value={searchText}
+                            onChange={(val) => {
+                                setPage(1);
+                                setSearchText(val);
+                            }}
+                        />
+                        <ModalSelector<StatusFilter>
+                            title="เลือกสถานะ"
+                            options={[
+                                { label: `ทั้งหมด (${totalCount})`, value: 'all' },
+                                { label: `OPEN (${openCount})`, value: ShiftStatus.OPEN },
+                                { label: `CLOSED (${closedCount})`, value: ShiftStatus.CLOSED },
+                            ]}
+                            value={statusFilter}
+                            onChange={(value) => {
+                                setPage(1);
+                                setStatusFilter(value);
+                            }}
+                            style={{ minWidth: 150 }}
+                        />
+                        <div style={{ flex: 1, minWidth: 150 }}>
                             <div 
                                 onClick={() => setIsDateModalVisible(true)}
                                 style={{
-                                    padding: '10px 14px',
-                                    border: '1px solid #e2e8f0',
-                                    borderRadius: 12,
-                                    background: '#fff',
+                                    padding: '12px 16px',
+                                    border: '2px solid #e2e8f0',
+                                    borderRadius: 14,
+                                    background: (dateRange && (dateRange[0] || dateRange[1])) ? 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)' : '#fff',
+                                    borderColor: (dateRange && (dateRange[0] || dateRange[1])) ? '#4F46E5' : '#e2e8f0',
                                     display: 'flex',
                                     justifyContent: 'space-between',
                                     alignItems: 'center',
-                                    cursor: 'pointer'
+                                    cursor: 'pointer',
+                                    minHeight: 48,
+                                    transition: 'all 0.2s ease'
                                 }}
                             >
                                 <Space>
-                                    <CalendarOutlined style={{ color: '#64748b' }} />
-                                    <Text>{dateLabel}</Text>
+                                    <CalendarOutlined style={{ color: (dateRange && (dateRange[0] || dateRange[1])) ? '#4F46E5' : '#94a3b8' }} />
+                                    <Text style={{ 
+                                        color: (dateRange && (dateRange[0] || dateRange[1])) ? '#1e293b' : '#94a3b8',
+                                        fontWeight: (dateRange && (dateRange[0] || dateRange[1])) ? 600 : 400
+                                    }}>
+                                        {dateLabel}
+                                    </Text>
                                 </Space>
-                                <DownOutlined style={{ fontSize: 12, color: '#94a3b8' }} />
+                                <CheckCircleOutlined style={{ fontSize: 12, color: (dateRange && (dateRange[0] || dateRange[1])) ? '#4F46E5' : '#94a3b8' }} />
                             </div>
                         </div>
-                    </PageSection>
+                    </SearchBar>
 
                     <PageSection title="รายการประวัติกะ" extra={<span style={{ fontWeight: 600 }}>{rows.length}</span>}>
                         {historyQuery.isLoading ? (
                             <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
                                 <Spin size="large" />
                             </div>
+                        ) : historyQuery.isError ? (
+                            <PageState
+                                status="error"
+                                title="โหลดประวัติกะไม่สำเร็จ"
+                                error={historyQuery.error}
+                                onRetry={() => historyQuery.refetch()}
+                            />
                         ) : rows.length > 0 ? (
                             <>
                                 {rows.map((shift) => (
@@ -340,15 +411,23 @@ export default function ShiftHistoryPage() {
                                     />
                                 ))}
 
-                                <div style={{ display: 'flex', justifyContent: 'center', marginTop: 16 }}>
-                                    <Pagination
-                                        current={pagination?.page || page}
+                                <div style={{ marginTop: 16 }}>
+                                    <ListPagination
+                                        page={pagination?.page || page}
                                         pageSize={pagination?.limit || pageSize}
                                         total={pagination?.total || 0}
-                                        showSizeChanger
-                                        onChange={(nextPage, nextPageSize) => {
+                                        loading={historyQuery.isFetching}
+                                        onPageChange={(nextPage: number) => {
                                             setPage(nextPage);
+                                        }}
+                                        onPageSizeChange={(nextPageSize: number) => {
+                                            setPage(1);
                                             setPageSize(nextPageSize);
+                                        }}
+                                        sortCreated={createdSort}
+                                        onSortCreatedChange={(nextSort: CreatedSort) => {
+                                            setPage(1);
+                                            setCreatedSort(nextSort);
                                         }}
                                     />
                                 </div>
@@ -363,66 +442,14 @@ export default function ShiftHistoryPage() {
                 </PageStack>
             </PageContainer>
 
-            <Modal
+            <ShiftSummaryModal
                 open={Boolean(selectedShiftId)}
-                title="สรุปข้อมูลกะ"
-                onCancel={() => setSelectedShiftId(null)}
-                footer={null}
-                width={760}
-            >
-                {summaryQuery.isLoading ? (
-                    <div style={{ padding: '40px 0', textAlign: 'center' }}>
-                        <Spin />
-                    </div>
-                ) : summaryQuery.data ? (
-                    <div style={{ display: 'grid', gap: 12 }}>
-                        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: 10 }}>
-                            <ModalMetric label="ยอดขายรวม" value={formatMoney(summaryQuery.data.summary.total_sales)} color="#10b981" />
-                            <ModalMetric label="กำไรสุทธิ" value={formatMoney(summaryQuery.data.summary.net_profit)} color="#0369a1" />
-                            <ModalMetric label="เงินเริ่มต้น" value={formatMoney(summaryQuery.data.shift_info.start_amount)} color="#334155" />
-                            <ModalMetric label="ผลต่าง" value={formatMoney(summaryQuery.data.shift_info.diff_amount)} color={toNumber(summaryQuery.data.shift_info.diff_amount) >= 0 ? '#059669' : '#dc2626'} />
-                        </div>
-
-                        <Card size="small" title="วิธีชำระเงิน">
-                            <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))' }}>
-                                {Object.entries(summaryQuery.data.summary.payment_methods || {}).map(([method, amount]) => (
-                                    <div key={method} style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: '8px 10px' }}>
-                                        <Text type="secondary">{method}</Text>
-                                        <div style={{ fontWeight: 700 }}>{formatMoney(amount)}</div>
-                                    </div>
-                                ))}
-                            </div>
-                        </Card>
-
-                        <Card size="small" title="สินค้าขายดี">
-                            {summaryQuery.data.top_products.length > 0 ? (
-                                <div style={{ display: 'grid', gap: 8 }}>
-                                    {summaryQuery.data.top_products.map((item, idx) => (
-                                        <div
-                                            key={`${item.id}-${idx}`}
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                border: '1px solid #e2e8f0',
-                                                borderRadius: 10,
-                                                padding: '8px 10px'
-                                            }}
-                                        >
-                                            <Text strong>{idx + 1}. {item.name}</Text>
-                                            <Text>{item.quantity} {item.unit || 'หน่วย'} | {formatMoney(item.revenue)}</Text>
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <Text type="secondary">ไม่พบข้อมูลสินค้าขายดี</Text>
-                            )}
-                        </Card>
-                    </div>
-                ) : (
-                    <Text type="secondary">ไม่พบข้อมูลสรุปกะ</Text>
-                )}
-            </Modal>
+                onClose={() => setSelectedShiftId(null)}
+                summary={summaryQuery.data ?? null}
+                loading={summaryQuery.isLoading}
+                error={summaryQuery.isError ? summaryQuery.error : null}
+                onRetry={() => summaryQuery.refetch()}
+            />
 
             {/* Date Selection Modal */}
             <Modal
@@ -513,29 +540,4 @@ export default function ShiftHistoryPage() {
             </Modal>
         </div>
     );
-}
-
-function MetricCard({ label, value, color, icon }: { label: string; value: string; color: string; icon: React.ReactNode }) {
-    return (
-        <Card size="small" style={{ borderRadius: 12 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ color }}>{icon}</span>
-                <Text type="secondary">{label}</Text>
-            </div>
-            <Title level={4} style={{ margin: '8px 0 0', color }}>{value}</Title>
-        </Card>
-    );
-}
-
-function ModalMetric({ label, value, color }: { label: string; value: string; color: string }) {
-    return (
-        <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: '10px 12px' }}>
-            <Text type="secondary">{label}</Text>
-            <div style={{ fontSize: 20, fontWeight: 700, color }}>{value}</div>
-        </div>
-    );
-}
-
-function WalletIcon() {
-    return <SafetyCertificateOutlined />;
 }

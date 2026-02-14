@@ -102,6 +102,7 @@ export interface ShiftHistoryQuery {
     limit?: number;
     q?: string;
     status?: ShiftStatus;
+    sort_created?: "old" | "new";
     date_from?: string;
     date_to?: string;
 }

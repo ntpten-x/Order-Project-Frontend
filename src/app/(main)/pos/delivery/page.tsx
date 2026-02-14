@@ -1,18 +1,17 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { message, Modal, Typography, Button, Input, Space, Segmented, Tag, Switch, Avatar } from 'antd';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { message, Modal, Typography, Button, Space, Tag, Switch, Avatar } from 'antd';
 import {
     CarOutlined,
     PlusOutlined,
     ReloadOutlined,
     EditOutlined,
     DeleteOutlined,
-    SearchOutlined,
     ShopOutlined
 } from '@ant-design/icons';
 import { Delivery } from '../../../../types/api/pos/delivery';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useAsyncAction } from '../../../../hooks/useAsyncAction';
 import { useSocket } from '../../../../hooks/useSocket';
@@ -21,6 +20,7 @@ import { useRoleGuard } from '../../../../utils/pos/accessControl';
 import { useRealtimeList } from '../../../../utils/pos/realtime';
 import { readCache, writeCache } from '../../../../utils/pos/cache';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
+import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 import { pageStyles, globalStyles } from '../../../../theme/pos/delivery/style';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 import PageContainer from '../../../../components/ui/page/PageContainer';
@@ -28,16 +28,17 @@ import PageSection from '../../../../components/ui/page/PageSection';
 import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
+import type { CreatedSort } from '../../../../components/ui/pagination/ListPagination';
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../../lib/list-sort';
+import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
+import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
+import { SearchInput } from "../../../../components/ui/input/SearchInput";
+import { SearchBar } from "../../../../components/ui/page/SearchBar";
+import { resolveImageSource } from "../../../../utils/image/source";
 
 const { Text } = Typography;
 
 type StatusFilter = 'all' | 'active' | 'inactive';
-
-interface StatsCardProps {
-    totalDelivery: number;
-    activeDelivery: number;
-    inactiveDelivery: number;
-}
 
 interface DeliveryCardProps {
     delivery: Delivery;
@@ -56,30 +57,7 @@ const formatDate = (raw: string | Date) => {
     }).format(date);
 };
 
-const StatsCard = ({ totalDelivery, activeDelivery, inactiveDelivery }: StatsCardProps) => (
-    <div style={{
-        background: '#fff',
-        borderRadius: 16,
-        border: '1px solid #e2e8f0',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-        gap: 8,
-        padding: 14
-    }}>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', display: 'block' }}>{totalDelivery}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ทั้งหมด</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#0891B2', display: 'block' }}>{activeDelivery}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ใช้งาน</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#b91c1c', display: 'block' }}>{inactiveDelivery}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ปิดใช้งาน</Text>
-        </div>
-    </div>
-);
+
 
 const DeliveryCard = ({ delivery, onEdit, onDelete, onToggleActive, updatingStatusId }: DeliveryCardProps) => {
     return (
@@ -95,7 +73,7 @@ const DeliveryCard = ({ delivery, onEdit, onDelete, onToggleActive, updatingStat
                 <Avatar
                     shape="square"
                     size={52}
-                    src={delivery.logo || undefined}
+                    src={resolveImageSource(delivery.logo) || undefined}
                     icon={<CarOutlined />}
                     style={{
                         borderRadius: 14,
@@ -180,29 +158,65 @@ const DeliveryCard = ({ delivery, onEdit, onDelete, onToggleActive, updatingStat
 
 export default function DeliveryPage() {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const isUrlReadyRef = useRef(false);
     const [deliveries, setDeliveries] = useState<Delivery[]>([]);
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+    const debouncedSearch = useDebouncedValue(searchText, 300);
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager'] });
+    const { isAuthorized, isChecking } = useRoleGuard();
 
     useEffect(() => {
         getCsrfTokenCached();
     }, []);
 
     useEffect(() => {
+        if (isUrlReadyRef.current) return;
+
+        const qParam = searchParams.get('q') || '';
+        const statusParam = searchParams.get('status');
+        const sortParam = searchParams.get('sort_created');
+        const nextStatus: StatusFilter =
+            statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all';
+
+        setSearchText(qParam);
+        setStatusFilter(nextStatus);
+        setCreatedSort(parseCreatedSort(sortParam));
+        isUrlReadyRef.current = true;
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!isUrlReadyRef.current) return;
+
+        const params = new URLSearchParams();
+        if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+        if (statusFilter !== 'all') params.set('status', statusFilter);
+        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
+
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }, [router, pathname, debouncedSearch, statusFilter, createdSort]);
+
+    useEffect(() => {
+        if (createdSort !== DEFAULT_CREATED_SORT) return;
         const cached = readCache<Delivery[]>('pos:delivery-providers', 5 * 60 * 1000);
         if (cached && cached.length > 0) {
             setDeliveries(cached);
         }
-    }, []);
+    }, [createdSort]);
 
     const fetchDeliveries = useCallback(async () => {
         execute(async () => {
-            const response = await fetch('/api/pos/delivery?limit=200');
+            const params = new URLSearchParams();
+            params.set('limit', '200');
+            params.set('sort_created', createdSort);
+            const response = await fetch(`/api/pos/delivery?${params.toString()}`);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลช่องทางจัดส่งได้');
@@ -212,7 +226,7 @@ export default function DeliveryPage() {
             if (!Array.isArray(data)) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
             setDeliveries(data);
         }, 'กำลังโหลดข้อมูลช่องทางจัดส่ง...');
-    }, [execute]);
+    }, [execute, createdSort]);
 
     useEffect(() => {
         if (isAuthorized) {
@@ -227,10 +241,10 @@ export default function DeliveryPage() {
     );
 
     useEffect(() => {
-        if (deliveries.length > 0) {
+        if (createdSort === DEFAULT_CREATED_SORT && deliveries.length > 0) {
             writeCache('pos:delivery-providers', deliveries);
         }
-    }, [deliveries]);
+    }, [deliveries, createdSort]);
 
     const filteredDeliveries = useMemo(() => {
         let result = deliveries;
@@ -241,7 +255,7 @@ export default function DeliveryPage() {
             result = result.filter((item) => !item.is_active);
         }
 
-        const keyword = searchText.trim().toLowerCase();
+        const keyword = debouncedSearch.trim().toLowerCase();
         if (keyword) {
             result = result.filter((item) =>
                 item.delivery_name.toLowerCase().includes(keyword) ||
@@ -250,7 +264,7 @@ export default function DeliveryPage() {
         }
 
         return result;
-    }, [deliveries, searchText, statusFilter]);
+    }, [deliveries, debouncedSearch, statusFilter]);
 
     const handleAdd = () => {
         showLoading('กำลังเปิดหน้าจัดการช่องทางจัดส่ง...');
@@ -353,32 +367,44 @@ export default function DeliveryPage() {
 
             <PageContainer>
                 <PageStack>
-                    <StatsCard
-                        totalDelivery={deliveries.length}
-                        activeDelivery={activeDeliveries}
-                        inactiveDelivery={inactiveDeliveries}
+                    <StatsGroup
+                        stats={[
+                            { label: 'ทั้งหมด', value: deliveries.length, color: '#0f172a' },
+                            { label: 'ใช้งาน', value: activeDeliveries, color: '#0891B2' },
+                            { label: 'ปิดใช้งาน', value: inactiveDeliveries, color: '#b91c1c' },
+                        ]}
                     />
 
-                    <PageSection title="ค้นหาและตัวกรอง">
-                        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: '1fr', alignItems: 'center' }}>
-                            <Input
-                                prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
-                                allowClear
-                                placeholder="ค้นหาจากชื่อช่องทาง หรือ prefix..."
-                                value={searchText}
-                                onChange={(e) => setSearchText(e.target.value)}
-                            />
-                            <Segmented<StatusFilter>
-                                options={[
-                                    { label: `ทั้งหมด (${deliveries.length})`, value: 'all' },
-                                    { label: `ใช้งาน (${activeDeliveries})`, value: 'active' },
-                                    { label: `ปิดใช้งาน (${inactiveDeliveries})`, value: 'inactive' }
-                                ]}
-                                value={statusFilter}
-                                onChange={(value) => setStatusFilter(value)}
-                            />
-                        </div>
-                    </PageSection>
+                    <SearchBar>
+                        <SearchInput
+                            placeholder="ค้นหาจากชื่อช่องทาง หรือ prefix..."
+                            value={searchText}
+                            onChange={(val) => {
+                                setSearchText(val);
+                            }}
+                        />
+                        <ModalSelector<StatusFilter>
+                            title="เลือกสถานะ"
+                            options={[
+                                { label: `ทั้งหมด (${deliveries.length})`, value: 'all' },
+                                { label: `ใช้งาน (${activeDeliveries})`, value: 'active' },
+                                { label: `ปิดใช้งาน (${inactiveDeliveries})`, value: 'inactive' }
+                            ]}
+                            value={statusFilter}
+                            onChange={(value) => setStatusFilter(value)}
+                            style={{ minWidth: 150 }}
+                        />
+                        <ModalSelector<CreatedSort>
+                            title="เรียงลำดับ"
+                            options={[
+                                { label: 'เรียงจากเก่าก่อน', value: 'old' },
+                                { label: 'เรียงจากใหม่ก่อน', value: 'new' },
+                            ]}
+                            value={createdSort}
+                            onChange={(value) => setCreatedSort(value)}
+                            style={{ minWidth: 150 }}
+                        />
+                    </SearchBar>
 
                     <PageSection
                         title="รายการช่องทางจัดส่ง"
@@ -398,17 +424,17 @@ export default function DeliveryPage() {
                         ) : (
                             <UIEmptyState
                                 title={
-                                    searchText.trim()
+                                    debouncedSearch.trim()
                                         ? 'ไม่พบช่องทางจัดส่งตามคำค้น'
                                         : 'ยังไม่มีช่องทางจัดส่ง'
                                 }
                                 description={
-                                    searchText.trim()
+                                    debouncedSearch.trim()
                                         ? 'ลองเปลี่ยนคำค้น หรือตัวกรองสถานะ'
                                         : 'เพิ่มช่องทางจัดส่งแรกเพื่อเริ่มใช้งาน'
                                 }
                                 action={
-                                    !searchText.trim() ? (
+                                    !debouncedSearch.trim() ? (
                                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                                             เพิ่มช่องทางจัดส่ง
                                         </Button>

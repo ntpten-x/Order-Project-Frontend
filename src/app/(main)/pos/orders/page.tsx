@@ -2,8 +2,8 @@
 
 import { useOrderListPrefetching } from "../../../../hooks/pos/usePrefetching";
 
-import React, { useEffect, useMemo, useState, useCallback } from "react";
-import { Typography, Button, Grid, Input, Skeleton } from "antd";
+import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { Typography, Button, Grid, Input, Skeleton, Segmented } from "antd";
 import { 
   ReloadOutlined, 
   ClockCircleOutlined,
@@ -16,7 +16,7 @@ import {
   FireOutlined,
   WalletOutlined,
 } from "@ant-design/icons";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SalesOrder, OrderStatus, OrderType } from "../../../../types/api/pos/salesOrder";
 import { ItemStatus } from "../../../../types/api/pos/salesOrderItem";
 import { 
@@ -36,6 +36,8 @@ import PageContainer from "../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../components/ui/page/PageSection";
 import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import PageState from "../../../../components/ui/states/PageState";
+import type { CreatedSort } from "../../../../components/ui/pagination/ListPagination";
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from "../../../../lib/list-sort";
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -152,13 +154,17 @@ const responsiveCSS = `
 
 export default function POSOrdersPage() {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const screens = useBreakpoint();
     const isMobile = !screens.md;
+    const isUrlReadyRef = useRef(false);
     
     useOrderListPrefetching();
 
     const [page, setPage] = useState(1);
     const [activeTab, setActiveTab] = useState<StatusTab>('all');
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
     const [searchValue, setSearchValue] = useState("");
     const [showSearch, setShowSearch] = useState(false);
     const debouncedSearch = useDebouncedValue(searchValue.trim(), 400);
@@ -167,14 +173,40 @@ export default function POSOrdersPage() {
     const currentTabConfig = STATUS_TABS.find(t => t.key === activeTab)!;
 
     useEffect(() => {
-        setPage(1);
-    }, [debouncedSearch, activeTab]);
+        if (isUrlReadyRef.current) return;
+        const pageParam = Number(searchParams.get("page") || "1");
+        const qParam = searchParams.get("q") || "";
+        const tabParam = searchParams.get("tab");
+        const sortParam = searchParams.get("sort_created");
+        const nextTab: StatusTab =
+            tabParam === "in-progress" || tabParam === "waiting-payment" ? tabParam : "all";
+
+        setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
+        setSearchValue(qParam);
+        setShowSearch(Boolean(qParam.trim()));
+        setActiveTab(nextTab);
+        setCreatedSort(parseCreatedSort(sortParam));
+        isUrlReadyRef.current = true;
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!isUrlReadyRef.current) return;
+        const params = new URLSearchParams();
+        if (page > 1) params.set("page", String(page));
+        if (debouncedSearch) params.set("q", debouncedSearch);
+        if (activeTab !== "all") params.set("tab", activeTab);
+        if (createdSort !== DEFAULT_CREATED_SORT) params.set("sort_created", createdSort);
+
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }, [router, pathname, page, debouncedSearch, activeTab, createdSort]);
 
     const { orders, total, isLoading, isFetching, isError, refetch } = useOrders({
         page,
         limit: LIMIT,
         status: currentTabConfig.apiStatus,
-        query: debouncedSearch || undefined
+        query: debouncedSearch || undefined,
+        sortCreated: createdSort,
     });
 
     const getEffectiveStatus = useCallback((order: SalesOrder): OrderStatus => {
@@ -255,7 +287,12 @@ export default function POSOrdersPage() {
                 />
                 <PageContainer>
                     <PageSection>
-                        <PageState status="error" title="เกิดข้อผิดพลาด ไม่สามารถโหลดข้อมูลได้" onRetry={() => refetch()} />
+                        <PageState
+                            status="error"
+                            title="เกิดข้อผิดพลาด ไม่สามารถโหลดข้อมูลได้"
+                            error={isError}
+                            onRetry={() => refetch()}
+                        />
                     </PageSection>
                 </PageContainer>
             </div>
@@ -319,7 +356,10 @@ export default function POSOrdersPage() {
                             prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
                             placeholder="ค้นหาเลขที่ออเดอร์ โต๊ะ หรือรหัสอ้างอิง..."
                             value={searchValue}
-                            onChange={(e) => setSearchValue(e.target.value)}
+                            onChange={(e) => {
+                                setPage(1);
+                                setSearchValue(e.target.value);
+                            }}
                             variant="borderless"
                             style={{ fontSize: 15 }}
                         />
@@ -348,7 +388,10 @@ export default function POSOrdersPage() {
                             <button
                                 key={tab.key}
                                 className="orders-tab-btn"
-                                onClick={() => setActiveTab(tab.key)}
+                                onClick={() => {
+                                    setPage(1);
+                                    setActiveTab(tab.key);
+                                }}
                                 style={{
                                     display: 'flex',
                                     alignItems: 'center',
@@ -388,6 +431,20 @@ export default function POSOrdersPage() {
                             </button>
                         );
                     })}
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                    <Segmented<CreatedSort>
+                        options={[
+                            { label: 'เก่าก่อน', value: 'old' },
+                            { label: 'ใหม่ก่อน', value: 'new' },
+                        ]}
+                        value={createdSort}
+                        onChange={(value) => {
+                            setPage(1);
+                            setCreatedSort(value);
+                        }}
+                    />
                 </div>
 
                 {/* ═══ Orders List ═══ */}

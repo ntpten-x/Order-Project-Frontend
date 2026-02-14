@@ -1,7 +1,7 @@
 import { Tables } from "../../types/api/pos/tables";
 import { getProxyUrl } from "../../lib/proxy-utils";
 import { API_ROUTES } from "../../config/api";
-import { getBackendErrorMessage, normalizeBackendPaginated, unwrapBackendData } from "../../utils/api/backendResponse";
+import { normalizeBackendPaginated, throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = API_ROUTES.POS.TABLES;
 
@@ -31,7 +31,7 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch tables"));
+            throwBackendHttpError(response, errorData, "Failed to fetch tables");
         }
         return normalizeBackendPaginated<Tables>(await response.json());
     },
@@ -47,7 +47,7 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch tables"));
+            throwBackendHttpError(response, errorData, "Failed to fetch tables");
         }
         return unwrapBackendData(await response.json()) as Tables;
     },
@@ -63,7 +63,7 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch tables"));
+            throwBackendHttpError(response, errorData, "Failed to fetch tables");
         }
         return unwrapBackendData(await response.json()) as Tables;
     },
@@ -81,7 +81,7 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to create table"));
+            throwBackendHttpError(response, errorData, "Failed to create table");
         }
         return unwrapBackendData(await response.json()) as Tables;
     },
@@ -99,7 +99,7 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to update table"));
+            throwBackendHttpError(response, errorData, "Failed to update table");
         }
         return unwrapBackendData(await response.json()) as Tables;
     },
@@ -116,7 +116,7 @@ export const tablesService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to delete table"));
+            throwBackendHttpError(response, errorData, "Failed to delete table");
         }
     }
 };

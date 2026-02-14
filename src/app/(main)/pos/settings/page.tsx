@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Typography, Button, Space, Tag, message, Input, Segmented, Grid, Skeleton, Card } from 'antd';
 import {
     SettingOutlined,
@@ -12,7 +12,7 @@ import {
     SearchOutlined,
     SwapOutlined
 } from '@ant-design/icons';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { paymentAccountService } from '../../../../services/pos/paymentAccount.service';
 import { ShopPaymentAccount } from '../../../../types/api/pos/shopPaymentAccount';
 import { getCsrfTokenCached } from '../../../../utils/pos/csrf';
@@ -27,6 +27,7 @@ import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import { pageStyles } from '../../../../theme/pos/settings/style';
+import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 
 const { Text } = Typography;
 
@@ -89,10 +90,13 @@ function SectionLoadingSkeleton({ compact = false }: { compact?: boolean }) {
 
 export default function POSSettingsPage() {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const { socket } = useSocket();
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.md;
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager'] });
+    const { isAuthorized, isChecking } = useRoleGuard();
+    const isUrlReadyRef = useRef(false);
 
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -100,6 +104,31 @@ export default function POSSettingsPage() {
     const [activatingId, setActivatingId] = useState<string | null>(null);
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+    const debouncedSearch = useDebouncedValue(searchText, 300);
+
+    useEffect(() => {
+        if (isUrlReadyRef.current) return;
+
+        const qParam = searchParams.get('q') || '';
+        const statusParam = searchParams.get('status');
+        const nextStatus: StatusFilter =
+            statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all';
+
+        setSearchText(qParam);
+        setStatusFilter(nextStatus);
+        isUrlReadyRef.current = true;
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!isUrlReadyRef.current) return;
+
+        const params = new URLSearchParams();
+        if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+        if (statusFilter !== 'all') params.set('status', statusFilter);
+
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }, [router, pathname, debouncedSearch, statusFilter]);
 
     const fetchAccounts = useCallback(async (silent = false) => {
         try {
@@ -158,7 +187,7 @@ export default function POSSettingsPage() {
             result = result.filter((item) => !item.is_active);
         }
 
-        const keyword = searchText.trim().toLowerCase();
+        const keyword = debouncedSearch.trim().toLowerCase();
         if (keyword) {
             result = result.filter((item) =>
                 item.account_name.toLowerCase().includes(keyword) ||
@@ -167,7 +196,7 @@ export default function POSSettingsPage() {
         }
 
         return result;
-    }, [promptPayAccounts, statusFilter, searchText]);
+    }, [promptPayAccounts, statusFilter, debouncedSearch]);
 
     const handleActivate = async (id: string, accountName: string) => {
         setActivatingId(id);
@@ -388,14 +417,14 @@ export default function POSSettingsPage() {
                             </div>
                         ) : (
                             <UIEmptyState
-                                title={searchText.trim() ? 'ไม่พบบัญชีตามคำค้น' : 'ยังไม่มีบัญชีพร้อมเพย์'}
+                                title={debouncedSearch.trim() ? 'ไม่พบบัญชีตามคำค้น' : 'ยังไม่มีบัญชีพร้อมเพย์'}
                                 description={
-                                    searchText.trim()
+                                    debouncedSearch.trim()
                                         ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรอง'
                                         : 'เพิ่มบัญชีพร้อมเพย์เพื่อเริ่มใช้งานการชำระเงิน'
                                 }
                                 action={
-                                    !searchText.trim() ? (
+                                    !debouncedSearch.trim() ? (
                                         <Button
                                             type="primary"
                                             icon={<PlusOutlined />}

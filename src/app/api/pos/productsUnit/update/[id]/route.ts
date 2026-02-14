@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { productsUnitService } from "../../../../../../services/pos/productsUnit.service";
+import { handleApiRouteError } from "../../../../_utils/route-error";
 
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
     try {
@@ -8,7 +9,7 @@ export async function PUT(request: NextRequest, { params }: { params: { id: stri
         const body = await request.json();
         const productsUnit = await productsUnitService.update(params.id, body, cookie, csrfToken);
         return NextResponse.json(productsUnit);
-    } catch {
-        return NextResponse.json({ error: "Internal Server Error" }, { status: 500 });
+    } catch (error) {
+        return handleApiRouteError(error);
     }
 }

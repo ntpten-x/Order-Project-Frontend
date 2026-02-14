@@ -10,6 +10,8 @@ import {
 } from "@ant-design/icons";
 import { useAuth } from "../contexts/AuthContext";
 import { useSocket } from "../hooks/useSocket";
+import { useEffectivePermissions } from "../hooks/useEffectivePermissions";
+import { canViewMenu } from "../lib/rbac/menu-visibility";
 import { ordersService } from "../services/stock/orders.service";
 import { useState, useEffect } from "react";
 import FloatingBottomNav from "./navigation/FloatingBottomNav";
@@ -19,8 +21,14 @@ const BottomNavigation = () => {
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuth();
+  const { can, canAny, rows } = useEffectivePermissions({ enabled: Boolean(user?.id) });
   const [pendingCount, setPendingCount] = useState(0);
   const { socket } = useSocket();
+  const canSeeMenu = React.useCallback(
+    (menuKey: string) => canViewMenu(menuKey, { rows, can, canAny }),
+    [rows, can, canAny]
+  );
+  const canViewOrdersMenu = canSeeMenu("menu.main.orders");
 
   const checkPendingOrders = React.useCallback(async () => {
     try {
@@ -36,11 +44,11 @@ const BottomNavigation = () => {
   }, []);
 
   useEffect(() => {
-    if (user) checkPendingOrders();
-  }, [user, checkPendingOrders]);
+    if (user && canViewOrdersMenu) checkPendingOrders();
+  }, [user, canViewOrdersMenu, checkPendingOrders]);
 
   useEffect(() => {
-      if (!socket) return;
+      if (!socket || !canViewOrdersMenu) return;
       const scheduleRefresh = () => setTimeout(checkPendingOrders, 500);
       const handleLegacyUpdate = (payload: { action?: string }) => {
           if (payload?.action === 'create' || payload?.action === 'update_status') {
@@ -60,34 +68,38 @@ const BottomNavigation = () => {
           socket.off(LegacyRealtimeEvents.stockOrdersUpdated, handleLegacyUpdate);
           window.removeEventListener('focus', onFocus);
       };
-  }, [socket, checkPendingOrders]);
+  }, [socket, canViewOrdersMenu, checkPendingOrders]);
 
   const menuItems = [
     {
       key: 'home',
+      visibilityKey: "menu.main.home",
       label: 'Home',
       icon: <HomeOutlined />,
       path: '/',
     },
     {
         key: 'stock-home',
+        visibilityKey: "menu.main.stock",
         label: 'Stock',
         icon: <AppstoreOutlined />,
         path: '/stock',
     },
     {
       key: 'items',
+      visibilityKey: "menu.main.orders",
       label: 'Orders',
       icon: <FileTextOutlined />,
       path: '/stock/items',
     },
-    ...((user?.role === 'Admin' || user?.role === 'Manager') ? [{
+    {
       key: 'manage',
+      visibilityKey: "menu.main.users",
       label: 'Users',
       icon: <UserOutlined />,
       path: '/users', 
-    }] : []),
-  ];
+    },
+  ].filter((item) => canSeeMenu(item.visibilityKey));
 
 
 
@@ -106,7 +118,7 @@ const BottomNavigation = () => {
           icon: item.icon,
           onClick: () => router.push(item.path),
           active: isActive,
-          badgeDot: item.key === "items" && pendingCount > 0,
+          badgeDot: item.key === "items" && canViewOrdersMenu && pendingCount > 0,
           ariaLabel: item.label,
         };
       })}

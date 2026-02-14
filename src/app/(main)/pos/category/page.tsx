@@ -1,7 +1,7 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { message, Modal, Typography, Button, Input, Space, Segmented, Tag, Switch } from 'antd';
+import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import { message, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
 import {
     TagsOutlined,
     ShopOutlined,
@@ -9,10 +9,9 @@ import {
     ReloadOutlined,
     EditOutlined,
     DeleteOutlined,
-    SearchOutlined
 } from '@ant-design/icons';
 import { Category } from '../../../../types/api/pos/category';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useAsyncAction } from '../../../../hooks/useAsyncAction';
 import { useSocket } from '../../../../hooks/useSocket';
@@ -27,42 +26,20 @@ import PageSection from '../../../../components/ui/page/PageSection';
 import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
+import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
+import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../../lib/list-sort';
+import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
+import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
+import { SearchInput } from "../../../../components/ui/input/SearchInput";
+import { SearchBar } from "../../../../components/ui/page/SearchBar";
 
 const { Text } = Typography;
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 
-interface StatsCardProps {
-    totalCategories: number;
-    activeCategories: number;
-    inactiveCategories: number;
-}
 
-const StatsCard = ({ totalCategories, activeCategories, inactiveCategories }: StatsCardProps) => (
-    <div style={{
-        background: '#fff',
-        borderRadius: 16,
-        border: '1px solid #e2e8f0',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-        gap: 8,
-        padding: 14
-    }}>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', display: 'block' }}>{totalCategories}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ทั้งหมด</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f766e', display: 'block' }}>{activeCategories}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ใช้งาน</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#b91c1c', display: 'block' }}>{inactiveCategories}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ปิดใช้งาน</Text>
-        </div>
-    </div>
-);
 
 interface CategoryCardProps {
     category: Category;
@@ -187,14 +164,22 @@ const CategoryCard = ({ category, onEdit, onDelete, onToggleActive, updatingStat
 
 export default function CategoryPage() {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const isUrlReadyRef = useRef(false);
     const [categories, setCategories] = useState<Category[]>([]);
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(20);
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
+    const [totalCategories, setTotalCategories] = useState(0);
+    const debouncedSearch = useDebouncedValue(searchText, 300);
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager'] });
+    const { isAuthorized, isChecking } = useRoleGuard();
 
     useEffect(() => {
         getCsrfTokenCached();
@@ -207,25 +192,61 @@ export default function CategoryPage() {
         }
     }, []);
 
-    const fetchCategories = useCallback(async () => {
+    useEffect(() => {
+        if (isUrlReadyRef.current) return;
+        const pageParam = parseInt(searchParams.get('page') || '1', 10);
+        const limitParam = parseInt(searchParams.get('limit') || '20', 10);
+        const qParam = searchParams.get('q') || '';
+        const statusParam = searchParams.get('status');
+        const sortParam = searchParams.get('sort_created');
+        setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
+        setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 20);
+        setSearchText(qParam);
+        setStatusFilter(statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all');
+        setCreatedSort(parseCreatedSort(sortParam));
+        isUrlReadyRef.current = true;
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!isUrlReadyRef.current) return;
+        const params = new URLSearchParams();
+        params.set('page', String(page));
+        params.set('limit', String(pageSize));
+        if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+        if (statusFilter !== 'all') params.set('status', statusFilter);
+        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
+        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
+    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter, createdSort]);
+
+    const fetchCategories = useCallback(async (nextPage: number = page, nextPageSize: number = pageSize) => {
         execute(async () => {
-            const response = await fetch('/api/pos/category');
+            const params = new URLSearchParams();
+            params.set('page', String(nextPage));
+            params.set('limit', String(nextPageSize));
+            if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+            if (statusFilter !== 'all') params.set('status', statusFilter);
+            params.set('sort_created', createdSort);
+            const response = await fetch(`/api/pos/category?${params.toString()}`);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลหมวดหมู่ได้');
             }
             const payload = await response.json();
-            const data = Array.isArray(payload) ? payload : payload?.data;
+            const data = Array.isArray(payload?.data) ? payload.data : [];
             if (!Array.isArray(data)) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
             setCategories(data);
+            setTotalCategories(typeof payload?.total === 'number' ? payload.total : 0);
+            setPage(typeof payload?.page === 'number' ? payload.page : nextPage);
+            setPageSize(nextPageSize);
         }, 'กำลังโหลดข้อมูลหมวดหมู่...');
-    }, [execute]);
+    }, [execute, page, pageSize, debouncedSearch, statusFilter, createdSort]);
 
     useEffect(() => {
+        if (!isUrlReadyRef.current) return;
         if (isAuthorized) {
             fetchCategories();
         }
-    }, [isAuthorized, fetchCategories]);
+    }, [isAuthorized, fetchCategories, page, pageSize]);
 
     useRealtimeList(
         socket,
@@ -233,25 +254,7 @@ export default function CategoryPage() {
         setCategories
     );
 
-    const filteredCategories = useMemo(() => {
-        let result = categories;
-
-        if (statusFilter === 'active') {
-            result = result.filter((item) => item.is_active);
-        } else if (statusFilter === 'inactive') {
-            result = result.filter((item) => !item.is_active);
-        }
-
-        const keyword = searchText.trim().toLowerCase();
-        if (keyword) {
-            result = result.filter((item) =>
-                item.display_name.toLowerCase().includes(keyword) ||
-                item.category_name.toLowerCase().includes(keyword)
-            );
-        }
-
-        return result;
-    }, [categories, searchText, statusFilter]);
+    const filteredCategories = useMemo(() => categories, [categories]);
 
     useEffect(() => {
         if (categories.length > 0) {
@@ -290,7 +293,7 @@ export default function CategoryPage() {
                     if (!response.ok) {
                         throw new Error('ไม่สามารถลบหมวดหมู่ได้');
                     }
-                    setCategories((prev) => prev.filter((item) => item.id !== category.id));
+                    await fetchCategories(page, pageSize);
                     message.success(`ลบหมวดหมู่ "${category.display_name}" สำเร็จ`);
                 }, 'กำลังลบหมวดหมู่...');
             },
@@ -315,8 +318,7 @@ export default function CategoryPage() {
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถเปลี่ยนสถานะหมวดหมู่ได้');
             }
 
-            const updated = await response.json();
-            setCategories((prev) => prev.map((item) => item.id === category.id ? updated : item));
+            await fetchCategories(page, pageSize);
             message.success(next ? 'เปิดใช้งานหมวดหมู่แล้ว' : 'ปิดใช้งานหมวดหมู่แล้ว');
         } catch (error) {
             console.error(error);
@@ -343,14 +345,14 @@ export default function CategoryPage() {
 
             <UIPageHeader
                 title="หมวดหมู่สินค้า"
-                subtitle={`ทั้งหมด ${categories.length} รายการ`}
+                subtitle={`ทั้งหมด ${totalCategories} รายการ`}
                 icon={<TagsOutlined />}
                 actions={
                     <Space size={8} wrap>
                         <Button icon={<ShopOutlined />} onClick={() => router.push('/pos/products')}>
                             ไปหน้าสินค้า
                         </Button>
-                        <Button icon={<ReloadOutlined />} onClick={fetchCategories} />
+                        <Button icon={<ReloadOutlined />} onClick={() => { void fetchCategories(); }} />
                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                             เพิ่มหมวดหมู่
                         </Button>
@@ -360,32 +362,38 @@ export default function CategoryPage() {
 
             <PageContainer>
                 <PageStack>
-                    <StatsCard
-                        totalCategories={categories.length}
-                        activeCategories={activeCategories.length}
-                        inactiveCategories={inactiveCategories.length}
+                    <StatsGroup
+                        stats={[
+                            { label: 'ทั้งหมด', value: totalCategories, color: '#0f172a' },
+                            { label: 'ใช้งาน', value: activeCategories.length, color: '#0f766e' },
+                            { label: 'ปิดใช้งาน', value: inactiveCategories.length, color: '#b91c1c' },
+                        ]}
                     />
 
-                    <PageSection title="ค้นหาและตัวกรอง">
-                        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: '1fr', alignItems: 'center' }}>
-                            <Input
-                                prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
-                                allowClear
-                                placeholder="ค้นหาจากชื่อแสดงหรือชื่อระบบ..."
-                                value={searchText}
-                                onChange={(e) => setSearchText(e.target.value)}
-                            />
-                            <Segmented<StatusFilter>
-                                options={[
-                                    { label: `ทั้งหมด (${categories.length})`, value: 'all' },
-                                    { label: `ใช้งาน (${activeCategories.length})`, value: 'active' },
-                                    { label: `ปิดใช้งาน (${inactiveCategories.length})`, value: 'inactive' }
-                                ]}
-                                value={statusFilter}
-                                onChange={(value) => setStatusFilter(value)}
-                            />
-                        </div>
-                    </PageSection>
+                    <SearchBar>
+                        <SearchInput
+                            placeholder="ค้นหาจากชื่อแสดงหรือชื่อระบบ..."
+                            value={searchText}
+                            onChange={(val) => {
+                                setPage(1);
+                                setSearchText(val);
+                            }}
+                        />
+                        <ModalSelector<StatusFilter>
+                            title="เลือกสถานะ"
+                            options={[
+                                { label: `ทั้งหมด (${categories.length})`, value: 'all' },
+                                { label: `ใช้งาน (${activeCategories.length})`, value: 'active' },
+                                { label: `ปิดใช้งาน (${inactiveCategories.length})`, value: 'inactive' }
+                            ]}
+                            value={statusFilter}
+                            onChange={(value) => {
+                                setPage(1);
+                                setStatusFilter(value);
+                            }}
+                            style={{ minWidth: 150 }}
+                        />
+                    </SearchBar>
 
                     <PageSection
                         title="รายการหมวดหมู่"
@@ -423,6 +431,21 @@ export default function CategoryPage() {
                                 }
                             />
                         )}
+                        <ListPagination
+                            page={page}
+                            pageSize={pageSize}
+                            total={totalCategories}
+                            onPageChange={setPage}
+                            onPageSizeChange={(size) => {
+                                setPage(1);
+                                setPageSize(size);
+                            }}
+                            sortCreated={createdSort}
+                            onSortCreatedChange={(next) => {
+                                setPage(1);
+                                setCreatedSort(next);
+                            }}
+                        />
                     </PageSection>
                 </PageStack>
             </PageContainer>

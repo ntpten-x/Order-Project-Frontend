@@ -1,18 +1,17 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { message, Modal, Typography, Button, Input, Space, Segmented, Tag, Switch } from 'antd';
+import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import { message, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
 import {
     TableOutlined,
     PlusOutlined,
     ReloadOutlined,
     EditOutlined,
     DeleteOutlined,
-    SearchOutlined,
     CheckCircleFilled
 } from '@ant-design/icons';
 import { Tables, TableStatus } from '../../../../types/api/pos/tables';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useAsyncAction } from '../../../../hooks/useAsyncAction';
 import { useSocket } from '../../../../hooks/useSocket';
@@ -28,19 +27,18 @@ import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
+import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
+import type { CreatedSort } from '../../../../components/ui/pagination/ListPagination';
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../../lib/list-sort';
+import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
+import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
+import { SearchInput } from "../../../../components/ui/input/SearchInput";
+import { SearchBar } from "../../../../components/ui/page/SearchBar";
 
 const { Text } = Typography;
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 type TableStateFilter = 'all' | TableStatus.Available | TableStatus.Unavailable;
-
-interface StatsCardProps {
-    total: number;
-    active: number;
-    inactive: number;
-    available: number;
-    unavailable: number;
-}
 
 interface TableCardProps {
     table: Tables;
@@ -63,38 +61,7 @@ const getTableStatusLabel = (status: TableStatus) => {
     return status === TableStatus.Available ? 'ว่าง' : 'ไม่ว่าง';
 };
 
-const StatsCard = ({ total, active, inactive, available, unavailable }: StatsCardProps) => (
-    <div style={{
-        background: '#fff',
-        borderRadius: 16,
-        border: '1px solid #e2e8f0',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
-        gap: 8,
-        padding: 14
-    }}>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', display: 'block' }}>{total}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ทั้งหมด</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#7C3AED', display: 'block' }}>{active}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ใช้งาน</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#b91c1c', display: 'block' }}>{inactive}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ปิดใช้งาน</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#059669', display: 'block' }}>{available}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>สถานะว่าง</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#d97706', display: 'block' }}>{unavailable}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>สถานะไม่ว่าง</Text>
-        </div>
-    </div>
-);
+
 
 const TableCard = ({ table, onEdit, onDelete, onToggleActive, updatingStatusId }: TableCardProps) => {
     const isAvailable = table.status === TableStatus.Available;
@@ -204,30 +171,74 @@ const TableCard = ({ table, onEdit, onDelete, onToggleActive, updatingStatusId }
 
 export default function TablesPage() {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
+    const isUrlReadyRef = useRef(false);
     const [tables, setTables] = useState<Tables[]>([]);
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
     const [tableStateFilter, setTableStateFilter] = useState<TableStateFilter>('all');
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+    const debouncedSearch = useDebouncedValue(searchText, 300);
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager'] });
+    const { isAuthorized, isChecking } = useRoleGuard();
 
     useEffect(() => {
         getCsrfTokenCached();
     }, []);
 
     useEffect(() => {
+        if (isUrlReadyRef.current) return;
+
+        const qParam = searchParams.get('q') || '';
+        const statusParam = searchParams.get('status');
+        const tableStateParam = searchParams.get('table_state');
+        const sortParam = searchParams.get('sort_created');
+
+        const nextStatus: StatusFilter =
+            statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all';
+        const nextTableState: TableStateFilter =
+            tableStateParam === TableStatus.Available || tableStateParam === TableStatus.Unavailable
+                ? tableStateParam
+                : 'all';
+
+        setSearchText(qParam);
+        setStatusFilter(nextStatus);
+        setTableStateFilter(nextTableState);
+        setCreatedSort(parseCreatedSort(sortParam));
+        isUrlReadyRef.current = true;
+    }, [searchParams]);
+
+    useEffect(() => {
+        if (!isUrlReadyRef.current) return;
+
+        const params = new URLSearchParams();
+        if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+        if (statusFilter !== 'all') params.set('status', statusFilter);
+        if (tableStateFilter !== 'all') params.set('table_state', tableStateFilter);
+        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
+
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }, [router, pathname, debouncedSearch, statusFilter, tableStateFilter, createdSort]);
+
+    useEffect(() => {
+        if (createdSort !== DEFAULT_CREATED_SORT) return;
         const cached = readCache<Tables[]>('pos:tables', 5 * 60 * 1000);
         if (cached && cached.length > 0) {
             setTables(cached);
         }
-    }, []);
+    }, [createdSort]);
 
     const fetchTables = useCallback(async () => {
         execute(async () => {
-            const response = await fetch('/api/pos/tables?limit=200');
+            const params = new URLSearchParams();
+            params.set('limit', '200');
+            params.set('sort_created', createdSort);
+            const response = await fetch(`/api/pos/tables?${params.toString()}`);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลโต๊ะได้');
@@ -237,7 +248,7 @@ export default function TablesPage() {
             if (!Array.isArray(data)) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
             setTables(data);
         }, 'กำลังโหลดข้อมูลโต๊ะ...');
-    }, [execute]);
+    }, [execute, createdSort]);
 
     useEffect(() => {
         if (isAuthorized) {
@@ -252,10 +263,10 @@ export default function TablesPage() {
     );
 
     useEffect(() => {
-        if (tables.length > 0) {
+        if (createdSort === DEFAULT_CREATED_SORT && tables.length > 0) {
             writeCache('pos:tables', tables);
         }
-    }, [tables]);
+    }, [tables, createdSort]);
 
     const filteredTables = useMemo(() => {
         let result = tables;
@@ -270,7 +281,7 @@ export default function TablesPage() {
             result = result.filter((item) => item.status === tableStateFilter);
         }
 
-        const keyword = searchText.trim().toLowerCase();
+        const keyword = debouncedSearch.trim().toLowerCase();
         if (keyword) {
             result = result.filter((item) =>
                 item.table_name.toLowerCase().includes(keyword) ||
@@ -279,7 +290,7 @@ export default function TablesPage() {
         }
 
         return result;
-    }, [tables, searchText, statusFilter, tableStateFilter]);
+    }, [tables, debouncedSearch, statusFilter, tableStateFilter]);
 
     const handleAdd = () => {
         showLoading('กำลังเปิดหน้าจัดการโต๊ะ...');
@@ -381,43 +392,57 @@ export default function TablesPage() {
 
             <PageContainer>
                 <PageStack>
-                    <StatsCard
-                        total={tables.length}
-                        active={activeCount}
-                        inactive={inactiveCount}
-                        available={availableCount}
-                        unavailable={unavailableCount}
+                    <StatsGroup
+                        stats={[
+                            { label: 'ทั้งหมด', value: tables.length, color: '#0f172a' },
+                            { label: 'ใช้งาน', value: activeCount, color: '#7C3AED' },
+                            { label: 'ปิดใช้งาน', value: inactiveCount, color: '#b91c1c' },
+                            { label: 'สถานะว่าง', value: availableCount, color: '#059669' },
+                            { label: 'สถานะไม่ว่าง', value: unavailableCount, color: '#d97706' },
+                        ]}
                     />
 
-                    <PageSection title="ค้นหาและตัวกรอง">
-                        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: '1fr', alignItems: 'center' }}>
-                            <Input
-                                prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
-                                allowClear
-                                placeholder="ค้นหาจากชื่อโต๊ะหรือสถานะออเดอร์..."
-                                value={searchText}
-                                onChange={(e) => setSearchText(e.target.value)}
-                            />
-                            <Segmented<StatusFilter>
-                                options={[
-                                    { label: `ทั้งหมด (${tables.length})`, value: 'all' },
-                                    { label: `ใช้งาน (${activeCount})`, value: 'active' },
-                                    { label: `ปิดใช้งาน (${inactiveCount})`, value: 'inactive' }
-                                ]}
-                                value={statusFilter}
-                                onChange={(value) => setStatusFilter(value)}
-                            />
-                            <Segmented<TableStateFilter>
-                                options={[
-                                    { label: `ทุกสถานะ (${tables.length})`, value: 'all' },
-                                    { label: `ว่าง (${availableCount})`, value: TableStatus.Available },
-                                    { label: `ไม่ว่าง (${unavailableCount})`, value: TableStatus.Unavailable }
-                                ]}
-                                value={tableStateFilter}
-                                onChange={(value) => setTableStateFilter(value)}
-                            />
-                        </div>
-                    </PageSection>
+                    <SearchBar>
+                        <SearchInput
+                            placeholder="ค้นหาจากชื่อโต๊ะหรือสถานะออเดอร์..."
+                            value={searchText}
+                            onChange={(val) => {
+                                setSearchText(val);
+                            }}
+                        />
+                        <ModalSelector<StatusFilter>
+                            title="เลือกสถานะ"
+                            options={[
+                                { label: `ทั้งหมด (${tables.length})`, value: 'all' },
+                                { label: `ใช้งาน (${activeCount})`, value: 'active' },
+                                { label: `ปิดใช้งาน (${inactiveCount})`, value: 'inactive' }
+                            ]}
+                            value={statusFilter}
+                            onChange={(value) => setStatusFilter(value)}
+                            style={{ minWidth: 120 }}
+                        />
+                        <ModalSelector<TableStateFilter>
+                            title="สถานะโต๊ะ"
+                            options={[
+                                { label: `ทุกสถานะ (${tables.length})`, value: 'all' },
+                                { label: `ว่าง (${availableCount})`, value: TableStatus.Available },
+                                { label: `ไม่ว่าง (${unavailableCount})`, value: TableStatus.Unavailable }
+                            ]}
+                            value={tableStateFilter}
+                            onChange={(value) => setTableStateFilter(value)}
+                            style={{ minWidth: 120 }}
+                        />
+                        <ModalSelector<CreatedSort>
+                            title="เรียงลำดับ"
+                            options={[
+                                { label: 'เรียงจากเก่าก่อน', value: 'old' },
+                                { label: 'เรียงจากใหม่ก่อน', value: 'new' },
+                            ]}
+                            value={createdSort}
+                            onChange={(value) => setCreatedSort(value)}
+                            style={{ minWidth: 120 }}
+                        />
+                    </SearchBar>
 
                     <PageSection
                         title="รายการโต๊ะ"
@@ -437,17 +462,17 @@ export default function TablesPage() {
                         ) : (
                             <UIEmptyState
                                 title={
-                                    searchText.trim()
+                                    debouncedSearch.trim()
                                         ? 'ไม่พบโต๊ะตามคำค้น'
                                         : 'ยังไม่มีโต๊ะในระบบ'
                                 }
                                 description={
-                                    searchText.trim()
+                                    debouncedSearch.trim()
                                         ? 'ลองเปลี่ยนคำค้น หรือตัวกรองสถานะ'
                                         : 'เพิ่มโต๊ะแรกเพื่อเริ่มใช้งาน'
                                 }
                                 action={
-                                    !searchText.trim() ? (
+                                    !debouncedSearch.trim() ? (
                                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                                             เพิ่มโต๊ะ
                                         </Button>

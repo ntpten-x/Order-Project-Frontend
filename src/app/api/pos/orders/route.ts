@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ordersService } from "../../../../services/pos/orders.service";
+import { handleApiRouteError } from "../../_utils/route-error";
 
 // GET: Fetch all orders
 export async function GET(request: NextRequest) {
@@ -15,10 +16,7 @@ export async function GET(request: NextRequest) {
         const data = await ordersService.getAll(cookie, page, limit, status, type, query);
         return NextResponse.json(data);
     } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to fetch orders" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }
 
@@ -32,9 +30,6 @@ export async function POST(request: NextRequest) {
         const newOrder = await ordersService.create(body, cookie, csrfToken);
         return NextResponse.json(newOrder);
     } catch (error) {
-        return NextResponse.json(
-            { error: error instanceof Error ? error.message : "Failed to create order" },
-            { status: 500 }
-        );
+        return handleApiRouteError(error);
     }
 }

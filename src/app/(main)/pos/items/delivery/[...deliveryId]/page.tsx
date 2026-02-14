@@ -21,6 +21,7 @@ import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingCo
 import { useSocket } from "../../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../../../utils/realtimeEvents";
+import { resolveImageSource } from "../../../../../../utils/image/source";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -60,14 +61,24 @@ export default function POSDeliverySummaryPage() {
                 paymentMethodService.getByName('Delivery').catch(() => null)
             ]);
             
-            if (orderData.status !== OrderStatus.WaitingForPayment) {
-                 router.push('/pos/channels');
-                 return;
-            }
-
             if (orderData.order_type !== OrderType.Delivery) {
                 messageApi.warning("รายการนี้ไม่ใช่ Order Delivery");
                 router.push('/pos/channels');
+                return;
+            }
+
+            if ([OrderStatus.Paid, OrderStatus.Completed].includes(orderData.status)) {
+                router.push(`/pos/dashboard/${orderData.id}`);
+                return;
+            }
+
+            if (orderData.status === OrderStatus.Cancelled) {
+                router.push('/pos/channels');
+                return;
+            }
+
+            if (orderData.status !== OrderStatus.WaitingForPayment) {
+                router.push(`/pos/orders/${orderData.id}`);
                 return;
             }
 
@@ -336,7 +347,7 @@ export default function POSDeliverySummaryPage() {
                                                 <Avatar 
                                                     shape="square" 
                                                     size={52} 
-                                                    src={item.product?.img_url} 
+                                                    src={resolveImageSource(item.product?.img_url) || undefined} 
                                                     icon={<ShopOutlined />}
                                                     style={{ backgroundColor: '#fdf2f8', flexShrink: 0, borderRadius: 12, border: '1px solid #fce7f3' }} 
                                                 />

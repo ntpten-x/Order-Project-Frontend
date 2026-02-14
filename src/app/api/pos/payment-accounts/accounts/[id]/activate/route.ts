@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PROXY_CONFIGS } from "../../../../../../../lib/proxy-utils";
+import { handleApiRouteError } from "../../../../../_utils/route-error";
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
     try {
@@ -29,6 +30,6 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         return NextResponse.json(data);
     } catch (error: unknown) {
         console.error("[API Proxy] Proxy Execution Error (PATCH):", (error as Error).message);
-        return NextResponse.json({ error: (error as Error).message }, { status: 500 });
+        return handleApiRouteError(error);
     }
 }

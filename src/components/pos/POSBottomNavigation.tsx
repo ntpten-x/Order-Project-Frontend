@@ -22,11 +22,14 @@ import { Badge, Button, Drawer, List } from "antd";
 
 import { useAuth } from "../../contexts/AuthContext";
 import { useShift } from "../../contexts/pos/ShiftContext";
+import { useEffectivePermissions } from "../../hooks/useEffectivePermissions";
+import { canViewMenu } from "../../lib/rbac/menu-visibility";
 import FloatingBottomNav from "../navigation/FloatingBottomNav";
 import CloseShiftModal from "./shifts/CloseShiftModal";
 
 type MenuItem = {
   key: string;
+  visibilityKey: string;
   label: string;
   icon: React.ReactNode;
   path: string;
@@ -37,82 +40,122 @@ const POSBottomNavigation = () => {
   const pathname = usePathname();
   const { user } = useAuth();
   const { currentShift } = useShift();
+  const { can, canAny, rows } = useEffectivePermissions({ enabled: Boolean(user?.id) });
 
   const [moreOpen, setMoreOpen] = useState(false);
   const [closeShiftModalOpen, setCloseShiftModalOpen] = useState(false);
 
-  const primaryItems: MenuItem[] = useMemo(
-    () => [
-      { key: "home", label: "หน้าแรก", icon: <HomeOutlined />, path: "/" },
-      { key: "pos", label: "ขาย", icon: <ShopOutlined />, path: "/pos" },
+  const canSeeMenu = React.useCallback(
+    (menuKey: string) => canViewMenu(menuKey, { rows, can, canAny }),
+    [rows, can, canAny]
+  );
+
+  const primaryItems: MenuItem[] = useMemo(() => {
+    const items: MenuItem[] = [
+      { key: "home", visibilityKey: "menu.pos.home", label: "หน้าแรก", icon: <HomeOutlined />, path: "/" },
+      { key: "pos", visibilityKey: "menu.pos.sell", label: "ขาย", icon: <ShopOutlined />, path: "/pos" },
       {
         key: "orders",
+        visibilityKey: "menu.pos.orders",
         label: "ออเดอร์",
         icon: <FileTextOutlined />,
         path: "/pos/orders",
       },
       {
         key: "kitchen",
+        visibilityKey: "menu.pos.kitchen",
         label: "ครัว",
         icon: <FireOutlined />,
         path: "/pos/kitchen",
       },
-    ],
-    [],
-  );
+    ];
+
+    return items.filter((item) => canSeeMenu(item.visibilityKey));
+  }, [canSeeMenu]);
 
   const secondaryItems: MenuItem[] = useMemo(() => {
     const items: MenuItem[] = [
-      { key: "shift", label: "กะการทำงาน", icon: <ClockCircleOutlined />, path: "/pos/shift" },
-      { key: "shiftHistory", label: "ประวัติกะ", icon: <HistoryOutlined />, path: "/pos/shiftHistory" },
+      {
+        key: "shift",
+        visibilityKey: "menu.pos.shift",
+        label: "กะการทำงาน",
+        icon: <ClockCircleOutlined />,
+        path: "/pos/shift",
+      },
+      {
+        key: "shiftHistory",
+        visibilityKey: "menu.pos.shiftHistory",
+        label: "ประวัติกะ",
+        icon: <HistoryOutlined />,
+        path: "/pos/shiftHistory",
+      },
+      {
+        key: "dashboard",
+        visibilityKey: "menu.pos.dashboard",
+        label: "สรุป",
+        icon: <AppstoreOutlined />,
+        path: "/pos/dashboard",
+      },
+      {
+        key: "tables",
+        visibilityKey: "menu.pos.tables",
+        label: "โต๊ะ",
+        icon: <TableOutlined />,
+        path: "/pos/tables",
+      },
+      {
+        key: "delivery",
+        visibilityKey: "menu.pos.delivery",
+        label: "เดลิเวอรี่",
+        icon: <CarOutlined />,
+        path: "/pos/delivery",
+      },
+      {
+        key: "category",
+        visibilityKey: "menu.pos.category",
+        label: "หมวดหมู่",
+        icon: <AppstoreOutlined />,
+        path: "/pos/category",
+      },
+      {
+        key: "products",
+        visibilityKey: "menu.pos.products",
+        label: "สินค้า",
+        icon: <ShopOutlined />,
+        path: "/pos/products",
+      },
+      {
+        key: "productsUnit",
+        visibilityKey: "menu.pos.productsUnit",
+        label: "หน่วยสินค้า",
+        icon: <AppstoreOutlined />,
+        path: "/pos/productsUnit",
+      },
+      {
+        key: "discounts",
+        visibilityKey: "menu.pos.discounts",
+        label: "ส่วนลด",
+        icon: <TagsOutlined />,
+        path: "/pos/discounts",
+      },
+      {
+        key: "payment",
+        visibilityKey: "menu.pos.payment",
+        label: "ชำระเงิน",
+        icon: <CreditCardOutlined />,
+        path: "/pos/paymentMethod",
+      },
+      {
+        key: "settings",
+        visibilityKey: "menu.pos.settings",
+        label: "ตั้งค่า",
+        icon: <SettingOutlined />,
+        path: "/pos/settings",
+      },
     ];
 
-    if (user?.role === "Admin" || user?.role === "Manager") {
-      items.push(
-        { key: "dashboard", label: "สรุป", icon: <AppstoreOutlined />, path: "/pos/dashboard" },
-        { key: "tables", label: "โต๊ะ", icon: <TableOutlined />, path: "/pos/tables" },
-        { key: "delivery", label: "เดลิเวอรี่", icon: <CarOutlined />, path: "/pos/delivery" },
-        {
-          key: "category",
-          label: "หมวดหมู่",
-          icon: <AppstoreOutlined />,
-          path: "/pos/category",
-        },
-        {
-          key: "products",
-          label: "สินค้า",
-          icon: <ShopOutlined />,
-          path: "/pos/products",
-        },
-        {
-          key: "productsUnit",
-          label: "หน่วยสินค้า",
-          icon: <AppstoreOutlined />,
-          path: "/pos/productsUnit",
-        },
-        {
-          key: "discounts",
-          label: "ส่วนลด",
-          icon: <TagsOutlined />,
-          path: "/pos/discounts",
-        },
-        {
-          key: "payment",
-          label: "ชำระเงิน",
-          icon: <CreditCardOutlined />,
-          path: "/pos/paymentMethod",
-        },
-        {
-          key: "settings",
-          label: "ตั้งค่า",
-          icon: <SettingOutlined />,
-          path: "/pos/settings",
-        },
-      );
-    }
-
-    return items;
-  }, [user?.role]);
+    return items.filter((item) => canSeeMenu(item.visibilityKey));
+  }, [canSeeMenu]);
 
   const isActivePath = (itemPath: string) => {
     if (itemPath === "/") return pathname === "/";
@@ -209,3 +252,4 @@ const POSBottomNavigation = () => {
 };
 
 export default POSBottomNavigation;
+

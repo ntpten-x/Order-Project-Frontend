@@ -2,7 +2,7 @@ import { Products } from "../../types/api/pos/products";
 import { getProxyUrl } from "../../lib/proxy-utils";
 import { API_ROUTES } from "../../config/api";
 import { ProductSchema, ProductsResponseSchema } from "../../schemas/api/pos/products.schema";
-import { getBackendErrorMessage, normalizeBackendPaginated, unwrapBackendData } from "../../utils/api/backendResponse";
+import { normalizeBackendPaginated, throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = API_ROUTES.POS.PRODUCTS;
 
@@ -25,7 +25,7 @@ export const productsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch products"));
+            throwBackendHttpError(response, errorData, "Failed to fetch products");
         }
 
         const json = await response.json();
@@ -47,7 +47,7 @@ export const productsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch product"));
+            throwBackendHttpError(response, errorData, "Failed to fetch product");
         }
 
         const json = await response.json();
@@ -66,7 +66,7 @@ export const productsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch product by name"));
+            throwBackendHttpError(response, errorData, "Failed to fetch product by name");
         }
 
         const json = await response.json();
@@ -87,7 +87,7 @@ export const productsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to create product"));
+            throwBackendHttpError(response, errorData, "Failed to create product");
         }
         const json = await response.json();
         return unwrapBackendData(json) as Products;
@@ -107,7 +107,7 @@ export const productsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to update product"));
+            throwBackendHttpError(response, errorData, "Failed to update product");
         }
         const json = await response.json();
         return unwrapBackendData(json) as Products;
@@ -126,7 +126,7 @@ export const productsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to delete product"));
+            throwBackendHttpError(response, errorData, "Failed to delete product");
         }
     },
 };

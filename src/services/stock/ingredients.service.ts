@@ -1,10 +1,34 @@
 import { Ingredients } from "../../types/api/stock/ingredients";
 import { getProxyUrl } from "../../lib/proxy-utils";
-import { getBackendErrorMessage, unwrapBackendData } from "../../utils/api/backendResponse";
+import { normalizeBackendPaginated, throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = "/stock/ingredients";
 
 export const ingredientsService = {
+    findAllPaginated: async (
+        cookie?: string,
+        searchParams?: URLSearchParams
+    ): Promise<{ data: Ingredients[]; total: number; page: number; last_page: number }> => {
+        let url = getProxyUrl("GET", BASE_PATH);
+        if (searchParams) {
+            url += `?${searchParams.toString()}`;
+        }
+
+        const headers: HeadersInit = {};
+        if (cookie) headers.Cookie = cookie;
+
+        const response = await fetch(url!, {
+            cache: "no-store",
+            credentials: "include",
+            headers
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throwBackendHttpError(response, errorData, "Failed to fetch ingredients");
+        }
+        return normalizeBackendPaginated<Ingredients>(await response.json());
+    },
+
     findAll: async (cookie?: string, searchParams?: URLSearchParams): Promise<Ingredients[]> => {
         let url = getProxyUrl("GET", BASE_PATH);
         if (searchParams) {
@@ -21,7 +45,7 @@ export const ingredientsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch ingredients"));
+            throwBackendHttpError(response, errorData, "Failed to fetch ingredients");
         }
         return unwrapBackendData(await response.json()) as Ingredients[];
     },
@@ -38,7 +62,7 @@ export const ingredientsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch ingredient"));
+            throwBackendHttpError(response, errorData, "Failed to fetch ingredient");
         }
         return unwrapBackendData(await response.json()) as Ingredients;
     },
@@ -55,7 +79,7 @@ export const ingredientsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch ingredient by name"));
+            throwBackendHttpError(response, errorData, "Failed to fetch ingredient by name");
         }
         return unwrapBackendData(await response.json()) as Ingredients;
     },
@@ -74,7 +98,7 @@ export const ingredientsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to create ingredient"));
+            throwBackendHttpError(response, errorData, "Failed to create ingredient");
         }
         return unwrapBackendData(await response.json()) as Ingredients;
     },
@@ -93,7 +117,7 @@ export const ingredientsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to update ingredient"));
+            throwBackendHttpError(response, errorData, "Failed to update ingredient");
         }
         return unwrapBackendData(await response.json()) as Ingredients;
     },
@@ -111,7 +135,7 @@ export const ingredientsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to delete ingredient"));
+            throwBackendHttpError(response, errorData, "Failed to delete ingredient");
         }
     },
 };

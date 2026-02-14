@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import Image from 'next/image';
+import Image from '../../../../../components/ui/image/SmartImage';
 import { Modal, Input, Button, Typography, Empty, Divider, InputNumber, App } from 'antd';
 import { 
     SearchOutlined, 

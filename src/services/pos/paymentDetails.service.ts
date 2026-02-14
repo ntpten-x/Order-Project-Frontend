@@ -1,6 +1,6 @@
 import { PaymentDetails } from "../../types/api/pos/paymentDetails";
 import { getProxyUrl } from "../../lib/proxy-utils";
-import { getBackendErrorMessage, unwrapBackendData } from "../../utils/api/backendResponse";
+import { throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = "/pos/paymentDetails";
 
@@ -22,7 +22,7 @@ export const paymentDetailsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลรายละเอียดการชำระเงินได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลรายละเอียดการชำระเงินได้");
         }
         return unwrapBackendData(await response.json()) as PaymentDetails[];
     },
@@ -37,7 +37,7 @@ export const paymentDetailsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลรายละเอียดการชำระเงินได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลรายละเอียดการชำระเงินได้");
         }
         return unwrapBackendData(await response.json()) as PaymentDetails;
     },
@@ -54,7 +54,7 @@ export const paymentDetailsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถสร้างรายละเอียดการชำระเงินได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถสร้างรายละเอียดการชำระเงินได้");
         }
         return unwrapBackendData(await response.json()) as PaymentDetails;
     },
@@ -71,7 +71,7 @@ export const paymentDetailsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถแก้ไขรายละเอียดการชำระเงินได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถแก้ไขรายละเอียดการชำระเงินได้");
         }
         return unwrapBackendData(await response.json()) as PaymentDetails;
     },
@@ -87,7 +87,7 @@ export const paymentDetailsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "ไม่สามารถลบรายละเอียดการชำระเงินได้"));
+            throwBackendHttpError(response, errorData, "ไม่สามารถลบรายละเอียดการชำระเงินได้");
         }
     }
 };

@@ -21,6 +21,7 @@ import 'dayjs/locale/th';
 import { useSocket } from '../../../../hooks/useSocket';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { useRoleGuard } from '../../../../utils/pos/accessControl';
+import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissions';
 import { shiftsService } from '../../../../services/pos/shifts.service';
 import { Shift, ShiftSummary } from '../../../../types/api/pos/shifts';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
@@ -32,6 +33,7 @@ import PageSection from '../../../../components/ui/page/PageSection';
 import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
+import PageState from '../../../../components/ui/states/PageState';
 import { pageStyles, globalStyles } from '../../../../theme/pos/shift/style';
 
 dayjs.extend(duration);
@@ -46,7 +48,10 @@ export default function ShiftPage() {
     const queryClient = useQueryClient();
     const { user } = useAuth();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager', 'Employee'] });
+    const { isAuthorized, isChecking } = useRoleGuard();
+    const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canCreateShifts = can('shifts.page', 'create');
+    const canUpdateShifts = can('shifts.page', 'update');
 
     const [openShiftVisible, setOpenShiftVisible] = useState(false);
     const [closeShiftVisible, setCloseShiftVisible] = useState(false);
@@ -54,6 +59,8 @@ export default function ShiftPage() {
     const {
         data: currentShift = null,
         isLoading: isShiftLoading,
+        isError: isShiftError,
+        error: shiftError,
         refetch: refetchCurrentShift,
     } = useQuery<Shift | null>({
         queryKey: ['shiftCurrent'],
@@ -64,6 +71,8 @@ export default function ShiftPage() {
     const {
         data: currentSummary,
         isLoading: isSummaryLoading,
+        isError: isSummaryError,
+        error: summaryError,
         refetch: refetchCurrentSummary,
     } = useQuery<ShiftSummary | null>({
         queryKey: ['shiftSummary', currentShift?.id || 'none'],
@@ -78,11 +87,16 @@ export default function ShiftPage() {
     const isLoading = isShiftLoading || (Boolean(currentShift) && isSummaryLoading);
 
     const canCloseShift = !!currentShift && !!user && (
-        user.role === 'Admin' ||
-        user.role === 'Manager' ||
+        canUpdateShifts ||
         currentShift.opened_by_user_id === user.id ||
         (!currentShift.opened_by_user_id && currentShift.user_id === user.id)
     );
+
+    useEffect(() => {
+        if (!canCreateShifts && openShiftVisible) {
+            setOpenShiftVisible(false);
+        }
+    }, [canCreateShifts, openShiftVisible]);
 
     useEffect(() => {
         if (!socket) return;
@@ -129,7 +143,7 @@ export default function ShiftPage() {
         return total;
     }, 0);
 
-    const cashInDrawer = startAmount + cashSales;
+    const cashInDrawer = toNumber(summary?.shift_info?.expected_amount ?? (startAmount + cashSales));
 
     if (isChecking) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
@@ -137,6 +151,30 @@ export default function ShiftPage() {
 
     if (!isAuthorized) {
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    }
+
+    if (isShiftError) {
+        return (
+            <div style={pageStyles.container}>
+                <style>{globalStyles}</style>
+                <UIPageHeader
+                    title="กะการทำงาน"
+                    subtitle="โหลดข้อมูลกะไม่สำเร็จ"
+                    icon={<ClockCircleOutlined />}
+                    onBack={() => router.back()}
+                />
+                <PageContainer>
+                    <PageSection>
+                        <PageState
+                            status="error"
+                            title="โหลดข้อมูลกะไม่สำเร็จ"
+                            error={shiftError}
+                            onRetry={handleRefresh}
+                        />
+                    </PageSection>
+                </PageContainer>
+            </div>
+        );
     }
 
     if (isLoading) {
@@ -179,7 +217,7 @@ export default function ShiftPage() {
                         <Button icon={<HistoryOutlined />} onClick={() => router.push('/pos/shiftHistory')}>
                             ประวัติกะ
                         </Button>
-                        {!currentShift ? (
+                        {!currentShift && canCreateShifts ? (
                             <Button type="primary" icon={<PlayCircleOutlined />} onClick={() => setOpenShiftVisible(true)}>
                                 เปิดกะ
                             </Button>
@@ -199,12 +237,15 @@ export default function ShiftPage() {
                             <UIEmptyState
                                 title="ยังไม่มีกะที่เปิดใช้งาน"
                                 description="กรุณาเปิดกะเพื่อเริ่มต้นการขายและบันทึกสรุปรายวัน"
-                                action={
+                                action={canCreateShifts ? (
                                     <Button type="primary" icon={<PlayCircleOutlined />} onClick={() => setOpenShiftVisible(true)}>
                                         เปิดกะการทำงาน
                                     </Button>
-                                }
+                                ) : null}
                             />
+                            {!canCreateShifts ? (
+                                <AlertBox text="คุณไม่มีสิทธิ์เปิดกะ (ต้องมีสิทธิ์ shifts.page:create)" />
+                            ) : null}
                         </PageSection>
                     ) : (
                         <>
@@ -247,7 +288,18 @@ export default function ShiftPage() {
                             </PageSection>
 
                             <PageSection title="สรุปยอดกะปัจจุบัน">
-                                {summary ? (
+                                {isSummaryLoading ? (
+                                    <div style={{ padding: '24px 0', textAlign: 'center' }}>
+                                        <Spin />
+                                    </div>
+                                ) : isSummaryError ? (
+                                    <PageState
+                                        status="error"
+                                        title="ไม่สามารถโหลดสรุปยอดกะได้"
+                                        error={summaryError}
+                                        onRetry={() => refetchCurrentSummary()}
+                                    />
+                                ) : summary ? (
                                     <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
                                         <MetricCard icon={<RiseOutlined />} label="ยอดขายรวม" value={`฿${totalSales.toLocaleString()}`} color="#10b981" />
                                         <MetricCard icon={<ShoppingOutlined />} label="กำไรสุทธิ" value={`฿${netProfit.toLocaleString()}`} color="#0ea5e9" />
@@ -258,9 +310,7 @@ export default function ShiftPage() {
                                         <MetricCard icon={<WalletOutlined />} label="ยอดนับจริงล่าสุด" value={endAmount > 0 ? `฿${endAmount.toLocaleString()}` : '-'} color="#64748b" />
                                     </div>
                                 ) : (
-                                    <div style={{ padding: '24px 0', textAlign: 'center' }}>
-                                        <Spin />
-                                    </div>
+                                    <Text type="secondary">ยังไม่มีข้อมูลสรุปยอดกะ</Text>
                                 )}
                             </PageSection>
 
@@ -332,7 +382,7 @@ export default function ShiftPage() {
             </PageContainer>
 
             <OpenShiftModal
-                open={openShiftVisible}
+                open={openShiftVisible && canCreateShifts}
                 onCancel={() => setOpenShiftVisible(false)}
             />
 
@@ -370,4 +420,3 @@ function AlertBox({ text }: { text: string }) {
         </div>
     );
 }
-

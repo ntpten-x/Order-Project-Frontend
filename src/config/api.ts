@@ -29,6 +29,7 @@ export const API_ROUTES = {
         DASHBOARD: {
             SALES: '/pos/dashboard/sales',
             TOP_ITEMS: '/pos/dashboard/top-items',
+            OVERVIEW: '/pos/dashboard/overview',
         },
         CHANNELS: {
             STATS: '/pos/orders/stats',

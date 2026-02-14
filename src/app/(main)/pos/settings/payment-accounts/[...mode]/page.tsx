@@ -1,7 +1,7 @@
 ﻿
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Typography,
     Button,
@@ -34,7 +34,7 @@ import {
     SwapOutlined,
     CheckCircleFilled
 } from '@ant-design/icons';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { pageStyles } from './style';
 import { paymentAccountService } from '../../../../../../services/pos/paymentAccount.service';
 import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
@@ -49,6 +49,7 @@ import PageSection from '../../../../../../components/ui/page/PageSection';
 import PageStack from '../../../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../../../components/ui/states/EmptyState';
+import { useDebouncedValue } from '../../../../../../utils/useDebouncedValue';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -207,10 +208,13 @@ const PaymentAccountPreviewCard = ({
 
 export default function PaymentAccountManagementPage({ params }: { params: { mode?: string[] } }) {
     const router = useRouter();
+    const pathname = usePathname();
+    const searchParams = useSearchParams();
     const { socket } = useSocket();
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.md;
-    const { isAuthorized, isChecking } = useRoleGuard({ allowedRoles: ['Admin', 'Manager'] });
+    const { isAuthorized, isChecking } = useRoleGuard();
+    const isUrlReadyRef = useRef(false);
 
     const [form] = Form.useForm<PaymentAccountFormValues>();
     const [accounts, setAccounts] = useState<ShopPaymentAccount[]>([]);
@@ -222,6 +226,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
     const [initializedEditId, setInitializedEditId] = useState<string | null>(null);
+    const debouncedSearch = useDebouncedValue(searchText, 300);
 
     const modeSegment = params.mode?.[0];
     const routeMode: PaymentAccountRouteMode | null = modeSegment === 'manage' || modeSegment === 'add' || modeSegment === 'edit'
@@ -236,6 +241,30 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
     const watchedAccountName = Form.useWatch('account_name', form) ?? '';
     const watchedAccountNumber = Form.useWatch('account_number', form) ?? '';
     const watchedIsActive = Form.useWatch('is_active', form) ?? false;
+
+    useEffect(() => {
+        if (isUrlReadyRef.current || !isManage) return;
+
+        const qParam = searchParams.get('q') || '';
+        const statusParam = searchParams.get('status');
+        const nextStatus: StatusFilter =
+            statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all';
+
+        setSearchText(qParam);
+        setStatusFilter(nextStatus);
+        isUrlReadyRef.current = true;
+    }, [isManage, searchParams]);
+
+    useEffect(() => {
+        if (!isManage || !isUrlReadyRef.current) return;
+
+        const params = new URLSearchParams();
+        if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+        if (statusFilter !== 'all') params.set('status', statusFilter);
+
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }, [router, pathname, isManage, debouncedSearch, statusFilter]);
 
     const fetchAccounts = useCallback(async (silent = false) => {
         try {
@@ -344,7 +373,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
             result = result.filter((item) => !item.is_active);
         }
 
-        const keyword = searchText.trim().toLowerCase();
+        const keyword = debouncedSearch.trim().toLowerCase();
         if (keyword) {
             result = result.filter((item) =>
                 item.account_name.toLowerCase().includes(keyword) ||
@@ -353,7 +382,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
         }
 
         return result;
-    }, [accounts, searchText, statusFilter]);
+    }, [accounts, debouncedSearch, statusFilter]);
 
     const handleActivate = async (account: ShopPaymentAccount) => {
         if (account.is_active) return;
@@ -634,17 +663,17 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                 </div>
                             ) : (
                                 <UIEmptyState
-                                    title={searchText.trim() ? 'ไม่พบบัญชีตามคำค้น' : 'ยังไม่มีบัญชีพร้อมเพย์'}
-                                    description={
-                                        searchText.trim()
-                                            ? 'ลองเปลี่ยนคำค้นหาหรือฟิลเตอร์'
-                                            : 'เพิ่มบัญชีแรกเพื่อเริ่มรับชำระเงินผ่านระบบ POS'
-                                    }
-                                    action={
-                                        !searchText.trim() ? (
-                                            <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/pos/settings/payment-accounts/add')}>
-                                                เพิ่มบัญชีแรก
-                                            </Button>
+                                title={debouncedSearch.trim() ? 'ไม่พบบัญชีตามคำค้น' : 'ยังไม่มีบัญชีพร้อมเพย์'}
+                                description={
+                                    debouncedSearch.trim()
+                                        ? 'ลองเปลี่ยนคำค้นหาหรือฟิลเตอร์'
+                                        : 'เพิ่มบัญชีแรกเพื่อเริ่มรับชำระเงินผ่านระบบ POS'
+                                }
+                                action={
+                                    !debouncedSearch.trim() ? (
+                                        <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/pos/settings/payment-accounts/add')}>
+                                            เพิ่มบัญชีแรก
+                                        </Button>
                                         ) : null
                                     }
                                 />

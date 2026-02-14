@@ -1,10 +1,34 @@
 import { IngredientsUnit } from "../../types/api/stock/ingredientsUnit";
 import { getProxyUrl } from "../../lib/proxy-utils";
-import { getBackendErrorMessage, unwrapBackendData } from "../../utils/api/backendResponse";
+import { normalizeBackendPaginated, throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = "/stock/ingredientsUnit";
 
 export const ingredientsUnitService = {
+    findAllPaginated: async (
+        cookie?: string,
+        searchParams?: URLSearchParams
+    ): Promise<{ data: IngredientsUnit[]; total: number; page: number; last_page: number }> => {
+        let url = getProxyUrl("GET", BASE_PATH);
+        if (searchParams) {
+            url += `?${searchParams.toString()}`;
+        }
+
+        const headers: HeadersInit = {};
+        if (cookie) headers.Cookie = cookie;
+
+        const response = await fetch(url!, {
+            cache: "no-store",
+            credentials: "include",
+            headers
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throwBackendHttpError(response, errorData, "Failed to fetch ingredients units");
+        }
+        return normalizeBackendPaginated<IngredientsUnit>(await response.json());
+    },
+
     findAll: async (cookie?: string, searchParams?: URLSearchParams): Promise<IngredientsUnit[]> => {
         let url = getProxyUrl("GET", BASE_PATH);
         if (searchParams) {
@@ -21,7 +45,7 @@ export const ingredientsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch ingredients units"));
+            throwBackendHttpError(response, errorData, "Failed to fetch ingredients units");
         }
         return unwrapBackendData(await response.json()) as IngredientsUnit[];
     },
@@ -38,7 +62,7 @@ export const ingredientsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch ingredients unit"));
+            throwBackendHttpError(response, errorData, "Failed to fetch ingredients unit");
         }
         return unwrapBackendData(await response.json()) as IngredientsUnit;
     },
@@ -55,7 +79,7 @@ export const ingredientsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to fetch ingredients unit by name"));
+            throwBackendHttpError(response, errorData, "Failed to fetch ingredients unit by name");
         }
         return unwrapBackendData(await response.json()) as IngredientsUnit;
     },
@@ -74,7 +98,7 @@ export const ingredientsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to create ingredients unit"));
+            throwBackendHttpError(response, errorData, "Failed to create ingredients unit");
         }
         return unwrapBackendData(await response.json()) as IngredientsUnit;
     },
@@ -93,7 +117,7 @@ export const ingredientsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to update ingredients unit"));
+            throwBackendHttpError(response, errorData, "Failed to update ingredients unit");
         }
         return unwrapBackendData(await response.json()) as IngredientsUnit;
     },
@@ -111,7 +135,7 @@ export const ingredientsUnitService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(getBackendErrorMessage(errorData, "Failed to delete ingredients unit"));
+            throwBackendHttpError(response, errorData, "Failed to delete ingredients unit");
         }
     },
 };

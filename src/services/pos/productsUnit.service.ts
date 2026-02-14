@@ -1,10 +1,34 @@
 import { ProductsUnit } from "../../types/api/pos/productsUnit";
 import { getProxyUrl } from "../../lib/proxy-utils";
-import { unwrapBackendData } from "../../utils/api/backendResponse";
+import { normalizeBackendPaginated, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = "/pos/productsUnit";
 
 export const productsUnitService = {
+    findAllPaginated: async (
+        cookie?: string,
+        searchParams?: URLSearchParams
+    ): Promise<{ data: ProductsUnit[]; total: number; page: number; last_page: number }> => {
+        let url = getProxyUrl("GET", BASE_PATH);
+        if (searchParams) {
+            url += `?${searchParams.toString()}`;
+        }
+
+        const headers: HeadersInit = {};
+        if (cookie) headers.Cookie = cookie;
+
+        const response = await fetch(url!, {
+            cache: "no-store",
+            credentials: "include",
+            headers
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to fetch products units");
+        }
+        return normalizeBackendPaginated<ProductsUnit>(await response.json());
+    },
+
     findAll: async (cookie?: string, searchParams?: URLSearchParams): Promise<ProductsUnit[]> => {
         let url = getProxyUrl("GET", BASE_PATH);
         if (searchParams) {

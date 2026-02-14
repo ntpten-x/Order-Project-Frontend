@@ -2,7 +2,7 @@ import { API_ROUTES } from "../config/api";
 import { getProxyUrl } from "../lib/proxy-utils";
 import { AuditLog, PaginatedAuditLogs } from "../types/api/audit";
 import { AuditLogSchema, AuditLogsResponseSchema } from "../schemas/api/audit.schema";
-import { getBackendErrorMessage, normalizeBackendPaginated, unwrapBackendData } from "../utils/api/backendResponse";
+import { normalizeBackendPaginated, throwBackendHttpError, unwrapBackendData } from "../utils/api/backendResponse";
 
 const BASE_PATH = API_ROUTES.AUDIT.LOGS;
 
@@ -25,7 +25,7 @@ export const auditService = {
         const json = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            throw new Error(getBackendErrorMessage(json, "Failed to fetch audit logs"));
+            throwBackendHttpError(response, json, "Failed to fetch audit logs");
         }
 
         const normalized = normalizeBackendPaginated<AuditLog>(json);
@@ -55,7 +55,7 @@ export const auditService = {
         const json = await response.json().catch(() => ({}));
 
         if (!response.ok) {
-            throw new Error(getBackendErrorMessage(json, "Failed to fetch audit log"));
+            throwBackendHttpError(response, json, "Failed to fetch audit log");
         }
 
         return AuditLogSchema.parse(unwrapBackendData(json));

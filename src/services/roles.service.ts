@@ -4,9 +4,16 @@ import { unwrapBackendData } from "../utils/api/backendResponse";
 
 const BASE_PATH = "/roles";
 
+function getRolesListPath() {
+    // Client must go through existing Next.js proxy route.
+    if (typeof window !== "undefined") return "/roles/getAll";
+    // Server-side proxy handlers should call backend canonical route.
+    return BASE_PATH;
+}
+
 export const roleService = {
     getAllRoles: async (cookie?: string): Promise<Role[]> => {
-        const url = getProxyUrl("GET", BASE_PATH);
+        const url = getProxyUrl("GET", getRolesListPath());
         const headers: Record<string, string> = {
             "Content-Type": "application/json"
         };
@@ -18,7 +25,15 @@ export const roleService = {
             credentials: "include", // For Client-side CORS
             cache: "no-store",
         });
-        if (!response.ok) throw new Error("Failed to fetch roles");
+        if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            const message =
+                payload?.error?.message ||
+                payload?.error ||
+                payload?.message ||
+                `Failed to fetch roles (${response.status})`;
+            throw new Error(message);
+        }
         return unwrapBackendData(await response.json()) as Role[];
     },
 

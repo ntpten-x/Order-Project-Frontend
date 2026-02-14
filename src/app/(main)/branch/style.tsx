@@ -1,7 +1,7 @@
 "use client";
 
 import React from 'react';
-import { Card, Statistic, Button, Tag, Tooltip, Typography, Badge, Input, Segmented, Flex, Grid } from 'antd';
+import { Card, Statistic, Button, Tag, Tooltip, Typography, Badge, Flex, Grid, theme } from 'antd';
 import { 
     ShopOutlined, 
     PlusOutlined, 
@@ -11,12 +11,12 @@ import {
     SwapOutlined,
     PhoneOutlined,
     EnvironmentOutlined,
-    SearchOutlined,
-    ClearOutlined
 } from '@ant-design/icons';
+import { ModalSelector } from '../../../components/ui/select/ModalSelector';
+import { SearchInput } from '../../../components/ui/input/SearchInput';
+import { SearchBar as SearchBarContainer } from '../../../components/ui/page/SearchBar';
 import { Branch } from "../../../types/api/branch";
 import { CSSProperties } from 'react';
-import { theme } from 'antd';
 import { t } from "../../../utils/i18n";
 
 const { Title, Text } = Typography;
@@ -672,7 +672,7 @@ export const BranchCard = ({ branch, onEdit, onDelete, onSwitch }: BranchCardPro
     );
 };
 
-interface SearchBarProps {
+export interface SearchBarProps {
     searchQuery: string;
     onSearchChange: (value: string) => void;
     filter: 'all' | 'active' | 'inactive';
@@ -689,78 +689,39 @@ export const SearchBar = ({
     resultCount,
     totalCount
 }: SearchBarProps) => {
-    const { token } = useToken();
     const { useBreakpoint } = Grid;
     const screens = useBreakpoint();
     const isMobile = !screens.md;
     
     return (
-        <Card
-            size="small"
-            variant="outlined"
-            style={{ 
-                borderRadius: isMobile ? 14 : 16,
-                background: token.colorBgContainer,
-                border: `1px solid ${token.colorBorderSecondary}`,
-                animation: 'slideDown 0.4s ease-out',
-                marginTop: isMobile ? 0 : 0
-            }}
-            bodyStyle={{ padding: isMobile ? 16 : 20 }}
-        >
-            <Flex vertical gap={isMobile ? 12 : 16}>
-                <Input
-                    size="large"
-                    placeholder={t("branch.search.placeholder")}
-                    prefix={<SearchOutlined style={{ color: token.colorTextSecondary }} />}
-                    suffix={
-                        searchQuery ? (
-                            <Button
-                                type="text"
-                                size="small"
-                                icon={<ClearOutlined />}
-                                onClick={() => onSearchChange('')}
-                                style={{ 
-                                    color: token.colorTextSecondary,
-                                    padding: 0,
-                                    width: 20,
-                                    height: 20,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center'
-                                }}
-                            />
-                        ) : null
-                    }
-                    value={searchQuery}
-                    onChange={(e) => onSearchChange(e.target.value)}
-                    style={{
-                        borderRadius: 12,
-                        fontSize: 15
-                    }}
-                />
-                
-                <Flex justify="space-between" align="center" wrap="wrap" gap={12}>
-                    <Segmented
+        <SearchBarContainer bodyStyle={{ padding: isMobile ? 16 : 20 }}>
+            <SearchInput
+                placeholder={t("branch.search.placeholder") || "ค้นหาสาขา..."}
+                value={searchQuery}
+                onChange={onSearchChange}
+            />
+            
+            <Flex justify="space-between" align="center" wrap="wrap" gap={12}>
+                <div style={{ width: isMobile ? '100%' : 220 }}>
+                    <ModalSelector
+                        title={t("branch.search.filter.title") || "สถานะ"}
                         value={filter}
-                        onChange={(value) => onFilterChange(value as 'all' | 'active' | 'inactive')}
                         options={[
-                            { label: t("branch.search.filter.all"), value: 'all' },
-                            { label: t("branch.search.filter.active"), value: 'active' },
-                            { label: t("branch.search.filter.inactive"), value: 'inactive' },
+                            { label: t("branch.search.filter.all") || "ทั้งหมด", value: 'all' },
+                            { label: t("branch.search.filter.active") || "เปิดใช้งาน", value: 'active' },
+                            { label: t("branch.search.filter.inactive") || "ปิดใช้งาน", value: 'inactive' },
                         ]}
-                        style={{
-                            borderRadius: 10,
-                            background: token.colorFillTertiary
-                        }}
+                        onChange={(val) => onFilterChange(val as 'all' | 'active' | 'inactive')}
+                        placeholder={t("branch.search.filter.placeholder") || "เลือกสถานะ"}
                     />
-                    
-                    {(searchQuery || filter !== 'all') && (
-                        <Text type="secondary" style={{ fontSize: 13 }}>
-                            {t("branch.search.result", { count: resultCount, total: totalCount })}
-                        </Text>
-                    )}
-                </Flex>
+                </div>
+                
+                {(searchQuery || filter !== 'all') && (
+                    <Text type="secondary" style={{ fontSize: 13 }}>
+                        {t("branch.search.result", { count: resultCount, total: totalCount })}
+                    </Text>
+                )}
             </Flex>
-        </Card>
+        </SearchBarContainer>
     );
 };
