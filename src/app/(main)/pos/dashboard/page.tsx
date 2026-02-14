@@ -1,626 +1,630 @@
 ﻿"use client";
 
-import React, { useEffect, useState, useCallback } from "react";
-import { Typography, Button, Avatar, Dropdown, message, Spin } from "antd";
-import { 
-    DollarCircleOutlined, ShoppingOutlined, RiseOutlined, ReloadOutlined, 
-    EyeOutlined, DownloadOutlined, FilePdfOutlined, FileExcelOutlined, 
-    CarOutlined, HomeOutlined, ShopOutlined, CalendarOutlined,
-    TrophyOutlined, FireOutlined, TagOutlined
-} from "@ant-design/icons";
-import { exportSalesReportPDF, exportSalesReportExcel } from "../../../../utils/export.utils";
-import { useRouter } from "next/navigation";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+    App,
+    Avatar,
+    Button,
+    Card,
+    Col,
+    DatePicker,
+    Dropdown,
+    Empty,
+    Grid,
+    List,
+    Progress,
+    Row,
+    Segmented,
+    Space,
+    Spin,
+    Table,
+    Tag,
+    Typography,
+} from "antd";
+import type { MenuProps } from "antd";
+import {
+    CalendarOutlined,
+    CarOutlined,
+    DownloadOutlined,
+    EyeOutlined,
+    FileExcelOutlined,
+    FilePdfOutlined,
+    HomeOutlined,
+    ReloadOutlined,
+    RiseOutlined,
+    ShopOutlined,
+    ShoppingOutlined,} from "@ant-design/icons";
 import dayjs from "dayjs";
-import 'dayjs/locale/th';
+import "dayjs/locale/th";
+import { useRouter } from "next/navigation";
+import { exportSalesReportExcel, exportSalesReportPDF, type SalesReportBranding } from "../../../../utils/export.utils";
 import { dashboardService } from "../../../../services/pos/dashboard.service";
-import { ordersService } from "../../../../services/pos/orders.service";
-import { SalesSummary, TopItem } from "../../../../types/api/pos/dashboard";
-import { SalesOrderSummary, OrderStatus, OrderType } from "../../../../types/api/pos/salesOrder";
+import { shopProfileService, type ShopProfile } from "../../../../services/pos/shopProfile.service";
+import { DashboardOverview, RecentOrderSummary, TopItem } from "../../../../types/api/pos/dashboard";
 import { useGlobalLoading } from "../../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../utils/realtimeEvents";
-import { dashboardStyles, dashboardColors, dashboardResponsiveStyles } from "../../../../theme/pos/dashboard/style";
-import { DatePicker } from "antd";
+import { useAuth } from "../../../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import PageContainer from "../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../components/ui/page/PageSection";
-import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import PageStack from "../../../../components/ui/page/PageStack";
+import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
 import { t } from "../../../../utils/i18n";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
-dayjs.locale('th');
+const { useBreakpoint } = Grid;
 
-export default function DashboardPage() {
+dayjs.locale("th");
+
+type PresetKey = "today" | "7d" | "15d" | "30d" | "custom";
+type ExportPresetKey = "today" | "7d" | "15d" | "30d";
+type ExportFormat = "pdf" | "xlsx";
+
+const PRESET_OPTIONS: Array<{ label: string; value: PresetKey }> = [
+    { label: "วันนี้", value: "today" },
+    { label: "7 วันล่าสุด", value: "7d" },
+    { label: "15 วันล่าสุด", value: "15d" },
+    { label: "30 วันล่าสุด", value: "30d" },
+    { label: "กำหนดเอง", value: "custom" },
+];
+
+const EXPORT_PRESET_OPTIONS: Array<{ label: string; value: ExportPresetKey }> = [
+    { label: "วันนี้", value: "today" },
+    { label: "7 วันล่าสุด", value: "7d" },
+    { label: "15 วันล่าสุด", value: "15d" },
+    { label: "30 วันล่าสุด", value: "30d" },
+];
+
+const STATUS_META: Record<string, { label: string; color: string }> = {
+    Paid: { label: "ชำระแล้ว", color: "green" },
+    Completed: { label: "เสร็จสิ้น", color: "green" },
+    Cancelled: { label: "ยกเลิก", color: "red" },
+    Pending: { label: "รอดำเนินการ", color: "gold" },
+    Cooking: { label: "กำลังทำ", color: "blue" },
+    Served: { label: "เสิร์ฟแล้ว", color: "cyan" },
+    WaitingForPayment: { label: "รอชำระ", color: "orange" },
+};
+
+function resolvePresetRange(preset: PresetKey): [dayjs.Dayjs, dayjs.Dayjs] {
+    const today = dayjs();
+    if (preset === "today") return [today.startOf("day"), today.endOf("day")];
+    if (preset === "7d") return [today.subtract(6, "day").startOf("day"), today.endOf("day")];
+    if (preset === "15d") return [today.subtract(14, "day").startOf("day"), today.endOf("day")];
+    if (preset === "30d") return [today.subtract(29, "day").startOf("day"), today.endOf("day")];
+    return [today.startOf("day"), today.endOf("day")];
+}
+
+function getExportPresetLabel(preset: ExportPresetKey): string {
+    const found = EXPORT_PRESET_OPTIONS.find((option) => option.value === preset);
+    return found?.label || preset;
+}
+
+type ShopProfileExtended = ShopProfile & {
+    logo_url?: string;
+    primary_color?: string;
+    secondary_color?: string;
+};
+
+function formatCurrency(value: number): string {
+    return `฿${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+}
+
+function formatThaiDate(date: string): string {
+    return dayjs(date).format("DD MMM YYYY");
+}
+
+function formatThaiDateTime(date: string): string {
+    return dayjs(date).format("DD MMM YYYY HH:mm");
+}
+
+function getOrderTypeTag(type: string) {
+    if (type === "DineIn") return <Tag color="blue">{t("dashboard.channel.dineIn")}</Tag>;
+    if (type === "TakeAway") return <Tag color="green">{t("dashboard.channel.takeAway")}</Tag>;
+    if (type === "Delivery") return <Tag color="magenta">{t("dashboard.channel.delivery")}</Tag>;
+    return <Tag>{type || "-"}</Tag>;
+}
+
+function TopItemsList({ items, compact }: { items: TopItem[]; compact: boolean }) {
+    if (!items.length) {
+        return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("dashboard.topProducts.empty")} />;
+    }
+
+    return (
+        <List
+            dataSource={items}
+            split={false}
+            renderItem={(item, index) => {
+                const maxQty = Math.max(items[0]?.total_quantity || 0, 1);
+                const percent = Math.min((Number(item.total_quantity || 0) / maxQty) * 100, 100);
+                return (
+                    <List.Item style={{ padding: compact ? "10px 0" : "12px 0" }}>
+                        <div style={{ display: "flex", width: "100%", gap: 10, alignItems: "center" }}>
+                            <Tag color={index === 0 ? "gold" : "default"} style={{ margin: 0, minWidth: 28, textAlign: "center" }}>
+                                {index + 1}
+                            </Tag>
+                            <Avatar shape="square" src={item.img_url} icon={<ShoppingOutlined />} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <Text strong ellipsis={{ tooltip: item.product_name }} style={{ display: "block" }}>
+                                    {item.product_name}
+                                </Text>
+                                <Progress percent={Number(percent.toFixed(0))} size="small" showInfo={false} />
+                            </div>
+                            <div style={{ textAlign: "right" }}>
+                                <Text strong>{Number(item.total_quantity || 0).toLocaleString()}</Text>
+                                <Text type="secondary" style={{ display: "block", fontSize: 12 }}>
+                                    {formatCurrency(Number(item.total_revenue || 0))}
+                                </Text>
+                            </div>
+                        </div>
+                    </List.Item>
+                );
+            }}
+        />
+    );
+}
+
+function RecentOrdersList({ orders }: { orders: RecentOrderSummary[] }) {
     const router = useRouter();
+
+    if (!orders.length) {
+        return <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("dashboard.recentOrders.empty")} />;
+    }
+
+    return (
+        <List
+            dataSource={orders}
+            renderItem={(order) => {
+                const status = STATUS_META[order.status] || { label: order.status, color: "default" };
+                return (
+                    <List.Item
+                        style={{ cursor: "pointer" }}
+                        onClick={() => router.push(`/pos/dashboard/${order.id}`)}
+                    >
+                        <div style={{ width: "100%", display: "grid", gap: 6 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                                <Space size={6} wrap>
+                                    <Text strong>#{order.order_no}</Text>
+                                    {getOrderTypeTag(order.order_type)}
+                                    <Tag color={status.color}>{status.label}</Tag>
+                                </Space>
+                                <Text strong style={{ color: "#0f766e" }}>{formatCurrency(order.total_amount)}</Text>
+                            </div>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                    {formatThaiDateTime(order.create_date)}
+                                </Text>
+                                <Space size={8}>
+                                    <Text type="secondary" style={{ fontSize: 12 }}>x{order.items_count}</Text>
+                                    <Button type="link" size="small" icon={<EyeOutlined />} style={{ paddingInline: 0 }}>
+                                        {t("dashboard.viewDetails")}
+                                    </Button>
+                                </Space>
+                            </div>
+                        </div>
+                    </List.Item>
+                );
+            }}
+        />
+    );
+}
+
+export default function DashboardPage() {    const screens = useBreakpoint();
+    const isMobile = !screens.md;
     const { showLoading, hideLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const [salesData, setSalesData] = useState<SalesSummary[]>([]);
-    const [topItems, setTopItems] = useState<TopItem[]>([]);
-    const [recentOrders, setRecentOrders] = useState<SalesOrderSummary[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
-    const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>([dayjs().startOf('month'), dayjs().endOf('month')]);
+    const { message: messageApi } = App.useApp();
+    const { user, loading: authLoading } = useAuth();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canViewDashboard = can("reports.sales.page", "view");
 
-    const fetchData = useCallback(async (silent = false) => {
-        if (!silent) setIsLoading(true);
-        try {
-            const startDate = dateRange[0].format('YYYY-MM-DD');
-            const endDate = dateRange[1].format('YYYY-MM-DD');
+    const [preset, setPreset] = useState<PresetKey>("7d");
+    const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>(resolvePresetRange("7d"));
+    const [overview, setOverview] = useState<DashboardOverview | null>(null);
+    const [shopProfile, setShopProfile] = useState<ShopProfileExtended | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
 
-            const [salesRes, itemsRes, ordersRes] = await Promise.all([
-                dashboardService.getSalesSummary(startDate, endDate),
-                dashboardService.getTopSellingItems(5),
-                ordersService.getAllSummary(undefined, 1, 10, 'Paid,Completed,Cancelled')
-            ]);
-
-            setSalesData(salesRes);
-            setTopItems(itemsRes);
-            setRecentOrders(ordersRes.data || []);
-        } catch {
-            // Silent failure
-        } finally {
-            if (!silent) setIsLoading(false);
-        }
-    }, [dateRange]);
+    const startDate = dateRange[0].format("YYYY-MM-DD");
+    const endDate = dateRange[1].format("YYYY-MM-DD");
 
     useEffect(() => {
-        fetchData(false);
-    }, [fetchData]);
+        if (preset === "custom") return;
+        setDateRange(resolvePresetRange(preset));
+    }, [preset]);
+
+    const fetchOverview = useCallback(
+        async (silent = false) => {
+            if (silent) {
+                setRefreshing(true);
+            } else {
+                setLoading(true);
+            }
+            try {
+                const data = await dashboardService.getOverview(startDate, endDate, 7, 8);
+                setOverview(data);
+            } catch (error) {
+                console.error("Failed to fetch dashboard overview", error);
+                if (!silent) {
+                    messageApi.error("ไม่สามารถโหลดข้อมูลสรุปการขายได้");
+                }
+            } finally {
+                if (silent) {
+                    setRefreshing(false);
+                } else {
+                    setLoading(false);
+                }
+            }
+        },
+        [startDate, endDate, messageApi]
+    );
+
+    useEffect(() => {
+        if (!canViewDashboard) return;
+        void fetchOverview(false);
+    }, [canViewDashboard, fetchOverview]);
+
+    const fetchShopProfile = useCallback(async () => {
+        try {
+            const data = await shopProfileService.getProfile();
+            setShopProfile(data as ShopProfileExtended);
+        } catch (error) {
+            console.warn("Failed to fetch shop profile for export branding", error);
+        }
+    }, []);
+
+    useEffect(() => {
+        void fetchShopProfile();
+    }, [fetchShopProfile]);
 
     useRealtimeRefresh({
         socket,
         events: [
-            RealtimeEvents.orders.update,
             RealtimeEvents.orders.create,
+            RealtimeEvents.orders.update,
             RealtimeEvents.orders.delete,
             RealtimeEvents.payments.create,
+            RealtimeEvents.payments.update,
         ],
-        onRefresh: () => fetchData(true),
+        onRefresh: () => fetchOverview(true),
         intervalMs: 20000,
-        debounceMs: 1000,
+        debounceMs: 900,
     });
 
-    const handleExportPDF = () => {
-        try {
-            showLoading(t("dashboard.exportPDF.loading"));
-            exportSalesReportPDF(
-                salesData,
-                topItems,
-                [dateRange[0].format('YYYY-MM-DD'), dateRange[1].format('YYYY-MM-DD')]
-            );
-            message.success(t("dashboard.exportPDF.success"));
-        } catch {
-            message.error(t("dashboard.exportPDF.error"));
-        } finally {
-            hideLoading();
-        }
-    };
+    const handleExport = useCallback(
+        async (format: ExportFormat, exportPreset: ExportPresetKey) => {
+            try {
+                showLoading("กำลังเตรียมไฟล์สรุปผลการขาย...");
+                const [rangeStart, rangeEnd] = resolvePresetRange(exportPreset);
+                const exportStart = rangeStart.format("YYYY-MM-DD");
+                const exportEnd = rangeEnd.format("YYYY-MM-DD");
+                const exportLabel = getExportPresetLabel(exportPreset);
 
-    const handleExportExcel = () => {
-        try {
-            showLoading(t("dashboard.exportExcel.loading"));
-            exportSalesReportExcel(
-                salesData,
-                topItems,
-                [dateRange[0].format('YYYY-MM-DD'), dateRange[1].format('YYYY-MM-DD')]
-            );
-            message.success(t("dashboard.exportExcel.success"));
-        } catch {
-            message.error(t("dashboard.exportExcel.error"));
-        } finally {
-            hideLoading();
-        }
-    };
+                const shouldReuseCurrentOverview = exportStart === startDate && exportEnd === endDate && Boolean(overview);
+                const exportOverview = shouldReuseCurrentOverview
+                    ? overview
+                    : await dashboardService.getOverview(exportStart, exportEnd, 10, 20);
 
-    // Calculate aggregates
-    const totalSales = salesData.reduce((acc, curr) => acc + Number(curr.total_sales), 0);
-    const totalOrders = salesData.reduce((acc, curr) => acc + Number(curr.total_orders), 0);
-    const totalDiscount = salesData.reduce((acc, curr) => acc + Number(curr.total_discount), 0);
-    const totalDeliverySales = salesData.reduce((acc, curr) => acc + Number(curr.delivery_sales || 0), 0);
-    const totalDineInSales = salesData.reduce((acc, curr) => acc + Number(curr.dine_in_sales || 0), 0);
-    const totalTakeAwaySales = salesData.reduce((acc, curr) => acc + Number(curr.takeaway_sales || 0), 0);
+                if (!exportOverview) {
+                    throw new Error("ไม่พบข้อมูลสรุปสำหรับการส่งออก");
+                }
 
-    if (isLoading) {
+                const payload = {
+                    summary: exportOverview.summary,
+                    daily_sales: exportOverview.daily_sales,
+                    top_items: exportOverview.top_items,
+                    recent_orders: exportOverview.recent_orders,
+                };
+                const branding: SalesReportBranding = {
+                    shopName: shopProfile?.shop_name || "ร้านค้า POS",
+                    branchName: user?.branch?.branch_name,
+                    logoUrl: shopProfile?.logo_url,
+                    primaryColor: shopProfile?.primary_color || "#0f766e",
+                    secondaryColor: shopProfile?.secondary_color || "#1d4ed8",
+                };
+
+                if (format === "pdf") {
+                    await exportSalesReportPDF(payload, [exportStart, exportEnd], exportLabel, branding);
+                } else {
+                    exportSalesReportExcel(payload, [exportStart, exportEnd], exportLabel, branding);
+                }
+
+                messageApi.success(`ส่งออก${format.toUpperCase()} สำเร็จ (${exportLabel})`);
+            } catch (error) {
+                console.error("Export sales summary failed", error);
+                messageApi.error("ส่งออกไฟล์สรุปผลการขายไม่สำเร็จ");
+            } finally {
+                hideLoading();
+            }
+        },
+        [showLoading, hideLoading, startDate, endDate, overview, messageApi, shopProfile, user?.branch?.branch_name]
+    );
+
+    const exportMenuItems = useMemo<MenuProps["items"]>(
+        () => [
+            {
+                key: "pdf",
+                icon: <FilePdfOutlined />,
+                label: "ดาวน์โหลด PDF",
+                children: EXPORT_PRESET_OPTIONS.map((option) => ({
+                    key: `pdf-${option.value}`,
+                    label: option.label,
+                    onClick: () => {
+                        void handleExport("pdf", option.value);
+                    },
+                })),
+            },
+            {
+                key: "xlsx",
+                icon: <FileExcelOutlined />,
+                label: "ดาวน์โหลด Excel (XLSX)",
+                children: EXPORT_PRESET_OPTIONS.map((option) => ({
+                    key: `xlsx-${option.value}`,
+                    label: option.label,
+                    onClick: () => {
+                        void handleExport("xlsx", option.value);
+                    },
+                })),
+            },
+        ],
+        [handleExport]
+    );
+
+    const summary = overview?.summary;
+    const dailyRows = useMemo(() => overview?.daily_sales ?? [], [overview]);
+    const topItems = overview?.top_items || [];
+    const recentOrders = overview?.recent_orders || [];
+
+    const totalChannelSales = useMemo(() => {
+        if (!summary) return 0;
+        return Number(summary.dine_in_sales || 0) + Number(summary.takeaway_sales || 0) + Number(summary.delivery_sales || 0);
+    }, [summary]);
+
+    const channelCards = useMemo(() => {
+        if (!summary) return [];
+        return [
+            {
+                key: "dinein",
+                label: t("dashboard.channel.dineIn"),
+                icon: <ShopOutlined style={{ color: "#2563EB" }} />,
+                value: Number(summary.dine_in_sales || 0),
+                color: "#2563EB",
+            },
+            {
+                key: "takeaway",
+                label: t("dashboard.channel.takeAway"),
+                icon: <HomeOutlined style={{ color: "#059669" }} />,
+                value: Number(summary.takeaway_sales || 0),
+                color: "#059669",
+            },
+            {
+                key: "delivery",
+                label: t("dashboard.channel.delivery"),
+                icon: <CarOutlined style={{ color: "#DB2777" }} />,
+                value: Number(summary.delivery_sales || 0),
+                color: "#DB2777",
+            },
+        ];
+    }, [summary]);
+
+    const dailyTableData = useMemo(
+        () =>
+            dailyRows.map((row) => ({
+                key: row.date,
+                date: row.date,
+                orders: Number(row.total_orders || 0),
+                sales: Number(row.total_sales || 0),
+                avg: Number(row.total_orders || 0) > 0 ? Number(row.total_sales || 0) / Number(row.total_orders || 1) : 0,
+            })),
+        [dailyRows]
+    );
+
+    if (authLoading || permissionLoading) {
         return (
-            <div style={{ minHeight: "100vh", background: dashboardColors.background || "#F8FAFC" }}>
-                <UIPageHeader
-                    title="Dashboard"
-                    subtitle={t("dashboard.subtitle")}
-                    icon={<RiseOutlined />}
-                    actions={
-                        <Button icon={<ReloadOutlined />} onClick={() => fetchData(false)}>
-                            {t("dashboard.reload")}
-                        </Button>
-                    }
-                />
-                <PageContainer maxWidth={1400}>
-                    <PageSection>
-                        <div style={{ display: "flex", justifyContent: "center", padding: "60px 0" }}>
-                            <Spin size="large" tip={t("dashboard.loading")} />
-                        </div>
-                    </PageSection>
-                </PageContainer>
+            <div style={{ minHeight: "100vh", background: "#F8FAFC", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Spin size="large" />
             </div>
         );
     }
 
+    if (!user || !canViewDashboard) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้าสรุปการขาย" tone="danger" />;
+    }
+
     return (
-        <div style={dashboardStyles.container}>
-            <style>{dashboardResponsiveStyles}</style>
+        <div style={{ minHeight: "100vh", background: "#F8FAFC", paddingBottom: 100 }}>
+            <UIPageHeader
+                title={t("dashboard.title")}
+                subtitle={t("dashboard.subtitle")}
+                icon={<RiseOutlined />}
+                actions={
+                    <Space size={8} wrap>
+                        <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchOverview(true)}>
+                            {!isMobile ? t("dashboard.reload") : ""}
+                        </Button>
+                        <Dropdown
+                            menu={{
+                                items: exportMenuItems,
+                            }}
+                            trigger={["click"]}
+                            disabled={!overview || loading}
+                        >
+                            <Button type="primary" icon={<DownloadOutlined />}>
+                                {!isMobile ? "ดาวน์โหลดสรุปผลการขาย" : ""}
+                            </Button>
+                        </Dropdown>
+                    </Space>
+                }
+            />
 
-            {/* Hero Header with Gradient */}
-            <div style={dashboardStyles.heroSection} className="dashboard-hero-mobile">
-                <div style={dashboardStyles.heroDecoCircle1} />
-                <div style={dashboardStyles.heroDecoCircle2} />
-                
-                <div style={dashboardStyles.heroContent}>
-                    <UIPageHeader
-                        title={<span style={{ color: "white" }}>Dashboard</span>}
-                        subtitle={<span style={{ color: "rgba(255,255,255,0.85)" }}>{t("dashboard.subtitle")}</span>}
-                        icon={<RiseOutlined style={{ color: "white" }} />}
-                        style={{ background: "transparent", borderBottom: "none", padding: 0, marginBottom: 20 }}
-                        actions={
-                            <div style={{ display: 'flex', gap: 8 }}>
-                                <Button 
-                                    icon={<ReloadOutlined />} 
-                                    onClick={() => fetchData(false)}
-                                    style={dashboardStyles.refreshButton}
-                                    className="scale-hover"
-                                />
-                                <Dropdown
-                                    menu={{
-                                        items: [
-                                            { key: 'pdf', icon: <FilePdfOutlined />, label: t("dashboard.export.pdf"), onClick: handleExportPDF },
-                                            { key: 'excel', icon: <FileExcelOutlined />, label: t("dashboard.export.excel"), onClick: handleExportExcel }
-                                        ]
-                                    }}
-                                    trigger={['click']}
-                                    disabled={salesData.length === 0}
-                                >
-                                    <Button 
-                                        icon={<DownloadOutlined />} 
-                                        style={dashboardStyles.exportButton}
-                                        className="scale-hover"
-                                    />
-                                </Dropdown>
-                            </div>
-                        }
-                    />
-
-                    {/* Date Picker */}
-                    <div style={dashboardStyles.datePickerWrapper}>
-                        <RangePicker 
-                            style={{ width: '100%', border: 'none' }}
-                            value={dateRange}
-                            onChange={(dates) => dates && setDateRange([dates[0]!, dates[1]!])}
-                            allowClear={false}
-                            suffixIcon={<CalendarOutlined style={{ color: dashboardColors.primary }} />}
-                        />
-                    </div>
-                </div>
-            </div>
-
-            {/* Main Content */}
             <PageContainer maxWidth={1400}>
-                <PageSection style={{ background: "transparent", border: "none" }}>
-                    <div style={dashboardStyles.contentWrapper} className="dashboard-content-mobile">
-                
-                {/* Main Sales Card */}
-                <div 
-                    style={{
-                        ...dashboardStyles.statCard,
-                        background: `linear-gradient(135deg, ${dashboardColors.salesColor} 0%, #818CF8 100%)`,
-                        padding: 20,
-                        marginBottom: 16,
-                        color: 'white'
-                    }}
-                    className="dashboard-card-animate scale-hover"
-                >
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 8 }}>
-                        <DollarCircleOutlined style={{ fontSize: 28 }} />
-                        <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 14 }}>{t("dashboard.totalSales")}</Text>
-                    </div>
-                    <Title level={2} style={{ margin: 0, color: 'white', fontSize: 32 }}>
-                        ฿{totalSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                    </Title>
-                    <div style={{ marginTop: 12, display: 'flex', gap: 16 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <ShoppingOutlined style={{ fontSize: 14 }} />
-                            <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13 }}>
-                                {t("dashboard.orders", { count: totalOrders })}
-                            </Text>
-                        </div>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <TagOutlined style={{ fontSize: 14 }} />
-                            <Text style={{ color: 'rgba(255,255,255,0.9)', fontSize: 13 }}>
-                                {t("dashboard.discount", { amount: totalDiscount.toLocaleString() })}
-                            </Text>
-                        </div>
-                    </div>
-                </div>
+                <PageStack gap={12}>
+                    <PageSection title="ช่วงเวลา">
+                        <Row gutter={[12, 12]} align="middle">
+                            <Col xs={24} lg={10}>
+                                <Segmented options={PRESET_OPTIONS} value={preset} onChange={(value) => setPreset(value as PresetKey)} block />
+                            </Col>
+                            <Col xs={24} lg={14}>
+                                <RangePicker
+                                    value={dateRange}
+                                    onChange={(dates) => {
+                                        if (!dates?.[0] || !dates?.[1]) return;
+                                        setPreset("custom");
+                                        setDateRange([dates[0], dates[1]]);
+                                    }}
+                                    allowClear={false}
+                                    style={{ width: "100%" }}
+                                    suffixIcon={<CalendarOutlined />}
+                                />
+                            </Col>
+                            <Col xs={24}>
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                    ปุ่มดาวน์โหลดสามารถเลือกสรุปได้ตามช่วง: วันนี้, 7 วันล่าสุด, 15 วันล่าสุด, 30 วันล่าสุด
+                                </Text>
+                            </Col>
+                        </Row>
+                    </PageSection>
 
-                {/* Channel Stats Grid */}
-                <div style={{ 
-                    display: 'grid', 
-                    gridTemplateColumns: 'repeat(3, 1fr)', 
-                    gap: 10, 
-                    marginBottom: 20 
-                }}>
-                    {/* Dine In */}
-                    <div 
-                        style={{
-                            ...dashboardStyles.statCard,
-                            padding: 14,
-                            textAlign: 'center'
-                        }}
-                        className="dashboard-stat-card-mobile scale-hover dashboard-card-animate dashboard-card-delay-1"
-                    >
-                        <div style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 12,
-                            background: `${dashboardColors.dineInColor}15`,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            margin: '0 auto 8px'
-                        }}>
-                            <ShopOutlined style={{ fontSize: 18, color: dashboardColors.dineInColor }} />
-                        </div>
-                        <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>{t("dashboard.channel.dineIn")}</Text>
-                        <Text strong style={{ fontSize: 14, color: dashboardColors.dineInColor }}>
-                            ฿{totalDineInSales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                        </Text>
-                    </div>
+                    {loading ? (
+                        <PageSection>
+                            <div style={{ display: "flex", justifyContent: "center", padding: "56px 0" }}>
+                                <Spin size="large" tip={t("dashboard.loading")} />
+                            </div>
+                        </PageSection>
+                    ) : !overview ? (
+                        <PageSection>
+                            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={t("page.error")} />
+                        </PageSection>
+                    ) : (
+                        <>
+                            <Row gutter={[12, 12]}>
+                                <Col xs={24} sm={12} lg={6}>
+                                    <Card>
+                                        <Text type="secondary">{t("dashboard.totalSales")}</Text>
+                                        <Title level={4} style={{ margin: "6px 0 0", color: "#0f766e" }}>{formatCurrency(Number(summary?.total_sales || 0))}</Title>
+                                    </Card>
+                                </Col>
+                                <Col xs={24} sm={12} lg={6}>
+                                    <Card>
+                                        <Text type="secondary">จำนวนออเดอร์</Text>
+                                        <Title level={4} style={{ margin: "6px 0 0" }}>{Number(summary?.total_orders || 0).toLocaleString()}</Title>
+                                    </Card>
+                                </Col>
+                                <Col xs={24} sm={12} lg={6}>
+                                    <Card>
+                                        <Text type="secondary">ยอดเฉลี่ยต่อบิล</Text>
+                                        <Title level={4} style={{ margin: "6px 0 0" }}>{formatCurrency(Number(summary?.average_order_value || 0))}</Title>
+                                    </Card>
+                                </Col>
+                                <Col xs={24} sm={12} lg={6}>
+                                    <Card>
+                                        <Text type="secondary">{t("dashboard.discount", { amount: "" }).replace(" ฿", "")}</Text>
+                                        <Title level={4} style={{ margin: "6px 0 0", color: "#b91c1c" }}>{formatCurrency(Number(summary?.total_discount || 0))}</Title>
+                                    </Card>
+                                </Col>
+                            </Row>
 
-                    {/* Take Away */}
-                    <div 
-                        style={{
-                            ...dashboardStyles.statCard,
-                            padding: 14,
-                            textAlign: 'center'
-                        }}
-                        className="dashboard-stat-card-mobile scale-hover dashboard-card-animate dashboard-card-delay-2"
-                    >
-                        <div style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 12,
-                            background: `${dashboardColors.takeAwayColor}15`,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            margin: '0 auto 8px'
-                        }}>
-                            <HomeOutlined style={{ fontSize: 18, color: dashboardColors.takeAwayColor }} />
-                        </div>
-                        <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>{t("dashboard.channel.takeAway")}</Text>
-                        <Text strong style={{ fontSize: 14, color: dashboardColors.takeAwayColor }}>
-                            ฿{totalTakeAwaySales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                        </Text>
-                    </div>
-
-                    {/* Delivery */}
-                    <div 
-                        style={{
-                            ...dashboardStyles.statCard,
-                            padding: 14,
-                            textAlign: 'center'
-                        }}
-                        className="dashboard-stat-card-mobile scale-hover dashboard-card-animate dashboard-card-delay-3"
-                    >
-                        <div style={{
-                            width: 40,
-                            height: 40,
-                            borderRadius: 12,
-                            background: `${dashboardColors.deliveryColor}15`,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            margin: '0 auto 8px'
-                        }}>
-                            <CarOutlined style={{ fontSize: 18, color: dashboardColors.deliveryColor }} />
-                        </div>
-                        <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>{t("dashboard.channel.delivery")}</Text>
-                        <Text strong style={{ fontSize: 14, color: dashboardColors.deliveryColor }}>
-                            ฿{totalDeliverySales.toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                        </Text>
-                    </div>
-                </div>
-
-                {/* Top Products Section */}
-                <div 
-                    style={{
-                        ...dashboardStyles.tableCard,
-                        marginBottom: 16
-                    }}
-                    className="dashboard-card-animate"
-                >
-                    <div style={dashboardStyles.tableHeader}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <TrophyOutlined style={{ color: '#F59E0B', fontSize: 18 }} />
-                            <Text strong style={dashboardStyles.tableTitle}>{t("dashboard.topProducts")}</Text>
-                        </div>
-                    </div>
-                    <div style={{ padding: 16 }}>
-                        {topItems.length > 0 ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                {topItems.map((item, index) => (
-                                    <div 
-                                        key={item.product_id}
-                                        style={{
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            gap: 12,
-                                            padding: 12,
-                                            background: index === 0 ? 'linear-gradient(135deg, #FEF3C7 0%, #FDE68A 100%)' : '#F9FAFB',
-                                            borderRadius: 14,
-                                            border: index === 0 ? '1px solid #FCD34D' : '1px solid transparent',
-                                            transition: 'all 0.2s ease'
-                                        }}
-                                    >
-                                        <div style={{
-                                            width: index === 0 ? 32 : 26,
-                                            height: index === 0 ? 32 : 26,
-                                            borderRadius: 8,
-                                            background: index === 0 ? 'linear-gradient(135deg, #F59E0B 0%, #D97706 100%)' : '#E5E7EB',
-                                            color: index === 0 ? 'white' : '#6B7280',
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'center',
-                                            fontSize: index === 0 ? 14 : 12,
-                                            fontWeight: 700,
-                                            flexShrink: 0,
-                                            boxShadow: index === 0 ? '0 4px 12px rgba(245, 158, 11, 0.3)' : 'none'
-                                        }}>
-                                            {index === 0 ? <FireOutlined /> : index + 1}
+                            <Row gutter={[12, 12]}>
+                                <Col xs={24} lg={12}>
+                                    <PageSection title="ยอดขายตามช่องทาง">
+                                        <div style={{ display: "grid", gap: 10 }}>
+                                            {channelCards.map((channel) => {
+                                                const percent = totalChannelSales > 0 ? (channel.value / totalChannelSales) * 100 : 0;
+                                                return (
+                                                    <Card key={channel.key} size="small">
+                                                        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                                                            <Space>
+                                                                {channel.icon}
+                                                                <Text strong>{channel.label}</Text>
+                                                            </Space>
+                                                            <Text strong>{formatCurrency(channel.value)}</Text>
+                                                        </div>
+                                                        <Progress
+                                                            percent={Number(percent.toFixed(1))}
+                                                            strokeColor={channel.color}
+                                                            size="small"
+                                                            style={{ marginTop: 8 }}
+                                                        />
+                                                    </Card>
+                                                );
+                                            })}
+                                            <Card size="small">
+                                                <Row gutter={8}>
+                                                    <Col span={12}>
+                                                        <Text type="secondary">เงินสด</Text>
+                                                        <Title level={5} style={{ margin: "4px 0 0" }}>{formatCurrency(Number(summary?.cash_sales || 0))}</Title>
+                                                    </Col>
+                                                    <Col span={12}>
+                                                        <Text type="secondary">QR/PromptPay</Text>
+                                                        <Title level={5} style={{ margin: "4px 0 0" }}>{formatCurrency(Number(summary?.qr_sales || 0))}</Title>
+                                                    </Col>
+                                                </Row>
+                                            </Card>
                                         </div>
-                                        <Avatar 
-                                            shape="square" 
-                                            size={42} 
-                                            src={item.img_url} 
-                                            icon={<ShoppingOutlined />}
-                                            style={{ 
-                                                borderRadius: 10, 
-                                                flexShrink: 0,
-                                                border: '2px solid white',
-                                                boxShadow: '0 2px 8px rgba(0,0,0,0.06)'
-                                            }}
+                                    </PageSection>
+                                </Col>
+
+                                <Col xs={24} lg={12}>
+                                    <PageSection title={t("dashboard.topProducts")}>
+                                        <TopItemsList items={topItems} compact={isMobile} />
+                                    </PageSection>
+                                </Col>
+                            </Row>
+
+                            <Row gutter={[12, 12]}>
+                                <Col xs={24} lg={12}>
+                                    <PageSection title={t("dashboard.recentOrders")}>
+                                        <RecentOrdersList orders={recentOrders} />
+                                    </PageSection>
+                                </Col>
+                                <Col xs={24} lg={12}>
+                                    <PageSection title={t("dashboard.dailySales")}>
+                                        <Table
+                                            size="small"
+                                            pagination={false}
+                                            scroll={{ x: 460 }}
+                                            dataSource={dailyTableData}
+                                            columns={[
+                                                {
+                                                    title: t("dashboard.dailySales.date"),
+                                                    dataIndex: "date",
+                                                    key: "date",
+                                                    render: (value: string) => formatThaiDate(value),
+                                                },
+                                                {
+                                                    title: t("dashboard.dailySales.orders"),
+                                                    dataIndex: "orders",
+                                                    key: "orders",
+                                                    align: "center",
+                                                    render: (value: number) => value.toLocaleString(),
+                                                },
+                                                {
+                                                    title: t("dashboard.dailySales.sales"),
+                                                    dataIndex: "sales",
+                                                    key: "sales",
+                                                    align: "right",
+                                                    render: (value: number) => formatCurrency(value),
+                                                },
+                                                {
+                                                    title: "เฉลี่ย/บิล",
+                                                    dataIndex: "avg",
+                                                    key: "avg",
+                                                    align: "right",
+                                                    render: (value: number) => formatCurrency(value),
+                                                },
+                                            ]}
                                         />
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <Text strong style={{ fontSize: 13, display: 'block', lineHeight: 1.3 }} ellipsis>
-                                                {item.product_name}
-                                            </Text>
-                                            <Text type="secondary" style={{ fontSize: 11 }}>
-                                                ขายได้ {item.total_quantity} ชิ้น
-                                            </Text>
-                                        </div>
-                                        <div style={{ textAlign: 'right' }}>
-                                            <Text strong style={{ 
-                                                color: dashboardColors.salesColor, 
-                                                fontSize: 14,
-                                                display: 'block'
-                                            }}>
-                                                ฿{Number(item.total_revenue).toLocaleString()}
-                                            </Text>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <div style={{ textAlign: 'center', padding: 30, color: '#9CA3AF' }}>
-                                <ShoppingOutlined style={{ fontSize: 32, marginBottom: 8, opacity: 0.5 }} />
-                                <Text type="secondary" style={{ display: 'block' }}>{t("dashboard.topProducts.empty")}</Text>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Recent Orders Section */}
-                <div 
-                    style={dashboardStyles.tableCard}
-                    className="dashboard-card-animate"
-                >
-                    <div style={dashboardStyles.tableHeader}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                            <ShoppingOutlined style={{ color: dashboardColors.primary, fontSize: 18 }} />
-                            <Text strong style={dashboardStyles.tableTitle}>{t("dashboard.recentOrders")}</Text>
-                        </div>
-                    </div>
-                    <div style={{ padding: '12px 16px' }}>
-                        {recentOrders.length > 0 ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                {recentOrders.slice(0, 5).map(order => {
-                                    const typeConfig: Record<OrderType, { label: string, color: string, bg: string }> = {
-                                        [OrderType.DineIn]: { label: t("dashboard.channel.dineIn"), color: '#fff', bg: '#3B82F6' },
-                                        [OrderType.TakeAway]: { label: t("dashboard.channel.takeAway"), color: '#fff', bg: '#22C55E' },
-                                        [OrderType.Delivery]: { label: t("dashboard.channel.delivery"), color: '#fff', bg: '#EC4899' },
-                                    };
-                                    const statusConfig: Record<string, { label: string, bg: string, color: string }> = {
-                                        [OrderStatus.Paid]: { label: 'ชำระแล้ว', bg: '#DCFCE7', color: '#16A34A' },
-                                        [OrderStatus.Completed]: { label: 'เสร็จสิ้น', bg: '#DCFCE7', color: '#16A34A' },
-                                        [OrderStatus.Cancelled]: { label: 'ยกเลิก', bg: '#FEE2E2', color: '#DC2626' },
-                                    };
-                                    const type = typeConfig[order.order_type] || { label: '-', color: '#fff', bg: '#6B7280' };
-                                    const status = statusConfig[order.status] || { label: order.status, bg: '#F3F4F6', color: '#6B7280' };
-                                    const paymentMethod = order.payment_method?.payment_method_name || 'เงินสด';
-                                    
-                                    // Thai date format
-                                    const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
-                                    const orderDate = dayjs(order.create_date);
-                                    const thaiDateStr = `${orderDate.date()} ${thaiMonths[orderDate.month()]} ${orderDate.format('HH:mm')}`;
-
-                                    return (
-                                        <div 
-                                            key={order.id}
-                                            style={{
-                                                background: 'white',
-                                                borderRadius: 14,
-                                                border: '1px solid #E2E8F0',
-                                                cursor: 'pointer',
-                                                transition: 'all 0.2s ease',
-                                                boxShadow: '0 2px 6px rgba(0,0,0,0.04)',
-                                                overflow: 'hidden'
-                                            }}
-                                            className="scale-hover"
-                                            onClick={() => router.push(`/pos/dashboard/${order.id}`)}
-                                        >
-                                            {/* Row 1: Status (top-left) + Price (top-right) */}
-                                            <div style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                padding: '12px 14px',
-                                                borderBottom: '1px solid #F1F5F9'
-                                            }}>
-                                                <span style={{
-                                                    fontSize: 11,
-                                                    padding: '4px 10px',
-                                                    borderRadius: 6,
-                                                    background: status.bg,
-                                                    color: status.color,
-                                                    fontWeight: 700
-                                                }}>
-                                                    {status.label}
-                                                </span>
-                                                <Text strong style={{ 
-                                                    color: dashboardColors.salesColor, 
-                                                    fontSize: 18
-                                                }}>
-                                                    ฿{Number(order.total_amount).toLocaleString()}
-                                                </Text>
-                                            </div>
-
-                                            {/* Row 2: Order Number + Type + Payment */}
-                                            <div style={{ padding: '12px 14px' }}>
-                                                <Text strong style={{ 
-                                                    fontSize: 15,
-                                                    display: 'block',
-                                                    marginBottom: 10
-                                                }}>
-                                                    #{order.order_no}
-                                                </Text>
-                                                
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                    <span style={{
-                                                        fontSize: 11,
-                                                        padding: '5px 12px',
-                                                        borderRadius: 20,
-                                                        background: type.bg,
-                                                        color: type.color,
-                                                        fontWeight: 600
-                                                    }}>
-                                                        {type.label}
-                                                    </span>
-                                                    <span style={{
-                                                        fontSize: 11,
-                                                        padding: '5px 12px',
-                                                        borderRadius: 20,
-                                                        background: '#FEF3C7',
-                                                        color: '#B45309',
-                                                        fontWeight: 600
-                                                    }}>
-                                                        {t("dashboard.paymentMethod", { method: paymentMethod })}
-                                                    </span>
-                                                </div>
-                                            </div>
-                                            
-                                            {/* Row 3: Date & View */}
-                                            <div style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                padding: '10px 14px',
-                                                background: '#F8FAFC',
-                                                borderTop: '1px solid #F1F5F9'
-                                            }}>
-                                                <Text type="secondary" style={{ fontSize: 12 }}>
-                                                    📅 {thaiDateStr}
-                                                </Text>
-                                                <div style={{ 
-                                                    display: 'flex', 
-                                                    alignItems: 'center', 
-                                                    gap: 4,
-                                                    color: dashboardColors.primary
-                                                }}>
-                                                        <Text style={{ fontSize: 12, color: dashboardColors.primary }}>{t("dashboard.viewDetails")}</Text>
-                                                    <EyeOutlined style={{ fontSize: 14 }} />
-                                                </div>
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-                        ) : (
-                            <div style={{ textAlign: 'center', padding: 30, color: '#9CA3AF' }}>
-                                <ShoppingOutlined style={{ fontSize: 32, marginBottom: 8, opacity: 0.5 }} />
-                                <Text type="secondary" style={{ display: 'block' }}>{t("dashboard.recentOrders.empty")}</Text>
-                            </div>
-                        )}
-                    </div>
-                </div>
-
-                {/* Daily Sales Summary - Compact */}
-                {salesData.length > 0 && (
-                    <div 
-                        style={{
-                            ...dashboardStyles.tableCard,
-                            marginTop: 16
-                        }}
-                        className="dashboard-card-animate dashboard-table-mobile"
-                    >
-                        <div style={dashboardStyles.tableHeader}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                <CalendarOutlined style={{ color: dashboardColors.primary, fontSize: 18 }} />
-                                <Text strong style={dashboardStyles.tableTitle}>{t("dashboard.dailySales")}</Text>
-                            </div>
-                        </div>
-                        <div style={{ overflowX: 'auto' }}>
-                            <table style={{ width: '100%', borderCollapse: 'collapse', minWidth: 300 }}>
-                                <thead>
-                                    <tr style={{ background: '#F8FAFC' }}>
-                                        <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: 12, color: '#64748B', fontWeight: 600 }}>{t("dashboard.dailySales.date")}</th>
-                                        <th style={{ padding: '12px 16px', textAlign: 'center', fontSize: 12, color: '#64748B', fontWeight: 600 }}>{t("dashboard.dailySales.orders")}</th>
-                                        <th style={{ padding: '12px 16px', textAlign: 'right', fontSize: 12, color: '#64748B', fontWeight: 600 }}>{t("dashboard.dailySales.sales")}</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {salesData.slice(0, 7).map((row, index) => (
-                                        <tr 
-                                            key={row.date} 
-                                            style={{ 
-                                                borderBottom: index < salesData.length - 1 ? '1px solid #F1F5F9' : 'none' 
-                                            }}
-                                        >
-                                            <td style={{ padding: '14px 16px', fontSize: 13 }}>
-                                                {dayjs(row.date).format('DD MMM')}
-                                            </td>
-                                            <td style={{ padding: '14px 16px', textAlign: 'center', fontSize: 13 }}>
-                                                <span style={{
-                                                    background: '#F1F5F9',
-                                                    padding: '4px 10px',
-                                                    borderRadius: 6,
-                                                    fontWeight: 600
-                                                }}>
-                                                    {row.total_orders}
-                                                </span>
-                                            </td>
-                                            <td style={{ padding: '14px 16px', textAlign: 'right' }}>
-                                                <Text strong style={{ color: dashboardColors.salesColor, fontSize: 14 }}>
-                                                    ฿{Number(row.total_sales).toLocaleString()}
-                                                </Text>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                )}
-
-                    </div>
-                </PageSection>
+                                    </PageSection>
+                                </Col>
+                            </Row>
+                        </>
+                    )}
+                </PageStack>
             </PageContainer>
         </div>
     );
 }
+

@@ -5,6 +5,7 @@ import { Modal, InputNumber, Button, Typography, Form } from 'antd';
 import { useShift } from '../../../contexts/pos/ShiftContext';
 import { DollarOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
+import { useRouter } from 'next/navigation';
 
 const { Title, Text } = Typography;
 
@@ -16,6 +17,7 @@ interface CloseShiftModalProps {
 
 export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShiftModalProps) {
     const { currentShift, closeShift } = useShift();
+    const router = useRouter();
     const [submitting, setSubmitting] = useState(false);
     const [form] = Form.useForm();
 
@@ -26,6 +28,7 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
             onCancel();
             form.resetFields();
             if (onSuccess) onSuccess();
+            router.push("/");
         } catch {
             // Error handled in context
         } finally {

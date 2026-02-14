@@ -1,264 +1,345 @@
 ﻿"use client";
 
-import React, { useEffect, useRef, useState } from "react";
-import { Button, message, Modal, Spin } from "antd";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { HistoryOutlined } from "@ant-design/icons";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  App,
+  Button,
+  Card,
+  Col,
+  Row,
+  Space,
+  Tag,
+  Typography,
+} from "antd";
+import {
+  DeleteOutlined,
+  EyeOutlined,
+  HistoryOutlined,
+  ReloadOutlined,
+} from "@ant-design/icons";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { Order, OrderStatus } from "../../../../types/api/stock/orders";
-import OrderDetailModal from "../../../../components/stock/OrderDetailModal";
 import { useSocket } from "../../../../hooks/useSocket";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
 import { authService } from "../../../../services/auth.service";
-import PageContainer from "../../../../components/ui/page/PageContainer";
-import UIPageHeader from "../../../../components/ui/page/PageHeader";
-import PageSection from "../../../../components/ui/page/PageSection";
-import UIEmptyState from "../../../../components/ui/states/EmptyState";
-import { t } from "../../../../utils/i18n";
 import { LegacyRealtimeEvents, RealtimeEvents } from "../../../../utils/realtimeEvents";
-import {
-    HistoryPageStyles,
-    pageStyles,
-    StatsCard,
-    OrderCard,
-} from "./style";
-import ListPagination, { type CreatedSort } from "../../../../components/ui/pagination/ListPagination";
+import { Order, OrderStatus } from "../../../../types/api/stock/orders";
+import ListPagination, { CreatedSort } from "../../../../components/ui/pagination/ListPagination";
 import { DEFAULT_CREATED_SORT, parseCreatedSort } from "../../../../lib/list-sort";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../components/ui/page/PageSection";
+import PageStack from "../../../../components/ui/page/PageStack";
+import PageState from "../../../../components/ui/states/PageState";
+import OrderDetailModal from "../../../../components/stock/OrderDetailModal";
 
-export default function HistoryPage() {
-    const router = useRouter();
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
-    const isUrlReadyRef = useRef(false);
-    const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
-    const { socket } = useSocket();
-    const { user } = useAuth();
-    const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canDeleteOrders = can("stock.orders.page", "delete");
-    const queryClient = useQueryClient();
-    
-    // Pagination State
-    const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
-    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
+const { Text, Title } = Typography;
 
-    useEffect(() => {
-        if (isUrlReadyRef.current) return;
+function formatDateTime(value?: string): string {
+  if (!value) return "-";
+  return new Date(value).toLocaleString("th-TH", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
 
-        const pageParam = Number(searchParams.get("page") || "1");
-        const limitParam = Number(searchParams.get("limit") || "10");
-        const sortParam = searchParams.get("sort_created");
+function getStatusTag(status: OrderStatus): React.ReactNode {
+  if (status === OrderStatus.COMPLETED) return <Tag color="success">เสร็จสิ้น</Tag>;
+  if (status === OrderStatus.CANCELLED) return <Tag color="error">ยกเลิก</Tag>;
+  return <Tag color="warning">รอดำเนินการ</Tag>;
+}
 
-        setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
-        setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 10);
-        setCreatedSort(parseCreatedSort(sortParam));
-        isUrlReadyRef.current = true;
-    }, [searchParams]);
+export default function StockHistoryPage() {
+  const { message: messageApi, modal } = App.useApp();
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const initRef = useRef(false);
 
-    useEffect(() => {
-        if (!isUrlReadyRef.current) return;
+  const { socket } = useSocket();
+  const { user } = useAuth();
+  const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+  const canDeleteOrders = can("stock.orders.page", "delete");
 
-        const params = new URLSearchParams();
-        if (page > 1) params.set("page", String(page));
-        if (pageSize !== 10) params.set("limit", String(pageSize));
-        if (createdSort !== DEFAULT_CREATED_SORT) params.set("sort_created", createdSort);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
 
-        const query = params.toString();
-        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [router, pathname, page, pageSize, createdSort]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(10);
+  const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
 
-    const { data: csrfToken = "" } = useQuery({
-        queryKey: ['csrfToken'],
-        queryFn: () => authService.getCsrfToken(),
-        staleTime: 10 * 60 * 1000,
-    });
+  useEffect(() => {
+    if (initRef.current) return;
 
-    const { data: ordersResult, isLoading, isFetching } = useQuery<{ data: Order[]; total: number }, Error>({
-        queryKey: ['stockHistory', page, pageSize, createdSort],
-        queryFn: async () => {
-            const params = new URLSearchParams();
-            params.set("status", "completed,cancelled");
-            params.set("page", String(page));
-            params.set("limit", String(pageSize));
-            params.set("sort_created", createdSort);
+    const pageParam = Number(searchParams.get("page") || "1");
+    const limitParam = Number(searchParams.get("limit") || "10");
+    const sortParam = searchParams.get("sort_created");
 
-            const response = await fetch(`/api/stock/orders?${params.toString()}`, { cache: "no-store" });
-            if (!response.ok) throw new Error(t('stockHistory.fetch.error'));
-            const result = await response.json();
-            if (Array.isArray(result)) {
-                return { data: result, total: result.length };
-            }
-            return { data: result.data, total: result.total };
-        },
-        placeholderData: (prev) => prev,
-        staleTime: 60 * 1000,
-    });
+    setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
+    setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 10);
+    setCreatedSort(parseCreatedSort(sortParam));
 
-    const orders: Order[] = ordersResult?.data ?? [];
-    const total = ordersResult?.total ?? 0;
+    initRef.current = true;
+  }, [searchParams]);
 
-    const deleteMutation = useMutation({
-        mutationFn: async (orderId: string) => {
-            const token = csrfToken || await authService.getCsrfToken();
-            const response = await fetch(`/api/stock/orders/${orderId}`, { 
-                method: 'DELETE',
-                headers: {
-                    'X-CSRF-Token': token || ''
-                }
-            });
-            if (!response.ok) throw new Error(t('stockHistory.delete.error'));
-            return orderId;
-        },
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['stockHistory'] });
-            message.success(t('stockHistory.delete.success'));
-        },
-        onError: () => {
-            message.error(t('stockHistory.delete.error'));
-        }
-    });
+  useEffect(() => {
+    if (!initRef.current) return;
 
-    const handleDeleteOrder = (order: Order) => {
-        Modal.confirm({
-            title: t('stockHistory.delete.title'),
-            content: t('stockHistory.delete.content', { code: order.id.substring(0, 8).toUpperCase() }),
-            okText: t('stockHistory.delete.ok'),
-            okType: 'danger',
-            cancelText: t('stockHistory.delete.cancel'),
-            centered: true,
-            onOk: async () => {
-                await deleteMutation.mutateAsync(order.id);
-            }
-        });
+    const params = new URLSearchParams();
+    if (page > 1) params.set("page", String(page));
+    if (pageSize !== 10) params.set("limit", String(pageSize));
+    if (createdSort !== DEFAULT_CREATED_SORT) params.set("sort_created", createdSort);
+
+    const query = params.toString();
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+  }, [router, pathname, page, pageSize, createdSort]);
+
+  const fetchHistory = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const params = new URLSearchParams();
+      params.set("status", "completed,cancelled");
+      params.set("page", String(page));
+      params.set("limit", String(pageSize));
+      params.set("sort_created", createdSort);
+
+      const response = await fetch(`/api/stock/orders?${params.toString()}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("โหลดประวัติใบซื้อไม่สำเร็จ");
+
+      const payload = await response.json();
+      const data = Array.isArray(payload) ? payload : payload?.data || [];
+      const totalCount = Array.isArray(payload) ? payload.length : Number(payload?.total || 0);
+
+      setOrders(data);
+      setTotal(totalCount);
+    } catch {
+      setError("โหลดประวัติใบซื้อไม่สำเร็จ");
+      setOrders([]);
+      setTotal(0);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, pageSize, createdSort]);
+
+  useEffect(() => {
+    if (!initRef.current) return;
+    void fetchHistory();
+  }, [fetchHistory]);
+
+  useEffect(() => {
+    if (!socket) return;
+
+    const refresh = () => {
+      void fetchHistory();
     };
 
-    // Listen for updates and refetch list
-    useEffect(() => {
-        if (!socket) return;
+    socket.on(RealtimeEvents.stockOrders.create, refresh);
+    socket.on(RealtimeEvents.stockOrders.update, refresh);
+    socket.on(RealtimeEvents.stockOrders.status, refresh);
+    socket.on(RealtimeEvents.stockOrders.delete, refresh);
+    socket.on(RealtimeEvents.stockOrders.detailUpdate, refresh);
+    socket.on(LegacyRealtimeEvents.stockOrdersUpdated, refresh);
 
-        const handleRefresh = () => {
-             queryClient.invalidateQueries({ queryKey: ['stockHistory'] });
-        };
+    return () => {
+      socket.off(RealtimeEvents.stockOrders.create, refresh);
+      socket.off(RealtimeEvents.stockOrders.update, refresh);
+      socket.off(RealtimeEvents.stockOrders.status, refresh);
+      socket.off(RealtimeEvents.stockOrders.delete, refresh);
+      socket.off(RealtimeEvents.stockOrders.detailUpdate, refresh);
+      socket.off(LegacyRealtimeEvents.stockOrdersUpdated, refresh);
+    };
+  }, [socket, fetchHistory]);
 
-        socket.on(RealtimeEvents.stockOrders.create, handleRefresh);
-        socket.on(RealtimeEvents.stockOrders.update, handleRefresh);
-        socket.on(RealtimeEvents.stockOrders.status, handleRefresh);
-        socket.on(RealtimeEvents.stockOrders.delete, handleRefresh);
-        socket.on(RealtimeEvents.stockOrders.detailUpdate, handleRefresh);
-        socket.on(LegacyRealtimeEvents.stockOrdersUpdated, handleRefresh);
+  const deleteOrder = (order: Order) => {
+    modal.confirm({
+      title: `ลบใบซื้อ #${order.id.slice(0, 8).toUpperCase()}`,
+      content: "การลบจะไม่สามารถกู้คืนได้ ต้องการดำเนินการต่อหรือไม่",
+      okText: "ลบใบซื้อ",
+      okButtonProps: { danger: true },
+      cancelText: "ยกเลิก",
+      onOk: async () => {
+        try {
+          const token = await authService.getCsrfToken();
+          const response = await fetch(`/api/stock/orders/${order.id}`, {
+            method: "DELETE",
+            headers: { "X-CSRF-Token": token },
+          });
+          if (!response.ok) throw new Error("ลบใบซื้อไม่สำเร็จ");
+          messageApi.success("ลบใบซื้อแล้ว");
+          void fetchHistory();
+        } catch {
+          messageApi.error("ลบใบซื้อไม่สำเร็จ");
+        }
+      },
+    });
+  };
 
-        return () => {
-            socket.off(RealtimeEvents.stockOrders.create, handleRefresh);
-            socket.off(RealtimeEvents.stockOrders.update, handleRefresh);
-            socket.off(RealtimeEvents.stockOrders.status, handleRefresh);
-            socket.off(RealtimeEvents.stockOrders.delete, handleRefresh);
-            socket.off(RealtimeEvents.stockOrders.detailUpdate, handleRefresh);
-            socket.off(LegacyRealtimeEvents.stockOrdersUpdated, handleRefresh);
-        };
-    }, [socket, queryClient]);
-
-    const completedOrders = orders.filter(o => o.status === OrderStatus.COMPLETED);
-    const cancelledOrders = orders.filter(o => o.status === OrderStatus.CANCELLED);
-
-    if (isLoading && orders.length === 0) {
-        return (
-            <div style={{ minHeight: "100vh", background: pageStyles.container.backgroundColor as string }}>
-                <HistoryPageStyles />
-                <UIPageHeader
-                    title={t('stockHistory.title')}
-                    subtitle={t('stockHistory.subtitle')}
-                    icon={<HistoryOutlined />}
-                    actions={
-                        <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['stockHistory'] })} loading={isFetching}>
-                            {t('stockHistory.refresh')}
-                        </Button>
-                    }
-                />
-                <PageContainer>
-                    <PageSection>
-                        <div style={{ display: "flex", justifyContent: "center", padding: "60px 0" }}>
-                            <Spin size="large" />
-                        </div>
-                    </PageSection>
-                </PageContainer>
-            </div>
-        );
-    }
-
-    return (
-        <div className="history-page" style={pageStyles.container}>
-            <HistoryPageStyles />
-            
-            <UIPageHeader
-                title={t('stockHistory.title')}
-                subtitle={t('stockHistory.subtitle')}
-                icon={<HistoryOutlined />}
-                actions={
-                    <Button onClick={() => queryClient.invalidateQueries({ queryKey: ['stockHistory'] })} loading={isFetching}>
-                        {t('stockHistory.refresh')}
-                    </Button>
-                }
-            />
-            
-            <PageContainer>
-                <PageSection>
-                    <StatsCard
-                        totalOrders={total}
-                        completedOrders={completedOrders.length}
-                        cancelledOrders={cancelledOrders.length}
-                    />
-                </PageSection>
-
-                <PageSection
-                    title={t('stockHistory.sectionAll')}
-                    extra={<span style={{ fontWeight: 600 }}>{t('stockHistory.count', { total })}</span>}
-                >
-                    <div style={pageStyles.listContainer}>
-                        {orders.length > 0 ? (
-                            <>
-                                {orders.map((order: Order, index: number) => (
-                                    <OrderCard
-                                        key={order.id}
-                                        order={order}
-                                        index={index}
-                                        onView={setViewingOrder}
-                                        onDelete={handleDeleteOrder}
-                                        canDelete={canDeleteOrders}
-                                    />
-                                ))}
-
-                                <div style={{ marginTop: 24 }}>
-                                    <ListPagination
-                                        page={page}
-                                        pageSize={pageSize}
-                                        total={total}
-                                        loading={isFetching}
-                                        onPageChange={(nextPage) => setPage(nextPage)}
-                                        onPageSizeChange={(nextSize) => {
-                                            setPage(1);
-                                            setPageSize(nextSize);
-                                        }}
-                                        sortCreated={createdSort}
-                                        onSortCreatedChange={(nextSort) => {
-                                            setPage(1);
-                                            setCreatedSort(nextSort);
-                                        }}
-                                    />
-                                </div>
-                            </>
-                        ) : (
-                            <UIEmptyState title={t('stockHistory.empty.title')} description={t('stockHistory.empty.desc')} />
-                        )}
-                    </div>
-                </PageSection>
-            
-                <OrderDetailModal
-                    open={!!viewingOrder}
-                    order={viewingOrder}
-                    onClose={() => setViewingOrder(null)}
-                />
-            </PageContainer>
-        </div>
+  const summary = useMemo(() => {
+    const completed = orders.filter((order) => order.status === OrderStatus.COMPLETED).length;
+    const cancelled = orders.filter((order) => order.status === OrderStatus.CANCELLED).length;
+    const totalRequired = orders.reduce(
+      (acc, order) =>
+        acc + (order.ordersItems || []).reduce((inner, item) => inner + Number(item.quantity_ordered || 0), 0),
+      0
     );
+    const totalActual = orders.reduce(
+      (acc, order) =>
+        acc +
+        (order.ordersItems || []).reduce(
+          (inner, item) => inner + Number(item.ordersDetail?.actual_quantity || 0),
+          0
+        ),
+      0
+    );
+
+    return { completed, cancelled, totalRequired, totalActual };
+  }, [orders]);
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#f7f9fc", paddingBottom: 120 }}>
+      <UIPageHeader
+        title="ประวัติใบซื้อ"
+        subtitle="รายการที่เสร็จสิ้นหรือยกเลิกแล้ว"
+        icon={<HistoryOutlined />}
+        actions={
+          <Button icon={<ReloadOutlined />} onClick={() => void fetchHistory()} loading={loading}>
+            รีเฟรช
+          </Button>
+        }
+      />
+
+      <PageContainer maxWidth={1300}>
+        <PageStack gap={12}>
+          <Row gutter={[12, 12]}>
+            <Col xs={24} sm={12} md={6}>
+              <Card>
+                <Text type="secondary">ใบซื้อทั้งหมด</Text>
+                <Title level={4} style={{ margin: "6px 0 0" }}>{total.toLocaleString()}</Title>
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Card>
+                <Text type="secondary">เสร็จสิ้น</Text>
+                <Title level={4} style={{ margin: "6px 0 0", color: "#389e0d" }}>{summary.completed.toLocaleString()}</Title>
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Card>
+                <Text type="secondary">ยกเลิก</Text>
+                <Title level={4} style={{ margin: "6px 0 0", color: "#cf1322" }}>{summary.cancelled.toLocaleString()}</Title>
+              </Card>
+            </Col>
+            <Col xs={24} sm={12} md={6}>
+              <Card>
+                <Text type="secondary">สัดส่วนซื้อจริง/แผน</Text>
+                <Title level={4} style={{ margin: "6px 0 0", color: "#1677ff" }}>
+                  {summary.totalRequired > 0
+                    ? `${Math.round((summary.totalActual / summary.totalRequired) * 100)}%`
+                    : "-"}
+                </Title>
+              </Card>
+            </Col>
+          </Row>
+
+          <PageSection
+            title="รายการย้อนหลัง"
+            extra={<Text strong>{total.toLocaleString()} รายการ</Text>}
+          >
+            {loading ? (
+              <PageState status="loading" title="กำลังโหลดข้อมูล" />
+            ) : error ? (
+              <PageState status="error" title={error} onRetry={() => void fetchHistory()} />
+            ) : orders.length === 0 ? (
+              <PageState status="empty" title="ยังไม่มีประวัติใบซื้อ" />
+            ) : (
+              <>
+                <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                  {orders.map((order) => {
+                    const lineCount = order.ordersItems?.length || 0;
+                    const required = (order.ordersItems || []).reduce(
+                      (acc, item) => acc + Number(item.quantity_ordered || 0),
+                      0
+                    );
+                    const actual = (order.ordersItems || []).reduce(
+                      (acc, item) => acc + Number(item.ordersDetail?.actual_quantity || 0),
+                      0
+                    );
+
+                    return (
+                      <Card key={order.id} size="small" style={{ borderRadius: 14 }}>
+                        <Row gutter={[12, 12]} align="middle">
+                          <Col xs={24} md={14}>
+                            <Space direction="vertical" size={2}>
+                              <Space wrap>
+                                <Text strong>#{order.id.slice(0, 8).toUpperCase()}</Text>
+                                {getStatusTag(order.status)}
+                              </Space>
+                              <Text type="secondary">
+                                ผู้สร้าง: {order.ordered_by?.name || order.ordered_by?.username || "-"}
+                              </Text>
+                              <Text type="secondary">วันที่สร้าง: {formatDateTime(order.create_date)}</Text>
+                              <Space size={12}>
+                                <Text style={{ fontSize: 12 }}>จำนวนรายการ {lineCount.toLocaleString()}</Text>
+                                <Text style={{ fontSize: 12 }}>ต้องซื้อ {required.toLocaleString()}</Text>
+                                <Text style={{ fontSize: 12, color: "#1677ff" }}>ซื้อจริง {actual.toLocaleString()}</Text>
+                              </Space>
+                            </Space>
+                          </Col>
+                          <Col xs={24} md={10}>
+                            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
+                              <Button icon={<EyeOutlined />} onClick={() => setViewingOrder(order)}>
+                                ดูรายละเอียด
+                              </Button>
+                              {canDeleteOrders ? (
+                                <Button danger icon={<DeleteOutlined />} onClick={() => deleteOrder(order)}>
+                                  ลบ
+                                </Button>
+                              ) : null}
+                            </div>
+                          </Col>
+                        </Row>
+                      </Card>
+                    );
+                  })}
+                </Space>
+
+                <div style={{ marginTop: 20 }}>
+                  <ListPagination
+                    page={page}
+                    pageSize={pageSize}
+                    total={total}
+                    loading={loading}
+                    onPageChange={setPage}
+                    onPageSizeChange={(size) => {
+                      setPage(1);
+                      setPageSize(size);
+                    }}
+                    sortCreated={createdSort}
+                    onSortCreatedChange={(nextSort) => {
+                      setPage(1);
+                      setCreatedSort(nextSort);
+                    }}
+                  />
+                </div>
+              </>
+            )}
+          </PageSection>
+        </PageStack>
+      </PageContainer>
+
+      <OrderDetailModal
+        open={Boolean(viewingOrder)}
+        order={viewingOrder}
+        onClose={() => setViewingOrder(null)}
+      />
+    </div>
+  );
 }

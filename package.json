@@ -13,6 +13,7 @@
     "audit:menu-coverage": "node scripts/audit-menu-coverage.mjs",
     "audit:permission-flow": "node scripts/audit-permission-flow-coverage.mjs",
     "perf:menu-visibility": "node scripts/perf-menu-visibility.mjs",
+    "perf:stock:phase9": "node scripts/perf-stock-phase9.mjs",
     "validate": "npm run lint && npm run build",
     "test": "npm run test:unit",
     "test:unit": "jest --config jest.config.ts",
@@ -29,7 +30,9 @@
     "test:go-live:phase6": "npm run test:smoke:resilience",
     "test:go-live:phase7": "node scripts/run-go-live-phase7.mjs",
     "test:go-live:phase8": "node scripts/run-go-live-phase8.mjs",
-    "test:go-live:phase7:signoff": "node scripts/run-go-live-phase7-signoff.mjs"
+    "test:go-live:phase9": "node scripts/run-go-live-phase9.mjs",
+    "test:go-live:phase7:signoff": "node scripts/run-go-live-phase7-signoff.mjs",
+    "test:go-live:phase9:signoff": "node scripts/run-go-live-phase9-signoff.mjs"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",

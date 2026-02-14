@@ -1,7 +1,8 @@
 'use client';
 
 import React from 'react';
-import { Pagination, Select, Space, Typography } from 'antd';
+import { Pagination, Space, Typography } from 'antd';
+import { ModalSelector } from '../select/ModalSelector';
 
 const { Text } = Typography;
 
@@ -50,20 +51,20 @@ export default function ListPagination({
                 <Text type="secondary">แสดง {start}-{end} จาก {total} รายการ</Text>
                 <Space size={6}>
                     <Text type="secondary">ต่อหน้า</Text>
-                    <Select
-                        size="small"
+                    <ModalSelector<number>
+                        title="เลือกจำนวนต่อหน้า"
                         value={pageSize}
                         disabled={loading}
                         onChange={onPageSizeChange}
                         options={pageSizeOptions.map((size) => ({ value: size, label: `${size}` }))}
-                        style={{ width: 84 }}
+                        style={{ minWidth: 80 }}
                     />
                 </Space>
                 {onSortCreatedChange ? (
                     <Space size={6}>
                         <Text type="secondary">เรียงตาม</Text>
-                        <Select<CreatedSort>
-                            size="small"
+                        <ModalSelector<CreatedSort>
+                            title="เลือกการเรียงลำดับ"
                             value={sortCreated}
                             disabled={loading}
                             onChange={onSortCreatedChange}
@@ -71,7 +72,7 @@ export default function ListPagination({
                                 { value: 'old', label: 'เก่าก่อน' },
                                 { value: 'new', label: 'ใหม่ก่อน' },
                             ]}
-                            style={{ width: 108 }}
+                            style={{ minWidth: 100 }}
                         />
                     </Space>
                 ) : null}
@@ -89,3 +90,4 @@ export default function ListPagination({
         </div>
     );
 }
+

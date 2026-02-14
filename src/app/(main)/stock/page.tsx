@@ -1,45 +1,49 @@
-"use client";
+﻿"use client";
 
-import React, { useEffect, useState, useCallback } from "react";
-import api from "../../../lib/axios";
-import { 
-  List,
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
   Badge,
+  Button,
   Card,
+  Col,
+  Grid,
+  Input,
+  List,
+  Row,
   Skeleton,
+  Typography,
   message,
-  Button
 } from "antd";
-import { ShoppingOutlined, ReloadOutlined } from "@ant-design/icons";
+import { ReloadOutlined, SearchOutlined, ShoppingOutlined } from "@ant-design/icons";
+import api from "../../../lib/axios";
 import IngredientCard from "../../../components/stock/IngredientCard";
 import CartDrawer from "../../../components/stock/CartDrawer";
 import { Ingredients } from "../../../types/api/stock/ingredients";
 import { useSocket } from "../../../hooks/useSocket";
-import { DashboardStyles, pageStyles } from "./style";
 import { RealtimeEvents } from "../../../utils/realtimeEvents";
+import UIPageHeader from "../../../components/ui/page/PageHeader";
 import PageContainer from "../../../components/ui/page/PageContainer";
 import PageSection from "../../../components/ui/page/PageSection";
 import PageStack from "../../../components/ui/page/PageStack";
-import UIPageHeader from "../../../components/ui/page/PageHeader";
 import UIEmptyState from "../../../components/ui/states/EmptyState";
 
+const { Text } = Typography;
 
-export default function HomePage() {
+export default function StockShoppingPage() {
   const [ingredients, setIngredients] = useState<Ingredients[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [searchText, setSearchText] = useState("");
   const { socket } = useSocket();
+  const screens = Grid.useBreakpoint();
 
   const fetchIngredients = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await api.get("/stock/ingredients?active=true");
-      const data = response.data;
-      setIngredients(Array.isArray(data) ? data : []);
-      setError(null);
-    } catch (error: unknown) {
-      console.error("Error fetching ingredients:", error);
-      setError("ไม่สามารถโหลดรายการวัตถุดิบได้");
+      const response = await api.get("/stock/ingredients?status=active");
+      const payload = response.data;
+      setIngredients(Array.isArray(payload) ? payload : payload?.data || []);
+    } catch {
+      message.error("ไม่สามารถโหลดรายการวัตถุดิบได้");
       setIngredients([]);
     } finally {
       setLoading(false);
@@ -47,128 +51,150 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    fetchIngredients();
+    void fetchIngredients();
   }, [fetchIngredients]);
 
   useEffect(() => {
     if (!socket) return;
 
-    const onIngredientCreate = (newItem: Ingredients) => {
-      if (newItem.is_active) {
-        setIngredients((prev) => [newItem, ...prev]);
-        message.info(`มีวัตถุดิบใหม่: ${newItem.display_name}`);
-      }
+    const onCreate = (newItem: Ingredients) => {
+      if (!newItem.is_active) return;
+      setIngredients((prev) => [newItem, ...prev]);
+      message.info(`มีวัตถุดิบใหม่: ${newItem.display_name}`);
     };
 
-    const onIngredientUpdate = (updatedItem: Ingredients) => {
+    const onUpdate = (updatedItem: Ingredients) => {
       setIngredients((prev) => {
-        const exists = prev.find(item => item.id === updatedItem.id);
-        
-        if (updatedItem.is_active) {
-          if (exists) {
-            return prev.map(item => item.id === updatedItem.id ? updatedItem : item);
-          } else {
-            return [updatedItem, ...prev];
-          }
-        } else {
-          return prev.filter(item => item.id !== updatedItem.id);
+        const exists = prev.some((item) => item.id === updatedItem.id);
+        if (!updatedItem.is_active) {
+          return prev.filter((item) => item.id !== updatedItem.id);
         }
+        if (!exists) return [updatedItem, ...prev];
+        return prev.map((item) => (item.id === updatedItem.id ? updatedItem : item));
       });
     };
 
-    const onIngredientDelete = ({ id }: { id: string }) => {
+    const onDelete = ({ id }: { id: string }) => {
       setIngredients((prev) => prev.filter((item) => item.id !== id));
     };
 
-    socket.on(RealtimeEvents.ingredients.create, onIngredientCreate);
-    socket.on(RealtimeEvents.ingredients.update, onIngredientUpdate);
-    socket.on(RealtimeEvents.ingredients.delete, onIngredientDelete);
+    socket.on(RealtimeEvents.ingredients.create, onCreate);
+    socket.on(RealtimeEvents.ingredients.update, onUpdate);
+    socket.on(RealtimeEvents.ingredients.delete, onDelete);
 
     return () => {
-      socket.off(RealtimeEvents.ingredients.create, onIngredientCreate);
-      socket.off(RealtimeEvents.ingredients.update, onIngredientUpdate);
-      socket.off(RealtimeEvents.ingredients.delete, onIngredientDelete);
+      socket.off(RealtimeEvents.ingredients.create, onCreate);
+      socket.off(RealtimeEvents.ingredients.update, onUpdate);
+      socket.off(RealtimeEvents.ingredients.delete, onDelete);
     };
   }, [socket]);
 
-  const SkeletonCard = () => (
-    <Card 
-      style={{ 
-        borderRadius: 16, 
-        overflow: 'hidden',
-        boxShadow: '0 4px 20px rgba(0,0,0,0.06)',
-        border: 'none',
-      }}
-    >
-      <Skeleton.Image active style={{ width: '100%', height: 180 }} />
-      <div style={{ padding: '16px 0' }}>
-        <Skeleton active paragraph={{ rows: 2 }} />
-      </div>
-    </Card>
+  const filteredIngredients = useMemo(() => {
+    const q = searchText.trim().toLowerCase();
+    if (!q) return ingredients;
+    return ingredients.filter((item) => {
+      return (
+        item.display_name.toLowerCase().includes(q) ||
+        item.ingredient_name.toLowerCase().includes(q) ||
+        (item.description || "").toLowerCase().includes(q)
+      );
+    });
+  }, [ingredients, searchText]);
+
+  const loadingSkeleton = (
+    <List
+      grid={{ gutter: 12, xs: 1, sm: 2, lg: 3, xl: 4 }}
+      dataSource={[1, 2, 3, 4, 5, 6]}
+      renderItem={(key) => (
+        <List.Item key={key}>
+          <Card>
+            <Skeleton.Image active style={{ width: "100%", height: 150 }} />
+            <Skeleton active paragraph={{ rows: 2 }} style={{ marginTop: 12 }} />
+          </Card>
+        </List.Item>
+      )}
+    />
   );
 
   return (
-    <div style={pageStyles.container}>
-      <DashboardStyles />
-
+    <div style={{ minHeight: "100vh", background: "#f7f9fc", paddingBottom: 120 }}>
       <UIPageHeader
-        title="เลือกซื้อวัตถุดิบ"
-        subtitle={`${ingredients.length} รายการ`}
+        title="จดรายการซื้อวัตถุดิบ"
+        subtitle={`วัตถุดิบพร้อมใช้งาน ${ingredients.length} รายการ`}
         icon={<ShoppingOutlined />}
         actions={
-          <Button icon={<ReloadOutlined />} onClick={fetchIngredients} loading={loading}>
+          <Button icon={<ReloadOutlined />} onClick={() => void fetchIngredients()} loading={loading}>
             รีเฟรช
           </Button>
         }
       />
 
-      <PageContainer>
-        <PageStack>
+      <PageContainer maxWidth={1400}>
+        <PageStack gap={12}>
+          <Row gutter={[12, 12]}>
+            <Col xs={24} sm={8}>
+              <Card>
+                <Text type="secondary">วัตถุดิบทั้งหมด</Text>
+                <div>
+                  <Text strong style={{ fontSize: 24 }}>{ingredients.length.toLocaleString()}</Text>
+                </div>
+              </Card>
+            </Col>
+            <Col xs={24} sm={8}>
+              <Card>
+                <Text type="secondary">ผลการค้นหา</Text>
+                <div>
+                  <Text strong style={{ fontSize: 24, color: "#1677ff" }}>{filteredIngredients.length.toLocaleString()}</Text>
+                </div>
+              </Card>
+            </Col>
+            <Col xs={24} sm={8}>
+              <Card>
+                <Text type="secondary">โหมดการแสดงผล</Text>
+                <div>
+                  <Badge status={screens.md ? "processing" : "default"} text={screens.md ? "เดสก์ท็อป/แท็บเล็ต" : "มือถือ"} />
+                </div>
+              </Card>
+            </Col>
+          </Row>
+
+          <PageSection title="ค้นหารายการ">
+            <Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
+              ค้นหาจากชื่อแสดง ชื่อระบบ หรือคำอธิบาย
+            </Text>
+            <Input
+              allowClear
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              prefix={<SearchOutlined />}
+              placeholder="ค้นหาวัตถุดิบ..."
+              size="large"
+            />
+          </PageSection>
+
           <PageSection
             title="รายการวัตถุดิบ"
-            extra={
-              <Badge 
-                count={loading ? 0 : ingredients.length} 
-                style={{ backgroundColor: '#6366f1' }}
-                overflowCount={999}
-              />
-            }
+            extra={<Text strong>{filteredIngredients.length.toLocaleString()} รายการ</Text>}
           >
             {loading ? (
-              <List
-                grid={pageStyles.gridConfig}
-                dataSource={[1, 2, 3, 4, 5, 6]}
-                renderItem={() => (
-                  <List.Item>
-                    <SkeletonCard />
-                  </List.Item>
-                )}
-              />
-            ) : error ? (
+              loadingSkeleton
+            ) : filteredIngredients.length === 0 ? (
               <UIEmptyState
-                title="เกิดข้อผิดพลาด"
-                description={error}
+                title="ไม่พบวัตถุดิบตามเงื่อนไข"
+                description="ลองเปลี่ยนคำค้นหาหรือกดรีเฟรชข้อมูลอีกครั้ง"
                 action={
-                  <Button type="primary" icon={<ReloadOutlined />} onClick={fetchIngredients}>
-                    ลองใหม่อีกครั้ง
+                  <Button onClick={() => void fetchIngredients()} icon={<ReloadOutlined />}>
+                    โหลดใหม่
                   </Button>
                 }
               />
-            ) : ingredients.length === 0 ? (
-              <UIEmptyState
-                title="ยังไม่มีวัตถุดิบ"
-                description="ยังไม่มีวัตถุดิบที่พร้อมให้สั่งซื้อในขณะนี้"
-              />
             ) : (
               <List
-                grid={pageStyles.gridConfig}
-                dataSource={Array.isArray(ingredients) ? ingredients : []}
-                renderItem={(item, index) => (
-                  <List.Item 
-                    className="animate-card"
-                    style={{ animationDelay: `${index * 50}ms`, marginBottom: 24 }}
-                  >
-                    <IngredientCard ingredient={item}/>
+                grid={{ gutter: 12, xs: 1, sm: 2, lg: 3, xl: 4 }}
+                dataSource={filteredIngredients}
+                renderItem={(item) => (
+                  <List.Item>
+                    <IngredientCard ingredient={item} />
                   </List.Item>
                 )}
               />
@@ -176,6 +202,7 @@ export default function HomePage() {
           </PageSection>
         </PageStack>
       </PageContainer>
+
       <CartDrawer />
     </div>
   );

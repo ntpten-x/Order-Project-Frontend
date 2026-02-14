@@ -430,7 +430,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
                     label={t("users.manage.form.useLabel")}
                     valuePropName="checked"
                   >
-                    <Switch />
+                    <Switch checkedChildren="ใช้งาน" unCheckedChildren="ออฟไลน์" />
                   </Form.Item>
                 </div>
               )}

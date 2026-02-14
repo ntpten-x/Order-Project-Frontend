@@ -154,6 +154,8 @@
   "branch.card.inactive": "ปิดใช้งานอยู่",
   "branch.card.taxId": "เลขประจำตัวผู้เสียภาษี",
   "branch.search.placeholder": "ค้นหาสาขา (ชื่อ รหัส ที่อยู่ หรือเบอร์โทร)",
+  "branch.search.filter.title": "สถานะ",
+  "branch.search.filter.placeholder": "เลือกสถานะ",
   "branch.search.filter.all": "ทั้งหมด",
   "branch.search.filter.active": "เปิดใช้งาน",
   "branch.search.filter.inactive": "ปิดใช้งาน",

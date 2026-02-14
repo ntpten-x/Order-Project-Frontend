@@ -1,14 +1,13 @@
 ﻿'use client';
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { message, Modal, Typography, Button, Input, Space, Segmented, Tag, Switch } from 'antd';
+import { message, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
 import {
     UnorderedListOutlined,
     PlusOutlined,
     ReloadOutlined,
     EditOutlined,
     DeleteOutlined,
-    SearchOutlined
 } from '@ant-design/icons';
 import { ProductsUnit } from '../../../../types/api/pos/productsUnit';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -30,41 +29,14 @@ import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
 import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../../lib/list-sort';
+import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
+import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
+import { SearchInput } from "../../../../components/ui/input/SearchInput";
+import { SearchBar } from "../../../../components/ui/page/SearchBar";
 
 const { Text } = Typography;
 
 type StatusFilter = 'all' | 'active' | 'inactive';
-
-interface StatsCardProps {
-    totalUnits: number;
-    activeUnits: number;
-    inactiveUnits: number;
-}
-
-const StatsCard = ({ totalUnits, activeUnits, inactiveUnits }: StatsCardProps) => (
-    <div style={{
-        background: '#fff',
-        borderRadius: 16,
-        border: '1px solid #e2e8f0',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-        gap: 8,
-        padding: 14
-    }}>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', display: 'block' }}>{totalUnits}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ทั้งหมด</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#0e7490', display: 'block' }}>{activeUnits}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ใช้งาน</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#b91c1c', display: 'block' }}>{inactiveUnits}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ปิดใช้งาน</Text>
-        </div>
-    </div>
-);
 
 interface UnitCardProps {
     unit: ProductsUnit;
@@ -384,38 +356,38 @@ export default function ProductsUnitPage() {
 
             <PageContainer>
                 <PageStack>
-                    <StatsCard
-                        totalUnits={totalUnits}
-                        activeUnits={activeUnits.length}
-                        inactiveUnits={inactiveUnits.length}
+                    <StatsGroup
+                        stats={[
+                            { label: 'ทั้งหมด', value: totalUnits, color: '#0f172a' },
+                            { label: 'ใช้งาน', value: activeUnits.length, color: '#0e7490' },
+                            { label: 'ปิดใช้งาน', value: inactiveUnits.length, color: '#b91c1c' },
+                        ]}
                     />
 
-                    <PageSection title="ค้นหาและตัวกรอง">
-                        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: '1fr', alignItems: 'center' }}>
-                            <Input
-                                prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
-                                allowClear
-                                placeholder="ค้นหาจากชื่อแสดงหรือชื่อระบบ..."
-                                value={searchText}
-                                onChange={(e) => {
-                                    setPage(1);
-                                    setSearchText(e.target.value);
-                                }}
-                            />
-                            <Segmented<StatusFilter>
-                                options={[
-                                    { label: `ทั้งหมด (${units.length})`, value: 'all' },
-                                    { label: `ใช้งาน (${activeUnits.length})`, value: 'active' },
-                                    { label: `ปิดใช้งาน (${inactiveUnits.length})`, value: 'inactive' }
-                                ]}
-                                value={statusFilter}
-                                onChange={(value) => {
-                                    setPage(1);
-                                    setStatusFilter(value);
-                                }}
-                            />
-                        </div>
-                    </PageSection>
+                    <SearchBar>
+                        <SearchInput
+                            placeholder="ค้นหาจากชื่อแสดงหรือชื่อระบบ..."
+                            value={searchText}
+                            onChange={(val) => {
+                                setPage(1);
+                                setSearchText(val);
+                            }}
+                        />
+                        <ModalSelector<StatusFilter>
+                            title="เลือกสถานะ"
+                            options={[
+                                { label: `ทั้งหมด (${units.length})`, value: 'all' },
+                                { label: `ใช้งาน (${activeUnits.length})`, value: 'active' },
+                                { label: `ปิดใช้งาน (${inactiveUnits.length})`, value: 'inactive' }
+                            ]}
+                            value={statusFilter}
+                            onChange={(value) => {
+                                setPage(1);
+                                setStatusFilter(value);
+                            }}
+                            style={{ minWidth: 150 }}
+                        />
+                    </SearchBar>
 
                     <PageSection
                         title="รายการหน่วยสินค้า"

@@ -1,20 +1,16 @@
 "use client";
 
 import React from "react";
-import { Typography, Avatar, Tag, Button, Empty } from "antd";
+import { Typography, Avatar, Tag, Button } from "antd";
 import { 
-    ExperimentOutlined,
-    PlusOutlined,
-    ReloadOutlined,
     EditOutlined,
     DeleteOutlined,
     CheckCircleFilled,
     CloseCircleFilled
 } from "@ant-design/icons";
 import { Ingredients } from "../../../../types/api/stock/ingredients";
-import { t } from "../../../../utils/i18n";
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
 // ============ STYLES ============
 
@@ -173,103 +169,9 @@ export const IngredientsPageStyles = () => (
     `}</style>
 );
 
-// ============ HEADER COMPONENT ============
 
-interface HeaderProps {
-    onRefresh: () => void;
-    onAdd: () => void;
-    loading?: boolean;
-}
 
-export const PageHeader = ({ onRefresh, onAdd }: HeaderProps) => (
-    <div style={pageStyles.header}>
-        {/* Decorative circles */}
-        <div style={pageStyles.headerDecoCircle1} />
-        <div style={pageStyles.headerDecoCircle2} />
-        
-        {/* Header Content */}
-        <div style={pageStyles.headerContent}>
-            <div style={pageStyles.headerLeft}>
-                <div style={pageStyles.headerIconBox}>
-                    <ExperimentOutlined style={{ fontSize: 24, color: 'white' }} />
-                </div>
-                <div>
-                    <Text style={{ 
-                        color: 'rgba(255,255,255,0.85)', 
-                        fontSize: 13,
-                        display: 'block'
-                    }}>
-                        {t("stock.ingredients.headerLabel")}
-                    </Text>
-                    <Title level={4} style={{ 
-                        color: 'white', 
-                        margin: 0,
-                        fontWeight: 700,
-                        letterSpacing: '0.5px'
-                    }}>
-                        {t("stock.ingredients.title")}
-                    </Title>
-                </div>
-            </div>
-            <div style={pageStyles.headerActions}>
-                <Button
-                    type="text"
-                    icon={<ReloadOutlined style={{ color: 'white' }} />}
-                    onClick={onRefresh}
-                    style={{
-                        background: 'rgba(255,255,255,0.2)',
-                        borderRadius: 12,
-                        height: 40,
-                        width: 40
-                    }}
-                />
-                <Button
-                    type="primary"
-                    icon={<PlusOutlined />}
-                    onClick={onAdd}
-                    style={{
-                        background: 'white',
-                        color: '#1890ff',
-                        borderRadius: 12,
-                        height: 40,
-                        fontWeight: 600,
-                        border: 'none',
-                        boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
-                    }}
-                >
-                    {t("stock.ingredients.add")}
-                </Button>
-            </div>
-        </div>
-    </div>
-);
 
-// ============ STATS CARD COMPONENT ============
-
-interface StatsCardProps {
-    totalIngredients: number;
-    activeIngredients: number;
-    inactiveIngredients: number;
-}
-
-export const StatsCard = ({ totalIngredients, activeIngredients, inactiveIngredients }: StatsCardProps) => (
-    <div style={pageStyles.statsCard}>
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#1890ff' }}>{totalIngredients}</span>
-            <Text style={pageStyles.statLabel}>{t("stock.ingredients.stats.total")}</Text>
-        </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#52c41a' }}>{activeIngredients}</span>
-            <Text style={pageStyles.statLabel}>{t("stock.ingredients.stats.active")}</Text>
-        </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#ff4d4f' }}>{inactiveIngredients}</span>
-            <Text style={pageStyles.statLabel}>{t("stock.ingredients.stats.inactive")}</Text>
-        </div>
-    </div>
-);
 
 // ============ INGREDIENT CARD COMPONENT ============
 
@@ -391,33 +293,6 @@ export const IngredientCard = ({ ingredient, index, onEdit, onDelete }: Ingredie
     );
 };
 
-// ============ EMPTY STATE COMPONENT ============
 
-export const EmptyState = ({ onAdd }: { onAdd: () => void }) => (
-    <Empty
-        image={Empty.PRESENTED_IMAGE_SIMPLE}
-        description={
-            <div style={{ textAlign: 'center' }}>
-                <Text type="secondary" style={{ fontSize: 15 }}>
-                    {t("stock.ingredients.emptyTitle")}
-                </Text>
-                <br />
-                <Text type="secondary" style={{ fontSize: 13 }}>
-                    {t("stock.ingredients.emptyDescription")}
-                </Text>
-            </div>
-        }
-        style={{
-            padding: '60px 20px',
-            background: 'white',
-            borderRadius: 20,
-            margin: '0 16px'
-        }}
-    >
-        <Button type="primary" icon={<PlusOutlined />} onClick={onAdd}>
-            {t("stock.ingredients.emptyAction")}
-        </Button>
-    </Empty>
-);
 
 export default IngredientsPageStyles;

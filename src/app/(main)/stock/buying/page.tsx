@@ -1,415 +1,452 @@
-"use client";
+﻿"use client";
 
-import React, { useEffect, useState, useCallback } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import { Button, message, Modal, Spin } from "antd";
-import { ShoppingCartOutlined, CloseOutlined } from "@ant-design/icons";
-import { Order } from "../../../../types/api/stock/orders";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  Alert,
+  App,
+  Avatar,
+  Button,
+  Card,
+  Col,
+  Empty,
+  InputNumber,
+  Modal,
+  Row,
+  Space,
+  Spin,
+  Switch,
+  Tag,
+  Typography,
+} from "antd";
+import {
+  ArrowLeftOutlined,
+  CheckCircleOutlined,
+  CheckSquareOutlined,
+  ReloadOutlined,
+  ShoppingCartOutlined,
+} from "@ant-design/icons";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { useSocket } from "../../../../hooks/useSocket";
+import { LegacyRealtimeEvents, RealtimeEvents } from "../../../../utils/realtimeEvents";
+import { Order } from "../../../../types/api/stock/orders";
 import { authService } from "../../../../services/auth.service";
-import { 
-    BuyingPageStyles,
-    pageStyles,
-    StatsCard,
-    PurchaseItemCard,
-    ModalHeader,
-    ModalItemCard,
-    WarningBanner
-} from "./style";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import PageContainer from "../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../components/ui/page/PageSection";
 import PageStack from "../../../../components/ui/page/PageStack";
-import UIPageHeader from "../../../../components/ui/page/PageHeader";
-import UIEmptyState from "../../../../components/ui/states/EmptyState";
-import { LegacyRealtimeEvents, RealtimeEvents } from "../../../../utils/realtimeEvents";
+import PageState from "../../../../components/ui/states/PageState";
+
+const { Text, Title } = Typography;
 
 interface PurchaseItemState {
-    ingredient_id: string;
-    actual_quantity: number;
-    ordered_quantity: number;
-    is_purchased: boolean;
-    display_name: string;
-    description?: string;
-    unit_name: string;
-    img_url?: string;
+  ingredient_id: string;
+  display_name: string;
+  unit_name: string;
+  img_url?: string | null;
+  ordered_quantity: number;
+  actual_quantity: number;
+  is_purchased: boolean;
 }
 
-export default function BuyingPage() {
-    const searchParams = useSearchParams();
-    const router = useRouter();
-    const orderId = searchParams.get("orderId");
-    const { user } = useAuth();
+function buildItems(order: Order | null): PurchaseItemState[] {
+  if (!order?.ordersItems) return [];
+  return order.ordersItems.map((item) => ({
+    ingredient_id: item.ingredient_id,
+    display_name: item.ingredient?.display_name || "-",
+    unit_name: item.ingredient?.unit?.display_name || "หน่วย",
+    img_url: item.ingredient?.img_url,
+    ordered_quantity: Number(item.quantity_ordered || 0),
+    actual_quantity: Number(item.ordersDetail?.actual_quantity ?? item.quantity_ordered ?? 0),
+    is_purchased: Boolean(item.ordersDetail?.is_purchased),
+  }));
+}
 
-    const [order, setOrder] = useState<Order | null>(null);
-    const [items, setItems] = useState<PurchaseItemState[]>([]);
-    const [loading, setLoading] = useState(false);
-    const [confirmModalOpen, setConfirmModalOpen] = useState(false);
-    const { socket } = useSocket();
+export default function StockBuyingPage() {
+  const { message: messageApi } = App.useApp();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const orderId = searchParams.get("orderId");
+  const { user } = useAuth();
+  const { socket } = useSocket();
 
-    const fetchOrder = useCallback(async () => {
-        try {
-            setLoading(true);
-            const response = await fetch(`/api/stock/orders/${orderId}`, { cache: "no-store" });
-            if (!response.ok) throw new Error("ไม่สามารถโหลดออเดอร์ได้");
-            const data = await response.json();
-            
-            setOrder(data);
-            
-            const initialItems = data.ordersItems?.map((item: unknown) => {
-                const i = item as {
-                    ingredient_id: string;
-                    quantity_ordered: number;
-                    ingredient?: {
-                        display_name?: string;
-                        description?: string;
-                        unit?: { display_name?: string };
-                        img_url?: string;
-                    }
-                };
-                return {
-                    ingredient_id: i.ingredient_id,
-                    actual_quantity: i.quantity_ordered,
-                    ordered_quantity: i.quantity_ordered,
-                    is_purchased: false,
-                    display_name: i.ingredient?.display_name || 'Unknown',
-                    description: i.ingredient?.description || '',
-                    unit_name: i.ingredient?.unit?.display_name || '-',
-                    img_url: i.ingredient?.img_url
-                };
-            }) || [];
-            setItems(initialItems);
-        } catch {
-            message.error("ไม่สามารถโหลดออเดอร์ได้");
-        } finally {
-            setLoading(false);
-        }
-    }, [orderId]);
+  const [order, setOrder] = useState<Order | null>(null);
+  const [items, setItems] = useState<PurchaseItemState[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [confirming, setConfirming] = useState(false);
+  const [confirmModalOpen, setConfirmModalOpen] = useState(false);
+  const [csrfToken, setCsrfToken] = useState("");
 
-    useEffect(() => {
-        if (!user) {
-            router.push("/login");
-            return;
-        }
-if (orderId) {
-            fetchOrder();
-        }
-    }, [orderId, user, fetchOrder, router]);
-
-    useEffect(() => {
-        if (!socket || !orderId) return;
-
-        const handleOrderUpdate = (updated: Order) => {
-            if (updated?.id !== orderId) return;
-            fetchOrder();
-            message.info("Order updated.");
-        };
-
-        const handleStatusUpdate = (updated: Order) => {
-            if (updated?.id !== orderId) return;
-            if (updated.status && updated.status !== "pending") {
-                if (updated.status === "completed") {
-                    message.success("Purchase completed.");
-                } else {
-                    message.warning("Order was cancelled.");
-                }
-                router.push("/stock/items");
-            }
-        };
-
-        const handleDelete = (payload: { id?: string }) => {
-            if (payload?.id !== orderId) return;
-            message.warning("Order was deleted.");
-            router.push("/stock/items");
-        };
-
-        const handleDetailUpdate = (payload: { orderId?: string }) => {
-            if (payload?.orderId !== orderId) return;
-            fetchOrder();
-        };
-
-        const handleLegacyUpdate = (event: { action?: string; data?: Order; id?: string }) => {
-            if (event.action === "update_order" && event.data?.id === orderId) {
-                fetchOrder();
-                message.info("Order updated.");
-            }
-
-            if ((event.action === "update_status" || event.action === "delete") &&
-                (event.data?.id === orderId || event.id === orderId)) {
-
-                const status = event.data?.status;
-                if (event.action === "delete") {
-                    message.warning("Order was deleted.");
-                    router.push("/stock/items");
-                } else if (status && status !== "pending") {
-                     if (status === "completed") {
-                        message.success("Purchase completed.");
-                     } else {
-                        message.warning("Order was cancelled.");
-                     }
-                     router.push("/stock/items");
-                }
-            }
-        };
-
-        socket.on(RealtimeEvents.stockOrders.update, handleOrderUpdate);
-        socket.on(RealtimeEvents.stockOrders.status, handleStatusUpdate);
-        socket.on(RealtimeEvents.stockOrders.delete, handleDelete);
-        socket.on(RealtimeEvents.stockOrders.detailUpdate, handleDetailUpdate);
-        socket.on(LegacyRealtimeEvents.stockOrdersUpdated, handleLegacyUpdate);
-
-        return () => {
-            socket.off(RealtimeEvents.stockOrders.update, handleOrderUpdate);
-            socket.off(RealtimeEvents.stockOrders.status, handleStatusUpdate);
-            socket.off(RealtimeEvents.stockOrders.delete, handleDelete);
-            socket.off(RealtimeEvents.stockOrders.detailUpdate, handleDetailUpdate);
-            socket.off(LegacyRealtimeEvents.stockOrdersUpdated, handleLegacyUpdate);
-        };
-    }, [socket, orderId, fetchOrder, router]);
-
-    const handleCheck = (id: string, checked: boolean) => {
-        setItems(items.map(i => i.ingredient_id === id ? { ...i, is_purchased: checked } : i));
-    };
-
-    const handleQuantityChange = (id: string, val: number | null) => {
-        if (val === null) return;
-        setItems(items.map(i => i.ingredient_id === id ? { ...i, actual_quantity: val } : i));
-    };
-
-    const handleSetFullAmount = (id: string) => {
-        setItems(items.map(i => i.ingredient_id === id ? { ...i, actual_quantity: i.ordered_quantity, is_purchased: true } : i));
-    };
-
-    const [csrfToken, setCsrfToken] = useState<string>("");
-
-    useEffect(() => {
-        const fetchCsrf = async () => {
-             try {
-                const token = await authService.getCsrfToken();
-                setCsrfToken(token);
-             } catch (error) {
-                console.error("Failed to fetch CSRF token", error);
-             }
-        };
-        fetchCsrf();
-    }, []);
-
-    const confirmPurchase = async () => {
-        if (!user) {
-            message.error("ไม่พบผู้ใช้งาน");
-            return;
-        }
-        try {
-            setLoading(true);
-            const payload = items.map(i => ({
-                ingredient_id: i.ingredient_id,
-                actual_quantity: i.is_purchased ? i.actual_quantity : 0,
-                is_purchased: i.is_purchased
-            }));
-            
-            const response = await fetch(`/api/stock/orders/${orderId}/purchase`, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken
-                },
-                body: JSON.stringify({ items: payload, purchased_by_id: user.id })
-            });
-
-            if (!response.ok) throw new Error("ไม่สามารถยืนยันการสั่งซื้อได้");
-
-            message.success("บันทึกการสั่งซื้อเรียบร้อย");
-            setConfirmModalOpen(false);
-            router.push("/stock/history");
-        } catch (error) {
-            console.error(error);
-            message.error("ไม่สามารถยืนยันการสั่งซื้อได้");
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const purchasedItems = items.filter(i => i.is_purchased);
-    const notPurchasedItems = items.filter(i => !i.is_purchased);
-    const hasSelectedItems = purchasedItems.length > 0;
-    const orderCode = order?.id ? order.id.substring(0, 8).toUpperCase() : undefined;
-
-    if (!orderId) {
-        return (
-            <div className="buying-page" style={pageStyles.container}>
-                <BuyingPageStyles />
-                <UIPageHeader
-                    title="รายละเอียดการสั่งซื้อสินค้า"
-                    subtitle="ไม่พบออเดอร์"
-                    icon={<ShoppingCartOutlined />}
-                    onBack={() => router.back()}
-                />
-                <PageContainer>
-                    <PageSection>
-                        <UIEmptyState
-                            title="กรุณาเลือกออเดอร์ก่อน"
-                            description="เลือกออเดอร์จากหน้ารายการเพื่อดำเนินการสั่งซื้อ"
-                            action={(
-                                <Button type="primary" onClick={() => router.push('/stock/items')}>
-                                    กลับหน้ารายการออเดอร์
-                                </Button>
-                            )}
-                        />
-                    </PageSection>
-                </PageContainer>
-            </div>
-        );
+  const fetchOrder = useCallback(async () => {
+    if (!orderId) return;
+    try {
+      setLoading(true);
+      const response = await fetch(`/api/stock/orders/${orderId}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("โหลดข้อมูลใบซื้อไม่สำเร็จ");
+      const payload = await response.json();
+      setOrder(payload);
+      setItems(buildItems(payload));
+    } catch {
+      messageApi.error("โหลดข้อมูลใบซื้อไม่สำเร็จ");
+      setOrder(null);
+      setItems([]);
+    } finally {
+      setLoading(false);
     }
+  }, [orderId, messageApi]);
 
-    if (loading && !order) {
-        return (
-            <div className="buying-page" style={pageStyles.container}>
-                <BuyingPageStyles />
-                <UIPageHeader
-                    title="รายละเอียดการสั่งซื้อสินค้า"
-                    subtitle="กำลังโหลด"
-                    icon={<ShoppingCartOutlined />}
-                    onBack={() => router.back()}
-                />
-                <PageContainer>
-                    <PageSection>
-                        <div style={{ display: 'flex', justifyContent: 'center', padding: 32 }}>
-                            <Spin size="large" />
-                        </div>
-                    </PageSection>
-                </PageContainer>
-            </div>
-        );
+  useEffect(() => {
+    if (!user) {
+      router.replace("/login");
+      return;
     }
+    if (orderId) {
+      void fetchOrder();
+    }
+  }, [user, router, orderId, fetchOrder]);
 
-    return (
-        <div className="buying-page" style={pageStyles.container}>
-            <BuyingPageStyles />
-            
-            <UIPageHeader
-                title="รายละเอียดการสั่งซื้อสินค้า"
-                subtitle={orderCode ? `ออเดอร์ #${orderCode}` : undefined}
-                icon={<ShoppingCartOutlined />}
-                onBack={() => router.back()}
-            />
-            
-            <PageContainer>
-                <PageStack>
-                    <PageSection title="สรุป">
-                        <StatsCard 
-                            totalItems={items.length}
-                            purchasedItems={purchasedItems.length}
-                            notPurchasedItems={notPurchasedItems.length}
-                        />
-                    </PageSection>
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      try {
+        const token = await authService.getCsrfToken();
+        if (mounted) setCsrfToken(token);
+      } catch {
+        if (mounted) messageApi.error("โหลดโทเคนความปลอดภัยไม่สำเร็จ");
+      }
+    };
+    void run();
+    return () => {
+      mounted = false;
+    };
+  }, [messageApi]);
 
-                    <PageSection title="รายการสินค้า" extra={<span style={{ fontWeight: 600 }}>{items.length}</span>}>
-                        <div style={pageStyles.listContainer}>
-                            {items.length > 0 ? (
-                                items.map((item, index) => (
-                                    <PurchaseItemCard
-                                        key={item.ingredient_id}
-                                        item={item}
-                                        index={index}
-                                        onCheck={handleCheck}
-                                        onQuantityChange={handleQuantityChange}
-                                        onSetFullAmount={handleSetFullAmount}
-                                    />
-                                ))
-                            ) : (
-                                <UIEmptyState
-                                    title="ยังไม่มีรายการสินค้า"
-                                    description="ยังไม่มีรายการสินค้าในออเดอร์นี้"
-                                />
-                            )}
-                        </div>
-                    </PageSection>
-                </PageStack>
-            </PageContainer>
+  useEffect(() => {
+    if (!socket || !orderId) return;
 
-            {/* Floating Footer */}
-            <div style={pageStyles.floatingFooter}>
-                <Button 
-                    type="primary" 
-                    size="large" 
-                    block 
-                    icon={<ShoppingCartOutlined style={{ fontSize: 18 }} />} 
-                    onClick={() => setConfirmModalOpen(true)}
-                    disabled={!hasSelectedItems}
-                    style={pageStyles.confirmButton(hasSelectedItems)}
-                >
-                    ยืนยันการสั่งซื้อ ({purchasedItems.length} รายการ)
-                </Button>
-            </div>
+    const refresh = (payload?: { id?: string; orderId?: string }) => {
+      if (payload?.id && payload.id !== orderId) return;
+      if (payload?.orderId && payload.orderId !== orderId) return;
+      void fetchOrder();
+    };
+    const refreshLegacy = () => {
+      void fetchOrder();
+    };
 
-            {/* Confirmation Modal */}
-            <Modal
-                open={confirmModalOpen}
-                onCancel={() => setConfirmModalOpen(false)}
-                footer={null}
-                width={520}
-                centered
-                className="buying-page-modal"
-                styles={pageStyles.modalStyles}
-                closeIcon={null}
-            >
-                {/* Modal Header */}
-                <ModalHeader />
+    socket.on(RealtimeEvents.stockOrders.update, refresh);
+    socket.on(RealtimeEvents.stockOrders.status, refresh);
+    socket.on(RealtimeEvents.stockOrders.detailUpdate, refresh);
+    socket.on(LegacyRealtimeEvents.stockOrdersUpdated, refreshLegacy);
 
-                {/* Modal Body */}
-                <div style={{ padding: '20px 24px 24px' }}>
-                    {/* Purchased Items List */}
-                    <div style={{ 
-                        maxHeight: 320, 
-                        overflowY: 'auto',
-                        paddingRight: 4,
-                        marginBottom: 16
-                    }}>
-                        {purchasedItems.map((item, index) => (
-                            <ModalItemCard key={item.ingredient_id} item={item} index={index} />
-                        ))}
-                    </div>
+    return () => {
+      socket.off(RealtimeEvents.stockOrders.update, refresh);
+      socket.off(RealtimeEvents.stockOrders.status, refresh);
+      socket.off(RealtimeEvents.stockOrders.detailUpdate, refresh);
+      socket.off(LegacyRealtimeEvents.stockOrdersUpdated, refreshLegacy);
+    };
+  }, [socket, orderId, fetchOrder]);
 
-                    {/* Warning for unchecked items */}
-                    {notPurchasedItems.length > 0 && (
-                        <WarningBanner count={notPurchasedItems.length} />
-                    )}
-
-                    {/* Footer Actions */}
-                    <div style={{ display: 'flex', gap: 12, marginTop: 20 }}>
-                        <Button
-                            block
-                            size="large"
-                            onClick={() => setConfirmModalOpen(false)}
-                            icon={<CloseOutlined />}
-                            style={{
-                                height: 48,
-                                borderRadius: 12,
-                                fontWeight: 600
-                            }}
-                        >
-                            กลับ
-                        </Button>
-                        <Button
-                            type="primary"
-                            block
-                            size="large"
-                            onClick={confirmPurchase}
-                            loading={loading}
-                            style={{
-                                height: 48,
-                                borderRadius: 12,
-                                fontWeight: 600,
-                                background: 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)',
-                                border: 'none',
-                                boxShadow: '0 4px 16px rgba(82, 196, 26, 0.35)'
-                            }}
-                        >
-                            ยืนยันการสั่งซื้อ
-                        </Button>
-                    </div>
-                </div>
-            </Modal>
-        </div>
+  const setPurchased = (ingredientId: string, checked: boolean) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.ingredient_id === ingredientId
+          ? {
+              ...item,
+              is_purchased: checked,
+              actual_quantity: checked ? item.actual_quantity : 0,
+            }
+          : item
+      )
     );
+  };
+
+  const setActualQuantity = (ingredientId: string, value: number | null) => {
+    const qty = Math.max(0, Number(value || 0));
+    setItems((prev) =>
+      prev.map((item) =>
+        item.ingredient_id === ingredientId
+          ? {
+              ...item,
+              actual_quantity: qty,
+              is_purchased: qty > 0 ? true : item.is_purchased,
+            }
+          : item
+      )
+    );
+  };
+
+  const setMatchRequired = (ingredientId: string) => {
+    setItems((prev) =>
+      prev.map((item) =>
+        item.ingredient_id === ingredientId
+          ? { ...item, actual_quantity: item.ordered_quantity, is_purchased: true }
+          : item
+      )
+    );
+  };
+
+  const markAllAsPurchased = () => {
+    setItems((prev) => prev.map((item) => ({ ...item, is_purchased: true, actual_quantity: item.ordered_quantity })));
+  };
+
+  const totals = useMemo(() => {
+    const required = items.reduce((acc, item) => acc + item.ordered_quantity, 0);
+    const actual = items.reduce((acc, item) => acc + (item.is_purchased ? item.actual_quantity : 0), 0);
+    const matched = items.filter((item) => item.is_purchased && item.actual_quantity === item.ordered_quantity).length;
+    const missing = items.filter((item) => item.is_purchased && item.actual_quantity < item.ordered_quantity).length;
+    const over = items.filter((item) => item.is_purchased && item.actual_quantity > item.ordered_quantity).length;
+    const selected = items.filter((item) => item.is_purchased).length;
+    return { required, actual, matched, missing, over, selected };
+  }, [items]);
+
+  const confirmPurchase = async () => {
+    if (!orderId || !user) return;
+
+    setConfirming(true);
+    try {
+      const response = await fetch(`/api/stock/orders/${orderId}/purchase`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-CSRF-Token": csrfToken,
+        },
+        body: JSON.stringify({
+          purchased_by_id: user.id,
+          items: items.map((item) => ({
+            ingredient_id: item.ingredient_id,
+            actual_quantity: item.is_purchased ? item.actual_quantity : 0,
+            is_purchased: item.is_purchased,
+          })),
+        }),
+      });
+
+      if (!response.ok) throw new Error("ยืนยันการซื้อไม่สำเร็จ");
+      messageApi.success("บันทึกผลการซื้อเรียบร้อย");
+      setConfirmModalOpen(false);
+      router.push("/stock/history");
+    } catch {
+      messageApi.error("ยืนยันการซื้อไม่สำเร็จ");
+    } finally {
+      setConfirming(false);
+    }
+  };
+
+  if (!orderId) {
+    return (
+      <div style={{ minHeight: "100vh", background: "#f7f9fc" }}>
+        <UIPageHeader
+          title="ตรวจรับรายการซื้อ"
+          subtitle="ไม่พบใบซื้อที่เลือก"
+          icon={<CheckSquareOutlined />}
+          onBack={() => router.push("/stock/items")}
+        />
+        <PageContainer>
+          <PageSection>
+            <PageState
+              status="empty"
+              title="กรุณาเลือกใบซื้อก่อน"
+              action={
+                <Button type="primary" onClick={() => router.push("/stock/items")}>
+                  ไปหน้ารายการใบซื้อ
+                </Button>
+              }
+            />
+          </PageSection>
+        </PageContainer>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ minHeight: "100vh", background: "#f7f9fc", paddingBottom: 120 }}>
+      <UIPageHeader
+        title="ตรวจรับหลังซื้อ"
+        subtitle={order ? `ใบซื้อ #${order.id.slice(0, 8).toUpperCase()}` : "กำลังโหลดข้อมูล"}
+        icon={<CheckSquareOutlined />}
+        onBack={() => router.push("/stock/items")}
+        actions={
+          <Space wrap>
+            <Button icon={<ReloadOutlined />} onClick={() => void fetchOrder()} loading={loading}>
+              รีเฟรช
+            </Button>
+            <Button icon={<CheckCircleOutlined />} onClick={markAllAsPurchased} disabled={items.length === 0}>
+              ครบตามแผนทั้งหมด
+            </Button>
+          </Space>
+        }
+      />
+
+      <PageContainer maxWidth={1300}>
+        <PageStack gap={12}>
+          {loading && !order ? (
+            <PageSection>
+              <div style={{ display: "flex", justifyContent: "center", padding: 40 }}>
+                <Spin size="large" />
+              </div>
+            </PageSection>
+          ) : !order ? (
+            <PageSection>
+              <PageState
+                status="error"
+                title="ไม่พบข้อมูลใบซื้อ"
+                action={
+                  <Button type="primary" onClick={() => router.push("/stock/items")} icon={<ArrowLeftOutlined />}>
+                    กลับหน้ารายการ
+                  </Button>
+                }
+              />
+            </PageSection>
+          ) : (
+            <>
+              <Row gutter={[12, 12]}>
+                <Col xs={12} md={4}>
+                  <Card size="small">
+                    <Text type="secondary">ต้องซื้อ</Text>
+                    <Title level={4} style={{ margin: "4px 0 0" }}>{totals.required.toLocaleString()}</Title>
+                  </Card>
+                </Col>
+                <Col xs={12} md={4}>
+                  <Card size="small">
+                    <Text type="secondary">ซื้อจริง</Text>
+                    <Title level={4} style={{ margin: "4px 0 0", color: "#1677ff" }}>{totals.actual.toLocaleString()}</Title>
+                  </Card>
+                </Col>
+                <Col xs={12} md={4}>
+                  <Card size="small">
+                    <Text type="secondary">ตรงตามแผน</Text>
+                    <Title level={4} style={{ margin: "4px 0 0", color: "#389e0d" }}>{totals.matched.toLocaleString()}</Title>
+                  </Card>
+                </Col>
+                <Col xs={12} md={4}>
+                  <Card size="small">
+                    <Text type="secondary">ซื้อน้อยกว่า</Text>
+                    <Title level={4} style={{ margin: "4px 0 0", color: "#d48806" }}>{totals.missing.toLocaleString()}</Title>
+                  </Card>
+                </Col>
+                <Col xs={12} md={4}>
+                  <Card size="small">
+                    <Text type="secondary">ซื้อมากกว่า</Text>
+                    <Title level={4} style={{ margin: "4px 0 0", color: "#531dab" }}>{totals.over.toLocaleString()}</Title>
+                  </Card>
+                </Col>
+                <Col xs={12} md={4}>
+                  <Card size="small">
+                    <Text type="secondary">ยืนยันแล้ว</Text>
+                    <Title level={4} style={{ margin: "4px 0 0" }}>{totals.selected.toLocaleString()}/{items.length.toLocaleString()}</Title>
+                  </Card>
+                </Col>
+              </Row>
+
+              <PageSection
+                title="ตรวจรับรายสินค้า"
+                extra={<Text strong>{items.length} รายการ</Text>}
+              >
+                <Text type="secondary" style={{ display: "block", marginBottom: 8 }}>
+                  เปิดสวิตช์เมื่อมีการซื้อ และบันทึกจำนวนที่ซื้อจริง
+                </Text>
+                {items.length === 0 ? (
+                  <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="ไม่มีรายการในใบซื้อ" />
+                ) : (
+                  <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                    {items.map((item) => {
+                      const diff = item.actual_quantity - item.ordered_quantity;
+                      const diffTag = !item.is_purchased ? (
+                        <Tag>ยังไม่ยืนยัน</Tag>
+                      ) : diff === 0 ? (
+                        <Tag color="success">ครบ</Tag>
+                      ) : diff > 0 ? (
+                        <Tag color="processing">เกิน {diff.toLocaleString()}</Tag>
+                      ) : (
+                        <Tag color="error">ขาด {Math.abs(diff).toLocaleString()}</Tag>
+                      );
+
+                      return (
+                        <Card key={item.ingredient_id} size="small" style={{ borderRadius: 12 }}>
+                          <Row gutter={[12, 12]} align="middle">
+                            <Col xs={24} md={10}>
+                              <Space>
+                                <Avatar src={item.img_url || undefined} shape="square" size={52} icon={<ShoppingCartOutlined />} />
+                                <Space direction="vertical" size={0}>
+                                  <Text strong>{item.display_name}</Text>
+                                  <Text type="secondary" style={{ fontSize: 12 }}>
+                                    ต้องซื้อ {item.ordered_quantity.toLocaleString()} {item.unit_name}
+                                  </Text>
+                                </Space>
+                              </Space>
+                            </Col>
+                            <Col xs={24} md={5}>
+                              <Space>
+                                <Switch
+                                  checked={item.is_purchased}
+                                  checkedChildren="ซื้อแล้ว"
+                                  unCheckedChildren="ยังไม่ซื้อ"
+                                  onChange={(checked) => setPurchased(item.ingredient_id, checked)}
+                                />
+                                {diffTag}
+                              </Space>
+                            </Col>
+                            <Col xs={24} md={5}>
+                              <InputNumber
+                                min={0}
+                                value={item.actual_quantity}
+                                onChange={(value) => setActualQuantity(item.ingredient_id, value)}
+                                disabled={!item.is_purchased}
+                                style={{ width: "100%" }}
+                              />
+                            </Col>
+                            <Col xs={24} md={4}>
+                              <Button block onClick={() => setMatchRequired(item.ingredient_id)}>
+                                เท่าที่สั่ง
+                              </Button>
+                            </Col>
+                          </Row>
+                        </Card>
+                      );
+                    })}
+                  </Space>
+                )}
+              </PageSection>
+
+              <PageSection>
+                <Alert
+                  type="info"
+                  showIcon
+                  message="ก่อนยืนยันระบบจะบันทึกทุกรายการในใบซื้อ"
+                  description="รายการที่ไม่เลือกซื้อจะถูกบันทึกเป็น ซื้อจริง = 0 และไม่ซื้อ"
+                />
+                <div style={{ marginTop: 12, display: "flex", justifyContent: "flex-end" }}>
+                  <Button
+                    type="primary"
+                    icon={<CheckCircleOutlined />}
+                    size="large"
+                    onClick={() => setConfirmModalOpen(true)}
+                    disabled={items.length === 0}
+                  >
+                    ยืนยันผลการซื้อ
+                  </Button>
+                </div>
+              </PageSection>
+            </>
+          )}
+        </PageStack>
+      </PageContainer>
+
+      <Modal
+        open={confirmModalOpen}
+        onCancel={() => setConfirmModalOpen(false)}
+        onOk={() => void confirmPurchase()}
+        confirmLoading={confirming}
+        okText="ยืนยัน"
+        cancelText="กลับไปแก้ไข"
+        title="ยืนยันบันทึกผลการซื้อ"
+      >
+        <Space direction="vertical" size={8} style={{ width: "100%" }}>
+          <Text>ระบบจะบันทึกข้อมูลต่อไปนี้:</Text>
+          <Text>- จำนวนที่ต้องซื้อ: {totals.required.toLocaleString()} หน่วย</Text>
+          <Text>- จำนวนที่ซื้อจริง: {totals.actual.toLocaleString()} หน่วย</Text>
+          <Text>- รายการที่ยืนยันแล้ว: {totals.selected.toLocaleString()} / {items.length.toLocaleString()} รายการ</Text>
+        </Space>
+      </Modal>
+    </div>
+  );
 }

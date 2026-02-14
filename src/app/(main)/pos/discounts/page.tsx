@@ -1,14 +1,13 @@
 ﻿'use client';
 
 import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
-import { message, Modal, Typography, Button, Input, Space, Segmented, Tag, Switch } from 'antd';
+import { message, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
 import {
     PercentageOutlined,
     PlusOutlined,
     ReloadOutlined,
     EditOutlined,
     DeleteOutlined,
-    SearchOutlined,
     DollarOutlined
 } from '@ant-design/icons';
 import { Discounts, DiscountType } from '../../../../types/api/pos/discounts';
@@ -31,20 +30,15 @@ import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
 import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../../lib/list-sort';
+import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
+import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
+import { SearchInput } from "../../../../components/ui/input/SearchInput";
+import { SearchBar } from "../../../../components/ui/page/SearchBar";
 
 const { Text } = Typography;
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 type TypeFilter = 'all' | DiscountType.Fixed | DiscountType.Percentage;
-
-interface StatsCardProps {
-    total: number;
-    active: number;
-    inactive: number;
-    fixed: number;
-    percentage: number;
-}
-
 interface DiscountCardProps {
     discount: Discounts;
     onEdit: (discount: Discounts) => void;
@@ -69,39 +63,6 @@ const formatDiscountValue = (discount: Discounts) => {
     }
     return `${amount.toLocaleString('th-TH')} บาท`;
 };
-
-const StatsCard = ({ total, active, inactive, fixed, percentage }: StatsCardProps) => (
-    <div style={{
-        background: '#fff',
-        borderRadius: 16,
-        border: '1px solid #e2e8f0',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
-        gap: 8,
-        padding: 14
-    }}>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', display: 'block' }}>{total}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ทั้งหมด</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#d97706', display: 'block' }}>{active}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ใช้งาน</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#b91c1c', display: 'block' }}>{inactive}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ปิดใช้งาน</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#0369a1', display: 'block' }}>{fixed}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ลดเป็นบาท</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#7e22ce', display: 'block' }}>{percentage}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ลดเปอร์เซ็นต์</Text>
-        </div>
-    </div>
-);
 
 const DiscountCard = ({ discount, onEdit, onDelete, onToggleActive, updatingStatusId }: DiscountCardProps) => {
     const isFixed = discount.discount_type === DiscountType.Fixed;
@@ -419,52 +380,54 @@ export default function DiscountsPage() {
 
             <PageContainer>
                 <PageStack>
-                    <StatsCard
-                        total={totalDiscounts}
-                        active={activeCount}
-                        inactive={inactiveCount}
-                        fixed={fixedCount}
-                        percentage={percentageCount}
+                    <StatsGroup
+                        stats={[
+                            { label: 'ทั้งหมด', value: totalDiscounts, color: '#0f172a' },
+                            { label: 'ใช้งาน', value: activeCount, color: '#d97706' },
+                            { label: 'ปิดใช้งาน', value: inactiveCount, color: '#b91c1c' },
+                            { label: 'ลดเป็นบาท', value: fixedCount, color: '#0369a1' },
+                            { label: 'ลด %', value: percentageCount, color: '#7e22ce' },
+                        ]}
                     />
 
-                    <PageSection title="ค้นหาและตัวกรอง">
-                        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: '1fr', alignItems: 'center' }}>
-                            <Input
-                                prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
-                                allowClear
-                                placeholder="ค้นหาจากชื่อแสดง ชื่อระบบ หรือคำอธิบาย..."
-                                value={searchText}
-                                onChange={(e) => {
-                                    setPage(1);
-                                    setSearchText(e.target.value);
-                                }}
-                            />
-                            <Segmented<StatusFilter>
-                                options={[
-                                    { label: `ทั้งหมด (${discounts.length})`, value: 'all' },
-                                    { label: `ใช้งาน (${activeCount})`, value: 'active' },
-                                    { label: `ปิดใช้งาน (${inactiveCount})`, value: 'inactive' }
-                                ]}
-                                value={statusFilter}
-                                onChange={(value) => {
-                                    setPage(1);
-                                    setStatusFilter(value);
-                                }}
-                            />
-                            <Segmented<TypeFilter>
-                                options={[
-                                    { label: `ทุกประเภท (${discounts.length})`, value: 'all' },
-                                    { label: `ลดเป็นบาท (${fixedCount})`, value: DiscountType.Fixed },
-                                    { label: `ลด % (${percentageCount})`, value: DiscountType.Percentage }
-                                ]}
-                                value={typeFilter}
-                                onChange={(value) => {
-                                    setPage(1);
-                                    setTypeFilter(value);
-                                }}
-                            />
-                        </div>
-                    </PageSection>
+                    <SearchBar>
+                        <SearchInput
+                            placeholder="ค้นหาจากชื่อแสดง ชื่อระบบ หรือคำอธิบาย..."
+                            value={searchText}
+                            onChange={(val) => {
+                                setPage(1);
+                                setSearchText(val);
+                            }}
+                        />
+                        <ModalSelector<StatusFilter>
+                            title="เลือกสถานะ"
+                            options={[
+                                { label: `ทั้งหมด (${discounts.length})`, value: 'all' },
+                                { label: `ใช้งาน (${activeCount})`, value: 'active' },
+                                { label: `ปิดใช้งาน (${inactiveCount})`, value: 'inactive' }
+                            ]}
+                            value={statusFilter}
+                            onChange={(value) => {
+                                setPage(1);
+                                setStatusFilter(value);
+                            }}
+                            style={{ minWidth: 120 }}
+                        />
+                        <ModalSelector<TypeFilter>
+                            title="เลือกประเภท"
+                            options={[
+                                { label: `ทุกประเภท (${discounts.length})`, value: 'all' },
+                                { label: `ลดเป็นบาท (${fixedCount})`, value: DiscountType.Fixed },
+                                { label: `ลด % (${percentageCount})`, value: DiscountType.Percentage }
+                            ]}
+                            value={typeFilter}
+                            onChange={(value) => {
+                                setPage(1);
+                                setTypeFilter(value);
+                            }}
+                            style={{ minWidth: 120 }}
+                        />
+                    </SearchBar>
 
                     <PageSection
                         title="รายการส่วนลด"

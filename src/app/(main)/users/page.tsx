@@ -4,16 +4,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     Button,
     Grid,
-    Input,
     Modal,
-    Segmented,
-    Select,
     Skeleton,
     Space,
     Spin,
     Tag,
     Typography,
     message,
+    Flex,
 } from 'antd';
 import {
     BranchesOutlined,
@@ -22,7 +20,6 @@ import {
     EditOutlined,
     ReloadOutlined,
     SafetyCertificateOutlined,
-    SearchOutlined,
     TeamOutlined,
     UserAddOutlined,
 } from '@ant-design/icons';
@@ -45,6 +42,10 @@ import UIEmptyState from '../../../components/ui/states/EmptyState';
 import ListPagination, { type CreatedSort } from '../../../components/ui/pagination/ListPagination';
 import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../lib/list-sort';
 import { AccessGuardFallback } from '../../../components/pos/AccessGuard';
+import { ModalSelector } from '../../../components/ui/select/ModalSelector';
+import { StatsGroup } from '../../../components/ui/card/StatsGroup';
+import { SearchInput } from '../../../components/ui/input/SearchInput';
+import { SearchBar } from '../../../components/ui/page/SearchBar';
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -60,39 +61,6 @@ const ROLE_CONFIG: Record<string, { color: string; bg: string; emoji: string }> 
 };
 
 const DEFAULT_ROLE_CONFIG = { color: '#64748B', bg: '#F1F5F9', emoji: '👤' };
-
-interface StatsCardProps {
-    total: number;
-    active: number;
-    inactive: number;
-}
-
-const StatsCard = ({ total, active, inactive }: StatsCardProps) => (
-    <div
-        style={{
-            background: '#fff',
-            borderRadius: 16,
-            border: '1px solid #e2e8f0',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-            gap: 8,
-            padding: 14,
-        }}
-    >
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', display: 'block' }}>{total}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ทั้งหมด</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f766e', display: 'block' }}>{active}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ใช้งาน</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#b91c1c', display: 'block' }}>{inactive}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ระงับ</Text>
-        </div>
-    </div>
-);
 
 interface UserCardProps {
     user: User;
@@ -303,6 +271,7 @@ export default function UsersPage() {
     const canCreateUsers = can('users.page', 'create');
     const canUpdateUsers = can('users.page', 'update');
     const canDeleteUsers = can('users.page', 'delete');
+    const isAdminUser = user?.role?.toLowerCase?.() === 'admin';
 
     const fetchUsers = useCallback(async (nextPage: number = page, nextPageSize: number = pageSize) => {
         setIsFetching(true);
@@ -491,9 +460,11 @@ export default function UsersPage() {
                 actions={
                     <Space size={8} wrap>
                         <Button icon={<ReloadOutlined />} onClick={() => { void fetchUsers(); }} loading={isFetching} />
-                        <Button icon={<SafetyCertificateOutlined />} onClick={handleGoPermissions}>
-                            {!isMobile ? 'จัดการสิทธิ์' : ''}
-                        </Button>
+                        {isAdminUser ? (
+                            <Button icon={<SafetyCertificateOutlined />} onClick={handleGoPermissions}>
+                                {!isMobile ? 'จัดการสิทธิ์' : ''}
+                            </Button>
+                        ) : null}
                         {canCreateUsers ? (
                             <Button type="primary" icon={<UserAddOutlined />} onClick={handleAdd}>
                                 {!isMobile ? 'เพิ่มผู้ใช้' : ''}
@@ -505,42 +476,56 @@ export default function UsersPage() {
 
             <PageContainer>
                 <PageStack>
-                    <StatsCard total={stats.total} active={stats.active} inactive={stats.inactive} />
+                    <StatsGroup 
+                        stats={[
+                            { label: 'ทั้งหมด', value: stats.total },
+                            { label: 'ใช้งาน', value: stats.active, color: '#0f766e' },
+                            { label: 'ระงับ', value: stats.inactive, color: '#b91c1c' }
+                        ]} 
+                    />
 
                     <PageSection title="ค้นหาและตัวกรอง">
-                        <div style={{ display: 'grid', gap: 10 }}>
-                            <Input
-                                prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
-                                allowClear
+                        <SearchBar bodyStyle={{ padding: 12 }}>
+                            <SearchInput
                                 placeholder="ค้นหาจากชื่อผู้ใช้, username, บทบาท หรือสาขา..."
                                 value={searchValue}
-                                onChange={(event) => {
+                                onChange={(val) => {
                                     setPage(1);
-                                    setSearchValue(event.target.value);
+                                    setSearchValue(val);
                                 }}
                             />
-                            <Segmented<StatusFilter>
-                                options={[
-                                    { label: 'ทั้งหมด', value: 'all' },
-                                    { label: 'ใช้งาน', value: 'active' },
-                                    { label: 'ระงับ', value: 'inactive' },
-                                ]}
-                                value={statusFilter}
-                                onChange={(value) => {
-                                    setPage(1);
-                                    setStatusFilter(value);
-                                }}
-                            />
-                            <Select
-                                value={roleFilter}
-                                options={roleOptions}
-                                onChange={(value) => {
-                                    setPage(1);
-                                    setRoleFilter(value);
-                                }}
-                                placeholder="เลือกบทบาท"
-                            />
-                        </div>
+                            <Flex gap={10} wrap="wrap">
+                                <div style={{ flex: isMobile ? '1 1 100%' : '1 1 200px' }}>
+                                    <ModalSelector<StatusFilter>
+                                        title="เลือกสถานะ"
+                                        options={[
+                                            { label: 'ทั้งหมด', value: 'all' },
+                                            { label: 'ใช้งาน', value: 'active' },
+                                            { label: 'ระงับ', value: 'inactive' },
+                                        ]}
+                                        value={statusFilter}
+                                        onChange={(value) => {
+                                            setPage(1);
+                                            setStatusFilter(value);
+                                        }}
+                                        placeholder="เลือกสถานะ"
+                                    />
+                                </div>
+                                <div style={{ flex: isMobile ? '1 1 100%' : '1 1 200px' }}>
+                                    <ModalSelector<string>
+                                        title="เลือกบทบาท"
+                                        value={roleFilter}
+                                        options={roleOptions}
+                                        onChange={(value) => {
+                                            setPage(1);
+                                            setRoleFilter(value);
+                                        }}
+                                        placeholder="เลือกบทบาท"
+                                        showSearch
+                                    />
+                                </div>
+                            </Flex>
+                        </SearchBar>
                     </PageSection>
 
                     <PageSection title="รายการผู้ใช้" extra={<span style={{ fontWeight: 600 }}>{filteredUsers.length}</span>}>

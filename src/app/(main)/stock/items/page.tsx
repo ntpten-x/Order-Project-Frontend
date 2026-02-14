@@ -1,656 +1,669 @@
-"use client";
+﻿"use client";
 
-import React, { useEffect, useState, useCallback } from "react";
-import { 
-  Table, 
-  Tag, 
-  Typography, 
-  Card, 
-  Space, 
-  Button, 
-  message, 
-  Modal, 
-  Badge,
-  Empty,
-  Tooltip,
-  Skeleton,
-  Row,
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+  App,
+  Button,
+  Card,
   Col,
-  Statistic,
-  Avatar,
+  Empty,
   Grid,
+  List,
+  Modal,
+  Row,
+  Space,
+  Table,
+  Tag,
+  Tooltip,
+  Typography,
 } from "antd";
-import { 
-  ReloadOutlined, 
-  EditOutlined, 
-  CloseCircleOutlined, 
-  EyeOutlined, 
+import {
+  CheckSquareOutlined,
+  CloseCircleOutlined,
+  EditOutlined,
+  EyeOutlined,
+  PrinterOutlined,
+  ReloadOutlined,
   ShoppingCartOutlined,
-  ClockCircleOutlined,
-  InboxOutlined,
-  UserOutlined,
-  CalendarOutlined
+  UnorderedListOutlined,
 } from "@ant-design/icons";
+import { useRouter } from "next/navigation";
 import { Order, OrderStatus } from "../../../../types/api/stock/orders";
 import EditOrderModal from "../../../../components/stock/EditOrderModal";
 import OrderDetailModal from "../../../../components/stock/OrderDetailModal";
 import { useSocket } from "../../../../hooks/useSocket";
-import { useRouter } from "next/navigation";
-import { useAuth } from "../../../../contexts/AuthContext";
+import { LegacyRealtimeEvents, RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { authService } from "../../../../services/auth.service";
-import ItemsPageStyle from "./style";
+import { useAuth } from "../../../../contexts/AuthContext";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import PageContainer from "../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../components/ui/page/PageSection";
 import PageStack from "../../../../components/ui/page/PageStack";
-import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import PageState from "../../../../components/ui/states/PageState";
-import { LegacyRealtimeEvents, RealtimeEvents } from "../../../../utils/realtimeEvents";
-import { t } from "../../../../utils/i18n";
-import { throwBackendHttpError } from "../../../../utils/api/backendResponse";
-import { resolveHttpErrorMessage } from "../../../../utils/ui/httpError";
 
-const { Text } = Typography;
+const { Text, Title } = Typography;
 
-export default function ItemsPage() {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<unknown>(null);
-  const { socket } = useSocket();
+function formatDateTime(value?: string): string {
+  if (!value) return "-";
+  return new Date(value).toLocaleString("th-TH", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function statusTag(status: OrderStatus): React.ReactNode {
+  if (status === OrderStatus.COMPLETED) return <Tag color="success">เสร็จสิ้น</Tag>;
+  if (status === OrderStatus.CANCELLED) return <Tag color="error">ยกเลิก</Tag>;
+  return <Tag color="warning">รอดำเนินการ</Tag>;
+}
+
+function escapeHtml(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+export default function StockOrdersQueuePage() {
+  const { message: messageApi } = App.useApp();
   const router = useRouter();
-  const { user } = useAuth();
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;
+  const { socket } = useSocket();
+  const { user } = useAuth();
+
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [csrfToken, setCsrfToken] = useState("");
+  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
+  const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
 
   const fetchOrders = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await fetch("/api/stock/orders?status=pending", { 
-        cache: "no-store", 
-        headers: { 'Content-Type': 'application/json' } 
+      const response = await fetch("/api/stock/orders?status=pending&sort_created=new", {
+        cache: "no-store",
       });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => ({}));
-        throwBackendHttpError(response, payload, "Failed to fetch orders");
-      }
-      const data = await response.json();
-      // Handle paginated response format: { data: [...], total, page, limit }
-      setOrders(Array.isArray(data) ? data : (data.data || []));
+      if (!response.ok) throw new Error("โหลดรายการใบซื้อไม่สำเร็จ");
+      const payload = await response.json();
+      setOrders(Array.isArray(payload) ? payload : payload?.data || []);
     } catch (caughtError) {
-      setError(caughtError);
-      message.error(resolveHttpErrorMessage(caughtError) || t("stock.error"));
+      const message = (caughtError as Error)?.message || "โหลดรายการใบซื้อไม่สำเร็จ";
+      setError(message);
+      messageApi.error(message);
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [messageApi]);
 
   useEffect(() => {
-    fetchOrders();
+    void fetchOrders();
   }, [fetchOrders]);
+
+  useEffect(() => {
+    let mounted = true;
+    const run = async () => {
+      try {
+        const token = await authService.getCsrfToken();
+        if (mounted) setCsrfToken(token);
+      } catch {
+        if (mounted) messageApi.error("โหลดโทเคนความปลอดภัยไม่สำเร็จ");
+      }
+    };
+    void run();
+    return () => {
+      mounted = false;
+    };
+  }, [messageApi]);
 
   useEffect(() => {
     if (!socket) return;
 
-    const handleCreate = (data: Order) => {
-      if (data && data.status === OrderStatus.PENDING) {
-        setOrders(prev => [data, ...prev]);
-        message.success("New stock order received.");
-      }
+    const refresh = () => {
+      void fetchOrders();
     };
 
-    const handleUpdate = (data: Order) => {
-      if (!data) return;
-      if (data.status === OrderStatus.PENDING) {
-        setOrders(prev => prev.map(order => order.id === data.id ? data : order));
-      } else {
-        setOrders(prev => prev.filter(order => order.id !== data.id));
-      }
-    };
-
-    const handleStatus = (data: Order) => {
-      if (!data) return;
-      if (data.status === OrderStatus.PENDING) {
-        setOrders(prev => prev.map(order => order.id === data.id ? data : order));
-      } else {
-        setOrders(prev => prev.filter(order => order.id !== data.id));
-      }
-      message.info("Order status updated.");
-    };
-
-    const handleDelete = (payload: { id?: string }) => {
-      if (payload?.id) {
-        setOrders(prev => prev.filter(order => order.id !== payload.id));
-        message.warning("Order deleted.");
-      }
-    };
-
-    const handleDetailUpdate = (payload: { orderId?: string }) => {
-      if (payload?.orderId) {
-        fetchOrders();
-      }
-    };
-
-    const handleLegacyUpdate = (payload: { action: string; data?: Order; id?: string; orderId?: string }) => {
-      const { action, data, id, orderId } = payload;
-      switch (action) {
-        case "create":
-          if (data && data.status === OrderStatus.PENDING) {
-            setOrders(prev => [data, ...prev]);
-            message.success("New stock order received.");
-          }
-          break;
-        case "update_status":
-          if (data) {
-            if (data.status === OrderStatus.PENDING) {
-              setOrders(prev => prev.map(order => order.id === data.id ? data : order));
-            } else {
-              setOrders(prev => prev.filter(order => order.id !== data.id));
-            }
-            message.info("Order status updated.");
-          }
-          break;
-        case "delete":
-          if (id) {
-            setOrders(prev => prev.filter(order => order.id !== id));
-            message.warning("Order deleted.");
-          }
-          break;
-        case "update_item_detail":
-          if (orderId) {
-            fetchOrders();
-          }
-          break;
-        default:
-          fetchOrders();
-          break;
-      }
-    };
-
-    socket.on(RealtimeEvents.stockOrders.create, handleCreate);
-    socket.on(RealtimeEvents.stockOrders.update, handleUpdate);
-    socket.on(RealtimeEvents.stockOrders.status, handleStatus);
-    socket.on(RealtimeEvents.stockOrders.delete, handleDelete);
-    socket.on(RealtimeEvents.stockOrders.detailUpdate, handleDetailUpdate);
-    socket.on(LegacyRealtimeEvents.stockOrdersUpdated, handleLegacyUpdate);
+    socket.on(RealtimeEvents.stockOrders.create, refresh);
+    socket.on(RealtimeEvents.stockOrders.update, refresh);
+    socket.on(RealtimeEvents.stockOrders.status, refresh);
+    socket.on(RealtimeEvents.stockOrders.delete, refresh);
+    socket.on(RealtimeEvents.stockOrders.detailUpdate, refresh);
+    socket.on(LegacyRealtimeEvents.stockOrdersUpdated, refresh);
 
     return () => {
-      socket.off(RealtimeEvents.stockOrders.create, handleCreate);
-      socket.off(RealtimeEvents.stockOrders.update, handleUpdate);
-      socket.off(RealtimeEvents.stockOrders.status, handleStatus);
-      socket.off(RealtimeEvents.stockOrders.delete, handleDelete);
-      socket.off(RealtimeEvents.stockOrders.detailUpdate, handleDetailUpdate);
-      socket.off(LegacyRealtimeEvents.stockOrdersUpdated, handleLegacyUpdate);
+      socket.off(RealtimeEvents.stockOrders.create, refresh);
+      socket.off(RealtimeEvents.stockOrders.update, refresh);
+      socket.off(RealtimeEvents.stockOrders.status, refresh);
+      socket.off(RealtimeEvents.stockOrders.delete, refresh);
+      socket.off(RealtimeEvents.stockOrders.detailUpdate, refresh);
+      socket.off(LegacyRealtimeEvents.stockOrdersUpdated, refresh);
     };
   }, [socket, fetchOrders]);
 
-  const [editingOrder, setEditingOrder] = useState<Order | null>(null);
-  const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
-
-    const [csrfToken, setCsrfToken] = useState<string>("");
-
-    useEffect(() => {
-        const fetchCsrf = async () => {
-             try {
-                const token = await authService.getCsrfToken();
-                setCsrfToken(token);
-             } catch (error) {
-                console.error("Failed to fetch CSRF token", error);
-             }
-        };
-        fetchCsrf();
-    }, []);
-
-    const handleCancelOrder = (order: Order) => {
+  const cancelOrder = (order: Order) => {
     Modal.confirm({
-      title: (
-        <Space>
-          <CloseCircleOutlined style={{ color: '#ff4d4f' }} />
-          <span>ยืนยันการยกเลิกออเดอร์</span>
-        </Space>
-      ),
-      content: (
-        <div style={{ marginTop: 16 }}>
-          <Text>คุณต้องการยกเลิกออเดอร์นี้หรือไม่?</Text>
-          <div style={{ 
-            marginTop: 12, 
-            padding: 12, 
-            background: 'rgba(255, 77, 79, 0.05)', 
-            borderRadius: 8,
-            border: '1px solid rgba(255, 77, 79, 0.1)'
-          }}>
-            <Text type="secondary" style={{ fontSize: 13 }}>
-              ผู้สั่ง: <strong>{order.ordered_by?.name || order.ordered_by?.username}</strong>
-            </Text>
-          </div>
-        </div>
-      ),
-      okText: 'ยืนยันยกเลิก',
-      cancelText: 'ไม่ยกเลิก',
+      title: `ยกเลิกใบซื้อ #${order.id.slice(0, 8).toUpperCase()}`,
+      content: "ต้องการยกเลิกใบซื้อนี้ใช่หรือไม่",
+      okText: "ยืนยันยกเลิก",
       okButtonProps: { danger: true },
-      centered: true,
+      cancelText: "ปิด",
       onOk: async () => {
         try {
           const response = await fetch(`/api/stock/orders/${order.id}/status`, {
-            method: 'PUT',
-            headers: { 
-                'Content-Type': 'application/json',
-                'X-CSRF-Token': csrfToken
+            method: "PUT",
+            headers: {
+              "Content-Type": "application/json",
+              "X-CSRF-Token": csrfToken,
             },
-            body: JSON.stringify({ status: OrderStatus.CANCELLED })
+            body: JSON.stringify({ status: OrderStatus.CANCELLED }),
           });
-
-          if (!response.ok) {
-            throw new Error("Failed to cancel order");
-          }
-          
-          message.success("ยกเลิกออเดอร์สำเร็จ");
+          if (!response.ok) throw new Error("ยกเลิกใบซื้อไม่สำเร็จ");
+          messageApi.success("ยกเลิกใบซื้อแล้ว");
+          void fetchOrders();
         } catch {
-          message.error("ยกเลิกออเดอร์ล้มเหลว");
+          messageApi.error("ยกเลิกใบซื้อไม่สำเร็จ");
         }
-      }
+      },
     });
   };
 
-  // Calculate total items count
-  const totalItems = orders.reduce((acc, order) => 
-    acc + (order.ordersItems?.length || 0), 0
-  );
+  const printOrderToPdf = useCallback((order: Order) => {
+    const popup = window.open("", "_blank", "width=960,height=720");
+    if (!popup) {
+      messageApi.error("เบราว์เซอร์บล็อกหน้าต่างพิมพ์ กรุณาอนุญาตป๊อปอัป");
+      return;
+    }
 
-  const columns = [
+    const createdAt = formatDateTime(order.create_date);
+    const orderedBy = order.ordered_by?.name || order.ordered_by?.username || "-";
+    const printAt = new Date().toLocaleString("th-TH", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
+
+    const safeRemark = escapeHtml(order.remark?.trim() || "-");
+    const orderCode = `#${order.id.slice(0, 8).toUpperCase()}`;
+    const rows = (order.ordersItems || [])
+      .map((item, index) => {
+        const name = escapeHtml(item.ingredient?.display_name || item.ingredient?.ingredient_name || "-");
+        const unit = escapeHtml(item.ingredient?.unit?.display_name || item.ingredient?.unit?.unit_name || "หน่วย");
+        const quantity = Number(item.quantity_ordered || 0);
+        return `
+          <tr>
+            <td class="center">${index + 1}</td>
+            <td>${name}</td>
+            <td class="center">${quantity.toLocaleString()}</td>
+            <td class="center">${unit}</td>
+          </tr>
+        `;
+      })
+      .join("");
+
+    const totalItems = (order.ordersItems || []).length;
+    const totalQty = (order.ordersItems || []).reduce(
+      (acc, item) => acc + Number(item.quantity_ordered || 0),
+      0
+    );
+
+    const html = `
+      <!DOCTYPE html>
+      <html lang="th">
+        <head>
+          <meta charset="UTF-8" />
+          <title>ใบสั่งซื้อ ${orderCode}</title>
+          <style>
+            * { box-sizing: border-box; }
+            body {
+              margin: 0;
+              background: #eef2f7;
+              font-family: "Tahoma", "Noto Sans Thai", sans-serif;
+              color: #1f2937;
+            }
+            .sheet {
+              width: 210mm;
+              min-height: 297mm;
+              margin: 10mm auto;
+              background: #fff;
+              padding: 14mm 12mm;
+              border-radius: 10px;
+              box-shadow: 0 8px 28px rgba(15, 23, 42, 0.14);
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              gap: 12px;
+              border-bottom: 2px solid #e5e7eb;
+              padding-bottom: 10px;
+            }
+            .title {
+              margin: 0;
+              font-size: 26px;
+              color: #0f172a;
+            }
+            .subtitle {
+              margin-top: 4px;
+              color: #475569;
+              font-size: 13px;
+            }
+            .badge {
+              align-self: flex-start;
+              border: 1px solid #1d4ed8;
+              color: #1d4ed8;
+              padding: 8px 12px;
+              border-radius: 8px;
+              font-size: 12px;
+              font-weight: 700;
+              background: #eff6ff;
+            }
+            .meta {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 8px 14px;
+              margin-top: 14px;
+            }
+            .meta-card {
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+              border-radius: 8px;
+              padding: 8px 10px;
+            }
+            .meta-label { color: #64748b; font-size: 12px; }
+            .meta-value { margin-top: 2px; font-size: 14px; font-weight: 600; color: #0f172a; }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 14px;
+              font-size: 13px;
+            }
+            thead th {
+              background: #f1f5f9;
+              border: 1px solid #cbd5e1;
+              padding: 9px 8px;
+              text-align: left;
+              color: #0f172a;
+            }
+            td {
+              border: 1px solid #e2e8f0;
+              padding: 8px;
+              vertical-align: top;
+            }
+            .center { text-align: center; }
+            .summary {
+              margin-top: 12px;
+              display: flex;
+              justify-content: flex-end;
+            }
+            .summary-box {
+              width: 270px;
+              border: 1px solid #dbeafe;
+              background: #f8fbff;
+              border-radius: 8px;
+              padding: 8px 10px;
+              font-size: 13px;
+            }
+            .summary-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 4px 0;
+            }
+            .remarks {
+              margin-top: 14px;
+              border: 1px dashed #cbd5e1;
+              background: #fcfdff;
+              border-radius: 8px;
+              padding: 10px;
+              min-height: 58px;
+            }
+            .signatures {
+              margin-top: 32px;
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 22px;
+            }
+            .sign-box {
+              text-align: center;
+              font-size: 12px;
+              color: #475569;
+            }
+            .sign-line {
+              border-bottom: 1px solid #94a3b8;
+              margin: 0 auto 8px;
+              width: 78%;
+              height: 28px;
+            }
+            .footer {
+              margin-top: 20px;
+              border-top: 1px solid #e5e7eb;
+              padding-top: 8px;
+              font-size: 11px;
+              color: #64748b;
+              text-align: right;
+            }
+            @media print {
+              body { background: #fff; }
+              .sheet {
+                margin: 0;
+                border-radius: 0;
+                box-shadow: none;
+                width: auto;
+                min-height: auto;
+                padding: 8mm 6mm;
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <main class="sheet">
+            <header class="header">
+              <div>
+                <h1 class="title">ใบสั่งซื้อสินค้า (Stock)</h1>
+                <div class="subtitle">เอกสารสำหรับจดรายการที่ต้องซื้อและตรวจรับภายหลัง</div>
+              </div>
+              <div class="badge">${escapeHtml(orderCode)}</div>
+            </header>
+
+            <section class="meta">
+              <div class="meta-card">
+                <div class="meta-label">วันที่สร้างเอกสาร</div>
+                <div class="meta-value">${escapeHtml(createdAt)}</div>
+              </div>
+              <div class="meta-card">
+                <div class="meta-label">ผู้สร้างใบสั่งซื้อ</div>
+                <div class="meta-value">${escapeHtml(orderedBy)}</div>
+              </div>
+              <div class="meta-card">
+                <div class="meta-label">สถานะใบสั่งซื้อ</div>
+                <div class="meta-value">${escapeHtml(order.status === OrderStatus.PENDING ? "รอดำเนินการ" : order.status === OrderStatus.COMPLETED ? "เสร็จสิ้น" : "ยกเลิก")}</div>
+              </div>
+              <div class="meta-card">
+                <div class="meta-label">พิมพ์เมื่อ</div>
+                <div class="meta-value">${escapeHtml(printAt)}</div>
+              </div>
+            </section>
+
+            <table>
+              <thead>
+                <tr>
+                  <th class="center" style="width: 56px;">ลำดับ</th>
+                  <th>รายการสินค้า</th>
+                  <th class="center" style="width: 120px;">จำนวนที่ต้องซื้อ</th>
+                  <th class="center" style="width: 110px;">หน่วย</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${rows || `<tr><td colspan="4" class="center">ไม่มีรายการสินค้า</td></tr>`}
+              </tbody>
+            </table>
+
+            <section class="summary">
+              <div class="summary-box">
+                <div class="summary-row"><span>จำนวนรายการทั้งหมด</span><strong>${totalItems.toLocaleString()} รายการ</strong></div>
+                <div class="summary-row"><span>จำนวนหน่วยรวม</span><strong>${totalQty.toLocaleString()} หน่วย</strong></div>
+              </div>
+            </section>
+
+            <section class="remarks">
+              <div class="meta-label">หมายเหตุ</div>
+              <div class="meta-value">${safeRemark}</div>
+            </section>
+
+            <section class="signatures">
+              <div class="sign-box">
+                <div class="sign-line"></div>
+                ผู้จัดทำใบสั่งซื้อ
+              </div>
+              <div class="sign-box">
+                <div class="sign-line"></div>
+                ผู้ตรวจรับสินค้า
+              </div>
+            </section>
+
+            <footer class="footer">เอกสารนี้จัดทำจากระบบจัดการคลังสินค้า</footer>
+          </main>
+          <script>
+            window.addEventListener("load", () => {
+              setTimeout(() => {
+                window.print();
+              }, 250);
+            });
+          </script>
+        </body>
+      </html>
+    `;
+
+    popup.document.open();
+    popup.document.write(html);
+    popup.document.close();
+  }, [messageApi]);
+
+  const metrics = useMemo(() => {
+    const totalOrders = orders.length;
+    const totalLines = orders.reduce((acc, order) => acc + Number(order.ordersItems?.length || 0), 0);
+    const totalRequiredQty = orders.reduce(
+      (acc, order) =>
+        acc +
+        (order.ordersItems || []).reduce((inner, item) => inner + Number(item.quantity_ordered || 0), 0),
+      0
+    );
+
+    return { totalOrders, totalLines, totalRequiredQty };
+  }, [orders]);
+
+  const tableColumns = [
     {
-      title: (
-        <Space>
-          <UserOutlined />
-          <span>ผู้สั่ง</span>
-        </Space>
-      ),
-      dataIndex: 'ordered_by',
-      key: 'ordered_by',
-      width: 140,
-      render: (ordered_by: { name?: string; username?: string } | null) => {
-        const displayName = ordered_by?.name || ordered_by?.username || 'Unknown';
-        return (
-        <Space>
-          <div style={{
-            width: 32,
-            height: 32,
-            borderRadius: '50%',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#fff',
-            fontWeight: 600,
-            fontSize: 14
-          }}>
-            {displayName.charAt(0)?.toUpperCase() || '?'}
-          </div>
-          <Text strong style={{ fontSize: 14 }}>{displayName}</Text>
-        </Space>
-      )},
+      title: "รหัสใบซื้อ",
+      key: "id",
+      width: 150,
+      render: (_: unknown, record: Order) => <Text strong>#{record.id.slice(0, 8).toUpperCase()}</Text>,
     },
     {
-      title: (
-        <Space>
-          <InboxOutlined />
-          <span>รายการสินค้า</span>
-        </Space>
-      ),
-      dataIndex: 'ordersItems',
-      key: 'items',
-      render: (items: { id: string; quantity_ordered: number; ingredient?: { display_name: string; img_url?: string; unit?: { display_name: string } } }[]) => (
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 4 }}>
-          {(items || []).slice(0, 3).map((item) => (
-            <span key={item.id} className="order-item-badge">
-              <Avatar
-                  src={item.ingredient?.img_url || 'https://placehold.co/32x32/f5f5f5/999999?text=📦'}
-                  size={24}
-                  shape="square"
-                  style={{ borderRadius: 6, marginRight: 8 }}
-              />
-              <Text strong style={{ color: '#5b6af8', fontSize: 13 }}>
-                {item.ingredient?.display_name}
-              </Text>
-              <Text style={{ color: '#8c8c8c', marginLeft: 6, fontSize: 12 }}>
-                ×{item.quantity_ordered} {item.ingredient?.unit?.display_name}
-              </Text>
-            </span>
-          ))}
-          {items && items.length > 3 && (
-            <Tooltip title={items.slice(3).map(i => i.ingredient?.display_name).join(', ')}>
-              <Tag color="purple" style={{ borderRadius: 20, cursor: 'pointer' }}>
-                +{items.length - 3} รายการ
-              </Tag>
-            </Tooltip>
-          )}
-        </div>
+      title: "ผู้สร้าง",
+      dataIndex: "ordered_by",
+      key: "ordered_by",
+      width: 180,
+      render: (orderedBy: { name?: string; username?: string } | null) => (
+        <Text>{orderedBy?.name || orderedBy?.username || "-"}</Text>
       ),
     },
     {
-      title: 'สถานะ',
-      dataIndex: 'status',
-      key: 'status',
-      width: 110,
-      render: (status: OrderStatus) => {
-        let config: { color: string; icon: React.ReactNode; text: string } = { color: 'default', icon: <ClockCircleOutlined />, text: status };
-        if (status === OrderStatus.PENDING) {
-          config = { color: 'warning', icon: <ClockCircleOutlined />, text: 'รอดำเนินการ' };
-        }
-        if (status === OrderStatus.COMPLETED) {
-          config = { color: 'success', icon: <InboxOutlined />, text: 'เสร็จสิ้น' };
-        }
-        if (status === OrderStatus.CANCELLED) {
-          config = { color: 'error', icon: <CloseCircleOutlined />, text: 'ยกเลิก' };
-        }
+      title: "รายการ",
+      key: "items",
+      render: (_: unknown, record: Order) => {
+        const lines = record.ordersItems?.length || 0;
+        const qty = (record.ordersItems || []).reduce((acc, item) => acc + Number(item.quantity_ordered || 0), 0);
         return (
-          <Tag 
-            color={config.color} 
-            icon={config.icon}
-            style={{ 
-              borderRadius: 20, 
-              padding: '4px 12px',
-              fontWeight: 500,
-              fontSize: 13
-            }}
-          >
-            {config.text}
-          </Tag>
+          <Space direction="vertical" size={0}>
+            <Text>{lines.toLocaleString()} รายการ</Text>
+            <Text type="secondary" style={{ fontSize: 12 }}>
+              รวม {qty.toLocaleString()} หน่วย
+            </Text>
+          </Space>
         );
       },
     },
     {
-      title: (
-        <Space>
-          <CalendarOutlined />
-          <span>วันที่สั่ง</span>
-        </Space>
-      ),
-      dataIndex: 'create_date',
-      key: 'create_date',
-      width: 150,
-      render: (date: string) => (
-        <Text type="secondary" style={{ fontSize: 13 }}>
-          {new Date(date).toLocaleDateString('th-TH', { 
-            day: 'numeric', 
-            month: 'short', 
-            year: 'numeric' 
-          })}
-          <br />
-          <Text style={{ fontSize: 12, color: '#bfbfbf' }}>
-            {new Date(date).toLocaleTimeString('th-TH', { 
-              hour: '2-digit', 
-              minute: '2-digit' 
-            })}
-          </Text>
-        </Text>
-      ),
+      title: "วันที่สร้าง",
+      dataIndex: "create_date",
+      key: "create_date",
+      width: 180,
+      render: (value: string) => <Text>{formatDateTime(value)}</Text>,
     },
     {
-      title: 'การจัดการ',
-      key: 'actions',
-      width: 280,
+      title: "สถานะ",
+      dataIndex: "status",
+      key: "status",
+      width: 120,
+      render: (value: OrderStatus) => statusTag(value),
+    },
+    {
+      title: "การจัดการ",
+      key: "actions",
+      width: 340,
       render: (_: unknown, record: Order) => (
-        <Space size={8} wrap>
+        <Space wrap>
           <Tooltip title="ดูรายละเอียด">
-            <Button 
-              className="action-btn"
-              size="middle"
-              icon={<EyeOutlined />}
-              onClick={() => setViewingOrder(record)}
-              style={{
-                borderColor: '#667eea',
-                color: '#667eea'
-              }}
-            >
+            <Button icon={<EyeOutlined />} onClick={() => setViewingOrder(record)}>
               ดู
             </Button>
           </Tooltip>
-          
-          {(user?.role === 'Admin' || user?.role === 'Manager') && (
-            <Tooltip title="ดำเนินการสั่งซื้อ">
-              <Button
-                className="action-btn"
-                type="primary"
-                size="middle"
-                icon={<ShoppingCartOutlined />}
-                disabled={record.status !== OrderStatus.PENDING}
-                onClick={() => router.push(`/stock/buying?orderId=${record.id}`)}
-                style={{
-                  background: 'linear-gradient(135deg, #52c41a 0%, #389e0d 100%)',
-                  borderColor: 'transparent',
-                  boxShadow: '0 2px 8px rgba(82, 196, 26, 0.3)'
-                }}
-              >
-                สั่งซื้อ
-              </Button>
-            </Tooltip>
-          )}
-          
-          <Tooltip title="แก้ไขออเดอร์">
-            <Button 
-              className="action-btn"
-              type="primary"
-              ghost
-              size="middle"
-              icon={<EditOutlined />}
-              disabled={record.status !== OrderStatus.PENDING}
-              onClick={() => setEditingOrder(record)}
-            >
+          <Tooltip title="พิมพ์ใบสั่งซื้อ (PDF)">
+            <Button icon={<PrinterOutlined />} onClick={() => printOrderToPdf(record)}>
+              พิมพ์
+            </Button>
+          </Tooltip>
+          <Tooltip title="แก้ไขรายการ">
+            <Button icon={<EditOutlined />} onClick={() => setEditingOrder(record)} disabled={record.status !== OrderStatus.PENDING}>
               แก้ไข
             </Button>
           </Tooltip>
-          
-          <Tooltip title="ยกเลิกออเดอร์">
-            <Button 
-              className="action-btn"
-              danger
-              size="middle"
-              icon={<CloseCircleOutlined />}
+          <Tooltip title="ตรวจรับหลังซื้อ">
+            <Button
+              type="primary"
+              icon={<CheckSquareOutlined />}
+              onClick={() => router.push(`/stock/buying?orderId=${record.id}`)}
               disabled={record.status !== OrderStatus.PENDING}
-              onClick={() => handleCancelOrder(record)}
             >
-              ยกเลิก
+              ตรวจรับ
             </Button>
           </Tooltip>
+          {user?.role === "Admin" || user?.role === "Manager" ? (
+            <Tooltip title="ยกเลิกใบซื้อ">
+              <Button danger icon={<CloseCircleOutlined />} onClick={() => cancelOrder(record)}>
+                ยกเลิก
+              </Button>
+            </Tooltip>
+          ) : null}
         </Space>
-      )
-    }
+      ),
+    },
   ];
 
-  // Loading Skeleton
-  const LoadingSkeleton = () => (
-    <div>
-      {[1, 2, 3].map((i) => (
-        <div key={i} style={{ 
-          padding: 16, 
-          borderBottom: '1px solid rgba(0,0,0,0.04)',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 16
-        }}>
-          <Skeleton.Avatar active size={40} />
-          <Skeleton active paragraph={{ rows: 1, width: ['80%'] }} title={false} />
-        </div>
-      ))}
-    </div>
-  );
-
   return (
-    <div style={{ 
-      padding: '24px', 
-      paddingBottom: 120,
-      minHeight: '100vh',
-      background: 'linear-gradient(180deg, #f8f9fc 0%, #f0f2f5 100%)'
-    }}>
-      <div style={{ maxWidth: 1400, margin: '0 auto' }}>
-        <UIPageHeader
-          title={t("stock.title")}
-          subtitle={t("stock.subtitleCount", { count: orders.length })}
-          icon={<ClockCircleOutlined />}
-          actions={
-            <Button 
-              icon={<ReloadOutlined />} 
-              onClick={fetchOrders}
-              loading={loading}
-            >
-              {t("queue.refresh")}
-            </Button>
-          }
-        />
+    <div style={{ minHeight: "100vh", background: "#f7f9fc", paddingBottom: 120 }}>
+      <UIPageHeader
+        title="รายการใบซื้อที่รอตรวจรับ"
+        subtitle={`คิวที่ต้องดำเนินการ ${orders.length} ใบ`}
+        icon={<UnorderedListOutlined />}
+        actions={
+          <Button icon={<ReloadOutlined />} onClick={() => void fetchOrders()} loading={loading}>
+            รีเฟรช
+          </Button>
+        }
+      />
 
-      <PageContainer>
-        <PageStack>
-          <PageSection title={t("stock.title")}>
-            <Row gutter={[16, 16]}>
-              <Col xs={12} sm={8} md={6}>
-                <Card 
-                  className="status-card"
-                  size="small"
-                  styles={{ body: { padding: 16 } }}
-                >
-                  <Statistic 
-                    title={<Text type="secondary" style={{ fontSize: 13 }}>{t("stock.title")}</Text>}
-                    value={loading ? '-' : orders.length}
-                    prefix={<Badge status="processing" />}
-                    styles={{ content: { 
-                      color: '#667eea', 
-                      fontWeight: 700,
-                      fontSize: 28
-                    }}}
-                  />
-                </Card>
-              </Col>
-              <Col xs={12} sm={8} md={6}>
-                <Card 
-                  className="status-card"
-                  size="small"
-                  styles={{ body: { padding: 16 } }}
-                >
-                  <Statistic 
-                    title={<Text type="secondary" style={{ fontSize: 13 }}>{t("stock.totalItems")}</Text>}
-                    value={loading ? '-' : totalItems}
-                    prefix={<Badge status="success" />}
-                    styles={{ content: { 
-                      color: '#52c41a', 
-                      fontWeight: 700,
-                      fontSize: 28
-                    }}}
-                  />
-                </Card>
-              </Col>
-            </Row>
-          </PageSection>
+      <PageContainer maxWidth={1400}>
+        <PageStack gap={12}>
+          <Row gutter={[12, 12]}>
+            <Col xs={24} sm={8}>
+              <Card>
+                <Text type="secondary">จำนวนใบซื้อ</Text>
+                <Title level={4} style={{ margin: "6px 0 0" }}>{metrics.totalOrders.toLocaleString()}</Title>
+              </Card>
+            </Col>
+            <Col xs={24} sm={8}>
+              <Card>
+                <Text type="secondary">จำนวนรายการทั้งหมด</Text>
+                <Title level={4} style={{ margin: "6px 0 0", color: "#1677ff" }}>{metrics.totalLines.toLocaleString()}</Title>
+              </Card>
+            </Col>
+            <Col xs={24} sm={8}>
+              <Card>
+                <Text type="secondary">จำนวนหน่วยที่ต้องซื้อ</Text>
+                <Title level={4} style={{ margin: "6px 0 0", color: "#389e0d" }}>{metrics.totalRequiredQty.toLocaleString()}</Title>
+              </Card>
+            </Col>
+          </Row>
 
-          <PageSection title={t("stock.title")}>
-            <Card 
-              variant="borderless"
-              style={{ 
-                borderRadius: 20,
-                boxShadow: '0 4px 24px rgba(0, 0, 0, 0.06)',
-                overflow: 'hidden'
-              }}
-              styles={{ body: { padding: 0 } }}
-            >
-              {loading ? (
-                <LoadingSkeleton />
-              ) : error ? (
-                <PageState
-                  status="error"
-                  title={t("stock.error")}
-                  error={error}
-                  onRetry={fetchOrders}
-                />
-              ) : orders.length === 0 ? (
-                <PageState
-                  status="empty"
-                  title={t("stock.empty")}
-                  action={
-                    <Button 
-                      type="primary"
-                      icon={<ShoppingCartOutlined />}
-                      size="large"
-                      onClick={() => router.push('/')}
-                      style={{
-                        borderRadius: 10,
-                        height: 48,
-                        paddingInline: 32,
-                        fontWeight: 600
-                      }}
-                    >
-                      {t("stock.emptyAction")}
-                    </Button>
-                  }
-                />
-              ) : (
-                <>
-                  {isMobile ? (
-                    <div style={{ padding: 16, display: 'grid', gap: 12 }}>
-                      {orders.map((order) => (
-                        <Card key={order.id} size="small" style={{ borderRadius: 16, boxShadow: '0 6px 18px rgba(0,0,0,0.05)' }}>
-                          <Space direction="vertical" size={6} style={{ width: '100%' }}>
-                            <Text strong>#{order.id.slice(0, 6)}</Text>
-                            <Text type="secondary">{order.ordered_by?.name || order.ordered_by?.username || '-'}</Text>
-                            <Text>{t("stock.itemsLabel")}: {order.ordersItems?.length || 0}</Text>
-                            <Text type="secondary">{new Date(order.create_date).toLocaleString('th-TH')}</Text>
-                            <Tag color={order.status === OrderStatus.PENDING ? "warning" : order.status === OrderStatus.COMPLETED ? "success" : "error"}>
-                              {order.status === OrderStatus.PENDING ? t("stock.status.pending") : order.status === OrderStatus.COMPLETED ? t("stock.status.completed") : t("stock.status.cancelled")}
-                            </Tag>
-                            <Space wrap>
-                              <Button size="small" icon={<EyeOutlined />} onClick={() => setViewingOrder(order)}>{t("stock.view")}</Button>
-                              <Button size="small" type="primary" icon={<ShoppingCartOutlined />} disabled={order.status !== OrderStatus.PENDING} onClick={() => router.push(`/stock/buying?orderId=${order.id}`)}>{t("stock.buy")}</Button>
-                            </Space>
+          <PageSection title="คิวใบซื้อ">
+            {loading ? (
+              <PageState status="loading" title="กำลังโหลดรายการใบซื้อ" />
+            ) : error ? (
+              <PageState status="error" title={error} onRetry={() => void fetchOrders()} />
+            ) : orders.length === 0 ? (
+              <PageState
+                status="empty"
+                title="ไม่มีใบซื้อที่รอดำเนินการ"
+                action={
+                  <Button type="primary" icon={<ShoppingCartOutlined />} onClick={() => router.push("/stock")}> 
+                    ไปจดรายการซื้อ
+                  </Button>
+                }
+              />
+            ) : isMobile ? (
+              <List
+                dataSource={orders}
+                renderItem={(order) => {
+                  const lines = order.ordersItems?.length || 0;
+                  const qty = (order.ordersItems || []).reduce((acc, item) => acc + Number(item.quantity_ordered || 0), 0);
+                  return (
+                    <List.Item>
+                      <Card style={{ width: "100%", borderRadius: 14 }}>
+                        <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                          <Space wrap>
+                            <Text strong>#{order.id.slice(0, 8).toUpperCase()}</Text>
+                            {statusTag(order.status)}
                           </Space>
-                        </Card>
-                      ))}
-                    </div>
-                  ) : (
-                    <Table 
-                      dataSource={orders} 
-                      columns={columns} 
-                      rowKey="id" 
-                      scroll={{ x: 900 }}
-                      pagination={{ 
-                        pageSize: 10,
-                        showSizeChanger: true,
-                        showTotal: (total, range) => (
-                          <Text type="secondary">
-                            {range[0]}-{range[1]} / {total}
-                          </Text>
-                        )
-                      }}
-                      className="items-table"
-                      locale={{
-                        emptyText: <Empty description={t("stock.empty")} />
-                      }}
-                    />
-                  )}
-                </>
-              )}
-            </Card>
+                          <Text type="secondary">ผู้สร้าง: {order.ordered_by?.name || order.ordered_by?.username || "-"}</Text>
+                          <Text>{lines.toLocaleString()} รายการ | รวม {qty.toLocaleString()} หน่วย</Text>
+                          <Text type="secondary">{formatDateTime(order.create_date)}</Text>
+                          <Space wrap>
+                            <Button size="small" icon={<EyeOutlined />} onClick={() => setViewingOrder(order)}>ดู</Button>
+                            <Button size="small" icon={<PrinterOutlined />} onClick={() => printOrderToPdf(order)}>พิมพ์</Button>
+                            <Button size="small" icon={<EditOutlined />} onClick={() => setEditingOrder(order)}>แก้ไข</Button>
+                            <Button
+                              size="small"
+                              type="primary"
+                              icon={<CheckSquareOutlined />}
+                              onClick={() => router.push(`/stock/buying?orderId=${order.id}`)}
+                            >
+                              ตรวจรับ
+                            </Button>
+                          </Space>
+                        </Space>
+                      </Card>
+                    </List.Item>
+                  );
+                }}
+              />
+            ) : (
+              <Table
+                rowKey="id"
+                dataSource={orders}
+                columns={tableColumns}
+                pagination={{ pageSize: 10 }}
+                scroll={{ x: 1024 }}
+                locale={{
+                  emptyText: <Empty description="ไม่มีข้อมูล" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
+                }}
+              />
+            )}
           </PageSection>
         </PageStack>
       </PageContainer>
-      </div>
 
-      {/* Modals */}
-      <EditOrderModal 
-        open={!!editingOrder} 
-        order={editingOrder} 
-        onClose={() => setEditingOrder(null)} 
-        onSuccess={fetchOrders}
+      <EditOrderModal
+        open={Boolean(editingOrder)}
+        order={editingOrder}
+        onClose={() => setEditingOrder(null)}
+        onSuccess={() => void fetchOrders()}
       />
-      
+
       <OrderDetailModal
-        open={!!viewingOrder}
+        open={Boolean(viewingOrder)}
         order={viewingOrder}
         onClose={() => setViewingOrder(null)}
       />
-
-      <ItemsPageStyle />
     </div>
   );
 }
-
-
-
-

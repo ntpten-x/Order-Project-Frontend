@@ -41,7 +41,21 @@ export const branchService = {
         if (!response.ok) throw new Error('Failed to fetch branches');
 
         const json = await response.json();
-        return BranchesResponseSchema.parse(unwrapBackendData(json)) as unknown as Branch[];
+        const unwrapped = unwrapBackendData<unknown>(json);
+        if (Array.isArray(unwrapped)) {
+            return BranchesResponseSchema.parse(unwrapped) as unknown as Branch[];
+        }
+
+        if (
+            unwrapped &&
+            typeof unwrapped === "object" &&
+            "data" in unwrapped &&
+            Array.isArray((unwrapped as { data: unknown }).data)
+        ) {
+            return BranchesResponseSchema.parse((unwrapped as { data: unknown[] }).data) as unknown as Branch[];
+        }
+
+        throw new Error("Invalid branches response");
     },
 
     getById: async (id: string, cookie?: string): Promise<Branch> => {

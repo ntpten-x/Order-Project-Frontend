@@ -79,4 +79,41 @@ describe("dashboardService contract", () => {
         );
         expect(rows[0].product_id).toBe("p1");
     });
+
+    it("getOverview unwraps standardized backend payload", async () => {
+        fetchMock.mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                success: true,
+                data: {
+                    summary: {
+                        period_start: "2026-02-01",
+                        period_end: "2026-02-14",
+                        total_sales: 1200,
+                        total_orders: 10,
+                        total_discount: 20,
+                        average_order_value: 120,
+                        cash_sales: 500,
+                        qr_sales: 700,
+                        dine_in_sales: 600,
+                        takeaway_sales: 300,
+                        delivery_sales: 300,
+                    },
+                    daily_sales: [],
+                    top_items: [],
+                    recent_orders: [],
+                },
+            }),
+        });
+
+        const data = await dashboardService.getOverview("2026-02-01", "2026-02-14", 7, 8);
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/pos/dashboard/overview?startDate=2026-02-01&endDate=2026-02-14&topLimit=7&recentLimit=8",
+            expect.objectContaining({
+                method: "GET",
+                headers: { "Content-Type": "application/json" },
+            })
+        );
+        expect(data.summary.total_sales).toBe(1200);
+    });
 });

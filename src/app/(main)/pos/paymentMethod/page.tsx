@@ -1,14 +1,13 @@
 ﻿'use client';
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { message, Modal, Typography, Tag, Button, Input, Space, Segmented, Switch } from 'antd';
+import { message, Modal, Typography, Tag, Button, Space, Switch } from 'antd';
 import {
     CreditCardOutlined,
     PlusOutlined,
     ReloadOutlined,
     EditOutlined,
     DeleteOutlined,
-    SearchOutlined,
     WalletOutlined,
     QrcodeOutlined,
     BankOutlined,
@@ -34,6 +33,10 @@ import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
 import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../../lib/list-sort';
+import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
+import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
+import { SearchInput } from "../../../../components/ui/input/SearchInput";
+import { SearchBar } from "../../../../components/ui/page/SearchBar";
 
 const { Text } = Typography;
 
@@ -50,36 +53,7 @@ type PaymentMethodCacheResult = {
     last_page: number;
 };
 
-interface StatsCardProps {
-    total: number;
-    active: number;
-    inactive: number;
-}
 
-const StatsCard = ({ total, active, inactive }: StatsCardProps) => (
-    <div style={{
-        background: '#fff',
-        borderRadius: 16,
-        border: '1px solid #e2e8f0',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-        gap: 8,
-        padding: 14
-    }}>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', display: 'block' }}>{total}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ทั้งหมด</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f766e', display: 'block' }}>{active}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ใช้งาน</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#b91c1c', display: 'block' }}>{inactive}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ปิดใช้งาน</Text>
-        </div>
-    </div>
-);
 
 const getPaymentIcon = (name: string) => {
     const lower = name.toLowerCase();
@@ -399,38 +373,38 @@ export default function PaymentMethodPage() {
 
             <PageContainer>
                 <PageStack>
-                    <StatsCard
-                        total={paymentMethods.length}
-                        active={activePaymentMethods}
-                        inactive={inactivePaymentMethods}
+                    <StatsGroup
+                        stats={[
+                            { label: 'ทั้งหมด', value: paymentMethods.length, color: '#0f172a' },
+                            { label: 'ใช้งาน', value: activePaymentMethods, color: '#0f766e' },
+                            { label: 'ปิดใช้งาน', value: inactivePaymentMethods, color: '#b91c1c' },
+                        ]}
                     />
 
-                    <PageSection title="ค้นหาและตัวกรอง">
-                        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: '1fr' }}>
-                            <Input
-                                allowClear
-                                placeholder="ค้นหาวิธีการชำระเงิน..."
-                                prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
-                                value={searchValue}
-                                onChange={(e) => {
-                                    setPage(1);
-                                    setSearchValue(e.target.value);
-                                }}
-                            />
-                            <Segmented<StatusFilter>
-                                options={[
-                                    { label: 'ทั้งหมด', value: 'all' },
-                                    { label: 'ใช้งาน', value: 'active' },
-                                    { label: 'ปิดใช้งาน', value: 'inactive' },
-                                ]}
-                                value={statusFilter}
-                                onChange={(value) => {
-                                    setPage(1);
-                                    setStatusFilter(value);
-                                }}
-                            />
-                        </div>
-                    </PageSection>
+                    <SearchBar>
+                        <SearchInput
+                            placeholder="ค้นหาวิธีการชำระเงิน..."
+                            value={searchValue}
+                            onChange={(val) => {
+                                setPage(1);
+                                setSearchValue(val);
+                            }}
+                        />
+                        <ModalSelector<StatusFilter>
+                            title="เลือกสถานะ"
+                            options={[
+                                { label: 'ทั้งหมด', value: 'all' },
+                                { label: 'ใช้งาน', value: 'active' },
+                                { label: 'ปิดใช้งาน', value: 'inactive' },
+                            ]}
+                            value={statusFilter}
+                            onChange={(value) => {
+                                setPage(1);
+                                setStatusFilter(value);
+                            }}
+                            style={{ minWidth: 150 }}
+                        />
+                    </SearchBar>
 
                     <PageSection title="รายการวิธีการชำระเงิน" extra={<span style={{ fontWeight: 600 }}>{filteredPaymentMethods.length}</span>}>
                         {filteredPaymentMethods.length > 0 ? (
