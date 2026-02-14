@@ -4,16 +4,14 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
     Button,
     Grid,
-    Input,
     Modal,
-    Segmented,
-    Select,
     Skeleton,
     Space,
     Spin,
     Tag,
     Typography,
     message,
+    Flex,
 } from 'antd';
 import {
     BranchesOutlined,
@@ -22,7 +20,6 @@ import {
     EditOutlined,
     ReloadOutlined,
     SafetyCertificateOutlined,
-    SearchOutlined,
     TeamOutlined,
     UserAddOutlined,
 } from '@ant-design/icons';
@@ -42,7 +39,13 @@ import PageSection from '../../../components/ui/page/PageSection';
 import PageStack from '../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../components/ui/states/EmptyState';
-import ListPagination from '../../../components/ui/pagination/ListPagination';
+import ListPagination, { type CreatedSort } from '../../../components/ui/pagination/ListPagination';
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../lib/list-sort';
+import { AccessGuardFallback } from '../../../components/pos/AccessGuard';
+import { ModalSelector } from '../../../components/ui/select/ModalSelector';
+import { StatsGroup } from '../../../components/ui/card/StatsGroup';
+import { SearchInput } from '../../../components/ui/input/SearchInput';
+import { SearchBar } from '../../../components/ui/page/SearchBar';
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -58,39 +61,6 @@ const ROLE_CONFIG: Record<string, { color: string; bg: string; emoji: string }> 
 };
 
 const DEFAULT_ROLE_CONFIG = { color: '#64748B', bg: '#F1F5F9', emoji: '👤' };
-
-interface StatsCardProps {
-    total: number;
-    active: number;
-    inactive: number;
-}
-
-const StatsCard = ({ total, active, inactive }: StatsCardProps) => (
-    <div
-        style={{
-            background: '#fff',
-            borderRadius: 16,
-            border: '1px solid #e2e8f0',
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-            gap: 8,
-            padding: 14,
-        }}
-    >
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', display: 'block' }}>{total}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ทั้งหมด</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f766e', display: 'block' }}>{active}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ใช้งาน</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#b91c1c', display: 'block' }}>{inactive}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ระงับ</Text>
-        </div>
-    </div>
-);
 
 interface UserCardProps {
     user: User;
@@ -143,7 +113,7 @@ const UserCard = ({ user, canUpdateUsers, canDeleteUsers, onEdit, onDelete }: Us
                             {displayName}
                         </Text>
                         <Tag color={isActive ? 'green' : 'default'} style={{ marginInlineEnd: 0 }}>
-                            {isActive ? 'ใช้งาน' : 'ระงับ'}
+                            {isActive ? 'ใช้งาน' : 'ออฟไลน์'}
                         </Tag>
                         <Tag style={{ marginInlineEnd: 0, border: 'none', background: roleConf.bg, color: roleConf.color }}>
                             {user.roles?.display_name || roleName || 'N/A'}
@@ -255,6 +225,7 @@ export default function UsersPage() {
     const [hasLoaded, setHasLoaded] = useState(false);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
     const [totalUsers, setTotalUsers] = useState(0);
 
     const debouncedSearch = useDebouncedValue(searchValue, 300);
@@ -266,12 +237,14 @@ export default function UsersPage() {
         const qParam = searchParams.get('q') || '';
         const statusParam = searchParams.get('status');
         const roleParam = searchParams.get('role') || 'all';
+        const sortParam = searchParams.get('sort_created');
 
         setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
         setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 20);
         setSearchValue(qParam);
         setStatusFilter(statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all');
         setRoleFilter(roleParam || 'all');
+        setCreatedSort(parseCreatedSort(sortParam));
         isUrlReadyRef.current = true;
     }, [searchParams]);
 
@@ -283,9 +256,10 @@ export default function UsersPage() {
         if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
         if (statusFilter !== 'all') params.set('status', statusFilter);
         if (roleFilter !== 'all') params.set('role', roleFilter);
+        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
         const href = `${pathname}?${params.toString()}`;
         router.replace(href, { scroll: false });
-    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter, roleFilter]);
+    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter, roleFilter, createdSort]);
 
     const { socket } = useSocket();
     const { execute } = useAsyncAction();
@@ -297,6 +271,7 @@ export default function UsersPage() {
     const canCreateUsers = can('users.page', 'create');
     const canUpdateUsers = can('users.page', 'update');
     const canDeleteUsers = can('users.page', 'delete');
+    const isAdminUser = user?.role?.toLowerCase?.() === 'admin';
 
     const fetchUsers = useCallback(async (nextPage: number = page, nextPageSize: number = pageSize) => {
         setIsFetching(true);
@@ -308,6 +283,7 @@ export default function UsersPage() {
                 if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
                 if (statusFilter !== 'all') params.set('status', statusFilter);
                 if (roleFilter !== 'all') params.set('role', roleFilter);
+                params.set('sort_created', createdSort);
                 const data = await userService.getAllUsersPaginated(undefined, params);
                 setUsers(data.data);
                 setTotalUsers(data.total);
@@ -318,7 +294,7 @@ export default function UsersPage() {
         } finally {
             setIsFetching(false);
         }
-    }, [execute, page, pageSize, debouncedSearch, roleFilter, statusFilter]);
+    }, [execute, page, pageSize, debouncedSearch, roleFilter, statusFilter, createdSort]);
 
     useEffect(() => {
         const fetchCsrf = async () => {
@@ -329,15 +305,19 @@ export default function UsersPage() {
         fetchCsrf();
     }, []);
 
+    const unauthorizedNotifiedRef = useRef(false);
     useEffect(() => {
         if (!authLoading && !permissionLoading && (!user || !canViewUsers)) {
-            const timer = setTimeout(() => {
+            if (!unauthorizedNotifiedRef.current) {
+                unauthorizedNotifiedRef.current = true;
                 message.error('คุณไม่มีสิทธิ์เข้าถึงหน้านี้');
-                router.push('/');
-            }, 800);
-            return () => clearTimeout(timer);
+            }
+            return;
         }
-    }, [authLoading, permissionLoading, user, canViewUsers, router]);
+        if (user && canViewUsers) {
+            unauthorizedNotifiedRef.current = false;
+        }
+    }, [authLoading, permissionLoading, user, canViewUsers]);
 
     useEffect(() => {
         if (authLoading) return;
@@ -448,7 +428,7 @@ export default function UsersPage() {
         });
     };
 
-    if (authLoading || permissionLoading || !user || !canViewUsers) {
+    if (authLoading || permissionLoading) {
         return (
             <div
                 style={{
@@ -465,6 +445,10 @@ export default function UsersPage() {
         );
     }
 
+    if (!user || !canViewUsers) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    }
+
     const showInitialSkeleton = !hasLoaded && isFetching;
 
     return (
@@ -475,10 +459,12 @@ export default function UsersPage() {
                 icon={<TeamOutlined style={{ fontSize: 20 }} />}
                 actions={
                     <Space size={8} wrap>
-                        <Button icon={<ReloadOutlined />} onClick={fetchUsers} loading={isFetching} />
-                        <Button icon={<SafetyCertificateOutlined />} onClick={handleGoPermissions}>
-                            {!isMobile ? 'จัดการสิทธิ์' : ''}
-                        </Button>
+                        <Button icon={<ReloadOutlined />} onClick={() => { void fetchUsers(); }} loading={isFetching} />
+                        {isAdminUser ? (
+                            <Button icon={<SafetyCertificateOutlined />} onClick={handleGoPermissions}>
+                                {!isMobile ? 'จัดการสิทธิ์' : ''}
+                            </Button>
+                        ) : null}
                         {canCreateUsers ? (
                             <Button type="primary" icon={<UserAddOutlined />} onClick={handleAdd}>
                                 {!isMobile ? 'เพิ่มผู้ใช้' : ''}
@@ -490,42 +476,56 @@ export default function UsersPage() {
 
             <PageContainer>
                 <PageStack>
-                    <StatsCard total={stats.total} active={stats.active} inactive={stats.inactive} />
+                    <StatsGroup 
+                        stats={[
+                            { label: 'ทั้งหมด', value: stats.total },
+                            { label: 'ใช้งาน', value: stats.active, color: '#0f766e' },
+                            { label: 'ออฟไลน์', value: stats.inactive, color: '#b91c1c' }
+                        ]} 
+                    />
 
                     <PageSection title="ค้นหาและตัวกรอง">
-                        <div style={{ display: 'grid', gap: 10 }}>
-                            <Input
-                                prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
-                                allowClear
+                        <SearchBar bodyStyle={{ padding: 12 }}>
+                            <SearchInput
                                 placeholder="ค้นหาจากชื่อผู้ใช้, username, บทบาท หรือสาขา..."
                                 value={searchValue}
-                                onChange={(event) => {
+                                onChange={(val) => {
                                     setPage(1);
-                                    setSearchValue(event.target.value);
+                                    setSearchValue(val);
                                 }}
                             />
-                            <Segmented<StatusFilter>
-                                options={[
-                                    { label: 'ทั้งหมด', value: 'all' },
-                                    { label: 'ใช้งาน', value: 'active' },
-                                    { label: 'ระงับ', value: 'inactive' },
-                                ]}
-                                value={statusFilter}
-                                onChange={(value) => {
-                                    setPage(1);
-                                    setStatusFilter(value);
-                                }}
-                            />
-                            <Select
-                                value={roleFilter}
-                                options={roleOptions}
-                                onChange={(value) => {
-                                    setPage(1);
-                                    setRoleFilter(value);
-                                }}
-                                placeholder="เลือกบทบาท"
-                            />
-                        </div>
+                            <Flex gap={10} wrap="wrap">
+                                <div style={{ flex: isMobile ? '1 1 100%' : '1 1 200px' }}>
+                                    <ModalSelector<StatusFilter>
+                                        title="เลือกสถานะ"
+                                        options={[
+                                            { label: 'ทั้งหมด', value: 'all' },
+                                            { label: 'ใช้งาน', value: 'active' },
+                                            { label: 'ออฟไลน์', value: 'inactive' },
+                                        ]}
+                                        value={statusFilter}
+                                        onChange={(value) => {
+                                            setPage(1);
+                                            setStatusFilter(value);
+                                        }}
+                                        placeholder="เลือกสถานะ"
+                                    />
+                                </div>
+                                <div style={{ flex: isMobile ? '1 1 100%' : '1 1 200px' }}>
+                                    <ModalSelector<string>
+                                        title="เลือกบทบาท"
+                                        value={roleFilter}
+                                        options={roleOptions}
+                                        onChange={(value) => {
+                                            setPage(1);
+                                            setRoleFilter(value);
+                                        }}
+                                        placeholder="เลือกบทบาท"
+                                        showSearch
+                                    />
+                                </div>
+                            </Flex>
+                        </SearchBar>
                     </PageSection>
 
                     <PageSection title="รายการผู้ใช้" extra={<span style={{ fontWeight: 600 }}>{filteredUsers.length}</span>}>
@@ -586,6 +586,11 @@ export default function UsersPage() {
                             onPageSizeChange={(size) => {
                                 setPage(1);
                                 setPageSize(size);
+                            }}
+                            sortCreated={createdSort}
+                            onSortCreatedChange={(next) => {
+                                setPage(1);
+                                setCreatedSort(next);
                             }}
                         />
                     </PageSection>

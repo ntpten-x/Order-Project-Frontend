@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useMemo, useState } from "react";
-import Image from "next/image";
+import Image from "../../ui/image/SmartImage";
 import { Typography, Button, Spin, Empty, Badge, Drawer, List, message, Pagination, Input, Modal, Tag, InputNumber } from "antd";
 import { 
   ShoppingCartOutlined, 
@@ -32,6 +32,7 @@ import {
   hasProductImage, 
   getProductCategoryName 
 } from "../../../utils/products/productDisplay.utils";
+import { resolveImageSource } from "../../../utils/image/source";
 import PageState from "../../ui/states/PageState";
 
 const { Title, Text } = Typography;
@@ -955,7 +956,7 @@ const CartItemRow = React.memo(function CartItemRow({
             <div style={posComponentStyles.cartItemImage}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
-                src={item.product.img_url}
+                src={resolveImageSource(item.product.img_url) || undefined}
                 alt={productName}
                 style={{ width: '100%', height: '100%', objectFit: 'cover' }}
               />
@@ -1089,7 +1090,7 @@ const CheckoutItemRow = React.memo(function CheckoutItemRow({
       <div style={posComponentStyles.checkoutItemImage}>
         {item.product.img_url ? (
           /* eslint-disable-next-line @next/next/no-img-element */
-          <img src={item.product.img_url} alt={item.product.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img src={resolveImageSource(item.product.img_url) || undefined} alt={item.product.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
         ) : (
           <div style={posComponentStyles.checkoutItemImagePlaceholder}>
             <ShopOutlined style={{ fontSize: 16, color: posColors.primary, opacity: 0.5 }} />

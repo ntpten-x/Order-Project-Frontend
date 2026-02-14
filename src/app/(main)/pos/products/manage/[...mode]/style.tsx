@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
+import Image from "../../../../../../components/ui/image/SmartImage";
 import { Typography } from "antd";
 import { ShopOutlined } from "@ant-design/icons";
 import {
@@ -9,6 +9,7 @@ import {
     ManagePageHeader,
     ManageActionButtons,
 } from "../../../../../../theme/pos/manage.shared";
+import { isSupportedImageSource } from "../../../../../../utils/image/source";
 
 const { Text } = Typography;
 
@@ -97,7 +98,7 @@ export const ProductPreview = ({ name, productName, imageUrl, price, priceDelive
                     background: '#F8FAFC',
                     flexShrink: 0
                 }}>
-                    {imageUrl && imageUrl.match(/^https?:\/\/.+/) ? (
+                    {isSupportedImageSource(imageUrl) ? (
                         <Image
                             src={imageUrl}
                             alt="Preview"

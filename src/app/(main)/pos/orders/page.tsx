@@ -3,7 +3,7 @@
 import { useOrderListPrefetching } from "../../../../hooks/pos/usePrefetching";
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
-import { Typography, Button, Grid, Input, Skeleton } from "antd";
+import { Typography, Button, Grid, Input, Skeleton, Segmented } from "antd";
 import { 
   ReloadOutlined, 
   ClockCircleOutlined,
@@ -36,6 +36,8 @@ import PageContainer from "../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../components/ui/page/PageSection";
 import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import PageState from "../../../../components/ui/states/PageState";
+import type { CreatedSort } from "../../../../components/ui/pagination/ListPagination";
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from "../../../../lib/list-sort";
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -162,6 +164,7 @@ export default function POSOrdersPage() {
 
     const [page, setPage] = useState(1);
     const [activeTab, setActiveTab] = useState<StatusTab>('all');
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
     const [searchValue, setSearchValue] = useState("");
     const [showSearch, setShowSearch] = useState(false);
     const debouncedSearch = useDebouncedValue(searchValue.trim(), 400);
@@ -174,6 +177,7 @@ export default function POSOrdersPage() {
         const pageParam = Number(searchParams.get("page") || "1");
         const qParam = searchParams.get("q") || "";
         const tabParam = searchParams.get("tab");
+        const sortParam = searchParams.get("sort_created");
         const nextTab: StatusTab =
             tabParam === "in-progress" || tabParam === "waiting-payment" ? tabParam : "all";
 
@@ -181,6 +185,7 @@ export default function POSOrdersPage() {
         setSearchValue(qParam);
         setShowSearch(Boolean(qParam.trim()));
         setActiveTab(nextTab);
+        setCreatedSort(parseCreatedSort(sortParam));
         isUrlReadyRef.current = true;
     }, [searchParams]);
 
@@ -190,16 +195,18 @@ export default function POSOrdersPage() {
         if (page > 1) params.set("page", String(page));
         if (debouncedSearch) params.set("q", debouncedSearch);
         if (activeTab !== "all") params.set("tab", activeTab);
+        if (createdSort !== DEFAULT_CREATED_SORT) params.set("sort_created", createdSort);
 
         const query = params.toString();
         router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [router, pathname, page, debouncedSearch, activeTab]);
+    }, [router, pathname, page, debouncedSearch, activeTab, createdSort]);
 
     const { orders, total, isLoading, isFetching, isError, refetch } = useOrders({
         page,
         limit: LIMIT,
         status: currentTabConfig.apiStatus,
-        query: debouncedSearch || undefined
+        query: debouncedSearch || undefined,
+        sortCreated: createdSort,
     });
 
     const getEffectiveStatus = useCallback((order: SalesOrder): OrderStatus => {
@@ -424,6 +431,20 @@ export default function POSOrdersPage() {
                             </button>
                         );
                     })}
+                </div>
+
+                <div style={{ marginBottom: 12 }}>
+                    <Segmented<CreatedSort>
+                        options={[
+                            { label: 'เก่าก่อน', value: 'old' },
+                            { label: 'ใหม่ก่อน', value: 'new' },
+                        ]}
+                        value={createdSort}
+                        onChange={(value) => {
+                            setPage(1);
+                            setCreatedSort(value);
+                        }}
+                    />
                 </div>
 
                 {/* ═══ Orders List ═══ */}

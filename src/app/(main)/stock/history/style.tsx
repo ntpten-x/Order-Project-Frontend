@@ -13,7 +13,7 @@ import {
     ShoppingOutlined
 } from "@ant-design/icons";
 import { Order, OrderStatus } from "../../../../types/api/stock/orders";
-
+import { resolveImageSource } from "../../../../utils/image/source";
 const { Text, Title } = Typography;
 
 // ============ STYLES ============
@@ -450,7 +450,7 @@ export const OrderCard = ({ order, index, onView, onDelete, canDelete }: OrderCa
                                 }}
                             >
                                 <Avatar
-                                    src={item.ingredient?.img_url || 'https://placehold.co/32x32/f5f5f5/999999?text=📦'}
+                                    src={resolveImageSource(item.ingredient?.img_url, "https://placehold.co/32x32/f5f5f5/999999?text=Preview") || undefined}
                                     size={28}
                                     shape="square"
                                     style={{ borderRadius: 6 }}

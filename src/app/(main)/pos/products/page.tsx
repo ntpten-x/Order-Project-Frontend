@@ -1,17 +1,14 @@
 ﻿'use client';
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { message, Modal, Typography, Tag, Button, Input, Alert, Space, Segmented, Switch } from 'antd';
-import Image from 'next/image';
+import { message, Modal, Typography, Tag, Button, Alert, Space, Switch } from 'antd';
+import Image from '../../../../components/ui/image/SmartImage';
 import {
     ShopOutlined,
     PlusOutlined,
     ReloadOutlined,
     EditOutlined,
     DeleteOutlined,
-    SearchOutlined,
-    DownOutlined,
-    CheckCircleOutlined,
 } from '@ant-design/icons';
 import { Products } from '../../../../types/api/pos/products';
 
@@ -36,6 +33,12 @@ import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
+import type { CreatedSort } from '../../../../components/ui/pagination/ListPagination';
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../../lib/list-sort';
+import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
+import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
+import { SearchInput } from "../../../../components/ui/input/SearchInput";
+import { SearchBar } from "../../../../components/ui/page/SearchBar";
 
 const { Text } = Typography;
 
@@ -50,37 +53,6 @@ type CachedProducts = {
     last_page: number;
     active_total?: number;
 };
-
-interface StatsCardProps {
-    total: number;
-    active: number;
-    inactive: number;
-}
-
-const StatsCard = ({ total, active, inactive }: StatsCardProps) => (
-    <div style={{
-        background: '#fff',
-        borderRadius: 16,
-        border: '1px solid #e2e8f0',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-        gap: 8,
-        padding: 14
-    }}>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', display: 'block' }}>{total}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ทั้งหมด</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f766e', display: 'block' }}>{active}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ใช้งาน</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#b91c1c', display: 'block' }}>{inactive}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ปิดใช้งาน</Text>
-        </div>
-    </div>
-);
 
 interface ProductCardProps {
     product: Products;
@@ -222,8 +194,8 @@ export default function ProductsPage() {
     const [searchText, setSearchText] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
     const [categoryFilter, setCategoryFilter] = useState<string>('all');
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
-    const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
     const debouncedSearch = useDebouncedValue(searchText, 300);
 
     const { execute } = useAsyncAction();
@@ -231,10 +203,45 @@ export default function ProductsPage() {
     const { socket } = useSocket();
     const { isAuthorized, isChecking } = useRoleGuard();
 
-    const { data: categories = [], isLoading: isLoadingCategories } = useCategories();
-    const { data: units = [], isLoading: isLoadingUnits } = useProductsUnit();
+    const {
+        data: categories = [],
+        isLoading: isLoadingCategories,
+        refetch: refetchCategories,
+    } = useCategories();
+    const {
+        data: units = [],
+        isLoading: isLoadingUnits,
+        refetch: refetchUnits,
+    } = useProductsUnit();
 
-    const setupState = useMemo(() => checkProductSetupState(categories, units), [categories, units]);
+    const refreshSetupMetadata = useCallback(() => {
+        void refetchCategories();
+        void refetchUnits();
+    }, [refetchCategories, refetchUnits]);
+
+    const setupState = useMemo(() => {
+        const baseState = checkProductSetupState(categories, units);
+        if (baseState.isReady) return baseState;
+
+        // Fallback: if products already reference category/unit, setup should be treated as ready immediately.
+        const hasCategoriesFromProducts = products.some((item) => Boolean(item.category_id));
+        const hasUnitsFromProducts = products.some((item) => Boolean(item.unit_id));
+
+        const hasCategories = baseState.hasCategories || hasCategoriesFromProducts;
+        const hasUnits = baseState.hasUnits || hasUnitsFromProducts;
+        const isReady = hasCategories && hasUnits;
+
+        return {
+            ...baseState,
+            hasCategories,
+            hasUnits,
+            isReady,
+            missingFields: [
+                !hasCategories && "หมวดหมู่สินค้า",
+                !hasUnits && "หน่วยสินค้า",
+            ].filter(Boolean) as string[],
+        };
+    }, [categories, units, products]);
 
     useEffect(() => {
         getCsrfTokenCached();
@@ -247,6 +254,7 @@ export default function ProductsPage() {
         const qParam = searchParams.get('q') || '';
         const statusParam = searchParams.get('status');
         const categoryParam = searchParams.get('category_id');
+        const sortParam = searchParams.get('sort_created');
 
         const nextStatus: StatusFilter =
             statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all';
@@ -255,6 +263,7 @@ export default function ProductsPage() {
         setSearchText(qParam);
         setStatusFilter(nextStatus);
         setCategoryFilter(categoryParam || 'all');
+        setCreatedSort(parseCreatedSort(sortParam));
         isUrlReadyRef.current = true;
     }, [searchParams]);
 
@@ -265,12 +274,14 @@ export default function ProductsPage() {
         if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
         if (statusFilter !== 'all') params.set('status', statusFilter);
         if (categoryFilter !== 'all') params.set('category_id', categoryFilter);
+        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
 
         const query = params.toString();
         router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [router, pathname, page, debouncedSearch, statusFilter, categoryFilter]);
+    }, [router, pathname, page, debouncedSearch, statusFilter, categoryFilter, createdSort]);
 
     useEffect(() => {
+        if (createdSort !== DEFAULT_CREATED_SORT) return;
         const cached = readCache<CachedProducts>('pos:products:v3', 10 * 60 * 1000);
         if (cached?.items) {
             setProducts(cached.items);
@@ -279,7 +290,7 @@ export default function ProductsPage() {
             setLastPage(cached.last_page || 1);
             setActiveProductsTotal(typeof cached.active_total === 'number' ? cached.active_total : null);
         }
-    }, []);
+    }, [createdSort]);
 
     const fetchProducts = useCallback(async () => {
         execute(async () => {
@@ -290,12 +301,14 @@ export default function ProductsPage() {
             if (statusFilter === 'active') params.set('is_active', 'true');
             if (statusFilter === 'inactive') params.set('is_active', 'false');
             if (categoryFilter !== 'all') params.set('category_id', categoryFilter);
+            params.set('sort_created', createdSort);
 
             const activeParams = new URLSearchParams();
             activeParams.set('page', '1');
             activeParams.set('limit', '1');
             activeParams.set('is_active', 'true');
             if (categoryFilter !== 'all') activeParams.set('category_id', categoryFilter);
+            activeParams.set('sort_created', createdSort);
 
             const [listResponse, activeResponse] = await Promise.all([
                 fetch(`/api/pos/products?${params.toString()}`),
@@ -326,7 +339,7 @@ export default function ProductsPage() {
             setLastPage(last);
             setActiveProductsTotal(activeTotal);
 
-            if (!debouncedSearch.trim() && statusFilter === 'all' && categoryFilter === 'all' && page === 1) {
+            if (!debouncedSearch.trim() && statusFilter === 'all' && categoryFilter === 'all' && createdSort === DEFAULT_CREATED_SORT && page === 1) {
                 writeCache('pos:products:v3', {
                     items: list,
                     total,
@@ -336,7 +349,12 @@ export default function ProductsPage() {
                 });
             }
         }, 'กำลังโหลดข้อมูลสินค้า...');
-    }, [execute, page, debouncedSearch, statusFilter, categoryFilter]);
+    }, [execute, page, debouncedSearch, statusFilter, categoryFilter, createdSort]);
+
+    useEffect(() => {
+        if (!isAuthorized) return;
+        refreshSetupMetadata();
+    }, [isAuthorized, refreshSetupMetadata]);
 
     useEffect(() => {
         if (!isAuthorized) return;
@@ -349,6 +367,21 @@ export default function ProductsPage() {
         onRefresh: fetchProducts,
         enabled: isAuthorized,
         debounceMs: 400,
+    });
+
+    useRealtimeRefresh({
+        socket,
+        events: [
+            RealtimeEvents.categories.create,
+            RealtimeEvents.categories.update,
+            RealtimeEvents.categories.delete,
+            RealtimeEvents.productsUnit.create,
+            RealtimeEvents.productsUnit.update,
+            RealtimeEvents.productsUnit.delete,
+        ],
+        onRefresh: refreshSetupMetadata,
+        enabled: isAuthorized,
+        debounceMs: 200,
     });
 
     useRealtimeList(
@@ -370,6 +403,7 @@ export default function ProductsPage() {
             if (statusFilter === 'active') params.set('is_active', 'true');
             if (statusFilter === 'inactive') params.set('is_active', 'false');
             if (categoryFilter !== 'all') params.set('category_id', categoryFilter);
+            params.set('sort_created', createdSort);
 
             const response = await fetch(`/api/pos/products?${params.toString()}`);
             if (!response.ok) {
@@ -396,7 +430,7 @@ export default function ProductsPage() {
         } finally {
             setIsLoadingMore(false);
         }
-    }, [isLoadingMore, page, lastPage, debouncedSearch, statusFilter, categoryFilter, totalProducts]);
+    }, [isLoadingMore, page, lastPage, debouncedSearch, statusFilter, categoryFilter, createdSort, totalProducts]);
 
     const handleAdd = () => {
         showLoading('กำลังเปิดหน้าจัดการสินค้า...');
@@ -548,121 +582,64 @@ export default function ProductsPage() {
                         </PageSection>
                     ) : null}
 
-                    <StatsCard total={totalProducts || products.length} active={activeCount} inactive={inactiveCount} />
+                    <StatsGroup
+                        stats={[
+                            { label: 'ทั้งหมด', value: totalProducts || products.length, color: '#0f172a' },
+                            { label: 'ใช้งาน', value: activeCount, color: '#0f766e' },
+                            { label: 'ปิดใช้งาน', value: inactiveCount, color: '#b91c1c' },
+                        ]}
+                    />
 
-                    <PageSection title="ค้นหาและตัวกรอง">
-                        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: '1fr' }}>
-                            <Input
-                                prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
-                                allowClear
-                                placeholder="ค้นหาจากชื่อสินค้า ชื่อแสดง หรือคำค้นอื่น..."
-                                value={searchText}
-                                onChange={(e) => {
-                                    setPage(1);
-                                    setSearchText(e.target.value);
-                                }}
-                            />
-                            <Segmented<StatusFilter>
-                                options={[
-                                    { label: 'ทั้งหมด', value: 'all' },
-                                    { label: 'ใช้งาน', value: 'active' },
-                                    { label: 'ปิดใช้งาน', value: 'inactive' },
-                                ]}
-                                value={statusFilter}
-                                onChange={(value) => {
-                                    setPage(1);
-                                    setStatusFilter(value);
-                                }}
-                            />
-                            <div 
-                                className={`modal-select-trigger ${categoryFilter !== 'all' ? 'has-value' : ''}`}
-                                onClick={() => setIsCategoryModalVisible(true)}
-                                style={{
-                                    padding: '12px 16px',
-                                    borderRadius: 14,
-                                    border: '2px solid #e2e8f0',
-                                    background: categoryFilter !== 'all' ? 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)' : '#fff',
-                                    borderColor: categoryFilter !== 'all' ? '#4F46E5' : '#e2e8f0',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    cursor: 'pointer',
-                                    minHeight: 48,
-                                    transition: 'all 0.2s ease'
-                                }}
-                            >
-                                <span style={{ color: categoryFilter !== 'all' ? '#1e293b' : '#94a3b8', fontWeight: categoryFilter !== 'all' ? 600 : 400 }}>
-                                    {categoryFilter === 'all' 
-                                        ? 'ทุกหมวดหมู่' 
-                                        : categories.find(c => c.id === categoryFilter)?.display_name || 'ทุกหมวดหมู่'}
-                                </span>
-                                <DownOutlined style={{ fontSize: 12, color: '#94a3b8' }} />
-                            </div>
-                        </div>
-                    </PageSection>
-
-                    {/* Category Selection Modal */}
-                    <Modal
-                        title="เลือกหมวดหมู่"
-                        open={isCategoryModalVisible}
-                        onCancel={() => setIsCategoryModalVisible(false)}
-                        footer={null}
-                        centered
-                        width={400}
-                        styles={{ body: { padding: '12px 16px 24px' } }}
-                    >
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
-                            <div
-                                onClick={() => {
-                                    setPage(1);
-                                    setCategoryFilter('all');
-                                    setIsCategoryModalVisible(false);
-                                }}
-                                style={{
-                                    padding: '14px 18px',
-                                    border: '2px solid',
-                                    borderRadius: 12,
-                                    cursor: 'pointer',
-                                    background: categoryFilter === 'all' ? '#eff6ff' : '#fff',
-                                    borderColor: categoryFilter === 'all' ? '#3b82f6' : '#e5e7eb',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    minHeight: 54
-                                }}
-                            >
-                                <span style={{ fontWeight: categoryFilter === 'all' ? 600 : 400 }}>ทุกหมวดหมู่</span>
-                                {categoryFilter === 'all' && <CheckCircleOutlined style={{ color: '#3b82f6', fontSize: 18 }} />}
-                            </div>
-                            {categories.map(cat => (
-                                <div
-                                    key={cat.id}
-                                    onClick={() => {
-                                        setPage(1);
-                                        setCategoryFilter(cat.id);
-                                        setIsCategoryModalVisible(false);
-                                    }}
-                                    style={{
-                                        padding: '14px 18px',
-                                        border: '2px solid',
-                                        borderRadius: 12,
-                                        cursor: 'pointer',
-                                        background: categoryFilter === cat.id ? '#eff6ff' : '#fff',
-                                        borderColor: categoryFilter === cat.id ? '#3b82f6' : '#e5e7eb',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        minHeight: 54
-                                    }}
-                                >
-                                    <span style={{ fontWeight: categoryFilter === cat.id ? 600 : 400 }}>
-                                        {cat.display_name}
-                                    </span>
-                                    {categoryFilter === cat.id && <CheckCircleOutlined style={{ color: '#3b82f6', fontSize: 18 }} />}
-                                </div>
-                            ))}
-                        </div>
-                    </Modal>
+                    <SearchBar>
+                        <SearchInput
+                            placeholder="ค้นหาจากชื่อสินค้า ชื่อแสดง หรือคำค้นอื่น..."
+                            value={searchText}
+                            onChange={(val) => {
+                                setPage(1);
+                                setSearchText(val);
+                            }}
+                        />
+                        <ModalSelector<StatusFilter>
+                            title="เลือกสถานะ"
+                            options={[
+                                { label: 'ทุกสถานะ', value: 'all' },
+                                { label: 'ใช้งาน', value: 'active' },
+                                { label: 'ปิดใช้งาน', value: 'inactive' },
+                            ]}
+                            value={statusFilter}
+                            onChange={(value) => {
+                                setPage(1);
+                                setStatusFilter(value);
+                            }}
+                            style={{ minWidth: 120 }}
+                        />
+                        <ModalSelector<string>
+                            title="เลือกหมวดหมู่"
+                            options={[
+                                { label: 'ทุกหมวดหมู่', value: 'all' },
+                                ...categories.map(c => ({ label: c.display_name, value: c.id }))
+                            ]}
+                            value={categoryFilter}
+                            onChange={(value) => {
+                                setPage(1);
+                                setCategoryFilter(value);
+                            }}
+                            style={{ minWidth: 120 }}
+                        />
+                        <ModalSelector<CreatedSort>
+                            title="เรียงลำดับ"
+                            options={[
+                                { label: 'เก่าก่อน', value: 'old' },
+                                { label: 'ใหม่ก่อน', value: 'new' },
+                            ]}
+                            value={createdSort}
+                            onChange={(value) => {
+                                setPage(1);
+                                setCreatedSort(value);
+                            }}
+                            style={{ minWidth: 120 }}
+                        />
+                    </SearchBar>
 
                     <PageSection
                         title="รายการสินค้า"

@@ -81,20 +81,23 @@ export function useEffectivePermissions(options?: UseEffectivePermissionsOptions
 
     const can = useCallback(
         (resourceKey: string, action: PermissionAction = "access"): boolean => {
+            if (user?.role === "Admin") return true;
             return hasActionPermission(byResource.get(resourceKey), action);
         },
-        [byResource]
+        [byResource, user?.role]
     );
 
     const canAny = useCallback(
         (checks: Array<{ resourceKey: string; action?: PermissionAction }>): boolean => {
+            if (user?.role === "Admin") return true;
             return checks.some((check) => can(check.resourceKey, check.action ?? "access"));
         },
-        [can]
+        [can, user?.role]
     );
 
     const canPath = useCallback(
         (path: string, action: PermissionAction = "access"): boolean => {
+            if (user?.role === "Admin") return true;
             const normalizedPath = normalizePath(path);
             for (const row of rows) {
                 const route = normalizePath(row.route || "");
@@ -105,7 +108,7 @@ export function useEffectivePermissions(options?: UseEffectivePermissionsOptions
             }
             return false;
         },
-        [rows]
+        [rows, user?.role]
     );
 
     return {

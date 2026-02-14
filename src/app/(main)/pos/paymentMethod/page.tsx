@@ -1,14 +1,13 @@
 ﻿'use client';
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { message, Modal, Typography, Tag, Button, Input, Space, Segmented, Switch, Pagination } from 'antd';
+import { message, Modal, Typography, Tag, Button, Space, Switch } from 'antd';
 import {
     CreditCardOutlined,
     PlusOutlined,
     ReloadOutlined,
     EditOutlined,
     DeleteOutlined,
-    SearchOutlined,
     WalletOutlined,
     QrcodeOutlined,
     BankOutlined,
@@ -32,6 +31,12 @@ import PageSection from '../../../../components/ui/page/PageSection';
 import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
+import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../../lib/list-sort';
+import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
+import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
+import { SearchInput } from "../../../../components/ui/input/SearchInput";
+import { SearchBar } from "../../../../components/ui/page/SearchBar";
 
 const { Text } = Typography;
 
@@ -48,36 +53,7 @@ type PaymentMethodCacheResult = {
     last_page: number;
 };
 
-interface StatsCardProps {
-    total: number;
-    active: number;
-    inactive: number;
-}
 
-const StatsCard = ({ total, active, inactive }: StatsCardProps) => (
-    <div style={{
-        background: '#fff',
-        borderRadius: 16,
-        border: '1px solid #e2e8f0',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-        gap: 8,
-        padding: 14
-    }}>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', display: 'block' }}>{total}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ทั้งหมด</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f766e', display: 'block' }}>{active}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ใช้งาน</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#b91c1c', display: 'block' }}>{inactive}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ปิดใช้งาน</Text>
-        </div>
-    </div>
-);
 
 const getPaymentIcon = (name: string) => {
     const lower = name.toLowerCase();
@@ -202,9 +178,9 @@ export default function PaymentMethodPage() {
     const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
     const [page, setPage] = useState(1);
     const [total, setTotal] = useState(0);
-    const [lastPage, setLastPage] = useState(1);
     const [searchValue, setSearchValue] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
     const debouncedSearch = useDebouncedValue(searchValue.trim(), 350);
 
@@ -223,12 +199,14 @@ export default function PaymentMethodPage() {
         const pageParam = Number(searchParams.get('page') || '1');
         const qParam = searchParams.get('q') || '';
         const statusParam = searchParams.get('status');
+        const sortParam = searchParams.get('sort_created');
         const nextStatus: StatusFilter =
             statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all';
 
         setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
         setSearchValue(qParam);
         setStatusFilter(nextStatus);
+        setCreatedSort(parseCreatedSort(sortParam));
         isUrlReadyRef.current = true;
     }, [searchParams]);
 
@@ -238,20 +216,20 @@ export default function PaymentMethodPage() {
         if (page > 1) params.set('page', String(page));
         if (debouncedSearch) params.set('q', debouncedSearch);
         if (statusFilter !== 'all') params.set('status', statusFilter);
+        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
 
         const query = params.toString();
         router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [router, pathname, page, debouncedSearch, statusFilter]);
+    }, [router, pathname, page, debouncedSearch, statusFilter, createdSort]);
 
     useEffect(() => {
-        if (debouncedSearch || page !== 1) return;
+        if (debouncedSearch || page !== 1 || createdSort !== DEFAULT_CREATED_SORT) return;
         const cached = readCache<PaymentMethodCacheResult>(PAYMENT_METHOD_CACHE_KEY, PAYMENT_METHOD_CACHE_TTL);
         if (cached?.data?.length) {
             setPaymentMethods(cached.data);
             setTotal(cached.total);
-            setLastPage(cached.last_page);
         }
-    }, [debouncedSearch, page]);
+    }, [debouncedSearch, page, createdSort]);
 
     const fetchPaymentMethods = useCallback(async () => {
         execute(async () => {
@@ -264,17 +242,17 @@ export default function PaymentMethodPage() {
             if (statusFilter !== 'all') {
                 params.set('status', statusFilter);
             }
+            params.set('sort_created', createdSort);
 
             const result = await paymentMethodService.getAll(undefined, params);
             setPaymentMethods(result.data || []);
             setTotal(result.total || 0);
-            setLastPage(result.last_page || 1);
 
-            if (!debouncedSearch && page === 1) {
+            if (!debouncedSearch && page === 1 && createdSort === DEFAULT_CREATED_SORT) {
                 writeCache(PAYMENT_METHOD_CACHE_KEY, result);
             }
         }, 'กำลังโหลดข้อมูลวิธีการชำระเงิน...');
-    }, [debouncedSearch, execute, page, statusFilter]);
+    }, [debouncedSearch, execute, page, statusFilter, createdSort]);
 
     useEffect(() => {
         if (isAuthorized) {
@@ -395,38 +373,38 @@ export default function PaymentMethodPage() {
 
             <PageContainer>
                 <PageStack>
-                    <StatsCard
-                        total={paymentMethods.length}
-                        active={activePaymentMethods}
-                        inactive={inactivePaymentMethods}
+                    <StatsGroup
+                        stats={[
+                            { label: 'ทั้งหมด', value: paymentMethods.length, color: '#0f172a' },
+                            { label: 'ใช้งาน', value: activePaymentMethods, color: '#0f766e' },
+                            { label: 'ปิดใช้งาน', value: inactivePaymentMethods, color: '#b91c1c' },
+                        ]}
                     />
 
-                    <PageSection title="ค้นหาและตัวกรอง">
-                        <div style={{ display: 'grid', gap: 10, gridTemplateColumns: '1fr' }}>
-                            <Input
-                                allowClear
-                                placeholder="ค้นหาวิธีการชำระเงิน..."
-                                prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
-                                value={searchValue}
-                                onChange={(e) => {
-                                    setPage(1);
-                                    setSearchValue(e.target.value);
-                                }}
-                            />
-                            <Segmented<StatusFilter>
-                                options={[
-                                    { label: 'ทั้งหมด', value: 'all' },
-                                    { label: 'ใช้งาน', value: 'active' },
-                                    { label: 'ปิดใช้งาน', value: 'inactive' },
-                                ]}
-                                value={statusFilter}
-                                onChange={(value) => {
-                                    setPage(1);
-                                    setStatusFilter(value);
-                                }}
-                            />
-                        </div>
-                    </PageSection>
+                    <SearchBar>
+                        <SearchInput
+                            placeholder="ค้นหาวิธีการชำระเงิน..."
+                            value={searchValue}
+                            onChange={(val) => {
+                                setPage(1);
+                                setSearchValue(val);
+                            }}
+                        />
+                        <ModalSelector<StatusFilter>
+                            title="เลือกสถานะ"
+                            options={[
+                                { label: 'ทั้งหมด', value: 'all' },
+                                { label: 'ใช้งาน', value: 'active' },
+                                { label: 'ปิดใช้งาน', value: 'inactive' },
+                            ]}
+                            value={statusFilter}
+                            onChange={(value) => {
+                                setPage(1);
+                                setStatusFilter(value);
+                            }}
+                            style={{ minWidth: 150 }}
+                        />
+                    </SearchBar>
 
                     <PageSection title="รายการวิธีการชำระเงิน" extra={<span style={{ fontWeight: 600 }}>{filteredPaymentMethods.length}</span>}>
                         {filteredPaymentMethods.length > 0 ? (
@@ -442,17 +420,23 @@ export default function PaymentMethodPage() {
                                     />
                                 ))}
 
-                                {lastPage > 1 ? (
-                                    <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
-                                        <Pagination
-                                            current={page}
-                                            total={total}
-                                            pageSize={PAYMENT_METHOD_LIMIT}
-                                            onChange={(p) => setPage(p)}
-                                            showSizeChanger={false}
-                                        />
-                                    </div>
-                                ) : null}
+                                <div style={{ marginTop: 16 }}>
+                                    <ListPagination
+                                        page={page}
+                                        pageSize={PAYMENT_METHOD_LIMIT}
+                                        pageSizeOptions={[PAYMENT_METHOD_LIMIT]}
+                                        total={total}
+                                        onPageChange={(p) => setPage(p)}
+                                        onPageSizeChange={() => {
+                                            setPage(1);
+                                        }}
+                                        sortCreated={createdSort}
+                                        onSortCreatedChange={(nextSort) => {
+                                            setPage(1);
+                                            setCreatedSort(nextSort);
+                                        }}
+                                    />
+                                </div>
                             </>
                         ) : (
                             <UIEmptyState

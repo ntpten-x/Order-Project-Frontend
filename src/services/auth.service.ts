@@ -128,6 +128,37 @@ export const authService = {
         }
     },
 
+    updateMe: async (
+        payload: { name?: string; password?: string },
+        csrfToken?: string,
+        cookieHeader?: string
+    ): Promise<User> => {
+        const url = getProxyUrl("PUT", API_ROUTES.AUTH.ME);
+        const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+        };
+        if (csrfToken) {
+            headers["X-CSRF-Token"] = csrfToken;
+        }
+        if (cookieHeader) {
+            headers["Cookie"] = cookieHeader;
+        }
+
+        const response = await fetch(url!, {
+            method: "PUT",
+            headers,
+            credentials: "include",
+            body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throwBackendHttpError(response, errorData, "Failed to update profile");
+        }
+
+        return unwrapBackendData(await response.json()) as User;
+    },
+
     async getCsrfToken(): Promise<string> {
         try {
             // Hit Next.js proxy so cookies stay on frontend origin (avoids port/domain mismatch)

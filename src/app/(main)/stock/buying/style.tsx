@@ -10,7 +10,7 @@ import {
     ArrowLeftOutlined,
     ShoppingOutlined
 } from "@ant-design/icons";
-
+import { resolveImageSource } from "../../../../utils/image/source";
 const { Text, Title } = Typography;
 
 // ============ STYLES ============
@@ -398,7 +398,7 @@ export const PurchaseItemCard = ({
             
             {/* Avatar without badge to avoid overlap */}
             <Avatar 
-                src={item.img_url || 'https://placehold.co/72x72/f5f5f5/999999?text=📦'} 
+                src={resolveImageSource(item.img_url, "https://placehold.co/72x72/f5f5f5/999999?text=Preview") || undefined} 
                 shape="square" 
                 size={72} 
                 style={{ 
@@ -615,7 +615,7 @@ export const ModalItemCard = ({ item, index }: ModalItemCardProps) => {
             }}
         >
             <Avatar 
-                src={item.img_url || 'https://placehold.co/56x56/f5f5f5/999999?text=📦'} 
+                src={resolveImageSource(item.img_url, "https://placehold.co/56x56/f5f5f5/999999?text=Preview") || undefined} 
                 shape="square" 
                 size={56}
                 style={{ 

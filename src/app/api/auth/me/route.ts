@@ -27,3 +27,20 @@ export async function GET(request: NextRequest) {
         return handleApiRouteError(error);
     }
 }
+
+export async function PUT(request: NextRequest) {
+    try {
+        const token = request.cookies.get("token")?.value;
+        if (!token) {
+            return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+        }
+
+        const body = await request.json();
+        const cookie = request.headers.get("cookie") || "";
+        const csrfToken = request.headers.get("x-csrf-token") || "";
+        const data = await authService.updateMe(body, csrfToken, cookie);
+        return NextResponse.json(data);
+    } catch (error) {
+        return handleApiRouteError(error);
+    }
+}

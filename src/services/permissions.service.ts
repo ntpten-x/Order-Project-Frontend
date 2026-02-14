@@ -9,6 +9,8 @@ import {
     ReviewOverrideApprovalResult,
     SimulatePermissionPayload,
     SimulatePermissionResult,
+    UpdateRolePermissionsPayload,
+    UpdateRolePermissionsResult,
     UpdateUserPermissionsPayload,
     UpdateUserPermissionsResult,
 } from "../types/api/permissions";
@@ -190,6 +192,39 @@ export const permissionsService = {
         if (!data.updated && data.approvalRequired) {
             auditsCache.clear();
             approvalsCache.clear();
+        }
+        return data;
+    },
+
+    updateRolePermissions: async (
+        roleId: string,
+        payload: UpdateRolePermissionsPayload,
+        csrfToken?: string,
+        cookie?: string
+    ): Promise<UpdateRolePermissionsResult> => {
+        const url = getProxyUrl("PUT", `${BASE_PATH}/roles/${roleId}`);
+        const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+        };
+        if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+        if (cookie) headers["Cookie"] = cookie;
+
+        const response = await fetch(url!, {
+            method: "PUT",
+            headers,
+            credentials: "include",
+            cache: "no-store",
+            body: JSON.stringify(payload),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throwBackendHttpError(response, errorData, "Failed to update role permissions");
+        }
+
+        const data = unwrapBackendData(await response.json()) as UpdateRolePermissionsResult;
+        if (data.updated) {
+            invalidatePermissionCache();
         }
         return data;
     },

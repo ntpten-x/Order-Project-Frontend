@@ -105,6 +105,7 @@ export const shiftsService = {
         if (params.limit) query.set("limit", String(params.limit));
         if (params.q) query.set("q", params.q);
         if (params.status) query.set("status", params.status);
+        if (params.sort_created) query.set("sort_created", params.sort_created);
         if (params.date_from) query.set("date_from", params.date_from);
         if (params.date_to) query.set("date_to", params.date_to);
 

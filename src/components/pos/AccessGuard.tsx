@@ -41,6 +41,9 @@ export const AccessGuardFallback = ({ message, tone = "secondary" }: AccessGuard
                 {tone === "danger" ? (
                     <Space size={8} wrap>
                         <Button onClick={() => window.location.reload()}>ลองอีกครั้ง</Button>
+                        <Button onClick={() => { window.location.href = "/"; }}>
+                            กลับไปหน้าหลัก
+                        </Button>
                         <Button
                             type="primary"
                             onClick={async () => {

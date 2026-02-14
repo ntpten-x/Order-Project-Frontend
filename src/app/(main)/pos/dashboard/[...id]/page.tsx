@@ -1,28 +1,57 @@
 ﻿"use client";
 
-import React, { useCallback, useEffect, useRef, useState, useMemo } from "react";
-import { Typography, Button, Spin, message, Image, Modal } from "antd";
-import { ArrowLeftOutlined, UserOutlined, ShopOutlined, ClockCircleOutlined, TableOutlined, CarOutlined, ShoppingOutlined, PrinterOutlined, TagOutlined, CheckCircleOutlined, CloseCircleOutlined, CreditCardOutlined } from "@ant-design/icons";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+    Alert,
+    App,
+    Avatar,
+    Button,
+    Card,
+    Col,
+    Divider,
+    Empty,    List,
+    Modal,
+    Row,
+    Space,
+    Spin,
+    Tag,
+    Typography,
+} from "antd";
+import {    CheckCircleOutlined,
+    ClockCircleOutlined,
+    CloseCircleOutlined,
+    CreditCardOutlined,
+    PrinterOutlined,
+    ShoppingOutlined,
+    ShopOutlined,
+    TableOutlined,
+    TagOutlined,
+    UserOutlined,
+} from "@ant-design/icons";
+import dayjs from "dayjs";
+import "dayjs/locale/th";
 import { useRouter } from "next/navigation";
 import { ordersService } from "../../../../../services/pos/orders.service";
 import { shopProfileService, ShopProfile } from "../../../../../services/pos/shopProfile.service";
-import { SalesOrder, OrderStatus, OrderType } from "../../../../../types/api/pos/salesOrder";
-import { Payments } from "../../../../../types/api/pos/payments";
+import { OrderStatus, OrderType, SalesOrder } from "../../../../../types/api/pos/salesOrder";
 import { PaymentMethod } from "../../../../../types/api/pos/paymentMethod";
-import { dashboardColors } from "../../../../../theme/pos/dashboard/style";
-import dayjs from "dayjs";
-import 'dayjs/locale/th';
-import ReceiptTemplate from "../../../../../components/pos/shared/ReceiptTemplate";
-import { sortOrderItems, getStatusTextStyle } from "../../../../../utils/dashboard/orderUtils";
-import { groupOrderItems } from "../../../../../utils/orderGrouping";
-import { isCancelledStatus } from "../../../../../utils/orders";
+import { Payments } from "../../../../../types/api/pos/payments";
 import { useSocket } from "../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../../utils/realtimeEvents";
+import { groupOrderItems } from "../../../../../utils/orderGrouping";
+import { isCancelledStatus } from "../../../../../utils/orders";
+import { getStatusTextStyle, sortOrderItems } from "../../../../../utils/dashboard/orderUtils";
+import ReceiptTemplate from "../../../../../components/pos/shared/ReceiptTemplate";
+import UIPageHeader from "../../../../../components/ui/page/PageHeader";
 import PageContainer from "../../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../../components/ui/page/PageSection";
+import PageStack from "../../../../../components/ui/page/PageStack";
+import { resolveImageSource } from "../../../../../utils/image/source";
 
 const { Title, Text } = Typography;
-dayjs.locale('th');
+
+dayjs.locale("th");
 
 interface Props {
     params: {
@@ -39,42 +68,75 @@ type PaymentWithMethod = Payments & {
     payment_method?: PaymentMethod | null;
 };
 
-// Thai months array
-const thaiMonths = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+function formatCurrency(value: number): string {
+    return `฿${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+}
 
-const formatThaiDate = (dateStr: string) => {
-    const d = dayjs(dateStr);
-    return `${d.date()} ${thaiMonths[d.month()]} ${d.format('HH:mm')}`;
-};
+function formatDateTime(value: string): string {
+    return dayjs(value).format("DD MMM YYYY HH:mm");
+}
+
+function getOrderTypeMeta(type: OrderType): { label: string; color: string; icon: React.ReactNode } {
+    if (type === OrderType.DineIn) return { label: "ทานที่ร้าน", color: "blue", icon: <TableOutlined /> };
+    if (type === OrderType.TakeAway) return { label: "กลับบ้าน", color: "green", icon: <ShoppingOutlined /> };
+    if (type === OrderType.Delivery) return { label: "เดลิเวอรี่", color: "magenta", icon: <ShopOutlined /> };
+    return { label: String(type), color: "default", icon: <ShopOutlined /> };
+}
+
+function getStatusMeta(status: OrderStatus): { label: string; color: string; icon?: React.ReactNode } {
+    if (status === OrderStatus.Paid) return { label: "ชำระแล้ว", color: "green", icon: <CheckCircleOutlined /> };
+    if (status === OrderStatus.Completed) return { label: "เสร็จสิ้น", color: "green", icon: <CheckCircleOutlined /> };
+    if (status === OrderStatus.Cancelled) return { label: "ยกเลิก", color: "red", icon: <CloseCircleOutlined /> };
+    if (status === OrderStatus.WaitingForPayment) return { label: "รอชำระ", color: "orange" };
+    if (status === OrderStatus.Cooking) return { label: "กำลังทำ", color: "blue" };
+    if (status === OrderStatus.Served) return { label: "เสิร์ฟแล้ว", color: "cyan" };
+    return { label: String(status), color: "default" };
+}
 
 export default function DashboardOrderDetailPage({ params }: Props) {
     const router = useRouter();
-    const orderId = params.id[0];
+    const { message: messageApi } = App.useApp();
     const { socket } = useSocket();
-    
+    const orderId = params.id[0];
+
     const [order, setOrder] = useState<SalesOrder | null>(null);
-    const [isLoading, setIsLoading] = useState(true);
+    const [loading, setLoading] = useState(true);
     const [shopProfile, setShopProfile] = useState<ShopProfileExtended | null>(null);
-    const [isPrintModalVisible, setIsPrintModalVisible] = useState(false);
+    const [printModalOpen, setPrintModalOpen] = useState(false);
+
     const receiptRef = useRef<HTMLDivElement>(null);
 
     const fetchOrderDetail = useCallback(async () => {
         if (!orderId) return;
-        setIsLoading(true);
+        setLoading(true);
         try {
             const data = await ordersService.getById(orderId);
             setOrder(data);
         } catch (error) {
-            console.error("Fetch order detail error:", error);
-            message.error("ไม่พบข้อมูลออเดอร์");
+            console.error("Fetch order detail error", error);
+            messageApi.error("ไม่พบข้อมูลออเดอร์");
+            setOrder(null);
         } finally {
-            setIsLoading(false);
+            setLoading(false);
         }
-    }, [orderId]);
+    }, [orderId, messageApi]);
+
+    const fetchShopProfile = useCallback(async () => {
+        try {
+            const data = await shopProfileService.getProfile();
+            setShopProfile(data);
+        } catch (error) {
+            console.warn("Could not fetch shop profile", error);
+        }
+    }, []);
 
     useEffect(() => {
-        fetchOrderDetail();
+        void fetchOrderDetail();
     }, [fetchOrderDetail]);
+
+    useEffect(() => {
+        void fetchShopProfile();
+    }, [fetchShopProfile]);
 
     useRealtimeRefresh({
         socket,
@@ -88,19 +150,6 @@ export default function DashboardOrderDetailPage({ params }: Props) {
         intervalMs: 20000,
     });
 
-    const fetchShopProfile = useCallback(async () => {
-        try {
-            const data = await shopProfileService.getProfile();
-            setShopProfile(data);
-        } catch (error) {
-            console.warn("Could not fetch shop profile", error);
-        }
-    }, []);
-
-    useEffect(() => {
-        fetchShopProfile();
-    }, [fetchShopProfile]);
-
     useRealtimeRefresh({
         socket,
         events: [RealtimeEvents.shopProfile.update],
@@ -108,115 +157,48 @@ export default function DashboardOrderDetailPage({ params }: Props) {
         debounceMs: 800,
     });
 
+    const items = useMemo(() => {
+        const grouped = groupOrderItems(order?.items || []);
+        return sortOrderItems(grouped);
+    }, [order?.items]);
+
+    const payments = useMemo(() => (order?.payments || []) as PaymentWithMethod[], [order?.payments]);
+
+    const subTotal = Number(order?.sub_total || 0);
+    const discountAmount = Number(order?.discount_amount || 0);
+    const vatAmount = Number(order?.vat || 0);
+    const netTotal = Number(order?.total_amount || 0);
+
+    const employeeName = order?.created_by?.name || order?.created_by?.username || "-";
+    const tableName = order?.table?.table_name || "-";
+
+    const orderTypeMeta = order ? getOrderTypeMeta(order.order_type) : null;
+    const statusMeta = order ? getStatusMeta(order.status) : null;
+
     const handlePrint = () => {
-        setIsPrintModalVisible(true);
+        setPrintModalOpen(true);
         setTimeout(() => {
             if (receiptRef.current) {
-                const printContents = receiptRef.current.innerHTML;
-                const printWindow = window.open('', '', 'width=400,height=600');
+                const printContents = receiptRef.current.outerHTML;
+                const printWindow = window.open("", "", "width=400,height=700");
                 if (printWindow) {
                     printWindow.document.write(`
                         <html>
                             <head>
-                                <title>ใบเสร็จ #${order?.order_no}</title>
+                                <title>พิมพ์ใบเสร็จ #${order?.order_no || ""}</title>
                                 <style>
-                                    body { 
-                                        font-family: 'Courier New', Courier, monospace; 
-                                        padding: 0; 
-                                        margin: 0; 
+                                    @page { size: 80mm auto; margin: 4mm; }
+                                    body {
+                                        font-family: "Noto Sans Thai", Tahoma, sans-serif;
+                                        margin: 0;
                                         background: #fff;
-                                    }
-                                    .receipt-paper {
-                                        width: 80mm;
-                                        padding: 16px;
-                                        margin: 0 auto;
-                                    }
-                                    .text-center { 
-                                        text-align: center;
                                         display: flex;
-                                        flex-direction: column;
-                                        align-items: center;
                                         justify-content: center;
-                                        width: 100%;
-                                    }
-                                    .shop-name {
-                                        font-weight: 900;
-                                        font-size: 28px;
-                                        margin-bottom: 4px;
-                                        text-align: center;
-                                        width: 100%;
-                                    }
-                                    .shop-info {
-                                        font-size: 12px;
-                                        margin-bottom: 2px;
-                                        text-align: center;
-                                        width: 100%;
-                                    }
-                                    .shop-phone {
-                                        font-size: 16px;
-                                        font-weight: 700;
-                                        margin-top: 4px;
-                                    }
-                                    .receipt-logo {
-                                        width: 60px;
-                                        height: 60px;
-                                        object-fit: contain;
-                                        margin-bottom: 8px;
-                                        margin-left: auto;
-                                        margin-right: auto;
-                                        display: block;
-                                        filter: grayscale(100%);
-                                    }
-                                    .dashed-line {
-                                        border-top: 1px dashed #000;
-                                        margin: 12px 0;
-                                        opacity: 0.5;
-                                    }
-                                    .section { margin-bottom: 8px; }
-                                    .flex-between {
-                                        display: flex;
-                                        justify-content: space-between;
-                                        margin-bottom: 4px;
-                                    }
-                                    .font-bold { font-weight: bold; }
-                                    .item-details {
-                                        display: flex;
-                                        justify-content: space-between;
-                                        padding-left: 10px;
-                                        font-size: 12px;
-                                        font-weight: 600;
-                                        color: #000;
-                                    }
-                                    .item-note {
-                                        padding-left: 10px;
-                                        font-size: 9px;
-                                        font-weight: 300;
-                                        font-style: italic;
-                                        color: #4b5563;
-                                    }
-                                    .total-row {
-                                        display: flex;
-                                        justify-content: space-between;
-                                        font-weight: 900;
-                                        font-size: 26px;
-                                        margin-top: 12px;
-                                        border-top: 2px solid #000;
-                                        padding-top: 8px;
-                                    }
-                                    .receipt-footer {
-                                        text-align: center;
-                                        margin-top: 16px;
-                                    }
-                                    @media print {
-                                        body { -webkit-print-color-adjust: exact; }
-                                        .receipt-paper { width: 100%; max-width: 80mm; box-shadow: none; }
                                     }
                                 </style>
                             </head>
                             <body>
-                                <div class="receipt-paper">
-                                    ${printContents}
-                                </div>
+                                ${printContents}
                             </body>
                         </html>
                     `);
@@ -226,548 +208,216 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                     printWindow.close();
                 }
             }
-            setIsPrintModalVisible(false);
-        }, 500);
+            setPrintModalOpen(false);
+        }, 450);
     };
 
-    const items = useMemo(() => {
-        // Dashboard receipt: do not show cancelled items at all (including legacy 'cancelled' casing).
-        const nonCancelled = (order?.items || []).filter(i => !isCancelledStatus(i.status));
-        const grouped = groupOrderItems(nonCancelled);
-        return sortOrderItems(grouped);
-    }, [order?.items]);
-
-    // Keep financial summary consistent with backend-calculated values.
-    const summarySubTotal = Number(order?.sub_total || 0);
-    const discountAmount = Number(order?.discount_amount || 0);
-    const vatAmount = Number(order?.vat || 0);
-    const netTotal = Number(order?.total_amount || 0);
-
-    if (isLoading) {
+    if (loading) {
         return (
-            <PageContainer maxWidth={99999} style={{ padding: 0 }}>
-                <div style={{ 
-                    minHeight: '100vh', 
-                    background: '#F8FAFC',
-                    display: 'flex', 
-                    justifyContent: 'center', 
-                    alignItems: 'center' 
-                }}>
-                    <Spin size="large" />
-                </div>
-            </PageContainer>
+            <div style={{ minHeight: "100vh", background: "#F8FAFC", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Spin size="large" />
+            </div>
         );
     }
 
     if (!order) {
         return (
-            <PageContainer maxWidth={99999} style={{ padding: 0 }}>
-                <div style={{ minHeight: '100vh', background: '#F8FAFC', padding: 24 }}>
-                    <div style={{ textAlign: 'center', paddingTop: 60 }}>
-                        <ShopOutlined style={{ fontSize: 48, color: '#CBD5E1', marginBottom: 16 }} />
-                        <Title level={4} style={{ color: '#64748B' }}>ไม่พบข้อมูลออเดอร์</Title>
-                        <Button type="primary" onClick={() => router.back()}>ย้อนกลับ</Button>
-                    </div>
-                </div>
+            <PageContainer>
+                <PageSection>
+                    <Empty
+                        image={Empty.PRESENTED_IMAGE_SIMPLE}
+                        description="ไม่พบข้อมูลออเดอร์"
+                    >
+                        <Button type="primary" onClick={() => router.back()}>
+                            ย้อนกลับ
+                        </Button>
+                    </Empty>
+                </PageSection>
             </PageContainer>
         );
     }
 
-    const payments = (order.payments || []) as PaymentWithMethod[];
-    
-    // Derived Data
-    const employeeName = order.created_by?.name || order.created_by?.username || 'ไม่ทราบ';
-    const tableName = order.table?.table_name || '-';
-    const discountInfo = order.discount;
-
-    // Order Type Helper
-    const getOrderTypeInfo = (type: OrderType) => {
-        switch (type) {
-            case OrderType.DineIn: return { icon: <TableOutlined />, label: 'ทานที่ร้าน', color: '#fff', bg: '#3B82F6' };
-            case OrderType.TakeAway: return { icon: <ShoppingOutlined />, label: 'กลับบ้าน', color: '#fff', bg: '#22C55E' };
-            case OrderType.Delivery: return { icon: <CarOutlined />, label: 'เดลิเวอรี่', color: '#fff', bg: '#EC4899' };
-            default: return { icon: <ShopOutlined />, label: type, color: '#fff', bg: '#6B7280' };
-        }
-    };
-
-    // Status Helper
-    const getStatusInfo = (status: OrderStatus) => {
-        switch (status) {
-            case OrderStatus.Paid: return { bg: '#DCFCE7', color: '#16A34A', label: 'ชำระเงินแล้ว', icon: <CheckCircleOutlined /> };
-            case OrderStatus.Completed: return { bg: '#DCFCE7', color: '#16A34A', label: 'เสร็จสิ้น', icon: <CheckCircleOutlined /> };
-            case OrderStatus.Cancelled: return { bg: '#FEE2E2', color: '#DC2626', label: 'ยกเลิก', icon: <CloseCircleOutlined /> };
-            default: return { bg: '#F3F4F6', color: '#6B7280', label: status, icon: null };
-        }
-    };
-
-    const orderTypeInfo = getOrderTypeInfo(order.order_type);
-    const statusInfo = getStatusInfo(order.status);
-
     return (
-        <PageContainer maxWidth={99999} style={{ padding: 0 }}>
-        <div style={{ 
-            minHeight: '100vh', 
-            background: '#F8FAFC',
-            paddingBottom: 100
-        }}>
-            {/* Compact Header */}
-            <div style={{
-                background: dashboardColors.headerGradient,
-                padding: '16px',
-                position: 'sticky',
-                top: 0,
-                zIndex: 100,
-                boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-            }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                        <Button 
-                            type="text" 
-                            icon={<ArrowLeftOutlined style={{ fontSize: 18, color: '#fff' }} />} 
-                            onClick={() => router.back()}
-                            style={{ 
-                                background: 'rgba(255,255,255,0.15)', 
-                                border: 'none',
-                                width: 40,
-                                height: 40,
-                                borderRadius: 12
-                            }}
-                        />
-                        <div>
-                            <Text style={{ color: '#fff', fontSize: 18, fontWeight: 700, display: 'block' }}>
-                                #{order.order_no}
-                            </Text>
-                            <Text style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>
-                                📅 {formatThaiDate(order.create_date)}
-                            </Text>
-                        </div>
-                    </div>
-                    <Button 
-                        icon={<PrinterOutlined />}
-                        onClick={handlePrint}
-                        style={{ 
-                            background: '#fff',
-                            color: dashboardColors.primary,
-                            border: 'none',
-                            borderRadius: 10,
-                            fontWeight: 600,
-                            height: 36
-                        }}
-                    >
-                        พิมพ์
-                    </Button>
-                </div>
-            </div>
+        <>
+            <UIPageHeader
+                title={`ออเดอร์ #${order.order_no}`}
+                subtitle={formatDateTime(order.create_date)}
+                onBack={() => router.back()}
+                actions={
+                    <Space>
+                        <Tag color={statusMeta?.color} style={{ margin: 0 }} icon={statusMeta?.icon}>
+                            {statusMeta?.label}
+                        </Tag>
+                        <Button icon={<PrinterOutlined />} onClick={handlePrint}>
+                            พิมพ์ใบเสร็จ
+                        </Button>
+                    </Space>
+                }
+            />
 
-            {/* Content */}
-            <div style={{ padding: '16px', maxWidth: 600, margin: '0 auto' }}>
-                
-                {/* Status & Total Card */}
-                <div style={{
-                    background: 'white',
-                    borderRadius: 16,
-                    padding: '20px',
-                    marginBottom: 16,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
-                        <span style={{
-                            padding: '6px 14px',
-                            borderRadius: 8,
-                            background: statusInfo.bg,
-                            color: statusInfo.color,
-                            fontWeight: 700,
-                            fontSize: 13,
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: 6
-                        }}>
-                            {statusInfo.icon}
-                            {statusInfo.label}
-                        </span>
-                        <Text style={{ 
-                            fontSize: 26, 
-                            fontWeight: 800, 
-                            color: dashboardColors.salesColor 
-                        }}>
-                            ฿{Number(netTotal).toLocaleString()}
-                        </Text>
-                    </div>
-                    
-                    {/* Info Grid */}
-                    <div style={{ 
-                        display: 'grid', 
-                        gridTemplateColumns: 'repeat(2, 1fr)', 
-                        gap: 12 
-                    }}>
-                        {/* Order Type */}
-                        <div style={{
-                            background: '#F8FAFC',
-                            borderRadius: 12,
-                            padding: '12px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 10
-                        }}>
-                            <span style={{
-                                width: 36,
-                                height: 36,
-                                borderRadius: 10,
-                                background: orderTypeInfo.bg,
-                                color: orderTypeInfo.color,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: 16
-                            }}>
-                                {orderTypeInfo.icon}
-                            </span>
-                            <div>
-                                <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>ประเภท</Text>
-                                <Text strong style={{ fontSize: 13 }}>{orderTypeInfo.label}</Text>
-                            </div>
-                        </div>
-
-                        {/* Table */}
-                        <div style={{
-                            background: '#F8FAFC',
-                            borderRadius: 12,
-                            padding: '12px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 10
-                        }}>
-                            <span style={{
-                                width: 36,
-                                height: 36,
-                                borderRadius: 10,
-                                background: '#EEF2FF',
-                                color: '#6366F1',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: 16
-                            }}>
-                                <TableOutlined />
-                            </span>
-                            <div>
-                                <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>โต๊ะ</Text>
-                                <Text strong style={{ fontSize: 13 }}>{tableName}</Text>
-                            </div>
-                        </div>
-
-                        {/* Employee */}
-                        <div style={{
-                            background: '#F8FAFC',
-                            borderRadius: 12,
-                            padding: '12px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 10
-                        }}>
-                            <span style={{
-                                width: 36,
-                                height: 36,
-                                borderRadius: 10,
-                                background: '#FEF3C7',
-                                color: '#D97706',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: 16
-                            }}>
-                                <UserOutlined />
-                            </span>
-                            <div>
-                                <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>พนักงาน</Text>
-                                <Text strong style={{ fontSize: 13 }}>{employeeName}</Text>
-                            </div>
-                        </div>
-
-                        {/* Discount */}
-                        <div style={{
-                            background: '#F8FAFC',
-                            borderRadius: 12,
-                            padding: '12px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 10
-                        }}>
-                            <span style={{
-                                width: 36,
-                                height: 36,
-                                borderRadius: 10,
-                                background: discountInfo ? '#FEE2E2' : '#F3F4F6',
-                                color: discountInfo ? '#DC2626' : '#9CA3AF',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                fontSize: 16
-                            }}>
-                                <TagOutlined />
-                            </span>
-                            <div>
-                                <Text type="secondary" style={{ fontSize: 11, display: 'block' }}>ส่วนลด</Text>
-                                {discountInfo ? (
-                                    <Text strong style={{ fontSize: 13, color: '#DC2626' }}>
-                                        -฿{Number(order.discount_amount).toLocaleString()}
-                                    </Text>
-                                ) : (
-                                    <Text type="secondary" style={{ fontSize: 13 }}>ไม่มี</Text>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Items Section */}
-                <div style={{
-                    background: 'white',
-                    borderRadius: 16,
-                    overflow: 'hidden',
-                    marginBottom: 16,
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
-                }}>
-                    <div style={{
-                        padding: '16px',
-                        borderBottom: '1px solid #F1F5F9',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8
-                    }}>
-                        <ShopOutlined style={{ color: dashboardColors.primary, fontSize: 18 }} />
-                        <Text strong style={{ fontSize: 15 }}>รายการสินค้า ({items.length})</Text>
-                    </div>
-
-                    <div style={{ padding: '8px 0' }}>
-                        {items.map((item, index) => {
-                            const textStyle = getStatusTextStyle(item.status);
-                            const isCancelled = isCancelledStatus(item.status);
-
-                            return (
-                                <div 
-                                    key={item.id}
-                                    style={{
-                                        padding: '12px 16px',
-                                        borderBottom: index < items.length - 1 ? '1px solid #F8FAFC' : 'none',
-                                        display: 'flex',
-                                        gap: 12,
-                                        opacity: isCancelled ? 0.5 : 1
+            <PageContainer maxWidth={1200}>
+                <PageStack gap={12}>
+                    <Row gutter={[12, 12]}>
+                        <Col xs={24} lg={16}>
+                            <PageSection title={`รายการสินค้า (${items.length})`}>
+                                <List
+                                    dataSource={items}
+                                    locale={{ emptyText: "ไม่มีรายการสินค้า" }}
+                                    renderItem={(item) => {
+                                        const cancelled = isCancelledStatus(item.status);
+                                        const textStyle = getStatusTextStyle(item.status);
+                                        return (
+                                            <List.Item style={{ opacity: cancelled ? 0.6 : 1 }}>
+                                                <div style={{ width: "100%", display: "flex", gap: 12 }}>
+                                                    <Avatar
+                                                        shape="square"
+                                                        size={56}
+                                                        src={resolveImageSource(item.product?.img_url) || undefined}
+                                                        icon={<ShopOutlined />}
+                                                    />
+                                                    <div style={{ flex: 1, minWidth: 0 }}>
+                                                        <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                                                            <Text strong style={textStyle} ellipsis={{ tooltip: true }}>
+                                                                {item.product?.display_name || item.product?.product_name || "สินค้า"}
+                                                            </Text>
+                                                            <Text strong style={{ color: "#0f766e", ...textStyle }}>{formatCurrency(Number(item.total_price || 0))}</Text>
+                                                        </div>
+                                                        <Space size={8} wrap>
+                                                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                                                x{Number(item.quantity || 0).toLocaleString()} • {formatCurrency(Number(item.price || 0))}/ชิ้น
+                                                            </Text>
+                                                            {cancelled ? <Tag color="red">ยกเลิก</Tag> : null}
+                                                        </Space>
+                                                        {item.details && item.details.length > 0 ? (
+                                                            <div style={{ marginTop: 6 }}>
+                                                                {item.details.map((detail) => (
+                                                                    <Text key={`${item.id}-${detail.id || detail.detail_name}`} style={{ display: "block", fontSize: 12, color: "#065f46" }}>
+                                                                        + {detail.detail_name} {Number(detail.extra_price || 0) > 0 ? `(${formatCurrency(Number(detail.extra_price || 0))})` : ""}
+                                                                    </Text>
+                                                                ))}
+                                                            </div>
+                                                        ) : null}
+                                                        {item.notes ? (
+                                                            <Alert
+                                                                type="warning"
+                                                                showIcon
+                                                                message={item.notes}
+                                                                style={{ marginTop: 8, padding: "4px 8px" }}
+                                                            />
+                                                        ) : null}
+                                                    </div>
+                                                </div>
+                                            </List.Item>
+                                        );
                                     }}
-                                >
-                                    {/* Product Image */}
-                                    <div style={{
-                                        width: 56,
-                                        height: 56,
-                                        borderRadius: 10,
-                                        overflow: 'hidden',
-                                        flexShrink: 0,
-                                        background: '#F8FAFC',
-                                        border: '1px solid #E5E7EB'
-                                    }}>
-                                        {item.product?.img_url ? (
-                                            <Image 
-                                                src={item.product.img_url} 
-                                                width={56} 
-                                                height={56} 
-                                                style={{ objectFit: 'cover' }} 
-                                                preview={false} 
-                                                alt={item.product?.product_name || 'product'} 
-                                            />
-                                        ) : (
-                                            <div style={{
-                                                width: '100%',
-                                                height: '100%',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center'
-                                            }}>
-                                                <ShopOutlined style={{ color: '#CBD5E1', fontSize: 20 }} />
+                                />
+                            </PageSection>
+                        </Col>
+
+                        <Col xs={24} lg={8}>
+                            <PageStack gap={12}>
+                                <PageSection title="ข้อมูลออเดอร์">
+                                    <Card size="small">
+                                        <div style={{ display: "grid", gap: 10 }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                <Text type="secondary">ยอดสุทธิ</Text>
+                                                <Title level={4} style={{ margin: 0, color: "#0f766e" }}>{formatCurrency(netTotal)}</Title>
                                             </div>
-                                        )}
-                                    </div>
-
-                                    {/* Product Info */}
-                                    <div style={{ flex: 1, minWidth: 0 }}>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
-                                            <Text strong style={{ fontSize: 14, ...textStyle }}>
-                                                {item.product?.display_name || item.product?.product_name || 'สินค้า'}
-                                            </Text>
-                                            <Text strong style={{ fontSize: 14, color: dashboardColors.salesColor, flexShrink: 0, ...textStyle }}>
-                                                ฿{Number(item.total_price).toLocaleString()}
-                                            </Text>
-                                        </div>
-                                        
-                                        <div style={{ marginTop: 4, display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                                x{item.quantity} • ฿{Number(item.price).toLocaleString()}/ชิ้น
-                                            </Text>
-                                            {isCancelled && (
-                                                <span style={{
-                                                    fontSize: 10,
-                                                    padding: '2px 6px',
-                                                    borderRadius: 4,
-                                                    background: '#FEE2E2',
-                                                    color: '#DC2626',
-                                                    fontWeight: 600
-                                                }}>
-                                                    ยกเลิก
-                                                </span>
-                                            )}
-                                        </div>
-
-                                        {/* Toppings */}
-                                        {item.details && item.details.length > 0 && (
-                                            <div style={{ marginTop: 6 }}>
-                                                {item.details.map((detail, dIdx) => (
-                                                    <Text key={dIdx} style={{ fontSize: 11, display: 'block', color: '#16A34A', fontWeight: 500 }}>
-                                                        + {detail.detail_name} {detail.extra_price > 0 && <span style={{ color: '#16A34A' }}>(+฿{Number(detail.extra_price).toLocaleString()})</span>}
+                                            <Space wrap>
+                                                <Tag color={orderTypeMeta?.color} icon={orderTypeMeta?.icon}>{orderTypeMeta?.label}</Tag>
+                                                <Tag icon={<ClockCircleOutlined />}>{formatDateTime(order.create_date)}</Tag>
+                                            </Space>
+                                            <Divider style={{ margin: "4px 0" }} />
+                                            <Space direction="vertical" size={6} style={{ width: "100%" }}>
+                                                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                                    <Space size={6}><UserOutlined /><Text type="secondary">พนักงาน</Text></Space>
+                                                    <Text strong>{employeeName}</Text>
+                                                </div>
+                                                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                                    <Space size={6}><TableOutlined /><Text type="secondary">โต๊ะ</Text></Space>
+                                                    <Text strong>{tableName}</Text>
+                                                </div>
+                                                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                                    <Space size={6}><TagOutlined /><Text type="secondary">ส่วนลด</Text></Space>
+                                                    <Text strong style={{ color: discountAmount > 0 ? "#b91c1c" : undefined }}>
+                                                        {discountAmount > 0 ? `-${formatCurrency(discountAmount)}` : "-"}
                                                     </Text>
-                                                ))}
-                                            </div>
-                                        )}
-
-                                        {/* Notes */}
-                                        {item.notes && (
-                                            <div style={{ 
-                                                marginTop: 6, 
-                                                background: '#FEF3C7', 
-                                                padding: '4px 8px', 
-                                                borderRadius: 6,
-                                                display: 'inline-block'
-                                            }}>
-                                                <Text style={{ fontSize: 11, color: '#B45309' }}>📝 {item.notes}</Text>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
-
-                    {/* Summary */}
-                    <div style={{ 
-                        background: '#F8FAFC', 
-                        padding: '12px 16px',
-                        borderTop: '1px solid #F1F5F9'
-                    }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                            <Text type="secondary" style={{ fontSize: 13 }}>รวมรายการ</Text>
-                            <Text style={{ fontSize: 13 }}>
-                                ฿{Number(summarySubTotal).toLocaleString()}
-                            </Text>
-                        </div>
-                        {discountAmount > 0 && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                                <Text type="secondary" style={{ fontSize: 13 }}>ส่วนลด</Text>
-                                <Text style={{ fontSize: 13, color: '#DC2626' }}>-฿{Number(discountAmount).toLocaleString()}</Text>
-                            </div>
-                        )}
-                        {vatAmount > 0 && (
-                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
-                                <Text type="secondary" style={{ fontSize: 13 }}>VAT 0%</Text>
-                                <Text style={{ fontSize: 13 }}>฿{Number(vatAmount).toLocaleString()}</Text>
-                            </div>
-                        )}
-                        <div style={{ 
-                            display: 'flex', 
-                            justifyContent: 'space-between', 
-                            paddingTop: 8,
-                            borderTop: '1px dashed #E2E8F0'
-                        }}>
-                            <Text strong style={{ fontSize: 15 }}>ยอดสุทธิ</Text>
-                            <Text strong style={{ fontSize: 18, color: dashboardColors.salesColor }}>
-                                ฿{Number(netTotal).toLocaleString()}
-                            </Text>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Payments Section */}
-                <div style={{
-                    background: 'white',
-                    borderRadius: 16,
-                    overflow: 'hidden',
-                    boxShadow: '0 2px 8px rgba(0,0,0,0.04)'
-                }}>
-                    <div style={{
-                        padding: '16px',
-                        borderBottom: '1px solid #F1F5F9',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: 8
-                    }}>
-                        <CreditCardOutlined style={{ color: '#22C55E', fontSize: 18 }} />
-                        <Text strong style={{ fontSize: 15 }}>การชำระเงิน ({payments.length})</Text>
-                    </div>
-
-                    {payments.length > 0 ? (
-                        <div style={{ padding: '8px 0' }}>
-                            {payments.map((payment, index) => (
-                                <div 
-                                    key={payment.id}
-                                    style={{
-                                        padding: '14px 16px',
-                                        borderBottom: index < payments.length - 1 ? '1px solid #F8FAFC' : 'none'
-                                    }}
-                                >
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                            <span style={{
-                                                width: 8,
-                                                height: 8,
-                                                borderRadius: '50%',
-                                                background: payment.status === 'Success' ? '#22C55E' : '#EF4444'
-                                            }} />
-                                            <Text strong style={{ fontSize: 14 }}>
-                                                {payment.payment_method?.display_name || payment.payment_method?.payment_method_name || 'ไม่ระบุ'}
-                                            </Text>
+                                                </div>
+                                            </Space>
                                         </div>
-                                        <Text strong style={{ fontSize: 15, color: dashboardColors.salesColor }}>
-                                            ฿{Number(payment.amount).toLocaleString()}
-                                        </Text>
-                                    </div>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                                        <Text type="secondary" style={{ fontSize: 12 }}>
-                                            <ClockCircleOutlined style={{ marginRight: 4 }} />
-                                            {formatThaiDate(payment.payment_date)}
-                                        </Text>
-                                        {payment.amount_received > 0 && (
-                                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                                รับมา ฿{Number(payment.amount_received).toLocaleString()}
-                                                {payment.change_amount > 0 && ` • ทอน ฿${Number(payment.change_amount).toLocaleString()}`}
-                                            </Text>
-                                        )}
-                                    </div>
-                                </div>
-                            ))}
-                        </div>
-                    ) : (
-                        <div style={{ padding: '30px 16px', textAlign: 'center' }}>
-                            <CreditCardOutlined style={{ fontSize: 32, color: '#CBD5E1', marginBottom: 8 }} />
-                            <Text type="secondary" style={{ display: 'block' }}>ไม่มีข้อมูลการชำระเงิน</Text>
-                        </div>
-                    )}
-                </div>
-            </div>
+                                    </Card>
+                                </PageSection>
 
-            {/* Print Receipt Modal */}
-            <Modal
-                open={isPrintModalVisible}
-                footer={null}
-                closable={false}
-                width={380}
-                centered
-            >
-                <div style={{ textAlign: 'center', padding: 20 }}>
+                                <PageSection title={`การชำระเงิน (${payments.length})`}>
+                                    <Card size="small">
+                                        {payments.length === 0 ? (
+                                            <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="ไม่มีข้อมูลการชำระเงิน" />
+                                        ) : (
+                                            <List
+                                                dataSource={payments}
+                                                renderItem={(payment) => (
+                                                    <List.Item>
+                                                        <div style={{ width: "100%", display: "grid", gap: 4 }}>
+                                                            <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
+                                                                <Space size={6}>
+                                                                    <CreditCardOutlined />
+                                                                    <Text strong>
+                                                                        {payment.payment_method?.display_name || payment.payment_method?.payment_method_name || "ไม่ระบุ"}
+                                                                    </Text>
+                                                                </Space>
+                                                                <Text strong style={{ color: "#0f766e" }}>{formatCurrency(Number(payment.amount || 0))}</Text>
+                                                            </div>
+                                                            <Text type="secondary" style={{ fontSize: 12 }}>{formatDateTime(payment.payment_date)}</Text>
+                                                        </div>
+                                                    </List.Item>
+                                                )}
+                                            />
+                                        )}
+                                    </Card>
+                                </PageSection>
+
+                                <PageSection title="สรุปราคา">
+                                    <Card size="small">
+                                        <div style={{ display: "grid", gap: 8 }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                                <Text type="secondary">รวมรายการ</Text>
+                                                <Text>{formatCurrency(subTotal)}</Text>
+                                            </div>
+                                            {discountAmount > 0 ? (
+                                                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                                    <Text type="secondary">ส่วนลด</Text>
+                                                    <Text style={{ color: "#b91c1c" }}>-{formatCurrency(discountAmount)}</Text>
+                                                </div>
+                                            ) : null}
+                                            {vatAmount > 0 ? (
+                                                <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                                    <Text type="secondary">VAT</Text>
+                                                    <Text>{formatCurrency(vatAmount)}</Text>
+                                                </div>
+                                            ) : null}
+                                            <Divider style={{ margin: "4px 0" }} />
+                                            <div style={{ display: "flex", justifyContent: "space-between" }}>
+                                                <Text strong>ยอดสุทธิ</Text>
+                                                <Text strong style={{ color: "#0f766e" }}>{formatCurrency(netTotal)}</Text>
+                                            </div>
+                                        </div>
+                                    </Card>
+                                </PageSection>
+                            </PageStack>
+                        </Col>
+                    </Row>
+                </PageStack>
+            </PageContainer>
+
+            <Modal open={printModalOpen} footer={null} closable={false} centered width={360}>
+                <div style={{ textAlign: "center", padding: 16 }}>
                     <Spin size="large" />
-                    <div style={{ marginTop: 16 }}>กำลังเตรียมพิมพ์...</div>
+                    <div style={{ marginTop: 12 }}>กำลังเตรียมพิมพ์...</div>
                 </div>
             </Modal>
 
-            {/* Hidden Receipt Template for Printing */}
-            <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
-                <ReceiptTemplate 
+            <div style={{ position: "absolute", left: "-9999px", top: "-9999px" }}>
+                <ReceiptTemplate
                     ref={receiptRef}
                     order={order}
                     shopName={shopProfile?.shop_name}
@@ -777,7 +427,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                     shopLogo={shopProfile?.logo_url}
                 />
             </div>
-        </div>
-        </PageContainer>
+        </>
     );
 }
+
