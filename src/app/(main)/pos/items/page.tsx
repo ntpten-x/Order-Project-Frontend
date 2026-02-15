@@ -21,6 +21,7 @@ import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import { isEqual } from "lodash";
 import { resolveImageSource } from "../../../../utils/image/source";
+import RequireOpenShift from "../../../../components/pos/shared/RequireOpenShift";
 
 const { Text } = Typography;
 dayjs.locale('th');
@@ -32,6 +33,14 @@ interface OrderGroup {
 }
 
 export default function POSItemsPage() {
+    return (
+        <RequireOpenShift>
+            <POSItemsPageContent />
+        </RequireOpenShift>
+    );
+}
+
+function POSItemsPageContent() {
     const router = useRouter();
     const [orderGroups, setOrderGroups] = useState<OrderGroup[]>([]);
     const [isLoading, setIsLoading] = useState(true);

@@ -102,7 +102,7 @@ export const authService = {
         return unwrapBackendData(await response.json()) as { active_branch_id: string | null };
     },
 
-    getMe: async (token?: string): Promise<User> => {
+    getMe: async (token?: string, cookieHeader?: string): Promise<User> => {
         try {
             const url = getProxyUrl("GET", API_ROUTES.AUTH.ME);
             const headers: Record<string, string> = {
@@ -110,6 +110,9 @@ export const authService = {
             };
             if (token) {
                 headers["Authorization"] = `Bearer ${token}`;
+            }
+            if (cookieHeader) {
+                headers["Cookie"] = cookieHeader;
             }
             const response = await fetch(url!, {
                 method: "GET",

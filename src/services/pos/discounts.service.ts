@@ -31,7 +31,7 @@ export const discountsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธชเนเธงเธเธฅเธ”เนเธ”เน");
+            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลส่วนลดได้");
         }
 
         return normalizeBackendPaginated<Discounts>(await response.json());

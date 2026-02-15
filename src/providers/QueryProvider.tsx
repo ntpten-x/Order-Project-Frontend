@@ -127,6 +127,32 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
   // Following: rerender-lazy-state-init - pass function to useState for expensive initialization
   const [queryClient] = useState(createQueryClient);
 
+  useEffect(() => {
+    const handler = () => {
+      // Branch switching changes the backend RLS context via an httpOnly cookie.
+      // Clear React Query caches so the UI does not keep showing data from the previous branch.
+      queryClient.clear();
+
+      // Also clear localStorage caches used by some POS list pages/hooks.
+      // (These are simple "pos:*" keys maintained by utils/pos/cache.ts.)
+      try {
+        for (let i = window.localStorage.length - 1; i >= 0; i--) {
+          const key = window.localStorage.key(i);
+          if (key && key.startsWith("pos:")) {
+            window.localStorage.removeItem(key);
+          }
+        }
+      } catch {
+        // ignore
+      }
+    };
+
+    window.addEventListener("active-branch-changed", handler as EventListener);
+    return () => {
+      window.removeEventListener("active-branch-changed", handler as EventListener);
+    };
+  }, [queryClient]);
+
   return (
     <QueryClientProvider client={queryClient}>
       <QueryLoadingTracker />

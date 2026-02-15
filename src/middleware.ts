@@ -8,6 +8,19 @@ type OrderLike = {
     order_type?: string;
 };
 
+function isShiftProtectedPath(pathname: string): boolean {
+    const protectedPrefixes = [
+        "/pos/channels/delivery",
+        "/pos/channels/dine-in",
+        "/pos/channels/takeaway",
+        "/pos/orders",
+        "/pos/items",
+        "/pos/kitchen",
+    ];
+
+    return protectedPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+}
+
 function parseGuardedRoute(pathname: string): { type: GuardedRouteType; orderId: string } | null {
     const paymentMatch = pathname.match(/^\/pos\/items\/payment\/([^/]+)\/?$/);
     if (paymentMatch?.[1]) return { type: "payment", orderId: paymentMatch[1] };
@@ -64,6 +77,32 @@ function buildRedirectPath(order: OrderLike, currentType: GuardedRouteType, fall
 }
 
 export async function middleware(request: NextRequest) {
+    // Hard (server-side) shift guard: block protected POS pages if shift isn't opened.
+    // This complements the client-side modal guard (RequireOpenShift).
+    if (isShiftProtectedPath(request.nextUrl.pathname)) {
+        try {
+            const apiUrl = new URL("/api/pos/shifts/current", request.url);
+            const response = await fetch(apiUrl, {
+                method: "GET",
+                headers: {
+                    Accept: "application/json",
+                    ...(request.headers.get("cookie") ? { Cookie: request.headers.get("cookie") as string } : {}),
+                },
+                cache: "no-store",
+            });
+
+            // The proxy route returns 404 when there is no active shift.
+            if (response.status === 404) {
+                const redirectUrl = new URL("/pos/shift", request.url);
+                redirectUrl.searchParams.set("openShift", "1");
+                redirectUrl.searchParams.set("redirect", `${request.nextUrl.pathname}${request.nextUrl.search}`);
+                return NextResponse.redirect(redirectUrl);
+            }
+        } catch {
+            // Fail open: don't block navigation if the check fails.
+        }
+    }
+
     const parsed = parseGuardedRoute(request.nextUrl.pathname);
     if (!parsed) return NextResponse.next();
 
@@ -96,6 +135,12 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-    matcher: ["/pos/orders/:path*", "/pos/items/payment/:path*", "/pos/items/delivery/:path*"],
+    matcher: [
+        "/pos/channels/delivery/:path*",
+        "/pos/channels/dine-in/:path*",
+        "/pos/channels/takeaway/:path*",
+        "/pos/orders/:path*",
+        "/pos/items/:path*",
+        "/pos/kitchen/:path*",
+    ],
 };
-

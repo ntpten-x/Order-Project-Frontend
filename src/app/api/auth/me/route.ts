@@ -7,13 +7,15 @@ export const dynamic = 'force-dynamic';
 export async function GET(request: NextRequest) {
     try {
         const token = request.cookies.get("token")?.value;
+        const cookieHeader = request.headers.get("cookie") || "";
 
         if (!token) {
             return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
         }
 
         try {
-            const user = await authService.getMe(token);
+            // Forward cookies so backend can read `active_branch_id` for admin branch switching.
+            const user = await authService.getMe(token, cookieHeader);
             return NextResponse.json(user);
         } catch {
             // If service fails (e.g. invalid token), clear cookie

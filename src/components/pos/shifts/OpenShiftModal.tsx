@@ -23,10 +23,13 @@ export default function OpenShiftModal({ open, onCancel }: OpenShiftModalProps =
     const [form] = Form.useForm();
     const pathname = usePathname();
     const canCreateShift = can("shifts.page", "create");
-    const isGuardedChannelPage =
+    const isGuardedPage =
         pathname === "/pos/channels/delivery" ||
         pathname === "/pos/channels/dine-in" ||
-        pathname === "/pos/channels/takeaway";
+        pathname === "/pos/channels/takeaway" ||
+        pathname === "/pos/orders" ||
+        pathname === "/pos/items" ||
+        pathname === "/pos/kitchen";
 
     useEffect(() => {
         if (currentShift) {
@@ -44,7 +47,7 @@ export default function OpenShiftModal({ open, onCancel }: OpenShiftModalProps =
             !dismissedGlobal &&
             !currentShift &&
             pathname !== "/pos/shift" &&
-            !isGuardedChannelPage);
+            !isGuardedPage);
 
     const handleCancel = () => {
         if (isControlled) {

@@ -19,8 +19,25 @@ import { useAuth } from "./AuthContext";
 export const SocketProvider = ({ children }: { children: ReactNode }) => {
   const [socket, setSocket] = useState<Socket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
+  const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
   const reconnectNoticeShown = useRef(false);
   const { user } = useAuth();
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent).detail as { activeBranchId?: string | null } | undefined;
+      if (detail && typeof detail.activeBranchId === "string") {
+        setActiveBranchId(detail.activeBranchId);
+      } else {
+        setActiveBranchId(null);
+      }
+    };
+
+    window.addEventListener("active-branch-changed", handler as EventListener);
+    return () => {
+      window.removeEventListener("active-branch-changed", handler as EventListener);
+    };
+  }, []);
 
   useEffect(() => {
     if (!user) {
@@ -34,7 +51,8 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
 
     // connect to backend
     const socketUrl = process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:4000";
-    const branchId = user.branch?.id || user.branch_id || null;
+    // Admin branch switching uses an httpOnly cookie; fetch it so realtime subscribes correctly.
+    const branchId = activeBranchId || user.branch?.id || user.branch_id || null;
     const socketInstance = io(socketUrl, {
         transports: ["websocket"],
         withCredentials: true, // Important: Send cookies for auth
@@ -80,6 +98,19 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
       socketInstance.disconnect();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, activeBranchId]);
+
+  useEffect(() => {
+    if (!user) {
+      setActiveBranchId(null);
+      return;
+    }
+    fetch("/api/auth/active-branch", { credentials: "include", cache: "no-store" })
+      .then((res) => res.json().catch(() => null))
+      .then((data: { active_branch_id?: string | null } | null) => {
+        setActiveBranchId(typeof data?.active_branch_id === "string" ? data!.active_branch_id : null);
+      })
+      .catch(() => setActiveBranchId(null));
   }, [user?.id]);
 
   return (

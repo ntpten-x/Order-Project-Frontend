@@ -29,6 +29,7 @@ import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { t } from "../../../../utils/i18n";
+import RequireOpenShift from "../../../../components/pos/shared/RequireOpenShift";
 
 dayjs.extend(relativeTime);
 dayjs.locale('th');
@@ -542,6 +543,14 @@ interface GroupedOrder {
 }
 
 export default function KitchenDisplayPage() {
+    return (
+        <RequireOpenShift>
+            <KitchenDisplayPageContent />
+        </RequireOpenShift>
+    );
+}
+
+function KitchenDisplayPageContent() {
     const { socket, isConnected } = useContext(SocketContext);
     const { showLoading, hideLoading } = useGlobalLoadingDispatch();
     const queryClient = useQueryClient();

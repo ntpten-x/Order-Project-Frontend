@@ -30,9 +30,22 @@ yarn-error.log*
 # local env files
 .env*.local
 
+# env (keep templates/examples tracked)
+.env
+.env.*
+!.env.example
+
 # vercel
 .vercel
 
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# test/build artifacts
+playwright-report/
+test-results/
+logs/
+.swc/
+*.tgz
+build_log.txt

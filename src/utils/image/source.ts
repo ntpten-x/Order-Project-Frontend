@@ -12,6 +12,45 @@ function normalizeDataImageSource(source: string): string {
     return `${metadata},${payload}`;
 }
 
+function normalizeGoogleDriveImageSource(source: string): string {
+    // Support common Google Drive share URLs by converting them to direct "uc" URLs.
+    // Example target:
+    // https://drive.google.com/uc?export=view&id=FILE_ID
+    //
+    // Note: Some Drive files may still require a confirm token for large files; in that case
+    // we still keep the original URL (the UI can fall back to <img> without Next optimization).
+    try {
+        const url = new URL(source);
+        const host = url.hostname.toLowerCase();
+        if (host !== "drive.google.com") return source;
+
+        // Extract file id from query or pathname variants.
+        let id = url.searchParams.get("id") || "";
+        if (!id) {
+            const m = url.pathname.match(/^\/file\/d\/([^/]+)/i);
+            if (m?.[1]) id = m[1];
+        }
+        if (!id) return source;
+
+        // If already a /uc link, preserve existing query params (e.g. confirm=...).
+        if (url.pathname.toLowerCase() === "/uc") {
+            // Prefer export=view for <img> usage; export=download is often served as attachment/octet-stream.
+            const exportParam = (url.searchParams.get("export") || "").toLowerCase();
+            if (!exportParam || exportParam === "download") url.searchParams.set("export", "view");
+            if (!url.searchParams.get("id")) url.searchParams.set("id", id);
+            return url.toString();
+        }
+
+        // Convert other Drive link shapes to /uc.
+        const next = new URL("https://drive.google.com/uc");
+        next.searchParams.set("export", "view");
+        next.searchParams.set("id", id);
+        return next.toString();
+    } catch {
+        return source;
+    }
+}
+
 export function normalizeImageSource(source?: string | null): string {
     const value = String(source ?? "").trim();
     if (!value) return "";
@@ -20,7 +59,22 @@ export function normalizeImageSource(source?: string | null): string {
         return normalizeDataImageSource(value);
     }
 
+    if (HTTP_URL_PREFIX.test(value)) {
+        return normalizeGoogleDriveImageSource(value);
+    }
+
     return value;
+}
+
+export function isGoogleDriveImageSource(source?: string | null): boolean {
+    const value = normalizeImageSource(source);
+    if (!HTTP_URL_PREFIX.test(value)) return false;
+    try {
+        const url = new URL(value);
+        return url.hostname.toLowerCase() === "drive.google.com";
+    } catch {
+        return false;
+    }
 }
 
 export function isSupportedImageSource(source?: string | null): boolean {

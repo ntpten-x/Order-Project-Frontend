@@ -20,6 +20,7 @@ import {
     ShoppingOutlined,
 } from "@ant-design/icons";
 import { Order, OrderStatus } from "../../types/api/stock/orders";
+import { resolveImageSource } from "../../utils/image/source";
 
 const { Text, Title } = Typography;
 
@@ -147,7 +148,7 @@ export default function OrderDetailModal({ order, open, onClose }: OrderDetailMo
                                     <List.Item>
                                         <div style={{ width: "100%", display: "flex", gap: 12, alignItems: "center" }}>
                                             <Avatar
-                                                src={item.ingredient?.img_url || undefined}
+                                                src={resolveImageSource(item.ingredient?.img_url) || undefined}
                                                 shape="square"
                                                 size={56}
                                                 icon={<ShoppingOutlined />}

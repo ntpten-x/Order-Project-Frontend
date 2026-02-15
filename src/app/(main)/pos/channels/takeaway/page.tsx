@@ -15,9 +15,8 @@ import { POSGlobalStyles } from "../../../../../theme/pos/GlobalStyles";
 import { getOrderChannelStats, getOrderColorScheme, formatOrderStatus } from "../../../../../utils/channels";
 import { getOrderNavigationPath } from "../../../../../utils/orders";
 import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
-import { useShift } from "../../../../../contexts/pos/ShiftContext";
 import { useChannelOrders } from "../../../../../utils/pos/channelOrders";
-import OpenShiftModal from "../../../../../components/pos/shifts/OpenShiftModal";
+import RequireOpenShift from "../../../../../components/pos/shared/RequireOpenShift";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import 'dayjs/locale/th';
@@ -27,11 +26,17 @@ dayjs.extend(relativeTime);
 dayjs.locale('th');
 
 export default function TakeawayPage() {
+    return (
+        <RequireOpenShift>
+            <TakeawayPageContent />
+        </RequireOpenShift>
+    );
+}
+
+function TakeawayPageContent() {
     const router = useRouter();
     const { showLoading, hideLoading } = useGlobalLoading();
-    const { currentShift, loading: isShiftLoading } = useShift();
     const { orders, isLoading } = useChannelOrders({ orderType: OrderType.TakeAway });
-    const [isOpenShiftModalVisible, setIsOpenShiftModalVisible] = useState(false);
 
     const stats = useMemo(() => getOrderChannelStats(orders), [orders]);
 
@@ -42,14 +47,6 @@ export default function TakeawayPage() {
             hideLoading();
         }
     }, [isLoading, showLoading, hideLoading]);
-
-    useEffect(() => {
-        if (!isShiftLoading && !currentShift) {
-            setIsOpenShiftModalVisible(true);
-            return;
-        }
-        setIsOpenShiftModalVisible(false);
-    }, [isShiftLoading, currentShift]);
 
     const handleCreateOrder = () => {
         router.push('/pos/channels/takeaway/buying');
@@ -120,10 +117,6 @@ export default function TakeawayPage() {
             `}</style>
             
             <div style={posPageStyles.container}>
-                <OpenShiftModal
-                    open={isOpenShiftModalVisible}
-                    onCancel={() => setIsOpenShiftModalVisible(false)}
-                />
                 <UIPageHeader
                     title="สั่งกลับบ้าน"
                     subtitle={
