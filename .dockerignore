@@ -1,22 +1,50 @@
+# VCS and metadata
+.git
+.gitignore
+.github
+
+# Dependencies and package manager caches
 node_modules
+.pnp
+.pnp.js
+.yarn
+
+# Build caches/artifacts
 .next
+.next-guard
 .swc
+out
+coverage
+*.tsbuildinfo
+
+# Environment and secrets
 .env
 .env.*
 !.env.example
-.git
-.gitignore
-Dockerfile
-docker-compose.yml
-npm-debug.log
-README.md
-.editorconfig
-.eslintrc.json
-tsconfig.tsbuildinfo
+.env*.local
+
+# Test and QA artifacts
 playwright-report
 test-results
+test-results-uat
 tests
 src/__tests__
-scripts
-ENVIRONMENT_VARIABLES.md
+
+# Local-only files and docs
+logs
+docs
+*.md
+build_log.txt
+*.tgz
+*.tar
+*.tar.gz
+
+# Tooling and editor files
+.vscode
+.idea
+.DS_Store
+Thumbs.db
+
+# Files not needed to build image
+docker-compose.yml
 vercel.json

@@ -765,6 +765,29 @@ export default function POSPaymentPage() {
                                                     onChange={(val) => setReceivedAmount(val || 0)}
                                                     formatter={value => `฿ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
                                                     parser={value => Number(value!.replace(/฿\s?|(,*)/g, '').replace(/[^0-9.]/g, ''))}
+                                                    onKeyDown={(e) => {
+                                                        // Allow: backspace, delete, tab, escape, enter
+                                                        if (
+                                                            [8, 46, 9, 27, 13, 110, 190].indexOf(e.keyCode) !== -1 ||
+                                                            // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+                                                            (e.ctrlKey === true && [65, 67, 86, 88].indexOf(e.keyCode) !== -1) ||
+                                                            // Allow: home, end, left, right
+                                                            (e.keyCode >= 35 && e.keyCode <= 39)
+                                                        ) {
+                                                            // Special handling for decimal point (prevent multiple dots)
+                                                            if ((e.keyCode === 190 || e.keyCode === 110) && `${receivedAmount}`.includes('.')) {
+                                                                e.preventDefault();
+                                                            }
+                                                            return;
+                                                        }
+                                                        // Ensure that it is a number and stop the keypress
+                                                        if (
+                                                            (e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) &&
+                                                            (e.keyCode < 96 || e.keyCode > 105)
+                                                        ) {
+                                                            e.preventDefault();
+                                                        }
+                                                    }}
                                                     onFocus={(e) => e.target.select()}
                                                     controls={false}
                                                     inputMode="decimal"

@@ -400,6 +400,29 @@ export default function StockBuyingPage() {
                                 style={{ width: "100%" }}
                                 formatter={(value) => `${value}`.replace(/[^0-9.]/g, "")}
                                 parser={(value) => value?.replace(/[^0-9.]/g, "") as unknown as number}
+                                onKeyDown={(e) => {
+                                  // Allow: backspace, delete, tab, escape, enter
+                                  if (
+                                    [8, 46, 9, 27, 13, 110, 190].indexOf(e.keyCode) !== -1 ||
+                                    // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+                                    (e.ctrlKey === true && [65, 67, 86, 88].indexOf(e.keyCode) !== -1) ||
+                                    // Allow: home, end, left, right
+                                    (e.keyCode >= 35 && e.keyCode <= 39)
+                                  ) {
+                                      // Special handling for decimal point (prevent multiple dots)
+                                      if ((e.keyCode === 190 || e.keyCode === 110) && `${item.actual_quantity}`.includes('.')) {
+                                          e.preventDefault();
+                                      }
+                                      return;
+                                  }
+                                  // Ensure that it is a number and stop the keypress
+                                  if (
+                                    (e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) &&
+                                    (e.keyCode < 96 || e.keyCode > 105)
+                                  ) {
+                                    e.preventDefault();
+                                  }
+                                }}
                               />
                             </Col>
                             <Col xs={24} md={4}>
