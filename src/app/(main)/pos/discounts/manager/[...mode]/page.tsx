@@ -21,6 +21,7 @@ import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
 import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
 import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuard';
 import { pageStyles } from '../../../../../../theme/pos/discounts/style';
+import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
 
 const { TextArea } = Input;
 const { Title, Text } = Typography;
@@ -151,7 +152,13 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
     const id = params.mode?.[1] || null;
     const isValidMode = mode === 'add' || mode === 'edit';
     const isEdit = mode === 'edit' && Boolean(id);
-    const { isAuthorized, isChecking } = useRoleGuard();
+    const { isAuthorized, isChecking, user } = useRoleGuard();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+
+    const canCreateDiscounts = can("discounts.page", "create");
+    const canUpdateDiscounts = can("discounts.page", "update");
+    const canDeleteDiscounts = can("discounts.page", "delete");
+    const canSubmit = isEdit ? canUpdateDiscounts : canCreateDiscounts;
 
     const modeTitle = useMemo(() => {
         if (isEdit) return 'แก้ไขส่วนลด';
@@ -231,6 +238,10 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
     }, [currentDiscountName, id, isEdit]);
 
     const onFinish = async (values: DiscountFormValues) => {
+        if (!canSubmit) {
+            message.error(isEdit ? "คุณไม่มีสิทธิ์แก้ไขส่วนลด" : "คุณไม่มีสิทธิ์เพิ่มส่วนลด");
+            return;
+        }
         setSubmitting(true);
         try {
             const payload: DiscountFormValues = {
@@ -271,6 +282,10 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
 
     const handleDelete = () => {
         if (!id) return;
+        if (!canDeleteDiscounts) {
+            message.error("คุณไม่มีสิทธิ์ลบส่วนลด");
+            return;
+        }
         Modal.confirm({
             title: 'ยืนยันการลบส่วนลด',
             content: `คุณต้องการลบส่วนลด "${displayName || '-'}" หรือไม่?`,
@@ -308,6 +323,14 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
     }
 
+    if (permissionLoading) {
+        return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
+    }
+
+    if (!canSubmit) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    }
+
     return (
         <div className="manage-page" style={pageStyles.container as React.CSSProperties}>
             <UIPageHeader
@@ -315,7 +338,7 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
                 subtitle={isEdit ? 'ปรับแก้ชื่อ ประเภท มูลค่า และสถานะส่วนลด' : 'สร้างส่วนลดใหม่ให้พร้อมใช้งานในระบบ POS'}
                 onBack={handleBack}
                 actions={
-                    isEdit ? (
+                    isEdit && canDeleteDiscounts ? (
                         <Button danger onClick={handleDelete} icon={<DeleteOutlined />}>
                             ลบ
                         </Button>

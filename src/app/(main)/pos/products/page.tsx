@@ -39,6 +39,7 @@ import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
 import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
 import { SearchInput } from "../../../../components/ui/input/SearchInput";
 import { SearchBar } from "../../../../components/ui/page/SearchBar";
+import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
 
 const { Text } = Typography;
 
@@ -56,13 +57,15 @@ type CachedProducts = {
 
 interface ProductCardProps {
     product: Products;
+    canUpdate: boolean;
+    canDelete: boolean;
     onEdit: (product: Products) => void;
     onDelete: (product: Products) => void;
     onToggleActive: (product: Products, next: boolean) => void;
     updatingStatusId: string | null;
 }
 
-const ProductCard = ({ product, onEdit, onDelete, onToggleActive, updatingStatusId }: ProductCardProps) => {
+const ProductCard = ({ product, canUpdate, canDelete, onEdit, onDelete, onToggleActive, updatingStatusId }: ProductCardProps) => {
     return (
         <div
             className="product-card"
@@ -70,7 +73,10 @@ const ProductCard = ({ product, onEdit, onDelete, onToggleActive, updatingStatus
                 ...pageStyles.productCard(product.is_active),
                 borderRadius: 16,
             }}
-            onClick={() => onEdit(product)}
+            onClick={() => {
+                if (!canUpdate) return;
+                onEdit(product);
+            }}
         >
             <div className="product-card-inner" style={pageStyles.productCardInner}>
                 <div style={{
@@ -139,41 +145,46 @@ const ProductCard = ({ product, onEdit, onDelete, onToggleActive, updatingStatus
                         size="small"
                         checked={product.is_active}
                         loading={updatingStatusId === product.id}
+                        disabled={!canUpdate}
                         onClick={(checked, event) => {
                             event?.stopPropagation();
                             onToggleActive(product, checked);
                         }}
                     />
-                    <Button
-                        type="text"
-                        icon={<EditOutlined />}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit(product);
-                        }}
-                        style={{
-                            borderRadius: 10,
-                            color: '#4F46E5',
-                            background: '#EEF2FF',
-                            width: 36,
-                            height: 36
-                        }}
-                    />
-                    <Button
-                        type="text"
-                        danger
-                        icon={<DeleteOutlined />}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(product);
-                        }}
-                        style={{
-                            borderRadius: 10,
-                            background: '#fef2f2',
-                            width: 36,
-                            height: 36
-                        }}
-                    />
+                    {canUpdate ? (
+                        <Button
+                            type="text"
+                            icon={<EditOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit(product);
+                            }}
+                            style={{
+                                borderRadius: 10,
+                                color: '#4F46E5',
+                                background: '#EEF2FF',
+                                width: 36,
+                                height: 36
+                            }}
+                        />
+                    ) : null}
+                    {canDelete ? (
+                        <Button
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete(product);
+                            }}
+                            style={{
+                                borderRadius: 10,
+                                background: '#fef2f2',
+                                width: 36,
+                                height: 36
+                            }}
+                        />
+                    ) : null}
                 </div>
             </div>
         </div>
@@ -201,7 +212,12 @@ export default function ProductsPage() {
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard();
+    const { isAuthorized, isChecking, user } = useRoleGuard();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+
+    const canCreateProducts = can("products.page", "create");
+    const canUpdateProducts = can("products.page", "update");
+    const canDeleteProducts = can("products.page", "delete");
 
     const {
         data: categories = [],
@@ -433,16 +449,28 @@ export default function ProductsPage() {
     }, [isLoadingMore, page, lastPage, debouncedSearch, statusFilter, categoryFilter, createdSort, totalProducts]);
 
     const handleAdd = () => {
+        if (!canCreateProducts) {
+            message.error('คุณไม่มีสิทธิ์เพิ่มสินค้า');
+            return;
+        }
         showLoading('กำลังเปิดหน้าจัดการสินค้า...');
         router.push('/pos/products/manage/add');
     };
 
     const handleEdit = (product: Products) => {
+        if (!canUpdateProducts) {
+            message.error('คุณไม่มีสิทธิ์แก้ไขสินค้า');
+            return;
+        }
         showLoading('กำลังเปิดหน้าแก้ไขสินค้า...');
         router.push(`/pos/products/manage/edit/${product.id}`);
     };
 
     const handleDelete = (product: Products) => {
+        if (!canDeleteProducts) {
+            message.error('คุณไม่มีสิทธิ์ลบสินค้า');
+            return;
+        }
         Modal.confirm({
             title: 'ยืนยันการลบสินค้า',
             content: `คุณต้องการลบสินค้า "${product.display_name}" หรือไม่?`,
@@ -498,7 +526,7 @@ export default function ProductsPage() {
         }
     };
 
-    if (isChecking) {
+    if (isChecking || permissionLoading) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
     }
 
@@ -562,7 +590,7 @@ export default function ProductsPage() {
                 actions={
                     <Space size={8} wrap>
                         <Button icon={<ReloadOutlined />} onClick={fetchProducts} />
-                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} disabled={!setupState.isReady}>
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} disabled={!setupState.isReady || !canCreateProducts}>
                             เพิ่มสินค้า
                         </Button>
                     </Space>
@@ -651,6 +679,8 @@ export default function ProductsPage() {
                                     <ProductCard
                                         key={product.id}
                                         product={product}
+                                        canUpdate={canUpdateProducts}
+                                        canDelete={canDeleteProducts}
                                         onEdit={handleEdit}
                                         onDelete={handleDelete}
                                         onToggleActive={handleToggleActive}
@@ -674,7 +704,7 @@ export default function ProductsPage() {
                                 description={debouncedSearch.trim() ? 'ลองเปลี่ยนคำค้น หรือตัวกรอง' : 'เพิ่มสินค้าแรกเพื่อเริ่มใช้งาน'}
                                 action={
                                     !debouncedSearch.trim() ? (
-                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} disabled={!setupState.isReady}>
+                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} disabled={!setupState.isReady || !canCreateProducts}>
                                             เพิ่มสินค้า
                                         </Button>
                                     ) : null

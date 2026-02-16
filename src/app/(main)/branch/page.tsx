@@ -25,7 +25,7 @@ import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Branch } from '../../../types/api/branch';
 import { useGlobalLoading } from '../../../contexts/pos/GlobalLoadingContext';
 import { useSocket } from '../../../hooks/useSocket';
-import { useRealtimeList } from '../../../utils/pos/realtime';
+import { useRealtimeRefresh } from '../../../utils/pos/realtime';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../../hooks/useEffectivePermissions';
 import { branchService } from '../../../services/branch.service';
@@ -55,7 +55,8 @@ type FilterType = 'all' | 'active' | 'inactive';
 
 interface BranchCardProps {
   branch: Branch;
-  canManageBranches: boolean;
+  canEditBranches: boolean;
+  canDeleteBranches: boolean;
   canSwitchBranch: boolean;
   isCurrentBranch: boolean;
   onEdit: (branch: Branch) => void;
@@ -63,7 +64,7 @@ interface BranchCardProps {
   onSwitch: (branch: Branch) => void;
 }
 
-const BranchCard = ({ branch, canManageBranches, canSwitchBranch, isCurrentBranch, onEdit, onDelete, onSwitch }: BranchCardProps) => {
+const BranchCard = ({ branch, canEditBranches, canDeleteBranches, canSwitchBranch, isCurrentBranch, onEdit, onDelete, onSwitch }: BranchCardProps) => {
   const isActive = branch.is_active !== false;
 
   return (
@@ -76,9 +77,9 @@ const BranchCard = ({ branch, canManageBranches, canSwitchBranch, isCurrentBranc
         padding: 14,
         display: 'grid',
         gap: 10,
-        cursor: canManageBranches ? 'pointer' : 'default',
+        cursor: canEditBranches ? 'pointer' : 'default',
       }}
-      onClick={() => canManageBranches && onEdit(branch)}
+      onClick={() => canEditBranches && onEdit(branch)}
     >
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: 10 }}>
         <div
@@ -104,7 +105,7 @@ const BranchCard = ({ branch, canManageBranches, canSwitchBranch, isCurrentBranc
             </Text>
             {isCurrentBranch ? (
               <Tag color="blue" style={{ marginInlineEnd: 0 }}>
-                กำลังใช้งาน
+                {t('branch.tag.current')}
               </Tag>
             ) : null}
             <Tag color={isActive ? 'green' : 'default'} style={{ marginInlineEnd: 0 }}>
@@ -130,7 +131,7 @@ const BranchCard = ({ branch, canManageBranches, canSwitchBranch, isCurrentBranc
         </div>
 
         <Space size={6}>
-          {canManageBranches ? (
+          {canEditBranches ? (
             <Button
               type="text"
               icon={<EditOutlined />}
@@ -142,7 +143,7 @@ const BranchCard = ({ branch, canManageBranches, canSwitchBranch, isCurrentBranc
               aria-label={`edit-branch-${branch.id}`}
             />
           ) : null}
-          {canManageBranches ? (
+          {canDeleteBranches ? (
             <Button
               type="text"
               danger
@@ -168,7 +169,7 @@ const BranchCard = ({ branch, canManageBranches, canSwitchBranch, isCurrentBranc
         }}
       >
         <Text type="secondary" style={{ fontSize: 12 }}>
-          <ClockCircleOutlined /> {branch.tax_id ? `เลขผู้เสียภาษี: ${branch.tax_id}` : 'ไม่ระบุเลขผู้เสียภาษี'}
+          <ClockCircleOutlined /> {t('branch.card.taxId')}: {branch.tax_id || '-'}
         </Text>
 
         {canSwitchBranch ? (
@@ -188,7 +189,7 @@ const BranchCard = ({ branch, canManageBranches, canSwitchBranch, isCurrentBranc
               fontWeight: 600,
             }}
           >
-            สลับสาขา
+            {t('branch.card.switch')}
           </Button>
         ) : null}
       </div>
@@ -214,6 +215,7 @@ export default function BranchPage() {
   const [totalBranches, setTotalBranches] = useState(0);
   const [isFetching, setIsFetching] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
+  const [currentBranchLabelOverride, setCurrentBranchLabelOverride] = useState<string | null>(null);
 
   const debouncedSearch = useDebouncedValue(searchQuery, 300);
   const { showLoading, hideLoading } = useGlobalLoading();
@@ -221,7 +223,9 @@ export default function BranchPage() {
   const { user, loading: authLoading, checkAuth } = useAuth();
   const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
   const canViewBranches = can('branches.page', 'view');
-  const canManageBranches = can('branches.page', 'update');
+  const canCreateBranches = can('branches.page', 'create');
+  const canUpdateBranches = can('branches.page', 'update');
+  const canDeleteBranches = can('branches.page', 'delete');
   const canSwitchBranch = user?.role === "Admin";
   const { message: messageApi, modal } = App.useApp();
   const { execute } = useAsyncAction();
@@ -278,17 +282,13 @@ export default function BranchPage() {
     }
   }, [execute, filter, page, pageSize, debouncedSearch, createdSort]);
 
-  useRealtimeList(
+  useRealtimeRefresh({
     socket,
-    {
-      create: RealtimeEvents.branches.create,
-      update: RealtimeEvents.branches.update,
-      delete: RealtimeEvents.branches.delete,
-    },
-    setBranches,
-    (item) => item.id,
-    (item) => item.is_active !== false
-  );
+    events: [RealtimeEvents.branches.create, RealtimeEvents.branches.update, RealtimeEvents.branches.delete],
+    onRefresh: () => { void fetchBranches(); },
+    enabled: Boolean(user?.id) && canViewBranches,
+    debounceMs: 400,
+  });
 
   useEffect(() => {
     if (!authLoading && !permissionLoading && user) {
@@ -318,22 +318,22 @@ export default function BranchPage() {
       .catch(() => {
         setActiveBranchId(null);
       });
-  }, [user?.id]);
+  }, [user]);
 
   const handleAdd = () => {
-    if (!canManageBranches) return;
+    if (!canCreateBranches) return;
     showLoading(t('branch.loading'));
     router.push('/branch/manager/add');
     setTimeout(() => hideLoading(), 800);
   };
 
   const handleEdit = (branch: Branch) => {
-    if (!canManageBranches) return;
+    if (!canUpdateBranches) return;
     router.push(`/branch/manager/edit/${branch.id}`);
   };
 
   const handleDelete = (branch: Branch) => {
-    if (!canManageBranches) return;
+    if (!canDeleteBranches) return;
     modal.confirm({
       title: t('branch.delete.title'),
       content: t('branch.delete.content', { name: branch.branch_name }),
@@ -356,7 +356,7 @@ export default function BranchPage() {
 
   const handleSwitchBranch = (branch: Branch) => {
     if (!canSwitchBranch) {
-      messageApi.error('คุณไม่มีสิทธิ์สลับสาขา');
+      messageApi.error(t('branch.switch.noPermission'));
       return;
     }
 
@@ -370,24 +370,41 @@ export default function BranchPage() {
     }, t('branch.switch.loading'));
   };
 
-  const activeBranches = branches.filter((item) => item.is_active).length;
+  const activeBranches = branches.filter((item) => item.is_active !== false).length;
   const inactiveBranches = Math.max(branches.length - activeBranches, 0);
   const assignedBranchId = user?.branch?.id || user?.branch_id || null;
   const assignedBranchLabel = user?.branch
     ? `${user.branch.branch_name} (${user.branch.branch_code})`
     : (user?.branch_id || '-');
   const currentBranchId = canSwitchBranch ? (activeBranchId || assignedBranchId) : assignedBranchId;
-  const currentBranchLabel = (() => {
+  const currentBranchLabel = useMemo(() => {
     const found = branches.find((b) => b.id === currentBranchId);
     if (found) return `${found.branch_name} (${found.branch_code})`;
+    if (currentBranchLabelOverride) return currentBranchLabelOverride;
     return assignedBranchLabel;
-  })();
+  }, [branches, currentBranchId, currentBranchLabelOverride, assignedBranchLabel]);
   const filteredBranches = useMemo(() => {
     if (!currentBranchId) return branches;
     const idx = branches.findIndex((b) => b.id === currentBranchId);
     if (idx <= 0) return branches;
     const selected = branches[idx];
     return [selected, ...branches.slice(0, idx), ...branches.slice(idx + 1)];
+  }, [branches, currentBranchId]);
+
+  useEffect(() => {
+    if (!currentBranchId) {
+      setCurrentBranchLabelOverride(null);
+      return;
+    }
+    if (branches.some((b) => b.id === currentBranchId)) {
+      setCurrentBranchLabelOverride(null);
+      return;
+    }
+
+    // If current branch is not in the current page (pagination/filter), fetch it for correct header display.
+    branchService.getById(currentBranchId)
+      .then((b) => setCurrentBranchLabelOverride(`${b.branch_name} (${b.branch_code})`))
+      .catch(() => setCurrentBranchLabelOverride(null));
   }, [branches, currentBranchId]);
 
   if (authLoading || permissionLoading) {
@@ -421,11 +438,11 @@ export default function BranchPage() {
           <Space size={8} wrap>
             <span>{t('branch.page.subtitle', { count: totalBranches })}</span>
             <Tag style={{ marginInlineEnd: 0 }} color="blue">
-              สาขาปัจจุบัน: {currentBranchLabel}
+              {t('branch.page.currentBranch', { name: currentBranchLabel })}
             </Tag>
             {canSwitchBranch ? (
               <Tag style={{ marginInlineEnd: 0 }} color="default">
-                สาขาที่ผูกกับผู้ใช้: {assignedBranchLabel}
+                {t('branch.page.assignedBranch', { name: assignedBranchLabel })}
               </Tag>
             ) : null}
           </Space>
@@ -434,7 +451,7 @@ export default function BranchPage() {
         actions={
           <Space size={8} wrap>
             <Button icon={<ReloadOutlined />} onClick={() => { void fetchBranches(); }} loading={isFetching} />
-            {canManageBranches ? (
+            {canCreateBranches ? (
               <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                 {!isMobile ? t('branch.actions.add') : ''}
               </Button>
@@ -453,7 +470,7 @@ export default function BranchPage() {
             ]}
           />
 
-          <PageSection title="ค้นหาและตัวกรอง">
+          <PageSection title={t('branch.section.filtersTitle')}>
             <SearchBar bodyStyle={{ padding: 12 }}>
               <SearchInput
                 placeholder={t('branch.search.placeholder')}
@@ -517,7 +534,7 @@ export default function BranchPage() {
                       {t('branch.empty.reset')}
                     </Button>
                   ) : (
-                    <Button type="primary" onClick={handleAdd} disabled={!canManageBranches}>
+                    <Button type="primary" onClick={handleAdd} disabled={!canCreateBranches}>
                       {t('branch.empty.add')}
                     </Button>
                   )
@@ -535,7 +552,8 @@ export default function BranchPage() {
                   <BranchCard
                     key={item.id}
                     branch={item}
-                    canManageBranches={canManageBranches}
+                    canEditBranches={canUpdateBranches}
+                    canDeleteBranches={canDeleteBranches}
                     canSwitchBranch={canSwitchBranch}
                     isCurrentBranch={Boolean(currentBranchId) && item.id === currentBranchId}
                     onEdit={handleEdit}

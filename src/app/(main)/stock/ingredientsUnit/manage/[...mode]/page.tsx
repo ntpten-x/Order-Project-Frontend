@@ -3,6 +3,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { Button, Form, Input, message, Modal, Spin, Switch } from 'antd';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '../../../../../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../../../../../hooks/useEffectivePermissions';
 import {
     ManagePageStyles,
     pageStyles,
@@ -17,6 +19,9 @@ import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
 export default function IngredientsUnitManagePage({ params }: { params: { mode: string[] } }) {
     const router = useRouter();
     const [form] = Form.useForm();
+    const { user } = useAuth();
+    const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canDelete = can("stock.ingredients_unit.page", "delete");
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [displayName, setDisplayName] = useState<string>('');
@@ -145,7 +150,7 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
                 subtitle="หน่วยสำหรับวัตถุดิบในคลัง"
                 onBack={handleBack}
                 actions={
-                    isEdit ? (
+                    isEdit && canDelete ? (
                         <Button danger onClick={handleDelete}>
                             ลบ
                         </Button>

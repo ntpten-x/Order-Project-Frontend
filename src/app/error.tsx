@@ -17,7 +17,9 @@ export default function Error({
   const router = useRouter();
 
   useEffect(() => {
-    console.error("Unhandled application error:", error);
+    if (process.env.NODE_ENV !== "production") {
+      console.error("Unhandled application error:", error);
+    }
   }, [error]);
 
   return (

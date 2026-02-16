@@ -18,6 +18,7 @@ import {
 import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
 import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
 import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuard';
+import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
 import { pageStyles } from '../../../../../../theme/pos/productsUnit/style';
 import { ProductsUnit } from '../../../../../../types/api/pos/productsUnit';
 
@@ -114,7 +115,11 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
     const id = params.mode?.[1] || null;
     const isValidMode = mode === 'add' || mode === 'edit';
     const isEdit = mode === 'edit' && Boolean(id);
-    const { isAuthorized, isChecking } = useRoleGuard();
+    const { isAuthorized, isChecking, user } = useRoleGuard();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canCreateUnits = can("products_unit.page", "create");
+    const canUpdateUnits = can("products_unit.page", "update");
+    const canDeleteUnits = can("products_unit.page", "delete");
 
     const modeTitle = useMemo(() => {
         if (isEdit) return 'แก้ไขหน่วยสินค้า';
@@ -190,6 +195,9 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
     const onFinish = async (values: ProductsUnitFormValues) => {
         setSubmitting(true);
         try {
+            if (isEdit ? !canUpdateUnits : !canCreateUnits) {
+                throw new Error('คุณไม่มีสิทธิ์บันทึกข้อมูลหน่วยสินค้า');
+            }
             const payload: ProductsUnitFormValues = {
                 unit_name: values.unit_name.trim(),
                 display_name: values.display_name.trim(),
@@ -254,7 +262,7 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
 
     const handleBack = () => router.push('/pos/productsUnit');
 
-    if (isChecking) {
+    if (isChecking || permissionLoading) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
     }
     if (!isAuthorized) {
@@ -268,7 +276,7 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
                 subtitle={isEdit ? 'ปรับแก้ชื่อหน่วยและสถานะการใช้งาน' : 'สร้างหน่วยสินค้าใหม่ให้พร้อมใช้งานในระบบ POS'}
                 onBack={handleBack}
                 actions={
-                    isEdit ? (
+                    isEdit && canDeleteUnits ? (
                         <Button danger onClick={handleDelete} icon={<DeleteOutlined />}>
                             ลบ
                         </Button>

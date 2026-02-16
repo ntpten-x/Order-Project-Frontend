@@ -41,6 +41,8 @@ import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
 import { CreatePaymentAccountDto, ShopPaymentAccount } from '../../../../../../types/api/pos/shopPaymentAccount';
 import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
 import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuard';
+import { useAuth } from '../../../../../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../../../../../hooks/useEffectivePermissions';
 import { useSocket } from '../../../../../../hooks/useSocket';
 import { useRealtimeList, useRealtimeRefresh } from '../../../../../../utils/pos/realtime';
 import { RealtimeEvents } from '../../../../../../utils/realtimeEvents';
@@ -211,9 +213,14 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const { socket } = useSocket();
+    const { user } = useAuth();
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.md;
     const { isAuthorized, isChecking } = useRoleGuard();
+    const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canCreateAccounts = can('payment_accounts.page', 'create');
+    const canUpdateAccounts = can('payment_accounts.page', 'update');
+    const canDeleteAccounts = can('payment_accounts.page', 'delete');
     const isUrlReadyRef = useRef(false);
 
     const [form] = Form.useForm<PaymentAccountFormValues>();
@@ -386,6 +393,10 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
 
     const handleActivate = async (account: ShopPaymentAccount) => {
         if (account.is_active) return;
+        if (!canUpdateAccounts) {
+            message.error('คุณไม่มีสิทธิ์ตั้งบัญชีหลัก (ต้องมีสิทธิ์ payment_accounts.page:update)');
+            return;
+        }
 
         setActivatingId(account.id);
         try {
@@ -402,6 +413,11 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
     };
 
     const handleDelete = (account: ShopPaymentAccount) => {
+        if (!canDeleteAccounts) {
+            message.error('คุณไม่มีสิทธิ์ลบบัญชี (ต้องมีสิทธิ์ payment_accounts.page:delete)');
+            return;
+        }
+
         Modal.confirm({
             title: 'ยืนยันการลบบัญชีพร้อมเพย์',
             content: account.is_active
@@ -412,7 +428,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
             cancelText: 'ยกเลิก',
             centered: true,
             icon: <DeleteOutlined style={{ color: '#EF4444' }} />,
-            okButtonProps: { disabled: account.is_active },
+            okButtonProps: { disabled: account.is_active || !canDeleteAccounts },
             onOk: async () => {
                 if (account.is_active) {
                     message.warning('ลบบัญชีหลักไม่ได้ กรุณาเปลี่ยนบัญชีหลักก่อน');
@@ -440,6 +456,13 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
         setSubmitting(true);
 
         try {
+            if (isEdit && !canUpdateAccounts) {
+                throw new Error('คุณไม่มีสิทธิ์แก้ไขบัญชี (ต้องมีสิทธิ์ payment_accounts.page:update)');
+            }
+            if (!isEdit && !canCreateAccounts) {
+                throw new Error('คุณไม่มีสิทธิ์เพิ่มบัญชี (ต้องมีสิทธิ์ payment_accounts.page:create)');
+            }
+
             const normalizedAccountNumber = normalizeDigits(values.account_number || '');
             const normalizedPhone = normalizeDigits(values.phone || '');
 
@@ -520,7 +543,12 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                     isManage ? (
                         <Space size={8} wrap>
                             <Button icon={<ReloadOutlined />} onClick={() => fetchAccounts(false)} loading={loading || refreshing} />
-                            <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/pos/settings/payment-accounts/add')}>
+                            <Button
+                                type="primary"
+                                icon={<PlusOutlined />}
+                                disabled={!canCreateAccounts}
+                                onClick={() => router.push('/pos/settings/payment-accounts/add')}
+                            >
                                 เพิ่มพร้อมเพย์
                             </Button>
                         </Space>
@@ -531,7 +559,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                     danger
                                     icon={<DeleteOutlined />}
                                     onClick={() => handleDelete(editingAccount)}
-                                    disabled={editingAccount.is_active}
+                                    disabled={editingAccount.is_active || !canDeleteAccounts}
                                 >
                                     ลบ
                                 </Button>
@@ -641,19 +669,24 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                                         type="primary"
                                                         icon={<SwapOutlined />}
                                                         loading={activatingId === account.id}
+                                                        disabled={!canUpdateAccounts}
                                                         onClick={() => handleActivate(account)}
                                                     >
                                                         ตั้งเป็นบัญชีหลัก
                                                     </Button>
                                                 ) : null}
-                                                <Button icon={<EditOutlined />} onClick={() => router.push(`/pos/settings/payment-accounts/edit/${account.id}`)}>
+                                                <Button
+                                                    icon={<EditOutlined />}
+                                                    disabled={!canUpdateAccounts}
+                                                    onClick={() => router.push(`/pos/settings/payment-accounts/edit/${account.id}`)}
+                                                >
                                                     แก้ไข
                                                 </Button>
                                                 <Button
                                                     danger
                                                     icon={<DeleteOutlined />}
                                                     onClick={() => handleDelete(account)}
-                                                    disabled={account.is_active}
+                                                    disabled={account.is_active || !canDeleteAccounts}
                                                 >
                                                     ลบ
                                                 </Button>
@@ -671,7 +704,12 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                 }
                                 action={
                                     !debouncedSearch.trim() ? (
-                                        <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/pos/settings/payment-accounts/add')}>
+                                        <Button
+                                            type="primary"
+                                            icon={<PlusOutlined />}
+                                            disabled={!canCreateAccounts}
+                                            onClick={() => router.push('/pos/settings/payment-accounts/add')}
+                                        >
                                             เพิ่มบัญชีแรก
                                         </Button>
                                         ) : null
@@ -840,6 +878,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                                     loading={submitting}
                                                     icon={<SaveOutlined />}
                                                     size={isMobile ? 'middle' : 'large'}
+                                                    disabled={(isEdit && !canUpdateAccounts) || (!isEdit && !canCreateAccounts)}
                                                     style={{
                                                         flex: 2,
                                                         borderRadius: 12,

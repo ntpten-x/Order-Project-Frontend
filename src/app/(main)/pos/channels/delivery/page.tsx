@@ -21,6 +21,8 @@ import { getOrderNavigationPath } from "../../../../../utils/orders";
 import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
 import { useChannelOrders } from "../../../../../utils/pos/channelOrders";
 import RequireOpenShift from "../../../../../components/pos/shared/RequireOpenShift";
+import { useAuth } from "../../../../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../../../../hooks/useEffectivePermissions";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import 'dayjs/locale/th';
@@ -43,6 +45,9 @@ function DeliverySelectionPageContent() {
     const { deliveryProviders, isLoading: isLoadingProviders, isError: deliveryError, mutate: refetchProviders } = useDelivery();
     const { orders, isLoading } = useChannelOrders({ orderType: OrderType.Delivery });
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const { user } = useAuth();
+    const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canCreateOrder = can("orders.page", "create");
 
     const stats = useMemo(() => getOrderChannelStats(orders), [orders]);
 
@@ -71,12 +76,20 @@ function DeliverySelectionPageContent() {
     };
 
     const handleCreateOrderClick = () => {
+        if (!canCreateOrder) {
+            message.warning("คุณไม่มีสิทธิ์สร้างออเดอร์");
+            return;
+        }
         setDeliveryCode("");
         setSelectedProviderId(null);
         setIsModalOpen(true);
     };
 
     const handleConfirmCreate = () => {
+        if (!canCreateOrder) {
+            message.warning("คุณไม่มีสิทธิ์สร้างออเดอร์");
+            return;
+        }
         if (!selectedProviderId) {
             message.error("กรุณาเลือกผู้ให้บริการ");
             return;
@@ -180,7 +193,7 @@ function DeliverySelectionPageContent() {
                     onBack={handleBack}
                     icon={<RocketOutlined style={{ fontSize: 20 }} />}
                     actions={
-                        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateOrderClick}>
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateOrderClick} disabled={!canCreateOrder}>
                             เพิ่มออเดอร์
                         </Button>
                     }

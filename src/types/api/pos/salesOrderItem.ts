@@ -19,7 +19,7 @@ export interface SalesOrderItem {
     total_price: number; // ราคารวมของรายการนี้
     notes?: string; // หมายเหตุเพิ่มเติม
     details?: SalesOrderDetail[]; // รายละเอียดเพิ่มเติม (Modifiers)
-    status: string; // สถานะของรายการ (Pending, Cooking, Served, Cancelled)
+    status: ItemStatus; // สถานะของรายการ (Pending, Cooking, Served, Cancelled)
     product?: Products;
     order?: SalesOrder;
 }

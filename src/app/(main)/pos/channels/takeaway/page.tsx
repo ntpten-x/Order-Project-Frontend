@@ -1,8 +1,8 @@
 ﻿"use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Col, Row, Space, Tag, Typography } from "antd";
+import { Button, Col, Row, Space, Tag, Typography, message } from "antd";
 import { ShoppingOutlined, PlusOutlined, ClockCircleOutlined } from "@ant-design/icons";
 import PageContainer from "../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../components/ui/page/PageSection";
@@ -17,6 +17,8 @@ import { getOrderNavigationPath } from "../../../../../utils/orders";
 import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
 import { useChannelOrders } from "../../../../../utils/pos/channelOrders";
 import RequireOpenShift from "../../../../../components/pos/shared/RequireOpenShift";
+import { useAuth } from "../../../../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../../../../hooks/useEffectivePermissions";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import 'dayjs/locale/th';
@@ -37,6 +39,9 @@ function TakeawayPageContent() {
     const router = useRouter();
     const { showLoading, hideLoading } = useGlobalLoading();
     const { orders, isLoading } = useChannelOrders({ orderType: OrderType.TakeAway });
+    const { user } = useAuth();
+    const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canCreateOrder = can("orders.page", "create");
 
     const stats = useMemo(() => getOrderChannelStats(orders), [orders]);
 
@@ -49,6 +54,10 @@ function TakeawayPageContent() {
     }, [isLoading, showLoading, hideLoading]);
 
     const handleCreateOrder = () => {
+        if (!canCreateOrder) {
+            message.warning("คุณไม่มีสิทธิ์สร้างออเดอร์");
+            return;
+        }
         router.push('/pos/channels/takeaway/buying');
     };
 
@@ -128,7 +137,7 @@ function TakeawayPageContent() {
                     onBack={handleBack}
                     icon={<ShoppingOutlined style={{ fontSize: 20 }} />}
                     actions={
-                        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateOrder}>
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateOrder} disabled={!canCreateOrder}>
                             เพิ่มออเดอร์
                         </Button>
                     }

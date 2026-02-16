@@ -30,6 +30,8 @@ import 'dayjs/locale/th';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { t } from "../../../../utils/i18n";
 import RequireOpenShift from "../../../../components/pos/shared/RequireOpenShift";
+import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
+import { useAuth } from "../../../../contexts/AuthContext";
 
 dayjs.extend(relativeTime);
 dayjs.locale('th');
@@ -554,6 +556,9 @@ function KitchenDisplayPageContent() {
     const { socket, isConnected } = useContext(SocketContext);
     const { showLoading, hideLoading } = useGlobalLoadingDispatch();
     const queryClient = useQueryClient();
+    const { user } = useAuth();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canUpdateKitchen = can("orders.page", "update");
     const [soundEnabled, setSoundEnabled] = useState(true);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [filterStatus, setFilterStatus] = useState<ItemStatus | 'all'>('all');
@@ -675,6 +680,10 @@ function KitchenDisplayPageContent() {
     }, [socket, refetch, playNotificationSound]);
 
     const updateItemStatus = async (itemId: string, newStatus: ItemStatus) => {
+        if (!canUpdateKitchen) {
+            message.warning("คุณไม่มีสิทธิ์อัปเดตสถานะรายการครัว");
+            return;
+        }
         try {
             queryClient.setQueryData<SalesOrderItem[]>(["orderItems", "kitchen"], (prev = []) =>
                 prev.map(item => (item.id === itemId ? { ...item, status: newStatus } : item))
@@ -689,6 +698,10 @@ function KitchenDisplayPageContent() {
     };
 
     const serveAllItems = async (orderId: string) => {
+        if (!canUpdateKitchen) {
+            message.warning("คุณไม่มีสิทธิ์อัปเดตสถานะรายการครัว");
+            return;
+        }
         try {
             showLoading("กำลังเสิร์ฟทั้งหมด...");
             const order = groupedOrders.find(o => o.order_id === orderId);
@@ -929,6 +942,7 @@ function KitchenDisplayPageContent() {
                                                                     type="text"
                                                                     icon={<CheckOutlined />}
                                                                     onClick={() => updateItemStatus(item.id, ItemStatus.Served)}
+                                                                    disabled={permissionLoading || !canUpdateKitchen}
                                                                     className="kitchen-item-action-btn"
                                                                     style={{ 
                                                                         color: '#10b981', 
@@ -944,6 +958,7 @@ function KitchenDisplayPageContent() {
                                                                     type="text"
                                                                     icon={<UndoOutlined />}
                                                                     onClick={() => updateItemStatus(item.id, ItemStatus.Cooking)}
+                                                                    disabled={permissionLoading || !canUpdateKitchen}
                                                                     className="kitchen-item-action-btn"
                                                                     style={{ 
                                                                         color: '#64748b', 
@@ -958,7 +973,7 @@ function KitchenDisplayPageContent() {
                                         </div>
 
                                         {/* Action Footer */}
-                                        {hasItemsToServe && (
+                                        {hasItemsToServe && canUpdateKitchen && (
                                             <div className="kitchen-order-footer">
                                                 <Button
                                                     block
@@ -966,6 +981,7 @@ function KitchenDisplayPageContent() {
                                                     size="large"
                                                     icon={<DoubleRightOutlined />}
                                                     onClick={() => serveAllItems(order.order_id)}
+                                                    disabled={permissionLoading || !canUpdateKitchen}
                                                     className="kitchen-serve-all-btn"
                                                 >
                                                     เสิร์ฟทั้งหมด ({order.items.filter(i => i.status !== ItemStatus.Served).length} รายการ)

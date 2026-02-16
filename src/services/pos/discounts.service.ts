@@ -108,7 +108,7 @@ export const discountsService = {
     },
 
     getByName: async (name: string, cookie?: string): Promise<Discounts> => {
-        const url = getProxyUrl("GET", `${BASE_PATH}/getByName/${name}`);
+        const url = getProxyUrl("GET", `${BASE_PATH}/getByName/${encodeURIComponent(name)}`);
         const headers = getHeaders(cookie, "");
 
         const response = await fetch(url!, {

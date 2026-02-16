@@ -34,6 +34,8 @@ import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
 import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
 import { SearchInput } from "../../../../components/ui/input/SearchInput";
 import { SearchBar } from "../../../../components/ui/page/SearchBar";
+import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissions';
+import { useAuth } from '../../../../contexts/AuthContext';
 
 const { Text } = Typography;
 
@@ -47,6 +49,8 @@ interface CategoryCardProps {
     onDelete: (category: Category) => void;
     onToggleActive: (category: Category, next: boolean) => void;
     updatingStatusId: string | null;
+    canUpdate: boolean;
+    canDelete: boolean;
 }
 
 const formatDate = (raw: string | Date) => {
@@ -58,7 +62,15 @@ const formatDate = (raw: string | Date) => {
     }).format(date);
 };
 
-const CategoryCard = ({ category, onEdit, onDelete, onToggleActive, updatingStatusId }: CategoryCardProps) => {
+const CategoryCard = ({
+    category,
+    onEdit,
+    onDelete,
+    onToggleActive,
+    updatingStatusId,
+    canUpdate,
+    canDelete,
+}: CategoryCardProps) => {
     return (
         <div
             className="category-card"
@@ -121,16 +133,20 @@ const CategoryCard = ({ category, onEdit, onDelete, onToggleActive, updatingStat
                         size="small"
                         checked={category.is_active}
                         loading={updatingStatusId === category.id}
+                        disabled={!canUpdate}
                         onClick={(checked, event) => {
                             event?.stopPropagation();
+                            if (!canUpdate) return;
                             onToggleActive(category, checked);
                         }}
                     />
                     <Button
                         type="text"
                         icon={<EditOutlined />}
+                        disabled={!canUpdate}
                         onClick={(e) => {
                             e.stopPropagation();
+                            if (!canUpdate) return;
                             onEdit(category);
                         }}
                         style={{
@@ -145,8 +161,10 @@ const CategoryCard = ({ category, onEdit, onDelete, onToggleActive, updatingStat
                         type="text"
                         danger
                         icon={<DeleteOutlined />}
+                        disabled={!canDelete}
                         onClick={(e) => {
                             e.stopPropagation();
+                            if (!canDelete) return;
                             onDelete(category);
                         }}
                         style={{
@@ -180,6 +198,11 @@ export default function CategoryPage() {
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
     const { isAuthorized, isChecking } = useRoleGuard();
+    const { user } = useAuth();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canCreateCategory = can("category.page", "create");
+    const canUpdateCategory = can("category.page", "update");
+    const canDeleteCategory = can("category.page", "delete");
 
     useEffect(() => {
         getCsrfTokenCached();
@@ -263,16 +286,28 @@ export default function CategoryPage() {
     }, [categories]);
 
     const handleAdd = () => {
+        if (!canCreateCategory) {
+            message.warning('คุณไม่มีสิทธิ์เพิ่มหมวดหมู่');
+            return;
+        }
         showLoading('กำลังเปิดหน้าจัดการหมวดหมู่...');
         router.push('/pos/category/manager/add');
     };
 
     const handleEdit = (category: Category) => {
+        if (!canUpdateCategory) {
+            message.warning('คุณไม่มีสิทธิ์แก้ไขหมวดหมู่');
+            return;
+        }
         showLoading('กำลังเปิดหน้าแก้ไขหมวดหมู่...');
         router.push(`/pos/category/manager/edit/${category.id}`);
     };
 
     const handleDelete = (category: Category) => {
+        if (!canDeleteCategory) {
+            message.warning('คุณไม่มีสิทธิ์ลบหมวดหมู่');
+            return;
+        }
         Modal.confirm({
             title: 'ยืนยันการลบหมวดหมู่',
             content: `คุณต้องการลบหมวดหมู่ "${category.display_name}" หรือไม่?`,
@@ -301,6 +336,10 @@ export default function CategoryPage() {
     };
 
     const handleToggleActive = async (category: Category, next: boolean) => {
+        if (!canUpdateCategory) {
+            message.warning('คุณไม่มีสิทธิ์เปลี่ยนสถานะหมวดหมู่');
+            return;
+        }
         setUpdatingStatusId(category.id);
         try {
             const csrfToken = await getCsrfTokenCached();
@@ -353,7 +392,12 @@ export default function CategoryPage() {
                             ไปหน้าสินค้า
                         </Button>
                         <Button icon={<ReloadOutlined />} onClick={() => { void fetchCategories(); }} />
-                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            onClick={handleAdd}
+                            disabled={permissionLoading || !canCreateCategory}
+                        >
                             เพิ่มหมวดหมู่
                         </Button>
                     </Space>
@@ -408,6 +452,8 @@ export default function CategoryPage() {
                                     onDelete={handleDelete}
                                     onToggleActive={handleToggleActive}
                                     updatingStatusId={updatingStatusId}
+                                    canUpdate={canUpdateCategory}
+                                    canDelete={canDeleteCategory}
                                 />
                             ))
                         ) : (
@@ -423,7 +469,7 @@ export default function CategoryPage() {
                                         : 'เพิ่มหมวดหมู่แรกเพื่อเริ่มใช้งาน'
                                 }
                                 action={
-                                    !searchText.trim() ? (
+                                    !searchText.trim() && canCreateCategory ? (
                                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                                             เพิ่มหมวดหมู่
                                         </Button>

@@ -1,7 +1,7 @@
 import { PaymentMethod } from "../../types/api/pos/paymentMethod";
 import { getProxyUrl } from "../../lib/proxy-utils";
 import { API_ROUTES } from "../../config/api";
-import { normalizeBackendPaginated, unwrapBackendData } from "../../utils/api/backendResponse";
+import { normalizeBackendPaginated, throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = API_ROUTES.POS.PAYMENT_METHODS;
 
@@ -31,7 +31,7 @@ export const paymentMethodService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to fetch payment methods");
+            throwBackendHttpError(response, errorData, "Failed to fetch payment methods");
         }
         return normalizeBackendPaginated<PaymentMethod>(await response.json());
     },
@@ -47,13 +47,13 @@ export const paymentMethodService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to fetch payment method");
+            throwBackendHttpError(response, errorData, "Failed to fetch payment method");
         }
         return unwrapBackendData(await response.json()) as PaymentMethod;
     },
 
     getByName: async (name: string, cookie?: string): Promise<PaymentMethod> => {
-        const url = getProxyUrl("GET", `${BASE_PATH}/getByName/${name}`);
+        const url = getProxyUrl("GET", `${BASE_PATH}/getByName/${encodeURIComponent(name)}`);
         const headers = getHeaders(cookie, "");
 
         const response = await fetch(url!, {
@@ -63,7 +63,7 @@ export const paymentMethodService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to fetch payment method");
+            throwBackendHttpError(response, errorData, "Failed to fetch payment method");
         }
         return unwrapBackendData(await response.json()) as PaymentMethod;
     },
@@ -81,7 +81,7 @@ export const paymentMethodService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to create payment method");
+            throwBackendHttpError(response, errorData, "Failed to create payment method");
         }
         return unwrapBackendData(await response.json()) as PaymentMethod;
     },
@@ -99,7 +99,7 @@ export const paymentMethodService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to update payment method");
+            throwBackendHttpError(response, errorData, "Failed to update payment method");
         }
         return unwrapBackendData(await response.json()) as PaymentMethod;
     },
@@ -116,7 +116,7 @@ export const paymentMethodService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to delete payment method");
+            throwBackendHttpError(response, errorData, "Failed to delete payment method");
         }
     }
 };

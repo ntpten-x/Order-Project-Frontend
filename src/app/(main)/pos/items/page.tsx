@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Typography, Row, Col, Card, Tag, Button, Divider, Avatar, Space, Skeleton } from "antd";
+import { Typography, Row, Col, Card, Tag, Button, Divider, Avatar, Space, Skeleton, message } from "antd";
 import { CheckCircleOutlined, ShopOutlined, ShoppingOutlined, RocketOutlined, UserOutlined } from "@ant-design/icons";
 import PageContainer from "../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../components/ui/page/PageSection";
@@ -22,6 +22,8 @@ import 'dayjs/locale/th';
 import { isEqual } from "lodash";
 import { resolveImageSource } from "../../../../utils/image/source";
 import RequireOpenShift from "../../../../components/pos/shared/RequireOpenShift";
+import { useAuth } from "../../../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
 
 const { Text } = Typography;
 dayjs.locale('th');
@@ -46,6 +48,9 @@ function POSItemsPageContent() {
     const [isLoading, setIsLoading] = useState(true);
     const { showLoading, hideLoading } = useGlobalLoadingDispatch();
     const { socket } = useSocket();
+    const { user } = useAuth();
+    const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canCreatePayment = can("payments.page", "create");
 
     const fetchServedItems = useCallback(async (initial = false) => {
         try {
@@ -124,6 +129,10 @@ function POSItemsPageContent() {
 
     const handlePaymentClick = (orderId?: string, orderType?: OrderType) => {
         if (!orderId) return;
+        if (!canCreatePayment) {
+            message.warning("คุณไม่มีสิทธิ์ชำระเงิน");
+            return;
+        }
         showLoading("กำลังไปหน้าชำระเงิน...");
         const path = orderType === OrderType.Delivery 
             ? `/pos/items/delivery/${orderId}` 
@@ -248,6 +257,7 @@ function POSItemsPageContent() {
                                         size="large"
                                         style={itemsStyles.paymentButton}
                                         className="items-payment-button-mobile"
+                                        disabled={!canCreatePayment}
                                         onClick={() => handlePaymentClick(group.order.id, group.order.order_type as OrderType)}
                                     >
                                         ชำระเงิน

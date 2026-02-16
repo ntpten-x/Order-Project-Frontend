@@ -22,6 +22,7 @@ import { Ingredients } from "../../../../types/api/stock/ingredients";
 import { useSocket } from "../../../../hooks/useSocket";
 import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { useAuth } from "../../../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
 import { authService } from "../../../../services/auth.service";
 import ListPagination, { type CreatedSort } from "../../../../components/ui/pagination/ListPagination";
 import { DEFAULT_CREATED_SORT, parseCreatedSort } from "../../../../lib/list-sort";
@@ -43,6 +44,10 @@ export default function IngredientsPage() {
 
     const { socket } = useSocket();
     const { user, loading: authLoading } = useAuth();
+    const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canCreate = can("stock.ingredients.page", "create");
+    const canUpdate = can("stock.ingredients.page", "update");
+    const canDelete = can("stock.ingredients.page", "delete");
 
     const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
     const [csrfToken, setCsrfToken] = useState("");
@@ -167,6 +172,10 @@ export default function IngredientsPage() {
     }, [socket, isAuthorized, fetchIngredients]);
 
     const handleDelete = (ingredient: Ingredients) => {
+        if (!canDelete) {
+            messageApi.error("คุณไม่มีสิทธิ์ลบวัตถุดิบ");
+            return;
+        }
         Modal.confirm({
             title: `ลบวัตถุดิบ ${ingredient.display_name}`,
             content: "ต้องการลบวัตถุดิบนี้หรือไม่",
@@ -215,16 +224,18 @@ export default function IngredientsPage() {
                 subtitle={`ทั้งหมด ${totalIngredients.toLocaleString()} รายการ`}
                 icon={<ShoppingOutlined />}
                 actions={
-                    <Space wrap>
-                        <Button icon={<ReloadOutlined />} onClick={() => void fetchIngredients()} loading={loading}>
-                            รีเฟรช
-                        </Button>
+                <Space wrap>
+                    <Button icon={<ReloadOutlined />} onClick={() => void fetchIngredients()} loading={loading}>
+                        รีเฟรช
+                    </Button>
+                    {canCreate ? (
                         <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push("/stock/ingredients/manage/add")}>
                             เพิ่มวัตถุดิบ
                         </Button>
-                    </Space>
-                }
-            />
+                    ) : null}
+                </Space>
+            }
+        />
 
             <PageContainer maxWidth={1300}>
                 <PageStack gap={12}>
@@ -291,9 +302,11 @@ export default function IngredientsPage() {
                                 status="empty"
                                 title="ยังไม่มีวัตถุดิบ"
                                 action={
+                                    canCreate ? (
                                     <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push("/stock/ingredients/manage/add")}>
                                         เพิ่มวัตถุดิบ
                                     </Button>
+                                    ) : undefined
                                 }
                             />
                         ) : (
@@ -326,12 +339,16 @@ export default function IngredientsPage() {
                                             </Col>
                                             <Col xs={24} md={9}>
                                                 <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
-                                                    <Button icon={<EditOutlined />} onClick={() => router.push(`/stock/ingredients/manage/edit/${ingredient.id}`)}>
-                                                        แก้ไข
-                                                    </Button>
-                                                    <Button danger icon={<DeleteOutlined />} onClick={() => handleDelete(ingredient)}>
-                                                        ลบ
-                                                    </Button>
+                                                    {canUpdate ? (
+                                                        <Button icon={<EditOutlined />} onClick={() => router.push(`/stock/ingredients/manage/edit/${ingredient.id}`)}>
+                                                            แก้ไข
+                                                        </Button>
+                                                    ) : null}
+                                                    {canDelete ? (
+                                                        <Button danger icon={<DeleteOutlined />} onClick={() => handleDelete(ingredient)}>
+                                                            ลบ
+                                                        </Button>
+                                                    ) : null}
                                                 </div>
                                             </Col>
                                         </Row>

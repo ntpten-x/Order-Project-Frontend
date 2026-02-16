@@ -37,6 +37,7 @@ import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
 import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
 import { SearchInput } from "../../../../components/ui/input/SearchInput";
 import { SearchBar } from "../../../../components/ui/page/SearchBar";
+import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
 
 const { Text } = Typography;
 
@@ -72,13 +73,15 @@ const formatDate = (raw?: string) => {
 
 interface PaymentMethodCardProps {
     paymentMethod: PaymentMethod;
+    canUpdate: boolean;
+    canDelete: boolean;
     onEdit: (paymentMethod: PaymentMethod) => void;
     onDelete: (paymentMethod: PaymentMethod) => void;
     onToggleActive: (paymentMethod: PaymentMethod, next: boolean) => void;
     updatingStatusId: string | null;
 }
 
-const PaymentMethodCard = ({ paymentMethod, onEdit, onDelete, onToggleActive, updatingStatusId }: PaymentMethodCardProps) => {
+const PaymentMethodCard = ({ paymentMethod, canUpdate, canDelete, onEdit, onDelete, onToggleActive, updatingStatusId }: PaymentMethodCardProps) => {
     const icon = getPaymentIcon(paymentMethod.payment_method_name);
 
     return (
@@ -88,7 +91,10 @@ const PaymentMethodCard = ({ paymentMethod, onEdit, onDelete, onToggleActive, up
                 ...pageStyles.paymentMethodCard(paymentMethod.is_active),
                 borderRadius: 16,
             }}
-            onClick={() => onEdit(paymentMethod)}
+            onClick={() => {
+                if (!canUpdate) return;
+                onEdit(paymentMethod);
+            }}
         >
             <div style={pageStyles.paymentMethodCardInner}>
                 <div style={{
@@ -129,41 +135,46 @@ const PaymentMethodCard = ({ paymentMethod, onEdit, onDelete, onToggleActive, up
                         size="small"
                         checked={paymentMethod.is_active}
                         loading={updatingStatusId === paymentMethod.id}
+                        disabled={!canUpdate}
                         onClick={(checked, event) => {
                             event?.stopPropagation();
                             onToggleActive(paymentMethod, checked);
                         }}
                     />
-                    <Button
-                        type="text"
-                        icon={<EditOutlined />}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit(paymentMethod);
-                        }}
-                        style={{
-                            borderRadius: 10,
-                            color: '#065f46',
-                            background: '#ecfdf5',
-                            width: 36,
-                            height: 36
-                        }}
-                    />
-                    <Button
-                        type="text"
-                        danger
-                        icon={<DeleteOutlined />}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(paymentMethod);
-                        }}
-                        style={{
-                            borderRadius: 10,
-                            background: '#fef2f2',
-                            width: 36,
-                            height: 36
-                        }}
-                    />
+                    {canUpdate ? (
+                        <Button
+                            type="text"
+                            icon={<EditOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit(paymentMethod);
+                            }}
+                            style={{
+                                borderRadius: 10,
+                                color: '#065f46',
+                                background: '#ecfdf5',
+                                width: 36,
+                                height: 36
+                            }}
+                        />
+                    ) : null}
+                    {canDelete ? (
+                        <Button
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete(paymentMethod);
+                            }}
+                            style={{
+                                borderRadius: 10,
+                                background: '#fef2f2',
+                                width: 36,
+                                height: 36
+                            }}
+                        />
+                    ) : null}
                 </div>
             </div>
         </div>
@@ -187,7 +198,11 @@ export default function PaymentMethodPage() {
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard();
+    const { isAuthorized, isChecking, user } = useRoleGuard();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canCreatePaymentMethods = can("payment_method.page", "create");
+    const canUpdatePaymentMethods = can("payment_method.page", "update");
+    const canDeletePaymentMethods = can("payment_method.page", "delete");
 
     useEffect(() => {
         getCsrfTokenCached();
@@ -275,16 +290,28 @@ export default function PaymentMethodPage() {
     }, [paymentMethods, statusFilter]);
 
     const handleAdd = () => {
+        if (!canCreatePaymentMethods) {
+            message.error('คุณไม่มีสิทธิ์เพิ่มวิธีการชำระเงิน');
+            return;
+        }
         showLoading('กำลังเปิดหน้าจัดการวิธีการชำระเงิน...');
         router.push('/pos/paymentMethod/manager/add');
     };
 
     const handleEdit = (paymentMethod: PaymentMethod) => {
+        if (!canUpdatePaymentMethods) {
+            message.error('คุณไม่มีสิทธิ์แก้ไขวิธีการชำระเงิน');
+            return;
+        }
         showLoading('กำลังเปิดหน้าแก้ไขวิธีการชำระเงิน...');
         router.push(`/pos/paymentMethod/manager/edit/${paymentMethod.id}`);
     };
 
     const handleDelete = (paymentMethod: PaymentMethod) => {
+        if (!canDeletePaymentMethods) {
+            message.error('คุณไม่มีสิทธิ์ลบวิธีการชำระเงิน');
+            return;
+        }
         Modal.confirm({
             title: 'ยืนยันการลบวิธีการชำระเงิน',
             content: `คุณต้องการลบวิธีการชำระเงิน "${paymentMethod.display_name}" หรือไม่?`,
@@ -342,7 +369,7 @@ export default function PaymentMethodPage() {
         }
     };
 
-    if (isChecking) {
+    if (isChecking || permissionLoading) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
     }
 
@@ -364,7 +391,7 @@ export default function PaymentMethodPage() {
                 actions={
                     <Space size={8} wrap>
                         <Button icon={<ReloadOutlined />} onClick={fetchPaymentMethods} />
-                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} disabled={!canCreatePaymentMethods}>
                             เพิ่มวิธีชำระเงิน
                         </Button>
                     </Space>
@@ -413,6 +440,8 @@ export default function PaymentMethodPage() {
                                     <PaymentMethodCard
                                         key={paymentMethod.id}
                                         paymentMethod={paymentMethod}
+                                        canUpdate={canUpdatePaymentMethods}
+                                        canDelete={canDeletePaymentMethods}
                                         onEdit={handleEdit}
                                         onDelete={handleDelete}
                                         onToggleActive={handleToggleActive}
@@ -448,7 +477,7 @@ export default function PaymentMethodPage() {
                                 }
                                 action={
                                     !searchValue.trim() ? (
-                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} disabled={!canCreatePaymentMethods}>
                                             เพิ่มวิธีชำระเงิน
                                         </Button>
                                     ) : null

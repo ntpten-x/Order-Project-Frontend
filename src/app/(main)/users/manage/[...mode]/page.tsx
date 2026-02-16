@@ -22,6 +22,7 @@ import PageSection from "../../../../../components/ui/page/PageSection";
 import UIPageHeader from "../../../../../components/ui/page/PageHeader";
 import { t } from "../../../../../utils/i18n";
 import { AccessGuardFallback } from "../../../../../components/pos/AccessGuard";
+import { getCsrfTokenCached } from "../../../../../utils/pos/csrf";
 
 export default function UserManagePage({ params }: { params: { mode: string[] } }) {
   const router = useRouter();
@@ -32,6 +33,9 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   const canCreateUsers = can("users.page", "create");
   const canUpdateUsers = can("users.page", "update");
   const canDeleteUsers = can("users.page", "delete");
+  const isAdminUser = user?.role?.toLowerCase?.() === "admin";
+  // Backend policy: delete is admin-only even if permissions are mistakenly widened.
+  const canDeleteUsersEffective = Boolean(isAdminUser && canDeleteUsers);
   const canManageRoles = can("roles.page", "view") || can("roles.page", "update");
   const canManageBranches = can("branches.page", "view") || can("branches.page", "update");
   const userPermission = rows.find((row) => row.resourceKey === "users.page");
@@ -40,7 +44,6 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   const [submitting, setSubmitting] = useState(false);
   const [roles, setRoles] = useState<Role[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [csrfToken, setCsrfToken] = useState<string>("");
   
   // Modal Visibility State
   const [roleModalVisible, setRoleModalVisible] = useState(false);
@@ -65,11 +68,8 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   }, [canSubmit, canViewUsers, permissionLoading]);
 
   useEffect(() => {
-    const fetchCsrf = async () => {
-        const token = await authService.getCsrfToken();
-        setCsrfToken(token);
-    };
-    fetchCsrf();
+    // Warm CSRF cache for faster first mutation.
+    void getCsrfTokenCached().catch(() => undefined);
   }, []);
 
   const fetchRoles = useCallback(async () => {
@@ -122,10 +122,11 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
       // Backend appears to scope some operations by active admin branch (httpOnly cookie).
       // Ensure it matches what admin selected in this form to avoid always-defaulting to main branch.
       if (user?.role !== "Admin") return;
+      const csrfToken = await getCsrfTokenCached();
       await authService.switchBranch(branchId, csrfToken);
       window.dispatchEvent(new CustomEvent("active-branch-changed", { detail: { activeBranchId: branchId } }));
     },
-    [csrfToken, user?.role]
+    [user?.role]
   );
 
   useEffect(() => {
@@ -189,6 +190,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
           }
         }
 
+        const csrfToken = await getCsrfTokenCached();
         await userService.updateUser(userId, payload, undefined, csrfToken);
         message.success(t("users.manage.updateSuccess"));
       } else {
@@ -198,6 +200,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
           delete payload.roles_id;
           delete payload.branch_id;
         }
+        const csrfToken = await getCsrfTokenCached();
         await userService.createUser(payload, undefined, csrfToken);
         message.success(t("users.manage.createSuccess"));
       }
@@ -212,11 +215,12 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
 
   const handleDelete = async () => {
     if (!userId) return;
-    if (!canDeleteUsers) {
+    if (!canDeleteUsersEffective) {
       message.error("You do not have permission to delete users.");
       return;
     }
     try {
+      const csrfToken = await getCsrfTokenCached();
       await userService.deleteUser(userId, undefined, csrfToken);
       message.success(t("users.manage.deleteSuccess"));
       router.push('/users');
@@ -268,7 +272,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
             <Title level={2} style={{ margin: 0 }}>
                 {isEdit ? t("users.manage.headingEdit") : t("users.manage.headingCreate")}
             </Title>
-            {isEdit && canDeleteUsers && (
+            {isEdit && canDeleteUsersEffective && (
                 <Popconfirm
                     title={t("users.manage.deleteTitle")}
                     description={t("users.manage.deleteDescription")}

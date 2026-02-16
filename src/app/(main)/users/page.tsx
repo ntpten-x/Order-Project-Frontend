@@ -30,7 +30,6 @@ import { useAsyncAction } from '../../../hooks/useAsyncAction';
 import { useGlobalLoading } from '../../../contexts/pos/GlobalLoadingContext';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../../hooks/useEffectivePermissions';
-import { authService } from '../../../services/auth.service';
 import { userService } from '../../../services/users.service';
 import { RealtimeEvents } from '../../../utils/realtimeEvents';
 import { useDebouncedValue } from '../../../utils/useDebouncedValue';
@@ -46,6 +45,8 @@ import { ModalSelector } from '../../../components/ui/select/ModalSelector';
 import { StatsGroup } from '../../../components/ui/card/StatsGroup';
 import { SearchInput } from '../../../components/ui/input/SearchInput';
 import { SearchBar } from '../../../components/ui/page/SearchBar';
+import { useRealtimeRefresh } from '../../../utils/pos/realtime';
+import { getCsrfTokenCached } from '../../../utils/pos/csrf';
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -217,7 +218,6 @@ export default function UsersPage() {
     const isUrlReadyRef = useRef(false);
 
     const [users, setUsers] = useState<User[]>([]);
-    const [csrfToken, setCsrfToken] = useState('');
     const [searchValue, setSearchValue] = useState('');
     const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
     const [roleFilter, setRoleFilter] = useState<string>('all');
@@ -272,6 +272,8 @@ export default function UsersPage() {
     const canUpdateUsers = can('users.page', 'update');
     const canDeleteUsers = can('users.page', 'delete');
     const isAdminUser = user?.role?.toLowerCase?.() === 'admin';
+    // Backend policy: delete is admin-only even if permissions are mistakenly widened.
+    const canDeleteUsersEffective = Boolean(isAdminUser && canDeleteUsers);
 
     const fetchUsers = useCallback(async (nextPage: number = page, nextPageSize: number = pageSize) => {
         setIsFetching(true);
@@ -297,12 +299,8 @@ export default function UsersPage() {
     }, [execute, page, pageSize, debouncedSearch, roleFilter, statusFilter, createdSort]);
 
     useEffect(() => {
-        const fetchCsrf = async () => {
-            const token = await authService.getCsrfToken();
-            setCsrfToken(token);
-        };
-
-        fetchCsrf();
+        // Warm CSRF cache for faster first mutation.
+        void getCsrfTokenCached().catch(() => undefined);
     }, []);
 
     const unauthorizedNotifiedRef = useRef(false);
@@ -327,33 +325,21 @@ export default function UsersPage() {
         }
     }, [authLoading, canViewUsers, fetchUsers, page, pageSize]);
 
-    useEffect(() => {
-        if (!socket) return;
-
-        socket.on(RealtimeEvents.users.create, (newUser: User) => {
-            setUsers((prevUsers) => [...prevUsers, newUser]);
-            message.success(`ผู้ใช้ใหม่ ${newUser.name || newUser.username} ถูกเพิ่มแล้ว`);
-        });
-
-        socket.on(RealtimeEvents.users.update, (updatedUser: User) => {
-            setUsers((prevUsers) => prevUsers.map((item) => (item.id === updatedUser.id ? updatedUser : item)));
-        });
-
-        socket.on(RealtimeEvents.users.delete, ({ id }: { id: string }) => {
-            setUsers((prevUsers) => prevUsers.filter((item) => item.id !== id));
-        });
-
-        socket.on(RealtimeEvents.users.status, ({ id, is_active }: { id: string; is_active: boolean }) => {
-            setUsers((prevUsers) => prevUsers.map((item) => (item.id === id ? { ...item, is_active } : item)));
-        });
-
-        return () => {
-            socket.off(RealtimeEvents.users.create);
-            socket.off(RealtimeEvents.users.update);
-            socket.off(RealtimeEvents.users.delete);
-            socket.off(RealtimeEvents.users.status);
-        };
-    }, [socket]);
+    useRealtimeRefresh({
+        socket,
+        enabled: Boolean(socket && canViewUsers),
+        // Users list is paginated; local patching can desync totals/order, so refetch instead.
+        events: [
+            RealtimeEvents.users.create,
+            RealtimeEvents.users.update,
+            RealtimeEvents.users.delete,
+            RealtimeEvents.users.status,
+        ],
+        onRefresh: async () => {
+            await fetchUsers(page, pageSize);
+        },
+        debounceMs: 400,
+    });
 
     const roleOptions = useMemo(() => {
         const roleMap = new Map<string, string>();
@@ -406,7 +392,7 @@ export default function UsersPage() {
     };
 
     const handleDelete = (userToDelete: User) => {
-        if (!canDeleteUsers) {
+        if (!canDeleteUsersEffective) {
             message.error('คุณไม่มีสิทธิ์ลบผู้ใช้');
             return;
         }
@@ -419,7 +405,8 @@ export default function UsersPage() {
             cancelText: 'ยกเลิก',
             centered: true,
             onOk: async () => {
-                await execute(async () => {
+                    await execute(async () => {
+                    const csrfToken = await getCsrfTokenCached();
                     await userService.deleteUser(userToDelete.id, undefined, csrfToken);
                     message.success(`ลบผู้ใช้ "${userToDelete.name || userToDelete.username}" สำเร็จ`);
                     await fetchUsers(page, pageSize);
@@ -570,7 +557,7 @@ export default function UsersPage() {
                                         key={item.id}
                                         user={item}
                                         canUpdateUsers={canUpdateUsers}
-                                        canDeleteUsers={canDeleteUsers}
+                                        canDeleteUsers={canDeleteUsersEffective}
                                         onEdit={handleEdit}
                                         onDelete={handleDelete}
                                     />
