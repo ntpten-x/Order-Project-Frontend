@@ -398,6 +398,8 @@ export default function StockBuyingPage() {
                                 onChange={(value) => setActualQuantity(item.ingredient_id, value)}
                                 disabled={!item.is_purchased}
                                 style={{ width: "100%" }}
+                                formatter={(value) => `${value}`.replace(/[^0-9.]/g, "")}
+                                parser={(value) => value?.replace(/[^0-9.]/g, "") as unknown as number}
                               />
                             </Col>
                             <Col xs={24} md={4}>

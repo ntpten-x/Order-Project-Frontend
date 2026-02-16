@@ -484,6 +484,8 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
                                                     placeholder={discountType === DiscountType.Fixed ? 'เช่น 50.00' : 'เช่น 10'}
                                                     style={{ width: '100%' }}
                                                     controls={false}
+                                                    formatter={(value) => `${value}`.replace(/[^0-9.]/g, "")}
+                                                    parser={(value) => value?.replace(/[^0-9.]/g, "") as unknown as number}
                                                 />
                                             </Form.Item>
                                         </div>

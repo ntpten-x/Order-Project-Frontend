@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -94,6 +94,7 @@ export default function AuditPage() {
     const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
     const debouncedSearch = useDebouncedValue(search, 300);
     const debouncedEntityType = useDebouncedValue(entityType ?? "", 300);
+    const SHIFT_PREVIEW_ACTION = AuditActionType.SHIFT_CLOSE_PREVIEW;
 
     const startDateIso = useMemo(
         () => (dateRange?.[0] ? dateRange[0].startOf("day").toISOString() : undefined),
@@ -207,7 +208,7 @@ export default function AuditPage() {
             const json = await response.json().catch(() => ({}));
             if (!response.ok) {
                 const errorMessage = (json as { error?: string }).error;
-                throw new Error(errorMessage || "โหลดข้อมูล Audit ไม่สำเร็จ");
+                throw new Error(errorMessage || "เนเธซเธฅเธ”เธเนเธญเธกเธนเธฅ Audit เนเธกเนเธชเธณเน€เธฃเนเธ");
             }
             const payload = json as AuditResponse;
             const normalized = {
@@ -228,19 +229,19 @@ export default function AuditPage() {
 
     useEffect(() => {
         if (auditQuery.error) {
-            message.error(auditQuery.error.message || "ไม่สามารถโหลดข้อมูล Audit");
+            message.error(auditQuery.error.message || "เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เนเธซเธฅเธ”เธเนเธญเธกเธนเธฅ Audit");
         }
     }, [auditQuery.error]);
 
     const columns: ColumnsType<AuditLog> = [
         {
-            title: "เวลา",
+            title: "เน€เธงเธฅเธฒ",
             dataIndex: "created_at",
             width: 170,
             render: (value: Date) => dayjs(value).format("DD MMM YYYY HH:mm"),
         },
         {
-            title: "การกระทำ",
+            title: "เธเธฒเธฃเธเธฃเธฐเธ—เธณ",
             dataIndex: "action_type",
             width: 180,
             render: (val: AuditActionType) => (
@@ -250,24 +251,24 @@ export default function AuditPage() {
             ),
         },
         {
-            title: "ผู้ใช้",
+            title: "เธเธนเนเนเธเน",
             dataIndex: "username",
             width: 140,
             render: (val: string, record) => (
                 <Space direction="vertical" size={0}>
-                    <Text strong>{val || "ไม่ระบุ"}</Text>
+                    <Text strong>{val || "เนเธกเนเธฃเธฐเธเธธ"}</Text>
                     {record.user_id && <Text type="secondary">{record.user_id.slice(0, 8)}</Text>}
                 </Space>
             ),
         },
         {
-            title: "สาขา",
+            title: "เธชเธฒเธเธฒ",
             dataIndex: "branch_id",
             width: 140,
             render: (val: string | null | undefined) => val ? <Tag color="blue">{val.slice(0, 8)}</Tag> : "-",
         },
         {
-            title: "เป้าหมาย",
+            title: "เน€เธเนเธฒเธซเธกเธฒเธข",
             dataIndex: "entity_type",
             width: 180,
             render: (_: string, record) => (
@@ -282,7 +283,7 @@ export default function AuditPage() {
             ),
         },
         {
-            title: "รายละเอียด",
+            title: "เธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”",
             dataIndex: "description",
             ellipsis: true,
             render: (val: string | null | undefined) =>
@@ -295,7 +296,7 @@ export default function AuditPage() {
                 ),
         },
         {
-            title: "เส้นทาง",
+            title: "เน€เธชเนเธเธ—เธฒเธ",
             dataIndex: "path",
             width: 220,
             render: (_: string, record) => (
@@ -334,9 +335,9 @@ export default function AuditPage() {
                     type="link"
                     icon={<EyeOutlined />}
                     onClick={() => setSelectedLog(record)}
-                    aria-label="ดูรายละเอียด"
+                    aria-label="เธ”เธนเธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”"
                 >
-                    ดู
+                    เธ”เธน
                 </Button>
             ),
         },
@@ -353,13 +354,20 @@ export default function AuditPage() {
         setPageSize(20);
     };
 
+    const isShiftPreviewQuickFilterActive = actionType === SHIFT_PREVIEW_ACTION;
+
+    const toggleShiftPreviewQuickFilter = () => {
+        setPage(1);
+        setActionType((prev) => (prev === SHIFT_PREVIEW_ACTION ? undefined : SHIFT_PREVIEW_ACTION));
+    };
+
     const copyId = async (id?: string) => {
         if (!id || typeof navigator === "undefined" || !navigator.clipboard) return;
         try {
             await navigator.clipboard.writeText(id);
-            message.success("คัดลอก ID แล้ว");
+            message.success("เธเธฑเธ”เธฅเธญเธ ID เนเธฅเนเธง");
         } catch {
-            message.error("คัดลอกไม่สำเร็จ");
+            message.error("เธเธฑเธ”เธฅเธญเธเนเธกเนเธชเธณเน€เธฃเนเธ");
         }
     };
 
@@ -377,15 +385,15 @@ export default function AuditPage() {
 
             <UIPageHeader
                 title="Audit Logs"
-                subtitle="ติดตามทุกการเปลี่ยนแปลงของระบบแบบละเอียด"
+                subtitle="เธ•เธดเธ”เธ•เธฒเธกเธ—เธธเธเธเธฒเธฃเน€เธเธฅเธตเนเธขเธเนเธเธฅเธเธเธญเธเธฃเธฐเธเธเนเธเธเธฅเธฐเน€เธญเธตเธขเธ”"
                 icon={<SafetyCertificateOutlined />}
                 actions={
                     <Space>
                         <Button icon={<ReloadOutlined />} onClick={() => auditQuery.refetch()} loading={auditQuery.isFetching}>
-                            รีเฟรช
+                            เธฃเธตเน€เธเธฃเธ
                         </Button>
                         <Button icon={<FilterOutlined />} onClick={handleResetFilters} disabled={filtersActive === 0}>
-                            ล้างตัวกรอง
+                            เธฅเนเธฒเธเธ•เธฑเธงเธเธฃเธญเธ
                         </Button>
                     </Space>
                 }
@@ -395,23 +403,42 @@ export default function AuditPage() {
                 <PageContainer>
                     <StatsCard total={total} currentPage={logs.length} filtersActive={filtersActive} />
 
-                    <SearchBar 
-                        search={search} 
-                        onSearchChange={setSearch} 
-                        filtersActive={filtersActive} 
-                        onReset={handleResetFilters} 
-                        onRefresh={() => auditQuery.refetch()} 
-                        loading={auditQuery.isFetching} 
+                    <SearchBar
+                        search={search}
+                        onSearchChange={setSearch}
+                        filtersActive={filtersActive}
+                        onReset={handleResetFilters}
+                        onRefresh={() => auditQuery.refetch()}
+                        loading={auditQuery.isFetching}
                     />
 
-                    <PageSection title="ตัวกรองเพิ่มเติม" extra={<Text type="secondary">เลือกเงื่อนไขเพื่อความแม่นยำ</Text>}>
+                    <Card style={{ borderRadius: 14, marginBottom: 16 }} bodyStyle={{ padding: 12 }}>
+                        <Space size={8} wrap>
+                            <Text type="secondary" style={{ fontSize: 13 }}>คัดกรองด่วน:</Text>
+                            <Button
+                                size="small"
+                                icon={<FilterOutlined />}
+                                type={isShiftPreviewQuickFilterActive ? "primary" : "default"}
+                                onClick={toggleShiftPreviewQuickFilter}
+                                style={{ borderRadius: 999, fontWeight: 600 }}
+                            >
+                                SHIFT_CLOSE_PREVIEW
+                            </Button>
+                            {isShiftPreviewQuickFilterActive ? (
+                                <Text type="secondary" style={{ fontSize: 12 }}>
+                                    แสดงเฉพาะ log การพรีวิวปิดกะก่อนยืนยันจริง
+                                </Text>
+                            ) : null}
+                        </Space>
+                    </Card>
+                    <PageSection title="เธ•เธฑเธงเธเธฃเธญเธเน€เธเธดเนเธกเน€เธ•เธดเธก" extra={<Text type="secondary">เน€เธฅเธทเธญเธเน€เธเธทเนเธญเธเนเธเน€เธเธทเนเธญเธเธงเธฒเธกเนเธกเนเธเธขเธณ</Text>}>
                         <Card style={{ borderRadius: 16, marginBottom: 20 }} bodyStyle={{ padding: 16 }}>
                             <Space size={12} wrap>
                                 <div style={{ width: 220 }}>
                                     <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Action Type</Text>
                                     <ModalSelector
-                                        title="เลือกประเภทการกระทำ"
-                                        placeholder="ประเภทการกระทำ"
+                                        title="เน€เธฅเธทเธญเธเธเธฃเธฐเน€เธ เธ—เธเธฒเธฃเธเธฃเธฐเธ—เธณ"
+                                        placeholder="เธเธฃเธฐเน€เธ เธ—เธเธฒเธฃเธเธฃเธฐเธ—เธณ"
                                         value={actionType}
                                         options={actionOptions}
                                         onChange={(val) => {
@@ -425,7 +452,7 @@ export default function AuditPage() {
                                     <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>Entity Type</Text>
                                     <Input
                                         allowClear
-                                        placeholder="เช่น Users, Orders"
+                                        placeholder="เน€เธเนเธ Users, Orders"
                                         value={entityType}
                                         onChange={(e) => {
                                             setPage(1);
@@ -435,7 +462,7 @@ export default function AuditPage() {
                                     />
                                 </div>
                                 <div style={{ width: 280 }}>
-                                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>ช่วงเวลา</Text>
+                                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>เธเนเธงเธเน€เธงเธฅเธฒ</Text>
                                     <RangePicker
                                         allowClear
                                         value={dateRange}
@@ -447,13 +474,13 @@ export default function AuditPage() {
                                     />
                                 </div>
                                 <div style={{ width: 140 }}>
-                                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>เรียงลำดับ</Text>
+                                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>เน€เธฃเธตเธขเธเธฅเธณเธ”เธฑเธ</Text>
                                     <ModalSelector<CreatedSort>
-                                        title="เลือกการเรียงลำดับ"
+                                        title="เน€เธฅเธทเธญเธเธเธฒเธฃเน€เธฃเธตเธขเธเธฅเธณเธ”เธฑเธ"
                                         value={createdSort}
                                         options={[
-                                            { label: "เก่าก่อน", value: "old" },
-                                            { label: "ใหม่ก่อน", value: "new" },
+                                            { label: "เน€เธเนเธฒเธเนเธญเธ", value: "old" },
+                                            { label: "เนเธซเธกเนเธเนเธญเธ", value: "new" },
                                         ]}
                                         onChange={(val) => {
                                             setPage(1);
@@ -463,10 +490,10 @@ export default function AuditPage() {
                                 </div>
                                 {canViewBranches && (
                                     <div style={{ width: 220 }}>
-                                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>สาขา</Text>
+                                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>เธชเธฒเธเธฒ</Text>
                                         <ModalSelector
-                                            title="เลือกสาขา"
-                                            placeholder="เลือกสาขา"
+                                            title="เน€เธฅเธทเธญเธเธชเธฒเธเธฒ"
+                                            placeholder="เน€เธฅเธทเธญเธเธชเธฒเธเธฒ"
                                             loading={branchQuery.isLoading}
                                             value={branchFilter}
                                             options={branchQuery.data?.map((b) => ({
@@ -485,7 +512,7 @@ export default function AuditPage() {
                         </Card>
                     </PageSection>
 
-                <PageSection title="รายการ Audit">
+                <PageSection title="เธฃเธฒเธขเธเธฒเธฃ Audit">
                     <Card style={pageStyles.tableCard} bodyStyle={{ padding: 0 }}>
                         <Table<AuditLog>
                             className="audit-table"
@@ -499,7 +526,7 @@ export default function AuditPage() {
                                 pageSize,
                                 total,
                                 showSizeChanger: true,
-                                showTotal: (t) => `ทั้งหมด ${t} รายการ`,
+                                showTotal: (t) => `เธ—เธฑเนเธเธซเธกเธ” ${t} เธฃเธฒเธขเธเธฒเธฃ`,
                                 onChange: (p, s) => {
                                     setPage(p);
                                     setPageSize(s);
@@ -510,9 +537,9 @@ export default function AuditPage() {
                                     <Empty
                                         description={
                                             <Space direction="vertical" size={4}>
-                                                <Text strong>ยังไม่มีข้อมูลที่ตรงเงื่อนไข</Text>
+                                                <Text strong>เธขเธฑเธเนเธกเนเธกเธตเธเนเธญเธกเธนเธฅเธ—เธตเนเธ•เธฃเธเน€เธเธทเนเธญเธเนเธ</Text>
                                                 <Text type="secondary" style={{ fontSize: 12 }}>
-                                                    ลองล้างตัวกรองหรือปรับช่วงเวลา
+                                                    เธฅเธญเธเธฅเนเธฒเธเธ•เธฑเธงเธเธฃเธญเธเธซเธฃเธทเธญเธเธฃเธฑเธเธเนเธงเธเน€เธงเธฅเธฒ
                                                 </Text>
                                             </Space>
                                         }
@@ -530,7 +557,7 @@ export default function AuditPage() {
                 title={
                     <Space align="center">
                         <SafetyCertificateOutlined />
-                        <span>รายละเอียด Audit</span>
+                        <span>เธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ” Audit</span>
                     </Space>
                 }
                 open={!!selectedLog}
@@ -549,23 +576,23 @@ export default function AuditPage() {
                                 icon={<CopyOutlined />}
                                 onClick={() => copyId(selectedLog.id)}
                             >
-                                คัดลอก ID
+                                เธเธฑเธ”เธฅเธญเธ ID
                             </Button>
                         </Space>
 
                         <Descriptions size="small" column={1} bordered>
-                            <Descriptions.Item label="ผู้ใช้งาน">
-                                {selectedLog.username || "ไม่ระบุ"}{" "}
+                            <Descriptions.Item label="เธเธนเนเนเธเนเธเธฒเธ">
+                                {selectedLog.username || "เนเธกเนเธฃเธฐเธเธธ"}{" "}
                                 {selectedLog.user_id && <Text type="secondary">({selectedLog.user_id})</Text>}
                             </Descriptions.Item>
-                            <Descriptions.Item label="สาขา">
-                                {selectedLog.branch_id || "ไม่ระบุ"}
+                            <Descriptions.Item label="เธชเธฒเธเธฒ">
+                                {selectedLog.branch_id || "เนเธกเนเธฃเธฐเธเธธ"}
                             </Descriptions.Item>
-                            <Descriptions.Item label="เป้าหมาย">
+                            <Descriptions.Item label="เน€เธเนเธฒเธซเธกเธฒเธข">
                                 {selectedLog.entity_type || "-"}{" "}
                                 {selectedLog.entity_id && <Text type="secondary">({selectedLog.entity_id})</Text>}
                             </Descriptions.Item>
-                            <Descriptions.Item label="เส้นทาง">
+                            <Descriptions.Item label="เน€เธชเนเธเธ—เธฒเธ">
                                 <Space size={8}>
                                     {selectedLog.method && <Tag color="cyan">{selectedLog.method}</Tag>}
                                     <Text>{selectedLog.path || "-"}</Text>
@@ -581,28 +608,28 @@ export default function AuditPage() {
                                     )}
                                 </Space>
                             </Descriptions.Item>
-                            <Descriptions.Item label="รายละเอียดเพิ่มเติม">
+                            <Descriptions.Item label="เธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”เน€เธเธดเนเธกเน€เธ•เธดเธก">
                                 {selectedLog.description || "-"}
                             </Descriptions.Item>
                         </Descriptions>
 
-                        <Divider>ค่าที่เปลี่ยนแปลง</Divider>
-                        <Card size="small" title="ข้อมูลก่อน" bodyStyle={{ padding: 12 }} bordered>
+                        <Divider>เธเนเธฒเธ—เธตเนเน€เธเธฅเธตเนเธขเธเนเธเธฅเธ</Divider>
+                        <Card size="small" title="เธเนเธญเธกเธนเธฅเธเนเธญเธ" bodyStyle={{ padding: 12 }} bordered>
                             {selectedLog.old_values ? (
                                 <pre style={pageStyles.jsonBlock}>
 {JSON.stringify(selectedLog.old_values, null, 2)}
                                 </pre>
                             ) : (
-                                <Text type="secondary">ไม่มีข้อมูลก่อนหน้า</Text>
+                                <Text type="secondary">เนเธกเนเธกเธตเธเนเธญเธกเธนเธฅเธเนเธญเธเธซเธเนเธฒ</Text>
                             )}
                         </Card>
-                        <Card size="small" title="ข้อมูลหลัง" bodyStyle={{ padding: 12 }} bordered>
+                        <Card size="small" title="เธเนเธญเธกเธนเธฅเธซเธฅเธฑเธ" bodyStyle={{ padding: 12 }} bordered>
                             {selectedLog.new_values ? (
                                 <pre style={pageStyles.jsonBlock}>
 {JSON.stringify(selectedLog.new_values, null, 2)}
                                 </pre>
                             ) : (
-                                <Text type="secondary">ไม่มีข้อมูลใหม่</Text>
+                                <Text type="secondary">เนเธกเนเธกเธตเธเนเธญเธกเธนเธฅเนเธซเธกเน</Text>
                             )}
                         </Card>
                     </Space>
@@ -611,3 +638,4 @@ export default function AuditPage() {
         </div>
     );
 }
+

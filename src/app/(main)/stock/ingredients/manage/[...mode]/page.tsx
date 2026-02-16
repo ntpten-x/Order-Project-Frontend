@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
-import { Button, Form, Input, message, Modal, Select, Spin, Switch } from 'antd';
+import { Button, Form, Input, message, Modal, Spin, Switch } from 'antd';
 import { useRouter } from 'next/navigation';
 import { IngredientsUnit } from '../../../../../../types/api/stock/ingredientsUnit';
 import { useAuth } from '../../../../../../contexts/AuthContext';
@@ -16,9 +16,10 @@ import {
 const { TextArea } = Input;
 
 import { authService } from '../../../../../../services/auth.service';
-import PageContainer from "../../../../../../components/ui/page/PageContainer";
-import PageSection from "../../../../../../components/ui/page/PageSection";
 import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
+import { ModalSelector } from "../../../../../../components/ui/select/ModalSelector";
+import PageContainer from '@/components/ui/page/PageContainer';
+import PageSection from '@/components/ui/page/PageSection';
 
 export default function IngredientsManagePage({ params }: { params: { mode: string[] } }) {
     const router = useRouter();
@@ -32,6 +33,8 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
     const [imageUrl, setImageUrl] = useState<string>('');
     const [displayName, setDisplayName] = useState<string>('');
     const [csrfToken, setCsrfToken] = useState<string>("");
+
+    const selectedUnitId = Form.useWatch('unit_id', form);
 
     const mode = params.mode[0];
     const id = params.mode[1] || null;
@@ -238,23 +241,32 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
 
                                 <Form.Item
                                     name="unit_id"
-                                    label="หน่วยวัตถุดิบ *"
+                                    label={<span style={{ fontWeight: 600, color: '#334155' }}>หน่วยวัตถุดิบ *</span>}
                                     rules={[{ required: true, message: 'กรุณาเลือกหน่วยวัตถุดิบ' }]}
                                 >
-                                    <Select
-                                        size="large"
-                                        placeholder="เลือกหน่วย"
+                                    <ModalSelector
+                                        title="เลือกหน่วยวัตถุดิบ"
+                                        value={selectedUnitId}
+                                        onChange={(value) => form.setFieldsValue({ unit_id: value })}
+                                        options={units.map((unit) => ({
+                                            label: `${unit.display_name} (${unit.unit_name})`,
+                                            value: unit.id,
+                                        }))}
+                                        placeholder="เลือกหน่วยสินค้า"
                                         showSearch
-                                        dropdownMatchSelectWidth
-                                        getPopupContainer={(trigger) => trigger?.parentElement || document.body}
-                                        optionFilterProp="children"
-                                    >
-                                        {units.map((unit) => (
-                                            <Select.Option key={unit.id} value={unit.id}>
-                                                {unit.display_name} ({unit.unit_name})
-                                            </Select.Option>
-                                        ))}
-                                    </Select>
+                                        style={{
+                                            padding: '10px 16px',
+                                            borderRadius: 12,
+                                            border: '2px solid',
+                                            cursor: 'pointer',
+                                            background: selectedUnitId ? 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)' : '#fff',
+                                            borderColor: selectedUnitId ? '#4F46E5' : '#e2e8f0',
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            minHeight: 46
+                                        }}
+                                    />
                                 </Form.Item>
 
                                 <Form.Item name="img_url" label="รูปภาพ URL">

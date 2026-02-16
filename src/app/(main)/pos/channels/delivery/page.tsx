@@ -44,6 +44,8 @@ function DeliverySelectionPageContent() {
     const { showLoading, hideLoading } = useGlobalLoading();
     const { deliveryProviders, isLoading: isLoadingProviders, isError: deliveryError, mutate: refetchProviders } = useDelivery();
     const { orders, isLoading } = useChannelOrders({ orderType: OrderType.Delivery });
+    const loadingKey = "pos:channels:delivery";
+    const navigateLoadingKey = "pos:channels:delivery:navigate";
     const [isModalOpen, setIsModalOpen] = useState(false);
     const { user } = useAuth();
     const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
@@ -60,11 +62,15 @@ function DeliverySelectionPageContent() {
 
     useEffect(() => {
         if (isLoading || isLoadingProviders) {
-            showLoading(t("delivery.loadingOrders"));
+            showLoading(t("delivery.loadingOrders"), loadingKey);
         } else {
-            hideLoading();
+            hideLoading(loadingKey);
         }
-    }, [isLoading, isLoadingProviders, showLoading, hideLoading]);
+        return () => {
+            hideLoading(loadingKey);
+            hideLoading(navigateLoadingKey);
+        };
+    }, [isLoading, isLoadingProviders, showLoading, hideLoading, loadingKey, navigateLoadingKey]);
 
     const handleBack = () => {
         router.push('/pos/channels');
@@ -99,7 +105,7 @@ function DeliverySelectionPageContent() {
             return;
         }
 
-        showLoading("กำลังเข้าสู่หน้าออเดอร์...");
+        showLoading("กำลังเข้าสู่หน้าออเดอร์...", navigateLoadingKey);
 
         let finalCode = deliveryCode.trim();
         if (selectedProvider?.delivery_prefix) {

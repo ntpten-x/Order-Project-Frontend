@@ -18,6 +18,7 @@ import { orderDetailColors, modalStyles, addItemsModalStyles, ordersResponsiveSt
 import { formatCurrency, calculateItemTotal } from "../../../../../utils/orders";
 import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
 import { OrderType } from "../../../../../types/api/pos/salesOrder";
+import { resolveImageSource } from "../../../../../utils/image/source";
 
 const { Text, Title } = Typography;
 
@@ -310,7 +311,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                                 <>
                                                     <Image 
                                                         alt={item.display_name} 
-                                                        src={item.img_url} 
+                                                        src={resolveImageSource(item.img_url) || undefined}
                                                         fill
                                                         style={{ objectFit: 'cover', borderRadius: '12px 12px 0 0' }}
                                                         sizes="(max-width: 768px) 50vw, (max-width: 1200px) 33vw, 25vw"
@@ -355,7 +356,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                 {selectedProduct.img_url ? (
                                     <>
                                         <Image 
-                                            src={selectedProduct.img_url} 
+                                            src={resolveImageSource(selectedProduct.img_url) || undefined}
                                             alt={selectedProduct.display_name}
                                             width={100}
                                             height={100}

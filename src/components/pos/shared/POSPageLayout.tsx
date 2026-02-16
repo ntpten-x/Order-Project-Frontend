@@ -176,18 +176,18 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
       updateItemNote(currentNoteItem.id, noteInput);
       setIsNoteModalVisible(false);
       setCurrentNoteItem(null);
-      message.success("เธเธฑเธเธ—เธถเธเนเธเนเธ•เน€เธฃเธตเธขเธเธฃเนเธญเธขเนเธฅเนเธง");
+      message.success("บันทึกโน้ตเรียบร้อยแล้ว");
     }
   }, [currentNoteItem, noteInput, updateItemNote]);
 
   const handleAddToCart = useCallback((product: Products) => {
     const cartItemId = addToCart(product);
-    const productName = product.display_name || product.product_name || "เธชเธดเธเธเนเธฒ";
+    const productName = product.display_name || product.product_name || "สินค้า";
     message.open({
       type: "success",
       content: (
         <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-          <span>เน€เธเธดเนเธก {productName} เธฅเธเธ•เธฐเธเธฃเนเธฒเนเธฅเนเธง</span>
+          <span>เพิ่ม {productName} ลงตะกร้าแล้ว</span>
           <Button
             type="link"
             size="small"
@@ -219,7 +219,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
 
   const handleCheckout = useCallback(() => {
     if (cartItems.length === 0) {
-      message.warning("เธเธฃเธธเธ“เธฒเน€เธเธดเนเธกเธชเธดเธเธเนเธฒเธฅเธเธ•เธฐเธเธฃเนเธฒเธเนเธญเธ");
+      message.warning("กรุณาเพิ่มสินค้าลงตะกร้าก่อน");
       return;
     }
     setCheckoutVisible(true);
@@ -243,7 +243,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
   const categorySummary = useMemo(() => {
     const categoriesMap: Record<string, number> = {};
     cartItems.forEach((item) => {
-      const catName = item.product.category?.display_name || "เธญเธทเนเธเน";
+      const catName = item.product.category?.display_name || "อื่นๆ";
       categoriesMap[catName] = (categoriesMap[catName] || 0) + item.quantity;
     });
     return Object.entries(categoriesMap).map(([name, count]) => ({ name, count }));
@@ -278,7 +278,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                 className="pos-header-back"
                 style={posLayoutStyles.headerBackButton}
                 onClick={() => router.back()}
-                aria-label="เธเธฅเธฑเธ"
+                aria-label="กลับ"
               >
                 <ArrowLeftOutlined style={{ fontSize: 18 }} />
               </button>
@@ -306,15 +306,15 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
           style={posLayoutStyles.categoryBar} 
           className="pos-category-bar pos-category-bar-mobile"
           role="navigation"
-          aria-label="เธ•เธฑเธงเธเธฃเธญเธเธซเธกเธงเธ”เธซเธกเธนเน"
+          aria-label="ตัวกรองหมวดหมู่"
         >
           <div style={{ maxWidth: 1400, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12 }}>
             <Input
               value={searchQuery}
               allowClear
               prefix={<SearchOutlined style={{ color: "#94a3b8" }} />}
-              placeholder="เธเนเธเธซเธฒเธชเธดเธเธเนเธฒ..."
-              aria-label="เธเนเธเธซเธฒเธชเธดเธเธเนเธฒ"
+              placeholder="ค้นหาสินค้า..."
+              aria-label="ค้นหาสินค้า"
               onChange={(e) => {
                 setSearchQuery(e.target.value);
                 setPage(1);
@@ -341,7 +341,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                   transition: 'all 0.3s ease'
                 }}
               >
-                เธ—เธฑเนเธเธซเธกเธ”
+                ทั้งหมด
               </Button>
               {categories.map(cat => (
                 <Button
@@ -375,13 +375,13 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
             <div style={posLayoutStyles.loadingContainer}>
               <Spin size="large" />
               <Text style={{ display: 'block', marginTop: 16, color: posColors.textSecondary }}>
-                เธเธณเธฅเธฑเธเนเธซเธฅเธ”เธชเธดเธเธเนเธฒ...
+                กำลังโหลดสินค้า...
               </Text>
             </div>
           ) : productsError ? (
             <PageState
               status="error"
-              title="เนเธซเธฅเธ”เธเนเธญเธกเธนเธฅเธชเธดเธเธเนเธฒเนเธกเนเธชเธณเน€เธฃเนเธ"
+              title="โหลดข้อมูลสินค้าไม่สำเร็จ"
               error={productsError}
               onRetry={() => refetchProducts()}
             />
@@ -410,7 +410,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                       {hasProductImage(product) ? (
                         <Image
                           alt={product.product_name}
-                          src={product.img_url!}
+                          src={resolveImageSource(product.img_url) || undefined}
                           fill
                           style={{ objectFit: 'cover' }}
                           sizes="(max-width: 768px) 50vw, 220px"
@@ -462,7 +462,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                             handleAddToCart(product);
                           }}
                         >
-                          เน€เธเธดเนเธก
+                          เพิ่ม
                         </Button>
                       </div>
                     </div>
@@ -478,7 +478,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                   pageSize={LIMIT}
                   onChange={(p) => setPage(p)}
                   showSizeChanger={false}
-                  showTotal={(total) => `เธ—เธฑเนเธเธซเธกเธ” ${total} เธฃเธฒเธขเธเธฒเธฃ`}
+                  showTotal={(total) => `ทั้งหมด ${total} รายการ`}
                 />
               </div>
             </>
@@ -496,12 +496,12 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                 description={
                   <div style={{ marginTop: 20 }}>
                     <Title level={4} style={{ marginBottom: 8, color: posColors.text }}>
-                      {debouncedQuery ? "เนเธกเนเธเธเธชเธดเธเธเนเธฒ" : "เธขเธฑเธเนเธกเนเธกเธตเธเนเธญเธกเธนเธฅเธชเธดเธเธเนเธฒ"}
+                      {debouncedQuery ? "ไม่พบสินค้า" : "ยังไม่มีข้อมูลสินค้า"}
                     </Title>
                     <Text type="secondary" style={{ fontSize: 15 }}>
                       {debouncedQuery
-                        ? `เนเธกเนเธเธเธชเธดเธเธเนเธฒ${debouncedQuery ? ` เธชเธณเธซเธฃเธฑเธ โ€${debouncedQuery}โ€` : ""} เธฅเธญเธเน€เธเธฅเธตเนเธขเธเธเธณเธเนเธเธซเธฒ เธซเธฃเธทเธญเน€เธฅเธทเธญเธเธซเธกเธงเธ”เธญเธทเนเธ`
-                        : "เธเธฃเธธเธ“เธฒเน€เธเธดเนเธกเธชเธดเธเธเนเธฒเธเนเธญเธเนเธเนเธเธฒเธ"}
+                        ? `ไม่พบสินค้า${debouncedQuery ? ` สำหรับ “${debouncedQuery}”` : ""} ลองเปลี่ยนคำค้นหา หรือเลือกหมวดอื่น`
+                        : "กรุณาเพิ่มสินค้าก่อนใช้งาน"}
                     </Text>
                   </div>
                 }
@@ -525,7 +525,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                       color: posColors.text,
                     }}
                   >
-                    เธฅเนเธฒเธเธเธณเธเนเธเธซเธฒ
+                    ล้างคำค้นหา
                   </Button>
                 ) : (
                   <Button 
@@ -545,7 +545,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                     }}
                     onClick={() => router.push("/pos/products")}
                   >
-                    เนเธเธซเธเนเธฒเธเธฑเธ”เธเธฒเธฃเธชเธดเธเธเนเธฒ
+                    ไปหน้าจัดการสินค้า
                   </Button>
                 )}
               </Empty>
@@ -564,7 +564,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
               onClick={() => setCartVisible(true)}
               style={posLayoutStyles.floatingCartButton}
               className={totalItems > 0 ? 'pos-cart-pulse' : ''}
-              aria-label={`เธ•เธฐเธเธฃเนเธฒเธชเธดเธเธเนเธฒ ${totalItems} เธฃเธฒเธขเธเธฒเธฃ`}
+              aria-label={`ตะกร้าสินค้า ${totalItems} รายการ`}
             />
           </Badge>
         </div>
@@ -578,8 +578,8 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                         <ShoppingCartOutlined style={{ fontSize: 20, color: "#10b981" }} />
                     </div>
                     <div>
-                        <Text style={{ fontSize: 18, fontWeight: 700, color: "#1e293b", display: "block", lineHeight: 1.2 }}>เธ•เธฐเธเธฃเนเธฒเธชเธดเธเธเนเธฒ</Text>
-                        <Text type="secondary" style={{ fontSize: 12, fontWeight: 500 }}>{totalItems} เธฃเธฒเธขเธเธฒเธฃ</Text>
+                        <Text style={{ fontSize: 18, fontWeight: 700, color: "#1e293b", display: "block", lineHeight: 1.2 }}>ตะกร้าสินค้า</Text>
+                        <Text type="secondary" style={{ fontSize: 12, fontWeight: 500 }}>{totalItems} รายการ</Text>
                     </div>
                 </div>
             }
@@ -596,19 +596,19 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
             footer={
             <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <Text type="secondary" style={{ fontSize: 15 }}>เธขเธญเธ”เธฃเธงเธก ({totalItems} เธฃเธฒเธขเธเธฒเธฃ)</Text>
+                    <Text type="secondary" style={{ fontSize: 15 }}>ยอดรวม ({totalItems} รายการ)</Text>
                     <Text style={{ fontWeight: 600, fontSize: 16 }}>{formatPrice(subtotal)}</Text>
                 </div>
 
                 {discountAmount > 0 && (
                   <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                    <Text type="secondary" style={{ fontSize: 15 }}>เธชเนเธงเธเธฅเธ”</Text>
+                    <Text type="secondary" style={{ fontSize: 15 }}>ส่วนลด</Text>
                     <Text style={{ fontWeight: 600, fontSize: 16, color: "#ef4444" }}>-{formatPrice(discountAmount)}</Text>
                   </div>
                 )}
                 
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
-                    <Text style={{ fontSize: 16, fontWeight: 700, color: "#1e293b" }}>เธขเธญเธ”เธชเธธเธ—เธเธด</Text>
+                    <Text style={{ fontSize: 16, fontWeight: 700, color: "#1e293b" }}>ยอดสุทธิ</Text>
                     <div style={{ textAlign: "right" }}>
                             <Title level={2} style={{ margin: 0, color: "#10b981", lineHeight: 1 }}>
                                 {formatPrice(finalPrice)}
@@ -623,11 +623,11 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                             icon={<DeleteOutlined />}
                             onClick={() => {
                               Modal.confirm({
-                                title: "เธฅเนเธฒเธเธ•เธฐเธเธฃเนเธฒเธชเธดเธเธเนเธฒ?",
-                                content: "เธฃเธฒเธขเธเธฒเธฃเธ—เธฑเนเธเธซเธกเธ”เธเธฐเธ–เธนเธเธฅเธ เนเธฅเธฐเนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธขเนเธญเธเธเธฅเธฑเธเนเธ”เน",
-                                okText: "เธฅเนเธฒเธเธ•เธฐเธเธฃเนเธฒ",
+                                title: "ล้างตะกร้าสินค้า?",
+                                content: "รายการทั้งหมดจะถูกลบ และไม่สามารถย้อนกลับได้",
+                                okText: "ล้างตะกร้า",
                                 okType: "danger",
-                                cancelText: "เธขเธเน€เธฅเธดเธ",
+                                cancelText: "ยกเลิก",
                                 centered: true,
                                 onOk: clearCart,
                               });
@@ -635,7 +635,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                             disabled={cartItems.length === 0}
                             style={{ borderRadius: 12, height: 48, fontWeight: 600, border: "none", background: "#fef2f2", color: "#ef4444" }}
                         >
-                            เธฅเนเธฒเธเธ•เธฐเธเธฃเนเธฒ
+                            ล้างตะกร้า
                         </Button>
                         <Button
                             type="primary"
@@ -650,7 +650,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                                 boxShadow: "0 4px 12px rgba(16, 185, 129, 0.4)" 
                             }}
                         >
-                            เธเธณเธฃเธฐเน€เธเธดเธ
+                            ชำระเงิน
                         </Button>
                 </div>
             </div>
@@ -665,8 +665,8 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
             ) : (
                 <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: "100%", opacity: 0.5 }}>
                     <ShoppingCartOutlined style={{ fontSize: 64, color: "#cbd5e1", marginBottom: 16 }} />
-                    <Text style={{ color: "#64748b", fontSize: 16 }}>เนเธกเนเธกเธตเธชเธดเธเธเนเธฒเนเธเธ•เธฐเธเธฃเนเธฒ</Text>
-                    <Text style={{ color: "#94a3b8", fontSize: 14 }}>เน€เธฅเธทเธญเธเธชเธดเธเธเนเธฒเธเธฒเธเน€เธกเธเธนเน€เธเธทเนเธญเน€เธเธดเนเธกเธฅเธเธ•เธฐเธเธฃเนเธฒ</Text>
+                    <Text style={{ color: "#64748b", fontSize: 16 }}>ไม่มีสินค้าในตะกร้า</Text>
+                    <Text style={{ color: "#94a3b8", fontSize: 14 }}>เลือกสินค้าจากเมนูเพื่อเพิ่มลงตะกร้า</Text>
                 </div>
             )}
         </Drawer>
@@ -677,7 +677,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
               title={
                 <div style={{ ...posComponentStyles.modalTitleRow, color: '#fff' }}>
                   <ShoppingCartOutlined style={{ fontSize: 20 }} />
-                  <span style={{ fontWeight: 700, fontSize: 18 }}>เธชเธฃเธธเธเธฃเธฒเธขเธเธฒเธฃเธญเธญเน€เธ”เธญเธฃเน</span>
+                  <span style={{ fontWeight: 700, fontSize: 18 }}>สรุปรายการออเดอร์</span>
                 </div>
               }
               width={420}
@@ -708,7 +708,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                       boxShadow: `0 8px 20px ${posColors.success}40`,
                     }}
                   >
-                    เธขเธทเธเธขเธฑเธเธเธฒเธฃเธชเธฑเนเธเธญเธญเน€เธ”เธญเธฃเน
+                    ยืนยันการสั่งออเดอร์
                   </Button>
                 </div>
               }
@@ -716,7 +716,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
               <div style={{ display: 'flex', flexDirection: 'column', gap: 24, padding: '24px 0' }}>
                 {/* Itemized List */}
                 <section>
-                  <Title level={5} style={{ marginBottom: 16, color: posColors.text }}>เธฃเธฒเธขเธเธฒเธฃเธ—เธตเนเธชเธฑเนเธ</Title>
+                  <Title level={5} style={{ marginBottom: 16, color: posColors.text }}>รายการที่สั่ง</Title>
                   <List
                     itemLayout="horizontal"
                     dataSource={groupedCartItems}
@@ -728,11 +728,11 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
 
                 {/* Category Summary */}
                 <section style={{ background: '#F8FAFC', padding: 16, borderRadius: 14, border: '1px solid #E2E8F0' }}>
-                  <Text strong style={{ fontSize: 14, marginBottom: 12, display: 'block', color: posColors.textSecondary }}>เธชเธฃเธธเธเธ•เธฒเธกเธซเธกเธงเธ”เธซเธกเธนเน</Text>
+                  <Text strong style={{ fontSize: 14, marginBottom: 12, display: 'block', color: posColors.textSecondary }}>สรุปตามหมวดหมู่</Text>
                   {categorySummary.map(({ name, count }) => (
                     <div key={name} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 6 }}>
                       <Text type="secondary" style={{ fontSize: 13 }}>{name}</Text>
-                      <Text strong style={{ fontSize: 13 }}>{count} เธฃเธฒเธขเธเธฒเธฃ</Text>
+                      <Text strong style={{ fontSize: 13 }}>{count} รายการ</Text>
                     </div>
                   ))}
                 </section>
@@ -740,17 +740,17 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                 {/* Totals */}
                 <section style={{ background: '#fff', padding: '20px', borderTop: '2px solid #E2E8F0' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
-                    <Text type="secondary" style={{ fontSize: 15 }}>เธฃเธงเธกเธเธณเธเธงเธเธ—เธฑเนเธเธซเธกเธ”</Text>
-                    <Text strong style={{ fontSize: 15 }}>{totalItems} เธฃเธฒเธขเธเธฒเธฃ</Text>
+                    <Text type="secondary" style={{ fontSize: 15 }}>รวมจำนวนทั้งหมด</Text>
+                    <Text strong style={{ fontSize: 15 }}>{totalItems} รายการ</Text>
                   </div>
                   {discountAmount > 0 && (
                     <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
-                      <Text type="secondary" style={{ fontSize: 15 }}>เธชเนเธงเธเธฅเธ”</Text>
+                      <Text type="secondary" style={{ fontSize: 15 }}>ส่วนลด</Text>
                       <Text strong style={{ fontSize: 15, color: '#ef4444' }}>-{formatPrice(discountAmount)}</Text>
                     </div>
                   )}
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={{ fontSize: 20, fontWeight: 700, color: posColors.text }}>เธขเธญเธ”เธฃเธงเธกเธชเธธเธ—เธเธด</Text>
+                    <Text style={{ fontSize: 20, fontWeight: 700, color: posColors.text }}>ยอดรวมสุทธิ</Text>
                     <Text style={{ fontSize: 32, fontWeight: 800, color: posColors.primary }}>
                       {formatPrice(finalPrice)}
                     </Text>
@@ -767,7 +767,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                 <div style={{ ...posComponentStyles.modalIconBase, background: posColors.warningLight }}>
                   <EditOutlined style={{ color: posColors.warning, fontSize: 16 }} />
                 </div>
-                <span>เธฃเธฐเธเธธเธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”: {currentNoteItem?.name}</span>
+                <span>ระบุรายละเอียด: {currentNoteItem?.name}</span>
               </div>
             }
             open={isNoteModalVisible}
@@ -776,8 +776,8 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
               setIsNoteModalVisible(false);
               setCurrentNoteItem(null);
             }}
-            okText="เธเธฑเธเธ—เธถเธ"
-            cancelText="เธขเธเน€เธฅเธดเธ"
+            okText="บันทึก"
+            cancelText="ยกเลิก"
             centered
             okButtonProps={{ style: { ...posComponentStyles.modalButton, background: posColors.primary } }}
             cancelButtonProps={{ style: posComponentStyles.modalButton }}
@@ -788,7 +788,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                 rows={4}
                 value={noteInput}
                 onChange={(e) => setNoteInput(e.target.value)}
-                placeholder="เน€เธเนเธ เนเธกเนเนเธชเนเธเธฑเธ, เธซเธงเธฒเธเธเนเธญเธข, เนเธขเธเธเนเธณ..."
+                placeholder="เช่น ไม่ใส่ผัก, หวานน้อย, แยกน้ำ..."
                 maxLength={200}
                 showCount
                 style={{ borderRadius: 10 }}
@@ -812,7 +812,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
             width={560}
             footer={[
               <Button key="close" onClick={closeProductModal} style={posComponentStyles.modalButtonLarge}>
-                เธเธดเธ”
+                ปิด
               </Button>,
               <Button
                 key="add"
@@ -830,7 +830,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                   fontWeight: 700,
                 }}
               >
-                เน€เธเธดเนเธกเธฅเธเธ•เธฐเธเธฃเนเธฒ
+                เพิ่มลงตะกร้า
               </Button>,
             ]}
           >
@@ -850,7 +850,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                   {hasProductImage(selectedProduct) ? (
                     <Image
                       alt={selectedProduct.product_name}
-                      src={selectedProduct.img_url!}
+                      src={resolveImageSource(selectedProduct.img_url) || undefined}
                       fill
                       style={{ objectFit: 'cover' }}
                       sizes="(max-width: 768px) 90vw, 560px"
@@ -882,7 +882,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                     </Title>
                   </div>
                   <div style={{ textAlign: 'right' }}>
-                    <Text type="secondary" style={{ fontSize: 12 }}>เธฃเธฒเธเธฒ</Text>
+                    <Text type="secondary" style={{ fontSize: 12 }}>ราคา</Text>
                     <div style={{ fontSize: 24, fontWeight: 800, color: posColors.primary, lineHeight: 1.1 }}>
                       {formatPrice(getProductUnitPrice(selectedProduct))}
                     </div>
@@ -891,10 +891,10 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
 
                 <div style={{ background: '#fff', borderRadius: 14, padding: 14, border: `1px solid ${posColors.borderLight}` }}>
                   <Text style={{ display: 'block', marginBottom: 6, fontWeight: 700, color: posColors.textSecondary }}>
-                    เธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”เธชเธดเธเธเนเธฒ
+                    รายละเอียดสินค้า
                   </Text>
                   <Text style={{ color: posColors.textSecondary, fontSize: 14, lineHeight: 1.6 }}>
-                    {selectedProduct.description?.trim() ? selectedProduct.description : "เนเธกเนเธกเธตเธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”เธชเธดเธเธเนเธฒ"}
+                    {selectedProduct.description?.trim() ? selectedProduct.description : "ไม่มีรายละเอียดสินค้า"}
                   </Text>
                 </div>
               </div>
@@ -944,8 +944,8 @@ const CartItemRow = React.memo(function CartItemRow({
   );
   const itemDiscountAmount = Number(item.discount || 0);
   const lineTotal = Math.max(0, (unitPrice + detailsTotal) * item.quantity - itemDiscountAmount);
-  const productName = item.product.display_name || item.product.product_name || "เธชเธดเธเธเนเธฒ";
-  const categoryName = item.product.category?.display_name || "เธ—เธฑเนเธงเนเธ";
+  const productName = item.product.display_name || item.product.product_name || "สินค้า";
+  const categoryName = item.product.category?.display_name || "ทั่วไป";
 
   return (
     <List.Item key={item.cart_item_id} style={posComponentStyles.cartItemContainer} className="cart-item-hover">
@@ -996,7 +996,7 @@ const CartItemRow = React.memo(function CartItemRow({
           {/* Notes */}
           {item.notes && (
             <div style={posComponentStyles.cartItemNote}>
-              <Text style={{ fontSize: 11, color: "#ef4444" }}>เนเธเนเธ•: {item.notes}</Text>
+              <Text style={{ fontSize: 11, color: "#ef4444" }}>โน้ต: {item.notes}</Text>
             </div>
           )}
 
@@ -1012,7 +1012,7 @@ const CartItemRow = React.memo(function CartItemRow({
                 size="small"
                 icon={<MinusOutlined style={{ fontSize: 10 }} />}
                 className="pos-cart-icon-btn pos-cart-qty-btn"
-                aria-label="เธฅเธ”เธเธณเธเธงเธ"
+                aria-label="ลดจำนวน"
                 onClick={() => onUpdateQuantity(item.cart_item_id, item.quantity - 1)}
                 style={{ borderRadius: 10, background: "white", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}
               />
@@ -1024,7 +1024,7 @@ const CartItemRow = React.memo(function CartItemRow({
                 size="small"
                 icon={<PlusOutlined style={{ fontSize: 10 }} />}
                 className="pos-cart-icon-btn pos-cart-qty-btn"
-                aria-label="เน€เธเธดเนเธกเธเธณเธเธงเธ"
+                aria-label="เพิ่มจำนวน"
                 onClick={() => onUpdateQuantity(item.cart_item_id, item.quantity + 1)}
                 style={{ borderRadius: 10, background: "#10b981", color: "white" }}
               />
@@ -1037,7 +1037,7 @@ const CartItemRow = React.memo(function CartItemRow({
                 icon={<EditOutlined />}
                 size="small"
                 className="pos-cart-icon-btn pos-cart-action-btn"
-                aria-label="เนเธเนเนเธเนเธเนเธ•"
+                aria-label="แก้ไขโน้ต"
                 onClick={() => onOpenNote(item.cart_item_id, productName, item.notes || "")}
                 style={{ color: "#64748b", background: "#f1f5f9", borderRadius: 10 }}
               />
@@ -1046,7 +1046,7 @@ const CartItemRow = React.memo(function CartItemRow({
                 icon={<PlusOutlined />}
                 size="small"
                 className="pos-cart-icon-btn pos-cart-action-btn"
-                aria-label="เน€เธเธดเนเธกเธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”"
+                aria-label="เพิ่มรายละเอียด"
                 onClick={() => onOpenDetail(item.cart_item_id, productName, item.details)}
                 style={{ color: "#10b981", background: "#ecfdf5", borderRadius: 10 }}
               />
@@ -1056,7 +1056,7 @@ const CartItemRow = React.memo(function CartItemRow({
                 icon={<DeleteOutlined />}
                 size="small"
                 className="pos-cart-icon-btn pos-cart-action-btn"
-                aria-label="เธฅเธเธญเธญเธเธเธฒเธเธ•เธฐเธเธฃเนเธฒ"
+                aria-label="ลบออกจากตะกร้า"
                 onClick={() => onRemove(item.cart_item_id)}
                 style={{ background: "#fef2f2", borderRadius: 10 }}
               />
@@ -1107,7 +1107,7 @@ const CheckoutItemRow = React.memo(function CheckoutItemRow({
             {/* Price Breakdown */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Text type="secondary" style={{ fontSize: 12 }}>เธฃเธฒเธเธฒเธญเธฒเธซเธฒเธฃ</Text>
+                <Text type="secondary" style={{ fontSize: 12 }}>ราคาอาหาร</Text>
                 <Text type="secondary" style={{ fontSize: 12 }}>{formatPrice(unitPrice)}</Text>
               </div>
 
@@ -1119,14 +1119,14 @@ const CheckoutItemRow = React.memo(function CheckoutItemRow({
               ))}
 
               <div style={{ marginTop: 4 }}>
-                <Text style={{ fontSize: 12, fontWeight: 700, color: '#B45309' }}>เธเธณเธเธงเธ : {item.quantity}</Text>
+                <Text style={{ fontSize: 12, fontWeight: 700, color: '#B45309' }}>จำนวน : {item.quantity}</Text>
               </div>
             </div>
 
             {/* Note Display */}
             {item.notes && (
               <div style={{ marginTop: 8, padding: '6px 10px', background: '#fef2f2', borderRadius: 8, borderLeft: `3px solid #ef4444` }}>
-                <Text italic style={{ fontSize: 12, color: '#ef4444' }}>เนเธเนเธ•: {item.notes}</Text>
+                <Text italic style={{ fontSize: 12, color: '#ef4444' }}>โน้ต: {item.notes}</Text>
               </div>
             )}
           </div>
@@ -1186,21 +1186,21 @@ function CartItemDetailModal({ item, isOpen, onClose, onSave }: CartItemDetailMo
           <div style={{ ...posComponentStyles.modalIconBase, background: posColors.successLight }}>
             <PlusOutlined style={{ color: posColors.success, fontSize: 16 }} />
           </div>
-          <span>เธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”เน€เธเธดเนเธกเน€เธ•เธดเธก: {item?.name}</span>
+          <span>รายละเอียดเพิ่มเติม: {item?.name}</span>
         </div>
       }
       open={isOpen}
       onCancel={onClose}
       footer={[
-        <Button key="cancel" onClick={onClose} style={{ borderRadius: 10, height: 42 }}>เธขเธเน€เธฅเธดเธ</Button>,
-        <Button key="save" type="primary" onClick={handleSave} style={{ background: posColors.success, borderRadius: 10, height: 42 }}>เธเธฑเธเธ—เธถเธ</Button>
+        <Button key="cancel" onClick={onClose} style={{ borderRadius: 10, height: 42 }}>ยกเลิก</Button>,
+        <Button key="save" type="primary" onClick={handleSave} style={{ background: posColors.success, borderRadius: 10, height: 42 }}>บันทึก</Button>
       ]}
       width={520}
       centered
     >
       <div style={{ padding: '16px 0' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <Text strong style={{ color: posColors.textSecondary }}>เธฃเธฒเธขเธเธฒเธฃเน€เธเธดเนเธกเน€เธ•เธดเธก</Text>
+          <Text strong style={{ color: posColors.textSecondary }}>รายการเพิ่มเติม</Text>
           <Button 
             type="dashed" 
             size="small"
@@ -1208,7 +1208,7 @@ function CartItemDetailModal({ item, isOpen, onClose, onSave }: CartItemDetailMo
             onClick={handleAddDetail}
             style={{ borderRadius: 8 }}
           >
-            เน€เธเธดเนเธกเธฃเธฒเธขเธเธฒเธฃ
+            เพิ่มรายการ
           </Button>
         </div>
         
@@ -1221,20 +1221,20 @@ function CartItemDetailModal({ item, isOpen, onClose, onSave }: CartItemDetailMo
             color: posColors.textSecondary 
           }}>
             <PlusOutlined style={{ fontSize: 24, marginBottom: 8, opacity: 0.4 }} />
-            <div>เนเธกเนเธกเธตเธฃเธฒเธขเธเธฒเธฃเน€เธเธดเนเธกเน€เธ•เธดเธก</div>
+            <div>ไม่มีรายการเพิ่มเติม</div>
           </div>
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
             {details.map((detail, index) => (
               <div key={index} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
                 <Input 
-                  placeholder="เธเธทเนเธญเธฃเธฒเธขเธเธฒเธฃ" 
+                  placeholder="ชื่อรายการ" 
                   value={detail.detail_name}
                   onChange={(e) => handleUpdateDetail(index, 'detail_name', e.target.value)}
                   style={{ flex: 2, borderRadius: 8, height: 42 }}
                 />
                 <InputNumber<number>
-                  placeholder="เธฃเธฒเธเธฒ"
+                  placeholder="ราคา"
                   value={detail.extra_price}
                   onChange={(val: number | null) => handleUpdateDetail(index, 'extra_price', val || 0)}
                   style={{ flex: 1, height: 42 }}
@@ -1276,4 +1276,3 @@ function CartItemDetailModal({ item, isOpen, onClose, onSave }: CartItemDetailMo
     </Modal>
   );
 }
-

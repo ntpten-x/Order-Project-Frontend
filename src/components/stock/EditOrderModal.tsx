@@ -6,7 +6,6 @@ import {
     InputNumber,
     List,
     Modal,
-    Select,
     Space,
     Typography,
     message,
@@ -18,6 +17,7 @@ import { ingredientsService } from "../../services/stock/ingredients.service";
 import { ordersService } from "../../services/stock/orders.service";
 import { authService } from "../../services/auth.service";
 import { resolveImageSource } from "../../utils/image/source";
+import { ModalSelector } from "../ui/select/ModalSelector";
 
 const { Text, Title } = Typography;
 
@@ -168,20 +168,29 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                 <div>
                     <Text type="secondary">เพิ่มรายการวัตถุดิบ</Text>
                     <Space.Compact style={{ width: "100%", marginTop: 8 }}>
-                        <Select
-                            showSearch
-                            allowClear
-                            placeholder="เลือกวัตถุดิบ"
-                            style={{ width: "100%" }}
-                            value={selectedIngredient}
-                            onChange={(value) => setSelectedIngredient(value)}
-                            loading={loadingIngredients}
-                            optionFilterProp="label"
-                            options={availableIngredients.map((item) => ({
-                                value: item.id,
-                                label: `${item.display_name} (${item.unit?.display_name || "หน่วย"})`,
-                            }))}
-                        />
+                            <ModalSelector
+                                title="เลือกวัตถุดิบ"
+                                placeholder="เลือกวัตถุดิบ"
+                                value={selectedIngredient}
+                                onChange={(value) => setSelectedIngredient(value)}
+                                loading={loadingIngredients}
+                                options={availableIngredients.map((item) => ({
+                                    value: item.id,
+                                    label: (
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                            <Avatar 
+                                                shape="square" 
+                                                src={resolveImageSource(item.img_url) || undefined}
+                                                size="small"
+                                            />
+                                            <span>{item.display_name} ({item.unit?.display_name || "หน่วย"})</span>
+                                        </div>
+                                    ),
+                                    searchLabel: item.display_name
+                                }))}
+                                showSearch
+                                style={{ width: "100%", borderRadius: "8px 0 0 8px" }}
+                            />
                         <Button type="primary" icon={<PlusOutlined />} onClick={addIngredient} disabled={!selectedIngredient}>
                             เพิ่ม
                         </Button>
@@ -204,6 +213,8 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                                             min={1}
                                             value={item.quantity_ordered}
                                             onChange={(value) => updateQuantity(item.ingredient_id, value)}
+                                            formatter={(value) => `${value}`.replace(/[^0-9]/g, "")}
+                                            parser={(value) => value?.replace(/[^0-9]/g, "") as unknown as number}
                                         />,
                                         <Button
                                             key="delete"

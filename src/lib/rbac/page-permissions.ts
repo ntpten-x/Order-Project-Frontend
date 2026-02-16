@@ -12,6 +12,7 @@ export const PAGE_PERMISSION_MAP: Array<{ prefix: string; requirement: Permissio
     { prefix: "/branch/manager", requirement: { resourceKey: "branches.page", action: "update" } },
     { prefix: "/branch", requirement: { resourceKey: "branches.page", action: "view" } },
     { prefix: "/audit", requirement: { resourceKey: "audit.page", action: "view" } },
+    { prefix: "/Health-System", requirement: { resourceKey: "permissions.page", action: "view" } },
 
     // POS settings: split add/edit/manage by permission.
     { prefix: "/pos/settings/payment-accounts/manage", requirement: { resourceKey: "payment_accounts.page", action: "update" } },

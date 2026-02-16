@@ -574,6 +574,24 @@ export default function PermissionsPage() {
     }, [authUser, canViewPermissions, isAdminUser]);
 
     useEffect(() => {
+        if (targetType !== "user") return;
+        if (!selectedUser) return;
+        const stillExists = users.some((u) => u.id === selectedUser);
+        if (!stillExists) {
+            setSelectedUser(users[0]?.id || "");
+        }
+    }, [selectedUser, targetType, users]);
+
+    useEffect(() => {
+        if (targetType !== "role") return;
+        if (!selectedRole) return;
+        const stillExists = roles.some((r) => r.id === selectedRole);
+        if (!stillExists) {
+            setSelectedRole(roles[0]?.id || "");
+        }
+    }, [roles, selectedRole, targetType]);
+
+    useEffect(() => {
         const loadRolePermissions = async () => {
             if (!selectedRole || targetType !== "role") return;
             setLoading(true);
@@ -616,6 +634,13 @@ export default function PermissionsPage() {
                 setRows(mapped);
                 setBaselineRows(mapped);
             } catch (error) {
+                if ((error as { status?: number })?.status === 404) {
+                    const fallbackUserId = users[0]?.id || "";
+                    if (fallbackUserId && fallbackUserId !== selectedUser) {
+                        setSelectedUser(fallbackUserId);
+                        return;
+                    }
+                }
                 message.error(error instanceof Error ? error.message : "ไม่สามารถโหลดสิทธิ์ของผู้ใช้ได้");
                 setRows([]);
             } finally {
@@ -623,7 +648,7 @@ export default function PermissionsPage() {
             }
         };
         loadUserPermissions();
-    }, [selectedUser, targetType, normalizeScopeByTargetRole]);
+    }, [selectedUser, targetType, normalizeScopeByTargetRole, users]);
 
     const loadAudits = useCallback(async () => {
         if (!selectedUser || targetType !== "user") return;

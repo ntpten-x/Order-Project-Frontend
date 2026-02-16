@@ -47,8 +47,23 @@ describe("middleware permission policy", () => {
         expect(res.headers.get("x-middleware-next")).toBe("1");
     });
 
+    it("allows whitelisted system api route when token is present", async () => {
+        const req = makeRequest("/api/system/health", "GET", makeToken("Admin"));
+        const res = await middleware(req);
+
+        expect(res.headers.get("x-middleware-next")).toBe("1");
+    });
+
     it("redirects protected page to login when no token is present", async () => {
         const req = makeRequest("/users", "GET");
+        const res = await middleware(req);
+
+        expect(res.status).toBe(307);
+        expect(res.headers.get("location")).toContain("/login");
+    });
+
+    it("redirects Health-System page to login when no token is present", async () => {
+        const req = makeRequest("/Health-System", "GET");
         const res = await middleware(req);
 
         expect(res.status).toBe(307);

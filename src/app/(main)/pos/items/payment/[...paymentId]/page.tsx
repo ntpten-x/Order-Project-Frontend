@@ -764,7 +764,7 @@ export default function POSPaymentPage() {
                                                     value={receivedAmount}
                                                     onChange={(val) => setReceivedAmount(val || 0)}
                                                     formatter={value => `฿ ${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                                                    parser={value => Number(value!.replace(/฿\s?|(,*)/g, ''))}
+                                                    parser={value => Number(value!.replace(/฿\s?|(,*)/g, '').replace(/[^0-9.]/g, ''))}
                                                     onFocus={(e) => e.target.select()}
                                                     controls={false}
                                                     inputMode="decimal"

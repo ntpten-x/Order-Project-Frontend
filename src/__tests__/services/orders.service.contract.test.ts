@@ -103,6 +103,52 @@ describe("ordersService contract", () => {
         expect(result.data[0].total_amount).toBe(200);
     });
 
+    it("getById preserves nested payment_method relation", async () => {
+        fetchMock.mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                success: true,
+                data: {
+                    id: "o3",
+                    order_no: "ORD-003",
+                    order_type: "DineIn",
+                    sub_total: "120",
+                    discount_amount: "0",
+                    vat: "0",
+                    total_amount: "120",
+                    received_amount: "120",
+                    change_amount: "0",
+                    status: "Paid",
+                    create_date: "2026-02-11T12:00:00.000Z",
+                    update_date: "2026-02-11T12:05:00.000Z",
+                    payments: [
+                        {
+                            id: "pay-1",
+                            payment_method_id: "pm-1",
+                            status: "Success",
+                            amount: "120",
+                            payment_date: "2026-02-11T12:05:00.000Z",
+                            payment_method: {
+                                id: "pm-1",
+                                payment_method_name: "Cash",
+                                display_name: "เงินสด",
+                            },
+                        },
+                    ],
+                },
+            }),
+        });
+
+        const result = await ordersService.getById("o3");
+        const payment = result.payments?.[0] as {
+            payment_method?: { display_name?: string | null };
+            amount?: number;
+        };
+
+        expect(payment.amount).toBe(120);
+        expect(payment.payment_method?.display_name).toBe("เงินสด");
+    });
+
     it("getStats unwraps standardized payload", async () => {
         fetchMock.mockResolvedValue({
             ok: true,

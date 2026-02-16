@@ -41,15 +41,17 @@ function DineInTableSelectionPageContent() {
     const router = useRouter();
     const { showLoading, hideLoading } = useGlobalLoading();
     const { tables, isLoading } = useTables();
+    const loadingKey = "pos:channels:dine-in";
 
     // Use global loading for initial tables fetch
     React.useEffect(() => {
         if (isLoading) {
-            showLoading();
+            showLoading("กำลังโหลดข้อมูลโต๊ะ...", loadingKey);
         } else {
-            hideLoading();
+            hideLoading(loadingKey);
         }
-    }, [isLoading, showLoading, hideLoading]);
+        return () => hideLoading(loadingKey);
+    }, [isLoading, showLoading, hideLoading, loadingKey]);
 
     // Calculate statistics and sort tables
     const stats = useMemo(() => getTableStats(tables as Tables[]), [tables]);

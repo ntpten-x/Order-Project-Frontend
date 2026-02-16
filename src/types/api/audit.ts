@@ -82,6 +82,7 @@ export enum AuditActionType {
 
     SHIFT_OPEN = "SHIFT_OPEN",
     SHIFT_CLOSE = "SHIFT_CLOSE",
+    SHIFT_CLOSE_PREVIEW = "SHIFT_CLOSE_PREVIEW",
 }
 
 export interface AuditLog {

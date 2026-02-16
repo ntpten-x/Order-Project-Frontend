@@ -390,7 +390,15 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                                         { type: 'number', min: 0, message: 'ราคาต้องไม่ติดลบ' }
                                                     ]}
                                                 >
-                                                    <InputNumber<number> size="large" min={0} precision={2} style={{ width: '100%' }} controls={false} />
+                                                    <InputNumber<number>
+                                                        size="large"
+                                                        min={0}
+                                                        precision={2}
+                                                        style={{ width: '100%' }}
+                                                        controls={false}
+                                                        formatter={(value) => `${value}`.replace(/[^0-9.]/g, "")}
+                                                        parser={(value) => value?.replace(/[^0-9.]/g, "") as unknown as number}
+                                                    />
                                                 </Form.Item>
                                             </Col>
                                             <Col xs={24} md={8}>
@@ -399,7 +407,15 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                                     label={<span style={{ fontWeight: 600, color: '#334155' }}>ราคา Delivery</span>}
                                                     rules={[{ type: 'number', min: 0, message: 'ราคาต้องไม่ติดลบ' }]}
                                                 >
-                                                    <InputNumber<number> size="large" min={0} precision={2} style={{ width: '100%' }} controls={false} />
+                                                    <InputNumber<number>
+                                                        size="large"
+                                                        min={0}
+                                                        precision={2}
+                                                        style={{ width: '100%' }}
+                                                        controls={false}
+                                                        formatter={(value) => `${value}`.replace(/[^0-9.]/g, "")}
+                                                        parser={(value) => value?.replace(/[^0-9.]/g, "") as unknown as number}
+                                                    />
                                                 </Form.Item>
                                             </Col>
                                             <Col xs={24} md={8}>
@@ -408,7 +424,15 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                                     label={<span style={{ fontWeight: 600, color: '#334155' }}>ต้นทุน (ไม่บังคับ)</span>}
                                                     rules={[{ type: 'number', min: 0, message: 'ต้นทุนต้องไม่ติดลบ' }]}
                                                 >
-                                                    <InputNumber<number> size="large" min={0} precision={2} style={{ width: '100%' }} controls={false} />
+                                                    <InputNumber<number>
+                                                        size="large"
+                                                        min={0}
+                                                        precision={2}
+                                                        style={{ width: '100%' }}
+                                                        controls={false}
+                                                        formatter={(value) => `${value}`.replace(/[^0-9.]/g, "")}
+                                                        parser={(value) => value?.replace(/[^0-9.]/g, "") as unknown as number}
+                                                    />
                                                 </Form.Item>
                                             </Col>
                                         </Row>

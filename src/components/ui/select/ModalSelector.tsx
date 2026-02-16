@@ -6,7 +6,7 @@ import { CheckCircleOutlined, DownOutlined, SearchOutlined } from "@ant-design/i
 
 export interface ModalSelectorProps<T extends string | number = string | number> {
     value?: T;
-    options: { label: React.ReactNode; value: T }[];
+    options: { label: React.ReactNode; value: T; searchLabel?: string }[];
     onChange: (value: T) => void;
     title: string;
     placeholder?: string;
@@ -34,10 +34,8 @@ export const ModalSelector = <T extends string | number,>({
         if (!showSearch || !searchText) return options;
         const lowerSearch = searchText.toLowerCase();
         return options.filter(opt => {
-            if (typeof opt.label === 'string') {
-                return opt.label.toLowerCase().includes(lowerSearch);
-            }
-            return String(opt.value).toLowerCase().includes(lowerSearch);
+            const searchTarget = opt.searchLabel || (typeof opt.label === 'string' ? opt.label : String(opt.value));
+            return searchTarget.toLowerCase().includes(lowerSearch);
         });
     }, [options, searchText, showSearch]);
 
