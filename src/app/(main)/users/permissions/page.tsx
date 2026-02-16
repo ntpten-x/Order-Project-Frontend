@@ -19,6 +19,7 @@ import {
     Switch,
     Table,
     Tag,
+    Spin,
     message,
     Typography,
 } from "antd";
@@ -37,11 +38,13 @@ import {
 import { roleService } from "../../../../services/roles.service";
 import { permissionsService } from "../../../../services/permissions.service";
 import { userService } from "../../../../services/users.service";
-import { authService } from "../../../../services/auth.service";
 import { useAuth } from "../../../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
 import { Role } from "../../../../types/api/roles";
 import { User } from "../../../../types/api/users";
 import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
+import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
+import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import {
     EffectiveRolePermissionRow,
     PermissionAuditItem,
@@ -343,6 +346,9 @@ export default function PermissionsPage() {
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.md;
     const { user: authUser } = useAuth();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(authUser?.id) });
+    const canViewPermissions = can("permissions.page", "view");
+    const canUpdatePermissions = can("permissions.page", "update");
     const [targetType, setTargetType] = useState<"user" | "role">("user");
     const [selectedUser, setSelectedUser] = useState<string>("");
     const [selectedRole, setSelectedRole] = useState<string>("");
@@ -378,13 +384,15 @@ export default function PermissionsPage() {
     const [systemFilter, setSystemFilter] = useState<SystemGroup | "all">("all");
     const isUserMode = targetType === "user";
     const isRoleMode = targetType === "role";
-    const canEditPermissions = isUserMode || isRoleMode;
+    const canEditPermissions = (isUserMode || isRoleMode) && canUpdatePermissions;
     const riskTag = (risk: "none" | "low" | "medium" | "high") => {
         if (risk === "high") return <Tag color="red">สูง</Tag>;
         if (risk === "medium") return <Tag color="orange">กลาง</Tag>;
         if (risk === "low") return <Tag color="green">ต่ำ</Tag>;
         return <Tag>ไม่มี</Tag>;
     };
+
+    const isAdminUser = String(authUser?.role ?? "").toLowerCase() === "admin";
 
     const semanticDiffRows = useMemo<SemanticDiffRow[]>(() => {
         if (!selectedAudit) return [];
@@ -547,6 +555,7 @@ export default function PermissionsPage() {
     }, [rows]);
 
     useEffect(() => {
+        if (!authUser || !canViewPermissions || !isAdminUser) return;
         const bootstrap = async () => {
             try {
                 const [roleData, userData] = await Promise.all([
@@ -562,7 +571,25 @@ export default function PermissionsPage() {
             }
         };
         bootstrap();
-    }, []);
+    }, [authUser, canViewPermissions, isAdminUser]);
+
+    useEffect(() => {
+        if (targetType !== "user") return;
+        if (!selectedUser) return;
+        const stillExists = users.some((u) => u.id === selectedUser);
+        if (!stillExists) {
+            setSelectedUser(users[0]?.id || "");
+        }
+    }, [selectedUser, targetType, users]);
+
+    useEffect(() => {
+        if (targetType !== "role") return;
+        if (!selectedRole) return;
+        const stillExists = roles.some((r) => r.id === selectedRole);
+        if (!stillExists) {
+            setSelectedRole(roles[0]?.id || "");
+        }
+    }, [roles, selectedRole, targetType]);
 
     useEffect(() => {
         const loadRolePermissions = async () => {
@@ -607,6 +634,13 @@ export default function PermissionsPage() {
                 setRows(mapped);
                 setBaselineRows(mapped);
             } catch (error) {
+                if ((error as { status?: number })?.status === 404) {
+                    const fallbackUserId = users[0]?.id || "";
+                    if (fallbackUserId && fallbackUserId !== selectedUser) {
+                        setSelectedUser(fallbackUserId);
+                        return;
+                    }
+                }
                 message.error(error instanceof Error ? error.message : "ไม่สามารถโหลดสิทธิ์ของผู้ใช้ได้");
                 setRows([]);
             } finally {
@@ -614,7 +648,7 @@ export default function PermissionsPage() {
             }
         };
         loadUserPermissions();
-    }, [selectedUser, targetType, normalizeScopeByTargetRole]);
+    }, [selectedUser, targetType, normalizeScopeByTargetRole, users]);
 
     const loadAudits = useCallback(async () => {
         if (!selectedUser || targetType !== "user") return;
@@ -925,7 +959,7 @@ export default function PermissionsPage() {
             if (!selectedRole) return;
             setSaving(true);
             try {
-                const csrfToken = await authService.getCsrfToken();
+                const csrfToken = await getCsrfTokenCached();
                 await permissionsService.updateRolePermissions(
                     selectedRole,
                     {
@@ -961,7 +995,7 @@ export default function PermissionsPage() {
         const doSave = async () => {
             setSaving(true);
             try {
-                const csrfToken = await authService.getCsrfToken();
+                const csrfToken = await getCsrfTokenCached();
                 const result = await permissionsService.updateUserPermissions(
                     selectedUser,
                     {
@@ -1023,7 +1057,7 @@ export default function PermissionsPage() {
         }
         setApprovalActionLoadingId(approval.id);
         try {
-            const csrfToken = await authService.getCsrfToken();
+            const csrfToken = await getCsrfTokenCached();
             await permissionsService.approveOverride(approval.id, {}, csrfToken);
             message.success("อนุมัติคำขอเรียบร้อย");
             if (selectedUser && approval.targetUserId === selectedUser) {
@@ -1055,7 +1089,7 @@ export default function PermissionsPage() {
         }
         setApprovalActionLoadingId(rejectApprovalId);
         try {
-            const csrfToken = await authService.getCsrfToken();
+            const csrfToken = await getCsrfTokenCached();
             await permissionsService.rejectOverride(
                 rejectApprovalId,
                 { reviewReason: rejectReason.trim() },
@@ -1113,6 +1147,18 @@ export default function PermissionsPage() {
         link.click();
         URL.revokeObjectURL(url);
     };
+
+    if (permissionLoading) {
+        return (
+            <div style={{ minHeight: "70vh", display: "grid", placeItems: "center" }}>
+                <Spin size="large" />
+            </div>
+        );
+    }
+
+    if (!authUser || !canViewPermissions || !isAdminUser) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    }
 
     return (
         <div style={{ padding: isMobile ? 12 : 24, background: "#f6f8fb", minHeight: "100vh" }}>

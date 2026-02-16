@@ -35,6 +35,7 @@ import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import PageState from '../../../../components/ui/states/PageState';
 import { pageStyles, globalStyles } from '../../../../theme/pos/shift/style';
+import { useSearchParams } from 'next/navigation';
 
 dayjs.extend(duration);
 dayjs.locale('th');
@@ -45,6 +46,7 @@ const toNumber = (value: number | string | undefined | null) => Number(value || 
 
 export default function ShiftPage() {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const queryClient = useQueryClient();
     const { user } = useAuth();
     const { socket } = useSocket();
@@ -55,6 +57,8 @@ export default function ShiftPage() {
 
     const [openShiftVisible, setOpenShiftVisible] = useState(false);
     const [closeShiftVisible, setCloseShiftVisible] = useState(false);
+    const redirectAfterOpen = searchParams.get("redirect") || "";
+    const openShiftRequested = searchParams.get("openShift") === "1";
 
     const {
         data: currentShift = null,
@@ -97,6 +101,23 @@ export default function ShiftPage() {
             setOpenShiftVisible(false);
         }
     }, [canCreateShifts, openShiftVisible]);
+
+    // If the user was redirected here by the middleware shift-guard, auto-open the shift modal.
+    useEffect(() => {
+        if (!openShiftRequested) return;
+        if (isShiftLoading) return;
+        if (currentShift) return;
+        if (!canCreateShifts) return;
+        setOpenShiftVisible(true);
+    }, [openShiftRequested, isShiftLoading, currentShift, canCreateShifts]);
+
+    // After opening shift, send user back to the originally requested page.
+    useEffect(() => {
+        if (!redirectAfterOpen) return;
+        if (!currentShift) return;
+        if (!redirectAfterOpen.startsWith("/")) return;
+        router.replace(redirectAfterOpen);
+    }, [redirectAfterOpen, currentShift, router]);
 
     useEffect(() => {
         if (!socket) return;

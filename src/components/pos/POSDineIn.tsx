@@ -40,9 +40,7 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
 
                 if (token) setCsrfToken(token);
                 
-                // API response is wrapped in { success: true, data: { ... } }
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const table = (tableResponse as any)?.data || tableResponse;
+                const table = tableResponse;
 
                 if (table && table.table_name) {
                     setTableName(table.table_name);
@@ -50,8 +48,7 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
                     // Fallback: use tableId if table_name is not available
                     setTableName(`โต๊ะ ${tableId.substring(0, 8)}...`);
                 }
-            } catch (error) {
-                console.error("Failed to load table data:", error);
+            } catch {
                 // Set fallback table name
                 if (tableId) {
                     setTableName(`โต๊ะ ${tableId.substring(0, 8)}...`);
@@ -158,3 +155,4 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
         />
     );
 }
+

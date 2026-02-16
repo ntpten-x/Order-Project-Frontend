@@ -19,6 +19,8 @@ import { getCsrfTokenCached } from '../../../../utils/pos/csrf';
 import { useSocket } from '../../../../hooks/useSocket';
 import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
 import { useRoleGuard } from '../../../../utils/pos/accessControl';
+import { useAuth } from '../../../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissions';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 import PageContainer from '../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../components/ui/page/PageSection';
@@ -93,9 +95,13 @@ export default function POSSettingsPage() {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const { socket } = useSocket();
+    const { user } = useAuth();
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.md;
     const { isAuthorized, isChecking } = useRoleGuard();
+    const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canCreateAccounts = can('payment_accounts.page', 'create');
+    const canUpdateAccounts = can('payment_accounts.page', 'update');
     const isUrlReadyRef = useRef(false);
 
     const [loading, setLoading] = useState(true);
@@ -199,6 +205,10 @@ export default function POSSettingsPage() {
     }, [promptPayAccounts, statusFilter, debouncedSearch]);
 
     const handleActivate = async (id: string, accountName: string) => {
+        if (!canUpdateAccounts) {
+            message.error('คุณไม่มีสิทธิ์เปลี่ยนบัญชีหลัก (ต้องมีสิทธิ์ payment_accounts.page:update)');
+            return;
+        }
         setActivatingId(id);
         try {
             const csrfToken = await getCsrfTokenCached();
@@ -231,10 +241,19 @@ export default function POSSettingsPage() {
                 actions={
                     <Space size={8} wrap>
                         <Button icon={<ReloadOutlined />} onClick={() => fetchAccounts(false)} loading={refreshing || loading} />
-                        <Button icon={<EditOutlined />} onClick={() => router.push('/pos/settings/payment-accounts/manage')}>
+                        <Button
+                            icon={<EditOutlined />}
+                            disabled={!canUpdateAccounts}
+                            onClick={() => router.push('/pos/settings/payment-accounts/manage')}
+                        >
                             จัดการทั้งหมด
                         </Button>
-                        <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push('/pos/settings/payment-accounts/add')}>
+                        <Button
+                            type="primary"
+                            icon={<PlusOutlined />}
+                            disabled={!canCreateAccounts}
+                            onClick={() => router.push('/pos/settings/payment-accounts/add')}
+                        >
                             เพิ่มพร้อมเพย์
                         </Button>
                     </Space>
@@ -298,7 +317,11 @@ export default function POSSettingsPage() {
                                         </div>
                                     </div>
                                 </div>
-                                <Button icon={<SwapOutlined />} onClick={() => router.push('/pos/settings/payment-accounts/manage')}>
+                                <Button
+                                    icon={<SwapOutlined />}
+                                    disabled={!canUpdateAccounts}
+                                    onClick={() => router.push('/pos/settings/payment-accounts/manage')}
+                                >
                                     เปลี่ยนบัญชีหลัก
                                 </Button>
                             </div>
@@ -310,6 +333,7 @@ export default function POSSettingsPage() {
                                     <Button
                                         type="primary"
                                         icon={<PlusOutlined />}
+                                        disabled={!canCreateAccounts}
                                         onClick={() => router.push('/pos/settings/payment-accounts/add')}
                                     >
                                         เพิ่มบัญชีแรก
@@ -400,6 +424,7 @@ export default function POSSettingsPage() {
                                                     type="primary"
                                                     size="small"
                                                     loading={activatingId === account.id}
+                                                    disabled={!canUpdateAccounts}
                                                     onClick={() => handleActivate(account.id, account.account_name)}
                                                 >
                                                     ตั้งเป็นบัญชีหลัก
@@ -407,6 +432,7 @@ export default function POSSettingsPage() {
                                             ) : null}
                                             <Button
                                                 size="small"
+                                                disabled={!canUpdateAccounts}
                                                 onClick={() => router.push(`/pos/settings/payment-accounts/edit/${account.id}`)}
                                             >
                                                 แก้ไข

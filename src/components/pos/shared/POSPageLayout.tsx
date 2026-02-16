@@ -232,7 +232,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
       setCheckoutVisible(false);
       setCartVisible(false);
     } catch (error) {
-      console.error(error);
+      message.error(error instanceof Error ? error.message : "Unable to confirm order");
     } finally {
       setIsProcessing(false);
     }
@@ -396,7 +396,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                      onClick={() => openProductModal(product)}
                      role="button"
                      tabIndex={0}
-                     aria-label={`ดูรายละเอียด ${product.display_name}`}
+                     aria-label={`เธ”เธนเธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ” ${product.display_name}`}
                      aria-haspopup="dialog"
                      onKeyDown={(e) => {
                        if (e.key === 'Enter' || e.key === ' ') {
@@ -410,7 +410,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                       {hasProductImage(product) ? (
                         <Image
                           alt={product.product_name}
-                          src={product.img_url!}
+                          src={resolveImageSource(product.img_url) || undefined}
                           fill
                           style={{ objectFit: 'cover' }}
                           sizes="(max-width: 768px) 50vw, 220px"
@@ -783,7 +783,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
             cancelButtonProps={{ style: posComponentStyles.modalButton }}
           >
             <div style={{ padding: '16px 0' }}>
-              <Text style={{ display: 'block', marginBottom: 10, color: posColors.textSecondary }}>รายละเอียด / หมายเหตุ</Text>
+              <Text style={{ display: 'block', marginBottom: 10, color: posColors.textSecondary }}>เธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ” / เธซเธกเธฒเธขเน€เธซเธ•เธธ</Text>
               <Input.TextArea
                 rows={4}
                 value={noteInput}
@@ -850,7 +850,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                   {hasProductImage(selectedProduct) ? (
                     <Image
                       alt={selectedProduct.product_name}
-                      src={selectedProduct.img_url!}
+                      src={resolveImageSource(selectedProduct.img_url) || undefined}
                       fill
                       style={{ objectFit: 'cover' }}
                       sizes="(max-width: 768px) 90vw, 560px"

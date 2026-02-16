@@ -13,6 +13,12 @@ const api = axios.create({
 
 let csrfToken: string | null = null;
 
+const logDevError = (msg: string, err: unknown) => {
+    if (process.env.NODE_ENV !== "production") {
+        console.error(msg, err);
+    }
+};
+
 // Function to fetch CSRF token
 const getCsrfToken = async () => {
     try {
@@ -23,7 +29,7 @@ const getCsrfToken = async () => {
         csrfToken = data.csrfToken;
         return csrfToken;
     } catch (error) {
-        console.error("Failed to fetch CSRF token", error);
+        logDevError("Failed to fetch CSRF token", error);
         return null;
     }
 };

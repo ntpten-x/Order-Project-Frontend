@@ -30,8 +30,13 @@ const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 const readQueue = (): OfflineAction[] => {
     if (typeof window === 'undefined') return [];
-    const queueString = localStorage.getItem(QUEUE_KEY);
-    return queueString ? JSON.parse(queueString) : [];
+    try {
+        const queueString = localStorage.getItem(QUEUE_KEY);
+        return queueString ? JSON.parse(queueString) : [];
+    } catch {
+        localStorage.removeItem(QUEUE_KEY);
+        return [];
+    }
 };
 
 const pruneOld = (items: OfflineAction[]) => {

@@ -23,6 +23,7 @@ const BottomNavigation = () => {
   const { user } = useAuth();
   const { can, canAny, rows } = useEffectivePermissions({ enabled: Boolean(user?.id) });
   const [pendingCount, setPendingCount] = useState(0);
+  const refreshTimerRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
   const { socket } = useSocket();
   const canSeeMenu = React.useCallback(
     (menuKey: string) => canViewMenu(menuKey, { rows, can, canAny }),
@@ -49,7 +50,15 @@ const BottomNavigation = () => {
 
   useEffect(() => {
       if (!socket || !canViewOrdersMenu) return;
-      const scheduleRefresh = () => setTimeout(checkPendingOrders, 500);
+      const scheduleRefresh = () => {
+          if (refreshTimerRef.current) {
+              clearTimeout(refreshTimerRef.current);
+          }
+          refreshTimerRef.current = setTimeout(() => {
+              refreshTimerRef.current = null;
+              void checkPendingOrders();
+          }, 500);
+      };
       const handleLegacyUpdate = (payload: { action?: string }) => {
           if (payload?.action === 'create' || payload?.action === 'update_status') {
               scheduleRefresh();
@@ -67,6 +76,10 @@ const BottomNavigation = () => {
           socket.off(RealtimeEvents.stockOrders.delete, scheduleRefresh);
           socket.off(LegacyRealtimeEvents.stockOrdersUpdated, handleLegacyUpdate);
           window.removeEventListener('focus', onFocus);
+          if (refreshTimerRef.current) {
+              clearTimeout(refreshTimerRef.current);
+              refreshTimerRef.current = null;
+          }
       };
   }, [socket, canViewOrdersMenu, checkPendingOrders]);
 

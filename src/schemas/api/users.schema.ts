@@ -10,8 +10,8 @@ export const UserSchema = z.object({
     roles: RoleSchema.optional().nullable(),
     branch_id: z.string().optional().nullable(),
     branch: BranchSchema.optional().nullable(),
-    create_date: z.string().or(z.date()).transform(val => new Date(val)).optional(),
-    last_login_at: z.string().or(z.date()).transform(val => new Date(val)).optional().nullable(),
+    create_date: z.coerce.date().optional(),
+    last_login_at: z.coerce.date().optional().nullable(),
     is_use: z.boolean().optional().default(true),
     is_active: z.boolean().optional().default(false),
 });

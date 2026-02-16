@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import { Button, Flex, Spin, Typography, Result, Space, message } from "antd";
 import { UI_TOKENS } from "../tokens";
 import { t } from "../../../utils/i18n";
@@ -33,6 +34,7 @@ export default function PageState({
   action,
   style,
 }: PageStateProps) {
+  const router = useRouter();
   const resolvedStatus = errorStatus ?? resolveHttpStatus(error);
   const backendMessage = resolveHttpErrorMessage(error);
 
@@ -85,9 +87,7 @@ export default function PageState({
       onLogin();
       return;
     }
-    if (typeof window !== "undefined") {
-      window.location.href = "/login";
-    }
+    router.push("/login");
   };
 
   const handleConflictRefresh = () => {
@@ -95,9 +95,7 @@ export default function PageState({
       onRetry();
       return;
     }
-    if (typeof window !== "undefined") {
-      window.location.reload();
-    }
+    router.refresh();
   };
 
   let defaultAction: React.ReactNode | undefined;

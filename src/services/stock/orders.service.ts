@@ -84,9 +84,9 @@ export const ordersService = {
 
     updateStatus: async (id: string, status: OrderStatus, cookie?: string, csrfToken?: string): Promise<Order> => {
         const url = getProxyUrl("PUT", `${BASE_PATH}/${id}/status`);
-        const headers = getHeaders(cookie);
+        const headers = getHeaders(cookie) as Record<string, string>;
         if (csrfToken) {
-            (headers as Record<string, string>)["X-CSRF-Token"] = csrfToken;
+            headers["X-CSRF-Token"] = csrfToken;
         }
 
         const response = await fetch(url!, {
@@ -145,9 +145,12 @@ export const ordersService = {
         actual_quantity: number;
         purchased_by_id: string;
         is_purchased?: boolean;
-    }, cookie?: string): Promise<OrdersDetail> => {
+    }, cookie?: string, csrfToken?: string): Promise<OrdersDetail> => {
         const url = getProxyUrl("POST", "/stock/ordersDetail/update");
-        const headers = getHeaders(cookie);
+        const headers = getHeaders(cookie) as Record<string, string>;
+        if (csrfToken) {
+            headers["X-CSRF-Token"] = csrfToken;
+        }
 
         const response = await fetch(url!, {
             method: "POST",
@@ -156,11 +159,10 @@ export const ordersService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถอัปเดตข้อมูลการซื้อได้");
+            throwBackendHttpError(response, errorData, "Failed to update purchase detail");
         }
         return unwrapBackendData(await response.json()) as OrdersDetail;
     },
-
     deleteOrder: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
         const url = getProxyUrl("DELETE", `${BASE_PATH}/${id}`);
         const headers = getHeaders(cookie, "");
@@ -179,3 +181,4 @@ export const ordersService = {
         }
     },
 };
+

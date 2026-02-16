@@ -34,6 +34,7 @@ import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
 import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
 import { SearchInput } from "../../../../components/ui/input/SearchInput";
 import { SearchBar } from "../../../../components/ui/page/SearchBar";
+import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
 
 const { Text } = Typography;
 
@@ -41,6 +42,8 @@ type StatusFilter = 'all' | 'active' | 'inactive';
 type TypeFilter = 'all' | DiscountType.Fixed | DiscountType.Percentage;
 interface DiscountCardProps {
     discount: Discounts;
+    canUpdate: boolean;
+    canDelete: boolean;
     onEdit: (discount: Discounts) => void;
     onDelete: (discount: Discounts) => void;
     onToggleActive: (discount: Discounts, next: boolean) => void;
@@ -64,7 +67,7 @@ const formatDiscountValue = (discount: Discounts) => {
     return `${amount.toLocaleString('th-TH')} บาท`;
 };
 
-const DiscountCard = ({ discount, onEdit, onDelete, onToggleActive, updatingStatusId }: DiscountCardProps) => {
+const DiscountCard = ({ discount, canUpdate, canDelete, onEdit, onDelete, onToggleActive, updatingStatusId }: DiscountCardProps) => {
     const isFixed = discount.discount_type === DiscountType.Fixed;
 
     return (
@@ -73,8 +76,12 @@ const DiscountCard = ({ discount, onEdit, onDelete, onToggleActive, updatingStat
             style={{
                 ...pageStyles.discountCard(discount.is_active),
                 borderRadius: 16,
+                cursor: canUpdate ? "pointer" : "default",
             }}
-            onClick={() => onEdit(discount)}
+            onClick={() => {
+                if (!canUpdate) return;
+                onEdit(discount);
+            }}
         >
             <div style={pageStyles.discountCardInner}>
                 <div style={{
@@ -135,41 +142,47 @@ const DiscountCard = ({ discount, onEdit, onDelete, onToggleActive, updatingStat
                         size="small"
                         checked={discount.is_active}
                         loading={updatingStatusId === discount.id}
+                        disabled={!canUpdate}
                         onClick={(checked, event) => {
+                            if (!canUpdate) return;
                             event?.stopPropagation();
                             onToggleActive(discount, checked);
                         }}
                     />
-                    <Button
-                        type="text"
-                        icon={<EditOutlined />}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit(discount);
-                        }}
-                        style={{
-                            borderRadius: 10,
-                            color: '#d97706',
-                            background: '#fff7ed',
-                            width: 36,
-                            height: 36
-                        }}
-                    />
-                    <Button
-                        type="text"
-                        danger
-                        icon={<DeleteOutlined />}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(discount);
-                        }}
-                        style={{
-                            borderRadius: 10,
-                            background: '#fef2f2',
-                            width: 36,
-                            height: 36
-                        }}
-                    />
+                    {canUpdate ? (
+                        <Button
+                            type="text"
+                            icon={<EditOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit(discount);
+                            }}
+                            style={{
+                                borderRadius: 10,
+                                color: '#d97706',
+                                background: '#fff7ed',
+                                width: 36,
+                                height: 36
+                            }}
+                        />
+                    ) : null}
+                    {canDelete ? (
+                        <Button
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete(discount);
+                            }}
+                            style={{
+                                borderRadius: 10,
+                                background: '#fef2f2',
+                                width: 36,
+                                height: 36
+                            }}
+                        />
+                    ) : null}
                 </div>
             </div>
         </div>
@@ -194,7 +207,12 @@ export default function DiscountsPage() {
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard();
+    const { isAuthorized, isChecking, user } = useRoleGuard();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+
+    const canCreateDiscounts = can("discounts.page", "create");
+    const canUpdateDiscounts = can("discounts.page", "update");
+    const canDeleteDiscounts = can("discounts.page", "delete");
 
     useEffect(() => {
         getCsrfTokenCached();
@@ -282,16 +300,28 @@ export default function DiscountsPage() {
     const filteredDiscounts = useMemo(() => discounts, [discounts]);
 
     const handleAdd = () => {
+        if (!canCreateDiscounts) {
+            message.error("คุณไม่มีสิทธิ์เพิ่มส่วนลด");
+            return;
+        }
         showLoading('กำลังเปิดหน้าจัดการส่วนลด...');
         router.push('/pos/discounts/manager/add');
     };
 
     const handleEdit = (discount: Discounts) => {
+        if (!canUpdateDiscounts) {
+            message.error("คุณไม่มีสิทธิ์แก้ไขส่วนลด");
+            return;
+        }
         showLoading('กำลังเปิดหน้าแก้ไขส่วนลด...');
         router.push(`/pos/discounts/manager/edit/${discount.id}`);
     };
 
     const handleDelete = (discount: Discounts) => {
+        if (!canDeleteDiscounts) {
+            message.error("คุณไม่มีสิทธิ์ลบส่วนลด");
+            return;
+        }
         Modal.confirm({
             title: 'ยืนยันการลบส่วนลด',
             content: `คุณต้องการลบส่วนลด "${discount.display_name}" หรือไม่?`,
@@ -320,6 +350,10 @@ export default function DiscountsPage() {
     };
 
     const handleToggleActive = async (discount: Discounts, next: boolean) => {
+        if (!canUpdateDiscounts) {
+            message.error("คุณไม่มีสิทธิ์แก้ไขส่วนลด");
+            return;
+        }
         setUpdatingStatusId(discount.id);
         try {
             const csrfToken = await getCsrfTokenCached();
@@ -355,6 +389,10 @@ export default function DiscountsPage() {
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
     }
 
+    if (permissionLoading) {
+        return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
+    }
+
     const activeCount = discounts.filter((d) => d.is_active).length;
     const inactiveCount = discounts.filter((d) => !d.is_active).length;
     const fixedCount = discounts.filter((d) => d.discount_type === DiscountType.Fixed).length;
@@ -371,9 +409,11 @@ export default function DiscountsPage() {
                 actions={
                     <Space size={8} wrap>
                         <Button icon={<ReloadOutlined />} onClick={() => { void fetchDiscounts(); }} />
-                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                            เพิ่มส่วนลด
-                        </Button>
+                        {canCreateDiscounts ? (
+                            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                                เพิ่มส่วนลด
+                            </Button>
+                        ) : null}
                     </Space>
                 }
             />
@@ -438,6 +478,8 @@ export default function DiscountsPage() {
                                 <DiscountCard
                                     key={discount.id}
                                     discount={discount}
+                                    canUpdate={canUpdateDiscounts}
+                                    canDelete={canDeleteDiscounts}
                                     onEdit={handleEdit}
                                     onDelete={handleDelete}
                                     onToggleActive={handleToggleActive}
@@ -457,7 +499,7 @@ export default function DiscountsPage() {
                                         : 'เพิ่มส่วนลดแรกเพื่อเริ่มใช้งาน'
                                 }
                                 action={
-                                    !searchText.trim() ? (
+                                    !searchText.trim() && canCreateDiscounts ? (
                                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                                             เพิ่มส่วนลด
                                         </Button>

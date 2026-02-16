@@ -2,7 +2,7 @@
 
 import React from "react";
 import { ReloadOutlined, WifiOutlined } from "@ant-design/icons";
-import { Button, Space, theme } from "antd";
+import { Button, Space, theme, Typography } from "antd";
 import { useRouter } from "next/navigation";
 
 import PageContainer from "../../components/ui/page/PageContainer";
@@ -13,12 +13,27 @@ import UIEmptyState from "../../components/ui/states/EmptyState";
 export default function OfflinePage() {
   const router = useRouter();
   const { token } = theme.useToken();
+  const [isOnline, setIsOnline] = React.useState(
+    typeof navigator !== "undefined" ? navigator.onLine : false
+  );
+
+  React.useEffect(() => {
+    const onOnline = () => {
+      setIsOnline(true);
+      router.refresh();
+    };
+    const onOffline = () => setIsOnline(false);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, [router]);
 
   const handleRetry = () => {
-    if (navigator.onLine) {
+    if (isOnline) {
       router.refresh();
-    } else {
-      window.location.reload();
     }
   };
 
@@ -60,6 +75,12 @@ export default function OfflinePage() {
               ดูเหมือนว่าคุณไม่ได้เชื่อมต่ออินเทอร์เน็ต
               <br />
               กรุณาตรวจสอบเครือข่าย แล้วลองใหม่อีกครั้ง
+              {!isOnline && (
+                <>
+                  <br />
+                  <Typography.Text type="warning">กำลังรอการเชื่อมต่อกลับมา...</Typography.Text>
+                </>
+              )}
             </>
           }
           action={
@@ -69,6 +90,7 @@ export default function OfflinePage() {
                 icon={<ReloadOutlined />}
                 size="large"
                 onClick={handleRetry}
+                disabled={!isOnline}
                 style={{
                   borderRadius: 14,
                   height: 48,

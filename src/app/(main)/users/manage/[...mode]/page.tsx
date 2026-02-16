@@ -22,6 +22,7 @@ import PageSection from "../../../../../components/ui/page/PageSection";
 import UIPageHeader from "../../../../../components/ui/page/PageHeader";
 import { t } from "../../../../../utils/i18n";
 import { AccessGuardFallback } from "../../../../../components/pos/AccessGuard";
+import { getCsrfTokenCached } from "../../../../../utils/pos/csrf";
 
 export default function UserManagePage({ params }: { params: { mode: string[] } }) {
   const router = useRouter();
@@ -32,15 +33,17 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   const canCreateUsers = can("users.page", "create");
   const canUpdateUsers = can("users.page", "update");
   const canDeleteUsers = can("users.page", "delete");
+  const isAdminUser = user?.role?.toLowerCase?.() === "admin";
+  // Backend policy: delete is admin-only even if permissions are mistakenly widened.
+  const canDeleteUsersEffective = Boolean(isAdminUser && canDeleteUsers);
   const canManageRoles = can("roles.page", "view") || can("roles.page", "update");
   const canManageBranches = can("branches.page", "view") || can("branches.page", "update");
   const userPermission = rows.find((row) => row.resourceKey === "users.page");
-  const isBranchScopedUser = userPermission?.dataScope === "branch";
+  const isBranchScopedUser = user?.role !== "Admin" && userPermission?.dataScope === "branch";
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [roles, setRoles] = useState<Role[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
-  const [csrfToken, setCsrfToken] = useState<string>("");
   
   // Modal Visibility State
   const [roleModalVisible, setRoleModalVisible] = useState(false);
@@ -65,11 +68,8 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   }, [canSubmit, canViewUsers, permissionLoading]);
 
   useEffect(() => {
-    const fetchCsrf = async () => {
-        const token = await authService.getCsrfToken();
-        setCsrfToken(token);
-    };
-    fetchCsrf();
+    // Warm CSRF cache for faster first mutation.
+    void getCsrfTokenCached().catch(() => undefined);
   }, []);
 
   const fetchRoles = useCallback(async () => {
@@ -117,6 +117,18 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
     }
   }, [userId, form, router]);
 
+  const switchAdminBranch = useCallback(
+    async (branchId: string | null) => {
+      // Backend appears to scope some operations by active admin branch (httpOnly cookie).
+      // Ensure it matches what admin selected in this form to avoid always-defaulting to main branch.
+      if (user?.role !== "Admin") return;
+      const csrfToken = await getCsrfTokenCached();
+      await authService.switchBranch(branchId, csrfToken);
+      window.dispatchEvent(new CustomEvent("active-branch-changed", { detail: { activeBranchId: branchId } }));
+    },
+    [user?.role]
+  );
+
   useEffect(() => {
     if (canManageRoles) {
       fetchRoles();
@@ -157,6 +169,14 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
     }
     setSubmitting(true);
     try {
+      // Create: keep admin branch context aligned to selected branch so backend scoping is correct.
+      // Edit: do NOT switch before update, otherwise backend may not be able to see the existing user row
+      // (it is still in the old branch until the update completes).
+      if (!isEdit && user?.role === "Admin") {
+        const branchId = typeof values?.branch_id === "string" ? values.branch_id : null;
+        if (branchId) await switchAdminBranch(branchId);
+      }
+
       if (isEdit && userId) {
         // Edit Mode
         const payload = { ...values };
@@ -170,6 +190,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
           }
         }
 
+        const csrfToken = await getCsrfTokenCached();
         await userService.updateUser(userId, payload, undefined, csrfToken);
         message.success(t("users.manage.updateSuccess"));
       } else {
@@ -179,6 +200,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
           delete payload.roles_id;
           delete payload.branch_id;
         }
+        const csrfToken = await getCsrfTokenCached();
         await userService.createUser(payload, undefined, csrfToken);
         message.success(t("users.manage.createSuccess"));
       }
@@ -193,11 +215,12 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
 
   const handleDelete = async () => {
     if (!userId) return;
-    if (!canDeleteUsers) {
+    if (!canDeleteUsersEffective) {
       message.error("You do not have permission to delete users.");
       return;
     }
     try {
+      const csrfToken = await getCsrfTokenCached();
       await userService.deleteUser(userId, undefined, csrfToken);
       message.success(t("users.manage.deleteSuccess"));
       router.push('/users');
@@ -207,8 +230,6 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
     }
   };
 
-  const currentRole = roles.find(r => r.id === selectedRoleId);
-  const currentBranch = branches.find(b => b.id === selectedBranchId);
   const managerRoleLabel = "Employee";
   const managerBranchLabel =
     user?.branch ? `${user.branch.branch_name} (${user.branch.branch_code})` : (user?.branch_id || "-");
@@ -251,7 +272,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
             <Title level={2} style={{ margin: 0 }}>
                 {isEdit ? t("users.manage.headingEdit") : t("users.manage.headingCreate")}
             </Title>
-            {isEdit && canDeleteUsers && (
+            {isEdit && canDeleteUsersEffective && (
                 <Popconfirm
                     title={t("users.manage.deleteTitle")}
                     description={t("users.manage.deleteDescription")}
@@ -313,46 +334,44 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
                 name="roles_id"
                 label={t("users.manage.form.roleLabel")}
                 rules={[{ required: canManageRoles, message: t("users.manage.form.roleRequired") }]}
+                getValueProps={(value) => {
+                  const role = roles.find((r) => r.id === value);
+                  return {
+                    value: role ? role.display_name : "",
+                  };
+                }}
+                getValueFromEvent={() => form.getFieldValue("roles_id")}
               >
-                {/* Custom Select Trigger for Role */}
-                <div 
-                    className={`ant-input ant-input-lg flex items-center justify-between ${canManageRoles ? 'cursor-pointer' : ''}`}
-                    onClick={() => canManageRoles && setRoleModalVisible(true)}
-                    style={{ 
-                        border: '1px solid #d9d9d9', 
-                        borderRadius: 8,
-                        padding: '7px 11px',
-                        height: 48 
-                    }}
-                >
-                    <span className={currentRole ? 'text-black' : 'text-gray-400'}>
-                        {canManageRoles ? (currentRole ? currentRole.display_name : t("users.manage.form.rolePlaceholder")) : managerRoleLabel}
-                    </span>
-                    <DownOutlined className="text-gray-400" />
-                </div>
+                <Input
+                  size="large"
+                  readOnly
+                  placeholder={canManageRoles ? t("users.manage.form.rolePlaceholder") : managerRoleLabel}
+                  disabled={!canManageRoles}
+                  onClick={() => canManageRoles && setRoleModalVisible(true)}
+                  suffix={<DownOutlined className="text-gray-400" />}
+                />
               </Form.Item>
 
               <Form.Item
                 name="branch_id"
                 label={t("users.manage.form.branchLabel")}
                 rules={[{ required: canManageBranches, message: t("users.manage.form.branchRequired") }]}
+                getValueProps={(value) => {
+                  const branch = branches.find((b) => b.id === value);
+                  return {
+                    value: branch ? `${branch.branch_name} (${branch.branch_code})` : "",
+                  };
+                }}
+                getValueFromEvent={() => form.getFieldValue("branch_id")}
               >
-                 {/* Custom Select Trigger for Branch */}
-                 <div 
-                    className={`ant-input ant-input-lg flex items-center justify-between ${canManageBranches ? 'cursor-pointer' : ''}`}
-                    onClick={() => canManageBranches && setBranchModalVisible(true)}
-                    style={{ 
-                        border: '1px solid #d9d9d9', 
-                        borderRadius: 8,
-                        padding: '7px 11px',
-                        height: 48 
-                    }}
-                >
-                    <span className={currentBranch ? 'text-black' : 'text-gray-400'}>
-                        {canManageBranches ? (currentBranch ? `${currentBranch.branch_name} (${currentBranch.branch_code})` : t("users.manage.form.branchPlaceholder")) : managerBranchLabel}
-                    </span>
-                    <DownOutlined className="text-gray-400" />
-                </div>
+                <Input
+                  size="large"
+                  readOnly
+                  placeholder={canManageBranches ? t("users.manage.form.branchPlaceholder") : managerBranchLabel}
+                  disabled={!canManageBranches}
+                  onClick={() => canManageBranches && setBranchModalVisible(true)}
+                  suffix={<DownOutlined className="text-gray-400" />}
+                />
               </Form.Item>
 
               {/* Role Selection Modal */}
@@ -402,6 +421,12 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
                             onClick={() => {
                                 form.setFieldValue('branch_id', branch.id);
                                 setBranchModalVisible(false);
+                                if (!isEdit) {
+                                  void switchAdminBranch(branch.id).catch((err) => {
+                                    console.error(err);
+                                    message.error("Failed to switch branch");
+                                  });
+                                }
                             }}
                             className={`p-3 border rounded-lg cursor-pointer flex justify-between items-center hover:bg-gray-50 transition-colors ${selectedBranchId === branch.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
                         >

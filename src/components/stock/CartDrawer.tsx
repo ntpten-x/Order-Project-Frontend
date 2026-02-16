@@ -27,6 +27,7 @@ import {
 import { useRouter } from "next/navigation";
 import { useCart } from "../../contexts/stock/CartContext";
 import { useAuth } from "../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../hooks/useEffectivePermissions";
 import { authService } from "../../services/auth.service";
 import { ordersService } from "../../services/stock/orders.service";
 import { resolveImageSource } from "../../utils/image/source";
@@ -39,6 +40,8 @@ export default function CartDrawer() {
   const isMobile = !screens.md;
 
   const { user } = useAuth();
+  const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+  const canCreateOrders = can("stock.orders.page", "create");
   const { items, clearCart, itemCount, updateItemNote, updateQuantity } = useCart();
 
   const [open, setOpen] = useState(false);
@@ -71,6 +74,10 @@ export default function CartDrawer() {
   );
 
   const createOrder = async () => {
+    if (!canCreateOrders) {
+      message.error("คุณไม่มีสิทธิ์สร้างใบซื้อ");
+      return;
+    }
     if (!user) {
       message.warning("กรุณาเข้าสู่ระบบก่อนสร้างใบซื้อ");
       return;
@@ -227,7 +234,7 @@ export default function CartDrawer() {
               block
               size="large"
               loading={submitting}
-              disabled={items.length === 0}
+              disabled={items.length === 0 || !canCreateOrders}
               onClick={() => void createOrder()}
             >
               สร้างใบซื้อ
@@ -294,6 +301,8 @@ export default function CartDrawer() {
                             onChange={(value) => updateQuantity(item.ingredient.id, Number(value || 1))}
                             controls={false}
                             style={{ width: isMobile ? 88 : 92 }}
+                            formatter={(value) => `${value}`.replace(/[^0-9]/g, "")}
+                            parser={(value) => value?.replace(/[^0-9]/g, "") as unknown as number}
                           />
                           <Button
                             icon={<PlusOutlined />}

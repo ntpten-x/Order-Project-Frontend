@@ -7,7 +7,8 @@ import {
     ShopOutlined, 
     SettingOutlined, 
     BranchesOutlined,
-    SafetyCertificateOutlined 
+    SafetyCertificateOutlined,
+    DashboardOutlined,
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../contexts/AuthContext";
@@ -63,6 +64,13 @@ export default function LandingPage() {
             iconColor: "#ef4444",
             path: "/audit",
             enabled: canSeeMenu("menu.module.audit"),
+        },
+        {
+            title: "Health-System",
+            icon: DashboardOutlined,
+            iconColor: "#0ea5e9",
+            path: "/Health-System",
+            enabled: user?.role === "Admin",
         },
     ].filter((module) => module.enabled);
 

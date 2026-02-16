@@ -33,6 +33,7 @@ import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
 import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
 import { SearchInput } from "../../../../components/ui/input/SearchInput";
 import { SearchBar } from "../../../../components/ui/page/SearchBar";
+import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
 
 const { Text } = Typography;
 
@@ -40,6 +41,8 @@ type StatusFilter = 'all' | 'active' | 'inactive';
 
 interface UnitCardProps {
     unit: ProductsUnit;
+    canUpdate: boolean;
+    canDelete: boolean;
     onEdit: (unit: ProductsUnit) => void;
     onDelete: (unit: ProductsUnit) => void;
     onToggleActive: (unit: ProductsUnit, next: boolean) => void;
@@ -55,7 +58,7 @@ const formatDate = (raw: string | Date) => {
     }).format(date);
 };
 
-const UnitCard = ({ unit, onEdit, onDelete, onToggleActive, updatingStatusId }: UnitCardProps) => {
+const UnitCard = ({ unit, canUpdate, canDelete, onEdit, onDelete, onToggleActive, updatingStatusId }: UnitCardProps) => {
     return (
         <div
             className="unit-card"
@@ -63,7 +66,10 @@ const UnitCard = ({ unit, onEdit, onDelete, onToggleActive, updatingStatusId }: 
                 ...pageStyles.unitCard(unit.is_active),
                 borderRadius: 16,
             }}
-            onClick={() => onEdit(unit)}
+            onClick={() => {
+                if (!canUpdate) return;
+                onEdit(unit);
+            }}
         >
             <div style={pageStyles.unitCardInner}>
                 <div style={{
@@ -118,41 +124,46 @@ const UnitCard = ({ unit, onEdit, onDelete, onToggleActive, updatingStatusId }: 
                         size="small"
                         checked={unit.is_active}
                         loading={updatingStatusId === unit.id}
+                        disabled={!canUpdate}
                         onClick={(checked, event) => {
                             event?.stopPropagation();
                             onToggleActive(unit, checked);
                         }}
                     />
-                    <Button
-                        type="text"
-                        icon={<EditOutlined />}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit(unit);
-                        }}
-                        style={{
-                            borderRadius: 10,
-                            color: '#0e7490',
-                            background: '#ecfeff',
-                            width: 36,
-                            height: 36
-                        }}
-                    />
-                    <Button
-                        type="text"
-                        danger
-                        icon={<DeleteOutlined />}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(unit);
-                        }}
-                        style={{
-                            borderRadius: 10,
-                            background: '#fef2f2',
-                            width: 36,
-                            height: 36
-                        }}
-                    />
+                    {canUpdate ? (
+                        <Button
+                            type="text"
+                            icon={<EditOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit(unit);
+                            }}
+                            style={{
+                                borderRadius: 10,
+                                color: '#0e7490',
+                                background: '#ecfeff',
+                                width: 36,
+                                height: 36
+                            }}
+                        />
+                    ) : null}
+                    {canDelete ? (
+                        <Button
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete(unit);
+                            }}
+                            style={{
+                                borderRadius: 10,
+                                background: '#fef2f2',
+                                width: 36,
+                                height: 36
+                            }}
+                        />
+                    ) : null}
                 </div>
             </div>
         </div>
@@ -176,7 +187,11 @@ export default function ProductsUnitPage() {
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard();
+    const { isAuthorized, isChecking, user } = useRoleGuard();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canCreateUnits = can("products_unit.page", "create");
+    const canUpdateUnits = can("products_unit.page", "update");
+    const canDeleteUnits = can("products_unit.page", "delete");
 
     useEffect(() => {
         getCsrfTokenCached();
@@ -260,16 +275,28 @@ export default function ProductsUnitPage() {
     }, [units]);
 
     const handleAdd = () => {
+        if (!canCreateUnits) {
+            message.error('คุณไม่มีสิทธิ์เพิ่มหน่วยสินค้า');
+            return;
+        }
         showLoading('กำลังเปิดหน้าจัดการหน่วยสินค้า...');
         router.push('/pos/productsUnit/manager/add');
     };
 
     const handleEdit = (unit: ProductsUnit) => {
+        if (!canUpdateUnits) {
+            message.error('คุณไม่มีสิทธิ์แก้ไขหน่วยสินค้า');
+            return;
+        }
         showLoading('กำลังเปิดหน้าแก้ไขหน่วยสินค้า...');
         router.push(`/pos/productsUnit/manager/edit/${unit.id}`);
     };
 
     const handleDelete = (unit: ProductsUnit) => {
+        if (!canDeleteUnits) {
+            message.error('คุณไม่มีสิทธิ์ลบหน่วยสินค้า');
+            return;
+        }
         Modal.confirm({
             title: 'ยืนยันการลบหน่วยสินค้า',
             content: `คุณต้องการลบหน่วย "${unit.display_name}" หรือไม่?`,
@@ -325,7 +352,7 @@ export default function ProductsUnitPage() {
         }
     };
 
-    if (isChecking) {
+    if (isChecking || permissionLoading) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
     }
 
@@ -347,7 +374,7 @@ export default function ProductsUnitPage() {
                 actions={
                     <Space size={8} wrap>
                         <Button icon={<ReloadOutlined />} onClick={() => { void fetchUnits(); }} />
-                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} disabled={!canCreateUnits}>
                             เพิ่มหน่วยสินค้า
                         </Button>
                     </Space>
@@ -398,6 +425,8 @@ export default function ProductsUnitPage() {
                                 <UnitCard
                                     key={unit.id}
                                     unit={unit}
+                                    canUpdate={canUpdateUnits}
+                                    canDelete={canDeleteUnits}
                                     onEdit={handleEdit}
                                     onDelete={handleDelete}
                                     onToggleActive={handleToggleActive}
@@ -418,7 +447,7 @@ export default function ProductsUnitPage() {
                                 }
                                 action={
                                     !searchText.trim() ? (
-                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} disabled={!canCreateUnits}>
                                             เพิ่มหน่วยสินค้า
                                         </Button>
                                     ) : null

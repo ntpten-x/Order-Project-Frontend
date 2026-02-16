@@ -19,6 +19,7 @@ import {
 import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
 import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
 import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuard';
+import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
 import { pageStyles, ProductPreview } from './style';
 import { Category } from '../../../../../../types/api/pos/category';
 import { ProductsUnit } from '../../../../../../types/api/pos/productsUnit';
@@ -78,7 +79,11 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     const id = params.mode?.[1] || null;
     const isEdit = mode === 'edit' && Boolean(id);
     const isValidMode = mode === 'add' || mode === 'edit';
-    const { isAuthorized, isChecking } = useRoleGuard();
+    const { isAuthorized, isChecking, user } = useRoleGuard();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canCreateProducts = can("products.page", "create");
+    const canUpdateProducts = can("products.page", "update");
+    const canDeleteProducts = can("products.page", "delete");
 
     const selectedCategoryId = Form.useWatch('category_id', form);
     const selectedUnitId = Form.useWatch('unit_id', form);
@@ -191,6 +196,9 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     const onFinish = async (values: ProductFormValues) => {
         setSubmitting(true);
         try {
+            if (isEdit ? !canUpdateProducts : !canCreateProducts) {
+                throw new Error('คุณไม่มีสิทธิ์บันทึกข้อมูลสินค้า');
+            }
             const payload = {
                 product_name: values.product_name.trim(),
                 display_name: values.display_name.trim(),
@@ -264,7 +272,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
 
     const handleBack = () => router.push('/pos/products');
 
-    if (isChecking) {
+    if (isChecking || permissionLoading) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
     }
 
@@ -279,7 +287,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                 subtitle={isEdit ? 'แก้ไขข้อมูลสินค้าและราคา' : 'สร้างสินค้าใหม่ให้พร้อมขายในระบบ POS'}
                 onBack={handleBack}
                 actions={
-                    isEdit ? (
+                    isEdit && canDeleteProducts ? (
                         <Button danger onClick={handleDelete} icon={<DeleteOutlined />}>
                             ลบ
                         </Button>
@@ -382,7 +390,15 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                                         { type: 'number', min: 0, message: 'ราคาต้องไม่ติดลบ' }
                                                     ]}
                                                 >
-                                                    <InputNumber<number> size="large" min={0} precision={2} style={{ width: '100%' }} controls={false} />
+                                                    <InputNumber<number>
+                                                        size="large"
+                                                        min={0}
+                                                        precision={2}
+                                                        style={{ width: '100%' }}
+                                                        controls={false}
+                                                        formatter={(value) => `${value}`.replace(/[^0-9.]/g, "")}
+                                                        parser={(value) => value?.replace(/[^0-9.]/g, "") as unknown as number}
+                                                    />
                                                 </Form.Item>
                                             </Col>
                                             <Col xs={24} md={8}>
@@ -391,7 +407,15 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                                     label={<span style={{ fontWeight: 600, color: '#334155' }}>ราคา Delivery</span>}
                                                     rules={[{ type: 'number', min: 0, message: 'ราคาต้องไม่ติดลบ' }]}
                                                 >
-                                                    <InputNumber<number> size="large" min={0} precision={2} style={{ width: '100%' }} controls={false} />
+                                                    <InputNumber<number>
+                                                        size="large"
+                                                        min={0}
+                                                        precision={2}
+                                                        style={{ width: '100%' }}
+                                                        controls={false}
+                                                        formatter={(value) => `${value}`.replace(/[^0-9.]/g, "")}
+                                                        parser={(value) => value?.replace(/[^0-9.]/g, "") as unknown as number}
+                                                    />
                                                 </Form.Item>
                                             </Col>
                                             <Col xs={24} md={8}>
@@ -400,7 +424,15 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                                     label={<span style={{ fontWeight: 600, color: '#334155' }}>ต้นทุน (ไม่บังคับ)</span>}
                                                     rules={[{ type: 'number', min: 0, message: 'ต้นทุนต้องไม่ติดลบ' }]}
                                                 >
-                                                    <InputNumber<number> size="large" min={0} precision={2} style={{ width: '100%' }} controls={false} />
+                                                    <InputNumber<number>
+                                                        size="large"
+                                                        min={0}
+                                                        precision={2}
+                                                        style={{ width: '100%' }}
+                                                        controls={false}
+                                                        formatter={(value) => `${value}`.replace(/[^0-9.]/g, "")}
+                                                        parser={(value) => value?.replace(/[^0-9.]/g, "") as unknown as number}
+                                                    />
                                                 </Form.Item>
                                             </Col>
                                         </Row>

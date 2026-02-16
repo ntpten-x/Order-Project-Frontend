@@ -6,6 +6,7 @@ import { GET as GET_CURRENT_SUMMARY } from "../../app/api/pos/shifts/current/sum
 import { GET as GET_HISTORY } from "../../app/api/pos/shifts/history/route";
 import { POST as POST_OPEN } from "../../app/api/pos/shifts/open/route";
 import { POST as POST_CLOSE } from "../../app/api/pos/shifts/close/route";
+import { POST as POST_CLOSE_PREVIEW } from "../../app/api/pos/shifts/close/preview/route";
 import { GET as GET_SUMMARY_BY_ID } from "../../app/api/pos/shifts/summary/[id]/route";
 import { getProxyUrl } from "../../lib/proxy-utils";
 
@@ -121,12 +122,18 @@ describe("POS shift proxy routes", () => {
         expect(payload).toEqual({ success: false, error: { message: "history-fail" } });
     });
 
-    it("POST open/close routes preserve backend status and forward csrf/cookie", async () => {
+    it("POST open/close/preview routes preserve backend status and forward csrf/cookie", async () => {
         fetchMock
             .mockResolvedValueOnce(
                 new Response(
                     JSON.stringify({ success: false, error: { message: "open-forbidden" } }),
                     { status: 403, headers: { "content-type": "application/json" } }
+                )
+            )
+            .mockResolvedValueOnce(
+                new Response(
+                    JSON.stringify({ success: false, error: { message: "close-preview-conflict" } }),
+                    { status: 409, headers: { "content-type": "application/json" } }
                 )
             )
             .mockResolvedValueOnce(
@@ -156,13 +163,27 @@ describe("POS shift proxy routes", () => {
             body: JSON.stringify({ end_amount: 80 }),
         });
 
+        const closePreviewReq = new NextRequest("http://localhost/api/pos/shifts/close/preview", {
+            method: "POST",
+            headers: {
+                "content-type": "application/json",
+                cookie: "sid=abc",
+                "x-csrf-token": "csrf123",
+            },
+            body: JSON.stringify({ end_amount: 80 }),
+        });
+
         const openRes = await POST_OPEN(openReq);
+        const closePreviewRes = await POST_CLOSE_PREVIEW(closePreviewReq);
         const closeRes = await POST_CLOSE(closeReq);
         const openPayload = await openRes.json();
+        const closePreviewPayload = await closePreviewRes.json();
         const closePayload = await closeRes.json();
 
         expect(openRes.status).toBe(403);
         expect(openPayload).toEqual({ success: false, error: { message: "open-forbidden" } });
+        expect(closePreviewRes.status).toBe(409);
+        expect(closePreviewPayload).toEqual({ success: false, error: { message: "close-preview-conflict" } });
         expect(closeRes.status).toBe(409);
         expect(closePayload).toEqual({ success: false, error: { message: "close-conflict" } });
 
@@ -179,6 +200,17 @@ describe("POS shift proxy routes", () => {
         );
         expect(fetchMock).toHaveBeenNthCalledWith(
             2,
+            "http://backend/pos/shifts/close/preview",
+            expect.objectContaining({
+                method: "POST",
+                headers: expect.objectContaining({
+                    Cookie: "sid=abc",
+                    "X-CSRF-Token": "csrf123",
+                }),
+            })
+        );
+        expect(fetchMock).toHaveBeenNthCalledWith(
+            3,
             "http://backend/pos/shifts/close",
             expect.objectContaining({
                 method: "POST",
@@ -190,4 +222,3 @@ describe("POS shift proxy routes", () => {
         );
     });
 });
-

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
@@ -57,14 +57,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const login = async (credentials: LoginCredentials) => {
         try {
             showLoading(t("auth.loadingLogin"));
-            
-            // Get CSRF Token first
+
             const csrfToken = await authService.getCsrfToken();
-            
-            // eslint-disable-next-line @typescript-eslint/no-unused-vars
-            const { token: _, ...userData } = await authService.login(credentials, csrfToken);
+            const userData = await authService.login(credentials, csrfToken);
             setUser(normalizeUserRole(userData));
-            router.push("/"); // Redirect to dashboard
+            router.push("/");
         } catch (error: unknown) {
             throw error;
         } finally {
@@ -75,7 +72,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const logout = async () => {
         try {
             showLoading(t("auth.loadingLogout"));
-            
+
             await authService.logout();
             offlineQueueService.clearQueue();
             setUser(null);
@@ -89,28 +86,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
     if (loading) {
         return (
-            <div style={{
-                position: "fixed",
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                zIndex: 9999,
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "#ffffff"
-            }}>
-                <div style={{
+            <div
+                style={{
+                    position: "fixed",
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    zIndex: 9999,
                     display: "flex",
-                    flexDirection: "column",
                     alignItems: "center",
-                    gap: "12px",
-                    padding: "24px",
+                    justifyContent: "center",
                     background: "#ffffff",
-                    borderRadius: "20px",
-                    boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)"
-                }}>
+                }}
+            >
+                <div
+                    style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        gap: "12px",
+                        padding: "24px",
+                        background: "#ffffff",
+                        borderRadius: "20px",
+                        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+                    }}
+                >
                     <Spin size="large" />
                     <div style={{ color: "#64748b", fontSize: "14px", fontWeight: 500 }}>
                         กำลังตรวจสอบสิทธิ์...
@@ -121,14 +122,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     if (!user && pathname !== "/login") {
-         return null; 
+        return null;
     }
 
-    return (
-        <AuthContext.Provider value={{ user, loading, login, logout, checkAuth }}>
-            {children}
-        </AuthContext.Provider>
-    );
+    return <AuthContext.Provider value={{ user, loading, login, logout, checkAuth }}>{children}</AuthContext.Provider>;
 };
 
 export const useAuth = (): AuthContextType => {

@@ -26,30 +26,45 @@ function makeRequest(pathname: string, method: string, token?: string) {
 describe("middleware permission policy", () => {
     it("denies unknown api route by default even with valid token", async () => {
         const req = makeRequest("/api/unknown-resource", "GET", makeToken("Admin"));
-        const res = middleware(req);
+        const res = await middleware(req);
         const body = await res.json();
 
         expect(res.status).toBe(403);
         expect(body.error).toContain("deny-by-default");
     });
 
-    it("allows known api route when token is present (role is checked downstream)", () => {
+    it("allows known api route when token is present (role is checked downstream)", async () => {
         const req = makeRequest("/api/roles/getAll", "GET", makeToken("Manager"));
-        const res = middleware(req);
+        const res = await middleware(req);
 
         expect(res.headers.get("x-middleware-next")).toBe("1");
     });
 
-    it("allows manager access to users api", () => {
+    it("allows manager access to users api", async () => {
         const req = makeRequest("/api/users", "GET", makeToken("Manager"));
-        const res = middleware(req);
+        const res = await middleware(req);
 
         expect(res.headers.get("x-middleware-next")).toBe("1");
     });
 
-    it("redirects protected page to login when no token is present", () => {
+    it("allows whitelisted system api route when token is present", async () => {
+        const req = makeRequest("/api/system/health", "GET", makeToken("Admin"));
+        const res = await middleware(req);
+
+        expect(res.headers.get("x-middleware-next")).toBe("1");
+    });
+
+    it("redirects protected page to login when no token is present", async () => {
         const req = makeRequest("/users", "GET");
-        const res = middleware(req);
+        const res = await middleware(req);
+
+        expect(res.status).toBe(307);
+        expect(res.headers.get("location")).toContain("/login");
+    });
+
+    it("redirects Health-System page to login when no token is present", async () => {
+        const req = makeRequest("/Health-System", "GET");
+        const res = await middleware(req);
 
         expect(res.status).toBe(307);
         expect(res.headers.get("location")).toContain("/login");

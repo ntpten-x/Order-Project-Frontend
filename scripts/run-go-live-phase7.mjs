@@ -164,6 +164,7 @@ async function main() {
       E2E_PORT: String(frontendPort),
       E2E_WEB_SERVER_TIMEOUT: "240000",
       NEXT_PUBLIC_BACKEND_API: backendUrl,
+      BACKEND_API_INTERNAL: backendUrl,
       E2E_USERNAME: process.env.E2E_USERNAME || "e2e_pos_admin",
       E2E_PASSWORD: process.env.E2E_PASSWORD || "E2E_Pos_123!",
     };

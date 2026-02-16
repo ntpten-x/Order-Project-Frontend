@@ -1,8 +1,8 @@
 ﻿"use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Col, Row, Space, Tag, Typography } from "antd";
+import { Button, Col, Row, Space, Tag, Typography, message } from "antd";
 import { ShoppingOutlined, PlusOutlined, ClockCircleOutlined } from "@ant-design/icons";
 import PageContainer from "../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../components/ui/page/PageSection";
@@ -15,9 +15,10 @@ import { POSGlobalStyles } from "../../../../../theme/pos/GlobalStyles";
 import { getOrderChannelStats, getOrderColorScheme, formatOrderStatus } from "../../../../../utils/channels";
 import { getOrderNavigationPath } from "../../../../../utils/orders";
 import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
-import { useShift } from "../../../../../contexts/pos/ShiftContext";
 import { useChannelOrders } from "../../../../../utils/pos/channelOrders";
-import OpenShiftModal from "../../../../../components/pos/shifts/OpenShiftModal";
+import RequireOpenShift from "../../../../../components/pos/shared/RequireOpenShift";
+import { useAuth } from "../../../../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../../../../hooks/useEffectivePermissions";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import 'dayjs/locale/th';
@@ -27,31 +28,38 @@ dayjs.extend(relativeTime);
 dayjs.locale('th');
 
 export default function TakeawayPage() {
+    return (
+        <RequireOpenShift>
+            <TakeawayPageContent />
+        </RequireOpenShift>
+    );
+}
+
+function TakeawayPageContent() {
     const router = useRouter();
     const { showLoading, hideLoading } = useGlobalLoading();
-    const { currentShift, loading: isShiftLoading } = useShift();
     const { orders, isLoading } = useChannelOrders({ orderType: OrderType.TakeAway });
-    const [isOpenShiftModalVisible, setIsOpenShiftModalVisible] = useState(false);
+    const loadingKey = "pos:channels:takeaway";
+    const { user } = useAuth();
+    const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canCreateOrder = can("orders.page", "create");
 
     const stats = useMemo(() => getOrderChannelStats(orders), [orders]);
 
     useEffect(() => {
         if (isLoading) {
-            showLoading("กำลังโหลดออเดอร์...");
+            showLoading("กำลังโหลดออเดอร์...", loadingKey);
         } else {
-            hideLoading();
+            hideLoading(loadingKey);
         }
-    }, [isLoading, showLoading, hideLoading]);
-
-    useEffect(() => {
-        if (!isShiftLoading && !currentShift) {
-            setIsOpenShiftModalVisible(true);
-            return;
-        }
-        setIsOpenShiftModalVisible(false);
-    }, [isShiftLoading, currentShift]);
+        return () => hideLoading(loadingKey);
+    }, [isLoading, showLoading, hideLoading, loadingKey]);
 
     const handleCreateOrder = () => {
+        if (!canCreateOrder) {
+            message.warning("คุณไม่มีสิทธิ์สร้างออเดอร์");
+            return;
+        }
         router.push('/pos/channels/takeaway/buying');
     };
 
@@ -120,10 +128,6 @@ export default function TakeawayPage() {
             `}</style>
             
             <div style={posPageStyles.container}>
-                <OpenShiftModal
-                    open={isOpenShiftModalVisible}
-                    onCancel={() => setIsOpenShiftModalVisible(false)}
-                />
                 <UIPageHeader
                     title="สั่งกลับบ้าน"
                     subtitle={
@@ -135,7 +139,7 @@ export default function TakeawayPage() {
                     onBack={handleBack}
                     icon={<ShoppingOutlined style={{ fontSize: 20 }} />}
                     actions={
-                        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateOrder}>
+                        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateOrder} disabled={!canCreateOrder}>
                             เพิ่มออเดอร์
                         </Button>
                     }

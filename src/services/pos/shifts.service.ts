@@ -1,4 +1,4 @@
-﻿import { Shift, ShiftHistoryQuery, ShiftHistoryResponse } from "../../types/api/pos/shifts";
+﻿import { Shift, ShiftClosePreview, ShiftHistoryQuery, ShiftHistoryResponse } from "../../types/api/pos/shifts";
 import { getCsrfTokenCached } from "../../utils/pos/csrf";
 import { throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
 
@@ -45,6 +45,27 @@ export const shiftsService = {
         }
 
         return unwrapBackendData(await parsePayload(response)) as Shift;
+    },
+
+    previewCloseShift: async (endAmount: number): Promise<ShiftClosePreview> => {
+        const csrfToken = await getCsrfTokenCached();
+
+        const response = await fetch("/api/pos/shifts/close/preview", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRF-Token": csrfToken,
+            },
+            credentials: "include",
+            body: JSON.stringify({ end_amount: endAmount }),
+        });
+
+        if (!response.ok) {
+            const errorData = await parsePayload(response);
+            throwBackendHttpError(response, errorData, "Failed to preview close shift");
+        }
+
+        return unwrapBackendData(await parsePayload(response)) as ShiftClosePreview;
     },
 
     closeShift: async (endAmount: number): Promise<Shift> => {

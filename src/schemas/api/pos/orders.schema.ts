@@ -43,6 +43,53 @@ const SalesOrderItemSchema = z.object({
     details: z.array(SalesOrderDetailSchema).optional(),
 });
 
+const TableRelationSchema = z
+    .object({
+        id: z.string().optional(),
+        table_name: z.string().optional().nullable(),
+    })
+    .partial()
+    .nullable();
+
+const DeliveryRelationSchema = z
+    .object({
+        id: z.string().optional(),
+        delivery_name: z.string().optional().nullable(),
+        delivery_prefix: z.string().optional().nullable(),
+    })
+    .partial()
+    .nullable();
+
+const DiscountRelationSchema = z
+    .object({
+        id: z.string().optional(),
+        discount_name: z.string().optional().nullable(),
+        discount_type: z.string().optional().nullable(),
+        discount_amount: z.coerce.number().optional(),
+    })
+    .partial()
+    .nullable();
+
+const PaymentRelationSchema = z
+    .object({
+        id: z.string().optional(),
+        payment_method_id: z.string().optional().nullable(),
+        status: z.string().optional().nullable(),
+        amount: z.coerce.number().optional(),
+        payment_date: z.string().optional().nullable(),
+        payment_method: z
+            .object({
+                id: z.string().optional(),
+                payment_method_name: z.string().optional().nullable(),
+                display_name: z.string().optional().nullable(),
+            })
+            .partial()
+            .nullable()
+            .optional(),
+    })
+    .partial()
+    .nullable();
+
 export const SalesOrderSchema = z.object({
     id: z.string(),
     order_no: z.string(),
@@ -65,10 +112,10 @@ export const SalesOrderSchema = z.object({
     // Relations
     items: z.array(SalesOrderItemSchema).optional(),
     created_by: UserSchema.optional(),
-    table: z.any().optional(),
-    delivery: z.any().optional(),
-    discount: z.any().optional(),
-    payments: z.array(z.any()).optional(),
+    table: TableRelationSchema.optional(),
+    delivery: DeliveryRelationSchema.optional(),
+    discount: DiscountRelationSchema.optional(),
+    payments: z.array(PaymentRelationSchema).optional(),
 });
 
 export const OrdersResponseSchema = z.object({

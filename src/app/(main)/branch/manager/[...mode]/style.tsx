@@ -1,5 +1,10 @@
 "use client";
 
+/**
+ * NOTE: This file is currently unused (Branch manager UI is implemented in `page.tsx`).
+ * Keeping it to avoid breaking any external references, but it should be removed or refactored later.
+ */
+
 import React from 'react';
 import { Button, Typography } from 'antd';
 import { 

@@ -27,13 +27,16 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
   const [submitting, setSubmitting] = useState(false);
   const { user, loading: authLoading } = useAuth();
   const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-  const canManageBranches = can('branches.page', 'update');
+  const canCreateBranches = can('branches.page', 'create');
+  const canUpdateBranches = can('branches.page', 'update');
+  const canDeleteBranches = can('branches.page', 'delete');
   const { message: messageApi, modal } = App.useApp();
   const unauthorizedNotifiedRef = useRef(false);
 
   const mode = params.mode[0];
   const id = params.mode[1] || null;
   const isEdit = mode === 'edit' && !!id;
+  const hasPageAccess = isEdit ? canUpdateBranches : canCreateBranches;
 
   const fetchBranch = useCallback(async () => {
     if (!id) return;
@@ -59,7 +62,7 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
 
   useEffect(() => {
     if (!authLoading && !permissionLoading && user) {
-      if (!canManageBranches) {
+      if (!hasPageAccess) {
         if (!unauthorizedNotifiedRef.current) {
           unauthorizedNotifiedRef.current = true;
           messageApi.error(t('branch.noPermission'));
@@ -72,7 +75,7 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
         void fetchBranch();
       }
     }
-  }, [authLoading, permissionLoading, user, canManageBranches, isEdit, fetchBranch, messageApi]);
+  }, [authLoading, permissionLoading, user, hasPageAccess, isEdit, fetchBranch, messageApi]);
 
   const onFinish = async (values: BranchFormValues) => {
     setSubmitting(true);
@@ -96,7 +99,7 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
   };
 
   const handleDelete = () => {
-    if (!id) return;
+    if (!id || !canDeleteBranches) return;
 
     modal.confirm({
       title: t('branch.form.deleteTitle'),
@@ -136,7 +139,7 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
     );
   }
 
-  if (!user || !canManageBranches) {
+  if (!user || !hasPageAccess) {
     return <AccessGuardFallback message={t('branch.noPermission')} tone="danger" />;
   }
 
@@ -163,7 +166,7 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
                     </Title>
                     <Text type="secondary">{t('branch.form.subtitle')}</Text>
                   </div>
-                  {isEdit ? (
+                  {isEdit && canDeleteBranches ? (
                     <Button danger icon={<DeleteOutlined />} onClick={handleDelete}>
                       {t('branch.delete.ok')}
                     </Button>

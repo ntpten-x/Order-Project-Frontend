@@ -16,6 +16,10 @@ export const PROXY_CONFIGS = {
         }
         // Server-side: call Backend directly
         // Backend default port is 4000
-        return process.env.BACKEND_API_INTERNAL || process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:4000";
+        return (
+            process.env.BACKEND_API_INTERNAL ||
+            process.env.NEXT_PUBLIC_BACKEND_API ||
+            "http://localhost:4000"
+        );
     }
 }

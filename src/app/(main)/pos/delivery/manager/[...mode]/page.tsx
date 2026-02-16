@@ -21,6 +21,7 @@ import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuar
 import { pageStyles } from '../../../../../../theme/pos/delivery/style';
 import { Delivery } from '../../../../../../types/api/pos/delivery';
 import { isSupportedImageSource, resolveImageSource } from '../../../../../../utils/image/source';
+import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
 
 type DeliveryManageMode = 'add' | 'edit';
 
@@ -123,7 +124,13 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
     const id = params.mode?.[1] || null;
     const isValidMode = mode === 'add' || mode === 'edit';
     const isEdit = mode === 'edit' && Boolean(id);
-    const { isAuthorized, isChecking } = useRoleGuard();
+    const { isAuthorized, isChecking, user } = useRoleGuard();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+
+    const canCreateDelivery = can("delivery.page", "create");
+    const canUpdateDelivery = can("delivery.page", "update");
+    const canDeleteDelivery = can("delivery.page", "delete");
+    const canSubmit = isEdit ? canUpdateDelivery : canCreateDelivery;
 
     const modeTitle = useMemo(() => {
         if (isEdit) return 'แก้ไขช่องทางจัดส่ง';
@@ -200,6 +207,10 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
     }, [currentDeliveryName, id, isEdit]);
 
     const onFinish = async (values: DeliveryFormValues) => {
+        if (!canSubmit) {
+            message.error(isEdit ? "คุณไม่มีสิทธิ์แก้ไขช่องทางจัดส่ง" : "คุณไม่มีสิทธิ์เพิ่มช่องทางจัดส่ง");
+            return;
+        }
         setSubmitting(true);
         try {
             const payload: DeliveryFormValues = {
@@ -238,6 +249,10 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
 
     const handleDelete = () => {
         if (!id) return;
+        if (!canDeleteDelivery) {
+            message.error("คุณไม่มีสิทธิ์ลบช่องทางจัดส่ง");
+            return;
+        }
         Modal.confirm({
             title: 'ยืนยันการลบช่องทางจัดส่ง',
             content: `คุณต้องการลบช่องทางจัดส่ง "${deliveryName || '-'}" หรือไม่?`,
@@ -275,6 +290,14 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
     }
 
+    if (permissionLoading) {
+        return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
+    }
+
+    if (!canSubmit) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    }
+
     return (
         <div className="manage-page" style={pageStyles.container as React.CSSProperties}>
             <UIPageHeader
@@ -282,7 +305,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                 subtitle={isEdit ? 'ปรับแก้ชื่อ Prefix รูปโลโก้ และสถานะการใช้งาน' : 'สร้างช่องทางจัดส่งใหม่ให้พร้อมใช้งานในระบบ POS'}
                 onBack={handleBack}
                 actions={
-                    isEdit ? (
+                    isEdit && canDeleteDelivery ? (
                         <Button danger onClick={handleDelete} icon={<DeleteOutlined />}>
                             ลบ
                         </Button>

@@ -22,6 +22,7 @@ const { Title, Text } = Typography;
 export default function ChannelSelectionPage() {
   const router = useRouter();
   const { showLoading, hideLoading } = useGlobalLoading();
+  const loadingKey = "pos:channels:stats";
   // Use the new hook for real-time stats (WebSocket driven)
   const { stats, isLoading: statsLoading } = useChannelStats();
   
@@ -36,11 +37,12 @@ export default function ChannelSelectionPage() {
 
   React.useEffect(() => {
     if (statsLoading) {
-      showLoading();
+      showLoading("กำลังโหลดช่องทางขาย...", loadingKey);
     } else {
-      hideLoading();
+      hideLoading(loadingKey);
     }
-  }, [statsLoading, showLoading, hideLoading]);
+    return () => hideLoading(loadingKey);
+  }, [statsLoading, showLoading, hideLoading, loadingKey]);
 
   const channels = [
     {

@@ -1,18 +1,34 @@
 "use client";
 
-import React, { useEffect, useState } from 'react';
-import { Modal, InputNumber, Button, Typography, Form } from 'antd';
-import { useShift } from '../../../contexts/pos/ShiftContext';
-import { DollarOutlined } from '@ant-design/icons';
-import { usePathname } from 'next/navigation';
-import { useEffectivePermissions } from '../../../hooks/useEffectivePermissions';
+import React, { useEffect, useState } from "react";
+import { Modal, InputNumber, Button, Typography, Form } from "antd";
+import { DollarOutlined } from "@ant-design/icons";
+import { usePathname } from "next/navigation";
 
+import { useShift } from "../../../contexts/pos/ShiftContext";
+import { useEffectivePermissions } from "../../../hooks/useEffectivePermissions";
+import {
+    clearShiftPromptSuppressed,
+    isShiftPromptSuppressed,
+    setShiftPromptSuppressed,
+} from "../../../utils/pos/shiftPrompt";
 
 const { Title, Text } = Typography;
 
 interface OpenShiftModalProps {
     open?: boolean;
     onCancel?: () => void;
+}
+
+function isGuardedShiftPath(pathname: string): boolean {
+    return (
+        pathname === "/pos/channels/delivery" ||
+        pathname === "/pos/channels/dine-in" ||
+        pathname === "/pos/channels/takeaway" ||
+        pathname === "/pos/orders" ||
+        pathname === "/pos/items" ||
+        pathname === "/pos/kitchen"
+    );
 }
 
 export default function OpenShiftModal({ open, onCancel }: OpenShiftModalProps = {}) {
@@ -23,19 +39,15 @@ export default function OpenShiftModal({ open, onCancel }: OpenShiftModalProps =
     const [form] = Form.useForm();
     const pathname = usePathname();
     const canCreateShift = can("shifts.page", "create");
-    const isGuardedChannelPage =
-        pathname === "/pos/channels/delivery" ||
-        pathname === "/pos/channels/dine-in" ||
-        pathname === "/pos/channels/takeaway";
 
     useEffect(() => {
-        if (currentShift) {
-            setDismissedGlobal(false);
-        }
+        if (!currentShift) return;
+        setDismissedGlobal(false);
+        clearShiftPromptSuppressed();
     }, [currentShift]);
 
-    // Visibility controlled by parent OR auto-check if global
     const isControlled = open !== undefined;
+    const suppressed = isShiftPromptSuppressed();
     const isVisible = isControlled
         ? Boolean(open) && canCreateShift
         : (!loading &&
@@ -43,25 +55,29 @@ export default function OpenShiftModal({ open, onCancel }: OpenShiftModalProps =
             canCreateShift &&
             !dismissedGlobal &&
             !currentShift &&
+            !suppressed &&
             pathname !== "/pos/shift" &&
-            !isGuardedChannelPage);
+            !isGuardedShiftPath(pathname));
 
     const handleCancel = () => {
         if (isControlled) {
             onCancel?.();
             return;
         }
+
         setDismissedGlobal(true);
+        setShiftPromptSuppressed();
     };
 
     const handleOpenShift = async (values: { startAmount: number }) => {
         setSubmitting(true);
         try {
             await openShift(values.startAmount);
+            clearShiftPromptSuppressed();
+            setDismissedGlobal(false);
             form.resetFields();
-            handleCancel();
         } catch {
-            // Error handled in context
+            // Error handled in caller/context.
         } finally {
             setSubmitting(false);
         }
@@ -81,32 +97,31 @@ export default function OpenShiftModal({ open, onCancel }: OpenShiftModalProps =
             footer={null}
             width={400}
             className="soft-modal"
-            styles={{ 
-                body: { padding: 0, borderRadius: 24, overflow: 'hidden', boxShadow: '0 20px 50px rgba(0,0,0,0.1)' } 
+            styles={{
+                body: { padding: 0, borderRadius: 24, overflow: "hidden", boxShadow: "0 20px 50px rgba(0,0,0,0.1)" },
             }}
         >
             <div className="modal-header">
                 <div className="icon-wrapper">
-                    <DollarOutlined style={{ fontSize: 32, color: '#10b981' }} />
+                    <DollarOutlined style={{ fontSize: 32, color: "#10b981" }} />
                 </div>
-                <Title level={3} style={{ margin: 0, color: '#1f1f1f', fontWeight: 700 }}>เปิดรอบการขาย</Title>
-                <Text type="secondary" style={{ fontSize: 16 }}>Open Shift</Text>
+                <Title level={3} style={{ margin: 0, color: "#1f1f1f", fontWeight: 700 }}>
+                    เปิดรอบการขาย
+                </Title>
+                <Text type="secondary" style={{ fontSize: 16 }}>
+                    เปิดกะเพื่อเริ่มรับออเดอร์
+                </Text>
             </div>
 
-            <div style={{ padding: '0 32px 32px 32px' }}>
-                <Form
-                    form={form}
-                    layout="vertical"
-                    onFinish={handleOpenShift}
-                    initialValues={{ startAmount: 0 }}
-                >
+            <div style={{ padding: "0 32px 32px 32px" }}>
+                <Form form={form} layout="vertical" onFinish={handleOpenShift} initialValues={{ startAmount: 0 }}>
                     <Form.Item
                         name="startAmount"
-                        label={<span style={{ fontSize: 16, fontWeight: 500, color: '#4b5563' }}>ระบุเงินทอนเริ่มต้น (บาท)</span>}
-                        rules={[{ required: true, message: 'กรุณาระบุจำนวนเงิน' }]}
+                        label={<span style={{ fontSize: 16, fontWeight: 500, color: "#4b5563" }}>ระบุเงินทอนเริ่มต้น (บาท)</span>}
+                        rules={[{ required: true, message: "กรุณาระบุจำนวนเงิน" }]}
                     >
                         <InputNumber<number>
-                            style={{ width: '100%', height: '80px', borderRadius: 16, border: '2px solid #e5e7eb' }}
+                            style={{ width: "100%", height: "80px", borderRadius: 16, border: "2px solid #e5e7eb" }}
                             size="large"
                             min={0}
                             precision={2}
@@ -115,13 +130,16 @@ export default function OpenShiftModal({ open, onCancel }: OpenShiftModalProps =
                             controls={false}
                             inputMode="decimal"
                             className="huge-input"
-                            formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ',')}
-                            parser={(value) => value?.replace(/\$\s?|(,*)/g, '') as unknown as number}
+                            formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
+                            parser={(value) => value?.replace(/\$\s?|(,*)/g, "").replace(/[^0-9.]/g, "") as unknown as number}
                             onKeyDown={(e) => {
-                                if ([8, 46, 9, 27, 13, 190, 110].includes(e.keyCode) ||
-                                    (e.ctrlKey === true || e.metaKey === true) ||
-                                    (e.keyCode >= 35 && e.keyCode <= 39)) {
-                                    if ((e.keyCode === 190 || e.keyCode === 110) && ((e.target as HTMLInputElement).value?.includes('.') )) {
+                                if (
+                                    [8, 46, 9, 27, 13, 190, 110].includes(e.keyCode) ||
+                                    e.ctrlKey === true ||
+                                    e.metaKey === true ||
+                                    (e.keyCode >= 35 && e.keyCode <= 39)
+                                ) {
+                                    if ((e.keyCode === 190 || e.keyCode === 110) && (e.target as HTMLInputElement).value?.includes(".")) {
                                         e.preventDefault();
                                     }
                                     return;
@@ -133,7 +151,7 @@ export default function OpenShiftModal({ open, onCancel }: OpenShiftModalProps =
                         />
                     </Form.Item>
 
-                    <Button 
+                    <Button
                         onClick={handleCancel}
                         block
                         size="large"
@@ -141,27 +159,27 @@ export default function OpenShiftModal({ open, onCancel }: OpenShiftModalProps =
                         style={{
                             height: 48,
                             borderRadius: 16,
-                            fontWeight: 600
+                            fontWeight: 600,
                         }}
                     >
-                        Cancel
+                        ปิด
                     </Button>
 
-                    <Button 
-                        type="primary" 
-                        htmlType="submit" 
-                        block 
-                        size="large" 
+                    <Button
+                        type="primary"
+                        htmlType="submit"
+                        block
+                        size="large"
                         loading={submitting}
-                        style={{ 
-                            height: 56, 
-                            borderRadius: 16, 
-                            fontSize: 18, 
+                        style={{
+                            height: 56,
+                            borderRadius: 16,
+                            fontSize: 18,
                             fontWeight: 600,
-                            background: '#10b981',
-                            boxShadow: '0 4px 14px rgba(16, 185, 129, 0.4)',
-                            border: 'none',
-                            marginTop: 12
+                            background: "#10b981",
+                            boxShadow: "0 4px 14px rgba(16, 185, 129, 0.4)",
+                            border: "none",
+                            marginTop: 12,
                         }}
                     >
                         ยืนยันเปิดกะ

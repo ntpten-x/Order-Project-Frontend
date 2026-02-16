@@ -2,43 +2,59 @@
  * Service Worker Registration Utility
  */
 
-const isLocalhost = Boolean(
-    window.location.hostname === 'localhost' ||
-    window.location.hostname === '[::1]' ||
-    window.location.hostname.match(/^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/)
-);
-
 type Config = {
     onSuccess?: (registration: ServiceWorkerRegistration) => void;
     onUpdate?: (registration: ServiceWorkerRegistration) => void;
 };
 
+const isBrowser = (): boolean => typeof window !== "undefined";
+
+const isLocalhostHost = (hostname: string): boolean =>
+    hostname === "localhost" ||
+    hostname === "[::1]" ||
+    Boolean(hostname.match(/^127(?:\.(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)){3}$/));
+
+const logDevInfo = (message: string) => {
+    if (process.env.NODE_ENV !== "production") {
+        console.log(message);
+    }
+};
+
+const logDevWarn = (message: string) => {
+    if (process.env.NODE_ENV !== "production") {
+        console.warn(message);
+    }
+};
+
 export function register(config?: Config) {
-    if ('serviceWorker' in navigator) {
+    if (isBrowser() && "serviceWorker" in navigator) {
         const backendUrl = process.env.NEXT_PUBLIC_BACKEND_API;
         if (backendUrl) {
             try {
                 const backendOrigin = new URL(backendUrl, window.location.origin).origin;
                 if (backendOrigin !== window.location.origin) {
-                    console.warn('[SW] Backend and frontend are on different origins. Service worker must be served from the frontend origin.');
+                    logDevWarn("[SW] Backend and frontend are on different origins. Service worker must be served from the frontend origin.");
                 }
             } catch {
-                console.warn('[SW] Invalid NEXT_PUBLIC_BACKEND_API value. Service worker will use the frontend origin.');
+                logDevWarn("[SW] Invalid NEXT_PUBLIC_BACKEND_API value. Service worker will use the frontend origin.");
             }
         }
 
-        window.addEventListener('load', () => {
-            const swUrl = new URL('/sw.js', window.location.origin).toString();
+        const onLoad = () => {
+            const swUrl = new URL("/sw.js", window.location.origin).toString();
+            const localhost = isLocalhostHost(window.location.hostname);
 
-            if (isLocalhost) {
+            if (localhost) {
                 checkValidServiceWorker(swUrl, config);
                 navigator.serviceWorker.ready.then(() => {
-                    console.log('[SW] Service worker ready');
+                    logDevInfo("[SW] Service worker ready");
                 });
             } else {
                 registerValidSW(swUrl, config);
             }
-        });
+        };
+
+        window.addEventListener("load", onLoad);
     }
 }
 
@@ -52,14 +68,14 @@ function registerValidSW(swUrl: string, config?: Config) {
                     return;
                 }
                 installingWorker.onstatechange = () => {
-                    if (installingWorker.state === 'installed') {
+                    if (installingWorker.state === "installed") {
                         if (navigator.serviceWorker.controller) {
-                            console.log('[SW] New content available; please refresh.');
+                            logDevInfo("[SW] New content available; please refresh.");
                             if (config && config.onUpdate) {
                                 config.onUpdate(registration);
                             }
                         } else {
-                            console.log('[SW] Content cached for offline use.');
+                            logDevInfo("[SW] Content cached for offline use.");
                             if (config && config.onSuccess) {
                                 config.onSuccess(registration);
                             }
@@ -93,7 +109,7 @@ function checkValidServiceWorker(swUrl: string, config?: Config) {
             }
         })
         .catch(() => {
-            console.log('[SW] No internet connection found. App is running in offline mode.');
+            logDevInfo("[SW] No internet connection found. App is running in offline mode.");
         });
 }
 
