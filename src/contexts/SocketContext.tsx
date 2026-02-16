@@ -58,7 +58,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
 
-    const socketUrl = process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:3000";
+    const socketUrl = process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:4000";
     const branchId = activeBranchId || userBranchId;
     const socketInstance = io(socketUrl, {
       transports: ["websocket"],

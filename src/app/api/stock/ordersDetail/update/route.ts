@@ -5,7 +5,9 @@ import { handleApiRouteError } from "../../../_utils/route-error";
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json();
-        const detail = await ordersService.updatePurchaseDetail(body);
+        const cookie = request.headers.get("cookie") || "";
+        const csrfToken = request.headers.get("X-CSRF-Token") || "";
+        const detail = await ordersService.updatePurchaseDetail(body, cookie, csrfToken);
         return NextResponse.json(detail);
     } catch (error: unknown) {
         console.error("API Error:", error);
