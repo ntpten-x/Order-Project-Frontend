@@ -40,6 +40,7 @@ import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
 import { SearchInput } from "../../../../components/ui/input/SearchInput";
 import { SearchBar } from "../../../../components/ui/page/SearchBar";
 import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
+import { resolveImageSource } from "../../../../utils/image/source";
 
 const { Text } = Typography;
 
@@ -91,7 +92,7 @@ const ProductCard = ({ product, canUpdate, canDelete, onEdit, onDelete, onToggle
                 }}>
                     {product.img_url ? (
                         <Image
-                            src={product.img_url}
+                            src={resolveImageSource(product.img_url) || undefined}
                             alt={product.display_name || product.product_name}
                             fill
                             style={{ objectFit: 'cover' }}

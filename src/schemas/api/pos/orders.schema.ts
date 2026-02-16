@@ -76,6 +76,16 @@ const PaymentRelationSchema = z
         payment_method_id: z.string().optional().nullable(),
         status: z.string().optional().nullable(),
         amount: z.coerce.number().optional(),
+        payment_date: z.string().optional().nullable(),
+        payment_method: z
+            .object({
+                id: z.string().optional(),
+                payment_method_name: z.string().optional().nullable(),
+                display_name: z.string().optional().nullable(),
+            })
+            .partial()
+            .nullable()
+            .optional(),
     })
     .partial()
     .nullable();

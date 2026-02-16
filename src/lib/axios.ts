@@ -4,7 +4,7 @@ import { getBackendErrorMessage } from "../utils/api/backendResponse";
 const api = axios.create({
     baseURL: typeof window !== "undefined"
         ? "/api"
-        : (process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:3000"),
+        : (process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:4000"),
     withCredentials: true, // Necessary for Cookies
     headers: {
         "Content-Type": "application/json",

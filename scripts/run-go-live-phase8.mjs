@@ -242,6 +242,7 @@ async function main() {
       E2E_PORT: String(frontendPort),
       E2E_WEB_SERVER_TIMEOUT: "240000",
       NEXT_PUBLIC_BACKEND_API: backendUrl,
+      BACKEND_API_INTERNAL: backendUrl,
       E2E_USERNAME_REQUESTER: requesterUsername,
       E2E_PASSWORD_REQUESTER: requesterPassword,
       E2E_USERNAME_APPROVER: approverUsername,

@@ -39,6 +39,7 @@ function TakeawayPageContent() {
     const router = useRouter();
     const { showLoading, hideLoading } = useGlobalLoading();
     const { orders, isLoading } = useChannelOrders({ orderType: OrderType.TakeAway });
+    const loadingKey = "pos:channels:takeaway";
     const { user } = useAuth();
     const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     const canCreateOrder = can("orders.page", "create");
@@ -47,11 +48,12 @@ function TakeawayPageContent() {
 
     useEffect(() => {
         if (isLoading) {
-            showLoading("กำลังโหลดออเดอร์...");
+            showLoading("กำลังโหลดออเดอร์...", loadingKey);
         } else {
-            hideLoading();
+            hideLoading(loadingKey);
         }
-    }, [isLoading, showLoading, hideLoading]);
+        return () => hideLoading(loadingKey);
+    }, [isLoading, showLoading, hideLoading, loadingKey]);
 
     const handleCreateOrder = () => {
         if (!canCreateOrder) {

@@ -23,6 +23,7 @@ const KNOWN_API_PREFIXES = [
     "/api/auth",
     "/api/audit",
     "/api/branches",
+    "/api/system",
     "/api/csrf",
     "/api/health",
     "/api/permissions",
@@ -42,7 +43,7 @@ const PUBLIC_API_PREFIXES = [
     "/api/cron/keep-alive",
 ];
 
-const PROTECTED_PAGE_PREFIXES = ["/users", "/branch", "/pos", "/stock", "/audit"];
+const PROTECTED_PAGE_PREFIXES = ["/users", "/branch", "/pos", "/stock", "/audit", "/Health-System"];
 
 function readCache<T>(store: Map<string, CacheEntry<T>>, key: string): T | null {
     const hit = store.get(key);
@@ -264,5 +265,7 @@ export const config = {
         "/pos/kitchen/:path*",
         "/stock/:path*",
         "/audit/:path*",
+        "/Health-System/:path*",
+        "/Health-System",
     ],
 };

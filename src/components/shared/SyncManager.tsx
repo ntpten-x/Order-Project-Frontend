@@ -8,7 +8,7 @@ import { ordersService } from '../../services/pos/orders.service';
 import { paymentsService } from '../../services/pos/payments.service';
 import { orderQueueService } from '../../services/pos/orderQueue.service';
 import { authService } from '../../services/auth.service';
-import { UpdateSalesOrderDTO } from '../../types/api/pos/salesOrder';
+import { SalesOrder } from '../../types/api/pos/salesOrder';
 import { DisconnectOutlined } from '@ant-design/icons';
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -43,7 +43,7 @@ export const SyncManager: React.FC = () => {
                         await ordersService.create(action.payload, undefined, csrfToken);
                     } else if (action.type === 'UPDATE_ORDER') {
                         const { orderId, data } = action.payload;
-                        await ordersService.update(orderId, data as UpdateSalesOrderDTO, undefined, csrfToken);
+                        await ordersService.update(orderId, data as Partial<SalesOrder>, undefined, csrfToken);
                     } else if (action.type === 'ADD_ITEM') {
                         const { orderId, itemData } = action.payload;
                         await ordersService.addItem(orderId, itemData, undefined, csrfToken);

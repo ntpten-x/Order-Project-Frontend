@@ -2,13 +2,7 @@
 
 import { Button, ConfigProvider, Result } from 'antd';
 import th_TH from 'antd/locale/th_TH';
-import { Sarabun } from 'next/font/google';
 import './globals.css';
-
-const sarabun = Sarabun({
-  subsets: ['thai', 'latin'],
-  weight: ['300', '400', '500', '600', '700'],
-});
 
 export default function GlobalError({
   error,
@@ -19,7 +13,7 @@ export default function GlobalError({
 }) {
   return (
     <html lang="th">
-      <body className={sarabun.className}>
+      <body>
         <ConfigProvider locale={th_TH}>
           <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
             <Result

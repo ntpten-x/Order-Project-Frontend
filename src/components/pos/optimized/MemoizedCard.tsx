@@ -4,6 +4,7 @@ import React, { memo, useCallback, CSSProperties, ReactNode } from 'react';
 import { Button, Typography } from 'antd';
 import { EditOutlined, DeleteOutlined } from '@ant-design/icons';
 import Image from '../../ui/image/SmartImage';
+import { resolveImageSource } from '../../../utils/image/source';
 
 const { Text } = Typography;
 
@@ -67,7 +68,7 @@ export const ProductCard = memo(function ProductCard({
         <div className="product-image-wrapper">
           {product.img_url ? (
             <Image
-              src={product.img_url}
+              src={resolveImageSource(product.img_url) || undefined}
               alt={product.display_name}
               fill
               style={{ objectFit: 'cover' }}

@@ -6,6 +6,7 @@ import { SalesOrderItem } from '../../../../../types/api/pos/salesOrderItem';
 import { orderDetailColors, modalStyles } from '../../../../../theme/pos/orders/style';
 import { calculateItemTotal, formatCurrency } from '../../../../../utils/orders';
 import { useGlobalLoadingDispatch } from '../../../../../contexts/pos/GlobalLoadingContext';
+import { resolveImageSource } from '../../../../../utils/image/source';
 
 const { Text, Title } = Typography;
 const { TextArea } = Input;
@@ -157,7 +158,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                     <div style={{ flexShrink: 0 }}>
                         {item.product?.img_url ? (
                             <Image
-                                src={item.product.img_url}
+                                src={resolveImageSource(item.product.img_url) || undefined}
                                 alt={item.product?.display_name ?? "สินค้า"}
                                 width={80}
                                 height={80}

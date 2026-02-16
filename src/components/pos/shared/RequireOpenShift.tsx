@@ -1,11 +1,12 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Button, Modal, Spin, Typography } from "antd";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { useEffectivePermissions } from "../../../hooks/useEffectivePermissions";
 import { useShift } from "../../../contexts/pos/ShiftContext";
 import OpenShiftModal from "../shifts/OpenShiftModal";
+import { clearShiftPromptSuppressed, setShiftPromptSuppressed } from "../../../utils/pos/shiftPrompt";
 
 const { Text } = Typography;
 
@@ -15,34 +16,30 @@ type RequireOpenShiftProps = {
 
 export default function RequireOpenShift({ children }: RequireOpenShiftProps) {
     const router = useRouter();
-    const pathname = usePathname();
     const { currentShift, loading: shiftLoading } = useShift();
     const { can, loading: permissionLoading } = useEffectivePermissions();
 
     const canCreateShift = can("shifts.page", "create");
     const [promptOpen, setPromptOpen] = useState(false);
-    const dismissedPathRef = useRef<string | null>(null);
 
     useEffect(() => {
         if (shiftLoading || permissionLoading) return;
 
         if (currentShift) {
-            dismissedPathRef.current = null;
+            clearShiftPromptSuppressed();
             setPromptOpen(false);
             return;
         }
 
-        if (dismissedPathRef.current === pathname) {
-            setPromptOpen(false);
-            return;
-        }
-
+        // User intentionally entered a guarded page again, so enforce open-shift prompt.
+        clearShiftPromptSuppressed();
         setPromptOpen(true);
-    }, [currentShift, pathname, permissionLoading, shiftLoading]);
+    }, [currentShift, permissionLoading, shiftLoading]);
 
     const dismissPrompt = () => {
-        dismissedPathRef.current = pathname;
+        setShiftPromptSuppressed();
         setPromptOpen(false);
+        router.replace("/pos");
     };
 
     if (shiftLoading || permissionLoading) {
@@ -55,24 +52,12 @@ export default function RequireOpenShift({ children }: RequireOpenShiftProps) {
 
     if (currentShift) return <>{children}</>;
 
-    // If user can open a shift: prompt to open shift, but allow dismissing (avoid "lock screen" loop).
     if (canCreateShift) {
-        return (
-            <>
-                <OpenShiftModal open={promptOpen} onCancel={dismissPrompt} />
-                {!promptOpen ? (
-                    <div style={{ padding: 16 }}>
-                        <Text type="secondary">You must open a shift to use this page.</Text>
-                    </div>
-                ) : null}
-            </>
-        );
+        return <OpenShiftModal open={promptOpen} onCancel={dismissPrompt} />;
     }
 
-    // If user cannot open a shift, show a dismissible warning (avoid locking the screen).
     return (
-        <>
-            <Modal
+        <Modal
             open={promptOpen}
             title="ยังไม่เปิดกะ"
             centered
@@ -81,7 +66,7 @@ export default function RequireOpenShift({ children }: RequireOpenShiftProps) {
             onCancel={dismissPrompt}
             footer={[
                 <Button key="close" onClick={dismissPrompt}>
-                    Close
+                    ปิดหน้าต่าง
                 </Button>,
                 <Button key="go" type="primary" onClick={() => router.push("/pos/shift")}>
                     ไปหน้ากะการทำงาน
@@ -89,21 +74,8 @@ export default function RequireOpenShift({ children }: RequireOpenShiftProps) {
             ]}
         >
             <Text type="secondary">
-                คุณยังไม่สามารถใช้งานหน้านี้ได้จนกว่าจะเปิดกะ และบัญชีของคุณไม่มีสิทธิ์เปิดกะ
+                คุณยังไม่สามารถใช้งานหน้านี้ได้จนกว่าจะเปิดกะ และบัญชีของคุณไม่มีสิทธิ์เปิดกะเอง
             </Text>
-            </Modal>
-            {!promptOpen ? (
-                <div style={{ padding: 16 }}>
-                    <Text type="secondary">
-                        You must open a shift to use this page, and your account cannot open a shift.
-                    </Text>
-                    <div style={{ marginTop: 12 }}>
-                        <Button type="primary" onClick={() => router.push("/pos/shift")}>
-                            Go to shifts
-                        </Button>
-                    </div>
-                </div>
-            ) : null}
-        </>
+        </Modal>
     );
 }

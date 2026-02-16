@@ -1,20 +1,6 @@
 import type { Metadata } from "next";
-import { Sarabun, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { App } from "antd";
-
-const sarabun = Sarabun({
-  subsets: ["thai", "latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  variable: "--font-sans",
-  display: "swap",
-});
-
-const jetbrainsMono = JetBrains_Mono({
-  subsets: ["latin"],
-  variable: "--font-mono",
-  display: "swap",
-});
 
 export const metadata: Metadata = {
   title: "POS",
@@ -37,9 +23,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="th">
-      <body
-        className={`${sarabun.variable} ${jetbrainsMono.variable}`}
-      >
+      <body>
         <AntdRegistry>
           <App>
             <GlobalLoadingProvider>

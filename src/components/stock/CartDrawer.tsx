@@ -301,6 +301,8 @@ export default function CartDrawer() {
                             onChange={(value) => updateQuantity(item.ingredient.id, Number(value || 1))}
                             controls={false}
                             style={{ width: isMobile ? 88 : 92 }}
+                            formatter={(value) => `${value}`.replace(/[^0-9]/g, "")}
+                            parser={(value) => value?.replace(/[^0-9]/g, "") as unknown as number}
                           />
                           <Button
                             icon={<PlusOutlined />}

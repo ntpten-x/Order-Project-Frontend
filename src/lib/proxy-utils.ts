@@ -19,7 +19,7 @@ export const PROXY_CONFIGS = {
         return (
             process.env.BACKEND_API_INTERNAL ||
             process.env.NEXT_PUBLIC_BACKEND_API ||
-            "http://localhost:3000"
+            "http://localhost:4000"
         );
     }
 }

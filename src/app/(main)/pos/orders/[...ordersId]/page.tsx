@@ -22,7 +22,7 @@ import { ordersService } from "../../../../../services/pos/orders.service";
 import { getCsrfTokenCached } from "../../../../../utils/pos/csrf";
 import { tablesService } from "../../../../../services/pos/tables.service";
 import { SalesOrder, OrderStatus, OrderType } from "../../../../../types/api/pos/salesOrder";
-import { SalesOrderItem } from "../../../../../types/api/pos/salesOrderItem";
+import { ItemStatus, SalesOrderItem } from "../../../../../types/api/pos/salesOrderItem";
 import { TableStatus } from "../../../../../types/api/pos/tables";
 import { orderDetailStyles, orderDetailColors, ordersResponsiveStyles, orderDetailTypography } from "../../../../../theme/pos/orders/style"; 
 import {
@@ -169,7 +169,7 @@ export default function POSOrderDetailsPage() {
     });
 
     const activeItems = useMemo<SalesOrderItem[]>(
-        () => order?.items?.filter((i) => i.status === OrderStatus.Pending || i.status === OrderStatus.Cooking) || [],
+        () => order?.items?.filter((i) => i.status === ItemStatus.Pending || i.status === ItemStatus.Cooking) || [],
         [order?.items],
     );
 
@@ -177,14 +177,13 @@ export default function POSOrderDetailsPage() {
         const items =
             order?.items?.filter(
                 (i) =>
-                    i.status === OrderStatus.Served ||
-                    i.status === OrderStatus.Cancelled ||
-                    i.status === OrderStatus.WaitingForPayment,
+                    i.status === ItemStatus.Served ||
+                    i.status === ItemStatus.Cancelled,
             ) || [];
 
         return items.sort((a, b) => {
-            if (a.status === OrderStatus.Cancelled && b.status !== OrderStatus.Cancelled) return 1;
-            if (a.status !== OrderStatus.Cancelled && b.status === OrderStatus.Cancelled) return -1;
+            if (a.status === ItemStatus.Cancelled && b.status !== ItemStatus.Cancelled) return 1;
+            if (a.status !== ItemStatus.Cancelled && b.status === ItemStatus.Cancelled) return -1;
             return 0;
         });
     }, [order?.items]);
@@ -214,7 +213,7 @@ export default function POSOrderDetailsPage() {
             const idsToServe = targetItem?.originalItems?.map((i) => i.id) || [itemId];
 
             await Promise.all(idsToServe.map((id: string) => 
-                ordersService.updateItemStatus(id, OrderStatus.Served, undefined, csrfToken)
+                ordersService.updateItemStatus(id, ItemStatus.Served, undefined, csrfToken)
             ));
             message.success("เสิร์ฟรายการเรียบร้อย");
             fetchOrder(orderId as string);
@@ -244,7 +243,7 @@ export default function POSOrderDetailsPage() {
             });
 
             await Promise.all(allIds.map((id: string) => 
-                ordersService.updateItemStatus(id, OrderStatus.Served, undefined, csrfToken)
+                ordersService.updateItemStatus(id, ItemStatus.Served, undefined, csrfToken)
             ));
             message.success("เสิร์ฟรายการที่เลือกเรียบร้อย");
             setSelectedRowKeys([]);
@@ -284,7 +283,7 @@ export default function POSOrderDetailsPage() {
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
                     await Promise.all(allIds.map((id: string) => 
-                        ordersService.updateItemStatus(id, OrderStatus.Cancelled, undefined, csrfToken)
+                        ordersService.updateItemStatus(id, ItemStatus.Cancelled, undefined, csrfToken)
                     ));
                     message.success("ยกเลิกรายการที่เลือกเรียบร้อย");
                     setSelectedRowKeys([]);
@@ -314,7 +313,7 @@ export default function POSOrderDetailsPage() {
             const idsToUnserve = targetItem?.originalItems?.map((i) => i.id) || [itemId];
 
             await Promise.all(idsToUnserve.map((id: string) => 
-                ordersService.updateItemStatus(id, OrderStatus.Cooking, undefined, csrfToken)
+                ordersService.updateItemStatus(id, ItemStatus.Cooking, undefined, csrfToken)
             ));
 
             message.success("ยกเลิกการเสิร์ฟ (กลับไปปรุง)");
@@ -347,10 +346,10 @@ export default function POSOrderDetailsPage() {
                     const csrfToken = await getCsrfTokenCached();
 
                     // 1. Cancel all non-cancelled items
-                    const activeItems = order.items?.filter(item => item.status !== OrderStatus.Cancelled) || [];
+                    const activeItems = order.items?.filter(item => item.status !== ItemStatus.Cancelled) || [];
                     await Promise.all(
                         activeItems.map(item => 
-                            ordersService.updateItemStatus(item.id, OrderStatus.Cancelled, undefined, csrfToken)
+                            ordersService.updateItemStatus(item.id, ItemStatus.Cancelled, undefined, csrfToken)
                         )
                     );
 
@@ -754,8 +753,8 @@ export default function POSOrderDetailsPage() {
                     <Text strong style={{ 
                         fontSize: 15, 
                         lineHeight: '1.2',
-                        textDecoration: record.status === OrderStatus.Cancelled ? 'line-through' : 'none',
-                        color: record.status === OrderStatus.Cancelled ? orderDetailColors.textLight : orderDetailColors.text
+                        textDecoration: record.status === ItemStatus.Cancelled ? 'line-through' : 'none',
+                        color: record.status === ItemStatus.Cancelled ? orderDetailColors.textLight : orderDetailColors.text
                     }}>
                         {record.product?.display_name}
                     </Text>
@@ -810,9 +809,9 @@ export default function POSOrderDetailsPage() {
             align: 'center' as const,
             render: (_value: unknown, record: SalesOrderItem) => (
                 <Text strong style={{ 
-                    color: record.status === OrderStatus.Cancelled ? orderDetailColors.textLight : orderDetailColors.priceTotal, 
+                    color: record.status === ItemStatus.Cancelled ? orderDetailColors.textLight : orderDetailColors.priceTotal, 
                     fontSize: 16,
-                    textDecoration: record.status === OrderStatus.Cancelled ? 'line-through' : 'none'
+                    textDecoration: record.status === ItemStatus.Cancelled ? 'line-through' : 'none'
                 }}>
                     ฿{Number(record.total_price).toLocaleString()}
                 </Text>
@@ -844,7 +843,7 @@ export default function POSOrderDetailsPage() {
             width: 130,
             align: 'right' as const,
             render: (_value: unknown, record: SalesOrderItem) => (
-                record.status === OrderStatus.Served ? (
+                record.status === ItemStatus.Served ? (
                     <Button 
                         size="small" 
                         className="unserve-button"
@@ -1264,7 +1263,7 @@ export default function POSOrderDetailsPage() {
                                             pagination={false} 
                                             size="small"
                                             className="order-items-table"
-                                            rowClassName={(record) => record.status === OrderStatus.Cancelled ? 'row-cancelled' : ''}
+                                            rowClassName={(record) => record.status === ItemStatus.Cancelled ? 'row-cancelled' : ''}
                                         />
                                     </div>
 
@@ -1276,8 +1275,8 @@ export default function POSOrderDetailsPage() {
                                                 style={{
                                                     ...orderDetailStyles.itemCard, 
                                                     ...orderDetailStyles.itemCardServed, 
-                                                    backgroundColor: item.status === OrderStatus.Cancelled ? orderDetailColors.cancelledLight : orderDetailColors.white,
-                                                    borderColor: item.status === OrderStatus.Cancelled ? orderDetailColors.cancelled + '30' : orderDetailColors.border,
+                                                    backgroundColor: item.status === ItemStatus.Cancelled ? orderDetailColors.cancelledLight : orderDetailColors.white,
+                                                    borderColor: item.status === ItemStatus.Cancelled ? orderDetailColors.cancelled + '30' : orderDetailColors.border,
                                                     position: 'relative'
                                                 }}
                                             >
@@ -1310,8 +1309,8 @@ export default function POSOrderDetailsPage() {
                                                             <div style={{ flex: 1 }}>
                                                                 <Text strong style={{ 
                                                                     fontSize: 16, 
-                                                                    textDecoration: item.status === OrderStatus.Cancelled ? 'line-through' : 'none',
-                                                                    color: item.status === OrderStatus.Cancelled ? orderDetailColors.textLight : orderDetailColors.text,
+                                                                    textDecoration: item.status === ItemStatus.Cancelled ? 'line-through' : 'none',
+                                                                    color: item.status === ItemStatus.Cancelled ? orderDetailColors.textLight : orderDetailColors.text,
                                                                     lineHeight: 1.5
                                                                 }}>
                                                                     {item.product?.display_name}
@@ -1351,7 +1350,7 @@ export default function POSOrderDetailsPage() {
                                                     </div>
                                                 </div>
 
-                                                {item.status === OrderStatus.Served && (
+                                                {item.status === ItemStatus.Served && (
                                                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10, paddingTop: 10, borderTop: `1px solid ${orderDetailColors.border}` }}>
                                                         <Button 
                                                             size="small" 

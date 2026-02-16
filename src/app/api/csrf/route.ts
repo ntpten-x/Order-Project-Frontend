@@ -13,7 +13,7 @@ export async function GET() {
         const backendUrl =
             process.env.BACKEND_API_INTERNAL ||
             process.env.NEXT_PUBLIC_BACKEND_API ||
-            "http://localhost:3000";
+            "http://localhost:4000";
         const url = `${backendUrl}/csrf-token`;
         const cookieStore = cookies();
         const cookieHeader = cookieStore.getAll().map(c => `${c.name}=${c.value}`).join(';');

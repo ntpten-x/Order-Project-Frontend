@@ -1,11 +1,11 @@
-
 "use client";
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import { message } from "antd";
+
 import { useAuth } from "../AuthContext";
 import { shiftsService } from "../../services/pos/shifts.service";
 import { Shift } from "../../types/api/pos/shifts";
-import { message } from "antd";
 
 interface ShiftContextType {
     currentShift: Shift | null;
@@ -29,7 +29,7 @@ export const ShiftProvider = ({ children }: { children: React.ReactNode }) => {
             setCurrentShift(shift);
         } catch (error) {
             console.error("Error fetching shift:", error);
-            // Don't show error message here to avoid spamming if user just logged in
+            // Avoid noisy toast after login if branch/session is still initializing.
         } finally {
             setLoading(false);
         }
@@ -55,12 +55,10 @@ export const ShiftProvider = ({ children }: { children: React.ReactNode }) => {
         if (!user) return;
         try {
             await shiftsService.closeShift(endAmount);
-            setCurrentShift(null); // Clear current shift or update to closed status?
-            // If closed, we likely want to force user to open new shift or leave POS.
-            // Setting null triggers OpenShiftModal again.
+            setCurrentShift(null);
             message.success("ปิดกะเรียบร้อยแล้ว");
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "ปิดกะไม่สำเร็จ");
+            // Let caller decide how to present rich errors (e.g. pending orders by channel).
             throw error;
         }
     };

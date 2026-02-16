@@ -106,3 +106,13 @@ export interface ShiftHistoryQuery {
     date_from?: string;
     date_to?: string;
 }
+
+export interface ShiftClosePreview {
+    shiftId: string;
+    startAmount: number;
+    endAmount: number;
+    cashSales: number;
+    expectedAmount: number;
+    diffAmount: number;
+    varianceStatus: "SHORT" | "OVER" | "MATCH";
+}

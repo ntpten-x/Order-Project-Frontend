@@ -24,10 +24,15 @@ export default function POSTakeAway({ queueNumber }: POSTakeAwayProps) {
 
     useEffect(() => {
         const init = async () => {
-             showLoading();
-             const token = await getCsrfTokenCached();
-             if (token) setCsrfToken(token);
-             hideLoading();
+            showLoading();
+            try {
+                const token = await getCsrfTokenCached();
+                if (token) setCsrfToken(token);
+            } catch {
+                message.error("ไม่สามารถเตรียมความปลอดภัยการทำรายการได้");
+            } finally {
+                hideLoading();
+            }
         };
         init();
     }, [showLoading, hideLoading]);
