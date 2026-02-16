@@ -269,6 +269,35 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
                                         className="huge-input-close"
                                         formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
                                         parser={(value) => value?.replace(/\$\s?|(,*)/g, "").replace(/[^0-9.]/g, "") as unknown as number}
+                                        onKeyDown={(e) => {
+                                            // Allow: backspace, delete, tab, escape, enter
+                                            if (
+                                                [8, 46, 9, 27, 13, 110, 190].indexOf(e.keyCode) !== -1 ||
+                                                // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
+                                                (e.ctrlKey === true && [65, 67, 86, 88].indexOf(e.keyCode) !== -1) ||
+                                                // Allow: home, end, left, right
+                                                (e.keyCode >= 35 && e.keyCode <= 39)
+                                            ) {
+                                                // Special handling for decimal point (prevent multiple dots)
+                                                // Note: InputNumber might not expose valid value directly via target.value in all cases, 
+                                                // but for standard inputs it usually works or we proceed. 
+                                                // For Antd InputNumber, better to just allow the key and let formatter handle or use a more complex check if needed.
+                                                // But usually preventing 2nd dot is enough check via logic or just let parser handle it.
+                                                // Here we replicate the OpenShiftModal logic for consistency.
+                                                const valueStr = `${(e.target as HTMLInputElement).value}`; 
+                                                if ((e.keyCode === 190 || e.keyCode === 110) && valueStr.includes(".")) {
+                                                    e.preventDefault();
+                                                }
+                                                return;
+                                            }
+                                            // Ensure that it is a number and stop the keypress
+                                            if (
+                                                (e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) &&
+                                                (e.keyCode < 96 || e.keyCode > 105)
+                                            ) {
+                                                e.preventDefault();
+                                            }
+                                        }}
                                     />
                                 </Form.Item>
 
