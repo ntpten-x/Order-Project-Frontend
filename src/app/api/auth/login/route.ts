@@ -4,15 +4,14 @@ import { getProxyUrl } from "../../../../lib/proxy-utils";
 import { throwBackendHttpError, unwrapBackendData } from "../../../../utils/api/backendResponse";
 import { handleApiRouteError } from "../../_utils/route-error";
 import { User } from "../../../../types/api/auth";
+import { isHttpsRequest, normalizeSetCookieForProtocol, splitSetCookieHeader } from "../../_utils/cookie-forward";
 
-function appendSetCookieHeaders(response: Response, nextResponse: NextResponse) {
+function appendSetCookieHeaders(response: Response, nextResponse: NextResponse, isHttps: boolean) {
     const setCookieHeader = response.headers.get("set-cookie");
     if (!setCookieHeader) return;
 
-    const cookieEntries = setCookieHeader
-        .split(/,(?=\s*[^=]+=)/)
-        .map((entry) => entry.trim())
-        .filter(Boolean);
+    const cookieEntries = splitSetCookieHeader(setCookieHeader)
+        .map((entry) => normalizeSetCookieForProtocol(entry, isHttps));
 
     for (const cookie of cookieEntries) {
         nextResponse.headers.append("Set-Cookie", cookie);
@@ -50,7 +49,7 @@ export async function POST(request: NextRequest) {
         nextResponse.headers.set("Pragma", "no-cache");
         nextResponse.headers.set("Expires", "0");
 
-        appendSetCookieHeaders(backendResponse, nextResponse);
+        appendSetCookieHeaders(backendResponse, nextResponse, isHttpsRequest(request));
         return nextResponse;
     } catch (error: unknown) {
         console.error("Login Route Error:", error);

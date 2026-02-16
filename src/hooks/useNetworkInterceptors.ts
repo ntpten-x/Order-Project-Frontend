@@ -7,6 +7,8 @@ import { useGlobalLoading } from "../contexts/pos/GlobalLoadingContext";
 import { getCsrfTokenCached } from "../utils/pos/csrf";
 import {
   LOADING_DELAY_MS,
+  isMutatingMethod,
+  isApiRequest,
   shouldAttachCsrf,
   shouldTrackRequest,
 } from "../utils/network";
@@ -72,11 +74,21 @@ export const useNetworkInterceptors = () => {
 
     const originalFetch = window.fetch.bind(window);
 
+    const isCsrfErrorResponse = async (response: Response) => {
+      if (response.status !== 403) return false;
+      const contentType = response.headers.get("content-type") || "";
+      const text = contentType.includes("application/json")
+        ? JSON.stringify(await response.clone().json().catch(() => ({})))
+        : await response.clone().text().catch(() => "");
+      return /csrf/i.test(text);
+    };
+
     window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
       const request = input instanceof Request ? input : null;
       const url = typeof input === "string" ? input : request?.url || "";
       const method = (init?.method || request?.method || "GET").toUpperCase();
       const track = shouldTrackRequest(url, init);
+      const retryInput = input instanceof Request ? input.clone() : input;
 
       if (track) start();
 
@@ -92,7 +104,22 @@ export const useNetworkInterceptors = () => {
           }
           finalInit = { ...init, headers };
         }
-        return await originalFetch(input, finalInit);
+        let response = await originalFetch(input, finalInit);
+
+        if (
+          isApiRequest(url) &&
+          isMutatingMethod(method) &&
+          await isCsrfErrorResponse(response)
+        ) {
+          const refreshedToken = await getCsrfTokenCached(true);
+          if (refreshedToken) {
+            const retryHeaders = new Headers(finalInit?.headers || request?.headers || {});
+            retryHeaders.set("X-CSRF-Token", refreshedToken);
+            response = await originalFetch(retryInput, { ...finalInit, headers: retryHeaders });
+          }
+        }
+
+        return response;
       } catch (err) {
         notifyOffline();
         throw err;
