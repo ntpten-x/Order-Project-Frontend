@@ -2,7 +2,7 @@
 
 import React from "react";
 import NextImage, { ImageProps } from "next/image";
-import { isInlineImageSource, resolveImageSource } from "../../../utils/image/source";
+import { isGoogleDriveImageSource, isInlineImageSource, resolveImageSource } from "../../../utils/image/source";
 
 type SmartImageProps = Omit<ImageProps, "src"> & {
     src?: string | null;
@@ -13,7 +13,10 @@ export default function SmartImage({ src, fallbackSrc, alt, style, fill, ...rest
     const resolvedSource = resolveImageSource(src, fallbackSrc);
     if (!resolvedSource) return null;
 
-    if (isInlineImageSource(resolvedSource)) {
+    // Bypass Next/Image optimization for inline images and Google Drive links.
+    // Drive links can return non-image responses/redirects that Next's optimizer rejects,
+    // while the browser <img> path is more tolerant.
+    if (isInlineImageSource(resolvedSource) || isGoogleDriveImageSource(resolvedSource)) {
         const inlineStyle: React.CSSProperties = fill
             ? {
                 position: "absolute",

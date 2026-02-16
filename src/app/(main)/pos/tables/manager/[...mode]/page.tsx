@@ -22,6 +22,7 @@ import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
 import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuard';
 import { pageStyles } from '../../../../../../theme/pos/tables/style';
 import { Tables, TableStatus } from '../../../../../../types/api/pos/tables';
+import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
 
 type TablesManageMode = 'add' | 'edit';
 
@@ -134,7 +135,13 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
     const id = params.mode?.[1] || null;
     const isValidMode = mode === 'add' || mode === 'edit';
     const isEdit = mode === 'edit' && Boolean(id);
-    const { isAuthorized, isChecking } = useRoleGuard();
+    const { isAuthorized, isChecking, user } = useRoleGuard();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+
+    const canCreateTables = can("tables.page", "create");
+    const canUpdateTables = can("tables.page", "update");
+    const canDeleteTables = can("tables.page", "delete");
+    const canSubmit = isEdit ? canUpdateTables : canCreateTables;
 
     const modeTitle = useMemo(() => {
         if (isEdit) return 'แก้ไขข้อมูลโต๊ะ';
@@ -209,6 +216,10 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
     }, [currentTableName, id, isEdit]);
 
     const onFinish = async (values: TableFormValues) => {
+        if (!canSubmit) {
+            message.error(isEdit ? "คุณไม่มีสิทธิ์แก้ไขโต๊ะ" : "คุณไม่มีสิทธิ์เพิ่มโต๊ะ");
+            return;
+        }
         setSubmitting(true);
         try {
             const payload: TableFormValues = {
@@ -246,6 +257,10 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
 
     const handleDelete = () => {
         if (!id) return;
+        if (!canDeleteTables) {
+            message.error("คุณไม่มีสิทธิ์ลบโต๊ะ");
+            return;
+        }
         Modal.confirm({
             title: 'ยืนยันการลบโต๊ะ',
             content: `คุณต้องการลบโต๊ะ "${tableName || '-'}" หรือไม่?`,
@@ -283,6 +298,14 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
     }
 
+    if (permissionLoading) {
+        return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
+    }
+
+    if (!canSubmit) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    }
+
     return (
         <div className="manage-page" style={pageStyles.container as React.CSSProperties}>
             <UIPageHeader
@@ -290,7 +313,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                 subtitle={isEdit ? 'ปรับแก้ชื่อโต๊ะ สถานะโต๊ะ และสถานะการใช้งาน' : 'สร้างโต๊ะใหม่ให้พร้อมใช้งานในระบบ POS'}
                 onBack={handleBack}
                 actions={
-                    isEdit ? (
+                    isEdit && canDeleteTables ? (
                         <Button danger onClick={handleDelete} icon={<DeleteOutlined />}>
                             ลบ
                         </Button>

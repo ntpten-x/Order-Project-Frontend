@@ -4,6 +4,8 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { Button, Form, Input, message, Modal, Select, Spin, Switch } from 'antd';
 import { useRouter } from 'next/navigation';
 import { IngredientsUnit } from '../../../../../../types/api/stock/ingredientsUnit';
+import { useAuth } from '../../../../../../contexts/AuthContext';
+import { useEffectivePermissions } from '../../../../../../hooks/useEffectivePermissions';
 import {
     ManagePageStyles,
     pageStyles,
@@ -21,6 +23,9 @@ import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
 export default function IngredientsManagePage({ params }: { params: { mode: string[] } }) {
     const router = useRouter();
     const [form] = Form.useForm();
+    const { user } = useAuth();
+    const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canDelete = can("stock.ingredients.page", "delete");
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [units, setUnits] = useState<IngredientsUnit[]>([]);
@@ -56,7 +61,7 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
         setLoading(true);
         try {
             const response = await fetch(`/api/stock/ingredients/getById/${id}`);
-            if (!response.ok) throw new Error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธงเธฑเธ•เธ–เธธเธ”เธดเธเนเธ”เน');
+            if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลวัตถุดิบได้');
             const data = await response.json();
             form.setFieldsValue({
                 ingredient_name: data.ingredient_name,
@@ -70,7 +75,7 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
             setDisplayName(data.display_name || '');
         } catch (error) {
             console.error(error);
-            message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธงเธฑเธ•เธ–เธธเธ”เธดเธเนเธ”เน');
+            message.error('ไม่สามารถดึงข้อมูลวัตถุดิบได้');
             router.push('/stock/ingredients');
         } finally {
             setLoading(false);
@@ -99,10 +104,10 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเน€เธ”เธ•เธงเธฑเธ•เธ–เธธเธ”เธดเธเนเธ”เน');
+                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถอัปเดตวัตถุดิบได้');
                 }
                 
-                message.success('เธญเธฑเธเน€เธ”เธ•เธงเธฑเธ•เธ–เธธเธ”เธดเธเธชเธณเน€เธฃเนเธ');
+                message.success('อัปเดตวัตถุดิบสำเร็จ');
             } else {
                 const response = await fetch(`/api/stock/ingredients/create`, {
                     method: 'POST',
@@ -115,15 +120,15 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
 
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธเธงเธฑเธ•เธ–เธธเธ”เธดเธเนเธ”เน');
+                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถสร้างวัตถุดิบได้');
                 }
                 
-                message.success('เธชเธฃเนเธฒเธเธงเธฑเธ•เธ–เธธเธ”เธดเธเธชเธณเน€เธฃเนเธ');
+                message.success('สร้างวัตถุดิบสำเร็จ');
             }
             router.push('/stock/ingredients');
         } catch (error: unknown) {
             console.error(error);
-            message.error((error as { message: string }).message || (isEdit ? 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธญเธฑเธเน€เธ”เธ•เธงเธฑเธ•เธ–เธธเธ”เธดเธเนเธ”เน' : 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธเธงเธฑเธ•เธ–เธธเธ”เธดเธเนเธ”เน'));
+            message.error((error as { message: string }).message || (isEdit ? 'ไม่สามารถอัปเดตวัตถุดิบได้' : 'ไม่สามารถสร้างวัตถุดิบได้'));
         } finally {
             setSubmitting(false);
         }
@@ -132,11 +137,11 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
     const handleDelete = () => {
         if (!id) return;
         Modal.confirm({
-            title: 'เธขเธทเธเธขเธฑเธเธเธฒเธฃเธฅเธเธงเธฑเธ•เธ–เธธเธ”เธดเธ',
-            content: `เธเธธเธ“เธ•เนเธญเธเธเธฒเธฃเธฅเธเธงเธฑเธ•เธ–เธธเธ”เธดเธ "${displayName}" เธซเธฃเธทเธญเนเธกเน?`,
-            okText: 'เธฅเธ',
+            title: 'ยืนยันการลบวัตถุดิบ',
+            content: `คุณต้องการลบวัตถุดิบ "${displayName}" หรือไม่?`,
+            okText: 'ลบ',
             okType: 'danger',
-            cancelText: 'เธขเธเน€เธฅเธดเธ',
+            cancelText: 'ยกเลิก',
             centered: true,
             onOk: async () => {
                 try {
@@ -146,12 +151,12 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                             'X-CSRF-Token': csrfToken
                         }
                     });
-                    if (!response.ok) throw new Error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเธงเธฑเธ•เธ–เธธเธ”เธดเธเนเธ”เน');
-                    message.success('เธฅเธเธงเธฑเธ•เธ–เธธเธ”เธดเธเธชเธณเน€เธฃเนเธ');
+                    if (!response.ok) throw new Error('ไม่สามารถลบวัตถุดิบได้');
+                    message.success('ลบวัตถุดิบสำเร็จ');
                     router.push('/stock/ingredients');
                 } catch (error) {
                     console.error(error);
-                    message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเธงเธฑเธ•เธ–เธธเธ”เธดเธเนเธ”เน');
+                    message.error('ไม่สามารถลบวัตถุดิบได้');
                 }
             }
         });
@@ -164,13 +169,13 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
             <ManagePageStyles />
             
             <UIPageHeader
-                title={isEdit ? "เนเธเนเนเธเธงเธฑเธ•เธ–เธธเธ”เธดเธ" : "เน€เธเธดเนเธกเธงเธฑเธ•เธ–เธธเธ”เธดเธ"}
-                subtitle="เธเนเธญเธกเธนเธฅเธงเธฑเธ•เธ–เธธเธ”เธดเธเนเธเธเธฅเธฑเธ"
+                title={isEdit ? "แก้ไขวัตถุดิบ" : "เพิ่มวัตถุดิบ"}
+                subtitle="ข้อมูลวัตถุดิบในคลัง"
                 onBack={handleBack}
                 actions={
-                    isEdit ? (
+                    isEdit && canDelete ? (
                         <Button danger onClick={handleDelete}>
-                            เธฅเธ
+                            ลบ
                         </Button>
                     ) : undefined
                 }
@@ -202,43 +207,43 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                             >
                                 <Form.Item
                                     name="ingredient_name"
-                                    label="เธเธทเนเธญเธงเธฑเธ•เธ–เธธเธ”เธดเธ (เธ เธฒเธฉเธฒเธญเธฑเธเธเธคเธฉ) *"
+                                    label="ชื่อวัตถุดิบ (ภาษาอังกฤษ) *"
                                     rules={[
-                                        { required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเธงเธฑเธ•เธ–เธธเธ”เธดเธ' },
-                                        { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธ เธฒเธฉเธฒเธญเธฑเธเธเธคเธฉเน€เธ—เนเธฒเธเธฑเนเธ' },
-                                        { max: 100, message: 'เธเธงเธฒเธกเธขเธฒเธงเธ•เนเธญเธเนเธกเนเน€เธเธดเธ 100 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ' }
+                                        { required: true, message: 'กรุณากรอกชื่อวัตถุดิบ' },
+                                        { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'กรุณากรอกภาษาอังกฤษเท่านั้น' },
+                                        { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
                                     ]}
                                 >
                                     <Input
                                         size="large"
-                                        placeholder="เน€เธเนเธ Sugar, Salt, Flour"
+                                        placeholder="เช่น Sugar, Salt, Flour"
                                         maxLength={100}
                                     />
                                 </Form.Item>
 
                                 <Form.Item
                                     name="display_name"
-                                    label="เธเธทเนเธญเธ—เธตเนเนเธชเธ”เธ (เธ เธฒเธฉเธฒเนเธ—เธข) *"
+                                    label="ชื่อที่แสดง (ภาษาไทย) *"
                                     rules={[
-                                        { required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเธ—เธตเนเนเธชเธ”เธ' },
-                                        { max: 100, message: 'เธเธงเธฒเธกเธขเธฒเธงเธ•เนเธญเธเนเธกเนเน€เธเธดเธ 100 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ' }
+                                        { required: true, message: 'กรุณากรอกชื่อที่แสดง' },
+                                        { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
                                     ]}
                                 >
                                     <Input
                                         size="large"
-                                        placeholder="เน€เธเนเธ เธเนเธณเธ•เธฒเธฅ, เน€เธเธฅเธทเธญ, เนเธเนเธ"
+                                        placeholder="เช่น น้ำตาล, เกลือ, แป้ง"
                                         maxLength={100}
                                     />
                                 </Form.Item>
 
                                 <Form.Item
                                     name="unit_id"
-                                    label="เธซเธเนเธงเธขเธงเธฑเธ•เธ–เธธเธ”เธดเธ *"
-                                    rules={[{ required: true, message: 'เธเธฃเธธเธ“เธฒเน€เธฅเธทเธญเธเธซเธเนเธงเธขเธงเธฑเธ•เธ–เธธเธ”เธดเธ' }]}
+                                    label="หน่วยวัตถุดิบ *"
+                                    rules={[{ required: true, message: 'กรุณาเลือกหน่วยวัตถุดิบ' }]}
                                 >
                                     <Select
                                         size="large"
-                                        placeholder="เน€เธฅเธทเธญเธเธซเธเนเธงเธข"
+                                        placeholder="เลือกหน่วย"
                                         showSearch
                                         dropdownMatchSelectWidth
                                         getPopupContainer={(trigger) => trigger?.parentElement || document.body}
@@ -252,22 +257,22 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                                     </Select>
                                 </Form.Item>
 
-                                <Form.Item name="img_url" label="เธฃเธนเธเธ เธฒเธ URL">
+                                <Form.Item name="img_url" label="รูปภาพ URL">
                                     <Input size="large" placeholder="https://example.com/image.jpg หรือ data:image/...;base64,..." />
                                 </Form.Item>
 
                                 <ImagePreview url={imageUrl} name={displayName} />
 
-                                <Form.Item name="description" label="เธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”" style={{ marginTop: 20 }}>
+                                <Form.Item name="description" label="รายละเอียด" style={{ marginTop: 20 }}>
                                     <TextArea
                                         rows={4}
-                                        placeholder="เธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”เน€เธเธดเนเธกเน€เธ•เธดเธก..."
+                                        placeholder="รายละเอียดเพิ่มเติม..."
                                         style={{ borderRadius: 12 }}
                                     />
                                 </Form.Item>
 
-                                <Form.Item name="is_active" label="เธชเธ–เธฒเธเธฐเธเธฒเธฃเนเธเนเธเธฒเธ" valuePropName="checked">
-                                    <Switch checkedChildren="เนเธเนเธเธฒเธ" unCheckedChildren="เนเธกเนเนเธเนเธเธฒเธ" />
+                                <Form.Item name="is_active" label="สถานะการใช้งาน" valuePropName="checked">
+                                    <Switch checkedChildren="ใช้งาน" unCheckedChildren="ไม่ใช้งาน" />
                                 </Form.Item>
 
                                 <ActionButtons isEdit={isEdit} loading={submitting} onCancel={handleBack} />
@@ -279,4 +284,3 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
         </div>
     );
 }
-

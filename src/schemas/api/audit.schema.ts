@@ -17,9 +17,8 @@ export const AuditLogSchema = z.object({
     path: z.string().nullable().optional(),
     method: z.string().nullable().optional(),
     created_at: z
-        .string()
-        .or(z.date())
-        .transform((val) => new Date(val)),
+        .coerce
+        .date(),
 });
 
 export const AuditLogsResponseSchema = z.array(AuditLogSchema);

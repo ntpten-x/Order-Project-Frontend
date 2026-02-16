@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Typography, Row, Col, Card, Button, Empty, Divider, message, InputNumber, Tag, Avatar, Alert, Modal } from "antd";
+import { Typography, Row, Col, Card, Button, Empty, Divider, message, InputNumber, Tag, Avatar, Alert, Modal, Result, Spin } from "antd";
 import { ArrowLeftOutlined, ShopOutlined, DollarOutlined, CreditCardOutlined, QrcodeOutlined, UndoOutlined, EditOutlined, SettingOutlined, DownOutlined, UpOutlined, CheckCircleOutlined } from "@ant-design/icons";
 import { QRCodeSVG } from 'qrcode.react';
 import generatePayload from 'promptpay-qr';
@@ -27,7 +27,9 @@ import 'dayjs/locale/th';
 import { getOrderChannelText, getOrderReference, ConfirmationConfig, formatCurrency, isCancelledStatus } from "../../../../../../utils/orders";
 import ConfirmationDialog from "../../../../../../components/dialog/ConfirmationDialog";
 import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingContext";
+import { useAuth } from "../../../../../../contexts/AuthContext";
 import { useSocket } from "../../../../../../hooks/useSocket";
+import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
 import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../../../utils/realtimeEvents";
 import { resolveImageSource } from "../../../../../../utils/image/source";
@@ -42,6 +44,11 @@ export default function POSPaymentPage() {
     const params = useParams();
     const [messageApi, contextHolder] = message.useMessage();
     const paymentId = Array.isArray(params?.paymentId) ? params.paymentId[0] : params?.paymentId; 
+
+    const { user } = useAuth();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const isAdminUser = user?.role === "Admin";
+    const canCreatePayment = can("payments.page", "create");
 
     const [order, setOrder] = useState<SalesOrder | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -451,6 +458,31 @@ export default function POSPaymentPage() {
         if (isPromptPayMethod(methodName, displayName)) return "สแกน QR Code";
         return "ชำระด้วยบัตร";
     };
+
+    if (!user) return null;
+
+    if (permissionLoading && !isAdminUser) {
+        return (
+            <div style={{ minHeight: "60vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                <Spin size="large" />
+            </div>
+        );
+    }
+
+    if (!canCreatePayment) {
+        return (
+            <Result
+                status="403"
+                title="403"
+                subTitle="คุณไม่มีสิทธิ์ชำระเงิน (ต้องมีสิทธิ์ payments.page:create)"
+                extra={
+                    <Button type="primary" onClick={() => router.push("/pos/items")}>
+                        กลับไปหน้ารายการ
+                    </Button>
+                }
+            />
+        );
+    }
 
     if (isLoading && !order) return null;
     if (!order) return <Empty description="ไม่พบข้อมูลออเดอร์" />;

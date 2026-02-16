@@ -1,7 +1,7 @@
 import { Delivery } from "../../types/api/pos/delivery";
 import { getProxyUrl } from "../../lib/proxy-utils";
 import { API_ROUTES } from "../../config/api";
-import { normalizeBackendPaginated, unwrapBackendData } from "../../utils/api/backendResponse";
+import { normalizeBackendPaginated, throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = API_ROUTES.POS.DELIVERY;
 
@@ -31,7 +31,7 @@ export const deliveryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to fetch delivery providers");
+            throwBackendHttpError(response, errorData, "Failed to fetch delivery providers");
         }
         return normalizeBackendPaginated<Delivery>(await response.json());
     },
@@ -47,13 +47,13 @@ export const deliveryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to fetch delivery provider");
+            throwBackendHttpError(response, errorData, "Failed to fetch delivery provider");
         }
         return unwrapBackendData(await response.json()) as Delivery;
     },
 
     getByName: async (name: string, cookie?: string): Promise<Delivery> => {
-        const url = getProxyUrl("GET", `${BASE_PATH}/getByName/${name}`);
+        const url = getProxyUrl("GET", `${BASE_PATH}/getByName/${encodeURIComponent(name)}`);
         const headers = getHeaders(cookie, "");
 
         const response = await fetch(url!, {
@@ -63,7 +63,7 @@ export const deliveryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to fetch delivery provider");
+            throwBackendHttpError(response, errorData, "Failed to fetch delivery provider");
         }
         return unwrapBackendData(await response.json()) as Delivery;
     },
@@ -81,7 +81,7 @@ export const deliveryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to create delivery provider");
+            throwBackendHttpError(response, errorData, "Failed to create delivery provider");
         }
         return unwrapBackendData(await response.json()) as Delivery;
     },
@@ -99,7 +99,7 @@ export const deliveryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to update delivery provider");
+            throwBackendHttpError(response, errorData, "Failed to update delivery provider");
         }
         return unwrapBackendData(await response.json()) as Delivery;
     },
@@ -116,7 +116,7 @@ export const deliveryService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throw new Error(errorData?.error?.message || errorData.error || errorData.message || "Failed to delete delivery provider");
+            throwBackendHttpError(response, errorData, "Failed to delete delivery provider");
         }
     }
 };

@@ -20,6 +20,8 @@ import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
 import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuard';
 import { pageStyles } from '../../../../../../theme/pos/category/style';
 import { Category } from '../../../../../../types/api/pos/category';
+import { useEffectivePermissions } from '../../../../../../hooks/useEffectivePermissions';
+import { useAuth } from '../../../../../../contexts/AuthContext';
 
 const { Title, Text } = Typography;
 
@@ -115,6 +117,11 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
     const isValidMode = mode === 'add' || mode === 'edit';
     const isEdit = mode === 'edit' && Boolean(id);
     const { isAuthorized, isChecking } = useRoleGuard();
+    const { user } = useAuth();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canCreateCategory = can("category.page", "create");
+    const canUpdateCategory = can("category.page", "update");
+    const canDeleteCategory = can("category.page", "delete");
 
     const modeTitle = useMemo(() => {
         if (isEdit) return 'แก้ไขหมวดหมู่';
@@ -127,6 +134,27 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
             router.replace('/pos/category');
         }
     }, [isValidMode, mode, id, router]);
+
+    useEffect(() => {
+        if (isChecking || permissionLoading || !isAuthorized) return;
+        if (mode === 'add' && !canCreateCategory) {
+            message.warning('คุณไม่มีสิทธิ์เพิ่มหมวดหมู่');
+            router.replace('/pos/category');
+            return;
+        }
+        if (mode === 'edit' && !canUpdateCategory) {
+            message.warning('คุณไม่มีสิทธิ์แก้ไขหมวดหมู่');
+            router.replace('/pos/category');
+        }
+    }, [
+        isChecking,
+        permissionLoading,
+        isAuthorized,
+        mode,
+        canCreateCategory,
+        canUpdateCategory,
+        router
+    ]);
 
     useEffect(() => {
         const fetchCsrf = async () => {
@@ -188,6 +216,14 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
     }, [id, isEdit, originalCategory]);
 
     const onFinish = async (values: CategoryFormValues) => {
+        if (isEdit && !canUpdateCategory) {
+            message.warning('คุณไม่มีสิทธิ์แก้ไขหมวดหมู่');
+            return;
+        }
+        if (!isEdit && !canCreateCategory) {
+            message.warning('คุณไม่มีสิทธิ์เพิ่มหมวดหมู่');
+            return;
+        }
         setSubmitting(true);
         try {
             const payload: CategoryFormValues = {
@@ -225,6 +261,10 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
 
     const handleDelete = () => {
         if (!id) return;
+        if (!canDeleteCategory) {
+            message.warning('คุณไม่มีสิทธิ์ลบหมวดหมู่');
+            return;
+        }
         Modal.confirm({
             title: 'ยืนยันการลบหมวดหมู่',
             content: `คุณต้องการลบหมวดหมู่ "${displayName || originalCategory?.display_name || '-'}" หรือไม่?`,
@@ -254,7 +294,7 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
 
     const handleBack = () => router.push('/pos/category');
 
-    if (isChecking) {
+    if (isChecking || permissionLoading) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
     }
 
@@ -269,7 +309,7 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
                 subtitle={isEdit ? 'ปรับแก้ชื่อหมวดหมู่และสถานะการใช้งาน' : 'สร้างหมวดหมู่ใหม่ให้พร้อมใช้งานในระบบ POS'}
                 onBack={handleBack}
                 actions={
-                    isEdit ? (
+                    isEdit && canDeleteCategory ? (
                         <Button danger onClick={handleDelete} icon={<DeleteOutlined />}>
                             ลบ
                         </Button>
@@ -388,6 +428,7 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
                                                 htmlType="submit"
                                                 loading={submitting}
                                                 icon={<SaveOutlined />}
+                                                disabled={isEdit ? !canUpdateCategory : !canCreateCategory}
                                                 style={{
                                                     flex: 2,
                                                     borderRadius: 12,

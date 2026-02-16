@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
 import { Button, Flex, Spin, Typography, Result, Space, message } from "antd";
 import { UI_TOKENS } from "../tokens";
 import { t } from "../../../utils/i18n";
@@ -33,25 +34,26 @@ export default function PageState({
   action,
   style,
 }: PageStateProps) {
+  const router = useRouter();
   const resolvedStatus = errorStatus ?? resolveHttpStatus(error);
   const backendMessage = resolveHttpErrorMessage(error);
 
   const fallbackTitle =
     resolvedStatus === 401
-      ? "เซสชันหมดอายุ (401)"
+      ? "เน€เธเธชเธเธฑเธเธซเธกเธ”เธญเธฒเธขเธธ (401)"
       : resolvedStatus === 403
-        ? "ไม่มีสิทธิ์เข้าถึง (403)"
+        ? "เนเธกเนเธกเธตเธชเธดเธ—เธเธดเนเน€เธเนเธฒเธ–เธถเธ (403)"
         : resolvedStatus === 409
-          ? "ข้อมูลขัดแย้ง (409)"
+          ? "เธเนเธญเธกเธนเธฅเธเธฑเธ”เนเธขเนเธ (409)"
           : t("page.error");
 
   const fallbackDescription =
     resolvedStatus === 401
-      ? "กรุณาเข้าสู่ระบบใหม่ แล้วลองอีกครั้ง"
+      ? "เธเธฃเธธเธ“เธฒเน€เธเนเธฒเธชเธนเนเธฃเธฐเธเธเนเธซเธกเน เนเธฅเนเธงเธฅเธญเธเธญเธตเธเธเธฃเธฑเนเธ"
       : resolvedStatus === 403
-        ? "คุณไม่มีสิทธิ์สำหรับการกระทำนี้ สามารถกดขอสิทธิ์ใช้งานได้"
+        ? "เธเธธเธ“เนเธกเนเธกเธตเธชเธดเธ—เธเธดเนเธชเธณเธซเธฃเธฑเธเธเธฒเธฃเธเธฃเธฐเธ—เธณเธเธตเน เธชเธฒเธกเธฒเธฃเธ–เธเธ”เธเธญเธชเธดเธ—เธเธดเนเนเธเนเธเธฒเธเนเธ”เน"
         : resolvedStatus === 409
-          ? "ข้อมูลถูกเปลี่ยนแปลงระหว่างทำรายการ กรุณารีเฟรชและลองอีกครั้ง"
+          ? "เธเนเธญเธกเธนเธฅเธ–เธนเธเน€เธเธฅเธตเนเธขเธเนเธเธฅเธเธฃเธฐเธซเธงเนเธฒเธเธ—เธณเธฃเธฒเธขเธเธฒเธฃ เธเธฃเธธเธ“เธฒเธฃเธตเน€เธเธฃเธเนเธฅเธฐเธฅเธญเธเธญเธตเธเธเธฃเธฑเนเธ"
           : undefined;
 
   const resolvedTitle = title || (status === "error" ? fallbackTitle : undefined);
@@ -70,14 +72,14 @@ export default function PageState({
     if (typeof navigator !== "undefined" && navigator.clipboard) {
       try {
         await navigator.clipboard.writeText(requestText);
-        message.success("คัดลอกข้อความขอสิทธิ์แล้ว ส่งให้ผู้ดูแลระบบได้ทันที");
+        message.success("เธเธฑเธ”เธฅเธญเธเธเนเธญเธเธงเธฒเธกเธเธญเธชเธดเธ—เธเธดเนเนเธฅเนเธง เธชเนเธเนเธซเนเธเธนเนเธ”เธนเนเธฅเธฃเธฐเธเธเนเธ”เนเธ—เธฑเธเธ—เธต");
         return;
       } catch {
         // Continue to fallback message below.
       }
     }
 
-    message.info("กรุณาติดต่อผู้ดูแลระบบเพื่อขอสิทธิ์ใช้งาน");
+    message.info("เธเธฃเธธเธ“เธฒเธ•เธดเธ”เธ•เนเธญเธเธนเนเธ”เธนเนเธฅเธฃเธฐเธเธเน€เธเธทเนเธญเธเธญเธชเธดเธ—เธเธดเนเนเธเนเธเธฒเธ");
   };
 
   const handleLogin = () => {
@@ -85,9 +87,7 @@ export default function PageState({
       onLogin();
       return;
     }
-    if (typeof window !== "undefined") {
-      window.location.href = "/login";
-    }
+    router.push("/login");
   };
 
   const handleConflictRefresh = () => {
@@ -95,9 +95,7 @@ export default function PageState({
       onRetry();
       return;
     }
-    if (typeof window !== "undefined") {
-      window.location.reload();
-    }
+    router.refresh();
   };
 
   let defaultAction: React.ReactNode | undefined;
@@ -109,7 +107,7 @@ export default function PageState({
             <Button onClick={onRetry}>{t("page.retry")}</Button>
           ) : null}
           <Button type="primary" onClick={handleLogin}>
-            เข้าสู่ระบบใหม่
+            เน€เธเนเธฒเธชเธนเนเธฃเธฐเธเธเนเธซเธกเน
           </Button>
         </Space>
       );
@@ -120,14 +118,14 @@ export default function PageState({
             <Button onClick={onRetry}>{t("page.retry")}</Button>
           ) : null}
           <Button type="primary" onClick={handleRequestAccess}>
-            ขอสิทธิ์ใช้งาน
+            เธเธญเธชเธดเธ—เธเธดเนเนเธเนเธเธฒเธ
           </Button>
         </Space>
       );
     } else if (resolvedStatus === 409) {
       defaultAction = (
         <Button type="primary" onClick={handleConflictRefresh}>
-          รีเฟรชข้อมูลและลองอีกครั้ง
+          เธฃเธตเน€เธเธฃเธเธเนเธญเธกเธนเธฅเนเธฅเธฐเธฅเธญเธเธญเธตเธเธเธฃเธฑเนเธ
         </Button>
       );
     } else if (onRetry) {

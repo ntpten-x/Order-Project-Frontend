@@ -22,16 +22,12 @@ export const useAsyncAction = () => {
     async <T>(
       action: () => Promise<T>,
       loadingMessage: string = "กำลังดำเนินการ...",
-      successMessage?: string,
+      _successMessage?: string,
       errorMessage: string = "เกิดข้อผิดพลาด",
-    ): Promise<T | undefined> => {
+    ): Promise<T> => {
       try {
         showLoading(loadingMessage, "async");
         const result = await action();
-
-        if (successMessage) {
-          // Intentionally no-op: caller can show toast/notification.
-        }
 
         return result;
       } catch (error: unknown) {
@@ -61,7 +57,7 @@ export const useAsyncAction = () => {
           content: displayMessage,
         });
 
-        return undefined;
+        throw error;
       } finally {
         hideLoading("async");
       }

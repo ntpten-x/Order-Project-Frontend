@@ -34,6 +34,7 @@ import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
 import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
 import { SearchInput } from "../../../../components/ui/input/SearchInput";
 import { SearchBar } from "../../../../components/ui/page/SearchBar";
+import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
 
 const { Text } = Typography;
 
@@ -42,6 +43,8 @@ type TableStateFilter = 'all' | TableStatus.Available | TableStatus.Unavailable;
 
 interface TableCardProps {
     table: Tables;
+    canUpdate: boolean;
+    canDelete: boolean;
     onEdit: (table: Tables) => void;
     onDelete: (table: Tables) => void;
     onToggleActive: (table: Tables, next: boolean) => void;
@@ -63,7 +66,7 @@ const getTableStatusLabel = (status: TableStatus) => {
 
 
 
-const TableCard = ({ table, onEdit, onDelete, onToggleActive, updatingStatusId }: TableCardProps) => {
+const TableCard = ({ table, canUpdate, canDelete, onEdit, onDelete, onToggleActive, updatingStatusId }: TableCardProps) => {
     const isAvailable = table.status === TableStatus.Available;
 
     return (
@@ -72,8 +75,12 @@ const TableCard = ({ table, onEdit, onDelete, onToggleActive, updatingStatusId }
             style={{
                 ...pageStyles.tableCard(table.is_active),
                 borderRadius: 16,
+                cursor: canUpdate ? "pointer" : "default",
             }}
-            onClick={() => onEdit(table)}
+            onClick={() => {
+                if (!canUpdate) return;
+                onEdit(table);
+            }}
         >
             <div style={pageStyles.tableCardInner}>
                 <div style={{
@@ -128,41 +135,47 @@ const TableCard = ({ table, onEdit, onDelete, onToggleActive, updatingStatusId }
                         size="small"
                         checked={table.is_active}
                         loading={updatingStatusId === table.id}
+                        disabled={!canUpdate}
                         onClick={(checked, event) => {
+                            if (!canUpdate) return;
                             event?.stopPropagation();
                             onToggleActive(table, checked);
                         }}
                     />
-                    <Button
-                        type="text"
-                        icon={<EditOutlined />}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit(table);
-                        }}
-                        style={{
-                            borderRadius: 10,
-                            color: '#7C3AED',
-                            background: '#f5f3ff',
-                            width: 36,
-                            height: 36
-                        }}
-                    />
-                    <Button
-                        type="text"
-                        danger
-                        icon={<DeleteOutlined />}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(table);
-                        }}
-                        style={{
-                            borderRadius: 10,
-                            background: '#fef2f2',
-                            width: 36,
-                            height: 36
-                        }}
-                    />
+                    {canUpdate ? (
+                        <Button
+                            type="text"
+                            icon={<EditOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit(table);
+                            }}
+                            style={{
+                                borderRadius: 10,
+                                color: '#7C3AED',
+                                background: '#f5f3ff',
+                                width: 36,
+                                height: 36
+                            }}
+                        />
+                    ) : null}
+                    {canDelete ? (
+                        <Button
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete(table);
+                            }}
+                            style={{
+                                borderRadius: 10,
+                                background: '#fef2f2',
+                                width: 36,
+                                height: 36
+                            }}
+                        />
+                    ) : null}
                 </div>
             </div>
         </div>
@@ -184,7 +197,12 @@ export default function TablesPage() {
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard();
+    const { isAuthorized, isChecking, user } = useRoleGuard();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+
+    const canCreateTables = can("tables.page", "create");
+    const canUpdateTables = can("tables.page", "update");
+    const canDeleteTables = can("tables.page", "delete");
 
     useEffect(() => {
         getCsrfTokenCached();
@@ -293,16 +311,28 @@ export default function TablesPage() {
     }, [tables, debouncedSearch, statusFilter, tableStateFilter]);
 
     const handleAdd = () => {
+        if (!canCreateTables) {
+            message.error("คุณไม่มีสิทธิ์เพิ่มโต๊ะ");
+            return;
+        }
         showLoading('กำลังเปิดหน้าจัดการโต๊ะ...');
         router.push('/pos/tables/manager/add');
     };
 
     const handleEdit = (table: Tables) => {
+        if (!canUpdateTables) {
+            message.error("คุณไม่มีสิทธิ์แก้ไขโต๊ะ");
+            return;
+        }
         showLoading('กำลังเปิดหน้าแก้ไขโต๊ะ...');
         router.push(`/pos/tables/manager/edit/${table.id}`);
     };
 
     const handleDelete = (table: Tables) => {
+        if (!canDeleteTables) {
+            message.error("คุณไม่มีสิทธิ์ลบโต๊ะ");
+            return;
+        }
         Modal.confirm({
             title: 'ยืนยันการลบโต๊ะ',
             content: `คุณต้องการลบโต๊ะ "${table.table_name}" หรือไม่?`,
@@ -331,6 +361,10 @@ export default function TablesPage() {
     };
 
     const handleToggleActive = async (table: Tables, next: boolean) => {
+        if (!canUpdateTables) {
+            message.error("คุณไม่มีสิทธิ์แก้ไขโต๊ะ");
+            return;
+        }
         setUpdatingStatusId(table.id);
         try {
             const csrfToken = await getCsrfTokenCached();
@@ -367,6 +401,10 @@ export default function TablesPage() {
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
     }
 
+    if (permissionLoading) {
+        return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
+    }
+
     const activeCount = tables.filter((t) => t.is_active).length;
     const inactiveCount = tables.filter((t) => !t.is_active).length;
     const availableCount = tables.filter((t) => t.status === TableStatus.Available).length;
@@ -383,9 +421,11 @@ export default function TablesPage() {
                 actions={
                     <Space size={8} wrap>
                         <Button icon={<ReloadOutlined />} onClick={fetchTables} />
-                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                            เพิ่มโต๊ะ
-                        </Button>
+                        {canCreateTables ? (
+                            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                                เพิ่มโต๊ะ
+                            </Button>
+                        ) : null}
                     </Space>
                 }
             />
@@ -453,6 +493,8 @@ export default function TablesPage() {
                                 <TableCard
                                     key={table.id}
                                     table={table}
+                                    canUpdate={canUpdateTables}
+                                    canDelete={canDeleteTables}
                                     onEdit={handleEdit}
                                     onDelete={handleDelete}
                                     onToggleActive={handleToggleActive}
@@ -472,7 +514,7 @@ export default function TablesPage() {
                                         : 'เพิ่มโต๊ะแรกเพื่อเริ่มใช้งาน'
                                 }
                                 action={
-                                    !debouncedSearch.trim() ? (
+                                    !debouncedSearch.trim() && canCreateTables ? (
                                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                                             เพิ่มโต๊ะ
                                         </Button>

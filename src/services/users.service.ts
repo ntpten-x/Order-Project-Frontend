@@ -27,7 +27,7 @@ export const userService = {
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             const detailedError = errorData.errors?.map((e: { message: string }) => e.message).join(", ");
-            throw new Error(detailedError || getBackendErrorMessage(errorData, "เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธเธนเนเนเธเนเนเธ”เน"));
+            throw new Error(detailedError || getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลผู้ใช้ได้"));
         }
 
         return normalizeBackendPaginated<User>(await response.json());

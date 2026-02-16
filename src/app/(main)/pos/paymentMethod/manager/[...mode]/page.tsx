@@ -20,6 +20,7 @@ import {
 import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
 import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
 import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuard';
+import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
 import { pageStyles } from '../../../../../../theme/pos/paymentMethod/style';
 import { PaymentMethod } from '../../../../../../types/api/pos/paymentMethod';
 
@@ -132,7 +133,11 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
     const id = params.mode?.[1] || null;
     const isValidMode = mode === 'add' || mode === 'edit';
     const isEdit = mode === 'edit' && Boolean(id);
-    const { isAuthorized, isChecking } = useRoleGuard();
+    const { isAuthorized, isChecking, user } = useRoleGuard();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canCreatePaymentMethods = can("payment_method.page", "create");
+    const canUpdatePaymentMethods = can("payment_method.page", "update");
+    const canDeletePaymentMethods = can("payment_method.page", "delete");
 
     const modeTitle = useMemo(() => {
         if (isEdit) return 'แก้ไขวิธีการชำระเงิน';
@@ -225,6 +230,9 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
     const onFinish = async (values: PaymentMethodFormValues) => {
         setSubmitting(true);
         try {
+            if (isEdit ? !canUpdatePaymentMethods : !canCreatePaymentMethods) {
+                throw new Error('คุณไม่มีสิทธิ์บันทึกข้อมูลวิธีการชำระเงิน');
+            }
             if (!isAllowedPaymentMethodName(values.payment_method_name.trim())) {
                 throw new Error('ชื่อในระบบต้องเป็น Cash, PromptPay หรือ Delivery เท่านั้น');
             }
@@ -293,7 +301,7 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
 
     const handleBack = () => router.push('/pos/paymentMethod');
 
-    if (isChecking) {
+    if (isChecking || permissionLoading) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
     }
 
@@ -308,7 +316,7 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                 subtitle={isEdit ? 'ปรับแก้ชื่อและสถานะวิธีการชำระเงิน' : 'สร้างวิธีการชำระเงินใหม่ให้พร้อมใช้งาน'}
                 onBack={handleBack}
                 actions={
-                    isEdit ? (
+                    isEdit && canDeletePaymentMethods ? (
                         <Button danger onClick={handleDelete} icon={<DeleteOutlined />}>
                             ลบ
                         </Button>
@@ -568,4 +576,3 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
         </div>
     );
 }
-

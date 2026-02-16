@@ -20,8 +20,7 @@ import { channelPageStyles, channelsResponsiveStyles } from "../../../../../them
 import { POSGlobalStyles } from "../../../../../theme/pos/GlobalStyles";
 import { getTableNavigationPath } from "../../../../../utils/orders";
 import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
-import { useShift } from "../../../../../contexts/pos/ShiftContext";
-import OpenShiftModal from "../../../../../components/pos/shifts/OpenShiftModal";
+import RequireOpenShift from "../../../../../components/pos/shared/RequireOpenShift";
 import {
     getTableStats,
     sortTables,
@@ -31,11 +30,17 @@ import {
 } from "../../../../../utils/channels";
 
 export default function DineInTableSelectionPage() {
+    return (
+        <RequireOpenShift>
+            <DineInTableSelectionPageContent />
+        </RequireOpenShift>
+    );
+}
+
+function DineInTableSelectionPageContent() {
     const router = useRouter();
     const { showLoading, hideLoading } = useGlobalLoading();
-    const { currentShift, loading: isShiftLoading } = useShift();
     const { tables, isLoading } = useTables();
-    const [isOpenShiftModalVisible, setIsOpenShiftModalVisible] = React.useState(false);
 
     // Use global loading for initial tables fetch
     React.useEffect(() => {
@@ -45,14 +50,6 @@ export default function DineInTableSelectionPage() {
             hideLoading();
         }
     }, [isLoading, showLoading, hideLoading]);
-
-    React.useEffect(() => {
-        if (!isShiftLoading && !currentShift) {
-            setIsOpenShiftModalVisible(true);
-            return;
-        }
-        setIsOpenShiftModalVisible(false);
-    }, [isShiftLoading, currentShift]);
 
     // Calculate statistics and sort tables
     const stats = useMemo(() => getTableStats(tables as Tables[]), [tables]);
@@ -126,10 +123,6 @@ export default function DineInTableSelectionPage() {
             `}</style>
             
             <div style={posPageStyles.container}>
-                <OpenShiftModal
-                    open={isOpenShiftModalVisible}
-                    onCancel={() => setIsOpenShiftModalVisible(false)}
-                />
                 <UIPageHeader
                     title="หน้าร้าน"
                     subtitle="เลือกโต๊ะ"

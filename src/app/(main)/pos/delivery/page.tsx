@@ -35,6 +35,7 @@ import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
 import { SearchInput } from "../../../../components/ui/input/SearchInput";
 import { SearchBar } from "../../../../components/ui/page/SearchBar";
 import { resolveImageSource } from "../../../../utils/image/source";
+import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
 
 const { Text } = Typography;
 
@@ -42,6 +43,8 @@ type StatusFilter = 'all' | 'active' | 'inactive';
 
 interface DeliveryCardProps {
     delivery: Delivery;
+    canUpdate: boolean;
+    canDelete: boolean;
     onEdit: (delivery: Delivery) => void;
     onDelete: (delivery: Delivery) => void;
     onToggleActive: (delivery: Delivery, next: boolean) => void;
@@ -59,15 +62,19 @@ const formatDate = (raw: string | Date) => {
 
 
 
-const DeliveryCard = ({ delivery, onEdit, onDelete, onToggleActive, updatingStatusId }: DeliveryCardProps) => {
+const DeliveryCard = ({ delivery, canUpdate, canDelete, onEdit, onDelete, onToggleActive, updatingStatusId }: DeliveryCardProps) => {
     return (
         <div
             className="delivery-card"
             style={{
                 ...pageStyles.deliveryCard(delivery.is_active),
                 borderRadius: 16,
+                cursor: canUpdate ? "pointer" : "default",
             }}
-            onClick={() => onEdit(delivery)}
+            onClick={() => {
+                if (!canUpdate) return;
+                onEdit(delivery);
+            }}
         >
             <div style={pageStyles.deliveryCardInner}>
                 <Avatar
@@ -115,41 +122,47 @@ const DeliveryCard = ({ delivery, onEdit, onDelete, onToggleActive, updatingStat
                         size="small"
                         checked={delivery.is_active}
                         loading={updatingStatusId === delivery.id}
+                        disabled={!canUpdate}
                         onClick={(checked, event) => {
+                            if (!canUpdate) return;
                             event?.stopPropagation();
                             onToggleActive(delivery, checked);
                         }}
                     />
-                    <Button
-                        type="text"
-                        icon={<EditOutlined />}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit(delivery);
-                        }}
-                        style={{
-                            borderRadius: 10,
-                            color: '#0891B2',
-                            background: '#ecfeff',
-                            width: 36,
-                            height: 36
-                        }}
-                    />
-                    <Button
-                        type="text"
-                        danger
-                        icon={<DeleteOutlined />}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(delivery);
-                        }}
-                        style={{
-                            borderRadius: 10,
-                            background: '#fef2f2',
-                            width: 36,
-                            height: 36
-                        }}
-                    />
+                    {canUpdate ? (
+                        <Button
+                            type="text"
+                            icon={<EditOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit(delivery);
+                            }}
+                            style={{
+                                borderRadius: 10,
+                                color: '#0891B2',
+                                background: '#ecfeff',
+                                width: 36,
+                                height: 36
+                            }}
+                        />
+                    ) : null}
+                    {canDelete ? (
+                        <Button
+                            type="text"
+                            danger
+                            icon={<DeleteOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete(delivery);
+                            }}
+                            style={{
+                                borderRadius: 10,
+                                background: '#fef2f2',
+                                width: 36,
+                                height: 36
+                            }}
+                        />
+                    ) : null}
                 </div>
             </div>
         </div>
@@ -170,7 +183,12 @@ export default function DeliveryPage() {
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
-    const { isAuthorized, isChecking } = useRoleGuard();
+    const { isAuthorized, isChecking, user } = useRoleGuard();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+
+    const canCreateDelivery = can("delivery.page", "create");
+    const canUpdateDelivery = can("delivery.page", "update");
+    const canDeleteDelivery = can("delivery.page", "delete");
 
     useEffect(() => {
         getCsrfTokenCached();
@@ -267,16 +285,28 @@ export default function DeliveryPage() {
     }, [deliveries, debouncedSearch, statusFilter]);
 
     const handleAdd = () => {
+        if (!canCreateDelivery) {
+            message.error("คุณไม่มีสิทธิ์เพิ่มช่องทางจัดส่ง");
+            return;
+        }
         showLoading('กำลังเปิดหน้าจัดการช่องทางจัดส่ง...');
         router.push('/pos/delivery/manager/add');
     };
 
     const handleEdit = (delivery: Delivery) => {
+        if (!canUpdateDelivery) {
+            message.error("คุณไม่มีสิทธิ์แก้ไขช่องทางจัดส่ง");
+            return;
+        }
         showLoading('กำลังเปิดหน้าแก้ไขช่องทางจัดส่ง...');
         router.push(`/pos/delivery/manager/edit/${delivery.id}`);
     };
 
     const handleDelete = (delivery: Delivery) => {
+        if (!canDeleteDelivery) {
+            message.error("คุณไม่มีสิทธิ์ลบช่องทางจัดส่ง");
+            return;
+        }
         Modal.confirm({
             title: 'ยืนยันการลบช่องทางจัดส่ง',
             content: `คุณต้องการลบช่องทางจัดส่ง "${delivery.delivery_name}" หรือไม่?`,
@@ -305,6 +335,10 @@ export default function DeliveryPage() {
     };
 
     const handleToggleActive = async (delivery: Delivery, next: boolean) => {
+        if (!canUpdateDelivery) {
+            message.error("คุณไม่มีสิทธิ์แก้ไขช่องทางจัดส่ง");
+            return;
+        }
         setUpdatingStatusId(delivery.id);
         try {
             const csrfToken = await getCsrfTokenCached();
@@ -341,6 +375,10 @@ export default function DeliveryPage() {
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
     }
 
+    if (permissionLoading) {
+        return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
+    }
+
     const activeDeliveries = deliveries.filter((d) => d.is_active).length;
     const inactiveDeliveries = deliveries.filter((d) => !d.is_active).length;
 
@@ -358,9 +396,11 @@ export default function DeliveryPage() {
                             ไปหน้าออเดอร์
                         </Button>
                         <Button icon={<ReloadOutlined />} onClick={fetchDeliveries} />
-                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                            เพิ่มช่องทางจัดส่ง
-                        </Button>
+                        {canCreateDelivery ? (
+                            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                                เพิ่มช่องทางจัดส่ง
+                            </Button>
+                        ) : null}
                     </Space>
                 }
             />
@@ -415,6 +455,8 @@ export default function DeliveryPage() {
                                 <DeliveryCard
                                     key={delivery.id}
                                     delivery={delivery}
+                                    canUpdate={canUpdateDelivery}
+                                    canDelete={canDeleteDelivery}
                                     onEdit={handleEdit}
                                     onDelete={handleDelete}
                                     onToggleActive={handleToggleActive}
@@ -434,7 +476,7 @@ export default function DeliveryPage() {
                                         : 'เพิ่มช่องทางจัดส่งแรกเพื่อเริ่มใช้งาน'
                                 }
                                 action={
-                                    !debouncedSearch.trim() ? (
+                                    !debouncedSearch.trim() && canCreateDelivery ? (
                                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                                             เพิ่มช่องทางจัดส่ง
                                         </Button>

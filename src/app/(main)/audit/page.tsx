@@ -41,6 +41,8 @@ import { useDebouncedValue } from "../../../utils/useDebouncedValue";
 import type { CreatedSort } from "../../../components/ui/pagination/ListPagination";
 import { DEFAULT_CREATED_SORT, parseCreatedSort } from "../../../lib/list-sort";
 import { ModalSelector } from "../../../components/ui/select/ModalSelector";
+import { useRoleGuard } from "../../../utils/pos/accessControl";
+import { AccessGuardFallback } from "../../../components/pos/AccessGuard";
 
 const { RangePicker } = DatePicker;
 const { Text } = Typography;
@@ -67,6 +69,12 @@ function getActionColor(action: string): string {
 
 
 export default function AuditPage() {
+    const { isAuthorized, isChecking } = useRoleGuard({
+        requiredPermission: { resourceKey: "audit.page", action: "view" },
+        unauthorizedMessage: "You do not have permission to access this page.",
+        redirectUnauthorized: "/",
+    });
+
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -87,6 +95,15 @@ export default function AuditPage() {
     const debouncedSearch = useDebouncedValue(search, 300);
     const debouncedEntityType = useDebouncedValue(entityType ?? "", 300);
 
+    const startDateIso = useMemo(
+        () => (dateRange?.[0] ? dateRange[0].startOf("day").toISOString() : undefined),
+        [dateRange]
+    );
+    const endDateIso = useMemo(
+        () => (dateRange?.[1] ? dateRange[1].endOf("day").toISOString() : undefined),
+        [dateRange]
+    );
+
     useEffect(() => {
         if (isUrlReadyRef.current) return;
 
@@ -104,7 +121,9 @@ export default function AuditPage() {
         const endDate = endParam ? dayjs(endParam) : null;
 
         setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
-        setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 20);
+        // Backend enforces max limit=100; keep UI state consistent with server behavior.
+        const safeLimit = Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 20;
+        setPageSize(Math.min(safeLimit, 100));
         setSearch(searchParam);
         setActionType(actionParam);
         setEntityType(entityParam);
@@ -128,12 +147,12 @@ export default function AuditPage() {
         if (debouncedEntityType.trim()) params.set("entity_type", debouncedEntityType.trim());
         if (branchFilter) params.set("branch_id", branchFilter);
         if (createdSort !== DEFAULT_CREATED_SORT) params.set("sort_created", createdSort);
-        if (dateRange?.[0]) params.set("start_date", dateRange[0].startOf("day").toISOString());
-        if (dateRange?.[1]) params.set("end_date", dateRange[1].endOf("day").toISOString());
+        if (startDateIso) params.set("start_date", startDateIso);
+        if (endDateIso) params.set("end_date", endDateIso);
 
         const query = params.toString();
         router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [router, pathname, page, pageSize, debouncedSearch, actionType, debouncedEntityType, branchFilter, createdSort, dateRange]);
+    }, [router, pathname, page, pageSize, debouncedSearch, actionType, debouncedEntityType, branchFilter, createdSort, startDateIso, endDateIso]);
 
     const filtersActive = useMemo(
         () =>
@@ -167,8 +186,8 @@ export default function AuditPage() {
             debouncedEntityType,
             branchFilter,
             createdSort,
-            dateRange?.[0]?.toISOString(),
-            dateRange?.[1]?.toISOString(),
+            startDateIso,
+            endDateIso,
         ],
         queryFn: async () => {
             const params = new URLSearchParams();
@@ -179,8 +198,8 @@ export default function AuditPage() {
             if (debouncedEntityType) params.set("entity_type", debouncedEntityType.trim());
             if (branchFilter) params.set("branch_id", branchFilter);
             params.set("sort_created", createdSort);
-            if (dateRange?.[0]) params.set("start_date", dateRange[0].startOf("day").toISOString());
-            if (dateRange?.[1]) params.set("end_date", dateRange[1].endOf("day").toISOString());
+            if (startDateIso) params.set("start_date", startDateIso);
+            if (endDateIso) params.set("end_date", endDateIso);
 
             const response = await fetch(`/api/audit/logs?${params.toString()}`, {
                 cache: "no-store",
@@ -344,6 +363,14 @@ export default function AuditPage() {
         }
     };
 
+    if (isChecking) {
+        return <AccessGuardFallback message="Checking permissions..." />;
+    }
+
+    if (!isAuthorized) {
+        return <AccessGuardFallback message="You do not have permission to access this page." tone="danger" />;
+    }
+
     return (
         <div style={pageStyles.container}>
             <AuditPageStyles />
@@ -465,7 +492,7 @@ export default function AuditPage() {
                             rowKey="id"
                             dataSource={logs}
                             columns={columns}
-                            loading={auditQuery.isLoading}
+                            loading={auditQuery.isFetching}
                             scroll={{ x: 1200 }}
                             pagination={{
                                 current: page,

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect, useRef } from "react";
 import { Form, notification, InputRef } from "antd";
@@ -26,7 +26,6 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const usernameRef = useRef<InputRef>(null);
 
-    // Auto-focus username field on mount
     useEffect(() => {
         const timer = setTimeout(() => {
             usernameRef.current?.focus();
@@ -43,13 +42,10 @@ export default function LoginPage() {
                 description: "ยินดีต้อนรับเข้าสู่ระบบ",
                 placement: "topRight",
             });
-            setTimeout(() => {
-                window.location.href = "/";
-            }, 1000);
         } catch (error: unknown) {
             notification.error({
                 message: "เข้าสู่ระบบไม่สำเร็จ",
-                description: (error as { message: string }).message || "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",
+                description: (error as { message?: string })?.message || "ชื่อผู้ใช้หรือรหัสผ่านไม่ถูกต้อง",
                 placement: "topRight",
             });
         } finally {
@@ -59,21 +55,12 @@ export default function LoginPage() {
 
     return (
         <LoginContainer>
-            {/* Decorative floating orb */}
             <FloatingOrb />
-            
+
             <StyledCard>
-                {/* Logo */}
                 <LogoContainer>
                     <LogoIcon>
-                        <svg 
-                            viewBox="0 0 24 24" 
-                            fill="none" 
-                            stroke="currentColor" 
-                            strokeWidth="2" 
-                            strokeLinecap="round" 
-                            strokeLinejoin="round"
-                        >
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                             <path d="M12 2L2 7l10 5 10-5-10-5z" />
                             <path d="M2 17l10 5 10-5" />
                             <path d="M2 12l10 5 10-5" />
@@ -81,25 +68,15 @@ export default function LoginPage() {
                     </LogoIcon>
                 </LogoContainer>
 
-                {/* Title */}
                 <LoginTitle>ยินดีต้อนรับ</LoginTitle>
                 <LoginSubtitle>เข้าสู่ระบบเพื่อจัดการร้านค้าของคุณ</LoginSubtitle>
-                
-                {/* Login Form */}
+
                 <FormContainer>
-                    <Form
-                        name="login"
-                        onFinish={onFinish}
-                        layout="vertical"
-                        requiredMark={false}
-                        autoComplete="on"
-                    >
+                    <Form name="login" onFinish={onFinish} layout="vertical" requiredMark={false} autoComplete="on">
                         <FormItemWrapper>
                             <Form.Item
                                 name="username"
-                                rules={[
-                                    { required: true, message: "กรุณากรอกชื่อผู้ใช้" },
-                                ]}
+                                rules={[{ required: true, message: "กรุณากรอกชื่อผู้ใช้" }]}
                             >
                                 <StyledInput
                                     ref={usernameRef}
@@ -116,7 +93,10 @@ export default function LoginPage() {
                                 name="password"
                                 rules={[
                                     { required: true, message: "กรุณากรอกรหัสผ่าน" },
-                                    { pattern: /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]*$/, message: "กรุณากรอกภาษาอังกฤษ ตัวเลข หรืออักขระพิเศษเท่านั้น" }
+                                    {
+                                        pattern: /^[a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>/?]*$/,
+                                        message: "กรุณากรอกภาษาอังกฤษ ตัวเลข หรืออักขระพิเศษเท่านั้น",
+                                    },
                                 ]}
                             >
                                 <StyledPasswordInput
@@ -129,19 +109,13 @@ export default function LoginPage() {
                         </FormItemWrapper>
 
                         <Form.Item style={{ marginBottom: 0 }}>
-                            <GradientButton
-                                type="primary"
-                                htmlType="submit"
-                                loading={loading}
-                                block
-                            >
+                            <GradientButton type="primary" htmlType="submit" loading={loading} block>
                                 เข้าสู่ระบบ
                             </GradientButton>
                         </Form.Item>
                     </Form>
                 </FormContainer>
 
-                {/* Secure Badge */}
                 <SecureBadge>
                     <SafetyOutlined />
                     <span>การเชื่อมต่อที่ปลอดภัย</span>

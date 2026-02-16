@@ -38,6 +38,7 @@ import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import PageState from "../../../../components/ui/states/PageState";
 import type { CreatedSort } from "../../../../components/ui/pagination/ListPagination";
 import { DEFAULT_CREATED_SORT, parseCreatedSort } from "../../../../lib/list-sort";
+import RequireOpenShift from "../../../../components/pos/shared/RequireOpenShift";
 
 const { Text } = Typography;
 const { useBreakpoint } = Grid;
@@ -153,6 +154,14 @@ const responsiveCSS = `
 `;
 
 export default function POSOrdersPage() {
+    return (
+        <RequireOpenShift>
+            <POSOrdersPageContent />
+        </RequireOpenShift>
+    );
+}
+
+function POSOrdersPageContent() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();

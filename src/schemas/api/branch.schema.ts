@@ -8,7 +8,7 @@ export const BranchSchema = z.object({
     phone: z.string().optional().nullable(),
     tax_id: z.string().optional().nullable(),
     is_active: z.boolean().default(true),
-    create_date: z.string().or(z.date()).transform(val => new Date(val)),
+    create_date: z.coerce.date(),
 });
 
 export const BranchesResponseSchema = z.array(BranchSchema);

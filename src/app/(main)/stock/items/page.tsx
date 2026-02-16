@@ -35,6 +35,7 @@ import { useSocket } from "../../../../hooks/useSocket";
 import { LegacyRealtimeEvents, RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { authService } from "../../../../services/auth.service";
 import { useAuth } from "../../../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
 import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import PageContainer from "../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../components/ui/page/PageSection";
@@ -76,6 +77,8 @@ export default function StockOrdersQueuePage() {
   const isMobile = !screens.md;
   const { socket } = useSocket();
   const { user } = useAuth();
+  const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+  const canUpdateOrders = can("stock.orders.page", "update");
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
@@ -148,6 +151,10 @@ export default function StockOrdersQueuePage() {
   }, [socket, fetchOrders]);
 
   const cancelOrder = (order: Order) => {
+    if (!canUpdateOrders) {
+      messageApi.error("คุณไม่มีสิทธิ์ยกเลิกใบซื้อ");
+      return;
+    }
     Modal.confirm({
       title: `ยกเลิกใบซื้อ #${order.id.slice(0, 8).toUpperCase()}`,
       content: "ต้องการยกเลิกใบซื้อนี้ใช่หรือไม่",
@@ -523,7 +530,11 @@ export default function StockOrdersQueuePage() {
             </Button>
           </Tooltip>
           <Tooltip title="แก้ไขรายการ">
-            <Button icon={<EditOutlined />} onClick={() => setEditingOrder(record)} disabled={record.status !== OrderStatus.PENDING}>
+            <Button
+              icon={<EditOutlined />}
+              onClick={() => setEditingOrder(record)}
+              disabled={!canUpdateOrders || record.status !== OrderStatus.PENDING}
+            >
               แก้ไข
             </Button>
           </Tooltip>
@@ -532,12 +543,12 @@ export default function StockOrdersQueuePage() {
               type="primary"
               icon={<CheckSquareOutlined />}
               onClick={() => router.push(`/stock/buying?orderId=${record.id}`)}
-              disabled={record.status !== OrderStatus.PENDING}
+              disabled={!canUpdateOrders || record.status !== OrderStatus.PENDING}
             >
               ตรวจรับ
             </Button>
           </Tooltip>
-          {user?.role === "Admin" || user?.role === "Manager" ? (
+          {canUpdateOrders ? (
             <Tooltip title="ยกเลิกใบซื้อ">
               <Button danger icon={<CloseCircleOutlined />} onClick={() => cancelOrder(record)}>
                 ยกเลิก
@@ -620,12 +631,20 @@ export default function StockOrdersQueuePage() {
                           <Space wrap>
                             <Button size="small" icon={<EyeOutlined />} onClick={() => setViewingOrder(order)}>ดู</Button>
                             <Button size="small" icon={<PrinterOutlined />} onClick={() => printOrderToPdf(order)}>พิมพ์</Button>
-                            <Button size="small" icon={<EditOutlined />} onClick={() => setEditingOrder(order)}>แก้ไข</Button>
+                            <Button
+                              size="small"
+                              icon={<EditOutlined />}
+                              onClick={() => setEditingOrder(order)}
+                              disabled={!canUpdateOrders || order.status !== OrderStatus.PENDING}
+                            >
+                              แก้ไข
+                            </Button>
                             <Button
                               size="small"
                               type="primary"
                               icon={<CheckSquareOutlined />}
                               onClick={() => router.push(`/stock/buying?orderId=${order.id}`)}
+                              disabled={!canUpdateOrders || order.status !== OrderStatus.PENDING}
                             >
                               ตรวจรับ
                             </Button>

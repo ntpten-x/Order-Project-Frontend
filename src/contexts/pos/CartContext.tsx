@@ -70,6 +70,15 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
     const [isInitialized, setIsInitialized] = useState(false);
 
+    const safeParse = <T,>(raw: string | null, fallback: T): T => {
+        if (!raw) return fallback;
+        try {
+            return JSON.parse(raw) as T;
+        } catch {
+            return fallback;
+        }
+    };
+
     // Load from LocalStorage on mount
     React.useEffect(() => {
         const savedCart = localStorage.getItem('pos_cart_items');
@@ -96,8 +105,8 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (savedMode) setOrderMode(savedMode as OrderMode);
         if (savedRefId) setReferenceId(savedRefId);
         if (savedRefCode) setReferenceCode(savedRefCode);
-        if (savedDiscount) setSelectedDiscount(JSON.parse(savedDiscount));
-        if (savedPayment) setSelectedPaymentMethod(JSON.parse(savedPayment));
+        setSelectedDiscount(safeParse<Discounts | null>(savedDiscount, null));
+        setSelectedPaymentMethod(safeParse<PaymentMethod | null>(savedPayment, null));
         
         setIsInitialized(true);
     }, []);

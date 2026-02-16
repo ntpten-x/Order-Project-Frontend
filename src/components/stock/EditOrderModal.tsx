@@ -17,6 +17,7 @@ import { Ingredients } from "../../types/api/stock/ingredients";
 import { ingredientsService } from "../../services/stock/ingredients.service";
 import { ordersService } from "../../services/stock/orders.service";
 import { authService } from "../../services/auth.service";
+import { resolveImageSource } from "../../utils/image/source";
 
 const { Text, Title } = Typography;
 
@@ -215,7 +216,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                                     ]}
                                 >
                                     <List.Item.Meta
-                                        avatar={<Avatar shape="square" src={item.img_url || undefined} />}
+                                        avatar={<Avatar shape="square" src={resolveImageSource(item.img_url) || undefined} />}
                                         title={item.display_name}
                                         description={`หน่วย: ${item.unit_name}`}
                                     />
