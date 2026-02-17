@@ -12,6 +12,41 @@ import { useEffect, useRef, useState } from "react";
 import { useGlobalLoading } from "../contexts/pos/GlobalLoadingContext";
 import { message } from "antd";
 
+const BRANCH_CONTEXT_ERROR_PATTERNS = [
+  "invalid branch context",
+  "selected branch is invalid",
+  "assigned branch is invalid",
+];
+
+let branchRecoveryInFlight = false;
+
+function isBranchContextErrorMessage(text: string): boolean {
+  const normalized = text.toLowerCase();
+  return BRANCH_CONTEXT_ERROR_PATTERNS.some((pattern) => normalized.includes(pattern));
+}
+
+async function recoverInvalidBranchContext(messageText: string): Promise<void> {
+  if (typeof window === "undefined" || branchRecoveryInFlight) return;
+  if (!isBranchContextErrorMessage(messageText)) return;
+
+  branchRecoveryInFlight = true;
+  try {
+    await fetch("/api/auth/active-branch", {
+      method: "DELETE",
+      credentials: "include",
+      cache: "no-store",
+    }).catch(() => undefined);
+    window.dispatchEvent(new CustomEvent("active-branch-changed", { detail: { activeBranchId: null } }));
+    if (!window.location.pathname.startsWith("/branch")) {
+      window.location.assign("/branch");
+    }
+  } finally {
+    window.setTimeout(() => {
+      branchRecoveryInFlight = false;
+    }, 1500);
+  }
+}
+
 /**
  * Query Loading Tracker Component
  * Following: client-swr-dedup - provides automatic request deduplication via React Query
@@ -70,7 +105,9 @@ function createQueryClient() {
         // Only show error toast for queries that have already been successfully fetched
         // This prevents showing errors during initial load
         if (query.state.data !== undefined) {
-          message.error(getErrorMessage(error));
+          const msg = getErrorMessage(error);
+          message.error(msg);
+          void recoverInvalidBranchContext(msg);
         }
         // Log for debugging in development
         if (process.env.NODE_ENV === 'development') {
@@ -83,7 +120,9 @@ function createQueryClient() {
         // Show error for mutations by default (they're user-initiated)
         // Can be opted out via mutation meta
         if (mutation.meta?.skipErrorToast !== true) {
-          message.error(getErrorMessage(error));
+          const msg = getErrorMessage(error);
+          message.error(msg);
+          void recoverInvalidBranchContext(msg);
         }
         if (process.env.NODE_ENV === 'development') {
           console.error('[Mutation Error]', mutation.options.mutationKey, error);

@@ -15,7 +15,8 @@ export function useTables() {
             const result = await tablesService.getAll();
             return result.data;
         },
-        staleTime: 2000,
+        // Table changes are pushed by socket events; keep short fallback only when socket is unavailable.
+        staleTime: socket ? 30_000 : 7_500,
         refetchOnReconnect: true
     });
 

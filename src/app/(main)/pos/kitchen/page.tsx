@@ -598,8 +598,10 @@ function KitchenDisplayPageContent() {
                 item.order && (item.order.status === OrderStatus.Pending || item.order.status === OrderStatus.Cooking)
             );
         },
-        staleTime: 2000,
-        refetchInterval: 30000,
+        // Primary freshness from socket events; polling is fallback only when socket is disconnected.
+        staleTime: isConnected ? 30_000 : 7_500,
+        refetchInterval: isConnected ? false : 30_000,
+        refetchIntervalInBackground: false,
     });
 
     const groupedOrders = useMemo((): GroupedOrder[] => {

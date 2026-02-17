@@ -396,7 +396,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
                      onClick={() => openProductModal(product)}
                      role="button"
                      tabIndex={0}
-                     aria-label={`เธ”เธนเธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ” ${product.display_name}`}
+                     aria-label={`ดูรายละเอียด ${product.display_name}`}
                      aria-haspopup="dialog"
                      onKeyDown={(e) => {
                        if (e.key === 'Enter' || e.key === ' ') {
@@ -783,7 +783,7 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
             cancelButtonProps={{ style: posComponentStyles.modalButton }}
           >
             <div style={{ padding: '16px 0' }}>
-              <Text style={{ display: 'block', marginBottom: 10, color: posColors.textSecondary }}>เธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ” / เธซเธกเธฒเธขเน€เธซเธ•เธธ</Text>
+              <Text style={{ display: 'block', marginBottom: 10, color: posColors.textSecondary }}>รายละเอียด / หมายเหตุ</Text>
               <Input.TextArea
                 rows={4}
                 value={noteInput}

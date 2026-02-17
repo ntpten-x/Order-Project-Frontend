@@ -1,6 +1,8 @@
 import { useQuery, keepPreviousData } from "@tanstack/react-query";
+import { useContext } from "react";
 import { ordersService } from "../../services/pos/orders.service";
 import { SalesOrderSummary } from "../../types/api/pos/salesOrder";
+import { SocketContext } from "../../contexts/SocketContext";
 
 interface OrdersSummaryResponse {
     data: SalesOrderSummary[];
@@ -20,6 +22,7 @@ interface UseOrdersSummaryParams {
 
 
 export function useOrdersSummary({ page = 1, limit = 50, status, type, query }: UseOrdersSummaryParams) {
+    const { isConnected } = useContext(SocketContext);
     const queryKey = ["ordersSummary", page, limit, status || "all", type || "all", query || ""];
 
     const { data, error, isLoading, isFetching, refetch } = useQuery<OrdersSummaryResponse>({
@@ -28,7 +31,8 @@ export function useOrdersSummary({ page = 1, limit = 50, status, type, query }: 
             return await ordersService.getAllSummary(undefined, page, limit, status, type, query);
         },
         placeholderData: keepPreviousData,
-        staleTime: 3000,
+        // Socket events invalidate this query globally; keep fallback stale window for disconnected clients.
+        staleTime: isConnected ? 30_000 : 7_500,
     });
 
     // Socket logic moved to global useOrderSocketEvents hook

@@ -17,7 +17,8 @@ export function useOrderQueue(status?: QueueStatus) {
         queryFn: async () => {
             return await orderQueueService.getAll(undefined, status);
         },
-        staleTime: 2000,
+        // Queue cache is patched by socket events; use longer stale time and fallback for disconnected clients.
+        staleTime: socket ? 30_000 : 7_500,
     });
 
     // Real-time updates

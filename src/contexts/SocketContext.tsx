@@ -18,6 +18,34 @@ export const SocketContext = createContext<SocketContextType>({
 
 const SOCKET_STATUS_MESSAGE_KEY = "socket-status";
 
+function sanitizeSocketBaseUrl(raw?: string): string {
+    const value = raw?.trim();
+    if (!value) return "";
+
+    try {
+        const parsed = typeof window !== "undefined" ? new URL(value, window.location.origin) : new URL(value);
+        return `${parsed.protocol}//${parsed.host}`;
+    } catch {
+        return value.replace(/\/+$/, "");
+    }
+}
+
+function resolveSocketConfig(): { url: string; path: string } {
+    const explicitSocketUrl = sanitizeSocketBaseUrl(process.env.NEXT_PUBLIC_SOCKET_URL);
+    const backendApiUrl = sanitizeSocketBaseUrl(process.env.NEXT_PUBLIC_BACKEND_API);
+    const socketPath = (process.env.NEXT_PUBLIC_SOCKET_PATH || "/socket.io").trim() || "/socket.io";
+
+    let url = explicitSocketUrl || backendApiUrl || "";
+    if (!url && typeof window !== "undefined") {
+        url = window.location.origin;
+    }
+    if (!url) {
+        url = "http://localhost:4000";
+    }
+
+    return { url, path: socketPath };
+}
+
 export const SocketProvider = ({ children }: { children: ReactNode }) => {
     const [socket, setSocket] = useState<Socket | null>(null);
     const [isConnected, setIsConnected] = useState(false);
@@ -75,12 +103,24 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
             return;
         }
 
-        const socketUrl = process.env.NEXT_PUBLIC_BACKEND_API || "http://localhost:4000";
+        const { url: socketUrl, path: socketPath } = resolveSocketConfig();
         const branchId = activeBranchId || userBranchId;
+        const socketDebug = process.env.NEXT_PUBLIC_SOCKET_DEBUG === "true";
+
+        if (socketDebug) {
+            console.info("[Socket] connect init", {
+                socketUrl,
+                socketPath,
+                userId,
+                branchId,
+            });
+        }
 
         const socketInstance = io(socketUrl, {
-            transports: ["websocket"],
+            path: socketPath,
+            transports: ["websocket", "polling"],
             withCredentials: true,
+            timeout: 10000,
             auth: {
                 userId,
                 branchId,
@@ -106,6 +146,13 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
                 });
                 reconnectNoticeShown.current = false;
             }
+
+            if (socketDebug) {
+                console.info("[Socket] connected", {
+                    socketId: socketInstance.id,
+                    transport: socketInstance.io.engine.transport.name,
+                });
+            }
         });
 
         socketInstance.on("disconnect", (reason) => {
@@ -127,6 +174,16 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
                     duration: 2,
                 });
             }, 1200);
+        });
+
+        socketInstance.on("connect_error", (error) => {
+            console.error("[Socket] connect_error", {
+                message: error.message,
+                socketUrl,
+                socketPath,
+                userId,
+                branchId,
+            });
         });
 
         socketInstance.io.on("reconnect_attempt", () => {

@@ -9,9 +9,6 @@ import { Role } from '../../../../../types/api/roles';
 
 const { Title } = Typography;
 
-
-
-import { authService } from "../../../../../services/auth.service";
 import { userService } from "../../../../../services/users.service";
 import { branchService } from "../../../../../services/branch.service";
 import { Branch } from '../../../../../types/api/branch';
@@ -44,6 +41,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   const [submitting, setSubmitting] = useState(false);
   const [roles, setRoles] = useState<Role[]>([]);
   const [branches, setBranches] = useState<Branch[]>([]);
+  const [createBranchLabel, setCreateBranchLabel] = useState<string>("-");
   
   // Modal Visibility State
   const [roleModalVisible, setRoleModalVisible] = useState(false);
@@ -58,6 +56,12 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   const isEdit = mode === 'edit' && !!userId;
   const isEditingSelf = isEdit && !!userId && userId === user?.id;
   const canSubmit = isEdit ? canUpdateUsers : canCreateUsers;
+  const actorUserId = user?.id ?? null;
+  const actorRole = user?.role ?? null;
+  const actorBranchId = user?.branch_id ?? null;
+  const actorBranchEntityId = user?.branch?.id ?? null;
+  const actorBranchName = user?.branch?.branch_name ?? null;
+  const actorBranchCode = user?.branch?.branch_code ?? null;
 
   useEffect(() => {
     if (permissionLoading) return;
@@ -117,23 +121,11 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
     }
   }, [userId, form, router]);
 
-  const switchAdminBranch = useCallback(
-    async (branchId: string | null) => {
-      // Backend appears to scope some operations by active admin branch (httpOnly cookie).
-      // Ensure it matches what admin selected in this form to avoid always-defaulting to main branch.
-      if (user?.role !== "Admin") return;
-      const csrfToken = await getCsrfTokenCached();
-      await authService.switchBranch(branchId, csrfToken);
-      window.dispatchEvent(new CustomEvent("active-branch-changed", { detail: { activeBranchId: branchId } }));
-    },
-    [user?.role]
-  );
-
   useEffect(() => {
     if (canManageRoles) {
       fetchRoles();
     }
-    if (canManageBranches) {
+    if (isEdit && canManageBranches) {
       fetchBranches();
     }
 
@@ -157,6 +149,81 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
     canManageBranches,
   ]);
 
+  useEffect(() => {
+    if (isEdit || !actorUserId) return;
+
+    let cancelled = false;
+
+    const formatBranchLabel = (branch: Branch) => `${branch.branch_name} (${branch.branch_code})`;
+
+    const resolveCreateBranchContext = async () => {
+      let effectiveBranchId = actorBranchId;
+
+      if (actorRole === "Admin") {
+        try {
+          const response = await fetch("/api/auth/active-branch", { credentials: "include", cache: "no-store" });
+          const data = await response.json().catch(() => null);
+          const activeBranchId =
+            typeof data?.active_branch_id === "string" && data.active_branch_id.length > 0
+              ? data.active_branch_id
+              : null;
+          effectiveBranchId = activeBranchId ?? effectiveBranchId;
+        } catch {
+          // Keep fallback branch from authenticated profile.
+        }
+      }
+
+      if (!effectiveBranchId) {
+        if (!cancelled) setCreateBranchLabel("-");
+        return;
+      }
+
+      form.setFieldValue("branch_id", effectiveBranchId);
+
+      if (actorBranchEntityId === effectiveBranchId && actorBranchName && actorBranchCode) {
+        if (!cancelled) {
+          setCreateBranchLabel(`${actorBranchName} (${actorBranchCode})`);
+        }
+        return;
+      }
+
+      const loadedBranch = branches.find((branch) => branch.id === effectiveBranchId);
+      if (loadedBranch) {
+        if (!cancelled) {
+          setCreateBranchLabel(formatBranchLabel(loadedBranch));
+        }
+        return;
+      }
+
+      try {
+        const branch = await branchService.getById(effectiveBranchId);
+        if (!cancelled) {
+          setCreateBranchLabel(formatBranchLabel(branch));
+        }
+      } catch {
+        if (!cancelled) {
+          setCreateBranchLabel(effectiveBranchId);
+        }
+      }
+    };
+
+    void resolveCreateBranchContext();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isEdit,
+    actorUserId,
+    actorRole,
+    actorBranchId,
+    actorBranchEntityId,
+    actorBranchName,
+    actorBranchCode,
+    form,
+    branches,
+  ]);
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const onFinish = async (values: any) => {
     if (isEdit && !canUpdateUsers) {
@@ -169,14 +236,6 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
     }
     setSubmitting(true);
     try {
-      // Create: keep admin branch context aligned to selected branch so backend scoping is correct.
-      // Edit: do NOT switch before update, otherwise backend may not be able to see the existing user row
-      // (it is still in the old branch until the update completes).
-      if (!isEdit && user?.role === "Admin") {
-        const branchId = typeof values?.branch_id === "string" ? values.branch_id : null;
-        if (branchId) await switchAdminBranch(branchId);
-      }
-
       if (isEdit && userId) {
         // Edit Mode
         const payload = { ...values };
@@ -196,9 +255,9 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
       } else {
         // Create mode
         const payload = { ...values };
+        delete payload.branch_id;
         if (isBranchScopedUser) {
           delete payload.roles_id;
-          delete payload.branch_id;
         }
         const csrfToken = await getCsrfTokenCached();
         await userService.createUser(payload, undefined, csrfToken);
@@ -233,6 +292,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
   const managerRoleLabel = "Employee";
   const managerBranchLabel =
     user?.branch ? `${user.branch.branch_name} (${user.branch.branch_code})` : (user?.branch_id || "-");
+  const lockedCreateBranchLabel = createBranchLabel !== "-" ? createBranchLabel : managerBranchLabel;
 
   if (permissionLoading) {
     return (
@@ -352,27 +412,38 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
                 />
               </Form.Item>
 
-              <Form.Item
-                name="branch_id"
-                label={t("users.manage.form.branchLabel")}
-                rules={[{ required: canManageBranches, message: t("users.manage.form.branchRequired") }]}
-                getValueProps={(value) => {
-                  const branch = branches.find((b) => b.id === value);
-                  return {
-                    value: branch ? `${branch.branch_name} (${branch.branch_code})` : "",
-                  };
-                }}
-                getValueFromEvent={() => form.getFieldValue("branch_id")}
-              >
-                <Input
-                  size="large"
-                  readOnly
-                  placeholder={canManageBranches ? t("users.manage.form.branchPlaceholder") : managerBranchLabel}
-                  disabled={!canManageBranches}
-                  onClick={() => canManageBranches && setBranchModalVisible(true)}
-                  suffix={<DownOutlined className="text-gray-400" />}
-                />
-              </Form.Item>
+              {isEdit ? (
+                <Form.Item
+                  name="branch_id"
+                  label={t("users.manage.form.branchLabel")}
+                  rules={[{ required: canManageBranches, message: t("users.manage.form.branchRequired") }]}
+                  getValueProps={(value) => {
+                    const branch = branches.find((b) => b.id === value);
+                    return {
+                      value: branch ? `${branch.branch_name} (${branch.branch_code})` : "",
+                    };
+                  }}
+                  getValueFromEvent={() => form.getFieldValue("branch_id")}
+                >
+                  <Input
+                    size="large"
+                    readOnly
+                    placeholder={canManageBranches ? t("users.manage.form.branchPlaceholder") : managerBranchLabel}
+                    disabled={!canManageBranches}
+                    onClick={() => canManageBranches && setBranchModalVisible(true)}
+                    suffix={<DownOutlined className="text-gray-400" />}
+                  />
+                </Form.Item>
+              ) : (
+                <Form.Item label={t("users.manage.form.branchLabel")}>
+                  <Input
+                    size="large"
+                    readOnly
+                    value={lockedCreateBranchLabel}
+                    disabled
+                  />
+                </Form.Item>
+              )}
 
               {/* Role Selection Modal */}
               {canManageRoles && (
@@ -405,7 +476,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
               )}
 
               {/* Branch Selection Modal */}
-              {canManageBranches && (
+              {isEdit && canManageBranches && (
               <Modal
                 title={t("users.manage.form.branchModalTitle")}
                 open={branchModalVisible}
@@ -421,12 +492,6 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
                             onClick={() => {
                                 form.setFieldValue('branch_id', branch.id);
                                 setBranchModalVisible(false);
-                                if (!isEdit) {
-                                  void switchAdminBranch(branch.id).catch((err) => {
-                                    console.error(err);
-                                    message.error("Failed to switch branch");
-                                  });
-                                }
                             }}
                             className={`p-3 border rounded-lg cursor-pointer flex justify-between items-center hover:bg-gray-50 transition-colors ${selectedBranchId === branch.id ? 'border-blue-500 bg-blue-50' : 'border-gray-200'}`}
                         >

@@ -1,12 +1,13 @@
 import { handleApiRouteError } from "../_utils/route-error";
+import { isHttpsRequest, normalizeSetCookieForProtocol, splitSetCookieHeader } from "../_utils/cookie-forward";
 
 import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
     try {
         // Server-side: call backend directly
         // Backend default port is 4000, but check env variable
@@ -80,12 +81,10 @@ export async function GET() {
         // Forward Set-Cookie headers from Backend to Client
         const setCookieHeader = response.headers.get("set-cookie");
         if (setCookieHeader) {
-            // Split on commas that precede a new cookie name (avoids splitting Expires=Wed, 21 Oct ...).
-            const cookieEntries = setCookieHeader
-                .split(/,(?=\s*[^=]+=)/)
-                .map(entry => entry.trim())
-                .filter(Boolean);
-            cookieEntries.forEach(cookie => nextResponse.headers.append("Set-Cookie", cookie));
+            const isHttps = isHttpsRequest(request);
+            const cookieEntries = splitSetCookieHeader(setCookieHeader)
+                .map((cookie) => normalizeSetCookieForProtocol(cookie, isHttps));
+            cookieEntries.forEach((cookie) => nextResponse.headers.append("Set-Cookie", cookie));
         }
 
         return nextResponse;
