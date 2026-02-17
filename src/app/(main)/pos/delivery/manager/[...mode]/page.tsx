@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Form, Input, message, Spin, Switch, Modal, Button, Card, Row, Col, Typography, Alert, Avatar } from 'antd';
+import { Form, Input, message, Spin, Switch, Modal, Button, Card, Row, Col, Typography, Alert } from 'antd';
 import { useRouter } from 'next/navigation';
 import PageContainer from '../../../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../../../components/ui/page/PageSection';
@@ -20,8 +20,9 @@ import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
 import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuard';
 import { pageStyles } from '../../../../../../theme/pos/delivery/style';
 import { Delivery } from '../../../../../../types/api/pos/delivery';
-import { isSupportedImageSource, resolveImageSource } from '../../../../../../utils/image/source';
+import { isSupportedImageSource, normalizeImageSource, resolveImageSource } from '../../../../../../utils/image/source';
 import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
+import SmartAvatar from '../../../../../../components/ui/image/SmartAvatar';
 
 type DeliveryManageMode = 'add' | 'edit';
 
@@ -54,8 +55,10 @@ const DeliveryPreviewCard = ({
     deliveryPrefix: string;
     logo: string;
     isActive: boolean;
-}) => (
-    <div style={{
+}) => {
+    const logoSource = resolveImageSource(logo);
+    return (
+        <div style={{
         background: 'white',
         borderRadius: 20,
         padding: 20,
@@ -74,15 +77,22 @@ const DeliveryPreviewCard = ({
             gap: 12,
             marginBottom: 16,
         }}>
-            <Avatar
+            <SmartAvatar
+                src={logo}
+                alt={deliveryName || "Delivery logo"}
                 shape="square"
                 size={48}
-                src={resolveImageSource(logo) || undefined}
                 icon={<CarOutlined />}
+                imageStyle={{ objectFit: "contain" }}
                 style={{
                     borderRadius: 12,
-                    background: isActive ? 'linear-gradient(135deg, #cffafe 0%, #a5f3fc 100%)' : '#e2e8f0',
-                    color: isActive ? '#0891B2' : '#64748b'
+                    background: logoSource
+                        ? '#ffffff'
+                        : isActive
+                            ? 'linear-gradient(135deg, #cffafe 0%, #a5f3fc 100%)'
+                            : '#e2e8f0',
+                    color: isActive ? '#0891B2' : '#64748b',
+                    border: logoSource ? '1px solid #bae6fd' : undefined,
                 }}
             />
 
@@ -105,7 +115,8 @@ const DeliveryPreviewCard = ({
             message={isActive ? 'ช่องทางนี้พร้อมใช้งานในหน้า POS' : 'ช่องทางนี้จะไม่แสดงให้เลือกใช้งาน'}
         />
     </div>
-);
+    );
+};
 
 export default function DeliveryManagePage({ params }: { params: { mode: string[] } }) {
     const router = useRouter();
@@ -216,7 +227,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
             const payload: DeliveryFormValues = {
                 delivery_name: values.delivery_name.trim(),
                 delivery_prefix: values.delivery_prefix?.trim().toUpperCase() || undefined,
-                logo: values.logo?.trim() || undefined,
+                logo: normalizeImageSource(values.logo) || undefined,
                 is_active: values.is_active,
             };
 
@@ -397,7 +408,8 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                                 {
                                                     validator: async (_, value: string | undefined) => {
                                                         if (!value?.trim()) return;
-                                                        if (!isSupportedImageSource(value.trim())) {
+                                                        const normalized = normalizeImageSource(value);
+                                                        if (!isSupportedImageSource(normalized)) {
                                                             throw new Error('รองรับเฉพาะ URL รูปภาพแบบ http(s), data:image, blob หรือ path ภายในระบบ');
                                                         }
                                                     }
@@ -408,7 +420,6 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                                 size="large"
                                                 placeholder="https://example.com/logo.png หรือ data:image/...;base64,..."
                                                 style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
-                                                maxLength={255}
                                             />
                                         </Form.Item>
 

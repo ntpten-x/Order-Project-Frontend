@@ -1,7 +1,6 @@
 ﻿import React, { useMemo } from "react";
 import {
     Alert,
-    Avatar,
     Button,
     Card,
     Col,
@@ -17,10 +16,9 @@ import {
     CheckCircleOutlined,
     ClockCircleOutlined,
     CloseCircleOutlined,
-    ShoppingOutlined,
 } from "@ant-design/icons";
 import { Order, OrderStatus } from "../../types/api/stock/orders";
-import { resolveImageSource } from "../../utils/image/source";
+import StockImageThumb from "./StockImageThumb";
 
 const { Text, Title } = Typography;
 
@@ -147,11 +145,11 @@ export default function OrderDetailModal({ order, open, onClose }: OrderDetailMo
                                 return (
                                     <List.Item>
                                         <div style={{ width: "100%", display: "flex", gap: 12, alignItems: "center" }}>
-                                            <Avatar
-                                                src={resolveImageSource(item.ingredient?.img_url) || undefined}
-                                                shape="square"
+                                            <StockImageThumb
+                                                src={item.ingredient?.img_url}
+                                                alt={item.ingredient?.display_name || "ingredient"}
                                                 size={56}
-                                                icon={<ShoppingOutlined />}
+                                                borderRadius={10}
                                             />
                                             <div style={{ flex: 1, minWidth: 0 }}>
                                                 <Text strong ellipsis={{ tooltip: item.ingredient?.display_name }} style={{ display: "block" }}>

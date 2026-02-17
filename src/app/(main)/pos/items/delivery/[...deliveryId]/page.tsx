@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Typography, Row, Col, Card, Button, Empty, Divider, message, Tag, Avatar, Result, Spin } from "antd";
+import { Typography, Row, Col, Card, Button, Empty, Divider, message, Tag, Result, Spin } from "antd";
 import { ArrowLeftOutlined, ShopOutlined, RocketOutlined, CheckCircleOutlined, EditOutlined, InfoCircleOutlined, DownOutlined, UpOutlined, ExclamationCircleOutlined } from "@ant-design/icons";
 import { ordersService } from "../../../../../../services/pos/orders.service";
 import { paymentMethodService } from "../../../../../../services/pos/paymentMethod.service";
@@ -24,6 +24,7 @@ import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePer
 import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
 import { ORDER_REALTIME_EVENTS } from "../../../../../../utils/pos/orderRealtimeEvents";
 import { resolveImageSource } from "../../../../../../utils/image/source";
+import SmartAvatar from "../../../../../../components/ui/image/SmartAvatar";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
@@ -365,12 +366,14 @@ export default function POSDeliverySummaryPage() {
                                     {groupedItems.map((item, idx) => (
                                         <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${itemsColors.borderLight}` }}>
                                             <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 0 }}>
-                                                <Avatar 
-                                                    shape="square" 
-                                                    size={52} 
-                                                    src={resolveImageSource(item.product?.img_url) || undefined} 
+                                                <SmartAvatar
+                                                    shape="square"
+                                                    size={52}
+                                                    src={resolveImageSource(item.product?.img_url)}
+                                                    alt={item.product?.display_name || "product"}
                                                     icon={<ShopOutlined />}
-                                                    style={{ backgroundColor: '#fdf2f8', flexShrink: 0, borderRadius: 12, border: '1px solid #fce7f3' }} 
+                                                    imageStyle={{ objectFit: "cover" }}
+                                                    style={{ backgroundColor: '#fdf2f8', flexShrink: 0, borderRadius: 12, border: '1px solid #fce7f3' }}
                                                 />
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <Text strong style={{ display: 'block', fontSize: 15 }} ellipsis>{item.product?.display_name}</Text>

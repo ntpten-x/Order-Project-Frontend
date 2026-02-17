@@ -8,7 +8,7 @@ import PageContainer from "../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../components/ui/page/PageSection";
 import UIPageHeader from "../../../../../components/ui/page/PageHeader";
 import UIEmptyState from "../../../../../components/ui/states/EmptyState";
-import { OrderType, SalesOrderSummary } from "../../../../../types/api/pos/salesOrder";
+import { OrderStatus, OrderType, SalesOrderSummary } from "../../../../../types/api/pos/salesOrder";
 import { posPageStyles, channelColors, tableColors } from "../../../../../theme/pos";
 import { channelPageStyles, channelsResponsiveStyles } from "../../../../../theme/pos/channels/style";
 import { POSGlobalStyles } from "../../../../../theme/pos/GlobalStyles";
@@ -26,6 +26,13 @@ import 'dayjs/locale/th';
 const { Text } = Typography;
 dayjs.extend(relativeTime);
 dayjs.locale('th');
+
+const pendingOrderColors = {
+    primary: "#EAB308",
+    light: "#FEFCE8",
+    border: "#FDE68A",
+    text: "#854D0E",
+};
 
 export default function TakeawayPage() {
     return (
@@ -72,13 +79,26 @@ function TakeawayPageContent() {
         router.push(path);
     };
 
-    const getStatusColor = (colorScheme: string) => {
+    const getStatusColor = (order: SalesOrderSummary, colorScheme: string) => {
+        if (order.status === OrderStatus.Pending) return "gold";
+        if (order.status === OrderStatus.WaitingForPayment) return "blue";
+
         switch (colorScheme) {
-            case 'available': return 'success';
-            case 'occupied': return 'orange';
-            case 'waitingForPayment': return 'blue';
-            default: return 'default';
+            case "available": return "success";
+            case "occupied": return "orange";
+            case "waitingForPayment": return "blue";
+            default: return "default";
         }
+    };
+
+    const getCardColors = (order: SalesOrderSummary, colorScheme: string) => {
+        if (order.status === OrderStatus.Pending) {
+            return pendingOrderColors;
+        }
+        if (order.status === OrderStatus.WaitingForPayment) {
+            return tableColors.waitingForPayment;
+        }
+        return tableColors[colorScheme as keyof typeof tableColors] || tableColors.inactive;
     };
 
     return (
@@ -151,7 +171,7 @@ function TakeawayPageContent() {
                         <Row gutter={[16, 16]}>
                             {orders.map((order: SalesOrderSummary, index) => {
                                 const colorScheme = getOrderColorScheme(order);
-                                const colors = tableColors[colorScheme];
+                                const colors = getCardColors(order, colorScheme);
                                 const orderNum = order.order_no.split('-').pop();
 
                                 return (
@@ -177,6 +197,8 @@ function TakeawayPageContent() {
                                             <div style={{
                                                 ...channelPageStyles.orderCardHeader,
                                                 background: colors.light,
+                                                flexWrap: "wrap",
+                                                rowGap: 8,
                                             }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                                     <div style={{
@@ -193,7 +215,7 @@ function TakeawayPageContent() {
                                                     <Text strong style={{ fontSize: 18, color: '#1E293B' }}>#{orderNum}</Text>
                                                 </div>
                                                 <Tag
-                                                    color={getStatusColor(colorScheme)}
+                                                    color={getStatusColor(order, colorScheme)}
                                                     style={{ borderRadius: 8, margin: 0, fontWeight: 600, border: 'none', padding: '4px 12px' }}
                                                 >
                                                     {formatOrderStatus(order.status)}
@@ -202,12 +224,12 @@ function TakeawayPageContent() {
 
                                             {/* Card Content */}
                                             <div style={channelPageStyles.orderCardContent}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
                                                     <div>
                                                         <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>รายการสินค้า</Text>
                                                         <Text strong style={{ fontSize: 16 }}>{order.items_count || 0} รายการ</Text>
                                                     </div>
-                                                    <div style={{ textAlign: 'right' }}>
+                                                    <div style={{ textAlign: 'right', marginLeft: 'auto' }}>
                                                         <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>ยอดรวม</Text>
                                                         <Text strong style={{ fontSize: 20, color: colors.primary }}>฿{order.total_amount?.toLocaleString()}</Text>
                                                     </div>

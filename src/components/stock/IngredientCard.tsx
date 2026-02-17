@@ -1,11 +1,11 @@
 ﻿"use client";
 
 import React, { useState } from "react";
-import { Avatar, Button, Card, Space, Tag, Typography, message } from "antd";
-import { CheckOutlined, PlusOutlined, ShoppingCartOutlined } from "@ant-design/icons";
+import { Button, Card, Space, Tag, Typography, message } from "antd";
+import { CheckOutlined, PlusOutlined } from "@ant-design/icons";
 import { Ingredients } from "../../types/api/stock/ingredients";
 import { useCart } from "../../contexts/stock/CartContext";
-import { resolveImageSource } from "../../utils/image/source";
+import StockImageThumb from "./StockImageThumb";
 
 const { Paragraph, Text, Title } = Typography;
 
@@ -49,12 +49,11 @@ const IngredientCard: React.FC<IngredientCardProps> = ({ ingredient }) => {
             borderBottom: "1px solid #e5e7eb",
           }}
         >
-          <Avatar
-            src={resolveImageSource(ingredient.img_url) || undefined}
-            shape="square"
+          <StockImageThumb
+            src={ingredient.img_url}
+            alt={ingredient.display_name}
             size={88}
-            icon={<ShoppingCartOutlined />}
-            style={{ borderRadius: 12 }}
+            borderRadius={12}
           />
         </div>
       }

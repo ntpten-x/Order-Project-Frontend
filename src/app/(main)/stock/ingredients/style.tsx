@@ -1,15 +1,17 @@
 "use client";
 
 import React from "react";
-import { Typography, Avatar, Tag, Button } from "antd";
+import { Typography, Tag, Button } from "antd";
 import { 
     EditOutlined,
     DeleteOutlined,
     CheckCircleFilled,
-    CloseCircleFilled
+    CloseCircleFilled,
+    ShoppingOutlined
 } from "@ant-design/icons";
 import { Ingredients } from "../../../../types/api/stock/ingredients";
 import { resolveImageSource } from "../../../../utils/image/source";
+import SmartAvatar from "../../../../components/ui/image/SmartAvatar";
 const { Text } = Typography;
 
 // ============ STYLES ============
@@ -193,10 +195,13 @@ export const IngredientCard = ({ ingredient, index, onEdit, onDelete }: Ingredie
         >
             <div style={pageStyles.ingredientCardInner}>
                 {/* Image */}
-                <Avatar
-                    src={resolveImageSource(ingredient.img_url, "https://placehold.co/64x64/f5f5f5/999999?text=Preview") || undefined}
+                <SmartAvatar
+                    src={resolveImageSource(ingredient.img_url, "https://placehold.co/64x64/f5f5f5/999999?text=Preview")}
+                    alt={ingredient.display_name}
                     size={64}
                     shape="square"
+                    icon={<ShoppingOutlined />}
+                    imageStyle={{ objectFit: "cover" }}
                     style={{
                         borderRadius: 14,
                         border: '2px solid #f0f0f0',

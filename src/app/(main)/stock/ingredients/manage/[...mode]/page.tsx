@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { IngredientsUnit } from '../../../../../../types/api/stock/ingredientsUnit';
 import { useAuth } from '../../../../../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../../../../../hooks/useEffectivePermissions';
+import { isSupportedImageSource, normalizeImageSource } from '../../../../../../utils/image/source';
 import {
     ManagePageStyles,
     pageStyles,
@@ -108,7 +109,7 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                 ingredient_name: values.ingredient_name?.trim(),
                 display_name: values.display_name?.trim(),
                 description: values.description?.trim() ?? '',
-                img_url: values.img_url?.trim() ? values.img_url.trim() : null,
+                img_url: normalizeImageSource(values.img_url) || null,
                 unit_id: values.unit_id,
                 is_active: values.is_active,
             };
@@ -287,7 +288,21 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                                     />
                                 </Form.Item>
 
-                                <Form.Item name="img_url" label="รูปภาพ URL">
+                                <Form.Item
+                                    name="img_url"
+                                    label="รูปภาพ URL"
+                                    rules={[
+                                        {
+                                            validator: async (_, value: string | undefined) => {
+                                                if (!value?.trim()) return;
+                                                const normalized = normalizeImageSource(value);
+                                                if (!isSupportedImageSource(normalized)) {
+                                                    throw new Error('รองรับเฉพาะ URL รูปภาพแบบ http(s), data:image, blob หรือ path ภายในระบบ');
+                                                }
+                                            }
+                                        }
+                                    ]}
+                                >
                                     <Input size="large" placeholder="https://example.com/image.jpg หรือ data:image/...;base64,..." />
                                 </Form.Item>
 

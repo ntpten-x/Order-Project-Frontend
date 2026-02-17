@@ -2,8 +2,8 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Avatar, Button, Col, Input, Modal, Row, Select, Space, Tag, Typography, message } from "antd";
-import { RocketOutlined, PlusOutlined, ClockCircleOutlined } from "@ant-design/icons";
+import { Button, Col, Input, Modal, Row, Space, Tag, Typography, message } from "antd";
+import { RocketOutlined, PlusOutlined, ClockCircleOutlined, DownOutlined, CheckCircleOutlined } from "@ant-design/icons";
 import PageContainer from "../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../components/ui/page/PageSection";
 import UIPageHeader from "../../../../../components/ui/page/PageHeader";
@@ -11,7 +11,7 @@ import UIEmptyState from "../../../../../components/ui/states/EmptyState";
 import PageState from "../../../../../components/ui/states/PageState";
 import { t } from "../../../../../utils/i18n";
 import { useDelivery } from "../../../../../hooks/pos/useDelivery";
-import { OrderType, SalesOrderSummary } from "../../../../../types/api/pos/salesOrder";
+import { OrderStatus, OrderType, SalesOrderSummary } from "../../../../../types/api/pos/salesOrder";
 import { Delivery } from "../../../../../types/api/pos/delivery";
 import { posPageStyles, channelColors, tableColors } from "../../../../../theme/pos";
 import { channelPageStyles, channelsResponsiveStyles } from "../../../../../theme/pos/channels/style";
@@ -24,6 +24,7 @@ import RequireOpenShift from "../../../../../components/pos/shared/RequireOpenSh
 import { useAuth } from "../../../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../../../hooks/useEffectivePermissions";
 import { resolveImageSource } from "../../../../../utils/image/source";
+import SmartAvatar from "../../../../../components/ui/image/SmartAvatar";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import 'dayjs/locale/th';
@@ -31,6 +32,20 @@ import 'dayjs/locale/th';
 const { Text } = Typography;
 dayjs.extend(relativeTime);
 dayjs.locale('th');
+
+const pendingOrderColors = {
+    primary: "#EAB308",
+    light: "#FEFCE8",
+    border: "#FDE68A",
+    text: "#854D0E",
+};
+
+const waitingToShipColors = {
+    primary: "#EC4899",
+    light: "#FDF2F8",
+    border: "#F9A8D4",
+    text: "#9D174D",
+};
 
 export default function DeliverySelectionPage() {
     return (
@@ -57,56 +72,12 @@ function DeliverySelectionPageContent() {
     // New Order Modal State
     const [deliveryCode, setDeliveryCode] = useState("");
     const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
+    const [isProviderSelectorOpen, setIsProviderSelectorOpen] = useState(false);
     const selectedProvider = useMemo(() =>
         (deliveryProviders as Delivery[]).find((p: Delivery) => p.id === selectedProviderId),
         [deliveryProviders, selectedProviderId]);
-    const providerSelectOptions = useMemo(
-        () =>
-            (deliveryProviders as Delivery[]).map((provider: Delivery) => {
-                const logoSource = resolveImageSource(provider.logo);
-                return {
-                    value: provider.id,
-                    searchLabel: `${provider.delivery_name} ${provider.delivery_prefix || ""}`.trim().toLowerCase(),
-                    label: (
-                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                            <Avatar
-                                shape="square"
-                                size={28}
-                                src={logoSource || undefined}
-                                icon={<RocketOutlined />}
-                                style={{
-                                    borderRadius: 8,
-                                    background: logoSource ? "#ffffff" : channelColors.delivery.light,
-                                    color: channelColors.delivery.primary,
-                                    border: `1px solid ${channelColors.delivery.border}`,
-                                    flex: "0 0 auto",
-                                }}
-                            />
-                            <div style={{ minWidth: 0, display: "flex", flexDirection: "column", lineHeight: 1.2 }}>
-                                <Text
-                                    style={{
-                                        fontSize: 14,
-                                        fontWeight: 600,
-                                        color: "#1E293B",
-                                        whiteSpace: "nowrap",
-                                        overflow: "hidden",
-                                        textOverflow: "ellipsis",
-                                    }}
-                                >
-                                    {provider.delivery_name}
-                                </Text>
-                                {provider.delivery_prefix ? (
-                                    <Text type="secondary" style={{ fontSize: 11 }}>
-                                        Prefix: {provider.delivery_prefix}
-                                    </Text>
-                                ) : null}
-                            </div>
-                        </div>
-                    ),
-                };
-            }),
-        [deliveryProviders]
-    );
+    const selectedProviderLogo = resolveImageSource(selectedProvider?.logo);
+
 
     useEffect(() => {
         if (isLoading || isLoadingProviders) {
@@ -164,13 +135,36 @@ function DeliverySelectionPageContent() {
         router.push(`/pos/channels/delivery/${selectedProviderId}?code=${encodeURIComponent(finalCode)}`);
     };
 
-    const getStatusColor = (colorScheme: string) => {
+    const getStatusColor = (order: SalesOrderSummary, colorScheme: string) => {
+        if (order.status === OrderStatus.Pending) return "gold";
+        if (order.status === OrderStatus.WaitingForPayment) return "magenta";
+
         switch (colorScheme) {
-            case 'available': return 'success';
-            case 'occupied': return 'orange';
-            case 'waitingForPayment': return 'blue';
-            default: return 'default';
+            case "available": return "success";
+            case "occupied": return "orange";
+            case "waitingForPayment": return "blue";
+            default: return "default";
         }
+    };
+
+    const getCardColors = (order: SalesOrderSummary, colorScheme: string) => {
+        if (order.status === OrderStatus.Pending) {
+            return pendingOrderColors;
+        }
+        if (order.status === OrderStatus.WaitingForPayment) {
+            return waitingToShipColors;
+        }
+        return tableColors[colorScheme as keyof typeof tableColors] || tableColors.inactive;
+    };
+
+    const getDeliveryStatusText = (status: OrderStatus) => {
+        if (status === OrderStatus.WaitingForPayment) {
+            return "รอส่ง";
+        }
+        if (status === OrderStatus.Served) {
+            return "ทำแล้ว";
+        }
+        return formatOrderStatus(status);
     };
 
     return (
@@ -271,7 +265,7 @@ function DeliverySelectionPageContent() {
                         <Row gutter={[16, 16]}>
                             {orders.map((order: SalesOrderSummary, index) => {
                                 const colorScheme = getOrderColorScheme(order);
-                                const colors = tableColors[colorScheme];
+                                const colors = getCardColors(order, colorScheme);
                                 const provider = (deliveryProviders as Delivery[]).find((d: Delivery) => d.id === order.delivery_id);
                                 const providerLogo = resolveImageSource(provider?.logo);
                                 const orderNum = order.delivery_code || order.order_no.split('-').pop();
@@ -293,19 +287,23 @@ function DeliverySelectionPageContent() {
                                             }}
                                             role="button"
                                             tabIndex={0}
-                                            aria-label={`ออเดอร์ ${orderNum} - ${formatOrderStatus(order.status)}`}
+                                            aria-label={`ออเดอร์ ${orderNum} - ${getDeliveryStatusText(order.status)}`}
                                         >
                                             {/* Card Header */}
                                             <div style={{
                                                 ...channelPageStyles.orderCardHeader,
                                                 background: colors.light,
+                                                flexWrap: "wrap",
+                                                rowGap: 8,
                                             }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                    <Avatar
+                                                    <SmartAvatar
+                                                        src={provider?.logo}
+                                                        alt={provider?.delivery_name || "Delivery"}
                                                         shape="square"
                                                         size={40}
-                                                        src={providerLogo || undefined}
                                                         icon={<RocketOutlined />}
+                                                        imageStyle={{ objectFit: "contain" }}
                                                         style={{
                                                             borderRadius: 12,
                                                             background: providerLogo ? "#ffffff" : `${colors.primary}20`,
@@ -321,21 +319,21 @@ function DeliverySelectionPageContent() {
                                                     </div>
                                                 </div>
                                                 <Tag
-                                                    color={getStatusColor(colorScheme)}
+                                                    color={getStatusColor(order, colorScheme)}
                                                     style={{ borderRadius: 8, margin: 0, fontWeight: 600, border: 'none', padding: '4px 12px' }}
                                                 >
-                                                    {formatOrderStatus(order.status)}
+                                                    {getDeliveryStatusText(order.status)}
                                                 </Tag>
                                             </div>
 
                                             {/* Card Content */}
                                             <div style={channelPageStyles.orderCardContent}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
                                                     <div>
                                                         <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>รายการสินค้า</Text>
                                                         <Text strong style={{ fontSize: 16 }}>{order.items_count || 0} รายการ</Text>
                                                     </div>
-                                                    <div style={{ textAlign: 'right' }}>
+                                                    <div style={{ textAlign: 'right', marginLeft: 'auto' }}>
                                                         <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>ยอดรวม</Text>
                                                         <Text strong style={{ fontSize: 20, color: colors.primary }}>฿{order.total_amount?.toLocaleString()}</Text>
                                                     </div>
@@ -435,25 +433,48 @@ function DeliverySelectionPageContent() {
                             <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 14, color: '#475569' }}>
                                 {t("delivery.selectProvider")}
                             </Text>
-                            <Select
-                                placeholder={t("delivery.selectProviderPlaceholder")}
-                                style={{ width: '100%' }}
-                                size="large"
-                                value={selectedProviderId}
-                                onChange={setSelectedProviderId}
-                                showSearch
-                                options={providerSelectOptions}
-                                filterOption={(input, option) =>
-                                    String((option as { searchLabel?: string } | undefined)?.searchLabel || "")
-                                        .toLowerCase()
-                                        .includes(input.toLowerCase())
-                                }
-                                loading={isLoadingProviders}
-                                dropdownStyle={{ borderRadius: 12, padding: 8 }}
-                                dropdownMatchSelectWidth
-                                getPopupContainer={(trigger) => trigger?.closest('.delivery-modal') || trigger?.parentElement || document.body}
-                                notFoundContent={isLoadingProviders ? t("delivery.loadingOrders") : t("delivery.noProviders")}
-                            />
+                            <div
+                                onClick={() => setIsProviderSelectorOpen(true)}
+                                style={{
+                                    padding: '10px 16px',
+                                    borderRadius: 12,
+                                    border: '2px solid',
+                                    cursor: 'pointer',
+                                    background: selectedProviderId ? 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)' : '#fff',
+                                    borderColor: selectedProviderId ? '#4F46E5' : '#e2e8f0',
+                                    display: 'flex',
+                                    justifyContent: 'space-between',
+                                    alignItems: 'center',
+                                    minHeight: 46
+                                }}
+                            >
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                    {selectedProvider ? (
+                                        <>
+                                            <SmartAvatar
+                                                src={selectedProvider.logo}
+                                                alt={selectedProvider.delivery_name}
+                                                shape="square"
+                                                size={24}
+                                                icon={<RocketOutlined />}
+                                                imageStyle={{ objectFit: "contain" }}
+                                                style={{
+                                                    borderRadius: 6,
+                                                    background: selectedProviderLogo ? "#ffffff" : channelColors.delivery.light,
+                                                    color: channelColors.delivery.primary,
+                                                    border: `1px solid ${channelColors.delivery.border}`,
+                                                }}
+                                            />
+                                            <span style={{ color: '#1e293b', fontWeight: 600 }}>
+                                                {selectedProvider.delivery_name}
+                                            </span>
+                                        </>
+                                    ) : (
+                                        <span style={{ color: '#94a3b8' }}>{t("delivery.selectProviderPlaceholder")}</span>
+                                    )}
+                                </div>
+                                <DownOutlined style={{ fontSize: 12, color: '#94a3b8' }} />
+                            </div>
                         </div>
                         <div>
                             <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 14, color: '#475569' }}>
@@ -469,6 +490,80 @@ function DeliverySelectionPageContent() {
                                 style={{ borderRadius: 8 }}
                             />
                         </div>
+                    </div>
+                </Modal>
+
+                {/* Provider Selection Modal */}
+                <Modal
+                    title={t("delivery.selectProvider")}
+                    open={isProviderSelectorOpen}
+                    onCancel={() => setIsProviderSelectorOpen(false)}
+                    footer={null}
+                    centered
+                    width={400}
+                    styles={{ body: { padding: '12px 16px 24px' } }}
+                >
+                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
+                        {(deliveryProviders as Delivery[]).map(provider => {
+                            const logoSource = resolveImageSource(provider.logo);
+                            const isSelected = selectedProviderId === provider.id;
+                            return (
+                                <div
+                                    key={provider.id}
+                                    onClick={() => {
+                                        setSelectedProviderId(provider.id);
+                                        setIsProviderSelectorOpen(false);
+                                    }}
+                                    style={{
+                                        padding: '14px 18px',
+                                        border: '2px solid',
+                                        borderRadius: 12,
+                                        cursor: 'pointer',
+                                        background: isSelected ? '#eff6ff' : '#fff',
+                                        borderColor: isSelected ? '#3b82f6' : '#e5e7eb',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        minHeight: 54
+                                    }}
+                                >
+                                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                        <SmartAvatar
+                                            src={provider.logo}
+                                            alt={provider.delivery_name}
+                                            shape="square"
+                                            size={32}
+                                            icon={<RocketOutlined />}
+                                            imageStyle={{ objectFit: "contain" }}
+                                            style={{
+                                                borderRadius: 8,
+                                                background: logoSource ? "#ffffff" : channelColors.delivery.light,
+                                                color: channelColors.delivery.primary,
+                                                border: `1px solid ${channelColors.delivery.border}`,
+                                                flex: "0 0 auto",
+                                            }}
+                                        />
+                                        <div style={{ minWidth: 0, display: "flex", flexDirection: "column", lineHeight: 1.2 }}>
+                                            <Text
+                                                style={{
+                                                    fontSize: 14,
+                                                    fontWeight: isSelected ? 600 : 500,
+                                                    color: "#1E293B",
+                                                }}
+                                            >
+                                                {provider.delivery_name}
+                                            </Text>
+                                            {provider.delivery_prefix ? (
+                                                <Text type="secondary" style={{ fontSize: 11 }}>
+                                                    Prefix: {provider.delivery_prefix}
+                                                </Text>
+                                            ) : null}
+                                        </div>
+                                    </div>
+                                    {isSelected && <CheckCircleOutlined style={{ color: '#3b82f6', fontSize: 18 }} />}
+                                </div>
+                            );
+                        })}
                     </div>
                 </Modal>
             </div>

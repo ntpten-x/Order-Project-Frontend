@@ -5,6 +5,7 @@ import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import dayjs from "dayjs";
 import "dayjs/locale/th";
+import { resolveImageSource } from "./image/source";
 
 dayjs.locale("th");
 
@@ -250,8 +251,9 @@ export const exportSalesReportPDF = async (
     )
     .join("");
 
-  const logoHtml = branding.logoUrl
-    ? `<img src="${escapeHtml(branding.logoUrl)}" alt="logo" class="shop-logo" />`
+  const normalizedLogoUrl = resolveImageSource(branding.logoUrl);
+  const logoHtml = normalizedLogoUrl
+    ? `<img src="${escapeHtml(normalizedLogoUrl)}" alt="logo" class="shop-logo" />`
     : "";
   const primaryColorCss = colorToCss(primaryColor);
   const secondaryColorCss = colorToCss(secondaryColor);

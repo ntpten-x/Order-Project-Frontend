@@ -30,14 +30,36 @@ function sanitizeSocketBaseUrl(raw?: string): string {
     }
 }
 
+function inferLocalBackendOrigin(): string {
+    if (typeof window === "undefined") return "";
+
+    const { protocol, hostname, port } = window.location;
+    const host = hostname.toLowerCase();
+    const isLocalHost = host === "localhost" || host === "127.0.0.1";
+    if (!isLocalHost) return "";
+
+    // Docker local stack in this project usually runs frontend:8001 and backend:8002.
+    if (port === "8001") {
+        return `${protocol}//${hostname}:8002`;
+    }
+
+    // Local container runtime default in this repo can run frontend:3001 and backend:3000.
+    if (port === "3001") {
+        return `${protocol}//${hostname}:3000`;
+    }
+
+    return "";
+}
+
 function resolveSocketConfig(): { url: string; path: string } {
     const explicitSocketUrl = sanitizeSocketBaseUrl(process.env.NEXT_PUBLIC_SOCKET_URL);
     const backendApiUrl = sanitizeSocketBaseUrl(process.env.NEXT_PUBLIC_BACKEND_API);
+    const publicApiUrl = sanitizeSocketBaseUrl(process.env.NEXT_PUBLIC_API_URL);
     const socketPath = (process.env.NEXT_PUBLIC_SOCKET_PATH || "/socket.io").trim() || "/socket.io";
 
-    let url = explicitSocketUrl || backendApiUrl || "";
+    let url = explicitSocketUrl || backendApiUrl || publicApiUrl || "";
     if (!url && typeof window !== "undefined") {
-        url = window.location.origin;
+        url = inferLocalBackendOrigin() || window.location.origin;
     }
     if (!url) {
         url = "http://localhost:4000";

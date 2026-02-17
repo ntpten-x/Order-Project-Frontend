@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import {
     Alert,
     App,
-    Avatar,
     Button,
     Card,
     Col,
@@ -48,6 +47,7 @@ import PageContainer from "../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../components/ui/page/PageSection";
 import PageStack from "../../../../../components/ui/page/PageStack";
 import { resolveImageSource } from "../../../../../utils/image/source";
+import SmartAvatar from "../../../../../components/ui/image/SmartAvatar";
 
 const { Title, Text } = Typography;
 
@@ -169,7 +169,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
     const vatAmount = Number(order?.vat || 0);
     const netTotal = Number(order?.total_amount || 0);
 
-    const employeeName = order?.created_by?.name || order?.created_by?.username || "-";
+    const employeeName = order?.created_by?.name || "-";
     const tableName = order?.table?.table_name || "-";
 
     const orderTypeMeta = order ? getOrderTypeMeta(order.order_type) : null;
@@ -269,11 +269,13 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                                         return (
                                             <List.Item style={{ opacity: cancelled ? 0.6 : 1 }}>
                                                 <div style={{ width: "100%", display: "flex", gap: 12 }}>
-                                                    <Avatar
+                                                    <SmartAvatar
                                                         shape="square"
                                                         size={56}
-                                                        src={resolveImageSource(item.product?.img_url) || undefined}
+                                                        src={resolveImageSource(item.product?.img_url)}
+                                                        alt={item.product?.display_name || item.product?.product_name || "product"}
                                                         icon={<ShopOutlined />}
+                                                        imageStyle={{ objectFit: "cover" }}
                                                     />
                                                     <div style={{ flex: 1, minWidth: 0 }}>
                                                         <div style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
@@ -430,4 +432,3 @@ export default function DashboardOrderDetailPage({ params }: Props) {
         </>
     );
 }
-

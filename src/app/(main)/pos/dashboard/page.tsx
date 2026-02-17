@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   App,
-  Avatar,
   Button,
   Card,
   Col,
@@ -67,6 +66,7 @@ import PageStack from "../../../../components/ui/page/PageStack";
 import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
 import { t } from "../../../../utils/i18n";
 import { resolveImageSource } from "../../../../utils/image/source";
+import SmartAvatar from "../../../../components/ui/image/SmartAvatar";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -177,10 +177,12 @@ function TopItemsList({
               >
                 {index + 1}
               </Tag>
-              <Avatar
+              <SmartAvatar
                 shape="square"
-                src={resolveImageSource(item.img_url) || undefined}
+                src={resolveImageSource(item.img_url)}
+                alt={item.product_name || "product"}
                 icon={<ShoppingOutlined />}
+                imageStyle={{ objectFit: "cover" }}
               />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <Text
