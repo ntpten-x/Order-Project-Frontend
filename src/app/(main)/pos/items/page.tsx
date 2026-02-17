@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Typography, Row, Col, Card, Tag, Button, Divider, Avatar, Space, Skeleton, message } from "antd";
+import { Typography, Row, Col, Card, Tag, Button, Divider, Space, Skeleton, message } from "antd";
 import { CheckCircleOutlined, ShopOutlined, ShoppingOutlined, RocketOutlined, UserOutlined } from "@ant-design/icons";
 import PageContainer from "../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../components/ui/page/PageSection";
@@ -24,6 +24,7 @@ import { resolveImageSource } from "../../../../utils/image/source";
 import RequireOpenShift from "../../../../components/pos/shared/RequireOpenShift";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
+import SmartAvatar from "../../../../components/ui/image/SmartAvatar";
 
 const { Text } = Typography;
 dayjs.locale('th');
@@ -205,10 +206,13 @@ function POSItemsPageContent() {
                                             <div key={idx} style={itemsStyles.itemRow} className="items-item-row-mobile">
                                                 <div style={itemsStyles.itemLeft} className="items-item-left-mobile">
                                                     {item.product?.img_url ? (
-                                                        <Avatar 
-                                                            shape="square" 
-                                                            size={40} 
-                                                            src={resolveImageSource(item.product.img_url) || undefined} 
+                                                        <SmartAvatar
+                                                            shape="square"
+                                                            size={40}
+                                                            src={resolveImageSource(item.product.img_url)}
+                                                            alt={item.product?.display_name || "product"}
+                                                            icon={<ShopOutlined />}
+                                                            imageStyle={{ objectFit: "cover" }}
                                                             style={itemsStyles.itemImage}
                                                         />
                                                     ) : (

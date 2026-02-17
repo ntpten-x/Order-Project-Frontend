@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Typography, Avatar, Tag, Button, Checkbox, InputNumber } from "antd";
+import { Typography, Tag, Button, Checkbox, InputNumber } from "antd";
 import { 
     MinusOutlined, 
     PlusOutlined, 
@@ -11,6 +11,7 @@ import {
     ShoppingOutlined
 } from "@ant-design/icons";
 import { resolveImageSource } from "../../../../utils/image/source";
+import SmartAvatar from "../../../../components/ui/image/SmartAvatar";
 const { Text, Title } = Typography;
 
 // ============ STYLES ============
@@ -397,10 +398,13 @@ export const PurchaseItemCard = ({
             />
             
             {/* Avatar without badge to avoid overlap */}
-            <Avatar 
-                src={resolveImageSource(item.img_url, "https://placehold.co/72x72/f5f5f5/999999?text=Preview") || undefined} 
-                shape="square" 
-                size={72} 
+            <SmartAvatar
+                src={resolveImageSource(item.img_url, "https://placehold.co/72x72/f5f5f5/999999?text=Preview")}
+                alt={item.display_name}
+                shape="square"
+                size={72}
+                icon={<ShoppingOutlined />}
+                imageStyle={{ objectFit: "cover" }}
                 style={{ 
                     borderRadius: 16, 
                     border: item.is_purchased ? '3px solid #52c41a' : '3px solid white',
@@ -614,10 +618,13 @@ export const ModalItemCard = ({ item, index }: ModalItemCardProps) => {
                 animation: `fadeSlideIn 0.3s ease ${index * 0.05}s both`
             }}
         >
-            <Avatar 
-                src={resolveImageSource(item.img_url, "https://placehold.co/56x56/f5f5f5/999999?text=Preview") || undefined} 
-                shape="square" 
+            <SmartAvatar
+                src={resolveImageSource(item.img_url, "https://placehold.co/56x56/f5f5f5/999999?text=Preview")}
+                alt={item.display_name}
+                shape="square"
                 size={56}
+                icon={<ShoppingOutlined />}
+                imageStyle={{ objectFit: "cover" }}
                 style={{ 
                     borderRadius: 12,
                     border: '2px solid white',

@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
-import { message, Modal, Typography, Button, Space, Tag, Switch, Avatar } from 'antd';
+import { message, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
 import {
     CarOutlined,
     PlusOutlined,
@@ -36,6 +36,7 @@ import { SearchInput } from "../../../../components/ui/input/SearchInput";
 import { SearchBar } from "../../../../components/ui/page/SearchBar";
 import { resolveImageSource } from "../../../../utils/image/source";
 import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
+import SmartAvatar from "../../../../components/ui/image/SmartAvatar";
 
 const { Text } = Typography;
 
@@ -63,6 +64,7 @@ const formatDate = (raw: string | Date) => {
 
 
 const DeliveryCard = ({ delivery, canUpdate, canDelete, onEdit, onDelete, onToggleActive, updatingStatusId }: DeliveryCardProps) => {
+    const logoSource = resolveImageSource(delivery.logo);
     return (
         <div
             className="delivery-card"
@@ -77,18 +79,21 @@ const DeliveryCard = ({ delivery, canUpdate, canDelete, onEdit, onDelete, onTogg
             }}
         >
             <div style={pageStyles.deliveryCardInner}>
-                <Avatar
+                <SmartAvatar
+                    src={delivery.logo}
+                    alt={delivery.delivery_name}
                     shape="square"
                     size={52}
-                    src={resolveImageSource(delivery.logo) || undefined}
                     icon={<CarOutlined />}
+                    imageStyle={{ objectFit: "contain" }}
                     style={{
                         borderRadius: 14,
                         background: delivery.is_active
                             ? 'linear-gradient(135deg, #cffafe 0%, #a5f3fc 100%)'
                             : '#f1f5f9',
                         color: delivery.is_active ? '#0891B2' : '#94a3b8',
-                        boxShadow: delivery.is_active ? '0 4px 10px rgba(8, 145, 178, 0.18)' : 'none'
+                        boxShadow: delivery.is_active ? '0 4px 10px rgba(8, 145, 178, 0.18)' : 'none',
+                        border: logoSource ? '1px solid #dbeafe' : undefined,
                     }}
                 />
 

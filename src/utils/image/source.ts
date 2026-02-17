@@ -1,15 +1,82 @@
-const DATA_IMAGE_PREFIX = /^data:image\/[a-zA-Z0-9.+-]+(?:;[a-zA-Z0-9!#$&^_.+-]+=[^;,]+)*(?:;base64)?,/i;
 const HTTP_URL_PREFIX = /^https?:\/\//i;
 const BLOB_URL_PREFIX = /^blob:/i;
 const RELATIVE_URL_PREFIX = /^(\/|\.\/|\.\.\/)/;
+const RAW_BASE64_PAYLOAD_PREFIX = /^[A-Za-z0-9+/_=\-\s]+$/;
+const DATA_IMAGE_PREFIX = /^data:image\/[a-zA-Z0-9.+-]+/i;
+const BASE64_BODY_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
+
+function decodePercentEncoded(value: string): string {
+    if (!/%[0-9A-Fa-f]{2}/.test(value)) return value;
+    try {
+        return decodeURIComponent(value);
+    } catch {
+        return value;
+    }
+}
+
+function normalizeBase64Payload(payload: string): string {
+    const decoded = decodePercentEncoded(payload);
+    let normalized = decoded
+        .replace(/^base64,/i, "")
+        .replace(/\s+/g, "")
+        .replace(/-/g, "+")
+        .replace(/_/g, "/");
+
+    // Keep only base64-safe chars to avoid invalid data URI payloads.
+    normalized = normalized.replace(/[^A-Za-z0-9+/=]/g, "");
+    if (!normalized) return "";
+
+    // Remove all existing padding and re-create canonical padding.
+    normalized = normalized.replace(/=+/g, "");
+    if (!normalized) return "";
+
+    const mod = normalized.length % 4;
+    if (mod === 1) return "";
+    if (mod > 0) {
+        normalized += "=".repeat(4 - mod);
+    }
+
+    if (!BASE64_BODY_PATTERN.test(normalized)) return "";
+
+    return normalized;
+}
 
 function normalizeDataImageSource(source: string): string {
-    const commaIndex = source.indexOf(",");
-    if (commaIndex <= 0) return source;
+    let normalized = decodePercentEncoded(source.trim()).replace(/^\uFEFF/, "");
 
-    const metadata = source.slice(0, commaIndex).replace(/\s+/g, "");
-    const payload = source.slice(commaIndex + 1).replace(/\s+/g, "");
-    return `${metadata},${payload}`;
+    // Handle malformed data URL without comma after ";base64"
+    if (!normalized.includes(",") && /;base64/i.test(normalized)) {
+        normalized = normalized.replace(/;base64\s*/i, ";base64,");
+    }
+
+    // Handle malformed data URL with missing ";base64" but payload appended after mime type.
+    if (!normalized.includes(",") && DATA_IMAGE_PREFIX.test(normalized)) {
+        normalized = normalized.replace(
+            /^(data:image\/[a-zA-Z0-9.+-]+)(.*)$/i,
+            (_m, prefix: string, rest: string) => `${prefix};base64,${rest.replace(/^;*/, "")}`
+        );
+    }
+
+    const commaIndex = normalized.indexOf(",");
+    if (commaIndex <= 0) return normalized;
+
+    const metadata = normalized.slice(0, commaIndex).replace(/\s+/g, "");
+    const payload = normalizeBase64Payload(normalized.slice(commaIndex + 1));
+    if (!payload) return "";
+
+    const normalizedMetadata = /;base64$/i.test(metadata) ? metadata : `${metadata};base64`;
+    return `${normalizedMetadata},${payload}`;
+}
+
+function looksLikeRawBase64Payload(value: string): boolean {
+    if (value.length < 64) return false;
+    return RAW_BASE64_PAYLOAD_PREFIX.test(value);
+}
+
+function toDataPngSourceFromRawBase64(value: string): string {
+    const payload = normalizeBase64Payload(value);
+    if (!payload) return "";
+    return `data:image/png;base64,${payload}`;
 }
 
 function normalizeGoogleDriveImageSource(source: string): string {
@@ -52,11 +119,19 @@ function normalizeGoogleDriveImageSource(source: string): string {
 }
 
 export function normalizeImageSource(source?: string | null): string {
-    const value = String(source ?? "").trim();
+    const value = String(source ?? "")
+        .replace(/^\uFEFF/, "")
+        .trim()
+        .replace(/^['"]|['"]$/g, "");
     if (!value) return "";
 
-    if (/^data:image\//i.test(value)) {
+    if (DATA_IMAGE_PREFIX.test(value)) {
         return normalizeDataImageSource(value);
+    }
+
+    // Support raw base64 payload from API/logo field by converting to a PNG data URL.
+    if (looksLikeRawBase64Payload(value)) {
+        return toDataPngSourceFromRawBase64(value);
     }
 
     if (HTTP_URL_PREFIX.test(value)) {
@@ -84,7 +159,11 @@ export function isSupportedImageSource(source?: string | null): boolean {
     if (DATA_IMAGE_PREFIX.test(value)) {
         const commaIndex = value.indexOf(",");
         if (commaIndex <= 0) return false;
-        return value.slice(commaIndex + 1).length > 0;
+        const metadata = value.slice(0, commaIndex);
+        const payload = value.slice(commaIndex + 1);
+        if (!/;base64$/i.test(metadata)) return false;
+        if (!payload || payload.length < 8) return false;
+        return BASE64_BODY_PATTERN.test(payload) && payload.length % 4 === 0;
     }
 
     return (
@@ -96,7 +175,7 @@ export function isSupportedImageSource(source?: string | null): boolean {
 
 export function isInlineImageSource(source?: string | null): boolean {
     const value = normalizeImageSource(source);
-    return /^data:image\//i.test(value) || BLOB_URL_PREFIX.test(value);
+    return DATA_IMAGE_PREFIX.test(value) || BLOB_URL_PREFIX.test(value);
 }
 
 export function resolveImageSource(source?: string | null, fallback?: string): string | null {

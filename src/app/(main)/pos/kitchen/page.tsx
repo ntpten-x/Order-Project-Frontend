@@ -662,6 +662,7 @@ function KitchenDisplayPageContent() {
 
         socket.on(RealtimeEvents.orders.create, handleOrderCreate);
         socket.on(RealtimeEvents.orders.update, handleOrderUpdate);
+        socket.on(RealtimeEvents.orders.delete, handleOrderUpdate);
         socket.on(RealtimeEvents.salesOrderItem.create, handleOrderUpdate);
         socket.on(RealtimeEvents.salesOrderItem.update, handleOrderUpdate);
         socket.on(RealtimeEvents.salesOrderItem.delete, handleOrderUpdate);
@@ -672,6 +673,7 @@ function KitchenDisplayPageContent() {
         return () => {
             socket.off(RealtimeEvents.orders.create, handleOrderCreate);
             socket.off(RealtimeEvents.orders.update, handleOrderUpdate);
+            socket.off(RealtimeEvents.orders.delete, handleOrderUpdate);
             socket.off(RealtimeEvents.salesOrderItem.create, handleOrderUpdate);
             socket.off(RealtimeEvents.salesOrderItem.update, handleOrderUpdate);
             socket.off(RealtimeEvents.salesOrderItem.delete, handleOrderUpdate);

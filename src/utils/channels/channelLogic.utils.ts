@@ -132,6 +132,8 @@ export function getOrderColorScheme(order: Pick<SalesOrder, "status"> | Pick<Sal
             return 'occupied'; // Keep it active
         case OrderStatus.Served:
             return 'waitingForPayment'; // Blue/Ready
+        case OrderStatus.WaitingForPayment:
+            return 'waitingForPayment';
         case OrderStatus.Paid:
             return 'available'; // Green/Done
         default:

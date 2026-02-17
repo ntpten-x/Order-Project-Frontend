@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 import { useRouter, useParams } from "next/navigation";
-import { Typography, Row, Col, Card, Button, Empty, Divider, message, InputNumber, Tag, Avatar, Alert, Modal, Result, Spin } from "antd";
+import { Typography, Row, Col, Card, Button, Empty, Divider, message, InputNumber, Tag, Alert, Modal, Result, Spin } from "antd";
 import { ArrowLeftOutlined, ShopOutlined, DollarOutlined, CreditCardOutlined, QrcodeOutlined, UndoOutlined, EditOutlined, SettingOutlined, DownOutlined, UpOutlined, CheckCircleOutlined } from "@ant-design/icons";
 import { QRCodeSVG } from 'qrcode.react';
 import generatePayload from 'promptpay-qr';
@@ -34,6 +34,7 @@ import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../../../utils/realtimeEvents";
 import { ORDER_REALTIME_EVENTS } from "../../../../../../utils/pos/orderRealtimeEvents";
 import { resolveImageSource } from "../../../../../../utils/image/source";
+import SmartAvatar from "../../../../../../components/ui/image/SmartAvatar";
 
 
 const { Title, Text } = Typography;
@@ -570,12 +571,14 @@ export default function POSPaymentPage() {
                                     {groupedItems.map((item, idx) => (
                                         <div key={idx} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 14, paddingBottom: 14, borderBottom: `1px solid ${itemsColors.borderLight}` }}>
                                             <div style={{ display: 'flex', gap: 12, flex: 1, minWidth: 0 }}>
-                                                <Avatar 
-                                                    shape="square" 
-                                                    size={48} 
-                                                    src={resolveImageSource(item.product?.img_url) || undefined} 
+                                                <SmartAvatar
+                                                    shape="square"
+                                                    size={48}
+                                                    src={resolveImageSource(item.product?.img_url)}
+                                                    alt={item.product?.display_name || "product"}
                                                     icon={<ShopOutlined />}
-                                                    style={{ backgroundColor: itemsColors.backgroundSecondary, flexShrink: 0, borderRadius: 10 }} 
+                                                    imageStyle={{ objectFit: "cover" }}
+                                                    style={{ backgroundColor: itemsColors.backgroundSecondary, flexShrink: 0, borderRadius: 10 }}
                                                 />
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <Text strong style={{ display: 'block', fontSize: 14 }} ellipsis>{item.product?.display_name}</Text>

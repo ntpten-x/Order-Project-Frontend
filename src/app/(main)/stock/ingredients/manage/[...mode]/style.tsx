@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Typography, Button, Avatar } from "antd";
+import { Typography, Button } from "antd";
 import {
     ArrowLeftOutlined,
     SaveOutlined,
@@ -11,8 +11,7 @@ import {
 } from "@ant-design/icons";
 
 const { Text, Title } = Typography;
-
-import { resolveImageSource } from "../../../../../../utils/image/source";
+import SmartAvatar from "../../../../../../components/ui/image/SmartAvatar";
 
 // ============ STYLES ============
 
@@ -261,10 +260,13 @@ export const ImagePreview = ({ url, name }: ImagePreviewProps) => (
         borderRadius: 16,
         marginTop: 12
     }}>
-        <Avatar
-            src={resolveImageSource(url, "https://placehold.co/80x80/f5f5f5/999999?text=Preview") || undefined}
+        <SmartAvatar
+            src={url}
+            alt={name || "Preview"}
             size={80}
             shape="square"
+            icon={<PlusCircleOutlined />}
+            imageStyle={{ objectFit: "cover" }}
             style={{
                 borderRadius: 14,
                 border: '2px solid white',

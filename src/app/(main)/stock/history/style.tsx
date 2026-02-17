@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Typography, Avatar, Tag, Button, Empty } from "antd";
+import { Typography, Tag, Button, Empty } from "antd";
 import { 
     HistoryOutlined,
     CheckCircleFilled,
@@ -14,6 +14,7 @@ import {
 } from "@ant-design/icons";
 import { Order, OrderStatus } from "../../../../types/api/stock/orders";
 import { resolveImageSource } from "../../../../utils/image/source";
+import SmartAvatar from "../../../../components/ui/image/SmartAvatar";
 const { Text, Title } = Typography;
 
 // ============ STYLES ============
@@ -449,10 +450,13 @@ export const OrderCard = ({ order, index, onView, onDelete, canDelete }: OrderCa
                                     borderRadius: 10
                                 }}
                             >
-                                <Avatar
-                                    src={resolveImageSource(item.ingredient?.img_url, "https://placehold.co/32x32/f5f5f5/999999?text=Preview") || undefined}
+                                <SmartAvatar
+                                    src={resolveImageSource(item.ingredient?.img_url, "https://placehold.co/32x32/f5f5f5/999999?text=Preview")}
+                                    alt={item.ingredient?.display_name || "ingredient"}
                                     size={28}
                                     shape="square"
+                                    icon={<ShoppingOutlined />}
+                                    imageStyle={{ objectFit: "cover" }}
                                     style={{ borderRadius: 6 }}
                                 />
                                 <div>
