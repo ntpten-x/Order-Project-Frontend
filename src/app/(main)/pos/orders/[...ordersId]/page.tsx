@@ -55,7 +55,7 @@ import { useEffectivePermissions } from "../../../../../hooks/useEffectivePermis
 import { offlineQueueService } from "../../../../../services/pos/offline.queue.service";
 import { useSocket } from "../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
-import { RealtimeEvents } from "../../../../../utils/realtimeEvents";
+import { ORDER_REALTIME_EVENTS } from "../../../../../utils/pos/orderRealtimeEvents";
 import { useOrderQueue } from "../../../../../hooks/pos/useOrderQueue";
 import { QueueStatus, QueuePriority } from "../../../../../types/api/pos/orderQueue";
 import UIPageHeader from "../../../../../components/ui/page/PageHeader";
@@ -146,19 +146,7 @@ export default function POSOrderDetailsPage() {
 
     useRealtimeRefresh({
         socket,
-        events: [
-            RealtimeEvents.orders.update,
-            RealtimeEvents.orders.delete,
-            RealtimeEvents.orders.create,
-            RealtimeEvents.payments.create,
-            RealtimeEvents.payments.update,
-            RealtimeEvents.salesOrderItem.create,
-            RealtimeEvents.salesOrderItem.update,
-            RealtimeEvents.salesOrderItem.delete,
-            RealtimeEvents.salesOrderDetail.create,
-            RealtimeEvents.salesOrderDetail.update,
-            RealtimeEvents.salesOrderDetail.delete,
-        ],
+        events: ORDER_REALTIME_EVENTS,
         onRefresh: () => {
             if (orderId) {
                 fetchOrder(orderId as string);

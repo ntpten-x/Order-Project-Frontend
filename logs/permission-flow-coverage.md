@@ -1,17 +1,19 @@
 # Permission Flow Coverage
 
-Generated: 2026-02-13T09:52:23.867Z
-Files with permission/menu checks: 19
-Unique keys discovered: 98
+Generated: 2026-02-17T11:51:47.115Z
+Files with permission/menu checks: 55
+Unique keys discovered: 102
 
 ## File Coverage
 
 - src/lib/rbac/menu-visibility.ts (133)
-  - audit.page, branches.page, category.page, delivery.page, discounts.page, menu.branch.home, menu.main.home, menu.main.orders, menu.main.stock, menu.main.users, menu.module.audit, menu.module.branch, menu.module.pos, menu.module.stock, menu.module.users, menu.pos.category, menu.pos.dashboard, menu.pos.delivery, menu.pos.discounts, menu.pos.home, menu.pos.kitchen, menu.pos.orders, menu.pos.payment, menu.pos.products, menu.pos.productsUnit, menu.pos.sell, menu.pos.settings, menu.pos.shift, menu.pos.shiftHistory, menu.pos.tables, menu.stock.buying, menu.stock.history, menu.stock.home, menu.stock.ingredients, menu.stock.ingredientsUnit, menu.stock.orders, menu.users.home, orders.page, payment_accounts.page, payment_method.page, products.page, reports.sales.page, shifts.page, shop_profile.page, stock.ingredients.page, stock.ingredients_unit.page, stock.orders.page, tables.page, users.page
-- src/lib/rbac/permission-matrix.ts (44)
-  - api.audit, api.auth.csrf, api.auth.login, api.auth.logout, api.auth.me, api.auth.switch-branch, api.branches.read, api.branches.write, api.cron.keep-alive, api.health, api.permissions, api.pos.category.read, api.pos.category.write, api.pos.delivery.read, api.pos.delivery.write, api.pos.discounts.read, api.pos.discounts.write, api.pos.operations, api.pos.payment-accounts, api.pos.payment-method.read, api.pos.payment-method.write, api.pos.products-unit.read, api.pos.products-unit.write, api.pos.products.read, api.pos.products.write, api.pos.shop-profile.read, api.pos.shop-profile.write, api.pos.tables, api.pos.tables.manage, api.roles, api.stock, api.users, page.audit, page.branch, page.branch.manager, page.manager.slug, page.pos, page.pos.products.manage, page.pos.settings, page.root, page.stock, page.users, public.login, public.offline
-- src/lib/rbac/page-permissions.ts (41)
-  - audit.page, branches.page, category.page, delivery.page, discounts.page, orders.page, payment_accounts.page, payment_method.page, payments.page, permissions.page, products.page, queue.page, reports.sales.page, shifts.page, shop_profile.page, stock.ingredients.page, stock.ingredients_unit.page, stock.orders.page, tables.page, users.page
+  - audit.page, branches.page, category.page, delivery.page, discounts.page, menu.branch.home, menu.main.home, menu.main.orders, menu.main.stock, menu.main.users, menu.module.audit, menu.module.branch, menu.module.pos, menu.module.stock, menu.module.users, menu.pos.category, menu.pos.dashboard, menu.pos.delivery, menu.pos.discounts, menu.pos.home, menu.pos.kitchen, menu.pos.orders, menu.pos.payment, menu.pos.products, menu.pos.productsUnit, menu.pos.sell, menu.pos.settings, menu.pos.shift, menu.pos.shiftHistory, menu.pos.tables, menu.stock.buying, menu.stock.history, menu.stock.home, menu.stock.ingredients, menu.stock.ingredientsUnit, menu.stock.orders, menu.users.home, orders.page, payment_accounts.page, payment_method.page, products.page, products_unit.page, reports.sales.page, shifts.page, shop_profile.page, stock.ingredients.page, stock.ingredients_unit.page, stock.orders.page, tables.page, users.page
+- src/lib/rbac/page-permissions.ts (65)
+  - audit.page, branches.page, category.page, delivery.page, discounts.page, health_system.page, menu.main.home, orders.page, payment_accounts.page, payment_method.page, payments.page, permissions.page, products.page, products_unit.page, queue.page, reports.sales.page, shifts.page, shop_profile.page, stock.ingredients.page, stock.ingredients_unit.page, stock.orders.page, tables.page, users.page
+- src/lib/rbac/permission-matrix.ts (46)
+  - api.audit, api.auth.csrf, api.auth.login, api.auth.logout, api.auth.me, api.auth.switch-branch, api.branches.read, api.branches.write, api.cron.keep-alive, api.health, api.permissions, api.pos.category.read, api.pos.category.write, api.pos.delivery.read, api.pos.delivery.write, api.pos.discounts.read, api.pos.discounts.write, api.pos.operations, api.pos.payment-accounts, api.pos.payment-method.read, api.pos.payment-method.write, api.pos.products-unit.read, api.pos.products-unit.write, api.pos.products.read, api.pos.products.write, api.pos.shop-profile.read, api.pos.shop-profile.write, api.pos.tables, api.pos.tables.manage, api.roles, api.stock, api.system.health, api.users, page.audit, page.branch, page.branch.manager, page.health-system, page.manager.slug, page.pos, page.pos.products.manage, page.pos.settings, page.root, page.stock, page.users, public.login, public.offline
+- src/app/(main)/users/permissions/page.tsx (31)
+  - menu.branch.home, menu.module.audit, menu.module.branch, menu.module.pos, menu.module.stock, menu.module.users, menu.pos.category, menu.pos.dashboard, menu.pos.delivery, menu.pos.discounts, menu.pos.home, menu.pos.kitchen, menu.pos.orders, menu.pos.payment, menu.pos.products, menu.pos.productsUnit, menu.pos.sell, menu.pos.settings, menu.pos.shift, menu.pos.shiftHistory, menu.pos.tables, menu.stock.buying, menu.stock.history, menu.stock.home, menu.stock.ingredients, menu.stock.ingredientsUnit, menu.stock.orders, menu.users.home, permissions.page
 - src/components/pos/POSBottomNavigation.tsx (15)
   - menu.pos.category, menu.pos.dashboard, menu.pos.delivery, menu.pos.discounts, menu.pos.home, menu.pos.kitchen, menu.pos.orders, menu.pos.payment, menu.pos.products, menu.pos.productsUnit, menu.pos.sell, menu.pos.settings, menu.pos.shift, menu.pos.shiftHistory, menu.pos.tables
 - src/__tests__/rbac/menu-visibility.test.ts (10)
@@ -20,26 +22,96 @@ Unique keys discovered: 98
   - branches.page, roles.page, users.page
 - src/components/stock/StockBottomNavigation.tsx (7)
   - menu.stock.buying, menu.stock.history, menu.stock.home, menu.stock.ingredients, menu.stock.ingredientsUnit, menu.stock.orders
-- src/app/(main)/page.tsx (5)
-  - menu.module.audit, menu.module.branch, menu.module.pos, menu.module.stock, menu.module.users
+- src/app/(main)/page.tsx (6)
+  - health_system.page, menu.module.audit, menu.module.branch, menu.module.pos, menu.module.stock, menu.module.users
 - src/components/BottomNavigation.tsx (5)
   - menu.main.home, menu.main.orders, menu.main.stock, menu.main.users
+- src/app/(main)/branch/page.tsx (4)
+  - branches.page
 - src/app/(main)/users/page.tsx (4)
   - users.page
-- src/app/(main)/branch/page.tsx (2)
+- src/app/(main)/branch/manager/[...mode]/page.tsx (3)
   - branches.page
+- src/app/(main)/pos/category/manager/[...mode]/page.tsx (3)
+  - category.page
+- src/app/(main)/pos/category/page.tsx (3)
+  - category.page
+- src/app/(main)/pos/delivery/manager/[...mode]/page.tsx (3)
+  - delivery.page
+- src/app/(main)/pos/delivery/page.tsx (3)
+  - delivery.page
+- src/app/(main)/pos/discounts/manager/[...mode]/page.tsx (3)
+  - discounts.page
+- src/app/(main)/pos/discounts/page.tsx (3)
+  - discounts.page
+- src/app/(main)/pos/paymentMethod/manager/[...mode]/page.tsx (3)
+  - payment_method.page
+- src/app/(main)/pos/paymentMethod/page.tsx (3)
+  - payment_method.page
+- src/app/(main)/pos/products/manage/[...mode]/page.tsx (3)
+  - products.page
+- src/app/(main)/pos/products/page.tsx (3)
+  - products.page
+- src/app/(main)/pos/productsUnit/manager/[...mode]/page.tsx (3)
+  - products_unit.page
+- src/app/(main)/pos/productsUnit/page.tsx (3)
+  - products_unit.page
+- src/app/(main)/pos/settings/payment-accounts/[...mode]/page.tsx (3)
+  - payment_accounts.page
+- src/app/(main)/pos/tables/manager/[...mode]/page.tsx (3)
+  - tables.page
+- src/app/(main)/pos/tables/page.tsx (3)
+  - tables.page
+- src/app/(main)/stock/ingredients/page.tsx (3)
+  - stock.ingredients.page
+- src/app/(main)/stock/ingredientsUnit/page.tsx (3)
+  - stock.ingredients_unit.page
+- src/app/(main)/audit/page.tsx (2)
+  - audit.page, branches.page
+- src/app/(main)/pos/orders/[...ordersId]/page.tsx (2)
+  - orders.page
+- src/app/(main)/pos/settings/page.tsx (2)
+  - payment_accounts.page
 - src/app/(main)/pos/shift/page.tsx (2)
   - shifts.page
-- src/app/(main)/audit/page.tsx (1)
-  - branches.page
-- src/app/(main)/branch/manager/[...mode]/page.tsx (1)
-  - branches.page
+- src/app/(main)/pos/channels/delivery/page.tsx (1)
+  - orders.page
+- src/app/(main)/pos/channels/delivery/[providerId]/page.tsx (1)
+  - orders.page
+- src/app/(main)/pos/channels/dine-in/[tableId]/page.tsx (1)
+  - orders.page
+- src/app/(main)/pos/channels/takeaway/buying/page.tsx (1)
+  - orders.page
+- src/app/(main)/pos/channels/takeaway/page.tsx (1)
+  - orders.page
+- src/app/(main)/pos/dashboard/page.tsx (1)
+  - reports.sales.page
+- src/app/(main)/pos/items/delivery/[...deliveryId]/page.tsx (1)
+  - payments.page
+- src/app/(main)/pos/items/page.tsx (1)
+  - payments.page
+- src/app/(main)/pos/items/payment/[...paymentId]/page.tsx (1)
+  - payments.page
+- src/app/(main)/pos/kitchen/page.tsx (1)
+  - orders.page
 - src/app/(main)/stock/history/page.tsx (1)
   - stock.orders.page
+- src/app/(main)/stock/ingredients/manage/[...mode]/page.tsx (1)
+  - stock.ingredients.page
+- src/app/(main)/stock/ingredientsUnit/manage/[...mode]/page.tsx (1)
+  - stock.ingredients_unit.page
+- src/app/(main)/stock/items/page.tsx (1)
+  - stock.orders.page
+- src/components/audit/AuditBottomNavigation.tsx (1)
+  - menu.module.audit
 - src/components/branch/BranchBottomNavigation.tsx (1)
   - menu.branch.home
+- src/components/pos/shared/RequireOpenShift.tsx (1)
+  - shifts.page
 - src/components/pos/shifts/OpenShiftModal.tsx (1)
   - shifts.page
+- src/components/stock/CartDrawer.tsx (1)
+  - stock.orders.page
 - src/components/users/UsersBottomNavigation.tsx (1)
   - menu.users.home
 - src/__tests__/services/permissions.service.test.ts (1)
@@ -78,12 +150,14 @@ Unique keys discovered: 98
 - api.pos.tables.manage
 - api.roles
 - api.stock
+- api.system.health
 - api.users
 - audit.page
 - branches.page
 - category.page
 - delivery.page
 - discounts.page
+- health_system.page
 - menu.branch.home
 - menu.main.home
 - menu.main.orders
@@ -121,6 +195,7 @@ Unique keys discovered: 98
 - page.audit
 - page.branch
 - page.branch.manager
+- page.health-system
 - page.manager.slug
 - page.pos
 - page.pos.products.manage
@@ -133,6 +208,7 @@ Unique keys discovered: 98
 - payments.page
 - permissions.page
 - products.page
+- products_unit.page
 - public.login
 - public.offline
 - queue.page

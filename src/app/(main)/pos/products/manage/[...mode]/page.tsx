@@ -202,7 +202,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
             const payload = {
                 product_name: values.product_name.trim(),
                 display_name: values.display_name.trim(),
-                description: values.description?.trim() || undefined,
+                description: values.description?.trim() ?? '',
                 img_url: normalizeImageSource(values.img_url) || null,
                 price: Number(values.price || 0),
                 price_delivery: values.price_delivery === undefined || values.price_delivery === null

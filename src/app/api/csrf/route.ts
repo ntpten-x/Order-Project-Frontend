@@ -7,6 +7,16 @@ import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = 'force-dynamic';
 
+function forwardSetCookieHeaders(request: NextRequest, sourceResponse: Response, targetResponse: NextResponse) {
+    const setCookieHeader = sourceResponse.headers.get("set-cookie");
+    if (!setCookieHeader) return;
+
+    const isHttps = isHttpsRequest(request);
+    const cookieEntries = splitSetCookieHeader(setCookieHeader)
+        .map((cookie) => normalizeSetCookieForProtocol(cookie, isHttps));
+    cookieEntries.forEach((cookie) => targetResponse.headers.append("Set-Cookie", cookie));
+}
+
 export async function GET(request: NextRequest) {
     try {
         // Server-side: call backend directly
@@ -44,7 +54,9 @@ export async function GET(request: NextRequest) {
                 });
                 if (retryResponse.ok) {
                     const retryData = await retryResponse.json();
-                    return NextResponse.json(retryData);
+                    const retryNextResponse = NextResponse.json(retryData);
+                    forwardSetCookieHeaders(request, retryResponse, retryNextResponse);
+                    return retryNextResponse;
                 }
             } catch (retryError) {
                 console.error("CSRF token retry failed:", retryError);
@@ -79,13 +91,7 @@ export async function GET(request: NextRequest) {
         const nextResponse = NextResponse.json({ csrfToken });
 
         // Forward Set-Cookie headers from Backend to Client
-        const setCookieHeader = response.headers.get("set-cookie");
-        if (setCookieHeader) {
-            const isHttps = isHttpsRequest(request);
-            const cookieEntries = splitSetCookieHeader(setCookieHeader)
-                .map((cookie) => normalizeSetCookieForProtocol(cookie, isHttps));
-            cookieEntries.forEach((cookie) => nextResponse.headers.append("Set-Cookie", cookie));
-        }
+        forwardSetCookieHeaders(request, response, nextResponse);
 
         return nextResponse;
     } catch (error) {
