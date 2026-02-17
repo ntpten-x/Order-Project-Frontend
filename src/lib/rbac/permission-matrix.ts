@@ -285,6 +285,13 @@ export const PERMISSION_ROUTE_MATRIX: readonly PermissionRouteRule[] = [
     allowedRoles: ALL_ROLES,
   },
   {
+    id: "api-system-health-admin",
+    resourceKey: "api.system.health",
+    description: "Detailed system health endpoint.",
+    match: { mode: "exact", value: "/api/system/health" },
+    allowedRoles: ["Admin"],
+  },
+  {
     id: "api-cron-keepalive-admin",
     resourceKey: "api.cron.keep-alive",
     description: "Keep alive endpoint.",
@@ -366,6 +373,14 @@ export const PERMISSION_ROUTE_MATRIX: readonly PermissionRouteRule[] = [
     resourceKey: "page.audit",
     description: "Audit pages.",
     match: { mode: "prefix", value: "/audit" },
+    allowedRoles: ["Admin"],
+    redirectTo: "/pos",
+  },
+  {
+    id: "page-health-system-admin",
+    resourceKey: "page.health-system",
+    description: "Health System page.",
+    match: { mode: "prefix", value: "/Health-System" },
     allowedRoles: ["Admin"],
     redirectTo: "/pos",
   },

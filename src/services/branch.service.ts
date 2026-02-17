@@ -23,7 +23,10 @@ export const branchService = {
             credentials: "include",
             headers
         });
-        if (!response.ok) throw new Error("Failed to fetch branches");
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throwBackendHttpError(response, errorData, "Failed to fetch branches");
+        }
         return normalizeBackendPaginated<Branch>(await response.json());
     },
 
@@ -38,7 +41,10 @@ export const branchService = {
             credentials: 'include',
             headers
         });
-        if (!response.ok) throw new Error('Failed to fetch branches');
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throwBackendHttpError(response, errorData, "Failed to fetch branches");
+        }
 
         const json = await response.json();
         const unwrapped = unwrapBackendData<unknown>(json);
@@ -68,7 +74,10 @@ export const branchService = {
             credentials: 'include',
             headers
         });
-        if (!response.ok) throw new Error('Failed to fetch branch');
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throwBackendHttpError(response, errorData, "Failed to fetch branch");
+        }
 
         const json = await response.json();
         return BranchSchema.parse(unwrapBackendData(json)) as unknown as Branch;

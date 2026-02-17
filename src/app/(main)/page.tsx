@@ -70,7 +70,7 @@ export default function LandingPage() {
             icon: DashboardOutlined,
             iconColor: "#0ea5e9",
             path: "/Health-System",
-            enabled: user?.role === "Admin",
+            enabled: can("health_system.page", "view"),
         },
     ].filter((module) => module.enabled);
 

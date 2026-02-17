@@ -4,7 +4,7 @@ import { OrderStatus, OrderType, SalesOrderSummary } from "../../types/api/pos/s
 import { useSocket } from "../../hooks/useSocket";
 import { useRealtimeRefresh } from "./realtime";
 import { isEqual } from "lodash";
-import { RealtimeEvents } from "../realtimeEvents";
+import { ORDER_REALTIME_EVENTS } from "./orderRealtimeEvents";
 
 const EXCLUDED_STATUSES = new Set<OrderStatus>([
     OrderStatus.Paid,
@@ -18,20 +18,6 @@ const DEFAULT_ACTIVE_STATUS_FILTER = [
     OrderStatus.Served,
     OrderStatus.WaitingForPayment,
 ].join(",");
-
-const DEFAULT_EVENTS = [
-    RealtimeEvents.orders.create,
-    RealtimeEvents.orders.update,
-    RealtimeEvents.orders.delete,
-    RealtimeEvents.payments.create,
-    RealtimeEvents.payments.update,
-    RealtimeEvents.salesOrderItem.create,
-    RealtimeEvents.salesOrderItem.update,
-    RealtimeEvents.salesOrderItem.delete,
-    RealtimeEvents.salesOrderDetail.create,
-    RealtimeEvents.salesOrderDetail.update,
-    RealtimeEvents.salesOrderDetail.delete,
-];
 
 const filterActiveOrders = (orders: SalesOrderSummary[], orderType: OrderType) =>
     orders.filter(
@@ -57,7 +43,7 @@ export function useChannelOrders({
     statusFilter = DEFAULT_ACTIVE_STATUS_FILTER,
     enabled = true,
     refreshIntervalMs = 15000,
-    events = DEFAULT_EVENTS,
+    events = ORDER_REALTIME_EVENTS,
 }: ChannelOrdersOptions) {
     const { socket } = useSocket();
     const [orders, setOrders] = useState<SalesOrderSummary[]>([]);

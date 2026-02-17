@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Col, Input, Modal, Row, Select, Space, Tag, Typography, message } from "antd";
+import { Avatar, Button, Col, Input, Modal, Row, Select, Space, Tag, Typography, message } from "antd";
 import { RocketOutlined, PlusOutlined, ClockCircleOutlined } from "@ant-design/icons";
 import PageContainer from "../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../components/ui/page/PageSection";
@@ -23,6 +23,7 @@ import { useChannelOrders } from "../../../../../utils/pos/channelOrders";
 import RequireOpenShift from "../../../../../components/pos/shared/RequireOpenShift";
 import { useAuth } from "../../../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../../../hooks/useEffectivePermissions";
+import { resolveImageSource } from "../../../../../utils/image/source";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import 'dayjs/locale/th';
@@ -59,6 +60,53 @@ function DeliverySelectionPageContent() {
     const selectedProvider = useMemo(() =>
         (deliveryProviders as Delivery[]).find((p: Delivery) => p.id === selectedProviderId),
         [deliveryProviders, selectedProviderId]);
+    const providerSelectOptions = useMemo(
+        () =>
+            (deliveryProviders as Delivery[]).map((provider: Delivery) => {
+                const logoSource = resolveImageSource(provider.logo);
+                return {
+                    value: provider.id,
+                    searchLabel: `${provider.delivery_name} ${provider.delivery_prefix || ""}`.trim().toLowerCase(),
+                    label: (
+                        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                            <Avatar
+                                shape="square"
+                                size={28}
+                                src={logoSource || undefined}
+                                icon={<RocketOutlined />}
+                                style={{
+                                    borderRadius: 8,
+                                    background: logoSource ? "#ffffff" : channelColors.delivery.light,
+                                    color: channelColors.delivery.primary,
+                                    border: `1px solid ${channelColors.delivery.border}`,
+                                    flex: "0 0 auto",
+                                }}
+                            />
+                            <div style={{ minWidth: 0, display: "flex", flexDirection: "column", lineHeight: 1.2 }}>
+                                <Text
+                                    style={{
+                                        fontSize: 14,
+                                        fontWeight: 600,
+                                        color: "#1E293B",
+                                        whiteSpace: "nowrap",
+                                        overflow: "hidden",
+                                        textOverflow: "ellipsis",
+                                    }}
+                                >
+                                    {provider.delivery_name}
+                                </Text>
+                                {provider.delivery_prefix ? (
+                                    <Text type="secondary" style={{ fontSize: 11 }}>
+                                        Prefix: {provider.delivery_prefix}
+                                    </Text>
+                                ) : null}
+                            </div>
+                        </div>
+                    ),
+                };
+            }),
+        [deliveryProviders]
+    );
 
     useEffect(() => {
         if (isLoading || isLoadingProviders) {
@@ -225,6 +273,7 @@ function DeliverySelectionPageContent() {
                                 const colorScheme = getOrderColorScheme(order);
                                 const colors = tableColors[colorScheme];
                                 const provider = (deliveryProviders as Delivery[]).find((d: Delivery) => d.id === order.delivery_id);
+                                const providerLogo = resolveImageSource(provider?.logo);
                                 const orderNum = order.delivery_code || order.order_no.split('-').pop();
 
                                 return (
@@ -252,17 +301,20 @@ function DeliverySelectionPageContent() {
                                                 background: colors.light,
                                             }}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                    <div style={{
-                                                        width: 40,
-                                                        height: 40,
-                                                        borderRadius: 12,
-                                                        background: `${colors.primary}20`,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                    }}>
-                                                        <RocketOutlined style={{ color: colors.primary, fontSize: 20 }} />
-                                                    </div>
+                                                    <Avatar
+                                                        shape="square"
+                                                        size={40}
+                                                        src={providerLogo || undefined}
+                                                        icon={<RocketOutlined />}
+                                                        style={{
+                                                            borderRadius: 12,
+                                                            background: providerLogo ? "#ffffff" : `${colors.primary}20`,
+                                                            color: colors.primary,
+                                                            border: `1px solid ${colors.border}`,
+                                                            boxShadow: providerLogo ? "0 2px 8px rgba(15, 23, 42, 0.06)" : "none",
+                                                            flex: "0 0 auto",
+                                                        }}
+                                                    />
                                                     <div>
                                                         <Text strong style={{ fontSize: 16, color: '#1E293B', display: 'block', lineHeight: 1.2 }}>{orderNum}</Text>
                                                         <Text type="secondary" style={{ fontSize: 11 }}>{provider?.delivery_name || 'Delivery'}</Text>
@@ -389,7 +441,13 @@ function DeliverySelectionPageContent() {
                                 size="large"
                                 value={selectedProviderId}
                                 onChange={setSelectedProviderId}
-                                options={(deliveryProviders as Delivery[]).map((p: Delivery) => ({ label: p.delivery_name, value: p.id }))}
+                                showSearch
+                                options={providerSelectOptions}
+                                filterOption={(input, option) =>
+                                    String((option as { searchLabel?: string } | undefined)?.searchLabel || "")
+                                        .toLowerCase()
+                                        .includes(input.toLowerCase())
+                                }
                                 loading={isLoadingProviders}
                                 dropdownStyle={{ borderRadius: 12, padding: 8 }}
                                 dropdownMatchSelectWidth

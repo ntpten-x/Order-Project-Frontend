@@ -12,6 +12,10 @@
 ### Environment
 - `NODE_ENV` - Environment mode (development/production)
 
+### Server-side Proxy (Next API routes)
+- `BACKEND_API_INTERNAL` - Internal backend URL used by Next API route proxy
+- `TRUST_PROXY_CHAIN` - Enable forwarding sanitized client IP chain to backend only when frontend is behind trusted proxy (`1`/`true`)
+
 ## Monitoring Services (Optional)
 
 ### Sentry (Error Tracking)

@@ -22,7 +22,7 @@ import { useAuth } from "../../../../../../contexts/AuthContext";
 import { useSocket } from "../../../../../../hooks/useSocket";
 import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
 import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
-import { RealtimeEvents } from "../../../../../../utils/realtimeEvents";
+import { ORDER_REALTIME_EVENTS } from "../../../../../../utils/pos/orderRealtimeEvents";
 import { resolveImageSource } from "../../../../../../utils/image/source";
 
 const { Title, Text } = Typography;
@@ -107,18 +107,7 @@ export default function POSDeliverySummaryPage() {
 
     useRealtimeRefresh({
         socket,
-        events: [
-            RealtimeEvents.orders.update,
-            RealtimeEvents.orders.delete,
-            RealtimeEvents.payments.create,
-            RealtimeEvents.payments.update,
-            RealtimeEvents.salesOrderItem.create,
-            RealtimeEvents.salesOrderItem.update,
-            RealtimeEvents.salesOrderItem.delete,
-            RealtimeEvents.salesOrderDetail.create,
-            RealtimeEvents.salesOrderDetail.update,
-            RealtimeEvents.salesOrderDetail.delete,
-        ],
+        events: ORDER_REALTIME_EVENTS,
         onRefresh: () => {
             if (deliveryId) {
                 fetchInitialData();

@@ -32,6 +32,7 @@ import { useSocket } from "../../../../../../hooks/useSocket";
 import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
 import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../../../utils/realtimeEvents";
+import { ORDER_REALTIME_EVENTS } from "../../../../../../utils/pos/orderRealtimeEvents";
 import { resolveImageSource } from "../../../../../../utils/image/source";
 
 
@@ -210,10 +211,7 @@ export default function POSPaymentPage() {
     useRealtimeRefresh({
         socket,
         events: [
-            RealtimeEvents.orders.update,
-            RealtimeEvents.orders.delete,
-            RealtimeEvents.payments.create,
-            RealtimeEvents.payments.update,
+            ...ORDER_REALTIME_EVENTS,
             RealtimeEvents.paymentMethods.create,
             RealtimeEvents.paymentMethods.update,
             RealtimeEvents.discounts.create,
