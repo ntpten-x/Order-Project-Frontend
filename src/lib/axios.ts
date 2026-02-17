@@ -12,6 +12,40 @@ const api = axios.create({
 });
 
 let csrfToken: string | null = null;
+let branchRecoveryInFlight = false;
+
+const BRANCH_CONTEXT_ERROR_PATTERNS = [
+    "invalid branch context",
+    "selected branch is invalid",
+    "assigned branch is invalid",
+];
+
+function isBranchContextError(messageText: string): boolean {
+    const normalized = messageText.toLowerCase();
+    return BRANCH_CONTEXT_ERROR_PATTERNS.some((pattern) => normalized.includes(pattern));
+}
+
+async function recoverBranchContextIfNeeded(messageText: string): Promise<void> {
+    if (typeof window === "undefined" || branchRecoveryInFlight) return;
+    if (!isBranchContextError(messageText)) return;
+
+    branchRecoveryInFlight = true;
+    try {
+        await fetch("/api/auth/active-branch", {
+            method: "DELETE",
+            credentials: "include",
+            cache: "no-store",
+        }).catch(() => undefined);
+        window.dispatchEvent(new CustomEvent("active-branch-changed", { detail: { activeBranchId: null } }));
+        if (!window.location.pathname.startsWith("/branch")) {
+            window.location.assign("/branch");
+        }
+    } finally {
+        window.setTimeout(() => {
+            branchRecoveryInFlight = false;
+        }, 1500);
+    }
+}
 
 const logDevError = (msg: string, err: unknown) => {
     if (process.env.NODE_ENV !== "production") {
@@ -66,12 +100,15 @@ api.interceptors.request.use(async (config) => {
 // Response interceptor to retry if CSRF invalid
 api.interceptors.response.use((response) => response, async (error) => {
     const originalRequest = error.config;
+    const backendMessage = getBackendErrorMessage(error.response?.data, "");
+    if (backendMessage) {
+        void recoverBranchContextIfNeeded(backendMessage);
+    }
     
     // Handle CSRF token errors (403 Forbidden)
     if (error.response?.status === 403) {
-        const errorMessage = getBackendErrorMessage(error.response?.data, '');
-        const isCsrfError = errorMessage.toLowerCase().includes('csrf') || 
-                           errorMessage.toLowerCase().includes('token required');
+        const isCsrfError = backendMessage.toLowerCase().includes('csrf') || 
+                           backendMessage.toLowerCase().includes('token required');
         
         if (isCsrfError && !originalRequest._retry) {
             originalRequest._retry = true;

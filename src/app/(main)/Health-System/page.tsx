@@ -41,8 +41,10 @@ import { systemHealthService } from "../../../services/system-health.service";
 import type { HealthCheckItem, HealthLevel, SystemHealthReport } from "../../../types/api/system-health";
 
 const { Text, Title } = Typography;
+const HEALTH_REFRESH_INTERVAL_MS = 30_000;
 
 type LevelFilter = "all" | HealthLevel;
+type EndpointMethodFilter = "ALL" | "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 type LevelMeta = {
     label: "Ready" | "Warning" | "Error";
@@ -51,6 +53,22 @@ type LevelMeta = {
     softBg: string;
     icon: React.ReactNode;
 };
+
+function methodTagColor(method: string): string {
+    switch (method.toUpperCase()) {
+        case "GET":
+            return "blue";
+        case "POST":
+            return "green";
+        case "PUT":
+        case "PATCH":
+            return "orange";
+        case "DELETE":
+            return "red";
+        default:
+            return "default";
+    }
+}
 
 const LEVEL_META: Record<HealthLevel, LevelMeta> = {
     ok: {
@@ -243,31 +261,57 @@ export default function HealthSystemPage() {
     const [error, setError] = React.useState<string | null>(null);
     const [keyword, setKeyword] = React.useState("");
     const [levelFilter, setLevelFilter] = React.useState<LevelFilter>("all");
+    const [endpointMethodFilter, setEndpointMethodFilter] = React.useState<EndpointMethodFilter>("ALL");
+    const [endpointMinSamples, setEndpointMinSamples] = React.useState(3);
+    const inFlightRef = React.useRef(false);
+    const pendingReloadRef = React.useRef(false);
 
     const loadReport = React.useCallback(async (silent = false) => {
+        if (inFlightRef.current) {
+            pendingReloadRef.current = true;
+            return;
+        }
+        inFlightRef.current = true;
+
         if (silent) setRefreshing(true);
         else setLoading(true);
 
         try {
-            const data = await systemHealthService.getReport();
+            const data = await systemHealthService.getReport({
+                method: endpointMethodFilter,
+                minSamples: endpointMinSamples,
+            });
             setReport(data);
             setError(null);
         } catch (err) {
             setError(err instanceof Error ? err.message : "โหลดรายงานสุขภาพระบบไม่สำเร็จ");
         } finally {
+            inFlightRef.current = false;
             setLoading(false);
             setRefreshing(false);
+            if (pendingReloadRef.current) {
+                pendingReloadRef.current = false;
+                void loadReport(true);
+            }
         }
-    }, []);
+    }, [endpointMethodFilter, endpointMinSamples]);
 
     React.useEffect(() => {
         void loadReport(false);
-        const timer = window.setInterval(() => {
+
+        const refreshWhenVisible = () => {
+            if (document.visibilityState !== "visible") return;
             void loadReport(true);
-        }, 30_000);
+        };
+
+        const timer = window.setInterval(() => {
+            refreshWhenVisible();
+        }, HEALTH_REFRESH_INTERVAL_MS);
+        document.addEventListener("visibilitychange", refreshWhenVisible);
 
         return () => {
             window.clearInterval(timer);
+            document.removeEventListener("visibilitychange", refreshWhenVisible);
         };
     }, [loadReport]);
 
@@ -535,6 +579,111 @@ export default function HealthSystemPage() {
                             </Row>
 
                             <Row gutter={[12, 12]}>
+                                <Col span={24}>
+                                    <Card style={{ borderRadius: 14 }} bodyStyle={{ padding: 14 }}>
+                                        <Space direction="vertical" size={10} style={{ width: "100%" }}>
+                                            <Flex justify="space-between" align="center" wrap="wrap" gap={8}>
+                                                <Text strong>Top slow endpoints (sorted by p95)</Text>
+                                                <Text type="secondary">
+                                                    เส้นทางที่มี latency สูงสุดจาก sample ล่าสุด
+                                                </Text>
+                                            </Flex>
+                                            <Row gutter={[8, 8]}>
+                                                <Col xs={24} md={14}>
+                                                    <Segmented<EndpointMethodFilter>
+                                                        block
+                                                        value={endpointMethodFilter}
+                                                        onChange={(value) => setEndpointMethodFilter(value)}
+                                                        options={[
+                                                            { label: "All methods", value: "ALL" },
+                                                            { label: "GET", value: "GET" },
+                                                            { label: "POST", value: "POST" },
+                                                            { label: "PUT", value: "PUT" },
+                                                            { label: "PATCH", value: "PATCH" },
+                                                            { label: "DELETE", value: "DELETE" },
+                                                        ]}
+                                                    />
+                                                </Col>
+                                                <Col xs={24} md={10}>
+                                                    <Segmented<number>
+                                                        block
+                                                        value={endpointMinSamples}
+                                                        onChange={(value) => setEndpointMinSamples(value)}
+                                                        options={[
+                                                            { label: "min 1", value: 1 },
+                                                            { label: "min 3", value: 3 },
+                                                            { label: "min 5", value: 5 },
+                                                            { label: "min 10", value: 10 },
+                                                        ]}
+                                                    />
+                                                </Col>
+                                            </Row>
+
+                                            {(report.performance.topSlowEndpoints || []).length > 0 ? (
+                                                <Space direction="vertical" size={8} style={{ width: "100%" }}>
+                                                    {(report.performance.topSlowEndpoints || []).map((endpoint, index) => (
+                                                        <Card
+                                                            key={`${endpoint.method}-${endpoint.path}-${index}`}
+                                                            size="small"
+                                                            style={{ borderRadius: 12, background: "#fcfdff" }}
+                                                            bodyStyle={{ padding: 12 }}
+                                                        >
+                                                            <Space direction="vertical" size={6} style={{ width: "100%" }}>
+                                                                <Flex justify="space-between" align="start" gap={8} wrap="wrap">
+                                                                    <Space size={6} wrap>
+                                                                        <Tag color="default" style={{ borderRadius: 999, margin: 0 }}>
+                                                                            #{index + 1}
+                                                                        </Tag>
+                                                                        <Tag color={methodTagColor(endpoint.method)} style={{ borderRadius: 999, margin: 0 }}>
+                                                                            {endpoint.method}
+                                                                        </Tag>
+                                                                        <Text
+                                                                            code
+                                                                            style={{
+                                                                                whiteSpace: "normal",
+                                                                                wordBreak: "break-all",
+                                                                            }}
+                                                                        >
+                                                                            {endpoint.path}
+                                                                        </Text>
+                                                                    </Space>
+                                                                    <Tag style={{ borderRadius: 999, margin: 0 }}>
+                                                                        Count {endpoint.requestCount}
+                                                                    </Tag>
+                                                                </Flex>
+                                                                <Space size={[6, 6]} wrap>
+                                                                    <Tag color="processing" style={{ borderRadius: 999, margin: 0 }}>
+                                                                        Avg {endpoint.averageResponseMs} ms
+                                                                    </Tag>
+                                                                    <Tag color="warning" style={{ borderRadius: 999, margin: 0 }}>
+                                                                        P95 {endpoint.p95ResponseMs} ms
+                                                                    </Tag>
+                                                                    <Tag color="volcano" style={{ borderRadius: 999, margin: 0 }}>
+                                                                        P99 {endpoint.p99ResponseMs} ms
+                                                                    </Tag>
+                                                                    <Tag style={{ borderRadius: 999, margin: 0 }}>
+                                                                        Max {endpoint.maxResponseMs} ms
+                                                                    </Tag>
+                                                                    <Tag
+                                                                        color={endpoint.errorRatePercent > 0 ? "error" : "success"}
+                                                                        style={{ borderRadius: 999, margin: 0 }}
+                                                                    >
+                                                                        5xx {endpoint.errorRatePercent}%
+                                                                    </Tag>
+                                                                </Space>
+                                                            </Space>
+                                                        </Card>
+                                                    ))}
+                                                </Space>
+                                            ) : (
+                                                <Empty
+                                                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                                                    description="ยังไม่มีข้อมูล endpoint ที่ผ่านเกณฑ์ sample"
+                                                />
+                                            )}
+                                        </Space>
+                                    </Card>
+                                </Col>
                                 {report.performance.indexChecks.map((indexItem) => (
                                     <Col xs={24} md={12} key={`${indexItem.table}-${indexItem.columns.join("-")}`}>
                                         <Card
