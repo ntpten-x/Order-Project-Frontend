@@ -2,9 +2,14 @@ import { Products } from "../../types/api/pos/products";
 import { getProxyUrl } from "../../lib/proxy-utils";
 import { API_ROUTES } from "../../config/api";
 import { ProductSchema, ProductsResponseSchema } from "../../schemas/api/pos/products.schema";
+import { z } from "zod";
 import { normalizeBackendPaginated, throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = API_ROUTES.POS.PRODUCTS;
+
+const ProductsActiveCountSchema = z.object({
+    total: z.number().int().nonnegative(),
+});
 
 export const productsService = {
     findAll: async (page: number = 1, limit: number = 50, cookie?: string, searchParams?: URLSearchParams): Promise<{ data: Products[], total: number, page: number, last_page: number }> => {
@@ -31,8 +36,31 @@ export const productsService = {
         const json = await response.json();
         const transformedResponse = normalizeBackendPaginated<Products>(json);
         
-        // Strict Validation: will throw if transformed response doesn't match schema
-        return ProductsResponseSchema.parse(transformedResponse) as unknown as { data: Products[], total: number, page: number, last_page: number };
+         // Strict Validation: will throw if transformed response doesn't match schema
+         return ProductsResponseSchema.parse(transformedResponse) as unknown as { data: Products[], total: number, page: number, last_page: number };
+     },
+
+    countActive: async (cookie?: string, searchParams?: URLSearchParams): Promise<{ total: number }> => {
+        let url = getProxyUrl("GET", `${BASE_PATH}/active-count`);
+        const params = new URLSearchParams(searchParams || "");
+        const qs = params.toString();
+        if (qs) url += `?${qs}`;
+
+        const headers: HeadersInit = {};
+        if (cookie) headers.Cookie = cookie;
+
+        const response = await fetch(url!, {
+            cache: "no-store",
+            credentials: "include",
+            headers,
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throwBackendHttpError(response, errorData, "Failed to fetch active products count");
+        }
+
+        const json = await response.json();
+        return ProductsActiveCountSchema.parse(unwrapBackendData(json));
     },
 
     findOne: async (id: string, cookie?: string): Promise<Products> => {
