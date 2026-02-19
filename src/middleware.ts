@@ -231,7 +231,9 @@ export async function middleware(request: NextRequest) {
 
     if (isShiftProtectedPath(pathname)) {
         const shiftStatus = await getShiftStatus(request);
-        if (shiftStatus === 404 || shiftStatus === null) {
+        // Only redirect when "no active shift" is explicitly confirmed.
+        // If the check fails transiently (null), let page-level guard handle it.
+        if (shiftStatus === 404) {
             return buildShiftRedirect(request);
         }
     }
@@ -240,7 +242,8 @@ export async function middleware(request: NextRequest) {
 
     const order = await getOrderForGuard(request, parsed.orderId);
     if (order === ORDER_FETCH_FAILED) {
-        return NextResponse.redirect(new URL("/pos/channels", request.url));
+        // Fail-open on transient middleware fetch issues and let the page handle routing.
+        return NextResponse.next();
     }
     if (!order) return NextResponse.next();
 

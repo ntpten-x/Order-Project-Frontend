@@ -24,7 +24,16 @@ import { itemsResponsiveStyles, itemsColors } from "../../../../../../theme/pos/
 import { calculatePaymentTotals, isCashMethod, isPromptPayMethod, quickCashAmounts, getPostCancelPaymentRedirect, getEditOrderRedirect, isPaymentMethodConfigured } from "../../../../../../utils/payments";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
-import { getOrderChannelText, getOrderReference, ConfirmationConfig, formatCurrency, isCancelledStatus } from "../../../../../../utils/orders";
+import {
+    getCancelOrderNavigationPath,
+    getOrderChannelText,
+    getOrderReference,
+    ConfirmationConfig,
+    formatCurrency,
+    isCancelledStatus,
+    isPaidOrCompletedStatus,
+    isWaitingForPaymentStatus,
+} from "../../../../../../utils/orders";
 import ConfirmationDialog from "../../../../../../components/dialog/ConfirmationDialog";
 import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingContext";
 import { useAuth } from "../../../../../../contexts/AuthContext";
@@ -95,17 +104,17 @@ export default function POSPaymentPage() {
                 discountsService.getAll()
             ]);
             
-            if ([OrderStatus.Paid, OrderStatus.Completed].includes(orderData.status)) {
+            if (isPaidOrCompletedStatus(orderData.status)) {
                 router.push(`/pos/dashboard/${orderData.id}`);
                 return;
             }
 
-            if (orderData.status === OrderStatus.Cancelled) {
-                router.push('/pos/channels');
+            if (isCancelledStatus(orderData.status)) {
+                router.push(getCancelOrderNavigationPath(orderData.order_type));
                 return;
             }
 
-            if (orderData.status !== OrderStatus.WaitingForPayment) {
+            if (!isWaitingForPaymentStatus(orderData.status)) {
                 router.push(`/pos/orders/${orderData.id}`);
                 return;
             }

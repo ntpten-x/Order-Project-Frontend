@@ -3,6 +3,18 @@ FROM node:20-alpine AS builder
 
 WORKDIR /app
 
+# These envs are compiled into the frontend bundle at build time.
+# Defaults are for local/dev; override via `--build-arg` for production.
+ARG NEXT_PUBLIC_API_URL=http://localhost:3001
+ARG NEXT_PUBLIC_BACKEND_API=http://localhost:3000
+ARG NEXT_PUBLIC_SOCKET_URL=http://localhost:3000
+ARG NEXT_PUBLIC_SOCKET_PATH=/socket.io
+
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_BACKEND_API=$NEXT_PUBLIC_BACKEND_API
+ENV NEXT_PUBLIC_SOCKET_URL=$NEXT_PUBLIC_SOCKET_URL
+ENV NEXT_PUBLIC_SOCKET_PATH=$NEXT_PUBLIC_SOCKET_PATH
+
 COPY package*.json ./
 RUN npm install
 

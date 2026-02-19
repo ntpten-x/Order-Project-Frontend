@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProxyUrl } from "../../../../../lib/proxy-utils";
+import { unwrapBackendData } from "../../../../../utils/api/backendResponse";
 import { handleApiRouteError } from "../../../_utils/route-error";
 
 export const dynamic = "force-dynamic";
@@ -24,6 +25,11 @@ export async function GET(request: NextRequest) {
         const payload = await response.json().catch(() => ({}));
         if (!response.ok) {
             return NextResponse.json(payload, { status: response.status });
+        }
+
+        const currentShift = unwrapBackendData(payload as unknown);
+        if (currentShift === null) {
+            return NextResponse.json(null, { status: 404 });
         }
 
         return NextResponse.json(payload);

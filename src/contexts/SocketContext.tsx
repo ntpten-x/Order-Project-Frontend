@@ -30,6 +30,49 @@ function sanitizeSocketBaseUrl(raw?: string): string {
     }
 }
 
+function sanitizeSocketPath(raw?: string): string {
+    const fallback = "/socket.io";
+    const value = (raw || fallback).trim();
+    if (!value) return fallback;
+
+    const normalized = value.replace(/\\/g, "/");
+
+    // Guard against Git Bash / MSYS path conversion on Windows
+    // e.g. "C:/Program Files/Git/socket.io"
+    if (/^[a-zA-Z]:\//.test(normalized)) {
+        return normalized.includes("/socket.io") ? "/socket.io" : fallback;
+    }
+
+    if (normalized.includes("://")) {
+        try {
+            const parsed = new URL(normalized);
+            return sanitizeSocketPath(parsed.pathname);
+        } catch {
+            return fallback;
+        }
+    }
+
+    const withLeadingSlash = normalized.startsWith("/") ? normalized : `/${normalized}`;
+    return withLeadingSlash || fallback;
+}
+
+function enforceSecureSocketUrl(rawUrl: string): string {
+    if (typeof window === "undefined") return rawUrl;
+    if (window.location.protocol !== "https:") return rawUrl;
+
+    try {
+        const parsed = new URL(rawUrl, window.location.origin);
+        if (parsed.protocol === "http:") {
+            parsed.protocol = "https:";
+            return `${parsed.protocol}//${parsed.host}`;
+        }
+    } catch {
+        return rawUrl;
+    }
+
+    return rawUrl;
+}
+
 function inferLocalBackendOrigin(): string {
     if (typeof window === "undefined") return "";
 
@@ -55,7 +98,7 @@ function resolveSocketConfig(): { url: string; path: string } {
     const explicitSocketUrl = sanitizeSocketBaseUrl(process.env.NEXT_PUBLIC_SOCKET_URL);
     const backendApiUrl = sanitizeSocketBaseUrl(process.env.NEXT_PUBLIC_BACKEND_API);
     const publicApiUrl = sanitizeSocketBaseUrl(process.env.NEXT_PUBLIC_API_URL);
-    const socketPath = (process.env.NEXT_PUBLIC_SOCKET_PATH || "/socket.io").trim() || "/socket.io";
+    const socketPath = sanitizeSocketPath(process.env.NEXT_PUBLIC_SOCKET_PATH);
 
     let url = explicitSocketUrl || backendApiUrl || publicApiUrl || "";
     if (!url && typeof window !== "undefined") {
@@ -65,7 +108,10 @@ function resolveSocketConfig(): { url: string; path: string } {
         url = "http://localhost:4000";
     }
 
-    return { url, path: socketPath };
+    return {
+        url: enforceSecureSocketUrl(url),
+        path: socketPath,
+    };
 }
 
 export const SocketProvider = ({ children }: { children: ReactNode }) => {

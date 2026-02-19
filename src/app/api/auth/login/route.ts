@@ -4,7 +4,12 @@ import { getProxyUrl } from "../../../../lib/proxy-utils";
 import { throwBackendHttpError, unwrapBackendData } from "../../../../utils/api/backendResponse";
 import { handleApiRouteError } from "../../_utils/route-error";
 import { User } from "../../../../types/api/auth";
-import { isHttpsRequest, normalizeSetCookieForProtocol, splitSetCookieHeader } from "../../_utils/cookie-forward";
+import {
+    buildForwardedHostProtoHeaders,
+    isHttpsRequest,
+    normalizeSetCookieForProtocol,
+    splitSetCookieHeader,
+} from "../../_utils/cookie-forward";
 
 function appendSetCookieHeaders(response: Response, nextResponse: NextResponse, isHttps: boolean) {
     const setCookieHeader = response.headers.get("set-cookie");
@@ -23,6 +28,7 @@ export async function POST(request: NextRequest) {
         const body = await request.json();
         const csrfToken = request.headers.get("x-csrf-token") || request.headers.get("X-CSRF-Token") || "";
         const cookieHeader = request.headers.get("cookie") || "";
+        const forwardedHeaders = buildForwardedHostProtoHeaders(request);
 
         const backendUrl = getProxyUrl("POST", API_ROUTES.AUTH.LOGIN);
         const backendResponse = await fetch(backendUrl!, {
@@ -31,6 +37,7 @@ export async function POST(request: NextRequest) {
                 "Content-Type": "application/json",
                 ...(csrfToken ? { "X-CSRF-Token": csrfToken } : {}),
                 ...(cookieHeader ? { Cookie: cookieHeader } : {}),
+                ...forwardedHeaders,
             },
             credentials: "include",
             body: JSON.stringify(body),

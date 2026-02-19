@@ -15,7 +15,16 @@ import { itemsResponsiveStyles, itemsColors } from "../../../../../../theme/pos/
 import { calculatePaymentTotals } from "../../../../../../utils/payments";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
-import { getEditOrderNavigationPath, getCancelOrderNavigationPath, ConfirmationConfig, formatCurrency, isCancelledStatus } from "../../../../../../utils/orders";
+import {
+    getEditOrderNavigationPath,
+    getCancelOrderNavigationPath,
+    getOrderNavigationPath,
+    ConfirmationConfig,
+    formatCurrency,
+    isCancelledStatus,
+    isPaidOrCompletedStatus,
+    isWaitingForPaymentStatus,
+} from "../../../../../../utils/orders";
 import ConfirmationDialog from "../../../../../../components/dialog/ConfirmationDialog";
 import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingContext";
 import { useAuth } from "../../../../../../contexts/AuthContext";
@@ -71,21 +80,21 @@ export default function POSDeliverySummaryPage() {
             
             if (orderData.order_type !== OrderType.Delivery) {
                 messageApi.warning("รายการนี้ไม่ใช่ Order Delivery");
-                router.push('/pos/channels');
+                router.push(getOrderNavigationPath(orderData));
                 return;
             }
 
-            if ([OrderStatus.Paid, OrderStatus.Completed].includes(orderData.status)) {
+            if (isPaidOrCompletedStatus(orderData.status)) {
                 router.push(`/pos/dashboard/${orderData.id}`);
                 return;
             }
 
-            if (orderData.status === OrderStatus.Cancelled) {
-                router.push('/pos/channels');
+            if (isCancelledStatus(orderData.status)) {
+                router.push(getCancelOrderNavigationPath(orderData.order_type));
                 return;
             }
 
-            if (orderData.status !== OrderStatus.WaitingForPayment) {
+            if (!isWaitingForPaymentStatus(orderData.status)) {
                 router.push(`/pos/orders/${orderData.id}`);
                 return;
             }

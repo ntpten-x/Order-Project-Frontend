@@ -8,6 +8,7 @@ import {
     CloseCircleOutlined,
     StopOutlined,
     CheckCircleOutlined,
+    ReloadOutlined,
 } from "@ant-design/icons";
 import PageContainer from "../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../components/ui/page/PageSection";
@@ -40,8 +41,9 @@ export default function DineInTableSelectionPage() {
 function DineInTableSelectionPageContent() {
     const router = useRouter();
     const { showLoading, hideLoading } = useGlobalLoading();
-    const { tables, isLoading } = useTables();
+    const { tables, isLoading, mutate: refetchTables } = useTables();
     const loadingKey = "pos:channels:dine-in";
+    const [isRefreshing, setIsRefreshing] = React.useState(false);
 
     // Use global loading for initial tables fetch
     React.useEffect(() => {
@@ -62,6 +64,15 @@ function DineInTableSelectionPageContent() {
         if (!isInactive) {
             const link = getTableNavigationPath(table);
             router.push(link);
+        }
+    };
+
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        try {
+            await Promise.resolve(refetchTables());
+        } finally {
+            setIsRefreshing(false);
         }
     };
 
@@ -134,6 +145,14 @@ function DineInTableSelectionPageContent() {
                         <Space size={8} wrap>
                             <Tag color="success">ว่าง {stats.available}</Tag>
                             <Tag color="warning">ไม่ว่าง {stats.occupied}</Tag>
+                            <Button
+                                icon={<ReloadOutlined spin={isRefreshing} />}
+                                onClick={handleRefresh}
+                                loading={isRefreshing}
+                                style={{ borderRadius: 10 }}
+                            >
+                                รีเฟรช
+                            </Button>
                         </Space>
                     }
                 />

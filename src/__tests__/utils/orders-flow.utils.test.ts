@@ -6,6 +6,7 @@ import {
 } from "../../types/api/pos/salesOrder";
 import {
     calculateOrderTotal,
+    getCancelOrderNavigationPath,
     createOrderPayload,
     getOrderNavigationPath,
     getOrderStatusText,
@@ -29,7 +30,7 @@ describe("Orders flow utilities", () => {
         expect(total).toBe(125);
     });
 
-    test("getOrderNavigationPath routes WaitingForPayment correctly", () => {
+    test("getOrderNavigationPath routes WaitingForPayment correctly (including legacy casing)", () => {
         const deliveryOrder = {
             id: "o-1",
             order_type: OrderType.Delivery,
@@ -45,10 +46,22 @@ describe("Orders flow utilities", () => {
             order_type: OrderType.TakeAway,
             status: OrderStatus.Paid,
         } as SalesOrderSummary;
+        const legacyDeliveryOrder = {
+            id: "o-4",
+            order_type: "delivery",
+            status: "waitingforpayment",
+        } as unknown as SalesOrderSummary;
 
         expect(getOrderNavigationPath(deliveryOrder)).toBe("/pos/items/delivery/o-1");
         expect(getOrderNavigationPath(dineInOrder)).toBe("/pos/items/payment/o-2");
         expect(getOrderNavigationPath(paidOrder)).toBe("/pos/orders/o-3");
+        expect(getOrderNavigationPath(legacyDeliveryOrder)).toBe("/pos/items/delivery/o-4");
+    });
+
+    test("getCancelOrderNavigationPath supports mixed casing", () => {
+        expect(getCancelOrderNavigationPath("delivery")).toBe("/pos/channels/delivery");
+        expect(getCancelOrderNavigationPath("TakeAway")).toBe("/pos/channels/takeaway");
+        expect(getCancelOrderNavigationPath("DINEIN")).toBe("/pos/channels/dine-in");
     });
 
     test("getOrderStatusText returns completed label", () => {

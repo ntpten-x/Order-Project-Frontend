@@ -69,4 +69,43 @@ describe("middleware permission policy", () => {
         expect(res.status).toBe(307);
         expect(res.headers.get("location")).toContain("/login");
     });
+
+    it("does not redirect to shift when shift status check fails transiently", async () => {
+        const fetchSpy = jest.spyOn(global, "fetch").mockRejectedValue(new Error("network-failed"));
+        const req = makeRequest("/pos/orders", "GET", makeToken("Admin"));
+        const res = await middleware(req);
+
+        expect(res.headers.get("x-middleware-next")).toBe("1");
+        fetchSpy.mockRestore();
+    });
+
+    it("redirects shift-protected route when shift status check returns 404", async () => {
+        const fetchSpy = jest.spyOn(global, "fetch").mockResolvedValue(new Response(null, { status: 404 }));
+        const req = makeRequest("/pos/orders", "GET", makeToken("Admin"));
+        const res = await middleware(req);
+
+        expect(res.status).toBe(307);
+        expect(res.headers.get("location")).toContain("/pos/shift?openShift=1&redirect=%2Fpos%2Forders");
+        fetchSpy.mockRestore();
+    });
+
+    it("does not redirect to channels when guarded-order lookup fails transiently", async () => {
+        const fetchSpy = jest
+            .spyOn(global, "fetch")
+            .mockResolvedValueOnce(
+                new Response(JSON.stringify({ data: { id: "shift-1" } }), {
+                    status: 200,
+                    headers: { "content-type": "application/json" },
+                })
+            )
+            .mockRejectedValueOnce(new Error("order-lookup-failed"));
+
+        const req = makeRequest("/pos/orders/order-network-failure-1", "GET", makeToken("Manager"));
+        const res = await middleware(req);
+
+        expect(res.headers.get("x-middleware-next")).toBe("1");
+        expect(res.headers.get("location")).toBeNull();
+
+        fetchSpy.mockRestore();
+    });
 });

@@ -10,7 +10,7 @@
 2. Push image ไป GHCR
 3. SSH เข้า EC2
 4. Pull image tag ที่ต้องการ
-5. Restart container `order-frontend`
+5. Restart เฉพาะ service `frontend` ผ่าน compose
 6. Verify
 
 ---
@@ -32,10 +32,29 @@ docker login ghcr.io -u ntpten-x
 TAG=20260217-frontend-release
 ```
 
-Build และ push (บังคับ `linux/amd64` ให้ตรง EC2):
+Build และ push (บังคับ `linux/amd64` ให้ตรง EC2)
+
+หมายเหตุสำคัญ:
+- ค่า `NEXT_PUBLIC_*` จะถูก "ฝัง" ลงใน bundle ตอน build
+- ถ้าต้องการเปลี่ยน URL backend/frontend ต้อง rebuild แล้ว push image ใหม่เท่านั้น
+
+ตั้งค่า production URLs:
+```bash
+EC2_IP=54.255.216.29
+NEXT_PUBLIC_BACKEND_API=http://$EC2_IP:3000
+NEXT_PUBLIC_API_URL=http://$EC2_IP:3001
+NEXT_PUBLIC_SOCKET_URL=http://$EC2_IP:3000
+NEXT_PUBLIC_SOCKET_PATH=/socket.io
+```
+
+Build + push:
 ```bash
 docker buildx build \
   --platform linux/amd64 \
+  --build-arg NEXT_PUBLIC_BACKEND_API=$NEXT_PUBLIC_BACKEND_API \
+  --build-arg NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL \
+  --build-arg NEXT_PUBLIC_SOCKET_URL=$NEXT_PUBLIC_SOCKET_URL \
+  --build-arg NEXT_PUBLIC_SOCKET_PATH=$NEXT_PUBLIC_SOCKET_PATH \
   -t ghcr.io/ntpten-x/order-project-frontend:$TAG \
   -t ghcr.io/ntpten-x/order-project-frontend:latest \
   --push .
@@ -47,12 +66,7 @@ docker buildx build \
 
 SSH เข้า EC2:
 ```bash
-ssh -i "e:/Project/pos-key.pem" ec2-user@13.239.29.168
-```
-
-ไปที่โฟลเดอร์ frontend:
-```bash
-cd /srv/order-project/frontend
+ssh -i "e:/Project/pos.pem" ec2-user@54.255.216.29
 ```
 
 Login GHCR บน EC2:
@@ -60,59 +74,26 @@ Login GHCR บน EC2:
 docker login ghcr.io -u ntpten-x
 ```
 
-ตั้ง tag เดียวกับที่ build จาก local:
+Pull image และ restart เฉพาะ frontend ผ่าน compose:
 ```bash
-TAG=20260217-frontend-release
+docker compose -f ~/docker-compose.prod.yml pull frontend
+docker compose -f ~/docker-compose.prod.yml up -d frontend
 ```
 
-Pull image:
+ถ้าเปลี่ยนค่า env runtime (`~/frontend.env`) ให้ใช้:
 ```bash
-docker pull ghcr.io/ntpten-x/order-project-frontend:$TAG
-```
-
----
-
-## 3) ตั้งค่า `.env.production`
-
-ถ้ายังไม่มีไฟล์:
-```bash
-cp .env.example .env.production
-```
-
-ตั้งค่าให้ชี้ backend production:
-```bash
-sed -i 's|^NEXT_PUBLIC_BACKEND_API=.*|NEXT_PUBLIC_BACKEND_API=http://13.239.29.168:3000|' .env.production
-sed -i 's|^NODE_ENV=.*|NODE_ENV=production|' .env.production
-```
-
-ตรวจค่าที่สำคัญ:
-```bash
-grep -E '^(NEXT_PUBLIC_BACKEND_API|NODE_ENV)=' .env.production
+docker compose -f ~/docker-compose.prod.yml up -d --force-recreate frontend
 ```
 
 ---
 
-## 4) Restart Frontend Container
+## 3) Verify หลัง Deploy
 
 ```bash
-docker rm -f order-frontend 2>/dev/null || true
-docker run -d \
-  --name order-frontend \
-  --restart unless-stopped \
-  --env-file .env.production \
-  -p 3001:3001 \
-  ghcr.io/ntpten-x/order-project-frontend:$TAG
-```
-
----
-
-## 5) Verify หลัง Deploy
-
-```bash
-docker ps --filter "name=order-frontend"
-docker logs --tail=120 order-frontend
+docker ps
+docker logs pos-frontend --tail=120
 curl -I http://127.0.0.1:3001
-curl -I http://13.239.29.168:3001
+curl -I http://54.255.216.29:3001
 ```
 
 คาดหวัง:
@@ -122,10 +103,10 @@ curl -I http://13.239.29.168:3001
 
 ---
 
-## 6) ทดสอบจาก Browser
-1. เปิด `http://13.239.29.168:3001`
+## 4) ทดสอบจาก Browser
+1. เปิด `http://54.255.216.29:3001`
 2. Hard refresh (`Ctrl+F5`)
-3. ลบ cookie ของโดเมน `13.239.29.168` แล้ว login ใหม่
+3. ลบ cookie ของโดเมน `54.255.216.29` แล้ว login ใหม่
 4. ทดสอบ flow สำคัญ:
    - login/logout
    - switch branch
@@ -134,22 +115,11 @@ curl -I http://13.239.29.168:3001
 
 ---
 
-## 7) Rollback แบบเร็ว (Frontend)
+## 5) Rollback แบบเร็ว (Frontend)
 
-ดู image tags ที่มี:
+ถ้าต้อง rollback แนะนำให้แก้ `image:` ใน `~/docker-compose.prod.yml` ไปใช้ tag เก่า แล้ว:
+
 ```bash
-docker images | grep order-project-frontend
+docker compose -f ~/docker-compose.prod.yml pull frontend
+docker compose -f ~/docker-compose.prod.yml up -d frontend
 ```
-
-รันย้อนกลับไป tag เก่า:
-```bash
-OLD_TAG=<old_tag_here>
-docker rm -f order-frontend
-docker run -d \
-  --name order-frontend \
-  --restart unless-stopped \
-  --env-file .env.production \
-  -p 3001:3001 \
-  ghcr.io/ntpten-x/order-project-frontend:$OLD_TAG
-```
-

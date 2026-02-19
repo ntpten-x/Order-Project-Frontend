@@ -45,7 +45,7 @@ export function useChannelOrders({
     refreshIntervalMs = 15000,
     events = ORDER_REALTIME_EVENTS,
 }: ChannelOrdersOptions) {
-    const { socket } = useSocket();
+    const { socket, isConnected } = useSocket();
     const [orders, setOrders] = useState<SalesOrderSummary[]>([]);
     const [isLoading, setIsLoading] = useState(true);
 
@@ -84,9 +84,9 @@ export function useChannelOrders({
         socket,
         events,
         onRefresh: () => fetchOrders(true),
-        intervalMs: refreshIntervalMs,
+        intervalMs: isConnected ? undefined : refreshIntervalMs,
         enabled,
-        debounceMs: 800,
+        debounceMs: 250,
     });
 
     return {
