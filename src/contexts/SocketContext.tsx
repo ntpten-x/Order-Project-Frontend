@@ -101,9 +101,27 @@ function resolveSocketConfig(): { url: string; path: string } {
     const socketPath = sanitizeSocketPath(process.env.NEXT_PUBLIC_SOCKET_PATH);
 
     let url = explicitSocketUrl || backendApiUrl || publicApiUrl || "";
-    if (!url && typeof window !== "undefined") {
-        url = inferLocalBackendOrigin() || window.location.origin;
+
+    if (typeof window !== "undefined") {
+        const currentProto = window.location.protocol;
+        const currentHost = window.location.hostname;
+        const isSecure = currentProto === "https:";
+        
+        const isIp = (u: string) => /^(https?:\/\/)?(\d{1,3}\.){3}\d{1,3}(:\d+)?/.test(u);
+        const isLocal = (u: string) => u.includes("localhost") || u.includes("127.0.0.1") || u.includes(".local");
+
+        if (isSecure && url && isIp(url) && !isLocal(url)) {
+            // Production HTTPS context: connecting to an IP directly usually fails SSL verification.
+            // Fallback to origin hoping the reverse proxy/loadbalancer handles /socket.io
+            console.warn("[Socket] HTTPS detected but SOCKET_URL is an IP. Falling back to current origin to avoid SSL mismatch.");
+            url = window.location.origin;
+        }
+
+        if (!url) {
+            url = inferLocalBackendOrigin() || window.location.origin;
+        }
     }
+
     if (!url) {
         url = "http://localhost:4000";
     }
@@ -118,6 +136,8 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
     const [socket, setSocket] = useState<Socket | null>(null);
     const [isConnected, setIsConnected] = useState(false);
     const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
+    const [socketToken, setSocketToken] = useState<string | null>(null);
+    const [tokenFetching, setTokenFetching] = useState(true);
 
     const socketRef = useRef<Socket | null>(null);
     const reconnectNoticeShown = useRef(false);
@@ -127,6 +147,36 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
     const { user } = useAuth();
     const userId = user?.id ?? null;
     const userBranchId = user?.branch?.id || user?.branch_id || null;
+
+    useEffect(() => {
+        if (!userId) {
+            setSocketToken(null);
+            setTokenFetching(false);
+            return;
+        }
+
+        let isMounted = true;
+        setTokenFetching(true);
+        fetch("/api/auth/socket-token")
+            .then(res => res.json())
+            .then(data => {
+                if (isMounted) {
+                    if (data.token) setSocketToken(data.token);
+                    else setSocketToken(null);
+                }
+            })
+            .catch(err => {
+                console.error("[Socket] Failed to fetch socket token", err);
+                if (isMounted) setSocketToken(null);
+            })
+            .finally(() => {
+                if (isMounted) setTokenFetching(false);
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [userId]);
 
     const clearDisconnectWarnTimer = useCallback(() => {
         if (!disconnectWarnTimer.current) return;
@@ -166,7 +216,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
     }, []);
 
     useEffect(() => {
-        if (!userId) {
+        if (!userId || tokenFetching) {
             disconnectSocket();
             return;
         }
@@ -181,6 +231,8 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
                 socketPath,
                 userId,
                 branchId,
+                hasToken: !!socketToken,
+                tokenFetching
             });
         }
 
@@ -192,6 +244,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
             auth: {
                 userId,
                 branchId,
+                token: socketToken, // Explicitly pass the token
             },
             reconnection: true,
             reconnectionAttempts: 5,
@@ -278,7 +331,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
             }
             socketInstance.disconnect();
         };
-    }, [activeBranchId, clearDisconnectWarnTimer, disconnectSocket, userBranchId, userId]);
+    }, [activeBranchId, clearDisconnectWarnTimer, disconnectSocket, userBranchId, userId, socketToken, tokenFetching]);
 
     useEffect(() => {
         if (!userId) {
