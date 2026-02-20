@@ -127,7 +127,7 @@ const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(
         ) : null}
         <div style={rowStyle}>
           <span style={{ color: "#4b5563" }}>พนักงาน</span>
-          <span>{order.created_by?.name || "-"}</span>
+          <span>{order.created_by?.name || order.created_by?.username || "-"}</span>
         </div>
 
         <div style={{ borderTop: "1px dashed #9ca3af", margin: "8px 0" }} />

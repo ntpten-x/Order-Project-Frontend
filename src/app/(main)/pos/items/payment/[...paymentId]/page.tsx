@@ -60,6 +60,8 @@ export default function POSPaymentPage() {
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     const isAdminUser = user?.role === "Admin";
     const canCreatePayment = can("payments.page", "create");
+    const canEditOrder = isAdminUser || can("orders.edit.feature", "access") || can("orders.page", "update");
+    const canCancelOrder = isAdminUser || can("orders.cancel.feature", "access") || can("orders.page", "delete");
 
     const [order, setOrder] = useState<SalesOrder | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -366,6 +368,10 @@ export default function POSPaymentPage() {
     };
     
     const handleEditOrder = async () => {
+        if (!canEditOrder) {
+            messageApi.warning("คุณไม่มีสิทธิ์แก้ไขออเดอร์");
+            return;
+        }
         if (!order) return;
         
         setConfirmConfig({
@@ -403,6 +409,10 @@ export default function POSPaymentPage() {
     };
 
     const handleCancelOrder = () => {
+        if (!canCancelOrder) {
+            messageApi.warning("คุณไม่มีสิทธิ์ยกเลิกออเดอร์");
+            return;
+        }
         if (!order) return;
 
         setConfirmConfig({
@@ -537,21 +547,25 @@ export default function POSPaymentPage() {
                 
                 {/* Action Buttons */}
                 <div className="action-buttons-row">
-                    <Button 
-                        icon={<EditOutlined />} 
-                        onClick={handleEditOrder}
-                        className="action-btn"
-                        style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff' }}
-                    >
-                        แก้ไข
-                    </Button>
-                    <Button 
-                        danger
-                        onClick={handleCancelOrder}
-                        className="action-btn"
-                    >
-                        ยกเลิก
-                    </Button>
+                    {canEditOrder ? (
+                        <Button 
+                            icon={<EditOutlined />} 
+                            onClick={handleEditOrder}
+                            className="action-btn"
+                            style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff' }}
+                        >
+                            แก้ไข
+                        </Button>
+                    ) : null}
+                    {canCancelOrder ? (
+                        <Button 
+                            danger
+                            onClick={handleCancelOrder}
+                            className="action-btn"
+                        >
+                            ยกเลิก
+                        </Button>
+                    ) : null}
                 </div>
             </div>
 

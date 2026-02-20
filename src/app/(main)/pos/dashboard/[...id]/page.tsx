@@ -169,7 +169,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
     const vatAmount = Number(order?.vat || 0);
     const netTotal = Number(order?.total_amount || 0);
 
-    const employeeName = order?.created_by?.name || "-";
+    const employeeName = order?.created_by?.name || order?.created_by?.username || "-";
     const tableName = order?.table?.table_name || "-";
 
     const orderTypeMeta = order ? getOrderTypeMeta(order.order_type) : null;
@@ -228,7 +228,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
                         description="ไม่พบข้อมูลออเดอร์"
                     >
-                        <Button type="primary" onClick={() => router.back()}>
+                        <Button type="primary" onClick={() => router.push("/pos/channels")}>
                             ย้อนกลับ
                         </Button>
                     </Empty>
@@ -242,7 +242,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
             <UIPageHeader
                 title={`ออเดอร์ #${order.order_no}`}
                 subtitle={formatDateTime(order.create_date)}
-                onBack={() => router.back()}
+                onBack={() => router.push("/pos/channels")}
                 actions={
                     <Space>
                         <Tag color={statusMeta?.color} style={{ margin: 0 }} icon={statusMeta?.icon}>

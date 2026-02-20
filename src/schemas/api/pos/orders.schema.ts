@@ -4,7 +4,9 @@ import { OrderStatus, OrderType } from '../../../types/api/pos/salesOrder';
 const UserSchema = z.object({
     id: z.string(),
     username: z.string(),
-    // Add other user fields as needed, keeping it minimal for relation
+    name: z.string().nullable().optional(),
+    roles_id: z.string().optional(),
+    branch_id: z.string().nullable().optional(),
 }).partial().nullable(); // Allow partial/null for relations
 
 const CategorySchema = z.object({
