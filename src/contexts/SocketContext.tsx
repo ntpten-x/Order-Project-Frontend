@@ -161,6 +161,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
             .then(res => res.json())
             .then(data => {
                 if (isMounted) {
+                    console.info("[Socket] Token fetch result:", { hasToken: !!data.token });
                     if (data.token) setSocketToken(data.token);
                     else setSocketToken(null);
                 }
@@ -232,7 +233,8 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
                 userId,
                 branchId,
                 hasToken: !!socketToken,
-                tokenFetching
+                tokenFetching,
+                socketTokenLength: socketToken?.length || 0
             });
         }
 
