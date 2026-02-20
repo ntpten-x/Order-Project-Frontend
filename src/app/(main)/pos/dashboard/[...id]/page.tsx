@@ -29,7 +29,7 @@ import {    CheckCircleOutlined,
 } from "@ant-design/icons";
 import dayjs from "dayjs";
 import "dayjs/locale/th";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ordersService } from "../../../../../services/pos/orders.service";
 import { shopProfileService, ShopProfile } from "../../../../../services/pos/shopProfile.service";
 import { OrderStatus, OrderType, SalesOrder } from "../../../../../types/api/pos/salesOrder";
@@ -95,9 +95,11 @@ function getStatusMeta(status: OrderStatus): { label: string; color: string; ico
 
 export default function DashboardOrderDetailPage({ params }: Props) {
     const router = useRouter();
+    const searchParams = useSearchParams();
     const { message: messageApi } = App.useApp();
-    const { socket } = useSocket();
+    const { socket, isConnected } = useSocket();
     const orderId = params.id[0];
+    const backPath = searchParams.get("from") === "dashboard" ? "/pos/dashboard" : "/pos/channels";
 
     const [order, setOrder] = useState<SalesOrder | null>(null);
     const [loading, setLoading] = useState(true);
@@ -147,7 +149,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
             RealtimeEvents.payments.update,
         ],
         onRefresh: () => fetchOrderDetail(),
-        intervalMs: 20000,
+        intervalMs: isConnected ? undefined : 20000,
     });
 
     useRealtimeRefresh({
@@ -228,7 +230,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                         image={Empty.PRESENTED_IMAGE_SIMPLE}
                         description="ไม่พบข้อมูลออเดอร์"
                     >
-                        <Button type="primary" onClick={() => router.push("/pos/channels")}>
+                        <Button type="primary" onClick={() => router.push(backPath)}>
                             ย้อนกลับ
                         </Button>
                     </Empty>
@@ -242,7 +244,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
             <UIPageHeader
                 title={`ออเดอร์ #${order.order_no}`}
                 subtitle={formatDateTime(order.create_date)}
-                onBack={() => router.push("/pos/channels")}
+                onBack={() => router.push(backPath)}
                 actions={
                     <Space>
                         <Tag color={statusMeta?.color} style={{ margin: 0 }} icon={statusMeta?.icon}>

@@ -655,8 +655,8 @@ export const itemsResponsiveStyles = `
         line-height: 1.6;
     }
 
-    /* Sticky Footer - Always Visible */
-    .payment-sticky-footer {
+    /* Sticky Footer - Mobile */
+    .payment-sticky-footer-mobile {
         position: fixed;
         bottom: 0;
         left: 0;
@@ -667,6 +667,11 @@ export const itemsResponsiveStyles = `
         box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
         z-index: 1000;
         border-top: 1px solid #e2e8f0;
+    }
+
+    /* Desktop Confirm Footer (inside card) */
+    .payment-desktop-confirm-footer {
+        display: none;
     }
 
     .payment-sticky-footer-content {
@@ -784,12 +789,12 @@ export const itemsResponsiveStyles = `
             grid-column: span 4;
         }
 
-        .payment-sticky-footer {
-            position: relative;
-            box-shadow: none;
-            background: transparent;
-            padding: 0;
-            border-top: none;
+        .payment-sticky-footer-mobile {
+            display: none !important;
+        }
+
+        .payment-desktop-confirm-footer {
+            display: block;
         }
 
         .order-summary-content {

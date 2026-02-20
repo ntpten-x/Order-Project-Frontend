@@ -240,7 +240,7 @@ function RecentOrdersList({ orders }: { orders: RecentOrderSummary[] }) {
         return (
           <List.Item
             style={{ cursor: "pointer" }}
-            onClick={() => router.push(`/pos/dashboard/${order.id}`)}
+            onClick={() => router.push(`/pos/dashboard/${order.id}?from=dashboard`)}
           >
             <div style={{ width: "100%", display: "grid", gap: 6 }}>
               <div
@@ -297,7 +297,7 @@ export default function DashboardPage() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const { showLoading, hideLoading } = useGlobalLoading();
-  const { socket } = useSocket();
+  const { socket, isConnected } = useSocket();
   const { message: messageApi } = App.useApp();
   const { user, loading: authLoading } = useAuth();
   const { can, loading: permissionLoading } = useEffectivePermissions({
@@ -386,7 +386,7 @@ export default function DashboardPage() {
       RealtimeEvents.payments.update,
     ],
     onRefresh: () => fetchOverview(true),
-    intervalMs: 20000,
+    intervalMs: isConnected ? undefined : 20000,
     debounceMs: 900,
   });
 

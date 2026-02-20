@@ -25,7 +25,6 @@ import { OrderStatus } from "../../../../types/api/pos/salesOrder";
 import { useGlobalLoadingDispatch } from "../../../../contexts/pos/GlobalLoadingContext";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { RealtimeEvents } from "../../../../utils/realtimeEvents";
-import { ORDER_REALTIME_EVENTS } from "../../../../utils/pos/orderRealtimeEvents";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -643,11 +642,9 @@ function KitchenDisplayPageContent() {
     // Socket Event Handlers
     useEffect(() => {
         if (!socket) return;
-        const genericEvents = ORDER_REALTIME_EVENTS.filter((event) => event !== RealtimeEvents.orders.create);
 
         const handleOrderCreate = (newOrder: { order_no: string }) => {
-            console.log("New Order Received:", newOrder);
-            refetch();
+            // Data refresh is handled by global useOrderSocketEvents
             playNotificationSound();
             message.open({
                 type: 'info',
@@ -658,18 +655,13 @@ function KitchenDisplayPageContent() {
             });
         };
 
-        const handleOrderUpdate = () => {
-            refetch();
-        };
-
         socket.on(RealtimeEvents.orders.create, handleOrderCreate);
-        genericEvents.forEach((event) => socket.on(event, handleOrderUpdate));
+        // Other update/delete events are handled globally and trigger query invalidation automatically
 
         return () => {
             socket.off(RealtimeEvents.orders.create, handleOrderCreate);
-            genericEvents.forEach((event) => socket.off(event, handleOrderUpdate));
         };
-    }, [socket, refetch, playNotificationSound]);
+    }, [socket, playNotificationSound]);
 
     const updateItemStatus = async (itemId: string, newStatus: ItemStatus) => {
         if (!canUpdateKitchen) {

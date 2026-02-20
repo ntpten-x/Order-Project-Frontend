@@ -94,7 +94,7 @@ export default function POSSettingsPage() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const { socket } = useSocket();
+    const { socket, isConnected } = useSocket();
     const { user } = useAuth();
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.md;
@@ -164,7 +164,7 @@ export default function POSSettingsPage() {
             RealtimeEvents.paymentAccounts.delete,
         ],
         onRefresh: () => fetchAccounts(true),
-        intervalMs: 30000,
+        intervalMs: isConnected ? undefined : 30000,
     });
 
     const promptPayAccounts = useMemo(
@@ -317,13 +317,6 @@ export default function POSSettingsPage() {
                                         </div>
                                     </div>
                                 </div>
-                                <Button
-                                    icon={<SwapOutlined />}
-                                    disabled={!canUpdateAccounts}
-                                    onClick={() => router.push('/pos/settings/payment-accounts/manage')}
-                                >
-                                    เปลี่ยนบัญชีหลัก
-                                </Button>
                             </div>
                         ) : (
                             <UIEmptyState
@@ -421,13 +414,13 @@ export default function POSSettingsPage() {
                                             </Tag>
                                             {!account.is_active ? (
                                                 <Button
-                                                    type="primary"
                                                     size="small"
+                                                    icon={<SwapOutlined />}
                                                     loading={activatingId === account.id}
                                                     disabled={!canUpdateAccounts}
                                                     onClick={() => handleActivate(account.id, account.account_name)}
                                                 >
-                                                    ตั้งเป็นบัญชีหลัก
+                                                    เปลี่ยนเป็นบัญชีหลัก
                                                 </Button>
                                             ) : null}
                                             <Button

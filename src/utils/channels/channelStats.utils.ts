@@ -22,7 +22,15 @@ export function useChannelStats() {
     const { socket, isConnected } = useContext(SocketContext);
     const queryClient = useQueryClient();
     const refreshEvents = useMemo(
-        () => Array.from(new Set([...ORDER_REALTIME_EVENTS, RealtimeEvents.tables.update])),
+        () =>
+            Array.from(
+                new Set([
+                    ...ORDER_REALTIME_EVENTS,
+                    RealtimeEvents.tables.create,
+                    RealtimeEvents.tables.update,
+                    RealtimeEvents.tables.delete,
+                ])
+            ),
         []
     );
 

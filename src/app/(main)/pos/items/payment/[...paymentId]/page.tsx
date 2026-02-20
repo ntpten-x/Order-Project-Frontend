@@ -107,7 +107,7 @@ export default function POSPaymentPage() {
             ]);
             
             if (isPaidOrCompletedStatus(orderData.status)) {
-                router.push(`/pos/dashboard/${orderData.id}`);
+                router.push(`/pos/dashboard/${orderData.id}?from=payment`);
                 return;
             }
 
@@ -353,7 +353,7 @@ export default function POSPaymentPage() {
                     await paymentsService.create(paymentData, undefined, csrfToken);
 
                     messageApi.success("ชำระเงินเรียบร้อย");
-                    router.push(`/pos/dashboard/${order!.id}`);
+                    router.push(`/pos/dashboard/${order!.id}?from=payment`);
 
                 } catch (error) {
                     const errorMessage = error instanceof Error && error.message
@@ -876,7 +876,7 @@ export default function POSPaymentPage() {
                             )}
 
                             {/* Desktop Confirm Button */}
-                            <div className="payment-sticky-footer" style={{ marginTop: 20 }}>
+                            <div className="payment-desktop-confirm-footer" style={{ marginTop: 20 }}>
                                 <Button 
                                     type="primary" 
                                     size="large" 
@@ -895,7 +895,7 @@ export default function POSPaymentPage() {
             </div>
 
             {/* Mobile Sticky Footer */}
-            <div className="payment-sticky-footer" style={{ display: 'block' }}>
+            <div className="payment-sticky-footer-mobile">
                 <div className="payment-sticky-footer-content">
                     <div className="payment-total-row">
                         <span className="payment-total-label">ยอดสุทธิ</span>

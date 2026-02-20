@@ -56,7 +56,7 @@ export default function POSDeliverySummaryPage() {
     const [hasDeliveryMethod, setHasDeliveryMethod] = useState(true);
     const [summaryExpanded, setSummaryExpanded] = useState(false);
     const { showLoading, hideLoading } = useGlobalLoading();
-    const { socket } = useSocket();
+    const { socket, isConnected } = useSocket();
 
     // Confirmation Dialog State
     const [confirmConfig, setConfirmConfig] = useState<ConfirmationConfig>({
@@ -87,7 +87,7 @@ export default function POSDeliverySummaryPage() {
             }
 
             if (isPaidOrCompletedStatus(orderData.status)) {
-                router.push(`/pos/dashboard/${orderData.id}`);
+                router.push(`/pos/dashboard/${orderData.id}?from=payment`);
                 return;
             }
 
@@ -125,7 +125,7 @@ export default function POSDeliverySummaryPage() {
                 fetchInitialData();
             }
         },
-        intervalMs: 15000,
+        intervalMs: isConnected ? undefined : 15000,
         enabled: Boolean(deliveryId),
     });
 
@@ -181,7 +181,7 @@ export default function POSDeliverySummaryPage() {
                     messageApi.success("ส่งมอบสินค้าให้ไรเดอร์เรียบร้อย");
                     
                     // Navigate to success/dashboard
-                    router.push(`/pos/dashboard/${order.id}`);
+                    router.push(`/pos/dashboard/${order.id}?from=payment`);
 
                 } catch {
                     messageApi.error("เกิดข้อผิดพลาดในการส่งมอบ");
