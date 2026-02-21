@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import {
     App,
-    Avatar,
     Button,
     Card,
     Col,
@@ -31,7 +30,7 @@ import PageContainer from "../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../components/ui/page/PageSection";
 import PageStack from "../../../../components/ui/page/PageStack";
 import PageState from "../../../../components/ui/states/PageState";
-import { resolveImageSource } from "../../../../utils/image/source";
+import StockImageThumb from "../../../../components/stock/StockImageThumb";
 
 const { Text, Title, Paragraph } = Typography;
 
@@ -316,11 +315,11 @@ export default function IngredientsPage() {
                                         <Row gutter={[12, 12]} align="middle">
                                             <Col xs={24} md={15}>
                                                 <Space align="start" size={12}>
-                                                    <Avatar
-                                                        src={resolveImageSource(ingredient.img_url) || undefined}
-                                                        shape="square"
+                                                    <StockImageThumb
+                                                        src={ingredient.img_url}
+                                                        alt={ingredient.display_name}
                                                         size={56}
-                                                        icon={<ShoppingOutlined />}
+                                                        borderRadius={10}
                                                     />
                                                     <Space direction="vertical" size={2}>
                                                         <Space wrap>

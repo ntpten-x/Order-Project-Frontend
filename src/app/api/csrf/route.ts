@@ -1,12 +1,28 @@
 import { handleApiRouteError } from "../_utils/route-error";
+import {
+    buildForwardedHostProtoHeaders,
+    isHttpsRequest,
+    normalizeSetCookieForProtocol,
+    splitSetCookieHeader,
+} from "../_utils/cookie-forward";
 
 import { cookies } from "next/headers";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 
 export const dynamic = 'force-dynamic';
 
-export async function GET() {
+function forwardSetCookieHeaders(request: NextRequest, sourceResponse: Response, targetResponse: NextResponse) {
+    const setCookieHeader = sourceResponse.headers.get("set-cookie");
+    if (!setCookieHeader) return;
+
+    const isHttps = isHttpsRequest(request);
+    const cookieEntries = splitSetCookieHeader(setCookieHeader)
+        .map((cookie) => normalizeSetCookieForProtocol(cookie, isHttps));
+    cookieEntries.forEach((cookie) => targetResponse.headers.append("Set-Cookie", cookie));
+}
+
+export async function GET(request: NextRequest) {
     try {
         // Server-side: call backend directly
         // Backend default port is 4000, but check env variable
@@ -17,12 +33,14 @@ export async function GET() {
         const url = `${backendUrl}/csrf-token`;
         const cookieStore = cookies();
         const cookieHeader = cookieStore.getAll().map(c => `${c.name}=${c.value}`).join(';');
+        const forwardedHeaders = buildForwardedHostProtoHeaders(request);
 
         const response = await fetch(url, {
             method: "GET",
             headers: {
                 Cookie: cookieHeader,
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                ...forwardedHeaders,
             },
             credentials: "include"
         });
@@ -37,13 +55,16 @@ export async function GET() {
                     method: "GET",
                     headers: {
                         Cookie: cookieHeader,
-                        "Content-Type": "application/json"
+                        "Content-Type": "application/json",
+                        ...forwardedHeaders,
                     },
                     credentials: "include"
                 });
                 if (retryResponse.ok) {
                     const retryData = await retryResponse.json();
-                    return NextResponse.json(retryData);
+                    const retryNextResponse = NextResponse.json(retryData);
+                    forwardSetCookieHeaders(request, retryResponse, retryNextResponse);
+                    return retryNextResponse;
                 }
             } catch (retryError) {
                 console.error("CSRF token retry failed:", retryError);
@@ -78,15 +99,7 @@ export async function GET() {
         const nextResponse = NextResponse.json({ csrfToken });
 
         // Forward Set-Cookie headers from Backend to Client
-        const setCookieHeader = response.headers.get("set-cookie");
-        if (setCookieHeader) {
-            // Split on commas that precede a new cookie name (avoids splitting Expires=Wed, 21 Oct ...).
-            const cookieEntries = setCookieHeader
-                .split(/,(?=\s*[^=]+=)/)
-                .map(entry => entry.trim())
-                .filter(Boolean);
-            cookieEntries.forEach(cookie => nextResponse.headers.append("Set-Cookie", cookie));
-        }
+        forwardSetCookieHeaders(request, response, nextResponse);
 
         return nextResponse;
     } catch (error) {

@@ -235,4 +235,3 @@ const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(
 ReceiptTemplate.displayName = "ReceiptTemplate";
 
 export default ReceiptTemplate;
-

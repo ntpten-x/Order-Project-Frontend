@@ -6,6 +6,23 @@ type ProxyToBackendOptions = {
     forwardBody?: boolean;
 };
 
+function shouldForwardClientIp(): boolean {
+    const configured = (process.env.TRUST_PROXY_CHAIN || "").trim().toLowerCase();
+    return configured !== "" && configured !== "0" && configured !== "false";
+}
+
+function sanitizeForwardedFor(raw: string): string | null {
+    const maxIps = 8;
+    const ipToken = /^[A-Fa-f0-9:.]+$/;
+    const safe = raw
+        .split(",")
+        .map((part) => part.trim())
+        .filter((part) => part.length > 0 && ipToken.test(part))
+        .slice(0, maxIps);
+
+    return safe.length > 0 ? safe.join(", ") : null;
+}
+
 function extractErrorMessage(payload: unknown, fallback: string): string {
     if (!payload) return fallback;
     if (typeof payload === "string") return payload;
@@ -36,11 +53,36 @@ export async function proxyToBackend(request: NextRequest, options: ProxyToBacke
     const csrfToken = request.headers.get("X-CSRF-Token");
     if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
-    const forwardedFor = request.headers.get("x-forwarded-for");
-    if (forwardedFor) headers["X-Forwarded-For"] = forwardedFor;
+    if (shouldForwardClientIp()) {
+        const forwardedFor = request.headers.get("x-forwarded-for");
+        const sanitizedForwardedFor = forwardedFor ? sanitizeForwardedFor(forwardedFor) : null;
+        if (sanitizedForwardedFor) {
+            headers["X-Forwarded-For"] = sanitizedForwardedFor;
+        } else {
+            const resolvedIp = (request as NextRequest & { ip?: string }).ip;
+            if (typeof resolvedIp === "string" && resolvedIp.trim().length > 0) {
+                headers["X-Forwarded-For"] = resolvedIp.trim();
+            }
+        }
+    }
 
     const userAgent = request.headers.get("user-agent");
     if (userAgent) headers["User-Agent"] = userAgent;
+
+    const forwardedHost = (request.headers.get("x-forwarded-host") || request.headers.get("host") || "")
+        .split(",")[0]
+        .trim();
+    if (forwardedHost) {
+        headers["X-Forwarded-Host"] = forwardedHost;
+    }
+
+    const forwardedProto = (request.headers.get("x-forwarded-proto") || request.nextUrl.protocol.replace(":", ""))
+        .split(",")[0]
+        .trim()
+        .toLowerCase();
+    if (forwardedProto) {
+        headers["X-Forwarded-Proto"] = forwardedProto;
+    }
 
     let body: string | undefined;
     if (options.forwardBody) {

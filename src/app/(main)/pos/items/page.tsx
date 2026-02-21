@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { Typography, Row, Col, Card, Tag, Button, Divider, Avatar, Space, Skeleton, message } from "antd";
+import { Typography, Row, Col, Card, Tag, Button, Divider, Space, Skeleton, message } from "antd";
 import { CheckCircleOutlined, ShopOutlined, ShoppingOutlined, RocketOutlined, UserOutlined } from "@ant-design/icons";
 import PageContainer from "../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../components/ui/page/PageSection";
@@ -16,7 +16,7 @@ import { formatCurrency } from "../../../../utils/orders";
 import { useGlobalLoadingDispatch } from "../../../../contexts/pos/GlobalLoadingContext";
 import { useSocket } from "../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
-import { RealtimeEvents } from "../../../../utils/realtimeEvents";
+import { ORDER_REALTIME_EVENTS } from "../../../../utils/pos/orderRealtimeEvents";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import { isEqual } from "lodash";
@@ -24,6 +24,7 @@ import { resolveImageSource } from "../../../../utils/image/source";
 import RequireOpenShift from "../../../../components/pos/shared/RequireOpenShift";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
+import SmartAvatar from "../../../../components/ui/image/SmartAvatar";
 
 const { Text } = Typography;
 dayjs.locale('th');
@@ -47,7 +48,7 @@ function POSItemsPageContent() {
     const [orderGroups, setOrderGroups] = useState<OrderGroup[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { showLoading, hideLoading } = useGlobalLoadingDispatch();
-    const { socket } = useSocket();
+    const { socket, isConnected } = useSocket();
     const { user } = useAuth();
     const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     const canCreatePayment = can("payments.page", "create");
@@ -93,20 +94,10 @@ function POSItemsPageContent() {
 
     useRealtimeRefresh({
         socket,
-        events: [
-            RealtimeEvents.orders.update,
-            RealtimeEvents.orders.create,
-            RealtimeEvents.orders.delete,
-            RealtimeEvents.salesOrderItem.create,
-            RealtimeEvents.salesOrderItem.update,
-            RealtimeEvents.salesOrderItem.delete,
-            RealtimeEvents.salesOrderDetail.create,
-            RealtimeEvents.salesOrderDetail.update,
-            RealtimeEvents.salesOrderDetail.delete,
-        ],
+        events: ORDER_REALTIME_EVENTS,
         onRefresh: () => fetchServedItems(false),
-        intervalMs: 15000,
-        debounceMs: 1000,
+        intervalMs: isConnected ? undefined : 15000,
+        debounceMs: 250,
     });
 
     const getOrderTypeUserFriendly = (type?: OrderType, table?: SalesOrder["table"]) => {
@@ -215,10 +206,13 @@ function POSItemsPageContent() {
                                             <div key={idx} style={itemsStyles.itemRow} className="items-item-row-mobile">
                                                 <div style={itemsStyles.itemLeft} className="items-item-left-mobile">
                                                     {item.product?.img_url ? (
-                                                        <Avatar 
-                                                            shape="square" 
-                                                            size={40} 
-                                                            src={resolveImageSource(item.product.img_url) || undefined} 
+                                                        <SmartAvatar
+                                                            shape="square"
+                                                            size={40}
+                                                            src={resolveImageSource(item.product.img_url)}
+                                                            alt={item.product?.display_name || "product"}
+                                                            icon={<ShopOutlined />}
+                                                            imageStyle={{ objectFit: "cover" }}
                                                             style={itemsStyles.itemImage}
                                                         />
                                                     ) : (

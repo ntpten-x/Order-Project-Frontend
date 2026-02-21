@@ -2,7 +2,6 @@
 
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  Avatar,
   Badge,
   Button,
   Card,
@@ -30,7 +29,7 @@ import { useAuth } from "../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../hooks/useEffectivePermissions";
 import { authService } from "../../services/auth.service";
 import { ordersService } from "../../services/stock/orders.service";
-import { resolveImageSource } from "../../utils/image/source";
+import StockImageThumb from "./StockImageThumb";
 
 const { Text, Title } = Typography;
 
@@ -257,12 +256,11 @@ export default function CartDrawer() {
               return (
                 <Card key={item.ingredient.id} size="small" style={{ borderRadius: 12 }}>
                   <div style={{ display: "flex", gap: 10, alignItems: "flex-start" }}>
-                    <Avatar
-                      src={resolveImageSource(item.ingredient.img_url) || undefined}
-                      shape="square"
+                    <StockImageThumb
+                      src={item.ingredient.img_url}
+                      alt={item.ingredient.display_name}
                       size={54}
-                      icon={<ShoppingCartOutlined />}
-                      style={{ borderRadius: 10, flexShrink: 0 }}
+                      borderRadius={10}
                     />
 
                     <div style={{ flex: 1, minWidth: 0 }}>

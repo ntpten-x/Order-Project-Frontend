@@ -40,6 +40,9 @@ import {
   groupItemsByCategory,
   getConfirmServeActionText,
   getOrderNavigationPath,
+  isCancelledStatus,
+  isPaidOrCompletedStatus,
+  isWaitingForPaymentStatus,
 } from "../../../../../utils/orders"; 
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
@@ -55,7 +58,7 @@ import { useEffectivePermissions } from "../../../../../hooks/useEffectivePermis
 import { offlineQueueService } from "../../../../../services/pos/offline.queue.service";
 import { useSocket } from "../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
-import { RealtimeEvents } from "../../../../../utils/realtimeEvents";
+import { ORDER_REALTIME_EVENTS } from "../../../../../utils/pos/orderRealtimeEvents";
 import { useOrderQueue } from "../../../../../hooks/pos/useOrderQueue";
 import { QueueStatus, QueuePriority } from "../../../../../types/api/pos/orderQueue";
 import UIPageHeader from "../../../../../components/ui/page/PageHeader";
@@ -85,7 +88,7 @@ export default function POSOrderDetailsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isUpdating, setIsUpdating] = useState(false);
     const { showLoading, hideLoading } = useGlobalLoading();
-    const { socket } = useSocket();
+    const { socket, isConnected } = useSocket();
     const isOnline = useNetwork();
     
     // Queue management
@@ -117,15 +120,15 @@ export default function POSOrderDetailsPage() {
             setIsLoading(true);
             showLoading("กำลังโหลดข้อมูลออเดอร์...");
             const data = await ordersService.getById(id);
-            if ([OrderStatus.Paid, OrderStatus.Completed].includes(data.status)) {
+            if (isPaidOrCompletedStatus(data.status)) {
                 router.push(`/pos/dashboard/${data.id}`);
                 return;
             }
-            if (data.status === OrderStatus.Cancelled) {
+            if (isCancelledStatus(data.status)) {
                 router.push(getCancelOrderNavigationPath(data.order_type));
                 return;
             }
-            if (data.status === OrderStatus.WaitingForPayment) {
+            if (isWaitingForPaymentStatus(data.status)) {
                 router.push(getOrderNavigationPath(data));
                 return;
             }
@@ -146,25 +149,13 @@ export default function POSOrderDetailsPage() {
 
     useRealtimeRefresh({
         socket,
-        events: [
-            RealtimeEvents.orders.update,
-            RealtimeEvents.orders.delete,
-            RealtimeEvents.orders.create,
-            RealtimeEvents.payments.create,
-            RealtimeEvents.payments.update,
-            RealtimeEvents.salesOrderItem.create,
-            RealtimeEvents.salesOrderItem.update,
-            RealtimeEvents.salesOrderItem.delete,
-            RealtimeEvents.salesOrderDetail.create,
-            RealtimeEvents.salesOrderDetail.update,
-            RealtimeEvents.salesOrderDetail.delete,
-        ],
+        events: ORDER_REALTIME_EVENTS,
         onRefresh: () => {
             if (orderId) {
                 fetchOrder(orderId as string);
             }
         },
-        intervalMs: 15000,
+        intervalMs: isConnected ? undefined : 15000,
         enabled: Boolean(orderId),
     });
 

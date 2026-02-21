@@ -1,7 +1,7 @@
 import { User } from "../types/api/users";
 import { getProxyUrl } from "../lib/proxy-utils";
 import { UserSchema, UsersResponseSchema } from "../schemas/api/users.schema";
-import { getBackendErrorMessage, normalizeBackendPaginated, unwrapBackendData } from "../utils/api/backendResponse";
+import { normalizeBackendPaginated, throwBackendHttpError, unwrapBackendData } from "../utils/api/backendResponse";
 
 const BASE_PATH = "/users";
 
@@ -21,13 +21,12 @@ export const userService = {
         const response = await fetch(url!, {
             headers,
             credentials: "include",
-            cache: "no-store"
+            cache: "no-store",
         });
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const detailedError = errorData.errors?.map((e: { message: string }) => e.message).join(", ");
-            throw new Error(detailedError || getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลผู้ใช้ได้"));
+            throwBackendHttpError(response, errorData, "Unable to fetch users");
         }
 
         return normalizeBackendPaginated<User>(await response.json());
@@ -44,14 +43,13 @@ export const userService = {
 
         const response = await fetch(url!, {
             headers,
-            credentials: 'include',
-            cache: 'no-store'
+            credentials: "include",
+            cache: "no-store",
         });
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const detailedError = errorData.errors?.map((e: { message: string }) => e.message).join(", ");
-            throw new Error(detailedError || getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลผู้ใช้ได้"));
+            throwBackendHttpError(response, errorData, "Unable to fetch users");
         }
 
         const json = await response.json();
@@ -81,14 +79,13 @@ export const userService = {
 
         const response = await fetch(url!, {
             headers,
-            credentials: 'include',
-            cache: 'no-store'
+            credentials: "include",
+            cache: "no-store",
         });
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const detailedError = errorData.errors?.map((e: { message: string }) => e.message).join(", ");
-            throw new Error(detailedError || getBackendErrorMessage(errorData, "ไม่สามารถดึงข้อมูลผู้ใช้ได้"));
+            throwBackendHttpError(response, errorData, "Unable to fetch user");
         }
 
         const json = await response.json();
@@ -98,7 +95,7 @@ export const userService = {
     createUser: async (data: Partial<User>, cookie?: string, csrfToken?: string): Promise<User> => {
         const url = getProxyUrl("POST", BASE_PATH);
         const headers: Record<string, string> = {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         };
         if (cookie) headers.Cookie = cookie;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
@@ -107,21 +104,21 @@ export const userService = {
             method: "POST",
             headers,
             body: JSON.stringify(data),
-            credentials: 'include'
+            credentials: "include",
         });
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const detailedError = errorData.errors?.map((e: { message: string }) => e.message).join(", ");
-            throw new Error(detailedError || getBackendErrorMessage(errorData, "ไม่สามารถสร้างผู้ใช้ได้"));
+            throwBackendHttpError(response, errorData, "Unable to create user");
         }
+
         return unwrapBackendData(await response.json()) as User;
     },
 
     updateUser: async (id: string, data: Partial<User>, cookie?: string, csrfToken?: string): Promise<User> => {
         const url = getProxyUrl("PUT", `${BASE_PATH}/${id}`);
         const headers: Record<string, string> = {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
         };
         if (cookie) headers.Cookie = cookie;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
@@ -130,14 +127,14 @@ export const userService = {
             method: "PUT",
             headers,
             body: JSON.stringify(data),
-            credentials: 'include'
+            credentials: "include",
         });
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const detailedError = errorData.errors?.map((e: { message: string }) => e.message).join(", ");
-            throw new Error(detailedError || getBackendErrorMessage(errorData, "ไม่สามารถอัปเดตผู้ใช้ได้"));
+            throwBackendHttpError(response, errorData, "Unable to update user");
         }
+
         return unwrapBackendData(await response.json()) as User;
     },
 
@@ -150,13 +147,12 @@ export const userService = {
         const response = await fetch(url!, {
             method: "DELETE",
             headers,
-            credentials: 'include'
+            credentials: "include",
         });
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            const detailedError = errorData.errors?.map((e: { message: string }) => e.message).join(", ");
-            throw new Error(detailedError || getBackendErrorMessage(errorData, "ไม่สามารถลบผู้ใช้ได้"));
+            throwBackendHttpError(response, errorData, "Unable to delete user");
         }
     },
 };

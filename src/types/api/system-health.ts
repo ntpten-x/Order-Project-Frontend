@@ -17,6 +17,17 @@ export interface IndexCheckItem {
     reason: string;
 }
 
+export interface SlowEndpointItem {
+    method: string;
+    path: string;
+    requestCount: number;
+    averageResponseMs: number;
+    p95ResponseMs: number;
+    p99ResponseMs: number;
+    maxResponseMs: number;
+    errorRatePercent: number;
+}
+
 export interface SystemHealthReport {
     overallLevel: HealthLevel;
     checkedAt: string;
@@ -36,6 +47,7 @@ export interface SystemHealthReport {
         p95ResponseMs: number;
         p99ResponseMs: number;
         sampleSize: number;
+        topSlowEndpoints: SlowEndpointItem[];
         indexChecks: IndexCheckItem[];
     };
     integration: {

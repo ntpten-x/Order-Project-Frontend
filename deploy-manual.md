@@ -1,170 +1,166 @@
-﻿# Deploy Manual (EC2 + Docker + GHCR)
+﻿# Deploy Manual (AWS + Docker) - Backend First
 
-คู่มือนี้สรุปขั้นตอน deploy โปรเจกต์นี้ขึ้น AWS EC2 โดยใช้ Docker images ที่ push ไปที่ GitHub Container Registry (GHCR)
+คู่มือนี้ใช้สำหรับ deploy `Order-Project-Backend` ก่อน โดยอ้างอิง repo/branch ตามที่ระบุ:
 
-## ภาพรวม
+- Backend: `https://github.com/ntpten-x/Order-Project-Backend.git` (`master`)
+- Frontend: `https://github.com/ntpten-x/Order-Project-Frontend.git` (`master`)
 
-- เครื่อง Local (Windows/MINGW64): build + push images ไปที่ GHCR ด้วย `./deploy-local.sh`
-- EC2 (Amazon Linux): pull images + restart containers ด้วย `~/deploy-ec2.sh`
-- เว็บไซต์ใช้งานผ่าน:
-  - Frontend: `http://<EC2_PUBLIC_IP>:3001`
-  - Backend: `http://<EC2_PUBLIC_IP>:3000`
-  - Nginx (ถ้ามี): `http://<EC2_PUBLIC_IP>/health`
+เอกสารนี้โฟกัส "backend ก่อน" ให้ครบทั้ง env, database, redis, migration, seed, cronjob และ health check
 
-## สิ่งที่ต้องมี (Prerequisites)
+## 1) ไฟล์ deploy ที่ใช้ (Backend)
 
-- Docker Desktop (บนเครื่อง Local)
-- เข้าถึง GHCR ได้ (user/pass หรือ token)
-- มีไฟล์ key สำหรับเข้า EC2 เช่น `pos-key.pem`
-- Security Group ของ EC2 เปิดพอร์ตที่ต้องใช้:
-  - `22` (SSH)
-  - `80` (ถ้ามี nginx reverse proxy)
-  - `3000` (backend)
-  - `3001` (frontend)
+อยู่ใน repo backend:
 
-## ตัวแปรที่ต้องรู้
+- `deploy/aws/bootstrap-backend-host.sh` : เตรียมเครื่อง EC2 ครั้งแรก
+- `deploy/aws/backend.env.example` : template env production
+- `deploy/aws/docker-compose.backend.prod.yml` : stack production (api + postgres + redis)
+- `deploy/aws/deploy-backend-aws.sh` : deploy หลัก (build + migrate + seed + up + health + cron)
+- `scripts/deploy/aws/install-backend-cron.sh` : ติดตั้ง cron retention
+- `scripts/deploy/aws/run-retention-job.sh` : runner ที่ cron เรียก
 
-- `EC2_PUBLIC_IP` เช่น `13.239.29.168`
-- `PEM_PATH` เช่น `/e/Project/pos-key.pem`
+## 2) เตรียม EC2
 
-ตัวอย่างในคู่มือนี้จะใช้:
+แนะนำ EC2 Linux (Amazon Linux 2023 หรือ Ubuntu) และเปิด Security Group อย่างน้อย:
 
-- `EC2_PUBLIC_IP=13.239.29.168`
-- `PEM_PATH=/e/Project/pos-key.pem`
+- `22` สำหรับ SSH
+- `3000` สำหรับ backend API
+- `3001` สำหรับ frontend (ใช้ภายหลัง)
 
-## 1) Build + Push Images (ทำบนเครื่อง Local)
+> หมายเหตุ: พอร์ต database/redis ไม่ต้องเปิด public
 
-จากโฟลเดอร์โปรเจกต์:
+SSH เข้าเครื่อง:
 
 ```bash
-cd /e/Project
-./deploy-local.sh
+ssh -i "/path/to/your-key.pem" ec2-user@<EC2_PUBLIC_IP>
 ```
 
-สิ่งที่สคริปต์ทำ (โดยย่อ):
-
-- `docker login ghcr.io`
-- build backend image แล้ว push ไป `ghcr.io/<user>/order-project-backend:latest`
-- build frontend image แล้ว push ไป `ghcr.io/<user>/order-project-frontend:latest`
-
-ถ้าถามรหัสผ่าน GHCR ให้ใส่รหัสผ่านหรือ Token ของ GHCR
-
-## 2) อัปโหลดสคริปต์ deploy ไป EC2 (ทำบนเครื่อง Local)
-
-อัปโหลด `deploy-ec2.sh` ไปไว้ใน home ของ `ec2-user`:
+## 3) Clone Backend (branch master) และ bootstrap host
 
 ```bash
-cd /e/Project
-scp -i "/e/Project/pos-key.pem" ./deploy-ec2.sh ec2-user@13.239.29.168:~/deploy-ec2.sh
+sudo mkdir -p /srv/order-project
+sudo chown -R $USER:$USER /srv/order-project
+cd /srv/order-project
+git clone --branch master --single-branch https://github.com/ntpten-x/Order-Project-Backend.git backend
+cd backend
+bash deploy/aws/bootstrap-backend-host.sh
 ```
+
+ถ้าสคริปต์เพิ่ม user เข้า group `docker` ให้ logout/login SSH ใหม่ 1 รอบ แล้วกลับเข้ามา
+
+## 4) ตั้งค่า env สำหรับ production
+
+สร้างไฟล์ deploy env จาก `.env.example` ที่คุณตั้งค่าจริงไว้แล้ว:
+
+```bash
+cd /srv/order-project/backend
+cp .env.example deploy/aws/backend.env
+```
+
+แก้ค่าใน `deploy/aws/backend.env` อย่างน้อย:
+
+- `FRONTEND_URL`
+- `JWT_SECRET`
+- `DATABASE_PASSWORD`
+- `BOOTSTRAP_ADMIN_USERNAME`
+- `BOOTSTRAP_ADMIN_PASSWORD`
+- `METRICS_API_KEY`
 
 หมายเหตุ:
 
-- ถ้าเจอคำถาม `Are you sure you want to continue connecting (yes/no/[fingerprint])?` ให้พิมพ์ `yes`
+- ถ้า `DATABASE_HOST` เป็น RDS และ `REDIS_URL` เป็น external Redis สคริปต์ deploy จะข้ามการ start local postgres/redis อัตโนมัติ
+- `RUN_MIGRATIONS_ON_START=true` และ `RUN_RBAC_BASELINE_ON_START=true` ควรเปิดไว้สำหรับ deploy ครั้งแรก
 
-## 3) เข้า EC2 (ทำบนเครื่อง Local)
-
-```bash
-ssh -i "/e/Project/pos-key.pem" -t ec2-user@13.239.29.168
-```
-
-## 4) Pull + Restart Containers (ทำบน EC2)
-
-เมื่ออยู่บน EC2 แล้ว:
+## 5) Deploy backend แบบครบในคำสั่งเดียว
 
 ```bash
-chmod +x ~/deploy-ec2.sh
-~/deploy-ec2.sh
+cd /srv/order-project/backend
+bash deploy/aws/deploy-backend-aws.sh
 ```
 
-สคริปต์จะ:
+สคริปต์นี้ทำให้ครบอัตโนมัติ:
 
-- `docker login ghcr.io`
-- `docker-compose -f ~/docker-compose.prod.yml pull`
-- `docker-compose -f ~/docker-compose.prod.yml up -d`
-- healthcheck ที่ `http://13.239.29.168/health` (ถ้าตั้งค่าไว้)
+- pull code ล่าสุดจาก `master`
+- build image backend
+- ตรวจ env (`npm run env:check`)
+- run migration + seed (`npm run db:migrate-seed:prod`)
+- start api
+- health check `/health`
+- install cron retention (ค่า default: `0 3 * * *`)
 
-### ข้อห้ามสำคัญ: อย่า SSH ซ้อนจากใน EC2
+## 6) ตรวจสอบหลัง deploy
 
-อย่ารันคำสั่งแบบนี้ “บน EC2”:
+### 6.1 ตรวจ container
 
 ```bash
-ssh -i "/e/Project/pos-key.pem" ec2-user@13.239.29.168
+docker compose --env-file deploy/aws/backend.env -f deploy/aws/docker-compose.backend.prod.yml ps
 ```
 
-เพราะ path `/e/Project/pos-key.pem` มีอยู่แค่ในเครื่อง Local (Windows) ไม่ได้อยู่บน EC2
-
-อาการที่เจอจะเป็น:
-
-- `Identity file ... not accessible`
-- `Permission denied (publickey, ...)`
-
-วิธีที่ถูกต้องคือ: เข้า EC2 แล้วรัน `~/deploy-ec2.sh` ตรง ๆ
-
-## 5) ตรวจสอบหลัง Deploy
-
-### เช็คจากเครื่อง Local
+### 6.2 ตรวจ API health
 
 ```bash
-curl -i http://13.239.29.168/health
-curl -I http://13.239.29.168:3001
-curl -i http://13.239.29.168:3000/health
+curl -i http://127.0.0.1:3000/health
+curl -i http://<EC2_PUBLIC_IP>:3000/health
 ```
 
-### เช็คจากบน EC2
+### 6.3 ตรวจ migration/seed ใน database
 
 ```bash
-docker ps --format "table {{.Names}}\t{{.Ports}}\t{{.Status}}"
-curl -i http://127.0.0.1:3000/health | head -n 30
-curl -I http://127.0.0.1:3001 | head -n 30
-curl -i http://127.0.0.1/health | head -n 30
+docker compose --env-file deploy/aws/backend.env -f deploy/aws/docker-compose.backend.prod.yml exec -T api npm run migration:run
+docker compose --env-file deploy/aws/backend.env -f deploy/aws/docker-compose.backend.prod.yml exec -T api npm run security:rbac:bootstrap
 ```
 
-## Troubleshooting
-
-### A) เจอ 502 ตอนเช็ค `/health`
-
-ส่วนใหญ่เกิดช่วง nginx/upstream ยังไม่พร้อมหลัง restart ให้รอ 5-20 วินาทีแล้วลองใหม่:
+### 6.4 ตรวจ redis
 
 ```bash
-curl -i http://13.239.29.168/health
+docker compose --env-file deploy/aws/backend.env -f deploy/aws/docker-compose.backend.prod.yml exec -T api node -e "require('./dist/src/lib/redisClient').getRedisClient().then(c=>{console.log(c?'redis-ok':'redis-not-configured');process.exit(0);})"
 ```
 
-ถ้ายัง 502:
+## 7) Cronjob retention
 
-- เช็คว่า backend ตอบได้ไหม:
-  - `curl -i http://127.0.0.1:3000/health`
-- เช็ค nginx logs (ถ้ามีสิทธิ์):
-  - `sudo tail -n 200 /var/log/nginx/error.log`
-
-### B) ดู log ของ containers
+สคริปต์ deploy จะติดตั้งให้แล้ว (default `0 3 * * *`) หากต้องตั้งใหม่:
 
 ```bash
-docker logs pos-backend --tail=200
-docker logs pos-frontend --tail=200
+bash scripts/deploy/aws/install-backend-cron.sh \
+  /srv/order-project/backend \
+  /srv/order-project/backend/deploy/aws/docker-compose.backend.prod.yml \
+  /srv/order-project/backend/deploy/aws/backend.env \
+  "0 3 * * *"
 ```
 
-### C) เช็คพอร์ตที่เปิดอยู่
+ดู cron ปัจจุบัน:
 
 ```bash
-sudo ss -lntp | egrep ":80|:3000|:3001" || true
+crontab -l
 ```
 
-## คำสั่งที่ใช้บ่อย (Cheat Sheet)
-
-### อัปเดตใหม่ทั้งระบบ (ทำจากเครื่อง Local)
+รัน retention ทันทีแบบ manual:
 
 ```bash
-cd /e/Project
-./deploy-local.sh
-scp -i "/e/Project/pos-key.pem" ./deploy-ec2.sh ec2-user@13.239.29.168:~/deploy-ec2.sh
-ssh -i "/e/Project/pos-key.pem" -t ec2-user@13.239.29.168
+bash scripts/deploy/aws/run-retention-job.sh
 ```
 
-จากนั้นบน EC2:
+## 8) คำสั่ง deploy รอบถัดไป (update)
 
 ```bash
-chmod +x ~/deploy-ec2.sh
-~/deploy-ec2.sh
+cd /srv/order-project/backend
+bash deploy/aws/deploy-backend-aws.sh
 ```
 
+ตัวเลือกสำคัญ:
+
+- ไม่ pull git: `SKIP_GIT_PULL=1 bash deploy/aws/deploy-backend-aws.sh`
+- ไม่ติดตั้ง cron ใหม่: `INSTALL_CRON=0 bash deploy/aws/deploy-backend-aws.sh`
+- เปลี่ยนเวลา cron: `CRON_SCHEDULE="30 2 * * *" bash deploy/aws/deploy-backend-aws.sh`
+
+## 9) Rollback แบบเร็ว
+
+```bash
+cd /srv/order-project/backend
+git log --oneline -n 5
+git checkout <PREVIOUS_COMMIT_OR_TAG>
+SKIP_GIT_PULL=1 INSTALL_CRON=0 bash deploy/aws/deploy-backend-aws.sh
+```
+
+## 10) ถัดไป: Frontend
+
+หลัง backend พร้อมแล้ว ค่อยทำ frontend (`Order-Project-Frontend` branch `master`) ในขั้นตอนถัดไป โดยชี้ `NEXT_PUBLIC_API_URL` ไปที่ backend (`http://<EC2_PUBLIC_IP>:3000` หรือโดเมนจริง)

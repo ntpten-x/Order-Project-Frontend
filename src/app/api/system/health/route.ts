@@ -5,6 +5,8 @@ import { getProxyUrl } from "../../../../lib/proxy-utils";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-    const url = getProxyUrl("GET", "/system/health");
-    return proxyToBackend(req, { url: url!, method: "GET" });
+    const baseUrl = getProxyUrl("GET", "/system/health");
+    const search = req.nextUrl.search || "";
+    const url = `${baseUrl || ""}${search}`;
+    return proxyToBackend(req, { url, method: "GET" });
 }

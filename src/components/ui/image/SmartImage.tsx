@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import NextImage, { ImageProps } from "next/image";
 import { isGoogleDriveImageSource, isInlineImageSource, resolveImageSource } from "../../../utils/image/source";
 
@@ -10,8 +10,23 @@ type SmartImageProps = Omit<ImageProps, "src"> & {
 };
 
 export default function SmartImage({ src, fallbackSrc, alt, style, fill, ...rest }: SmartImageProps) {
-    const resolvedSource = resolveImageSource(src, fallbackSrc);
-    if (!resolvedSource) return null;
+    const [hasError, setHasError] = useState(false);
+    const resolvedSource = useMemo(() => resolveImageSource(src, fallbackSrc), [src, fallbackSrc]);
+    const { onError, ...imageProps } = rest;
+
+    useEffect(() => {
+        setHasError(false);
+    }, [resolvedSource]);
+
+    const handleError = useCallback(
+        (event: React.SyntheticEvent<HTMLImageElement, Event>) => {
+            setHasError(true);
+            onError?.(event);
+        },
+        [onError]
+    );
+
+    if (!resolvedSource || hasError) return null;
 
     // Bypass Next/Image optimization for inline images and Google Drive links.
     // Drive links can return non-image responses/redirects that Next's optimizer rejects,
@@ -35,7 +50,8 @@ export default function SmartImage({ src, fallbackSrc, alt, style, fill, ...rest
                 src={resolvedSource}
                 alt={alt || ""}
                 style={inlineStyle}
-                {...(rest as React.ImgHTMLAttributes<HTMLImageElement>)}
+                onError={handleError}
+                {...(imageProps as React.ImgHTMLAttributes<HTMLImageElement>)}
             />
         );
     }
@@ -46,7 +62,8 @@ export default function SmartImage({ src, fallbackSrc, alt, style, fill, ...rest
             alt={alt || ""}
             fill={fill}
             style={style}
-            {...rest}
+            onError={handleError}
+            {...imageProps}
         />
     );
 }

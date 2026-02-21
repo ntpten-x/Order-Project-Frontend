@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useState, ReactNode } from "react";
+import React, { createContext, useContext, useState, ReactNode, useCallback, useMemo } from "react";
 import { Products } from "../../types/api/pos/products";
 import { Discounts } from "../../types/api/pos/discounts";
 import { PaymentMethod } from "../../types/api/pos/paymentMethod";
@@ -122,7 +122,7 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         if (selectedPaymentMethod) localStorage.setItem('pos_payment', JSON.stringify(selectedPaymentMethod)); else localStorage.removeItem('pos_payment');
     }, [cartItems, orderMode, referenceId, referenceCode, selectedDiscount, selectedPaymentMethod, isInitialized]);
 
-    const addToCart = (product: Products, quantity: number = 1, notes?: string) => {
+    const addToCart = useCallback((product: Products, quantity: number = 1, notes?: string) => {
         const cartItemId = `item-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
         setCartItems((prevItems) => {
             // Create new entry for every addition to ensure customization isolation
@@ -136,13 +136,13 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             return [...prevItems, newItem];
         });
         return cartItemId;
-    };
+    }, []);
 
-    const removeFromCart = (cartItemId: string) => {
+    const removeFromCart = useCallback((cartItemId: string) => {
         setCartItems((prevItems) => prevItems.filter((item) => item.cart_item_id !== cartItemId));
-    };
+    }, []);
 
-    const updateQuantity = (cartItemId: string, quantity: number) => {
+    const updateQuantity = useCallback((cartItemId: string, quantity: number) => {
         if (quantity <= 0) {
             removeFromCart(cartItemId);
             return;
@@ -152,17 +152,17 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                 item.cart_item_id === cartItemId ? { ...item, quantity } : item
             )
         );
-    };
+    }, [removeFromCart]);
 
-    const updateItemNote = (cartItemId: string, notes: string) => {
+    const updateItemNote = useCallback((cartItemId: string, notes: string) => {
         setCartItems((prevItems) =>
             prevItems.map((item) =>
                 item.cart_item_id === cartItemId ? { ...item, notes } : item
             )
         );
-    };
+    }, []);
 
-    const addDetailToItem = (cartItemId: string, detail: CartDetail) => {
+    const addDetailToItem = useCallback((cartItemId: string, detail: CartDetail) => {
         setCartItems((prevItems) =>
             prevItems.map((item) =>
                 item.cart_item_id === cartItemId 
@@ -170,9 +170,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     : item
             )
         );
-    };
+    }, []);
 
-    const removeDetailFromItem = (cartItemId: string, detailIndex: number) => {
+    const removeDetailFromItem = useCallback((cartItemId: string, detailIndex: number) => {
         setCartItems((prevItems) =>
             prevItems.map((item) =>
                 item.cart_item_id === cartItemId
@@ -180,9 +180,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     : item
             )
         );
-    };
+    }, []);
 
-    const updateItemDetails = (cartItemId: string, details: CartDetail[]) => {
+    const updateItemDetails = useCallback((cartItemId: string, details: CartDetail[]) => {
         setCartItems((prevItems) =>
             prevItems.map((item) =>
                 item.cart_item_id === cartItemId
@@ -190,22 +190,22 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
                     : item
             )
         );
-    };
+    }, []);
 
-    const clearCart = () => {
+    const clearCart = useCallback(() => {
         setCartItems([]);
         setSelectedDiscount(null);
         setSelectedPaymentMethod(null);
         setReferenceId(null);
         setReferenceCode(null);
         // LocalStorage will be updated by the effect
-    };
+    }, []);
 
-    const getTotalItems = () => {
+    const totalItems = useMemo(() => {
         return cartItems.reduce((total, item) => total + item.quantity, 0);
-    };
+    }, [cartItems]);
 
-    const getSubtotal = () => {
+    const subtotal = useMemo(() => {
         return cartItems.reduce((total, item) => {
             const productBasePrice =
                 orderMode === 'DELIVERY'
@@ -214,10 +214,9 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const detailsPrice = (item.details || []).reduce((sum, d) => sum + Number(d.extra_price), 0);
             return total + (productBasePrice + detailsPrice) * item.quantity;
         }, 0);
-    };
+    }, [cartItems, orderMode]);
 
-    const getDiscountAmount = () => {
-        const subtotal = getSubtotal();
+    const discountAmount = useMemo(() => {
         if (!selectedDiscount) return 0;
         
         if (selectedDiscount.discount_type === 'Percentage') {
@@ -228,45 +227,72 @@ export const CartProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
              // Ensure discount doesn't exceed subtotal (optional policy)
              return Math.min(selectedDiscount.discount_amount, subtotal);
         }
-    };
+    }, [selectedDiscount, subtotal]);
 
-    const getFinalPrice = () => {
-        const subtotal = getSubtotal();
-        const discount = getDiscountAmount();
-        return Math.max(0, subtotal - discount);
-    };
+    const finalPrice = useMemo(() => {
+        return Math.max(0, subtotal - discountAmount);
+    }, [subtotal, discountAmount]);
+
+    const getTotalItems = useCallback(() => totalItems, [totalItems]);
+    const getSubtotal = useCallback(() => subtotal, [subtotal]);
+    const getDiscountAmount = useCallback(() => discountAmount, [discountAmount]);
+    const getFinalPrice = useCallback(() => finalPrice, [finalPrice]);
+
+    const contextValue = useMemo(
+        () => ({
+            cartItems,
+            addToCart,
+            removeFromCart,
+            updateQuantity,
+            updateItemNote,
+            clearCart,
+            
+            addDetailToItem,
+            removeDetailFromItem,
+            updateItemDetails,
+            
+            orderMode,
+            setOrderMode,
+            referenceId,
+            setReferenceId,
+            referenceCode,
+            setReferenceCode,
+            
+            selectedDiscount,
+            setSelectedDiscount,
+            selectedPaymentMethod,
+            setSelectedPaymentMethod,
+            
+            getTotalItems,
+            getSubtotal,
+            getDiscountAmount,
+            getFinalPrice,
+        }),
+        [
+            cartItems,
+            addToCart,
+            removeFromCart,
+            updateQuantity,
+            updateItemNote,
+            clearCart,
+            addDetailToItem,
+            removeDetailFromItem,
+            updateItemDetails,
+            orderMode,
+            referenceId,
+            referenceCode,
+            selectedDiscount,
+            selectedPaymentMethod,
+            getTotalItems,
+            getSubtotal,
+            getDiscountAmount,
+            getFinalPrice,
+        ]
+    );
 
     return (
         <CartContext.Provider
-            value={{
-                cartItems,
-                addToCart,
-                removeFromCart,
-                updateQuantity,
-                updateItemNote,
-                clearCart,
-                
-                addDetailToItem,
-                removeDetailFromItem,
-                updateItemDetails,
-                
-                orderMode,
-                setOrderMode,
-                referenceId,
-                setReferenceId,
-                referenceCode,
-                setReferenceCode,
-                
-                selectedDiscount,
-                setSelectedDiscount,
-                selectedPaymentMethod,
-                setSelectedPaymentMethod,
-                
-                getTotalItems,
-                getSubtotal,
-                getDiscountAmount,
-                getFinalPrice,
-            }}
+            value={contextValue}
         >
             {children}
         </CartContext.Provider>

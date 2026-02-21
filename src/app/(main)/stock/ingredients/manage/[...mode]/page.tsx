@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { IngredientsUnit } from '../../../../../../types/api/stock/ingredientsUnit';
 import { useAuth } from '../../../../../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../../../../../hooks/useEffectivePermissions';
+import { isSupportedImageSource, normalizeImageSource } from '../../../../../../utils/image/source';
 import {
     ManagePageStyles,
     pageStyles,
@@ -21,9 +22,18 @@ import { ModalSelector } from "../../../../../../components/ui/select/ModalSelec
 import PageContainer from '@/components/ui/page/PageContainer';
 import PageSection from '@/components/ui/page/PageSection';
 
+type IngredientFormValues = {
+    ingredient_name: string;
+    display_name: string;
+    description?: string;
+    img_url?: string;
+    unit_id: string;
+    is_active?: boolean;
+};
+
 export default function IngredientsManagePage({ params }: { params: { mode: string[] } }) {
     const router = useRouter();
-    const [form] = Form.useForm();
+    const [form] = Form.useForm<IngredientFormValues>();
     const { user } = useAuth();
     const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     const canDelete = can("stock.ingredients.page", "delete");
@@ -92,9 +102,18 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
         }
     }, [isEdit, id, fetchIngredient]);
 
-    const onFinish = async (values: Record<string, unknown>) => {
+    const onFinish = async (values: IngredientFormValues) => {
         setSubmitting(true);
         try {
+            const payload = {
+                ingredient_name: values.ingredient_name?.trim(),
+                display_name: values.display_name?.trim(),
+                description: values.description?.trim() ?? '',
+                img_url: normalizeImageSource(values.img_url) || null,
+                unit_id: values.unit_id,
+                is_active: values.is_active,
+            };
+
             if (isEdit) {
                 const response = await fetch(`/api/stock/ingredients/update/${id}`, {
                     method: 'PUT',
@@ -102,7 +121,7 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                         'Content-Type': 'application/json',
                         'X-CSRF-Token': csrfToken
                     },
-                    body: JSON.stringify(values),
+                    body: JSON.stringify(payload),
                 });
                 
                 if (!response.ok) {
@@ -118,7 +137,7 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                         'Content-Type': 'application/json',
                         'X-CSRF-Token': csrfToken
                     },
-                    body: JSON.stringify(values),
+                    body: JSON.stringify(payload),
                 });
 
                 if (!response.ok) {
@@ -269,7 +288,21 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                                     />
                                 </Form.Item>
 
-                                <Form.Item name="img_url" label="รูปภาพ URL">
+                                <Form.Item
+                                    name="img_url"
+                                    label="รูปภาพ URL"
+                                    rules={[
+                                        {
+                                            validator: async (_, value: string | undefined) => {
+                                                if (!value?.trim()) return;
+                                                const normalized = normalizeImageSource(value);
+                                                if (!isSupportedImageSource(normalized)) {
+                                                    throw new Error('รองรับเฉพาะ URL รูปภาพแบบ http(s), data:image, blob หรือ path ภายในระบบ');
+                                                }
+                                            }
+                                        }
+                                    ]}
+                                >
                                     <Input size="large" placeholder="https://example.com/image.jpg หรือ data:image/...;base64,..." />
                                 </Form.Item>
 

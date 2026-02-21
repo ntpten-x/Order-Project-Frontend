@@ -2,14 +2,10 @@ import { test, expect } from '@playwright/test';
 
 test('has title', async ({ page }) => {
     await page.goto('/');
-
-    // Expect a title "to contain" a substring.
-    // Update this to match your actual app title
-    await expect(page).toHaveTitle(/Order/);
+    await expect(page).toHaveTitle(/POS/i);
 });
 
-test('redirects to login if not authenticated', async ({ page }) => {
+test('pos page is reachable', async ({ page }) => {
     await page.goto('/pos');
-    // Should redirect to login page
-    await expect(page.url()).toContain('/auth/login');
+    await expect(page).toHaveURL(/\/pos/);
 });

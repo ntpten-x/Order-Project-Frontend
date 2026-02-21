@@ -8,6 +8,7 @@ import {
     CloseCircleOutlined,
     StopOutlined,
     CheckCircleOutlined,
+    ReloadOutlined,
 } from "@ant-design/icons";
 import PageContainer from "../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../components/ui/page/PageSection";
@@ -21,6 +22,7 @@ import { POSGlobalStyles } from "../../../../../theme/pos/GlobalStyles";
 import { getTableNavigationPath } from "../../../../../utils/orders";
 import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
 import RequireOpenShift from "../../../../../components/pos/shared/RequireOpenShift";
+import { useAuth } from "../../../../../contexts/AuthContext";
 import {
     getTableStats,
     sortTables,
@@ -39,9 +41,13 @@ export default function DineInTableSelectionPage() {
 
 function DineInTableSelectionPageContent() {
     const router = useRouter();
+    const { user } = useAuth();
     const { showLoading, hideLoading } = useGlobalLoading();
-    const { tables, isLoading } = useTables();
+    const { tables, isLoading, mutate: refetchTables } = useTables();
     const loadingKey = "pos:channels:dine-in";
+    const [isRefreshing, setIsRefreshing] = React.useState(false);
+    const normalizedRole = String(user?.role || "").trim().toLowerCase();
+    const canSeeManageTablesAction = normalizedRole === "admin" || normalizedRole === "manager";
 
     // Use global loading for initial tables fetch
     React.useEffect(() => {
@@ -62,6 +68,15 @@ function DineInTableSelectionPageContent() {
         if (!isInactive) {
             const link = getTableNavigationPath(table);
             router.push(link);
+        }
+    };
+
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        try {
+            await Promise.resolve(refetchTables());
+        } finally {
+            setIsRefreshing(false);
         }
     };
 
@@ -134,6 +149,14 @@ function DineInTableSelectionPageContent() {
                         <Space size={8} wrap>
                             <Tag color="success">ว่าง {stats.available}</Tag>
                             <Tag color="warning">ไม่ว่าง {stats.occupied}</Tag>
+                            <Button
+                                icon={<ReloadOutlined spin={isRefreshing} />}
+                                onClick={handleRefresh}
+                                loading={isRefreshing}
+                                style={{ borderRadius: 10 }}
+                            >
+                                รีเฟรช
+                            </Button>
                         </Space>
                     }
                 />
@@ -286,7 +309,7 @@ function DineInTableSelectionPageContent() {
                         <UIEmptyState
                             title="ยังไม่มีข้อมูลโต๊ะ"
                             description="กรุณาเพิ่มข้อมูลโต๊ะก่อนเริ่มการขาย"
-                            action={
+                            action={canSeeManageTablesAction ? (
                                 <Button
                                     type="primary"
                                     size="large"
@@ -295,7 +318,7 @@ function DineInTableSelectionPageContent() {
                                 >
                                     ไปหน้าจัดการโต๊ะ
                                 </Button>
-                            }
+                            ) : undefined}
                         />
                     )}
                     </PageSection>

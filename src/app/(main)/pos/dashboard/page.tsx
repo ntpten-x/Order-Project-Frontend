@@ -4,7 +4,6 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   Alert,
   App,
-  Avatar,
   Button,
   Card,
   Col,
@@ -67,6 +66,7 @@ import PageStack from "../../../../components/ui/page/PageStack";
 import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
 import { t } from "../../../../utils/i18n";
 import { resolveImageSource } from "../../../../utils/image/source";
+import SmartAvatar from "../../../../components/ui/image/SmartAvatar";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -177,10 +177,12 @@ function TopItemsList({
               >
                 {index + 1}
               </Tag>
-              <Avatar
+              <SmartAvatar
                 shape="square"
-                src={resolveImageSource(item.img_url) || undefined}
+                src={resolveImageSource(item.img_url)}
+                alt={item.product_name || "product"}
                 icon={<ShoppingOutlined />}
+                imageStyle={{ objectFit: "cover" }}
               />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <Text
@@ -238,7 +240,7 @@ function RecentOrdersList({ orders }: { orders: RecentOrderSummary[] }) {
         return (
           <List.Item
             style={{ cursor: "pointer" }}
-            onClick={() => router.push(`/pos/dashboard/${order.id}`)}
+            onClick={() => router.push(`/pos/dashboard/${order.id}?from=dashboard`)}
           >
             <div style={{ width: "100%", display: "grid", gap: 6 }}>
               <div
@@ -295,7 +297,7 @@ export default function DashboardPage() {
   const screens = useBreakpoint();
   const isMobile = !screens.md;
   const { showLoading, hideLoading } = useGlobalLoading();
-  const { socket } = useSocket();
+  const { socket, isConnected } = useSocket();
   const { message: messageApi } = App.useApp();
   const { user, loading: authLoading } = useAuth();
   const { can, loading: permissionLoading } = useEffectivePermissions({
@@ -384,7 +386,7 @@ export default function DashboardPage() {
       RealtimeEvents.payments.update,
     ],
     onRefresh: () => fetchOverview(true),
-    intervalMs: 20000,
+    intervalMs: isConnected ? undefined : 20000,
     debounceMs: 900,
   });
 

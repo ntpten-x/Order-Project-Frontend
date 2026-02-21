@@ -193,7 +193,7 @@ export default function StockShoppingPage() {
                 grid={{ gutter: 12, xs: 1, sm: 2, lg: 3, xl: 4 }}
                 dataSource={filteredIngredients}
                 renderItem={(item) => (
-                  <List.Item>
+                  <List.Item key={`${item.id}-${item.img_url || ""}`}>
                     <IngredientCard ingredient={item} />
                   </List.Item>
                 )}

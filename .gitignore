@@ -27,17 +27,24 @@ logs/
 *.tar.gz
 build_log.txt
 
-# Environment files (keep template)
+# Environment files
 .env
 .env.*
-!.env.example
+.env.example
+.env.migrate-host
 .env*.local
+
+# Docker files
+docker-compose*
+Dockerfile
 
 # OS / editor
 .DS_Store
 Thumbs.db
 .vscode/
 .idea/
+.github/
+.deploy/
 
 # Misc
 *.pem

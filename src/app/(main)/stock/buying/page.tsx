@@ -5,7 +5,6 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Alert,
   App,
-  Avatar,
   Button,
   Card,
   Col,
@@ -24,7 +23,6 @@ import {
   CheckCircleOutlined,
   CheckSquareOutlined,
   ReloadOutlined,
-  ShoppingCartOutlined,
 } from "@ant-design/icons";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { useSocket } from "../../../../hooks/useSocket";
@@ -36,7 +34,7 @@ import PageContainer from "../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../components/ui/page/PageSection";
 import PageStack from "../../../../components/ui/page/PageStack";
 import PageState from "../../../../components/ui/states/PageState";
-import { resolveImageSource } from "../../../../utils/image/source";
+import StockImageThumb from "../../../../components/stock/StockImageThumb";
 
 const { Text, Title } = Typography;
 
@@ -366,11 +364,11 @@ export default function StockBuyingPage() {
                           <Row gutter={[12, 12]} align="middle">
                             <Col xs={24} md={10}>
                               <Space>
-                                <Avatar
-                                  src={resolveImageSource(item.img_url) || undefined}
-                                  shape="square"
+                                <StockImageThumb
+                                  src={item.img_url}
+                                  alt={item.display_name}
                                   size={52}
-                                  icon={<ShoppingCartOutlined />}
+                                  borderRadius={8}
                                 />
                                 <Space direction="vertical" size={0}>
                                   <Text strong>{item.display_name}</Text>

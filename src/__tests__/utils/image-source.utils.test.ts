@@ -18,6 +18,22 @@ describe("image source utilities", () => {
 
   it("returns fallback when source is not a supported image URL", () => {
     const fallback = "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD";
-    expect(resolveImageSource("not-a-valid-url", fallback)).toBe(fallback);
+    expect(resolveImageSource("not-a-valid-url", fallback)).toBe(normalizeImageSource(fallback));
+  });
+
+  it("normalizes malformed base64 padding and whitespace in data urls", () => {
+    const raw = "data:image/jpeg;base64, /9j/4AAQSkZJRgABAQAAAQABAAD===";
+    const normalized = normalizeImageSource(raw);
+
+    expect(normalized).toBe("data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD=");
+    expect(isSupportedImageSource(raw)).toBe(true);
+    expect(resolveImageSource(raw)).toBe(normalized);
+  });
+
+  it("rejects invalid data image payloads before rendering", () => {
+    const raw = "data:image/jpeg;base64,%%%%";
+    expect(normalizeImageSource(raw)).toBe("");
+    expect(isSupportedImageSource(raw)).toBe(false);
+    expect(resolveImageSource(raw)).toBeNull();
   });
 });

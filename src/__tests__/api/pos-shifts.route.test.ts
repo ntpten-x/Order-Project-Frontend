@@ -39,6 +39,25 @@ describe("POS shift proxy routes", () => {
         expect(payload).toBeNull();
     });
 
+    it("GET /api/pos/shifts/current maps backend success:null to 404 null payload", async () => {
+        fetchMock.mockResolvedValue(
+            new Response(
+                JSON.stringify({ success: true, data: null }),
+                { status: 200, headers: { "content-type": "application/json" } }
+            )
+        );
+
+        const req = new NextRequest("http://localhost/api/pos/shifts/current", {
+            method: "GET",
+            headers: { cookie: "sid=abc" },
+        });
+        const res = await GET_CURRENT(req);
+        const payload = await res.json();
+
+        expect(res.status).toBe(404);
+        expect(payload).toBeNull();
+    });
+
     it("GET /api/pos/shifts/current preserves backend error payload/status", async () => {
         fetchMock.mockResolvedValue(
             new Response(
