@@ -320,16 +320,16 @@ export default function ProductsPage() {
             if (categoryFilter !== 'all') params.set('category_id', categoryFilter);
             params.set('sort_created', createdSort);
 
-            const activeParams = new URLSearchParams();
-            activeParams.set('page', '1');
-            activeParams.set('limit', '1');
-            activeParams.set('is_active', 'true');
-            if (categoryFilter !== 'all') activeParams.set('category_id', categoryFilter);
-            activeParams.set('sort_created', createdSort);
+            const activeCountParams = new URLSearchParams();
+            if (categoryFilter !== 'all') activeCountParams.set('category_id', categoryFilter);
+            const activeCountQuery = activeCountParams.toString();
+            const activeCountUrl = activeCountQuery
+                ? `/api/pos/products/active-count?${activeCountQuery}`
+                : `/api/pos/products/active-count`;
 
             const [listResponse, activeResponse] = await Promise.all([
                 fetch(`/api/pos/products?${params.toString()}`),
-                fetch(`/api/pos/products?${activeParams.toString()}`),
+                fetch(activeCountUrl),
             ]);
 
             if (!listResponse.ok) {

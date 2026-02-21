@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Col, Row, Space, Tag, Typography, message } from "antd";
-import { ShoppingOutlined, PlusOutlined, ClockCircleOutlined } from "@ant-design/icons";
+import { ShoppingOutlined, PlusOutlined, ClockCircleOutlined, ReloadOutlined } from "@ant-design/icons";
 import PageContainer from "../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../components/ui/page/PageSection";
 import UIPageHeader from "../../../../../components/ui/page/PageHeader";
@@ -45,8 +45,9 @@ export default function TakeawayPage() {
 function TakeawayPageContent() {
     const router = useRouter();
     const { showLoading, hideLoading } = useGlobalLoading();
-    const { orders, isLoading } = useChannelOrders({ orderType: OrderType.TakeAway });
+    const { orders, isLoading, refresh: refreshOrders } = useChannelOrders({ orderType: OrderType.TakeAway });
     const loadingKey = "pos:channels:takeaway";
+    const [isRefreshing, setIsRefreshing] = React.useState(false);
     const { user } = useAuth();
     const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     const canCreateOrder = can("orders.page", "create");
@@ -72,6 +73,15 @@ function TakeawayPageContent() {
 
     const handleBack = () => {
         router.push('/pos/channels');
+    };
+
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        try {
+            await refreshOrders(false);
+        } finally {
+            setIsRefreshing(false);
+        }
     };
 
     const handleOrderClick = (order: SalesOrderSummary) => {
@@ -159,9 +169,19 @@ function TakeawayPageContent() {
                     onBack={handleBack}
                     icon={<ShoppingOutlined style={{ fontSize: 20 }} />}
                     actions={
-                        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateOrder} disabled={!canCreateOrder}>
-                            เพิ่มออเดอร์
-                        </Button>
+                        <Space size={8} wrap>
+                            <Button
+                                icon={<ReloadOutlined spin={isRefreshing} />}
+                                onClick={handleRefresh}
+                                loading={isRefreshing}
+                                style={{ borderRadius: 10 }}
+                            >
+                                รีเฟรช
+                            </Button>
+                            <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateOrder} disabled={!canCreateOrder}>
+                                เพิ่มออเดอร์
+                            </Button>
+                        </Space>
                     }
                 />
 

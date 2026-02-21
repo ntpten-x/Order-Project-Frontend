@@ -69,6 +69,21 @@ export async function proxyToBackend(request: NextRequest, options: ProxyToBacke
     const userAgent = request.headers.get("user-agent");
     if (userAgent) headers["User-Agent"] = userAgent;
 
+    const forwardedHost = (request.headers.get("x-forwarded-host") || request.headers.get("host") || "")
+        .split(",")[0]
+        .trim();
+    if (forwardedHost) {
+        headers["X-Forwarded-Host"] = forwardedHost;
+    }
+
+    const forwardedProto = (request.headers.get("x-forwarded-proto") || request.nextUrl.protocol.replace(":", ""))
+        .split(",")[0]
+        .trim()
+        .toLowerCase();
+    if (forwardedProto) {
+        headers["X-Forwarded-Proto"] = forwardedProto;
+    }
+
     let body: string | undefined;
     if (options.forwardBody) {
         try {

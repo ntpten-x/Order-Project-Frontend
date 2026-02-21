@@ -15,7 +15,16 @@ import { itemsResponsiveStyles, itemsColors } from "../../../../../../theme/pos/
 import { calculatePaymentTotals } from "../../../../../../utils/payments";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
-import { getEditOrderNavigationPath, getCancelOrderNavigationPath, ConfirmationConfig, formatCurrency, isCancelledStatus } from "../../../../../../utils/orders";
+import {
+    getEditOrderNavigationPath,
+    getCancelOrderNavigationPath,
+    getOrderNavigationPath,
+    ConfirmationConfig,
+    formatCurrency,
+    isCancelledStatus,
+    isPaidOrCompletedStatus,
+    isWaitingForPaymentStatus,
+} from "../../../../../../utils/orders";
 import ConfirmationDialog from "../../../../../../components/dialog/ConfirmationDialog";
 import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingContext";
 import { useAuth } from "../../../../../../contexts/AuthContext";
@@ -39,13 +48,15 @@ export default function POSDeliverySummaryPage() {
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     const isAdminUser = user?.role === "Admin";
     const canCreatePayment = can("payments.page", "create");
+    const canEditOrder = isAdminUser || can("orders.edit.feature", "access") || can("orders.page", "update");
+    const canCancelOrder = isAdminUser || can("orders.cancel.feature", "access") || can("orders.page", "delete");
 
     const [order, setOrder] = useState<SalesOrder | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [hasDeliveryMethod, setHasDeliveryMethod] = useState(true);
     const [summaryExpanded, setSummaryExpanded] = useState(false);
     const { showLoading, hideLoading } = useGlobalLoading();
-    const { socket } = useSocket();
+    const { socket, isConnected } = useSocket();
 
     // Confirmation Dialog State
     const [confirmConfig, setConfirmConfig] = useState<ConfirmationConfig>({
@@ -71,21 +82,21 @@ export default function POSDeliverySummaryPage() {
             
             if (orderData.order_type !== OrderType.Delivery) {
                 messageApi.warning("รายการนี้ไม่ใช่ Order Delivery");
-                router.push('/pos/channels');
+                router.push(getOrderNavigationPath(orderData));
                 return;
             }
 
-            if ([OrderStatus.Paid, OrderStatus.Completed].includes(orderData.status)) {
-                router.push(`/pos/dashboard/${orderData.id}`);
+            if (isPaidOrCompletedStatus(orderData.status)) {
+                router.push(`/pos/dashboard/${orderData.id}?from=payment`);
                 return;
             }
 
-            if (orderData.status === OrderStatus.Cancelled) {
-                router.push('/pos/channels');
+            if (isCancelledStatus(orderData.status)) {
+                router.push(getCancelOrderNavigationPath(orderData.order_type));
                 return;
             }
 
-            if (orderData.status !== OrderStatus.WaitingForPayment) {
+            if (!isWaitingForPaymentStatus(orderData.status)) {
                 router.push(`/pos/orders/${orderData.id}`);
                 return;
             }
@@ -114,7 +125,7 @@ export default function POSDeliverySummaryPage() {
                 fetchInitialData();
             }
         },
-        intervalMs: 15000,
+        intervalMs: isConnected ? undefined : 15000,
         enabled: Boolean(deliveryId),
     });
 
@@ -170,7 +181,7 @@ export default function POSDeliverySummaryPage() {
                     messageApi.success("ส่งมอบสินค้าให้ไรเดอร์เรียบร้อย");
                     
                     // Navigate to success/dashboard
-                    router.push(`/pos/dashboard/${order.id}`);
+                    router.push(`/pos/dashboard/${order.id}?from=payment`);
 
                 } catch {
                     messageApi.error("เกิดข้อผิดพลาดในการส่งมอบ");
@@ -182,6 +193,10 @@ export default function POSDeliverySummaryPage() {
     };
 
     const handleEditOrder = async () => {
+        if (!canEditOrder) {
+            messageApi.warning("คุณไม่มีสิทธิ์แก้ไขออเดอร์");
+            return;
+        }
         if (!order) return;
         
         setConfirmConfig({
@@ -219,6 +234,10 @@ export default function POSDeliverySummaryPage() {
     };
 
     const handleCancelOrder = () => {
+        if (!canCancelOrder) {
+            messageApi.warning("คุณไม่มีสิทธิ์ยกเลิกออเดอร์");
+            return;
+        }
         if (!order) return;
 
         setConfirmConfig({
@@ -323,21 +342,25 @@ export default function POSDeliverySummaryPage() {
                 
                 {/* Action Buttons */}
                 <div className="delivery-action-buttons">
-                    <Button 
-                        icon={<EditOutlined />} 
-                        onClick={handleEditOrder}
-                        className="delivery-action-btn"
-                        style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff' }}
-                    >
-                        แก้ไข
-                    </Button>
-                    <Button 
-                        danger
-                        onClick={handleCancelOrder}
-                        className="delivery-action-btn"
-                    >
-                        ยกเลิก
-                    </Button>
+                    {canEditOrder ? (
+                        <Button 
+                            icon={<EditOutlined />} 
+                            onClick={handleEditOrder}
+                            className="delivery-action-btn"
+                            style={{ background: 'rgba(255,255,255,0.2)', border: 'none', color: '#fff' }}
+                        >
+                            แก้ไข
+                        </Button>
+                    ) : null}
+                    {canCancelOrder ? (
+                        <Button 
+                            danger
+                            onClick={handleCancelOrder}
+                            className="delivery-action-btn"
+                        >
+                            ยกเลิก
+                        </Button>
+                    ) : null}
                 </div>
             </div>
 

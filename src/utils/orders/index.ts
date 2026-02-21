@@ -24,6 +24,23 @@ interface TableWithActiveOrder extends Tables {
     active_order?: { id: string; status: OrderStatus };
 }
 
+export const normalizeOrderStatusValue = (status: unknown): string => {
+    return String(status ?? "").trim().toLowerCase();
+};
+
+export const normalizeOrderTypeValue = (orderType: unknown): string => {
+    return String(orderType ?? "").trim().toLowerCase();
+};
+
+export const isWaitingForPaymentStatus = (status: unknown): boolean => {
+    return normalizeOrderStatusValue(status) === "waitingforpayment";
+};
+
+export const isPaidOrCompletedStatus = (status: unknown): boolean => {
+    const normalized = normalizeOrderStatusValue(status);
+    return normalized === "paid" || normalized === "completed";
+};
+
 export const getTableNavigationPath = (table: Tables): string => {
     // 1. Available -> Go to Table Detail Page (New Order)
     if (table.status === TableStatus.Available) {
@@ -36,7 +53,7 @@ export const getTableNavigationPath = (table: Tables): string => {
 
     if (activeOrderId) {
         // If Waiting For Payment -> Go to Payment Page
-        if (activeOrderStatus === OrderStatus.WaitingForPayment) {
+        if (isWaitingForPaymentStatus(activeOrderStatus)) {
             return `/pos/items/payment/${activeOrderId}`;
         }
 
@@ -274,8 +291,8 @@ export const getEditOrderNavigationPath = (orderId: string): string => {
  * @returns The target navigation path
  */
 export const getOrderNavigationPath = (order: SalesOrder | SalesOrderSummary): string => {
-    if (order.status === OrderStatus.WaitingForPayment) {
-        if (order.order_type === OrderType.Delivery) {
+    if (isWaitingForPaymentStatus(order.status)) {
+        if (normalizeOrderTypeValue(order.order_type) === "delivery") {
             return `/pos/items/delivery/${order.id}`;
         }
         return `/pos/items/payment/${order.id}`;
@@ -289,13 +306,15 @@ export const getOrderNavigationPath = (order: SalesOrder | SalesOrderSummary): s
  * @returns The target navigation path
  */
 export const getCancelOrderNavigationPath = (orderType?: string): string => {
-    if (orderType === OrderType.Delivery) {
+    const normalizedType = normalizeOrderTypeValue(orderType);
+
+    if (normalizedType === "delivery") {
         return '/pos/channels/delivery';
     }
-    if (orderType === OrderType.TakeAway) {
+    if (normalizedType === "takeaway") {
         return '/pos/channels/takeaway';
     }
-    if (orderType === OrderType.DineIn) {
+    if (normalizedType === "dinein") {
         return '/pos/channels/dine-in';
     }
     return '/pos/channels';

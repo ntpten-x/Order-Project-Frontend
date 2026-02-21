@@ -48,7 +48,7 @@ function POSItemsPageContent() {
     const [orderGroups, setOrderGroups] = useState<OrderGroup[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const { showLoading, hideLoading } = useGlobalLoadingDispatch();
-    const { socket } = useSocket();
+    const { socket, isConnected } = useSocket();
     const { user } = useAuth();
     const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     const canCreatePayment = can("payments.page", "create");
@@ -96,8 +96,8 @@ function POSItemsPageContent() {
         socket,
         events: ORDER_REALTIME_EVENTS,
         onRefresh: () => fetchServedItems(false),
-        intervalMs: 15000,
-        debounceMs: 1000,
+        intervalMs: isConnected ? undefined : 15000,
+        debounceMs: 250,
     });
 
     const getOrderTypeUserFriendly = (type?: OrderType, table?: SalesOrder["table"]) => {

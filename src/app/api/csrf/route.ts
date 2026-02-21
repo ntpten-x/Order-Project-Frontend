@@ -1,5 +1,10 @@
 import { handleApiRouteError } from "../_utils/route-error";
-import { isHttpsRequest, normalizeSetCookieForProtocol, splitSetCookieHeader } from "../_utils/cookie-forward";
+import {
+    buildForwardedHostProtoHeaders,
+    isHttpsRequest,
+    normalizeSetCookieForProtocol,
+    splitSetCookieHeader,
+} from "../_utils/cookie-forward";
 
 import { cookies } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
@@ -28,12 +33,14 @@ export async function GET(request: NextRequest) {
         const url = `${backendUrl}/csrf-token`;
         const cookieStore = cookies();
         const cookieHeader = cookieStore.getAll().map(c => `${c.name}=${c.value}`).join(';');
+        const forwardedHeaders = buildForwardedHostProtoHeaders(request);
 
         const response = await fetch(url, {
             method: "GET",
             headers: {
                 Cookie: cookieHeader,
-                "Content-Type": "application/json"
+                "Content-Type": "application/json",
+                ...forwardedHeaders,
             },
             credentials: "include"
         });
@@ -48,7 +55,8 @@ export async function GET(request: NextRequest) {
                     method: "GET",
                     headers: {
                         Cookie: cookieHeader,
-                        "Content-Type": "application/json"
+                        "Content-Type": "application/json",
+                        ...forwardedHeaders,
                     },
                     credentials: "include"
                 });

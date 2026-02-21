@@ -6,7 +6,7 @@ import { Delivery } from "../../types/api/pos/delivery";
 import { RealtimeEvents } from "../../utils/realtimeEvents";
 
 export function useDelivery() {
-    const { socket } = useContext(SocketContext);
+    const { socket, isConnected } = useContext(SocketContext);
     const queryClient = useQueryClient();
     const { data, error, isLoading, refetch } = useQuery<Delivery[]>({
         queryKey: ['delivery'],
@@ -14,7 +14,10 @@ export function useDelivery() {
             const result = await deliveryService.getAll();
             return result.data;
         },
-        staleTime: 5000,
+        staleTime: isConnected ? 30_000 : 7_500,
+        refetchInterval: isConnected ? false : 20_000,
+        refetchIntervalInBackground: false,
+        refetchOnReconnect: true,
     });
 
     useEffect(() => {

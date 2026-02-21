@@ -24,7 +24,16 @@ import { itemsResponsiveStyles, itemsColors } from "../../../../../../theme/pos/
 import { calculatePaymentTotals, isCashMethod, isPromptPayMethod, quickCashAmounts, getPostCancelPaymentRedirect, getEditOrderRedirect, isPaymentMethodConfigured } from "../../../../../../utils/payments";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
-import { getOrderChannelText, getOrderReference, ConfirmationConfig, formatCurrency, isCancelledStatus } from "../../../../../../utils/orders";
+import {
+    getCancelOrderNavigationPath,
+    getOrderChannelText,
+    getOrderReference,
+    ConfirmationConfig,
+    formatCurrency,
+    isCancelledStatus,
+    isPaidOrCompletedStatus,
+    isWaitingForPaymentStatus,
+} from "../../../../../../utils/orders";
 import ConfirmationDialog from "../../../../../../components/dialog/ConfirmationDialog";
 import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingContext";
 import { useAuth } from "../../../../../../contexts/AuthContext";
@@ -51,6 +60,8 @@ export default function POSPaymentPage() {
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     const isAdminUser = user?.role === "Admin";
     const canCreatePayment = can("payments.page", "create");
+    const canEditOrder = isAdminUser || can("orders.edit.feature", "access") || can("orders.page", "update");
+    const canCancelOrder = isAdminUser || can("orders.cancel.feature", "access") || can("orders.page", "delete");
 
     const [order, setOrder] = useState<SalesOrder | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -95,17 +106,17 @@ export default function POSPaymentPage() {
                 discountsService.getAll()
             ]);
             
-            if ([OrderStatus.Paid, OrderStatus.Completed].includes(orderData.status)) {
-                router.push(`/pos/dashboard/${orderData.id}`);
+            if (isPaidOrCompletedStatus(orderData.status)) {
+                router.push(`/pos/dashboard/${orderData.id}?from=payment`);
                 return;
             }
 
-            if (orderData.status === OrderStatus.Cancelled) {
-                router.push('/pos/channels');
+            if (isCancelledStatus(orderData.status)) {
+                router.push(getCancelOrderNavigationPath(orderData.order_type));
                 return;
             }
 
-            if (orderData.status !== OrderStatus.WaitingForPayment) {
+            if (!isWaitingForPaymentStatus(orderData.status)) {
                 router.push(`/pos/orders/${orderData.id}`);
                 return;
             }
@@ -342,7 +353,7 @@ export default function POSPaymentPage() {
                     await paymentsService.create(paymentData, undefined, csrfToken);
 
                     messageApi.success("ชำระเงินเรียบร้อย");
-                    router.push(`/pos/dashboard/${order!.id}`);
+                    router.push(`/pos/dashboard/${order!.id}?from=payment`);
 
                 } catch (error) {
                     const errorMessage = error instanceof Error && error.message
@@ -357,6 +368,10 @@ export default function POSPaymentPage() {
     };
     
     const handleEditOrder = async () => {
+        if (!canEditOrder) {
+            messageApi.warning("คุณไม่มีสิทธิ์แก้ไขออเดอร์");
+            return;
+        }
         if (!order) return;
         
         setConfirmConfig({
@@ -394,6 +409,10 @@ export default function POSPaymentPage() {
     };
 
     const handleCancelOrder = () => {
+        if (!canCancelOrder) {
+            messageApi.warning("คุณไม่มีสิทธิ์ยกเลิกออเดอร์");
+            return;
+        }
         if (!order) return;
 
         setConfirmConfig({
@@ -528,21 +547,25 @@ export default function POSPaymentPage() {
                 
                 {/* Action Buttons */}
                 <div className="action-buttons-row">
-                    <Button 
-                        icon={<EditOutlined />} 
-                        onClick={handleEditOrder}
-                        className="action-btn"
-                        style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff' }}
-                    >
-                        แก้ไข
-                    </Button>
-                    <Button 
-                        danger
-                        onClick={handleCancelOrder}
-                        className="action-btn"
-                    >
-                        ยกเลิก
-                    </Button>
+                    {canEditOrder ? (
+                        <Button 
+                            icon={<EditOutlined />} 
+                            onClick={handleEditOrder}
+                            className="action-btn"
+                            style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff' }}
+                        >
+                            แก้ไข
+                        </Button>
+                    ) : null}
+                    {canCancelOrder ? (
+                        <Button 
+                            danger
+                            onClick={handleCancelOrder}
+                            className="action-btn"
+                        >
+                            ยกเลิก
+                        </Button>
+                    ) : null}
                 </div>
             </div>
 
@@ -853,7 +876,7 @@ export default function POSPaymentPage() {
                             )}
 
                             {/* Desktop Confirm Button */}
-                            <div className="payment-sticky-footer" style={{ marginTop: 20 }}>
+                            <div className="payment-desktop-confirm-footer" style={{ marginTop: 20 }}>
                                 <Button 
                                     type="primary" 
                                     size="large" 
@@ -872,7 +895,7 @@ export default function POSPaymentPage() {
             </div>
 
             {/* Mobile Sticky Footer */}
-            <div className="payment-sticky-footer" style={{ display: 'block' }}>
+            <div className="payment-sticky-footer-mobile">
                 <div className="payment-sticky-footer-content">
                     <div className="payment-total-row">
                         <span className="payment-total-label">ยอดสุทธิ</span>

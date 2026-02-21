@@ -1,7 +1,7 @@
 import { SalesOrderItem } from "./salesOrderItem";
 import { Payments } from "./payments";
 import { Delivery } from "./delivery";
-import { User } from "../auth";
+import { User } from "../users";
 import { Tables } from "./tables";
 import { Discounts } from "./discounts";
 

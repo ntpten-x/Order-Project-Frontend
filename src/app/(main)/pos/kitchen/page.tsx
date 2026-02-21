@@ -644,8 +644,7 @@ function KitchenDisplayPageContent() {
         if (!socket) return;
 
         const handleOrderCreate = (newOrder: { order_no: string }) => {
-            console.log("New Order Received:", newOrder);
-            refetch();
+            // Data refresh is handled by global useOrderSocketEvents
             playNotificationSound();
             message.open({
                 type: 'info',
@@ -656,32 +655,13 @@ function KitchenDisplayPageContent() {
             });
         };
 
-        const handleOrderUpdate = () => {
-            refetch();
-        };
-
         socket.on(RealtimeEvents.orders.create, handleOrderCreate);
-        socket.on(RealtimeEvents.orders.update, handleOrderUpdate);
-        socket.on(RealtimeEvents.orders.delete, handleOrderUpdate);
-        socket.on(RealtimeEvents.salesOrderItem.create, handleOrderUpdate);
-        socket.on(RealtimeEvents.salesOrderItem.update, handleOrderUpdate);
-        socket.on(RealtimeEvents.salesOrderItem.delete, handleOrderUpdate);
-        socket.on(RealtimeEvents.salesOrderDetail.create, handleOrderUpdate);
-        socket.on(RealtimeEvents.salesOrderDetail.update, handleOrderUpdate);
-        socket.on(RealtimeEvents.salesOrderDetail.delete, handleOrderUpdate);
+        // Other update/delete events are handled globally and trigger query invalidation automatically
 
         return () => {
             socket.off(RealtimeEvents.orders.create, handleOrderCreate);
-            socket.off(RealtimeEvents.orders.update, handleOrderUpdate);
-            socket.off(RealtimeEvents.orders.delete, handleOrderUpdate);
-            socket.off(RealtimeEvents.salesOrderItem.create, handleOrderUpdate);
-            socket.off(RealtimeEvents.salesOrderItem.update, handleOrderUpdate);
-            socket.off(RealtimeEvents.salesOrderItem.delete, handleOrderUpdate);
-            socket.off(RealtimeEvents.salesOrderDetail.create, handleOrderUpdate);
-            socket.off(RealtimeEvents.salesOrderDetail.update, handleOrderUpdate);
-            socket.off(RealtimeEvents.salesOrderDetail.delete, handleOrderUpdate);
         };
-    }, [socket, refetch, playNotificationSound]);
+    }, [socket, playNotificationSound]);
 
     const updateItemStatus = async (itemId: string, newStatus: ItemStatus) => {
         if (!canUpdateKitchen) {

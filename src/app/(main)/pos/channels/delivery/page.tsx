@@ -3,7 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button, Col, Input, Modal, Row, Space, Tag, Typography, message } from "antd";
-import { RocketOutlined, PlusOutlined, ClockCircleOutlined, DownOutlined, CheckCircleOutlined } from "@ant-design/icons";
+import { RocketOutlined, PlusOutlined, ClockCircleOutlined, DownOutlined, CheckCircleOutlined, ReloadOutlined } from "@ant-design/icons";
 import PageContainer from "../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../components/ui/page/PageSection";
 import UIPageHeader from "../../../../../components/ui/page/PageHeader";
@@ -59,10 +59,11 @@ function DeliverySelectionPageContent() {
     const router = useRouter();
     const { showLoading, hideLoading } = useGlobalLoading();
     const { deliveryProviders, isLoading: isLoadingProviders, isError: deliveryError, mutate: refetchProviders } = useDelivery();
-    const { orders, isLoading } = useChannelOrders({ orderType: OrderType.Delivery });
+    const { orders, isLoading, refresh: refreshOrders } = useChannelOrders({ orderType: OrderType.Delivery });
     const loadingKey = "pos:channels:delivery";
     const navigateLoadingKey = "pos:channels:delivery:navigate";
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isRefreshing, setIsRefreshing] = useState(false);
     const { user } = useAuth();
     const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     const canCreateOrder = can("orders.page", "create");
@@ -93,6 +94,18 @@ function DeliverySelectionPageContent() {
 
     const handleBack = () => {
         router.push('/pos/channels');
+    };
+
+    const handleRefresh = async () => {
+        setIsRefreshing(true);
+        try {
+            await Promise.all([
+                Promise.resolve(refetchProviders()),
+                refreshOrders(false),
+            ]);
+        } finally {
+            setIsRefreshing(false);
+        }
     };
 
     const handleOrderClick = (order: (typeof orders)[number]) => {
@@ -241,9 +254,19 @@ function DeliverySelectionPageContent() {
                     onBack={handleBack}
                     icon={<RocketOutlined style={{ fontSize: 20 }} />}
                     actions={
-                        <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateOrderClick} disabled={!canCreateOrder}>
-                            เพิ่มออเดอร์
-                        </Button>
+                        <Space size={8} wrap>
+                            <Button
+                                icon={<ReloadOutlined spin={isRefreshing} />}
+                                onClick={handleRefresh}
+                                loading={isRefreshing}
+                                style={{ borderRadius: 10 }}
+                            >
+                                รีเฟรช
+                            </Button>
+                            <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateOrderClick} disabled={!canCreateOrder}>
+                                เพิ่มออเดอร์
+                            </Button>
+                        </Space>
                     }
                 />
 
