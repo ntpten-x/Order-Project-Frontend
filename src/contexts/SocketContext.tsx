@@ -104,7 +104,6 @@ function resolveSocketConfig(): { url: string; path: string } {
 
     if (typeof window !== "undefined") {
         const currentProto = window.location.protocol;
-        const currentHost = window.location.hostname;
         const isSecure = currentProto === "https:";
         
         const isIp = (u: string) => /^(https?:\/\/)?(\d{1,3}\.){3}\d{1,3}(:\d+)?/.test(u);

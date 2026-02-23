@@ -8,9 +8,8 @@ import {
     ShopOutlined, 
     PlusOutlined, 
     DeleteOutlined, 
+    CloseCircleOutlined,
     EditOutlined, 
-    CheckOutlined,
-    CloseOutlined,
     InfoCircleOutlined,
     ReloadOutlined,
     ShoppingOutlined,
@@ -28,17 +27,13 @@ import { orderDetailStyles, orderDetailColors, ordersResponsiveStyles, orderDeta
 import {
   calculateOrderTotal,
   getNonCancelledItems,
-  getPostConfirmServeNavigationPath,
   getCancelOrderNavigationPath,
   ConfirmationConfig,
   getOrderStatusColor,
   getOrderStatusText,
   getOrderChannelColor,
   getOrderChannelText,
-  getServeActionText,
-  getServedStatusText,
   groupItemsByCategory,
-  getConfirmServeActionText,
   getOrderNavigationPath,
   isCancelledStatus,
   isPaidOrCompletedStatus,
@@ -185,67 +180,9 @@ export default function POSOrderDetailsPage() {
     const nonCancelledItems = useMemo<SalesOrderItem[]>(() => getNonCancelledItems(order?.items) as SalesOrderItem[], [order?.items]);
     const groupedNonCancelledItems = useMemo(() => groupOrderItems(nonCancelledItems), [nonCancelledItems]);
     const calculatedTotal = calculateOrderTotal(order?.items);
-    const isOrderComplete = activeItems.length === 0 && (order?.items?.length || 0) > 0;
+    const canMoveToWaitingForPayment = nonCancelledItems.length > 0;
     const shouldVirtualizeActive = groupedActiveItems.length > 12;
     const shouldVirtualizeServed = groupedServedItems.length > 12;
-
-    const handleServeItem = async (itemId: string) => {
-        if (!canUpdateOrders) {
-            message.warning("คุณไม่มีสิทธิ์แก้ไขออเดอร์");
-            return;
-        }
-        try {
-            setIsUpdating(true);
-            showLoading("กำลังดำเนินการเสิร์ฟ...");
-            const csrfToken = await getCsrfTokenCached();
-            
-            // Resolve IDs from group
-            const targetItem = groupedActiveItems.find((i) => i.id === itemId);
-            const idsToServe = targetItem?.originalItems?.map((i) => i.id) || [itemId];
-
-            await Promise.all(idsToServe.map((id: string) => 
-                ordersService.updateItemStatus(id, ItemStatus.Served, undefined, csrfToken)
-            ));
-            message.success("เสิร์ฟรายการเรียบร้อย");
-            fetchOrder(orderId as string);
-        } catch {
-            message.error("เกิดข้อผิดพลาดในการเสิร์ฟ");
-        } finally {
-            setIsUpdating(false);
-            hideLoading();
-        }
-    };
-
-    const handleServeSelected = async () => {
-        if (!canUpdateOrders) {
-            message.warning("คุณไม่มีสิทธิ์แก้ไขออเดอร์");
-            return;
-        }
-        if (selectedRowKeys.length === 0) return;
-        try {
-            setIsUpdating(true);
-            showLoading(`กำลังดำเนินการเสิร์ฟ ${selectedRowKeys.length} รายการ (รวมกลุ่ม)...`);
-            const csrfToken = await getCsrfTokenCached();
-            
-            // Resolve all IDs from selected groups
-            const allIds = selectedRowKeys.flatMap(key => {
-                const group = groupedActiveItems.find((g) => g.id === key);
-                return group?.originalItems?.map((i) => i.id) || [key.toString()];
-            });
-
-            await Promise.all(allIds.map((id: string) => 
-                ordersService.updateItemStatus(id, ItemStatus.Served, undefined, csrfToken)
-            ));
-            message.success("เสิร์ฟรายการที่เลือกเรียบร้อย");
-            setSelectedRowKeys([]);
-            fetchOrder(orderId as string);
-        } catch {
-            message.error("เกิดข้อผิดพลาดในการเสิร์ฟ");
-        } finally {
-            setIsUpdating(false);
-            hideLoading();
-        }
-    };
 
     const handleCancelSelected = async () => {
         if (!canUpdateOrders) {
@@ -287,32 +224,6 @@ export default function POSOrderDetailsPage() {
                 }
             }
         });
-    };
-
-    const handleUnserveItem = async (itemId: string) => {
-        if (!canUpdateOrders) {
-            message.warning("คุณไม่มีสิทธิ์แก้ไขออเดอร์");
-            return;
-        }
-        try {
-            setIsUpdating(true);
-            showLoading("กำลังย้อนกลับสถานะ...");
-            const csrfToken = await getCsrfTokenCached();
-
-            // Resolve IDs from group (served items)
-            const targetItem = groupedServedItems.find((i) => i.id === itemId);
-            const idsToUnserve = targetItem?.originalItems?.map((i) => i.id) || [itemId];
-
-            await Promise.all(idsToUnserve.map((id: string) => 
-                ordersService.updateItemStatus(id, ItemStatus.Cooking, undefined, csrfToken)
-            ));
-
-            message.success("ยกเลิกการเสิร์ฟ (กลับไปปรุง)");
-            fetchOrder(orderId as string);
-        } finally {
-            setIsUpdating(false);
-            hideLoading();
-        }
     };
 
     const handleCancelOrder = () => {
@@ -366,36 +277,38 @@ export default function POSOrderDetailsPage() {
     };
 
 
-    const handleDeleteItem = async (itemId: string) => {
-        if (!canDeleteOrders) {
-            message.warning("คุณไม่มีสิทธิ์ลบรายการ");
+    const handleCancelItem = async (itemId: string) => {
+        if (!canUpdateOrders) {
+            message.warning("คุณไม่มีสิทธิ์แก้ไขออเดอร์");
             return;
         }
         setConfirmConfig({
             open: true,
             type: 'danger',
-            title: 'ยืนยันการลบ',
-            content: 'คุณต้องการลบรายการสินค้านี้ใช่หรือไม่?',
-            okText: 'ลบ',
-            cancelText: 'ยกเลิก',
+            title: 'ยืนยันการยกเลิกรายการ',
+            content: 'คุณต้องการยกเลิกรายการสินค้านี้ใช่หรือไม่?',
+            okText: 'ยืนยันยกเลิก',
+            cancelText: 'ไม่ยกเลิก',
             onOk: async () => {
                 try {
                     setIsUpdating(true);
-                    showLoading("กำลังลบรายการ...");
+                    showLoading("กำลังดำเนินการยกเลิก...");
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
-                    
+
                     // Resolve IDs from group
                     const targetItem = groupedActiveItems.find((i) => i.id === itemId);
-                    const idsToDelete = targetItem?.originalItems?.map((i) => i.id) || [itemId];
+                    const idsToCancel = targetItem?.originalItems?.map((i) => i.id) || [itemId];
 
-                    await Promise.all(idsToDelete.map((id: string) => 
-                           ordersService.deleteItem(id, undefined, csrfToken)
-                    ));
-                    message.success(`ลบรายการเรียบร้อย (${idsToDelete.length} รายการ)`);
+                    await Promise.all(
+                        idsToCancel.map((id: string) =>
+                            ordersService.updateItemStatus(id, ItemStatus.Cancelled, undefined, csrfToken)
+                        )
+                    );
+                    message.success(`ยกเลิกรายการเรียบร้อย (${idsToCancel.length} รายการ)`);
                     fetchOrder(orderId as string);
                 } catch {
-                    message.error("ไม่สามารถลบรายการได้");
+                    message.error("ไม่สามารถยกเลิกรายการได้");
                 } finally {
                     setIsUpdating(false);
                     hideLoading();
@@ -535,43 +448,49 @@ export default function POSOrderDetailsPage() {
         }
     };
 
-    const handleConfirmServe = async () => {
+    const handleMoveToWaitingForPayment = async () => {
         if (!canUpdateOrders) {
             message.warning("คุณไม่มีสิทธิ์แก้ไขออเดอร์");
             return;
         }
-        const isDelivery = order?.order_type === OrderType.Delivery;
+        if (!order) return;
+        if (!canMoveToWaitingForPayment) {
+            message.warning("ไม่สามารถส่งออเดอร์ไปชำระเงินได้ เนื่องจากไม่มีรายการสินค้า");
+            return;
+        }
+
+        const isDelivery = order.order_type === OrderType.Delivery;
+        const nextPath = isDelivery
+            ? `/pos/items/delivery/${order.id}`
+            : `/pos/items/payment/${order.id}`;
+
         setConfirmConfig({
             open: true,
             type: 'success',
-            title: isDelivery ? 'ยืนยันจัดออเดอร์เสร็จสิ้น' : `ยืนยันการ${getServeActionText(order?.order_type)}ทั้งหมด`,
-            content: isDelivery ? 'จัดเตรียมอาหารเรียบร้อยแล้ว ต้องการส่งมอบให้ไรเดอร์หรือไม่?' : 'รายการทั้งหมดเสร็จสิ้นแล้ว ต้องการเข้าสู่ขั้นตอนการชำระเงินหรือไม่?',
-            okText: 'ยืนยัน',
+            title: isDelivery ? 'ยืนยันไปหน้าส่งมอบเดลิเวอรี่' : 'ยืนยันไปหน้าชำระเงิน',
+            content: isDelivery
+                ? 'ระบบจะเปลี่ยนสถานะออเดอร์เป็นรอชำระเงิน และพาไปหน้าส่งมอบให้ไรเดอร์ทันที'
+                : 'ระบบจะเปลี่ยนสถานะออเดอร์เป็นรอชำระเงิน และพาไปหน้าชำระเงินทันที',
+            okText: isDelivery ? 'ไปหน้าส่งมอบ' : 'ไปหน้าชำระเงิน',
             cancelText: 'ยกเลิก',
             onOk: async () => {
                 try {
                     setIsUpdating(true);
-                    showLoading("กำลังยืนยันรายการ...");
+                    showLoading("กำลังย้ายออเดอร์ไปขั้นตอนรอชำระเงิน...");
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
                     await ordersService.updateStatus(orderId as string, OrderStatus.WaitingForPayment, csrfToken);
-                    message.success("ยืนยันออเดอร์เรียบร้อย");
-                    
-                    if (order) {
-                        const nextPath = getPostConfirmServeNavigationPath(order);
-                        router.push(nextPath);
-                    } else {
-                        router.push('/pos/orders');
-                    }
+                    message.success("เปลี่ยนสถานะเป็นรอชำระเงินเรียบร้อย");
+                    router.push(nextPath);
                 } catch {
-                    message.error("เกิดข้อผิดพลาดในการยืนยัน");
+                    message.error("เกิดข้อผิดพลาดในการย้ายออเดอร์");
                 } finally {
                     setIsUpdating(false);
                     hideLoading();
                 }
             }
         });
-    }
+    };
 
     const onSelectChange = (newSelectedRowKeys: React.Key[]) => {
         setSelectedRowKeys(newSelectedRowKeys);
@@ -677,37 +596,15 @@ export default function POSOrderDetailsPage() {
         {
             title: 'จัดการ',
             key: 'actions',
-            width: 130,
+            width: 90,
             align: 'right' as const,
             render: (_value: unknown, record: SalesOrderItem) => (
                 <Space>
-                    <Tooltip title={getServeActionText(order.order_type)}>
-                        <Button 
-                            type="primary" 
-                            onClick={() => handleServeItem(record.id)} 
-                            disabled={!canUpdateOrders || isUpdating}
-                            style={{ 
-                                background: orderDetailColors.served, 
-                                borderColor: orderDetailColors.served,
-                                height: 'auto',
-                                padding: '4px 8px',
-                                display: 'flex',
-                                flexDirection: 'column',
-                                alignItems: 'center',
-                                gap: 2,
-                                minWidth: 60,
-                                borderRadius: 10
-                            }}
-                        >
-                            <CheckOutlined style={{ fontSize: 16 }} />
-                            <span style={{ fontSize: 10, fontWeight: 700 }}>{getServeActionText(order.order_type)}</span>
-                        </Button>
-                    </Tooltip>
                     <Tooltip title="แก้ไข">
                         <Button type="text" icon={<EditOutlined />} onClick={() => handleEditClick(record)} disabled={!canUpdateOrders || isUpdating} />
                     </Tooltip>
-                    <Tooltip title="ลบ">
-                        <Button type="text" danger icon={<DeleteOutlined />} onClick={() => handleDeleteItem(record.id)} disabled={!canDeleteOrders || isUpdating} />
+                    <Tooltip title="ยกเลิก">
+                        <Button type="text" danger icon={<CloseCircleOutlined />} onClick={() => handleCancelItem(record.id)} disabled={!canUpdateOrders || isUpdating} />
                     </Tooltip>
                 </Space>
             )
@@ -831,22 +728,9 @@ export default function POSOrderDetailsPage() {
         {
             title: 'จัดการ',
             key: 'actions',
-            width: 130,
+            width: 90,
             align: 'right' as const,
-            render: (_value: unknown, record: SalesOrderItem) => (
-                record.status === ItemStatus.Served ? (
-                    <Button 
-                        size="small" 
-                        className="unserve-button"
-                        style={orderDetailStyles.unserveButton}
-                        icon={<CloseOutlined />}
-                        onClick={() => handleUnserveItem(record.id)}
-                        disabled={!canUpdateOrders || isUpdating}
-                    >
-                        {order.order_type === OrderType.DineIn ? 'ยกเลิกเสิร์ฟ' : 'ยกเลิกปรุงเสร็จ'}
-                    </Button>
-                ) : null
-            )
+            render: () => null
         }
     ];
 
@@ -1004,11 +888,11 @@ export default function POSOrderDetailsPage() {
                                         <div className="card-header-left">
                                             <div style={orderDetailStyles.masterCheckboxWrapper}>
                                                 <Checkbox 
-                                                    indeterminate={selectedRowKeys.length > 0 && selectedRowKeys.length < activeItems.length}
-                                                    checked={activeItems.length > 0 && selectedRowKeys.length === activeItems.length}
+                                                    indeterminate={selectedRowKeys.length > 0 && selectedRowKeys.length < groupedActiveItems.length}
+                                                    checked={groupedActiveItems.length > 0 && selectedRowKeys.length === groupedActiveItems.length}
                                                     onChange={(e) => {
                                                         if (e.target.checked) {
-                                                            setSelectedRowKeys(activeItems.map(i => i.id));
+                                                            setSelectedRowKeys(groupedActiveItems.map((i) => i.id));
                                                         } else {
                                                             setSelectedRowKeys([]);
                                                         }
@@ -1017,7 +901,7 @@ export default function POSOrderDetailsPage() {
                                                 />
                                             </div>
                                             <Text strong style={orderDetailTypography.sectionTitle} className="section-title-text">
-                                                กำลังทำอาหาร ({activeItems.length})
+                                                รายการที่กำลังดำเนินการ ({activeItems.length})
                                             </Text>
                                         </div>
                                         <div className="card-header-right">
@@ -1049,35 +933,22 @@ export default function POSOrderDetailsPage() {
                                                     <span>เพิ่ม</span>
                                                 </Button>
                                             </div>
+                                            {selectedRowKeys.length > 0 && (
+                                                <div className="header-bulk-actions-container">
+                                                    <Button
+                                                        danger
+                                                        icon={<CloseCircleOutlined />}
+                                                        onClick={handleCancelSelected}
+                                                        disabled={!canUpdateOrders || isUpdating}
+                                                        size="small"
+                                                        className="bulk-action-btn"
+                                                    >
+                                                        <span>ยกเลิก ({selectedRowKeys.length})</span>
+                                                    </Button>
+                                                </div>
+                                            )}
                                         </div>
                                     </div>
-                                    {/* Bulk Actions - แสดงเมื่อเลือกหลายรายการ อยู่ฝั่งซ้าย ข้างล่าง Title */}
-                                    {selectedRowKeys.length > 0 && (
-                                        <div className="bulk-actions-container">
-                                            <Button 
-                                                danger 
-                                                icon={<DeleteOutlined />} 
-                                                onClick={handleCancelSelected}
-                                                disabled={!canUpdateOrders || isUpdating}
-                                                size="small"
-                                                className="bulk-action-btn"
-                                            >
-                                                <span>ยกเลิก ({selectedRowKeys.length})</span>
-                                            </Button>
-                                            <Button 
-                                                type="primary" 
-                                                icon={<CheckOutlined />} 
-                                                onClick={handleServeSelected} 
-                                                loading={isUpdating}
-                                                disabled={!canUpdateOrders || isUpdating}
-                                                size="small"
-                                                style={{ background: orderDetailColors.served, borderColor: orderDetailColors.served }}
-                                                className="bulk-action-btn"
-                                            >
-                                                <span>{getServeActionText(order.order_type)} ({selectedRowKeys.length})</span>
-                                            </Button>
-                                        </div>
-                                    )}
                                 </div>
                             }
                         >
@@ -1181,13 +1052,13 @@ export default function POSOrderDetailsPage() {
                                                         size="small" 
                                                         type="text" 
                                                         danger 
-                                                        icon={<DeleteOutlined />} 
-                                                        onClick={() => handleDeleteItem(item.id)}
-                                                        disabled={!canDeleteOrders || isUpdating}
+                                                        icon={<CloseCircleOutlined />} 
+                                                        onClick={() => handleCancelItem(item.id)}
+                                                        disabled={!canUpdateOrders || isUpdating}
                                                         style={{ height: 34, borderRadius: 8, fontSize: 13, padding: '0 12px', fontWeight: 500 }}
                                                         className="scale-hover"
                                                     >
-                                                        ลบ
+                                                        ยกเลิก
                                                     </Button>
                                                     <Button 
                                                         size="small" 
@@ -1199,25 +1070,6 @@ export default function POSOrderDetailsPage() {
                                                         className="scale-hover"
                                                     >
                                                         แก้ไข
-                                                    </Button>
-                                                    <Button 
-                                                        size="small" 
-                                                        type="primary" 
-                                                        onClick={() => handleServeItem(item.id)}
-                                                        disabled={!canUpdateOrders || isUpdating}
-                                                        style={{ 
-                                                            background: orderDetailColors.served, 
-                                                            borderColor: orderDetailColors.served,
-                                                            height: 34,
-                                                            padding: '0 14px',
-                                                            borderRadius: 8,
-                                                            fontSize: 13,
-                                                            fontWeight: 600,
-                                                        }}
-                                                        className="scale-hover"
-                                                    >
-                                                        <CheckOutlined style={{ fontSize: 13, marginRight: 4 }} />
-                                                        {getServeActionText(order.order_type)}
                                                     </Button>
                                                 </div>
                                             </div>
@@ -1237,7 +1089,7 @@ export default function POSOrderDetailsPage() {
                             style={orderDetailStyles.card}
                             title={
                                 <Text strong style={{...orderDetailTypography.sectionTitle, color: orderDetailColors.textSecondary}}>
-                                    {getServedStatusText(order.order_type)} ({servedItems.length})
+                                    รายการที่ยกเลิก ({servedItems.length})
                                 </Text>
                             }
                         >
@@ -1340,28 +1192,13 @@ export default function POSOrderDetailsPage() {
                                                         </div>
                                                     </div>
                                                 </div>
-
-                                                {item.status === ItemStatus.Served && (
-                                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 10, paddingTop: 10, borderTop: `1px solid ${orderDetailColors.border}` }}>
-                                                        <Button 
-                                                            size="small" 
-                                                            className="unserve-button"
-                                                            style={{...orderDetailStyles.unserveButton, height: 34, fontSize: 13, padding: '0 14px', borderRadius: 8, fontWeight: 500}}
-                                                            icon={<CloseOutlined style={{ fontSize: 13 }} />}
-                                                            onClick={() => handleUnserveItem(item.id)}
-                                                            disabled={!canUpdateOrders || isUpdating}
-                                                        >
-                                                            {order?.order_type === OrderType.DineIn ? 'ยกเลิกเสิร์ฟ' : 'ยกเลิกปรุงเสร็จ'}
-                                                        </Button>
-                                                    </div>
-                                                )}
                                             </div>
                                         ))}
                                     </div>
                                 </>
                             ) : (
                                 <div style={{ textAlign: 'center', padding: '20px 0' }}>
-                                    <Text type="secondary">ยังไม่มีรายการที่ดำเนินการแล้ว</Text>
+                                    <Text type="secondary">ยังไม่มีรายการที่ยกเลิก</Text>
                                 </div>
                             )}
                         </Card>
@@ -1449,26 +1286,40 @@ export default function POSOrderDetailsPage() {
                                 </div>
                             </div>
                             
-                            {isOrderComplete && (
+                            <Button 
+                                type="primary" 
+                                block 
+                                size="large" 
+                                onClick={handleMoveToWaitingForPayment}
+                                disabled={!canUpdateOrders || isUpdating || !canMoveToWaitingForPayment}
+                                style={{ 
+                                    marginTop: 16, 
+                                    height: 48, 
+                                    borderRadius: 10, 
+                                    fontWeight: 600, 
+                                    fontSize: 16,
+                                    background: `linear-gradient(135deg, ${orderDetailColors.primary} 0%, ${orderDetailColors.primaryDark} 100%)`,
+                                    border: 'none',
+                                    boxShadow: `0 4px 12px ${orderDetailColors.primary}25`,
+                                }}
+                                className="scale-hover"
+                            >
+                                {order.order_type === OrderType.Delivery ? "ไปขั้นตอนส่งมอบเดลิเวอรี่" : "ไปขั้นตอนชำระเงิน"}
+                            </Button>
+
+                            {!canMoveToWaitingForPayment && (
                                 <Button 
-                                    type="primary" 
+                                    type="dashed" 
                                     block 
-                                    size="large" 
-                                    onClick={handleConfirmServe}
-                                    disabled={!canUpdateOrders || isUpdating}
+                                    disabled
                                     style={{ 
-                                        marginTop: 16, 
-                                        height: 48, 
+                                        marginTop: 10, 
+                                        height: 40, 
                                         borderRadius: 10, 
-                                        fontWeight: 600, 
-                                        fontSize: 16,
-                                        background: `linear-gradient(135deg, ${orderDetailColors.served} 0%, #059669 100%)`,
-                                        border: 'none',
-                                        boxShadow: `0 4px 12px ${orderDetailColors.served}25`,
+                                        fontWeight: 500,
                                     }}
-                                    className="scale-hover"
                                 >
-                                    {getConfirmServeActionText(order.order_type)}
+                                    ต้องมีสินค้าอย่างน้อย 1 รายการเพื่อไปหน้าชำระเงิน
                                 </Button>
                             )}
                             

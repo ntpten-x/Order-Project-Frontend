@@ -1912,6 +1912,31 @@ export const ordersResponsiveStyles = `
   }
 
   /* ===== Utilities ===== */
+  .card-header-right {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    gap: 8px !important;
+  }
+
+  .header-bulk-actions-container {
+    display: flex !important;
+    justify-content: flex-end !important;
+    width: 100% !important;
+  }
+
+  @media (max-width: 767px) {
+    .card-header-right {
+      flex-direction: row !important;
+      align-items: center !important;
+      gap: 8px !important;
+    }
+
+    .header-bulk-actions-container {
+      display: none !important;
+    }
+  }
+
   .hide-on-mobile {
     display: none !important;
   }
