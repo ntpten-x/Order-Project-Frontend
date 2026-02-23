@@ -20,10 +20,18 @@ export async function POST(request: NextRequest, context: { params: { token: str
     try {
         const token = encodeURIComponent(context.params.token);
         const body = await request.json();
+        const idempotencyKey = request.headers.get("idempotency-key") || request.headers.get("x-idempotency-key");
         return await proxyPublicJsonRequest({
             method: "POST",
             backendPath: `/public/table-order/${token}/order`,
             body,
+            ...(idempotencyKey
+                ? {
+                      headers: {
+                          "Idempotency-Key": idempotencyKey,
+                      },
+                  }
+                : {}),
         });
     } catch (error) {
         return handleApiRouteError(error);

@@ -49,6 +49,17 @@ export const DynamicQRCode = dynamic(
 );
 
 /**
+ * QRCode canvas variant - useful when exporting images/PDFs
+ */
+export const DynamicQRCodeCanvas = dynamic(
+  () => import('qrcode.react').then(mod => ({ default: mod.QRCodeCanvas })),
+  {
+    ssr: false,
+    loading: DefaultLoading,
+  }
+);
+
+/**
  * Chart components - load on demand for dashboard
  */
 export const DynamicChart = {

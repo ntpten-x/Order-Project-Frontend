@@ -11,6 +11,7 @@ import {
     SaveOutlined,
     TableOutlined,
     CopyOutlined,
+    DownloadOutlined,
     QrcodeOutlined,
     SyncOutlined,
     CheckCircleFilled,
@@ -27,7 +28,7 @@ import { pageStyles } from '../../../../../../theme/pos/tables/style';
 import { Tables, TableStatus } from '../../../../../../types/api/pos/tables';
 import type { TableQrInfo } from '../../../../../../types/api/pos/tables';
 import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
-import { DynamicQRCode } from "../../../../../../lib/dynamic-imports";
+import { DynamicQRCode, DynamicQRCodeCanvas, loadPdfExport } from "../../../../../../lib/dynamic-imports";
 
 type TablesManageMode = 'add' | 'edit';
 
@@ -138,6 +139,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
     const [qrInfo, setQrInfo] = useState<TableQrInfo | null>(null);
     const [qrLoading, setQrLoading] = useState(false);
     const [qrRotating, setQrRotating] = useState(false);
+    const [qrPdfDownloading, setQrPdfDownloading] = useState(false);
 
     const mode = params.mode?.[0] as TablesManageMode | undefined;
     const id = params.mode?.[1] || null;
@@ -155,6 +157,10 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
         if (isEdit) return 'แก้ไขข้อมูลโต๊ะ';
         return 'เพิ่มโต๊ะ';
     }, [isEdit]);
+
+    const qrExportCanvasId = useMemo(() => {
+        return `table-qr-export-canvas-${id || 'new'}`;
+    }, [id]);
 
     useEffect(() => {
         if (!isValidMode || (mode === 'edit' && !id)) {
@@ -274,6 +280,108 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
             setQrRotating(false);
         }
     }, [csrfToken, id]);
+
+    const handleDownloadQrPdf = useCallback(async () => {
+        const customerUrl = buildCustomerUrl(qrInfo?.customer_path || '');
+        if (!customerUrl) {
+            message.warning('ยังไม่มีลิงก์ QR สำหรับดาวน์โหลด');
+            return;
+        }
+
+        const tableDisplayName = String(qrInfo?.table_name || tableName || 'ไม่ระบุชื่อโต๊ะ').trim();
+        setQrPdfDownloading(true);
+
+        try {
+            await new Promise((resolve) => setTimeout(resolve, 0));
+            const sourceCanvas = document.getElementById(qrExportCanvasId) as HTMLCanvasElement | null;
+            if (!sourceCanvas) {
+                throw new Error('ไม่พบภาพ QR สำหรับส่งออก');
+            }
+
+            const qrDataUrl = sourceCanvas.toDataURL('image/png');
+            const exportCanvas = document.createElement('canvas');
+            exportCanvas.width = 1240;
+            exportCanvas.height = 1754;
+            const ctx = exportCanvas.getContext('2d');
+
+            if (!ctx) {
+                throw new Error('ไม่สามารถสร้างเอกสาร PDF ได้');
+            }
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, exportCanvas.width, exportCanvas.height);
+
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#0f172a';
+            ctx.font = 'bold 64px \"Noto Sans Thai\", \"Segoe UI\", sans-serif';
+            ctx.fillText(`โต๊ะ ${tableDisplayName}`, exportCanvas.width / 2, 170);
+
+            ctx.fillStyle = '#475569';
+            ctx.font = '36px \"Noto Sans Thai\", \"Segoe UI\", sans-serif';
+            ctx.fillText('สแกนเพื่อสั่งอาหาร', exportCanvas.width / 2, 235);
+
+            const qrImage = new Image();
+            qrImage.decoding = 'async';
+            qrImage.src = qrDataUrl;
+            await new Promise<void>((resolve, reject) => {
+                qrImage.onload = () => resolve();
+                qrImage.onerror = () => reject(new Error('โหลดภาพ QR ไม่สำเร็จ'));
+            });
+
+            const qrSize = 780;
+            const qrX = (exportCanvas.width - qrSize) / 2;
+            const qrY = 320;
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(qrX - 24, qrY - 24, qrSize + 48, qrSize + 48);
+            ctx.strokeStyle = '#d1d5db';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(qrX - 24, qrY - 24, qrSize + 48, qrSize + 48);
+            ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize);
+
+            ctx.fillStyle = '#64748b';
+            ctx.font = '26px \"Noto Sans Thai\", \"Segoe UI\", sans-serif';
+            const urlLines = customerUrl.match(/.{1,58}/g) || [customerUrl];
+            urlLines.forEach((line, index) => {
+                ctx.fillText(line, exportCanvas.width / 2, qrY + qrSize + 90 + (index * 34));
+            });
+
+            const generatedAt = new Date().toLocaleString('th-TH');
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '22px \"Noto Sans Thai\", \"Segoe UI\", sans-serif';
+            ctx.fillText(`สร้างเมื่อ ${generatedAt}`, exportCanvas.width / 2, exportCanvas.height - 110);
+
+            const mergedDataUrl = exportCanvas.toDataURL('image/png');
+            const { default: JsPdfCtor } = await loadPdfExport();
+            const doc = new JsPdfCtor({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const margin = 20;
+            const targetWidth = pageWidth - margin * 2;
+            const targetHeight = (exportCanvas.height / exportCanvas.width) * targetWidth;
+            const drawHeight = Math.min(targetHeight, pageHeight - margin * 2);
+            const drawWidth = (exportCanvas.width / exportCanvas.height) * drawHeight;
+            const drawX = (pageWidth - drawWidth) / 2;
+            const drawY = (pageHeight - drawHeight) / 2;
+
+            doc.addImage(mergedDataUrl, 'PNG', drawX, drawY, drawWidth, drawHeight, undefined, 'FAST');
+
+            const safeTableName = tableDisplayName
+                .replace(/[^\w\u0E00-\u0E7F-]+/g, '_')
+                .replace(/_+/g, '_')
+                .replace(/^_+|_+$/g, '')
+                .slice(0, 50) || 'table';
+
+            doc.save(`qr-table-${safeTableName}.pdf`);
+            message.success('ดาวน์โหลด PDF สำเร็จ');
+        } catch (error) {
+            console.error(error);
+            message.error(error instanceof Error ? error.message : 'ดาวน์โหลด PDF ไม่สำเร็จ');
+        } finally {
+            setQrPdfDownloading(false);
+        }
+    }, [buildCustomerUrl, qrExportCanvasId, qrInfo?.customer_path, qrInfo?.table_name, tableName]);
 
     const checkNameConflict = useCallback(async (rawValue: string) => {
         const value = rawValue.trim();
@@ -584,7 +692,23 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                                                         >
                                                             Rotate QR
                                                         </Button>
+                                                        <Button
+                                                            type="default"
+                                                            icon={<DownloadOutlined />}
+                                                            loading={qrPdfDownloading}
+                                                            onClick={handleDownloadQrPdf}
+                                                        >
+                                                            ดาวน์โหลด PDF
+                                                        </Button>
                                                     </Space>
+                                                    <div style={{ display: 'none' }}>
+                                                        <DynamicQRCodeCanvas
+                                                            id={qrExportCanvasId}
+                                                            value={customerOrderUrl}
+                                                            size={1024}
+                                                            marginSize={2}
+                                                        />
+                                                    </div>
                                                     <Alert
                                                         type="info"
                                                         showIcon

@@ -1,35 +1,48 @@
-﻿"use client";
+"use client";
 
 import React from "react";
 import {
-    Alert,
     App,
+    Alert,
     Badge,
     Button,
     Card,
-    Divider,
-    Drawer,
     Empty,
-    Input,
-    InputNumber,
     List,
-    Segmented,
-    Space,
+    Pagination,
     Spin,
     Tag,
     Typography,
 } from "antd";
 import {
-    ClockCircleOutlined,
+    DeleteOutlined,
+    EditOutlined,
+    MinusOutlined,
+    PlusOutlined,
     QrcodeOutlined,
     ReloadOutlined,
     ShoppingCartOutlined,
-    ThunderboltOutlined,
+    ShopOutlined,
 } from "@ant-design/icons";
-import { useParams } from "next/navigation";
-import { DynamicQRCode } from "../../../lib/dynamic-imports";
+import { useParams, useRouter } from "next/navigation";
+import type { CartItem } from "../../../contexts/pos/CartContext";
+import type { Products } from "../../../types/api/pos/products";
+import { groupOrderItems } from "../../../utils/orderGrouping";
+import { resolveImageSource } from "../../../utils/image/source";
+import { formatPrice } from "../../../utils/products/productDisplay.utils";
+import { orderDetailColors, orderDetailStyles } from "../../../theme/pos/orders/style";
+import { POSCategoryFilterBar } from "../../../components/pos/shared/POSCategoryFilterBar";
+import { POSCartDrawer } from "../../../components/pos/shared/POSCartDrawer";
+import { POSCheckoutDrawer } from "../../../components/pos/shared/POSCheckoutDrawer";
+import { POSHeaderBar } from "../../../components/pos/shared/POSHeaderBar";
+import { POSNoteModal } from "../../../components/pos/shared/POSNoteModal";
+import { POSProductCard } from "../../../components/pos/shared/POSProductCard";
+import { POSProductDetailModal } from "../../../components/pos/shared/POSProductDetailModal";
+import { POSSharedStyles, posColors, posComponentStyles, posLayoutStyles } from "../../../components/pos/shared/style";
 
-const { Title, Text } = Typography;
+const { Text, Title } = Typography;
+
+const MENU_PAGE_SIZE = 20;
 
 type MenuItem = {
     id: string;
@@ -48,7 +61,7 @@ type MenuCategory = {
     items: MenuItem[];
 };
 
-type OrderItem = {
+type CustomerOrderItem = {
     id: string;
     product_id: string;
     product_name: string;
@@ -57,6 +70,7 @@ type OrderItem = {
     total_price: number;
     status: string;
     notes: string;
+    details?: { detail_name: string; extra_price: number }[];
 };
 
 type CustomerOrder = {
@@ -71,7 +85,7 @@ type CustomerOrder = {
     create_date: string;
     update_date: string;
     can_add_items: boolean;
-    items: OrderItem[];
+    items: CustomerOrderItem[];
 };
 
 type BootstrapData = {
@@ -110,29 +124,76 @@ type SubmitOrderData = {
     order: CustomerOrder;
 };
 
-type CartEntry = {
-    product: MenuItem;
-    quantity: number;
-    notes: string;
+type NoteEditorState = {
+    id: string;
+    name: string;
+    note: string;
 };
-
-function formatCurrency(value: number): string {
-    return new Intl.NumberFormat("th-TH", {
-        style: "currency",
-        currency: "THB",
-        maximumFractionDigits: 2,
-    }).format(Number(value || 0));
-}
 
 function mapStatus(status: string): { label: string; color: string } {
     const normalized = String(status || "").trim().toLowerCase();
-    if (normalized === "pending") return { label: "Accepted", color: "gold" };
-    if (normalized === "cooking") return { label: "Preparing", color: "processing" };
-    if (normalized === "served") return { label: "Served", color: "green" };
-    if (normalized === "waitingforpayment") return { label: "Waiting for staff billing", color: "cyan" };
-    if (normalized === "paid" || normalized === "completed") return { label: "Closed", color: "success" };
-    if (normalized === "cancelled") return { label: "Cancelled by store", color: "red" };
+    if (normalized === "pending") return { label: "รับออเดอร์แล้ว", color: "gold" };
+    if (normalized === "cooking") return { label: "กำลังเตรียม", color: "processing" };
+    if (normalized === "served") return { label: "เสิร์ฟแล้ว", color: "green" };
+    if (normalized === "waitingforpayment") return { label: "รอพนักงานคิดเงิน", color: "cyan" };
+    if (normalized === "paid" || normalized === "completed") return { label: "ชำระแล้ว", color: "success" };
+    if (normalized === "cancelled") return { label: "ยกเลิกแล้ว", color: "red" };
     return { label: status || "-", color: "default" };
+}
+
+function formatDateTime(value: string): string {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "-";
+    return new Intl.DateTimeFormat("th-TH", {
+        dateStyle: "medium",
+        timeStyle: "short",
+    }).format(date);
+}
+
+function mapMenuToProduct(item: MenuItem, category: MenuCategory): Products {
+    const now = new Date();
+    const unitId = `unit-${item.id}`;
+
+    return {
+        id: item.id,
+        product_name: item.display_name,
+        display_name: item.display_name,
+        description: item.description || "",
+        price: Number(item.price || 0),
+        price_delivery: Number(item.price || 0),
+        category_id: category.id,
+        unit_id: unitId,
+        img_url: item.img_url,
+        create_date: now,
+        update_date: now,
+        is_active: true,
+        category: {
+            id: category.id,
+            category_name: category.category_name || category.display_name,
+            display_name: category.display_name,
+            create_date: now,
+            update_date: now,
+            is_active: true,
+        },
+        unit: {
+            id: unitId,
+            unit_name: item.unit_name || "รายการ",
+            display_name: item.unit_name || "รายการ",
+            create_date: now,
+            update_date: now,
+            is_active: true,
+        },
+    };
+}
+
+function createCartItem(product: Products): CartItem {
+    return {
+        cart_item_id: `qr-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+        product,
+        quantity: 1,
+        notes: "",
+        details: [],
+    };
 }
 
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
@@ -159,8 +220,153 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     return payload as T;
 }
 
+const QROrderMobileStyles = () => (
+    <style jsx global>{`
+        @media (max-width: 768px) {
+            .qr-order-page .qr-main-content {
+                padding: 12px !important;
+            }
+
+            .qr-order-page .qr-main-stack {
+                gap: 14px !important;
+            }
+
+            .qr-order-page .qr-alert .ant-alert-message {
+                font-size: 13px !important;
+                line-height: 1.35 !important;
+            }
+
+            .qr-order-page .qr-alert .ant-alert-description {
+                font-size: 12px !important;
+                line-height: 1.45 !important;
+            }
+
+            .qr-order-page .qr-products-grid {
+                gap: 10px !important;
+            }
+
+            .qr-order-page .pos-product-card {
+                border-radius: 14px !important;
+                min-height: 178px !important;
+            }
+
+            .qr-order-page .pos-product-image-mobile {
+                height: 108px !important;
+            }
+
+            .qr-order-page .pos-product-info-mobile {
+                padding: 10px !important;
+            }
+
+            .qr-order-page .pos-product-name-mobile {
+                font-size: 12px !important;
+            }
+
+            .qr-order-page .pos-product-price-mobile {
+                font-size: 14px !important;
+            }
+
+            .qr-order-page .pos-add-button-mobile {
+                min-height: 34px !important;
+                height: 34px !important;
+                font-size: 11px !important;
+                padding: 0 10px !important;
+            }
+
+            .qr-order-page .qr-summary-card {
+                border-radius: 14px !important;
+            }
+
+            .qr-order-page .qr-summary-card .ant-card-body {
+                padding: 14px !important;
+            }
+
+            .qr-order-page .qr-summary-header {
+                gap: 8px !important;
+                margin-bottom: 10px !important;
+                align-items: flex-start !important;
+            }
+
+            .qr-order-page .qr-summary-title {
+                font-size: 16px !important;
+            }
+
+            .qr-order-page .qr-summary-subtitle {
+                font-size: 12px !important;
+            }
+
+            .qr-order-page .qr-summary-refresh-btn {
+                height: 34px !important;
+                font-size: 12px !important;
+                padding: 0 10px !important;
+                border-radius: 9px !important;
+            }
+
+            .qr-order-page .qr-order-meta {
+                gap: 6px !important;
+                margin-bottom: 10px !important;
+            }
+
+            .qr-order-page .summary-list {
+                padding: 10px 12px !important;
+                margin-bottom: 10px !important;
+                border-radius: 10px !important;
+            }
+
+            .qr-order-page .summary-item-row {
+                gap: 10px !important;
+                padding: 10px 0 !important;
+            }
+
+            .qr-order-page .summary-item-image {
+                width: 40px !important;
+                height: 40px !important;
+                border-radius: 10px !important;
+            }
+
+            .qr-order-page .qr-summary-total-label {
+                font-size: 17px !important;
+            }
+
+            .qr-order-page .qr-summary-total-value {
+                font-size: 24px !important;
+            }
+
+            .qr-order-page .qr-floating-cart-btn {
+                width: 58px !important;
+                height: 58px !important;
+                border-radius: 18px !important;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .qr-mobile-cart-drawer .ant-drawer-content-wrapper,
+            .qr-mobile-checkout-drawer .ant-drawer-content-wrapper {
+                width: 100% !important;
+                max-width: 100vw !important;
+            }
+
+            .qr-mobile-cart-drawer .ant-drawer-header,
+            .qr-mobile-cart-drawer .ant-drawer-footer,
+            .qr-mobile-checkout-drawer .ant-drawer-header,
+            .qr-mobile-checkout-drawer .ant-drawer-footer {
+                padding: 12px !important;
+            }
+
+            .qr-mobile-cart-drawer .ant-drawer-body {
+                padding: 12px !important;
+            }
+
+            .qr-mobile-checkout-drawer .ant-drawer-body {
+                padding: 0 12px !important;
+            }
+        }
+    `}</style>
+);
+
 export default function CustomerTableOrderPage() {
     const params = useParams();
+    const router = useRouter();
     const token = String((params as Record<string, string | string[]>)?.token || "");
     const { message } = App.useApp();
 
@@ -168,9 +374,47 @@ export default function CustomerTableOrderPage() {
     const [isRefreshingOrder, setIsRefreshingOrder] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [bootstrap, setBootstrap] = React.useState<BootstrapData | null>(null);
-    const [selectedCategoryId, setSelectedCategoryId] = React.useState<string>("");
-    const [drawerOpen, setDrawerOpen] = React.useState(false);
-    const [cart, setCart] = React.useState<Record<string, CartEntry>>({});
+
+    const [selectedCategory, setSelectedCategory] = React.useState<string | undefined>(undefined);
+    const [searchQuery, setSearchQuery] = React.useState("");
+    const [page, setPage] = React.useState(1);
+
+    const [cartVisible, setCartVisible] = React.useState(false);
+    const [checkoutVisible, setCheckoutVisible] = React.useState(false);
+    const [cartItems, setCartItems] = React.useState<CartItem[]>([]);
+
+    const [isNoteModalVisible, setIsNoteModalVisible] = React.useState(false);
+    const [noteInput, setNoteInput] = React.useState("");
+    const [currentNoteItem, setCurrentNoteItem] = React.useState<NoteEditorState | null>(null);
+
+    const [isProductModalVisible, setIsProductModalVisible] = React.useState(false);
+    const [selectedProduct, setSelectedProduct] = React.useState<Products | null>(null);
+    const submitIdempotencyKeyRef = React.useRef<string | null>(null);
+
+    const deferredSearchQuery = React.useDeferredValue(searchQuery);
+    const cartSignature = React.useMemo(
+        () =>
+            cartItems
+                .map((item) => `${item.product.id}:${item.quantity}:${item.notes || ""}`)
+                .join("|"),
+        [cartItems],
+    );
+
+    const getOrCreateSubmitIdempotencyKey = React.useCallback(() => {
+        if (!submitIdempotencyKeyRef.current) {
+            const randomPart =
+                typeof globalThis.crypto?.randomUUID === "function"
+                    ? globalThis.crypto.randomUUID()
+                    : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+            const shortToken = token.replace(/[^A-Za-z0-9_-]/g, "").slice(0, 24) || "public";
+            submitIdempotencyKeyRef.current = `qr-${shortToken}-${randomPart}`;
+        }
+        return submitIdempotencyKeyRef.current;
+    }, [token]);
+
+    React.useEffect(() => {
+        submitIdempotencyKeyRef.current = null;
+    }, [cartSignature]);
 
     const loadBootstrap = React.useCallback(async () => {
         if (!token) return;
@@ -178,142 +422,241 @@ export default function CustomerTableOrderPage() {
         try {
             const data = await fetchJson<BootstrapData>(`/api/public/table-order/${encodeURIComponent(token)}`);
             setBootstrap(data);
-            if (!selectedCategoryId && data.menu.length > 0) {
-                setSelectedCategoryId(data.menu[0].id);
-            }
+            setSelectedCategory((prev) => {
+                if (!data.menu?.length) return undefined;
+                if (!prev) return undefined;
+                return data.menu.some((cat) => cat.id === prev) ? prev : undefined;
+            });
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "Failed to load menu");
+            message.error(error instanceof Error ? error.message : "ไม่สามารถโหลดข้อมูลเมนูได้");
         } finally {
             setIsLoading(false);
         }
-    }, [message, selectedCategoryId, token]);
+    }, [message, token]);
 
-    const refreshActiveOrder = React.useCallback(async () => {
-        if (!token) return;
-        setIsRefreshingOrder(true);
-        try {
-            const data = await fetchJson<ActiveOrderData>(`/api/public/table-order/${encodeURIComponent(token)}/order`);
-            setBootstrap((prev) => {
-                if (!prev) return prev;
-                return {
-                    ...prev,
-                    active_order: data.active_order,
-                    policy: data.policy,
-                };
-            });
-        } catch {
-            // no-op for polling failures
-        } finally {
-            setIsRefreshingOrder(false);
-        }
-    }, [token]);
+    const refreshActiveOrder = React.useCallback(
+        async (showError = false) => {
+            if (!token) return;
+            setIsRefreshingOrder(true);
+            try {
+                const data = await fetchJson<ActiveOrderData>(`/api/public/table-order/${encodeURIComponent(token)}/order`);
+                setBootstrap((prev) => {
+                    if (!prev) return prev;
+                    return {
+                        ...prev,
+                        active_order: data.active_order,
+                        policy: data.policy,
+                    };
+                });
+            } catch (error) {
+                if (showError) {
+                    message.error(error instanceof Error ? error.message : "ไม่สามารถอัปเดตสถานะออเดอร์ได้");
+                }
+            } finally {
+                setIsRefreshingOrder(false);
+            }
+        },
+        [message, token]
+    );
 
     React.useEffect(() => {
         void loadBootstrap();
     }, [loadBootstrap]);
 
+    const menuProducts = React.useMemo(() => {
+        if (!bootstrap) return [];
+        return bootstrap.menu.flatMap((category) => category.items.map((item) => mapMenuToProduct(item, category)));
+    }, [bootstrap]);
+
+    const menuProductById = React.useMemo(() => {
+        const map = new Map<string, Products>();
+        menuProducts.forEach((product) => {
+            map.set(product.id, product);
+        });
+        return map;
+    }, [menuProducts]);
+
+    const filteredProducts = React.useMemo(() => {
+        const keyword = deferredSearchQuery.trim().toLowerCase();
+
+        return menuProducts.filter((product) => {
+            const matchedCategory = !selectedCategory || product.category_id === selectedCategory;
+            if (!matchedCategory) return false;
+            if (!keyword) return true;
+            return `${product.display_name} ${product.description || ""}`.toLowerCase().includes(keyword);
+        });
+    }, [deferredSearchQuery, menuProducts, selectedCategory]);
+
+    const paginatedProducts = React.useMemo(() => {
+        const startIndex = (page - 1) * MENU_PAGE_SIZE;
+        return filteredProducts.slice(startIndex, startIndex + MENU_PAGE_SIZE);
+    }, [filteredProducts, page]);
+
     React.useEffect(() => {
-        if (!token) return;
-        const interval = window.setInterval(() => {
-            void refreshActiveOrder();
-        }, 15000);
-        return () => window.clearInterval(interval);
-    }, [refreshActiveOrder, token]);
+        setPage(1);
+    }, [searchQuery, selectedCategory]);
 
-    const selectedCategory = React.useMemo(() => {
-        if (!bootstrap) return null;
-        if (!selectedCategoryId) return bootstrap.menu[0] || null;
-        return bootstrap.menu.find((category) => category.id === selectedCategoryId) || bootstrap.menu[0] || null;
-    }, [bootstrap, selectedCategoryId]);
+    React.useEffect(() => {
+        const maxPage = Math.max(1, Math.ceil(filteredProducts.length / MENU_PAGE_SIZE));
+        if (page > maxPage) {
+            setPage(maxPage);
+        }
+    }, [filteredProducts.length, page]);
 
-    const cartEntries = React.useMemo(() => Object.values(cart), [cart]);
+    const isOrderLocked = Boolean(bootstrap?.active_order && !bootstrap.active_order.can_add_items);
 
-    const cartSummary = React.useMemo(() => {
-        const itemCount = cartEntries.reduce((sum, entry) => sum + entry.quantity, 0);
-        const total = cartEntries.reduce((sum, entry) => sum + entry.quantity * Number(entry.product.price || 0), 0);
-        return { itemCount, total };
-    }, [cartEntries]);
+    const getProductUnitPrice = React.useCallback((product: Products) => Number(product.price || 0), []);
 
-    const addToCart = (product: MenuItem) => {
-        setCart((prev) => {
-            const existing = prev[product.id];
-            if (existing) {
-                return {
-                    ...prev,
-                    [product.id]: {
-                        ...existing,
-                        quantity: existing.quantity + 1,
-                    },
-                };
-            }
-            return {
-                ...prev,
-                [product.id]: {
-                    product,
-                    quantity: 1,
-                    notes: "",
-                },
-            };
+    const totalItems = React.useMemo(() => cartItems.reduce((sum, item) => sum + item.quantity, 0), [cartItems]);
+
+    const subtotal = React.useMemo(() => {
+        return cartItems.reduce((sum, item) => {
+            const unitPrice = Number(item.product.price || 0);
+            return sum + unitPrice * item.quantity;
+        }, 0);
+    }, [cartItems]);
+
+    const groupedCartItems = React.useMemo(() => groupOrderItems(cartItems), [cartItems]);
+
+    const categorySummary = React.useMemo(() => {
+        const categoriesMap: Record<string, number> = {};
+        cartItems.forEach((item) => {
+            const categoryName = item.product.category?.display_name || "อื่นๆ";
+            categoriesMap[categoryName] = (categoriesMap[categoryName] || 0) + item.quantity;
         });
-    };
+        return Object.entries(categoriesMap).map(([name, count]) => ({ name, count }));
+    }, [cartItems]);
 
-    const updateQuantity = (productId: string, quantity: number) => {
-        setCart((prev) => {
+    const purchasedItems = React.useMemo(() => {
+        const activeItems = bootstrap?.active_order?.items || [];
+        const nonCancelled = activeItems.filter((item) => String(item.status || "").toLowerCase() !== "cancelled");
+        return groupOrderItems(nonCancelled);
+    }, [bootstrap?.active_order?.items]);
+
+    const purchasedCategorySummary = React.useMemo(() => {
+        const summaryMap: Record<string, number> = {};
+        purchasedItems.forEach((item) => {
+            const categoryName = menuProductById.get(item.product_id)?.category?.display_name || "อื่นๆ";
+            summaryMap[categoryName] = (summaryMap[categoryName] || 0) + Number(item.quantity || 0);
+        });
+        return Object.entries(summaryMap);
+    }, [menuProductById, purchasedItems]);
+
+    const activeOrderStatus = bootstrap?.active_order ? mapStatus(bootstrap.active_order.status) : null;
+
+    const addToCart = React.useCallback(
+        (product: Products) => {
+            if (isOrderLocked) {
+                message.error("บิลนี้ถูกล็อกแล้ว กรุณาเรียกพนักงาน");
+                return;
+            }
+            setCartItems((prev) => [...prev, createCartItem(product)]);
+            message.success(`เพิ่ม ${product.display_name} ลงตะกร้าเรียบร้อยแล้ว`);
+        },
+        [isOrderLocked, message]
+    );
+
+    const updateQuantity = React.useCallback((cartItemId: string, quantity: number) => {
+        setCartItems((prev) => {
             if (quantity <= 0) {
-                const next = { ...prev };
-                delete next[productId];
-                return next;
+                return prev.filter((item) => item.cart_item_id !== cartItemId);
             }
-            const existing = prev[productId];
-            if (!existing) return prev;
-            return {
-                ...prev,
-                [productId]: {
-                    ...existing,
-                    quantity,
-                },
-            };
+            return prev.map((item) =>
+                item.cart_item_id === cartItemId
+                    ? {
+                          ...item,
+                          quantity,
+                      }
+                    : item
+            );
         });
-    };
+    }, []);
 
-    const updateNotes = (productId: string, notes: string) => {
-        setCart((prev) => {
-            const existing = prev[productId];
-            if (!existing) return prev;
-            return {
-                ...prev,
-                [productId]: {
-                    ...existing,
-                    notes,
-                },
-            };
-        });
-    };
+    const removeFromCart = React.useCallback((cartItemId: string) => {
+        setCartItems((prev) => prev.filter((item) => item.cart_item_id !== cartItemId));
+    }, []);
 
-    const submitOrder = async () => {
-        if (!bootstrap) return;
-        if (cartEntries.length === 0) {
-            message.warning("Please add at least one item");
+    const clearCart = React.useCallback(() => {
+        setCartItems([]);
+    }, []);
+
+    const openProductModal = React.useCallback((product: Products) => {
+        setSelectedProduct(product);
+        setIsProductModalVisible(true);
+    }, []);
+
+    const closeProductModal = React.useCallback(() => {
+        setIsProductModalVisible(false);
+        setSelectedProduct(null);
+    }, []);
+
+    const openNoteModal = React.useCallback((id: string, name: string, note: string) => {
+        setCurrentNoteItem({ id, name, note });
+        setNoteInput(note || "");
+        setIsNoteModalVisible(true);
+    }, []);
+
+    const closeNoteModal = React.useCallback(() => {
+        setCurrentNoteItem(null);
+        setNoteInput("");
+        setIsNoteModalVisible(false);
+    }, []);
+
+    const handleSaveNote = React.useCallback(() => {
+        if (!currentNoteItem) return;
+        setCartItems((prev) =>
+            prev.map((item) =>
+                item.cart_item_id === currentNoteItem.id
+                    ? {
+                          ...item,
+                          notes: noteInput,
+                      }
+                    : item
+            )
+        );
+        message.success("บันทึกหมายเหตุเรียบร้อยแล้ว");
+        closeNoteModal();
+    }, [closeNoteModal, currentNoteItem, message, noteInput]);
+
+    const handleCheckout = React.useCallback(() => {
+        if (cartItems.length === 0) {
+            message.warning("กรุณาเพิ่มสินค้าลงตะกร้าก่อน");
             return;
         }
+        if (isOrderLocked) {
+            message.error("บิลนี้ถูกล็อกแล้ว กรุณาเรียกพนักงาน");
+            return;
+        }
+        setCheckoutVisible(true);
+    }, [cartItems.length, isOrderLocked, message]);
 
-        if (bootstrap.active_order && !bootstrap.active_order.can_add_items) {
-            message.error("Order is locked. Please call staff.");
+    const submitOrder = React.useCallback(async () => {
+        if (!bootstrap) return;
+        if (cartItems.length === 0) {
+            message.warning("กรุณาเพิ่มสินค้าอย่างน้อย 1 รายการ");
+            return;
+        }
+        if (isOrderLocked) {
+            message.error("บิลนี้ถูกล็อกแล้ว กรุณาเรียกพนักงาน");
             return;
         }
 
         setIsSubmitting(true);
         try {
             const payload = {
-                items: cartEntries.map((entry) => ({
+                items: cartItems.map((entry) => ({
                     product_id: entry.product.id,
                     quantity: entry.quantity,
                     notes: entry.notes || "",
                 })),
             };
+            const idempotencyKey = getOrCreateSubmitIdempotencyKey();
 
             const result = await fetchJson<SubmitOrderData>(`/api/public/table-order/${encodeURIComponent(token)}/order`, {
                 method: "POST",
+                headers: {
+                    "Idempotency-Key": idempotencyKey,
+                },
                 body: JSON.stringify(payload),
             });
 
@@ -324,324 +667,518 @@ export default function CustomerTableOrderPage() {
                     active_order: result.order,
                 };
             });
-            setCart({});
-            setDrawerOpen(false);
-            message.success(result.mode === "create" ? "Order submitted" : "Items added");
+
+            setCartItems([]);
+            submitIdempotencyKeyRef.current = null;
+            setCheckoutVisible(false);
+            setCartVisible(false);
+            void refreshActiveOrder();
+
+            message.success(result.mode === "create" ? "ส่งคำสั่งซื้อเรียบร้อยแล้ว" : "เพิ่มรายการเรียบร้อยแล้ว");
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "Failed to submit order");
+            message.error(error instanceof Error ? error.message : "ไม่สามารถส่งคำสั่งซื้อได้");
         } finally {
             setIsSubmitting(false);
         }
-    };
+    }, [bootstrap, cartItems, getOrCreateSubmitIdempotencyKey, isOrderLocked, message, refreshActiveOrder, token]);
 
-    const activeOrderStatus = bootstrap?.active_order ? mapStatus(bootstrap.active_order.status) : null;
-    const orderUrl = typeof window !== "undefined" ? window.location.href : "";
+    const handleConfirmOrder = React.useCallback(async () => {
+        await submitOrder();
+    }, [submitOrder]);
 
-    return (
-        <div
-            style={{
-                minHeight: "100vh",
-                background: "radial-gradient(circle at top left, #fef3c7 0%, #ecfccb 35%, #f8fafc 100%)",
-                padding: "20px 14px 96px",
-            }}
-        >
-            <div style={{ maxWidth: 980, margin: "0 auto" }}>
-                <Card
-                    bordered={false}
-                    style={{
-                        borderRadius: 22,
-                        background: "linear-gradient(145deg, #065f46 0%, #0f766e 100%)",
-                        color: "#ffffff",
-                        boxShadow: "0 20px 45px rgba(6,95,70,0.25)",
-                        marginBottom: 16,
-                    }}
-                >
-                    <Space direction="vertical" size={8} style={{ width: "100%" }}>
-                        <Space align="center" style={{ justifyContent: "space-between", width: "100%" }}>
-                            <Space align="center">
-                                <QrcodeOutlined style={{ fontSize: 22 }} />
-                                <div>
-                                    <Text style={{ color: "rgba(255,255,255,0.75)", fontSize: 12 }}>Table QR ordering</Text>
-                                    <Title level={4} style={{ color: "#ffffff", margin: 0 }}>
-                                        {bootstrap?.table.table_name ? `Table ${bootstrap.table.table_name}` : "Loading table..."}
-                                    </Title>
-                                </div>
-                            </Space>
-                            <Button
-                                icon={<ReloadOutlined spin={isRefreshingOrder} />}
-                                onClick={() => {
-                                    void refreshActiveOrder();
-                                }}
-                                disabled={!bootstrap}
-                            >
-                                Refresh
-                            </Button>
-                        </Space>
-                        <Space wrap>
-                            <Tag color="gold">Customer can add items</Tag>
-                            <Tag color="default">Cancel by store only</Tag>
-                            <Tag color="default">Payment by store only</Tag>
-                            <Tag color="red">No refund flow</Tag>
-                        </Space>
-                    </Space>
-                </Card>
+    const renderCartItem = React.useCallback(
+        (item: CartItem) => {
+            const lineTotal = Number(item.product.price || 0) * item.quantity;
+            const imageSrc = resolveImageSource(item.product.img_url);
+            const productName = item.product.display_name || item.product.product_name || "สินค้า";
+            const categoryName = item.product.category?.display_name || "ทั่วไป";
 
-                {isLoading ? (
-                    <div style={{ display: "flex", justifyContent: "center", padding: "64px 0" }}>
-                        <Spin size="large" />
-                    </div>
-                ) : !bootstrap ? (
-                    <Card bordered={false} style={{ borderRadius: 18 }}>
-                        <Empty description="Table not found or QR expired" />
-                    </Card>
-                ) : (
-                    <>
-                        <Card bordered={false} style={{ borderRadius: 18, marginBottom: 16 }}>
-                            <Space align="start" style={{ width: "100%", justifyContent: "space-between" }}>
-                                <div>
-                                    <Text type="secondary">Current order status</Text>
-                                    {bootstrap.active_order ? (
-                                        <Space align="center" size={8}>
-                                            <Tag color={activeOrderStatus?.color || "default"}>{activeOrderStatus?.label}</Tag>
-                                            <Text strong>{bootstrap.active_order.order_no}</Text>
-                                        </Space>
-                                    ) : (
-                                        <Text strong style={{ display: "block" }}>
-                                            No open order yet
-                                        </Text>
-                                    )}
-                                </div>
-                                <Space>
-                                    <ClockCircleOutlined style={{ color: "#475569" }} />
-                                    <Text type="secondary">Auto refresh every 15 seconds</Text>
-                                </Space>
-                            </Space>
-
-                            {bootstrap.active_order ? (
-                                <>
-                                    <Divider style={{ margin: "14px 0" }} />
-                                    <List
-                                        size="small"
-                                        dataSource={bootstrap.active_order.items}
-                                        locale={{ emptyText: "No items" }}
-                                        renderItem={(item) => (
-                                            <List.Item>
-                                                <Space direction="vertical" size={0} style={{ width: "100%" }}>
-                                                    <Space style={{ justifyContent: "space-between", width: "100%" }}>
-                                                        <Text strong>{item.product_name}</Text>
-                                                        <Text>{formatCurrency(item.total_price)}</Text>
-                                                    </Space>
-                                                    <Space style={{ justifyContent: "space-between", width: "100%" }}>
-                                                        <Text type="secondary">x{item.quantity}</Text>
-                                                        <Tag color={mapStatus(item.status).color}>{mapStatus(item.status).label}</Tag>
-                                                    </Space>
-                                                </Space>
-                                            </List.Item>
-                                        )}
+            return (
+                <List.Item key={item.cart_item_id} style={posComponentStyles.cartItemContainer} className="cart-item-hover">
+                    <div style={posComponentStyles.cartItemRow}>
+                        <div style={{ flexShrink: 0 }}>
+                            {imageSrc ? (
+                                <div style={posComponentStyles.cartItemImage}>
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                        src={imageSrc}
+                                        alt={productName}
+                                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
                                     />
-                                    <Divider style={{ margin: "14px 0" }} />
-                                    <Space style={{ justifyContent: "space-between", width: "100%" }}>
-                                        <Text strong>Order total</Text>
-                                        <Text strong>{formatCurrency(bootstrap.active_order.total_amount)}</Text>
-                                    </Space>
-                                </>
-                            ) : null}
-                        </Card>
+                                </div>
+                            ) : (
+                                <div style={posComponentStyles.cartItemImagePlaceholder}>
+                                    <ShopOutlined style={{ fontSize: 24, color: "#94a3b8" }} />
+                                </div>
+                            )}
+                        </div>
 
-                        <Card bordered={false} style={{ borderRadius: 18, marginBottom: 16 }}>
-                            <Space direction="vertical" size={12} style={{ width: "100%" }}>
-                                <Space style={{ justifyContent: "space-between", width: "100%" }}>
-                                    <Title level={5} style={{ margin: 0 }}>
-                                        Menu
-                                    </Title>
-                                    <Space align="center">
-                                        <ThunderboltOutlined style={{ color: "#d97706" }} />
-                                        <Text type="secondary">You can keep adding items until staff locks billing</Text>
-                                    </Space>
-                                </Space>
-
-                                {bootstrap.menu.length > 1 ? (
-                                    <Segmented
-                                        block
-                                        value={selectedCategory?.id}
-                                        onChange={(value) => setSelectedCategoryId(String(value))}
-                                        options={bootstrap.menu.map((category) => ({
-                                            label: `${category.display_name} (${category.items.length})`,
-                                            value: category.id,
-                                        }))}
-                                    />
-                                ) : null}
-
-                                {!selectedCategory || selectedCategory.items.length === 0 ? (
-                                    <Empty description="No available menu" />
-                                ) : (
-                                    <List
-                                        split={false}
-                                        dataSource={selectedCategory.items}
-                                        renderItem={(item) => {
-                                            const qty = cart[item.id]?.quantity || 0;
-                                            return (
-                                                <List.Item style={{ padding: "8px 0" }}>
-                                                    <Card
-                                                        size="small"
-                                                        style={{
-                                                            width: "100%",
-                                                            borderRadius: 14,
-                                                            border: "1px solid #e2e8f0",
-                                                        }}
-                                                    >
-                                                        <Space style={{ width: "100%", justifyContent: "space-between" }} align="start">
-                                                            <Space direction="vertical" size={3} style={{ maxWidth: "70%" }}>
-                                                                <Text strong>{item.display_name}</Text>
-                                                                <Text type="secondary" style={{ fontSize: 12 }}>
-                                                                    {item.description || "-"}
-                                                                </Text>
-                                                                <Text strong>{formatCurrency(item.price)}</Text>
-                                                            </Space>
-                                                            <Space direction="vertical" align="end" size={4}>
-                                                                {qty > 0 ? <Badge count={`In cart ${qty}`} /> : null}
-                                                                <Button type="primary" onClick={() => addToCart(item)}>
-                                                                    Add
-                                                                </Button>
-                                                            </Space>
-                                                        </Space>
-                                                    </Card>
-                                                </List.Item>
-                                            );
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+                                <div style={{ flex: 1 }}>
+                                    <Text
+                                        style={{
+                                            fontWeight: 600,
+                                            fontSize: 15,
+                                            color: "#1e293b",
+                                            display: "block",
+                                            lineHeight: 1.2,
+                                            marginBottom: 4,
                                         }}
-                                    />
-                                )}
-                            </Space>
-                        </Card>
-
-                        <Card bordered={false} style={{ borderRadius: 18 }}>
-                            <Space align="center" style={{ width: "100%", justifyContent: "space-between" }}>
-                                <Space>
-                                    <DynamicQRCode value={orderUrl || ""} size={68} />
-                                    <Space direction="vertical" size={0}>
-                                        <Text strong>This table link</Text>
-                                        <Text type="secondary" style={{ fontSize: 12 }}>
-                                            Share this URL if needed
-                                        </Text>
-                                    </Space>
-                                </Space>
-                                <Button
-                                    onClick={() => {
-                                        if (!orderUrl) return;
-                                        navigator.clipboard.writeText(orderUrl).then(() => {
-                                            message.success("Link copied");
-                                        });
+                                    >
+                                        {productName}
+                                    </Text>
+                                    <Tag style={posComponentStyles.cartItemTag}>{categoryName}</Tag>
+                                </div>
+                                <Text
+                                    style={{
+                                        fontWeight: 700,
+                                        fontSize: 16,
+                                        color: "#10b981",
+                                        whiteSpace: "nowrap",
+                                        marginLeft: 8,
                                     }}
                                 >
-                                    Copy link
-                                </Button>
-                            </Space>
-                        </Card>
-                    </>
-                )}
-            </div>
+                                    {formatPrice(lineTotal)}
+                                </Text>
+                            </div>
 
-            <div
-                style={{
-                    position: "fixed",
-                    left: 0,
-                    right: 0,
-                    bottom: 14,
-                    display: "flex",
-                    justifyContent: "center",
-                    pointerEvents: "none",
-                    zIndex: 40,
-                }}
-            >
-                <Button
-                    type="primary"
-                    size="large"
-                    icon={<ShoppingCartOutlined />}
-                    style={{
-                        pointerEvents: "all",
-                        borderRadius: 999,
-                        minWidth: 260,
-                        height: 52,
-                        boxShadow: "0 14px 35px rgba(15,23,42,0.25)",
-                        display: "flex",
-                        justifyContent: "space-between",
-                    }}
-                    onClick={() => setDrawerOpen(true)}
-                >
-                    <span>Cart {cartSummary.itemCount} items</span>
-                    <strong>{formatCurrency(cartSummary.total)}</strong>
-                </Button>
-            </div>
+                            {item.notes ? (
+                                <div style={posComponentStyles.cartItemNote}>
+                                    <Text style={{ fontSize: 11, color: "#ef4444" }}>โน้ต: {item.notes}</Text>
+                                </div>
+                            ) : null}
 
-            <Drawer
-                title="Order cart"
-                placement="bottom"
-                height="82vh"
-                open={drawerOpen}
-                onClose={() => setDrawerOpen(false)}
-                extra={<Tag>{cartSummary.itemCount} items</Tag>}
-            >
-                <Space direction="vertical" size={12} style={{ width: "100%" }}>
-                    {cartEntries.length === 0 ? (
-                        <Empty description="No items in cart" />
+                            <div
+                                className="pos-cart-item-controls"
+                                style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}
+                            >
+                                <div className="pos-cart-qty-control" style={posComponentStyles.cartItemQtyControl}>
+                                    <Button
+                                        type="text"
+                                        size="small"
+                                        icon={<MinusOutlined style={{ fontSize: 10 }} />}
+                                        className="pos-cart-icon-btn pos-cart-qty-btn"
+                                        aria-label="ลดจำนวน"
+                                        onClick={() => updateQuantity(item.cart_item_id, item.quantity - 1)}
+                                        style={{ borderRadius: 10, background: "white", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}
+                                    />
+                                    <Text style={{ margin: "0 8px", fontWeight: 600, minWidth: 16, textAlign: "center", fontSize: 13 }}>
+                                        {item.quantity}
+                                    </Text>
+                                    <Button
+                                        type="text"
+                                        size="small"
+                                        icon={<PlusOutlined style={{ fontSize: 10 }} />}
+                                        className="pos-cart-icon-btn pos-cart-qty-btn"
+                                        aria-label="เพิ่มจำนวน"
+                                        onClick={() => updateQuantity(item.cart_item_id, item.quantity + 1)}
+                                        style={{ borderRadius: 10, background: "#10b981", color: "white" }}
+                                    />
+                                </div>
+
+                                <div className="pos-cart-action-row" style={{ display: "flex", gap: 6 }}>
+                                    <Button
+                                        type="text"
+                                        icon={<EditOutlined />}
+                                        size="small"
+                                        className="pos-cart-icon-btn pos-cart-action-btn"
+                                        aria-label="แก้ไขโน้ต"
+                                        onClick={() => openNoteModal(item.cart_item_id, productName, item.notes || "")}
+                                        style={{ color: "#64748b", background: "#f1f5f9", borderRadius: 10 }}
+                                    />
+                                    <Button
+                                        type="text"
+                                        danger
+                                        icon={<DeleteOutlined />}
+                                        size="small"
+                                        className="pos-cart-icon-btn pos-cart-action-btn"
+                                        aria-label="ลบออกจากตะกร้า"
+                                        onClick={() => removeFromCart(item.cart_item_id)}
+                                        style={{ background: "#fef2f2", borderRadius: 10 }}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </List.Item>
+            );
+        },
+        [openNoteModal, removeFromCart, updateQuantity]
+    );
+
+    const tableName = bootstrap?.table.table_name ? `โต๊ะ ${bootstrap.table.table_name}` : "โต๊ะ";
+
+    return (
+        <>
+            <POSSharedStyles />
+            <QROrderMobileStyles />
+
+            <div style={posLayoutStyles.container} className="qr-order-page">
+                <POSHeaderBar
+                    title="ระบบสั่งอาหารผ่าน QR Code"
+                    subtitle={tableName}
+                    icon={<QrcodeOutlined style={{ fontSize: 26 }} />}
+                    onBack={() => router.back()}
+                />
+
+                <POSCategoryFilterBar
+                    categories={bootstrap?.menu || []}
+                    searchQuery={searchQuery}
+                    selectedCategory={selectedCategory}
+                    onSearchChange={setSearchQuery}
+                    onSelectCategory={setSelectedCategory}
+                />
+
+                <main style={posLayoutStyles.content} className="pos-content-mobile qr-main-content" role="main">
+                    {isLoading ? (
+                        <div style={posLayoutStyles.loadingContainer}>
+                            <Spin size="large" />
+                            <Text style={{ display: "block", marginTop: 16, color: posColors.textSecondary }}>
+                                กำลังโหลดเมนู...
+                            </Text>
+                        </div>
+                    ) : !bootstrap ? (
+                        <div style={posLayoutStyles.emptyContainer}>
+                            <Empty description="ไม่พบข้อมูลโต๊ะ หรือ QR Code หมดอายุแล้ว" />
+                        </div>
                     ) : (
-                        <List
-                            dataSource={cartEntries}
-                            renderItem={(entry) => (
-                                <List.Item>
-                                    <Space direction="vertical" style={{ width: "100%" }}>
-                                        <Space style={{ width: "100%", justifyContent: "space-between" }}>
-                                            <div>
-                                                <Text strong>{entry.product.display_name}</Text>
-                                                <br />
-                                                <Text type="secondary">{formatCurrency(entry.product.price)} / item</Text>
-                                            </div>
-                                            <InputNumber
-                                                min={0}
-                                                value={entry.quantity}
-                                                onChange={(value) => updateQuantity(entry.product.id, Number(value || 0))}
+                        <div style={{ display: "flex", flexDirection: "column", gap: 20 }} className="qr-main-stack">
+                            <Alert
+                                type="info"
+                                showIcon
+                                className="qr-alert qr-alert-info"
+                                message="การสั่งผ่าน QR Code (ลูกค้า)"
+                                description="ลูกค้าสามารถเพิ่มจำนวนและระบุโน้ตได้เท่านั้น หากต้องการเพิ่มท็อปปิงหรือรายละเอียดเพิ่มเติม กรุณาแจ้งพนักงาน"
+                                style={{ borderRadius: 14 }}
+                            />
+
+                            {isOrderLocked ? (
+                                <Alert
+                                    type="warning"
+                                    showIcon
+                                    className="qr-alert qr-alert-warning"
+                                    message="บิลนี้ถูกล็อกแล้ว"
+                                    description="ไม่สามารถเพิ่มรายการใหม่ได้ กรุณาเรียกพนักงาน"
+                                    style={{ borderRadius: 14 }}
+                                />
+                            ) : null}
+
+                            {filteredProducts.length > 0 ? (
+                                <>
+                                    <div
+                                        style={posLayoutStyles.productGrid}
+                                        className="pos-product-grid pos-product-grid-mobile qr-products-grid"
+                                    >
+                                        {paginatedProducts.map((product, index) => (
+                                            <POSProductCard
+                                                key={product.id}
+                                                index={index}
+                                                product={product}
+                                                onOpenProductModal={openProductModal}
+                                                onAddToCart={addToCart}
+                                                getProductUnitPrice={getProductUnitPrice}
                                             />
-                                        </Space>
-                                        <Input.TextArea
-                                            rows={2}
-                                            value={entry.notes}
-                                            onChange={(event) => updateNotes(entry.product.id, event.target.value)}
-                                            placeholder="Item note (for example: less spicy, no onions)"
-                                            maxLength={500}
-                                        />
-                                    </Space>
-                                </List.Item>
+                                        ))}
+                                    </div>
+
+                                    {filteredProducts.length > MENU_PAGE_SIZE ? (
+                                        <div style={posLayoutStyles.paginationContainer}>
+                                            <Pagination
+                                                current={page}
+                                                total={filteredProducts.length}
+                                                pageSize={MENU_PAGE_SIZE}
+                                                onChange={(nextPage) => setPage(nextPage)}
+                                                showSizeChanger={false}
+                                                showTotal={(total) => `ทั้งหมด ${total} รายการ`}
+                                            />
+                                        </div>
+                                    ) : null}
+                                </>
+                            ) : (
+                                <Card style={posLayoutStyles.emptyContainer}>
+                                    <Empty description="ไม่พบเมนูตามที่ค้นหา" />
+                                    <div style={{ marginTop: 12, textAlign: "center" }}>
+                                        <Button
+                                            onClick={() => {
+                                                setSearchQuery("");
+                                                setSelectedCategory(undefined);
+                                                setPage(1);
+                                            }}
+                                        >
+                                            รีเซ็ตตัวกรอง
+                                        </Button>
+                                    </div>
+                                </Card>
                             )}
-                        />
+
+                            <Card
+                                className="summary-card qr-summary-card"
+                                style={{
+                                    ...orderDetailStyles.summaryCard,
+                                    position: "static",
+                                    top: "auto",
+                                    marginTop: 4,
+                                }}
+                            >
+                                <div
+                                    style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 12 }}
+                                    className="qr-summary-header"
+                                >
+                                    <div>
+                                        <Title level={5} style={{ margin: 0, fontSize: 18, fontWeight: 600 }} className="qr-summary-title">
+                                            สรุปการสั่งซื้อ
+                                        </Title>
+                                        <Text type="secondary" style={{ fontSize: 13 }} className="qr-summary-subtitle">
+                                            แสดงรายการที่ส่งเข้าครัวแล้ว
+                                        </Text>
+                                    </div>
+                                    <Button
+                                        icon={<ReloadOutlined spin={isRefreshingOrder} />}
+                                        onClick={() => {
+                                            void refreshActiveOrder(true);
+                                        }}
+                                        className="qr-summary-refresh-btn"
+                                        style={{ borderRadius: 10 }}
+                                    >
+                                        อัปเดตสถานะ
+                                    </Button>
+                                </div>
+
+                                {bootstrap.active_order ? (
+                                    <>
+                                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }} className="qr-order-meta">
+                                            <Tag color={activeOrderStatus?.color || "default"}>{activeOrderStatus?.label}</Tag>
+                                            <Tag color="blue">เลขออเดอร์ #{bootstrap.active_order.order_no}</Tag>
+                                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                                อัปเดตล่าสุด: {formatDateTime(bootstrap.active_order.update_date)}
+                                            </Text>
+                                        </div>
+
+                                        <div style={orderDetailStyles.summaryList} className="summary-list">
+                                            <Text
+                                                strong
+                                                style={{
+                                                    fontSize: 15,
+                                                    marginBottom: 10,
+                                                    display: "block",
+                                                    color: orderDetailColors.textSecondary,
+                                                }}
+                                            >
+                                                รายการที่สั่งแล้ว
+                                            </Text>
+
+                                            {purchasedItems.length > 0 ? (
+                                                purchasedItems.map((item, index) => {
+                                                    const product = menuProductById.get(item.product_id);
+                                                    const imageSrc = resolveImageSource(product?.img_url || null);
+                                                    const isLast = index === purchasedItems.length - 1;
+
+                                                    return (
+                                                        <div
+                                                            key={`${item.id}-${index}`}
+                                                            style={{
+                                                                ...orderDetailStyles.summaryItemRow,
+                                                                ...(isLast ? orderDetailStyles.summaryItemRowLast : {}),
+                                                            }}
+                                                            className="summary-item-row"
+                                                        >
+                                                            {imageSrc ? (
+                                                                // eslint-disable-next-line @next/next/no-img-element
+                                                                <img
+                                                                    src={imageSrc}
+                                                                    alt={item.product_name || "สินค้า"}
+                                                                    style={orderDetailStyles.summaryItemImage}
+                                                                    className="summary-item-image"
+                                                                />
+                                                            ) : (
+                                                                <div
+                                                                    style={{
+                                                                        ...orderDetailStyles.summaryItemImage,
+                                                                        display: "flex",
+                                                                        alignItems: "center",
+                                                                        justifyContent: "center",
+                                                                        background: "#f8fafc",
+                                                                    }}
+                                                                    className="summary-item-image"
+                                                                >
+                                                                    <ShopOutlined style={{ fontSize: 16, color: "#bfbfbf" }} />
+                                                                </div>
+                                                            )}
+
+                                                            <div style={orderDetailStyles.summaryItemContent}>
+                                                                <div
+                                                                    style={{
+                                                                        display: "flex",
+                                                                        justifyContent: "space-between",
+                                                                        alignItems: "flex-start",
+                                                                    }}
+                                                                >
+                                                                    <Text strong style={{ fontSize: 15, flex: 1, lineHeight: 1.4 }}>
+                                                                        {item.product_name}
+                                                                    </Text>
+                                                                    <Text strong style={{ fontSize: 15, color: orderDetailColors.primary, lineHeight: 1.4 }}>
+                                                                        {formatPrice(Number(item.total_price || 0))}
+                                                                    </Text>
+                                                                </div>
+
+                                                                <div
+                                                                    style={{
+                                                                        display: "flex",
+                                                                        justifyContent: "space-between",
+                                                                        alignItems: "center",
+                                                                        marginTop: 4,
+                                                                    }}
+                                                                >
+                                                                    <Text type="secondary" style={{ fontSize: 13, lineHeight: 1.4 }}>
+                                                                        จำนวน: {item.quantity}
+                                                                    </Text>
+                                                                    <Text type="secondary" style={{ fontSize: 13, lineHeight: 1.4 }}>
+                                                                        ราคา: {formatPrice(Number(item.price || 0))}
+                                                                    </Text>
+                                                                </div>
+
+                                                                {item.notes ? (
+                                                                    <div
+                                                                        style={{
+                                                                            ...orderDetailStyles.summaryDetailText,
+                                                                            color: orderDetailColors.cancelled,
+                                                                            fontStyle: "italic",
+                                                                        }}
+                                                                    >
+                                                                        โน้ต: {item.notes}
+                                                                    </div>
+                                                                ) : null}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })
+                                            ) : (
+                                                <Text type="secondary">ยังไม่มีรายการที่สั่งแล้ว</Text>
+                                            )}
+                                        </div>
+
+                                        <div style={orderDetailStyles.summaryList}>
+                                            <Text
+                                                strong
+                                                style={{
+                                                    fontSize: 15,
+                                                    marginBottom: 10,
+                                                    display: "block",
+                                                    color: orderDetailColors.textSecondary,
+                                                }}
+                                            >
+                                                สรุปตามหมวดหมู่
+                                            </Text>
+
+                                            {purchasedCategorySummary.length > 0 ? (
+                                                purchasedCategorySummary.map(([categoryName, quantity]) => (
+                                                    <div key={categoryName} style={orderDetailStyles.summaryRow}>
+                                                        <Text type="secondary" style={{ fontSize: 14, lineHeight: 1.4 }}>
+                                                            {categoryName}
+                                                        </Text>
+                                                        <Text strong style={{ fontSize: 14, lineHeight: 1.4 }}>
+                                                            {String(quantity)} รายการ
+                                                        </Text>
+                                                    </div>
+                                                ))
+                                            ) : (
+                                                <div style={orderDetailStyles.summaryRow}>
+                                                    <Text type="secondary">ยังไม่มีข้อมูลหมวดหมู่</Text>
+                                                </div>
+                                            )}
+
+                                            <div style={orderDetailStyles.summaryMainRow}>
+                                                <Text strong style={{ fontSize: 20, lineHeight: 1.3 }} className="qr-summary-total-label">
+                                                    ยอดรวมปัจจุบัน
+                                                </Text>
+                                                <Text
+                                                    strong
+                                                    style={{ fontSize: 28, color: orderDetailColors.primary, lineHeight: 1.2 }}
+                                                    className="qr-summary-total-value"
+                                                >
+                                                    {formatPrice(Number(bootstrap.active_order.total_amount || 0))}
+                                                </Text>
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div style={orderDetailStyles.emptyState}>
+                                        <Empty description="ยังไม่มีรายการที่สั่งผ่าน QR Code" />
+                                    </div>
+                                )}
+                            </Card>
+                        </div>
                     )}
+                </main>
 
-                    <Divider />
-                    <Space style={{ width: "100%", justifyContent: "space-between" }}>
-                        <Text strong>Grand total</Text>
-                        <Title level={4} style={{ margin: 0 }}>
-                            {formatCurrency(cartSummary.total)}
-                        </Title>
-                    </Space>
+                <div className="pos-floating-btn-container">
+                    <Badge count={totalItems} size="default" offset={[-5, 5]}>
+                        <Button
+                            type="primary"
+                            shape="circle"
+                            size="large"
+                            icon={<ShoppingCartOutlined style={{ fontSize: 26 }} />}
+                            onClick={() => setCartVisible(true)}
+                            style={posLayoutStyles.floatingCartButton}
+                            className={`qr-floating-cart-btn ${totalItems > 0 ? "pos-cart-pulse" : ""}`.trim()}
+                            aria-label={`ตะกร้าสินค้า ${totalItems} รายการ`}
+                        />
+                    </Badge>
+                </div>
 
-                    <Alert
-                        type="info"
-                        showIcon
-                        message="Policy"
-                        description="After submitting, customer cannot cancel or pay from this page. Please call store staff."
+                <POSCartDrawer
+                    rootClassName="qr-mobile-cart-drawer"
+                    open={cartVisible}
+                    onClose={() => {
+                        setCartVisible(false);
+                        setCheckoutVisible(false);
+                    }}
+                    totalItems={totalItems}
+                    subtotal={subtotal}
+                    discountAmount={0}
+                    finalPrice={subtotal}
+                    cartItems={cartItems}
+                    onClearCart={clearCart}
+                    onCheckout={handleCheckout}
+                    renderCartItem={renderCartItem}
+                />
+
+                {cartVisible ? (
+                    <POSCheckoutDrawer
+                        rootClassName="qr-mobile-checkout-drawer"
+                        open={checkoutVisible}
+                        onClose={() => setCheckoutVisible(false)}
+                        isProcessing={isSubmitting}
+                        onConfirm={() => {
+                            void handleConfirmOrder();
+                        }}
+                        groupedCartItems={groupedCartItems}
+                        categorySummary={categorySummary}
+                        totalItems={totalItems}
+                        discountAmount={0}
+                        finalPrice={subtotal}
+                        getProductUnitPrice={getProductUnitPrice}
                     />
+                ) : null}
 
-                    <Button
-                        type="primary"
-                        size="large"
-                        onClick={submitOrder}
-                        loading={isSubmitting}
-                        disabled={cartEntries.length === 0}
-                        style={{ borderRadius: 12, height: 48 }}
-                    >
-                        Submit order
-                    </Button>
-                </Space>
-            </Drawer>
-        </div>
+                <POSNoteModal
+                    open={isNoteModalVisible}
+                    itemName={currentNoteItem?.name}
+                    value={noteInput}
+                    onChange={setNoteInput}
+                    onSave={handleSaveNote}
+                    onCancel={closeNoteModal}
+                />
+
+                <POSProductDetailModal
+                    open={isProductModalVisible}
+                    product={selectedProduct}
+                    onClose={closeProductModal}
+                    onAddToCart={addToCart}
+                    getProductUnitPrice={getProductUnitPrice}
+                />
+            </div>
+        </>
     );
 }

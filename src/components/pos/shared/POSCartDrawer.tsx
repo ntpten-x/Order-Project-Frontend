@@ -20,6 +20,7 @@ type POSCartDrawerProps = {
   onClearCart: () => void;
   onCheckout: () => void;
   renderCartItem: (item: CartItem) => React.ReactNode;
+  rootClassName?: string;
 };
 
 export function POSCartDrawer({
@@ -33,9 +34,11 @@ export function POSCartDrawer({
   onClearCart,
   onCheckout,
   renderCartItem,
+  rootClassName,
 }: POSCartDrawerProps) {
   return (
     <Drawer
+      rootClassName={rootClassName}
       title={
         <div style={posComponentStyles.drawerTitleRow}>
           <div style={posComponentStyles.drawerTitleIcon}>

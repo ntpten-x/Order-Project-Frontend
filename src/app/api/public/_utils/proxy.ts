@@ -5,12 +5,14 @@ export async function proxyPublicJsonRequest(options: {
     method: "GET" | "POST";
     backendPath: string;
     body?: unknown;
+    headers?: Record<string, string>;
 }): Promise<NextResponse> {
-    const { method, backendPath, body } = options;
+    const { method, backendPath, body, headers: extraHeaders } = options;
 
     const url = getProxyUrl(method, backendPath);
     const headers: Record<string, string> = {
         Accept: "application/json",
+        ...(extraHeaders || {}),
     };
 
     if (method !== "GET") {

@@ -30,6 +30,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const [loading, setLoading] = useState<boolean>(true);
     const router = useRouter();
     const pathname = usePathname();
+    const isPublicPath = pathname === "/login" || pathname.startsWith("/order/");
 
     const checkAuth = async () => {
         try {
@@ -49,10 +50,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const { showLoading, hideLoading } = useGlobalLoading();
 
     useEffect(() => {
-        if (!loading && !user && pathname !== "/login") {
+        if (!loading && !user && !isPublicPath) {
             router.push("/login");
         }
-    }, [user, loading, pathname, router]);
+    }, [user, loading, isPublicPath, router]);
 
     const login = async (credentials: LoginCredentials) => {
         try {
@@ -121,7 +122,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         );
     }
 
-    if (!user && pathname !== "/login") {
+    if (!user && !isPublicPath) {
         return null;
     }
 
