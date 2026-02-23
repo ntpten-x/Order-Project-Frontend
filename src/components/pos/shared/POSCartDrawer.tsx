@@ -129,7 +129,7 @@ export function POSCartDrawer({
                 boxShadow: "0 4px 12px rgba(16, 185, 129, 0.4)",
               }}
             >
-              ชำระเงิน
+              เพิ่มออเดอร์
             </Button>
           </div>
         </div>
