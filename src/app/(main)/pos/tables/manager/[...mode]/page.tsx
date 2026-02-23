@@ -1,7 +1,7 @@
 ﻿'use client';
 
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Form, Input, message, Spin, Switch, Modal, Button, Card, Row, Col, Typography, Alert, Tag } from 'antd';
+import { Form, Input, message, Spin, Switch, Modal, Button, Card, Row, Col, Typography, Alert, Tag, Space } from 'antd';
 import { useRouter } from 'next/navigation';
 import PageContainer from '../../../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../../../components/ui/page/PageSection';
@@ -10,6 +10,9 @@ import {
     DeleteOutlined,
     SaveOutlined,
     TableOutlined,
+    CopyOutlined,
+    QrcodeOutlined,
+    SyncOutlined,
     CheckCircleFilled,
     AppstoreOutlined,
     InfoCircleOutlined,
@@ -22,7 +25,9 @@ import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
 import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuard';
 import { pageStyles } from '../../../../../../theme/pos/tables/style';
 import { Tables, TableStatus } from '../../../../../../types/api/pos/tables';
+import type { TableQrInfo } from '../../../../../../types/api/pos/tables';
 import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
+import { DynamicQRCode } from "../../../../../../lib/dynamic-imports";
 
 type TablesManageMode = 'add' | 'edit';
 
@@ -130,6 +135,9 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
     const [originalTable, setOriginalTable] = useState<Tables | null>(null);
     const [currentTableName, setCurrentTableName] = useState<string>('');
     const [isStatusModalVisible, setIsStatusModalVisible] = useState(false);
+    const [qrInfo, setQrInfo] = useState<TableQrInfo | null>(null);
+    const [qrLoading, setQrLoading] = useState(false);
+    const [qrRotating, setQrRotating] = useState(false);
 
     const mode = params.mode?.[0] as TablesManageMode | undefined;
     const id = params.mode?.[1] || null;
@@ -194,6 +202,78 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
             fetchTable();
         }
     }, [isEdit, fetchTable]);
+
+    const buildCustomerUrl = useCallback((customerPath?: string | null) => {
+        if (!customerPath) return '';
+        if (typeof window === 'undefined') return customerPath;
+        return new URL(customerPath, window.location.origin).toString();
+    }, []);
+
+    const fetchQrInfo = useCallback(async () => {
+        if (!id) return;
+        setQrLoading(true);
+        try {
+            const response = await fetch(`/api/pos/tables/${id}/qr`, { cache: 'no-store' });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || errorData.message || 'Failed to load table QR');
+            }
+            const payload = await response.json();
+            setQrInfo(payload);
+        } catch (error) {
+            console.error(error);
+            message.error(error instanceof Error ? error.message : 'Failed to load table QR');
+        } finally {
+            setQrLoading(false);
+        }
+    }, [id]);
+
+    useEffect(() => {
+        if (isEdit) {
+            fetchQrInfo();
+        }
+    }, [isEdit, fetchQrInfo]);
+
+    const handleCopyQrLink = useCallback(async () => {
+        const customerUrl = buildCustomerUrl(qrInfo?.customer_path || '');
+        if (!customerUrl) {
+            message.warning('QR link is not available');
+            return;
+        }
+        try {
+            await navigator.clipboard.writeText(customerUrl);
+            message.success('Copied customer ordering link');
+        } catch {
+            message.error('Failed to copy link');
+        }
+    }, [buildCustomerUrl, qrInfo?.customer_path]);
+
+    const handleRotateQr = useCallback(async () => {
+        if (!id) return;
+        setQrRotating(true);
+        try {
+            const response = await fetch(`/api/pos/tables/${id}/qr/rotate`, {
+                method: 'POST',
+                headers: {
+                    'X-CSRF-Token': csrfToken,
+                },
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throw new Error(errorData.error || errorData.message || 'Failed to rotate QR');
+            }
+
+            const payload = await response.json();
+            setQrInfo(payload);
+            message.success('Rotated table QR successfully');
+        } catch (error) {
+            console.error(error);
+            message.error(error instanceof Error ? error.message : 'Failed to rotate QR');
+        } finally {
+            setQrRotating(false);
+        }
+    }, [csrfToken, id]);
 
     const checkNameConflict = useCallback(async (rawValue: string) => {
         const value = rawValue.trim();
@@ -305,6 +385,9 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
     if (!canSubmit) {
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
     }
+
+    const customerOrderUrl = buildCustomerUrl(qrInfo?.customer_path || '');
+    const qrExpireText = qrInfo?.qr_code_expires_at ? formatDate(qrInfo.qr_code_expires_at) : 'No expiry';
 
     return (
         <div className="manage-page" style={pageStyles.container as React.CSSProperties}>
@@ -469,6 +552,56 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                                         status={status}
                                         isActive={isActive}
                                     />
+
+                                    {isEdit ? (
+                                        <Card style={{ borderRadius: 16 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                                                <QrcodeOutlined style={{ color: '#0f766e' }} />
+                                                <Text strong>QR Ordering Link</Text>
+                                            </div>
+
+                                            {qrLoading ? (
+                                                <div style={{ display: 'flex', justifyContent: 'center', padding: '24px 0' }}>
+                                                    <Spin size="small" />
+                                                </div>
+                                            ) : qrInfo && customerOrderUrl ? (
+                                                <Space direction="vertical" size={12} style={{ width: '100%' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'center', padding: '8px 0' }}>
+                                                        <DynamicQRCode value={customerOrderUrl} size={150} />
+                                                    </div>
+                                                    <Text type="secondary" style={{ fontSize: 12, wordBreak: 'break-all' }}>
+                                                        {customerOrderUrl}
+                                                    </Text>
+                                                    <Text type="secondary">Token expires: {qrExpireText}</Text>
+                                                    <Space wrap>
+                                                        <Button icon={<CopyOutlined />} onClick={handleCopyQrLink}>
+                                                            Copy link
+                                                        </Button>
+                                                        <Button
+                                                            icon={<SyncOutlined spin={qrRotating} />}
+                                                            loading={qrRotating}
+                                                            onClick={handleRotateQr}
+                                                        >
+                                                            Rotate QR
+                                                        </Button>
+                                                    </Space>
+                                                    <Alert
+                                                        type="info"
+                                                        showIcon
+                                                        message="Customer policy"
+                                                        description="Customers can submit and add items only. Payment and cancel are handled by store staff."
+                                                    />
+                                                </Space>
+                                            ) : (
+                                                <Alert
+                                                    type="warning"
+                                                    showIcon
+                                                    message="QR not available"
+                                                    description="Save this table first, then generate QR."
+                                                />
+                                            )}
+                                        </Card>
+                                    ) : null}
 
                                     {isEdit ? (
                                         <Card style={{ borderRadius: 16 }}>

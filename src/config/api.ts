@@ -1,6 +1,9 @@
 export const API_PREFIX = '/api';
 
 export const API_ROUTES = {
+    PUBLIC: {
+        TABLE_ORDER: "/public/table-order",
+    },
     AUTH: {
         LOGIN: '/auth/login',
         LOGOUT: '/auth/logout',

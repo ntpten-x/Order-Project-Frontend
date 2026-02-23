@@ -1,4 +1,4 @@
-import { Tables } from "../../types/api/pos/tables";
+import { TableQrInfo, Tables } from "../../types/api/pos/tables";
 import { getProxyUrl } from "../../lib/proxy-utils";
 import { API_ROUTES } from "../../config/api";
 import { normalizeBackendPaginated, throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
@@ -13,7 +13,7 @@ const getHeaders = (cookie?: string, contentType: string = "application/json"): 
 };
 
 export const tablesService = {
-    getAll: async (cookie?: string, searchParams?: URLSearchParams): Promise<{ data: Tables[], total: number, page: number, last_page: number }> => {
+    getAll: async (cookie?: string, searchParams?: URLSearchParams): Promise<{ data: Tables[]; total: number; page: number; last_page: number }> => {
         let url = getProxyUrl("GET", BASE_PATH);
         const params = new URLSearchParams(searchParams || "");
         if (!params.has("page")) params.set("page", "1");
@@ -27,7 +27,7 @@ export const tablesService = {
         const response = await fetch(url!, {
             cache: "no-store",
             headers,
-            credentials: "include"
+            credentials: "include",
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
@@ -43,7 +43,7 @@ export const tablesService = {
         const response = await fetch(url!, {
             cache: "no-store",
             headers,
-            credentials: "include"
+            credentials: "include",
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
@@ -59,13 +59,46 @@ export const tablesService = {
         const response = await fetch(url!, {
             cache: "no-store",
             headers,
-            credentials: "include"
+            credentials: "include",
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throwBackendHttpError(response, errorData, "Failed to fetch tables");
         }
         return unwrapBackendData(await response.json()) as Tables;
+    },
+
+    getQrToken: async (id: string, cookie?: string): Promise<TableQrInfo> => {
+        const url = getProxyUrl("GET", `${BASE_PATH}/${id}/qr`);
+        const headers = getHeaders(cookie, "");
+
+        const response = await fetch(url!, {
+            cache: "no-store",
+            headers,
+            credentials: "include",
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throwBackendHttpError(response, errorData, "Failed to fetch table QR token");
+        }
+        return unwrapBackendData(await response.json()) as TableQrInfo;
+    },
+
+    rotateQrToken: async (id: string, cookie?: string, csrfToken?: string): Promise<TableQrInfo> => {
+        const url = getProxyUrl("POST", `${BASE_PATH}/${id}/qr/rotate`);
+        const headers = getHeaders(cookie) as Record<string, string>;
+        if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
+
+        const response = await fetch(url!, {
+            method: "POST",
+            headers,
+            credentials: "include",
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throwBackendHttpError(response, errorData, "Failed to rotate table QR token");
+        }
+        return unwrapBackendData(await response.json()) as TableQrInfo;
     },
 
     create: async (data: Partial<Tables>, cookie?: string, csrfToken?: string): Promise<Tables> => {
@@ -112,11 +145,11 @@ export const tablesService = {
         const response = await fetch(url!, {
             method: "DELETE",
             headers,
-            credentials: "include"
+            credentials: "include",
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throwBackendHttpError(response, errorData, "Failed to delete table");
         }
-    }
+    },
 };

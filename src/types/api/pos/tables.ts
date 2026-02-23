@@ -1,15 +1,23 @@
 export enum TableStatus {
-    Available = "Available",    // ว่าง
-    Unavailable = "Unavailable" // ไม่ว่าง
+    Available = "Available",
+    Unavailable = "Unavailable"
 }
 
 export interface Tables {
-    id: string; // รหัสโต๊ะ
-    table_name: string; // ชื่อโต๊ะ (เช่น T1, A10)
-    status: TableStatus; // สถานะโต๊ะ
-    active_order_status?: string; // สถานะออเดอร์ล่าสุด (ถ้ามี)
-    active_order_id?: string; // รหัสออเดอร์ล่าสุด (ถ้ามี)
-    create_date: string; // วันที่สร้าง
-    update_date: string; // วันที่แก้ไขล่าสุด
-    is_active: boolean; // สถานะการใช้งาน (เปิด/ปิด)
+    id: string;
+    table_name: string;
+    status: TableStatus;
+    active_order_status?: string;
+    active_order_id?: string;
+    create_date: string;
+    update_date: string;
+    is_active: boolean;
+}
+
+export interface TableQrInfo {
+    table_id: string;
+    table_name: string;
+    qr_code_token: string | null;
+    qr_code_expires_at: string | null;
+    customer_path: string | null;
 }

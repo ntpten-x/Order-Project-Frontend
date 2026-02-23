@@ -47,7 +47,7 @@ const AppHeader: React.FC = () => {
   }, [pathname]);
 
   // ซ่อน header บนหน้า login
-  if (!user || pathname === "/login") {
+  if (!user || pathname === "/login" || pathname.startsWith("/order/")) {
     return null;
   }
 
