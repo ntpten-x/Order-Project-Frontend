@@ -175,7 +175,7 @@ const TableQrCard = ({
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                 <div style={{ minWidth: 0 }}>
                     <Text strong style={{ fontSize: 16, color: '#0f172a' }} ellipsis={{ tooltip: table.table_name }}>
-                        {table.table_name}
+                        โต๊ะ {table.table_name}
                     </Text>
                     <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
                         อัปเดตล่าสุด {formatDate(table.update_date)}
@@ -218,7 +218,7 @@ const TableQrCard = ({
             </Tooltip>
 
             <Text type="secondary" style={{ fontSize: 12 }}>
-                หมดอายุ: {formatDate(table.qr_code_expires_at)}
+                หมดอายุ : {formatDate(table.qr_code_expires_at)}
             </Text>
 
             <Space size={8} wrap style={{ width: '100%' }}>
@@ -663,12 +663,10 @@ export default function TableQrCodePage() {
 
             <UIPageHeader
                 title="QR Code โต๊ะ"
-                subtitle={`ทั้งหมด ${totalCount} โต๊ะ`}
                 icon={<QrcodeOutlined />}
                 actions={(
-                    <Space size={8} wrap>
+                    <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} onClick={fetchQrCodes}>
-                            รีโหลด
                         </Button>
                         <Button icon={<TableOutlined />} onClick={() => router.push('/pos/tables')}>
                             จัดการโต๊ะ
@@ -700,7 +698,7 @@ export default function TableQrCodePage() {
 
                     <SearchBar>
                         <SearchInput
-                            placeholder="ค้นหาชื่อโต๊ะ หรือ token..."
+                            placeholder="ค้นหา"
                             value={searchText}
                             onChange={(value) => setSearchText(value)}
                         />
@@ -735,7 +733,7 @@ export default function TableQrCodePage() {
 
                     <PageSection
                         title="รายการ QR โต๊ะ"
-                        extra={<Text strong>{filteredTables.length}</Text>}
+                        extra={<Text strong>{filteredTables.length} รายการ</Text>}
                     >
                         {loading ? (
                             <div style={{ display: 'flex', justifyContent: 'center', padding: '90px 0' }}>
@@ -749,11 +747,6 @@ export default function TableQrCodePage() {
                                         ? 'ลองเปลี่ยนคำค้น หรือเงื่อนไขตัวกรอง'
                                         : 'เพิ่มโต๊ะในหน้าโต๊ะก่อน แล้ว QR จะถูกสร้างให้อัตโนมัติ'
                                 }
-                                action={(
-                                    <Button type="primary" icon={<TableOutlined />} onClick={() => router.push('/pos/tables')}>
-                                        ไปหน้าโต๊ะ
-                                    </Button>
-                                )}
                             />
                         ) : (
                             <Space direction="vertical" size={14} style={{ width: '100%' }}>

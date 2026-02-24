@@ -341,7 +341,7 @@ export default function TablesPage() {
         }
         Modal.confirm({
             title: 'ยืนยันการลบโต๊ะ',
-            content: `คุณต้องการลบโต๊ะ "${table.table_name}" หรือไม่?`,
+            content: `คุณต้องการลบโต๊ะ ${table.table_name} หรือไม่?`,
             okText: 'ลบ',
             okType: 'danger',
             cancelText: 'ยกเลิก',
@@ -422,14 +422,13 @@ export default function TablesPage() {
 
             <UIPageHeader
                 title="โต๊ะ"
-                subtitle={`ทั้งหมด ${tables.length} รายการ`}
                 icon={<TableOutlined />}
                 actions={
-                    <Space size={8} wrap>
+                    <Space size={10} wrap>
+                        <Button icon={<ReloadOutlined />} onClick={fetchTables} />
                         <Button icon={<QrcodeOutlined />} onClick={handleOpenQrCodes}>
                             QR โต๊ะ
                         </Button>
-                        <Button icon={<ReloadOutlined />} onClick={fetchTables} />
                         {canCreateTables ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                                 เพิ่มโต๊ะ
@@ -453,7 +452,7 @@ export default function TablesPage() {
 
                     <SearchBar>
                         <SearchInput
-                            placeholder="ค้นหาจากชื่อโต๊ะหรือสถานะออเดอร์..."
+                            placeholder="ค้นหา"
                             value={searchText}
                             onChange={(val) => {
                                 setSearchText(val);
@@ -495,7 +494,7 @@ export default function TablesPage() {
 
                     <PageSection
                         title="รายการโต๊ะ"
-                        extra={<span style={{ fontWeight: 600 }}>{filteredTables.length}</span>}
+                        extra={<span style={{ fontWeight: 600 }}>{filteredTables.length} รายการ</span>}
                     >
                         {filteredTables.length > 0 ? (
                             filteredTables.map((table) => (
@@ -521,13 +520,6 @@ export default function TablesPage() {
                                     debouncedSearch.trim()
                                         ? 'ลองเปลี่ยนคำค้น หรือตัวกรองสถานะ'
                                         : 'เพิ่มโต๊ะแรกเพื่อเริ่มใช้งาน'
-                                }
-                                action={
-                                    !debouncedSearch.trim() && canCreateTables ? (
-                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                            เพิ่มโต๊ะ
-                                        </Button>
-                                    ) : null
                                 }
                             />
                         )}

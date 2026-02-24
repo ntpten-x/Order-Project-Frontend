@@ -451,7 +451,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
         }
         Modal.confirm({
             title: 'ยืนยันการลบโต๊ะ',
-            content: `คุณต้องการลบโต๊ะ "${tableName || '-'}" หรือไม่?`,
+            content: `คุณต้องการลบโต๊ะ ${tableName || '-'} หรือไม่?`,
             okText: 'ลบ',
             okType: 'danger',
             cancelText: 'ยกเลิก',
@@ -501,7 +501,6 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
         <div className="manage-page" style={pageStyles.container as React.CSSProperties}>
             <UIPageHeader
                 title={modeTitle}
-                subtitle={isEdit ? 'ปรับแก้ชื่อโต๊ะ สถานะโต๊ะ และสถานะการใช้งาน' : 'สร้างโต๊ะใหม่ให้พร้อมใช้งานในระบบ POS'}
                 onBack={handleBack}
                 actions={
                     isEdit && canDeleteTables ? (
@@ -553,7 +552,11 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                                     >
                                         <Form.Item
                                             name="table_name"
-                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อระบบ (table_name)</span>}
+                                            label={
+                                                <span style={{ fontWeight: 600, color: '#334155' }}>
+                                                    ชื่อโต๊ะ <span style={{ color: '#EF4444', marginLeft: 2 }}>*</span>
+                                                </span>
+                                            }
                                             validateTrigger={['onBlur', 'onSubmit']}
                                             rules={[
                                                 { required: true, message: 'กรุณากรอกชื่อระบบ' },
@@ -570,7 +573,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                                         >
                                             <Input
                                                 size="large"
-                                                placeholder="เช่น T-01, VIP-01"
+                                                placeholder="1, 2, 3, ..."
                                                 style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
                                                 maxLength={50}
                                             />
@@ -578,7 +581,11 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
 
                                         <Form.Item
                                             name="status"
-                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>สถานะโต๊ะ</span>}
+                                            label={
+                                                <span style={{ fontWeight: 600, color: '#334155' }}>
+                                                    สถานะโต๊ะ <span style={{ color: '#EF4444', marginLeft: 2 }}>*</span>
+                                                </span>
+                                            }
                                             rules={[{ required: true, message: 'กรุณาเลือกสถานะโต๊ะ' }]}
                                         >
                                             <div 
@@ -597,7 +604,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                                                 }}
                                             >
                                                 <span style={{ color: status ? '#1e293b' : '#94a3b8', fontWeight: status ? 600 : 400 }}>
-                                                    {status === TableStatus.Available ? 'ว่าง (Available)' : 'ไม่ว่าง (Unavailable)'}
+                                                    {status === TableStatus.Available ? 'ว่าง' : 'ไม่ว่าง'}
                                                 </span>
                                                 <DownOutlined style={{ fontSize: 12, color: '#94a3b8' }} />
                                             </div>
@@ -614,15 +621,6 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                                                 </Form.Item>
                                             </div>
                                         </div>
-
-                                        <Alert
-                                            showIcon
-                                            type="info"
-                                            icon={<InfoCircleOutlined />}
-                                            message="ข้อมูลที่จำเป็น"
-                                            description="ต้องกรอกชื่อโต๊ะ และกำหนดสถานะเริ่มต้นของโต๊ะ โดยชื่อโต๊ะจะถูกตรวจสอบไม่ให้ซ้ำในสาขาเดียวกัน"
-                                            style={{ marginBottom: 24 }}
-                                        />
 
                                         <div style={{ marginTop: 12, display: 'flex', gap: 12 }}>
                                             <Button
@@ -665,7 +663,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                                         <Card style={{ borderRadius: 16 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
                                                 <QrcodeOutlined style={{ color: '#0f766e' }} />
-                                                <Text strong>QR Ordering Link</Text>
+                                                <Text strong>QR สำหรับสั่งอาหาร</Text>
                                             </div>
 
                                             {qrLoading ? (
@@ -680,7 +678,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                                                     <Text type="secondary" style={{ fontSize: 12, wordBreak: 'break-all' }}>
                                                         {customerOrderUrl}
                                                     </Text>
-                                                    <Text type="secondary">Token expires: {qrExpireText}</Text>
+                                                    <Text type="secondary">วันหมดอายุ : {qrExpireText}</Text>
                                                     <Space wrap>
                                                         <Button icon={<CopyOutlined />} onClick={handleCopyQrLink}>
                                                             Copy link
@@ -690,7 +688,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                                                             loading={qrRotating}
                                                             onClick={handleRotateQr}
                                                         >
-                                                            Rotate QR
+                                                            Refresh QR
                                                         </Button>
                                                         <Button
                                                             type="default"
@@ -709,12 +707,6 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                                                             marginSize={2}
                                                         />
                                                     </div>
-                                                    <Alert
-                                                        type="info"
-                                                        showIcon
-                                                        message="Customer policy"
-                                                        description="Customers can submit and add items only. Payment and cancel are handled by store staff."
-                                                    />
                                                 </Space>
                                             ) : (
                                                 <Alert
@@ -734,8 +726,6 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                                                 <Text strong>รายละเอียดรายการ</Text>
                                             </div>
                                             <div style={{ display: 'grid', gap: 8 }}>
-                                                <Text type="secondary">ID: {originalTable?.id || '-'}</Text>
-                                                <Text type="secondary">สถานะออเดอร์ล่าสุด: {originalTable?.active_order_status || '-'}</Text>
                                                 <Text type="secondary">สร้างเมื่อ: {formatDate(originalTable?.create_date)}</Text>
                                                 <Text type="secondary">อัปเดตเมื่อ: {formatDate(originalTable?.update_date)}</Text>
                                             </div>
@@ -760,8 +750,8 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
             >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
                     {[
-                        { value: TableStatus.Available, label: 'ว่าง (Available)' },
-                        { value: TableStatus.Unavailable, label: 'ไม่ว่าง (Unavailable)' }
+                        { value: TableStatus.Available, label: 'ว่าง' },
+                        { value: TableStatus.Unavailable, label: 'ไม่ว่าง' }
                     ].map(opt => (
                         <div
                             key={opt.value}

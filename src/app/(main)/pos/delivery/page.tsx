@@ -115,7 +115,7 @@ const DeliveryCard = ({ delivery, canUpdate, canDelete, onEdit, onDelete, onTogg
                     </div>
 
                     <Text type="secondary" style={{ fontSize: 13, display: 'block', color: '#334155' }}>
-                        Prefix: {delivery.delivery_prefix || '-'}
+                        รหัสย่อ : {delivery.delivery_prefix || '-'}
                     </Text>
                     <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 2 }}>
                         อัปเดตล่าสุด {formatDate(delivery.update_date)}
@@ -314,7 +314,7 @@ export default function DeliveryPage() {
         }
         Modal.confirm({
             title: 'ยืนยันการลบช่องทางจัดส่ง',
-            content: `คุณต้องการลบช่องทางจัดส่ง "${delivery.delivery_name}" หรือไม่?`,
+            content: `คุณต้องการลบช่องทางจัดส่ง ${delivery.delivery_name} หรือไม่?`,
             okText: 'ลบ',
             okType: 'danger',
             cancelText: 'ยกเลิก',
@@ -393,13 +393,9 @@ export default function DeliveryPage() {
 
             <UIPageHeader
                 title="ช่องทางจัดส่ง"
-                subtitle={`ทั้งหมด ${deliveries.length} รายการ`}
                 icon={<CarOutlined />}
                 actions={
-                    <Space size={8} wrap>
-                        <Button icon={<ShopOutlined />} onClick={() => router.push('/pos/orders')}>
-                            ไปหน้าออเดอร์
-                        </Button>
+                    <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} onClick={fetchDeliveries} />
                         {canCreateDelivery ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
@@ -422,7 +418,7 @@ export default function DeliveryPage() {
 
                     <SearchBar>
                         <SearchInput
-                            placeholder="ค้นหาจากชื่อช่องทาง หรือ prefix..."
+                            placeholder="ค้นหา"
                             value={searchText}
                             onChange={(val) => {
                                 setSearchText(val);
@@ -453,7 +449,7 @@ export default function DeliveryPage() {
 
                     <PageSection
                         title="รายการช่องทางจัดส่ง"
-                        extra={<span style={{ fontWeight: 600 }}>{filteredDeliveries.length}</span>}
+                        extra={<span style={{ fontWeight: 600 }}>{filteredDeliveries.length} รายการ</span>}
                     >
                         {filteredDeliveries.length > 0 ? (
                             filteredDeliveries.map((delivery) => (
@@ -479,13 +475,6 @@ export default function DeliveryPage() {
                                     debouncedSearch.trim()
                                         ? 'ลองเปลี่ยนคำค้น หรือตัวกรองสถานะ'
                                         : 'เพิ่มช่องทางจัดส่งแรกเพื่อเริ่มใช้งาน'
-                                }
-                                action={
-                                    !debouncedSearch.trim() && canCreateDelivery ? (
-                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                            เพิ่มช่องทางจัดส่ง
-                                        </Button>
-                                    ) : null
                                 }
                             />
                         )}

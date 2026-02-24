@@ -384,13 +384,9 @@ export default function CategoryPage() {
 
             <UIPageHeader
                 title="หมวดหมู่สินค้า"
-                subtitle={`ทั้งหมด ${totalCategories} รายการ`}
                 icon={<TagsOutlined />}
                 actions={
-                    <Space size={8} wrap>
-                        <Button icon={<ShopOutlined />} onClick={() => router.push('/pos/products')}>
-                            ไปหน้าสินค้า
-                        </Button>
+                    <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} onClick={() => { void fetchCategories(); }} />
                         <Button
                             type="primary"
@@ -416,7 +412,7 @@ export default function CategoryPage() {
 
                     <SearchBar>
                         <SearchInput
-                            placeholder="ค้นหาจากชื่อแสดงหรือชื่อระบบ..."
+                            placeholder="ค้นหา"
                             value={searchText}
                             onChange={(val) => {
                                 setPage(1);
@@ -441,7 +437,7 @@ export default function CategoryPage() {
 
                     <PageSection
                         title="รายการหมวดหมู่"
-                        extra={<span style={{ fontWeight: 600 }}>{filteredCategories.length}</span>}
+                        extra={<span style={{ fontWeight: 600 }}>{filteredCategories.length} รายการ</span>}
                     >
                         {filteredCategories.length > 0 ? (
                             filteredCategories.map((category) => (
@@ -467,13 +463,6 @@ export default function CategoryPage() {
                                     searchText.trim()
                                         ? 'ลองเปลี่ยนคำค้น หรือตัวกรองสถานะ'
                                         : 'เพิ่มหมวดหมู่แรกเพื่อเริ่มใช้งาน'
-                                }
-                                action={
-                                    !searchText.trim() && canCreateCategory ? (
-                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                            เพิ่มหมวดหมู่
-                                        </Button>
-                                    ) : null
                                 }
                             />
                         )}
