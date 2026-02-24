@@ -284,7 +284,6 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
         <div className="manage-page" style={pageStyles.container}>
             <UIPageHeader
                 title={isEdit ? 'แก้ไขสินค้า' : 'เพิ่มสินค้า'}
-                subtitle={isEdit ? 'แก้ไขข้อมูลสินค้าและราคา' : 'สร้างสินค้าใหม่ให้พร้อมขายในระบบ POS'}
                 onBack={handleBack}
                 actions={
                     isEdit && canDeleteProducts ? (
@@ -335,36 +334,26 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                             }
                                         }}
                                     >
-                                        <Alert
-                                            showIcon
-                                            type="info"
-                                            icon={<InfoCircleOutlined />}
-                                            message="ข้อมูลที่จำเป็น"
-                                            description="ต้องระบุชื่อสินค้า ราคา หมวดหมู่ และหน่วยสินค้า โดยชื่อสินค้าในระบบจะถูกตรวจสอบไม่ให้ซ้ำในสาขา"
-                                            style={{ marginBottom: 18 }}
-                                        />
-
                                         <Row gutter={12}>
                                             <Col xs={24} md={12}>
                                                 <Form.Item
                                                     name="display_name"
-                                                    label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อที่แสดง</span>}
+                                                    label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อสินค้าภาษาไทย <span style={{ color: '#ff4d4f' }}>*</span></span>}
                                                     rules={[
-                                                        { required: true, message: 'กรุณากรอกชื่อที่แสดง' },
+                                                        { required: true, message: 'กรุณากรอกชื่อสินค้าภาษาไทย' },
                                                         { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
                                                     ]}
                                                 >
-                                                    <Input size="large" placeholder="เช่น ชาเขียว, ข้าวผัด" maxLength={100} />
+                                                    <Input size="large" placeholder="ข้าว, น้ำ, ..." maxLength={100} />
                                                 </Form.Item>
                                             </Col>
                                             <Col xs={24} md={12}>
                                                 <Form.Item
                                                     name="product_name"
-                                                    label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อสินค้าในระบบ (English)</span>}
+                                                    label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อสินค้าภาษาอังกฤษ <span style={{ color: '#ff4d4f' }}>*</span></span>}
                                                     validateTrigger={['onBlur', 'onSubmit']}
                                                     rules={[
-                                                        { required: true, message: 'กรุณากรอกชื่อสินค้า' },
-                                                        { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'กรอกได้เฉพาะภาษาอังกฤษ ตัวเลข และ - _ ( ) .' },
+                                                        { required: true, message: 'กรุณากรอกชื่อสินค้าภาษาอังกฤษ' },
                                                         { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' },
                                                         {
                                                             validator: async (_, value: string) => {
@@ -375,7 +364,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                                         }
                                                     ]}
                                                 >
-                                                    <Input size="large" placeholder="e.g. green-tea, fried-rice" maxLength={100} />
+                                                    <Input size="large" placeholder="Rice, Water, ..." maxLength={100} />
                                                 </Form.Item>
                                             </Col>
                                         </Row>
@@ -384,7 +373,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                             <Col xs={24} md={8}>
                                                 <Form.Item
                                                     name="price"
-                                                    label={<span style={{ fontWeight: 600, color: '#334155' }}>ราคา (หน้าร้าน)</span>}
+                                                    label={<span style={{ fontWeight: 600, color: '#334155' }}>ราคา (หน้าร้าน) <span style={{ color: '#ff4d4f' }}>*</span></span>}
                                                     rules={[
                                                         { required: true, message: 'กรุณากรอกราคา' },
                                                         { type: 'number', min: 0, message: 'ราคาต้องไม่ติดลบ' }
@@ -479,7 +468,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                             <Col xs={24} md={12}>
                                                 <Form.Item
                                                     name="category_id"
-                                                    label={<span style={{ fontWeight: 600, color: '#334155' }}>หมวดหมู่</span>}
+                                                    label={<span style={{ fontWeight: 600, color: '#334155' }}>หมวดหมู่ <span style={{ color: '#ff4d4f' }}>*</span></span>}
                                                     rules={[{ required: true, message: 'กรุณาเลือกหมวดหมู่' }]}
                                                 >
                                                     <div 
@@ -509,7 +498,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                             <Col xs={24} md={12}>
                                                 <Form.Item
                                                     name="unit_id"
-                                                    label={<span style={{ fontWeight: 600, color: '#334155' }}>หน่วยสินค้า</span>}
+                                                    label={<span style={{ fontWeight: 600, color: '#334155' }}>หน่วยสินค้า <span style={{ color: '#ff4d4f' }}>*</span></span>}
                                                     rules={[{ required: true, message: 'กรุณาเลือกหน่วยสินค้า' }]}
                                                 >
                                                     <div 
@@ -557,7 +546,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                         </Form.Item>
 
                                         <Form.Item name="description" label={<span style={{ fontWeight: 600, color: '#334155' }}>รายละเอียดเพิ่มเติม</span>}>
-                                            <TextArea rows={4} placeholder="รายละเอียดสินค้า, หมายเหตุ, จุดเด่น" style={{ borderRadius: 12 }} maxLength={500} />
+                                            <TextArea rows={4} placeholder="รายละเอียดสินค้า, หมายเหตุ" style={{ borderRadius: 12 }} maxLength={500} />
                                         </Form.Item>
 
                                         <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: 14, marginTop: 8, marginBottom: 18 }}>
@@ -629,7 +618,6 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                                 <Text strong>รายละเอียดรายการ</Text>
                                             </div>
                                             <div style={{ display: 'grid', gap: 8 }}>
-                                                <Text type="secondary">ID: {originalProduct?.id || '-'}</Text>
                                                 <Text type="secondary">สร้างเมื่อ: {formatDate(originalProduct?.create_date)}</Text>
                                                 <Text type="secondary">อัปเดตเมื่อ: {formatDate(originalProduct?.update_date)}</Text>
                                             </div>
