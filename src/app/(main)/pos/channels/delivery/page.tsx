@@ -175,7 +175,7 @@ function DeliverySelectionPageContent() {
             return "รอส่ง";
         }
         if (status === OrderStatus.Served) {
-            return "ทำแล้ว";
+            return "กำลังดำเนินการ";
         }
         return formatOrderStatus(status);
     };
@@ -248,7 +248,7 @@ function DeliverySelectionPageContent() {
                     subtitle={
                         <Space size={8} wrap>
                             <Tag>ทั้งหมด {stats.total}</Tag>
-                            <Tag color="orange">กำลังปรุง {stats.cooking}</Tag>
+                            <Tag color="orange">กำลังดำเนินการ {stats.inProgress}</Tag>
                         </Space>
                     }
                     onBack={handleBack}

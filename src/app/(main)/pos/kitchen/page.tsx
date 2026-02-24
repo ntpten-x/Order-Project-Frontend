@@ -1,37 +1,30 @@
 ﻿'use client';
 
 import React, { useEffect, useState, useContext, useMemo, useRef, useCallback } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Typography, Button, Row, Col, Tag, Spin, message, Badge, Tooltip } from "antd";
+import { useQuery } from "@tanstack/react-query";
+import { Typography, Button, Row, Col, Tag, Spin, message, Badge } from "antd";
 import { 
     CheckOutlined, 
     ClockCircleOutlined, 
     FireOutlined, 
     SoundOutlined, 
     ReloadOutlined,
-
-    DoubleRightOutlined,
     NotificationOutlined,
     WifiOutlined,
     FilterOutlined,
     UpOutlined,
     DownOutlined,
-    UndoOutlined
 } from "@ant-design/icons";
 import { SocketContext } from "../../../../contexts/SocketContext";
 import { ordersService } from "../../../../services/pos/orders.service";
 import { SalesOrderItem, ItemStatus } from "../../../../types/api/pos/salesOrderItem";
 import { OrderStatus } from "../../../../types/api/pos/salesOrder";
-import { useGlobalLoadingDispatch } from "../../../../contexts/pos/GlobalLoadingContext";
-import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 import relativeTime from 'dayjs/plugin/relativeTime';
 import { t } from "../../../../utils/i18n";
 import RequireOpenShift from "../../../../components/pos/shared/RequireOpenShift";
-import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
-import { useAuth } from "../../../../contexts/AuthContext";
 
 dayjs.extend(relativeTime);
 dayjs.locale('th');
@@ -554,11 +547,6 @@ export default function KitchenDisplayPage() {
 
 function KitchenDisplayPageContent() {
     const { socket, isConnected } = useContext(SocketContext);
-    const { showLoading, hideLoading } = useGlobalLoadingDispatch();
-    const queryClient = useQueryClient();
-    const { user } = useAuth();
-    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canUpdateKitchen = can("orders.page", "update");
     const [soundEnabled, setSoundEnabled] = useState(true);
     const audioRef = useRef<HTMLAudioElement | null>(null);
     const [filterStatus, setFilterStatus] = useState<ItemStatus | 'all'>('all');
@@ -589,13 +577,23 @@ function KitchenDisplayPageContent() {
                 ordersService.getItems(ItemStatus.Served),
             ]);
 
-            const merged = [...pending, ...cooking, ...served];
+            const merged = [...pending, ...cooking, ...served].map((item: SalesOrderItem) => {
+                const normalizedStatus =
+                    item.status === ItemStatus.Cooking || item.status === ItemStatus.Served
+                        ? ItemStatus.Pending
+                        : item.status;
+                return { ...item, status: normalizedStatus };
+            });
 
-            // Filter items: Only show items from orders that are currently "Processing"
-            // matching the Orders page logic (Not Paid, Not Cancelled, Not WaitingForPayment)
+            // Filter items: show only active order items (not cancelled, not paid/completed/waiting payment).
             return merged.filter((item: SalesOrderItem) =>
                 item.status !== ItemStatus.Cancelled &&
-                item.order && (item.order.status === OrderStatus.Pending || item.order.status === OrderStatus.Cooking)
+                item.order &&
+                (
+                    item.order.status === OrderStatus.Pending ||
+                    item.order.status === OrderStatus.Cooking ||
+                    item.order.status === OrderStatus.Served
+                )
             );
         },
         // Primary freshness from socket events; polling is fallback only when socket is disconnected.
@@ -609,12 +607,7 @@ function KitchenDisplayPageContent() {
         
         let filteredItems = allItems;
         
-        if (filterStatus === 'all') {
-            // Default view: Show Pending + Cooking (User wants Pending to be seen as working mode)
-            filteredItems = allItems.filter(item => 
-                item.status === ItemStatus.Pending || item.status === ItemStatus.Cooking
-            );
-        } else {
+        if (filterStatus !== 'all') {
             filteredItems = allItems.filter(item => item.status === filterStatus);
         }
 
@@ -663,67 +656,16 @@ function KitchenDisplayPageContent() {
         };
     }, [socket, playNotificationSound]);
 
-    const updateItemStatus = async (itemId: string, newStatus: ItemStatus) => {
-        if (!canUpdateKitchen) {
-            message.warning("คุณไม่มีสิทธิ์อัปเดตสถานะรายการครัว");
-            return;
-        }
-        try {
-            queryClient.setQueryData<SalesOrderItem[]>(["orderItems", "kitchen"], (prev = []) =>
-                prev.map(item => (item.id === itemId ? { ...item, status: newStatus } : item))
-            );
-
-            const csrfToken = await getCsrfTokenCached();
-            await ordersService.updateItemStatus(itemId, newStatus, undefined, csrfToken);
-        } catch {
-            message.error("อัปเดตสถานะไม่สำเร็จ");
-            refetch();
-        }
-    };
-
-    const serveAllItems = async (orderId: string) => {
-        if (!canUpdateKitchen) {
-            message.warning("คุณไม่มีสิทธิ์อัปเดตสถานะรายการครัว");
-            return;
-        }
-        try {
-            showLoading("กำลังเสิร์ฟทั้งหมด...");
-            const order = groupedOrders.find(o => o.order_id === orderId);
-            if (!order) return;
-
-            const csrfToken = await getCsrfTokenCached();
-            const updatePromises = order.items.map(item => 
-                ordersService.updateItemStatus(item.id, ItemStatus.Served, undefined, csrfToken)
-            );
-
-            await Promise.all(updatePromises);
-            
-            queryClient.setQueryData<SalesOrderItem[]>(["orderItems", "kitchen"], (prev = []) =>
-                prev.map(item => item.order_id === orderId ? { ...item, status: ItemStatus.Served } : item)
-            );
-            
-            message.success(`เสิร์ฟออเดอร์ #${order.order_no} เรียบร้อย`);
-        } catch {
-            message.error("เกิดข้อผิดพลาดในการเสิร์ฟทั้งหมด");
-            refetch();
-        } finally {
-            hideLoading();
-        }
-    };
-
-    const cookingCount = allItems.filter(i => i.status === ItemStatus.Cooking || i.status === ItemStatus.Pending).length;
-    const servedCount = allItems.filter(i => i.status === ItemStatus.Served).length;
+    const inProgressCount = allItems.filter(i => i.status === ItemStatus.Pending).length;
 
     const stats = [
         { label: 'คิวทั้งหมด', value: allItems.length, color: '#38bdf8' },
-        { label: 'กำลังทำ', value: cookingCount, color: '#f59e0b' },
-        { label: 'ทำแล้ว', value: servedCount, color: '#10b981' },
+        { label: 'กำลังดำเนินการ', value: inProgressCount, color: '#f59e0b' },
     ];
 
     const filters = [
         { key: 'all', label: 'ทั้งหมด', count: allItems.length, color: '#38bdf8' },
-        { key: ItemStatus.Cooking, label: 'กำลังทำ', count: cookingCount, color: '#f59e0b' },
-        { key: ItemStatus.Served, label: 'ทำแล้ว', count: servedCount, color: '#10b981' },
+        { key: ItemStatus.Pending, label: 'กำลังดำเนินการ', count: inProgressCount, color: '#f59e0b' },
     ];
 
     return (
@@ -857,9 +799,6 @@ function KitchenDisplayPageContent() {
                             const isHighUrgency = urgency.level === 3;
                             const progress = Math.min(1, Math.max(0.1, dayjs().diff(dayjs(order.created_at), 'minute') / 25));
 
-                            // Only show Serve All if there are items NOT served in this order view
-                            const hasItemsToServe = order.items.some(i => i.status !== ItemStatus.Served);
-
                             return (
                                 <Col xs={24} sm={24} md={12} lg={8} xl={6} key={order.order_id}>
                                     <div className={`kitchen-order-card ${isHighUrgency ? 'urgent' : ''}`}>
@@ -901,10 +840,7 @@ function KitchenDisplayPageContent() {
                                             {order.items.map((item) => (
                                                 <div 
                                                     key={item.id} 
-                                                    className={`kitchen-item-row ${
-                                                        item.status === ItemStatus.Cooking ? 'cooking' : 
-                                                        item.status === ItemStatus.Served ? 'served' : 'pending'
-                                                    }`}
+                                                    className="kitchen-item-row pending"
                                                 >
                                                     <div className="kitchen-item-qty">{item.quantity}</div>
                                                     <div className="kitchen-item-info">
@@ -913,65 +849,12 @@ function KitchenDisplayPageContent() {
                                                             <div className="kitchen-item-notes">⚠️ {item.notes}</div>
                                                         )}
                                                         <div className="kitchen-item-status">
-                                                            {item.status === ItemStatus.Cooking && '🍳 กำลังทำ...'}
-                                                            {item.status === ItemStatus.Pending && '⏳ รอปรุง (กำลังทำ)'}
-                                                            {item.status === ItemStatus.Served && '✅ ทำแล้ว'}
+                                                            ⏳ กำลังดำเนินการ
                                                         </div>
-                                                    </div>
-
-                                                    <div className="kitchen-item-action">
-                                                        {(item.status === ItemStatus.Pending || item.status === ItemStatus.Cooking) && (
-                                                            <Tooltip title="เสร็จแล้ว">
-                                                                <Button 
-                                                                    type="text"
-                                                                    icon={<CheckOutlined />}
-                                                                    onClick={() => updateItemStatus(item.id, ItemStatus.Served)}
-                                                                    disabled={permissionLoading || !canUpdateKitchen}
-                                                                    className="kitchen-item-action-btn"
-                                                                    style={{ 
-                                                                        color: '#10b981', 
-                                                                        background: 'rgba(16, 185, 129, 0.2)',
-                                                                        border: '1px solid rgba(16, 185, 129, 0.3)'
-                                                                    }}
-                                                                />
-                                                            </Tooltip>
-                                                        )}
-                                                        {item.status === ItemStatus.Served && (
-                                                            <Tooltip title="ยกเลิก/กลับไปทำ">
-                                                                <Button 
-                                                                    type="text"
-                                                                    icon={<UndoOutlined />}
-                                                                    onClick={() => updateItemStatus(item.id, ItemStatus.Cooking)}
-                                                                    disabled={permissionLoading || !canUpdateKitchen}
-                                                                    className="kitchen-item-action-btn"
-                                                                    style={{ 
-                                                                        color: '#64748b', 
-                                                                        background: 'rgba(100, 116, 139, 0.15)',
-                                                                    }}
-                                                                />
-                                                            </Tooltip>
-                                                        )}
                                                     </div>
                                                 </div>
                                             ))}
                                         </div>
-
-                                        {/* Action Footer */}
-                                        {hasItemsToServe && canUpdateKitchen && (
-                                            <div className="kitchen-order-footer">
-                                                <Button
-                                                    block
-                                                    type="primary"
-                                                    size="large"
-                                                    icon={<DoubleRightOutlined />}
-                                                    onClick={() => serveAllItems(order.order_id)}
-                                                    disabled={permissionLoading || !canUpdateKitchen}
-                                                    className="kitchen-serve-all-btn"
-                                                >
-                                                    เสิร์ฟทั้งหมด ({order.items.filter(i => i.status !== ItemStatus.Served).length} รายการ)
-                                                </Button>
-                                            </div>
-                                        )}
                                     </div>
                                 </Col>
                             );

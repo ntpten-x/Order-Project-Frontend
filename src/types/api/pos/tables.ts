@@ -21,3 +21,9 @@ export interface TableQrInfo {
     qr_code_expires_at: string | null;
     customer_path: string | null;
 }
+
+export interface TableQrCodeListItem extends Tables {
+    qr_code_token: string | null;
+    qr_code_expires_at: string | null;
+    customer_path: string | null;
+}

@@ -155,24 +155,14 @@ export default function POSOrderDetailsPage() {
     });
 
     const activeItems = useMemo<SalesOrderItem[]>(
-        () => order?.items?.filter((i) => i.status === ItemStatus.Pending || i.status === ItemStatus.Cooking) || [],
+        () => order?.items?.filter((i) => !isCancelledStatus(i.status)) || [],
         [order?.items],
     );
 
-    const servedItems = useMemo<SalesOrderItem[]>(() => {
-        const items =
-            order?.items?.filter(
-                (i) =>
-                    i.status === ItemStatus.Served ||
-                    i.status === ItemStatus.Cancelled,
-            ) || [];
-
-        return items.sort((a, b) => {
-            if (a.status === ItemStatus.Cancelled && b.status !== ItemStatus.Cancelled) return 1;
-            if (a.status !== ItemStatus.Cancelled && b.status === ItemStatus.Cancelled) return -1;
-            return 0;
-        });
-    }, [order?.items]);
+    const servedItems = useMemo<SalesOrderItem[]>(
+        () => order?.items?.filter((i) => i.status === ItemStatus.Cancelled) || [],
+        [order?.items],
+    );
 
     const groupedActiveItems = useMemo(() => groupOrderItems(activeItems), [activeItems]);
     const groupedServedItems = useMemo(() => groupOrderItems(servedItems), [servedItems]);
@@ -435,7 +425,7 @@ export default function POSOrderDetailsPage() {
                 discount_amount: 0,
                 total_price: totalPrice,
                 details: details,
-                status: OrderStatus.Cooking
+                status: OrderStatus.Pending
             }, undefined, csrfToken);
             message.success("เพิ่มสินค้าเรียบร้อย");
             fetchOrder(orderId as string);
@@ -580,7 +570,7 @@ export default function POSOrderDetailsPage() {
             width: 120,
             align: 'center' as const,
             render: (status: string) => (
-                <Tag color={status === OrderStatus.Pending ? 'orange' : status === OrderStatus.Cooking ? 'blue' : 'green'}>
+                <Tag color={getOrderStatusColor(status)}>
                     {getOrderStatusText(status, order.order_type)}
                 </Tag>
             )
@@ -741,7 +731,15 @@ export default function POSOrderDetailsPage() {
             <style jsx global>{ordersResponsiveStyles}</style>
             
             <UIPageHeader
-                title={order?.order_no ?? "รายละเอียดออเดอร์"}
+                title={
+                    order
+                        ? order.order_type === OrderType.DineIn
+                            ? `โต๊ะ: ${order.table?.table_name || "-"}`
+                            : order.order_type === OrderType.Delivery
+                                ? `รหัส: ${order.delivery_code || order.delivery?.delivery_name || "-"}`
+                                : order.order_no
+                        : "รายละเอียดออเดอร์"
+                }
                 subtitle={
                     order ? (
                         <Space size={8} wrap>
@@ -762,22 +760,15 @@ export default function POSOrderDetailsPage() {
                             <Text type="secondary" style={{ fontSize: 12 }}>
                                 {dayjs(order.create_date).format("HH:mm | D MMM YY")}
                             </Text>
+                            <Text type="secondary" style={{ fontSize: 11, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace" }}>
+                                {order.order_no}
+                            </Text>
                             <Tag
                                 color={getOrderStatusColor(order.status)}
                                 style={{ margin: 0, borderRadius: 8, fontWeight: 600 }}
                             >
                                 {getOrderStatusText(order.status, order.order_type)}
                             </Tag>
-                            {order.order_type === OrderType.DineIn && order.table?.table_name && (
-                                <Tag color="blue" style={{ margin: 0, borderRadius: 8, fontWeight: 600 }}>
-                                    โต๊ะ: {order.table.table_name}
-                                </Tag>
-                            )}
-                            {order.order_type === OrderType.Delivery && (order.delivery_code || order.delivery?.delivery_name) && (
-                                <Tag color="purple" style={{ margin: 0, borderRadius: 8, fontWeight: 600 }}>
-                                    {order.delivery_code ? `รหัส: ${order.delivery_code}` : order.delivery?.delivery_name}
-                                </Tag>
-                            )}
                             {currentQueueItem && (
                                 <Tag
                                     color={
@@ -883,9 +874,18 @@ export default function POSOrderDetailsPage() {
                             className="order-detail-card fade-in"
                             style={orderDetailStyles.card}
                             title={
-                                <div className="card-header-wrapper">
-                                    <div className="card-header-top-row">
-                                        <div className="card-header-left">
+                                <div className="card-header-wrapper" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                                    <div
+                                        className="card-header-top-row"
+                                        style={{
+                                            display: "flex",
+                                            alignItems: "flex-start",
+                                            justifyContent: "space-between",
+                                            gap: 10,
+                                            flexWrap: "wrap",
+                                        }}
+                                    >
+                                        <div className="card-header-left" style={{ display: "flex", alignItems: "center", gap: 10, flex: "1 1 260px", minWidth: 0 }}>
                                             <div style={orderDetailStyles.masterCheckboxWrapper}>
                                                 <Checkbox 
                                                     indeterminate={selectedRowKeys.length > 0 && selectedRowKeys.length < groupedActiveItems.length}
@@ -900,13 +900,16 @@ export default function POSOrderDetailsPage() {
                                                     style={orderDetailStyles.masterCheckbox}
                                                 />
                                             </div>
-                                            <Text strong style={orderDetailTypography.sectionTitle} className="section-title-text">
+                                            <Text
+                                                strong
+                                                style={{ ...orderDetailTypography.sectionTitle, lineHeight: 1.35, whiteSpace: "normal" }}
+                                                className="section-title-text"
+                                            >
                                                 รายการที่กำลังดำเนินการ ({activeItems.length})
                                             </Text>
                                         </div>
-                                        <div className="card-header-right">
-                                            {/* Header Actions - แสดงเสมอ อยู่ฝั่งขวา */}
-                                            <div className="header-actions-container">
+                                        <div className="card-header-right" style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto", flexWrap: "wrap" }}>
+                                            <div className="header-actions-container" style={{ display: "flex", alignItems: "center", gap: 8 }}>
                                                 <Button 
                                                     icon={<ReloadOutlined />} 
                                                     onClick={() => fetchOrder(orderId as string)}
@@ -933,22 +936,22 @@ export default function POSOrderDetailsPage() {
                                                     <span>เพิ่ม</span>
                                                 </Button>
                                             </div>
-                                            {selectedRowKeys.length > 0 && (
-                                                <div className="header-bulk-actions-container">
-                                                    <Button
-                                                        danger
-                                                        icon={<CloseCircleOutlined />}
-                                                        onClick={handleCancelSelected}
-                                                        disabled={!canUpdateOrders || isUpdating}
-                                                        size="small"
-                                                        className="bulk-action-btn"
-                                                    >
-                                                        <span>ยกเลิก ({selectedRowKeys.length})</span>
-                                                    </Button>
-                                                </div>
-                                            )}
                                         </div>
                                     </div>
+                                    {selectedRowKeys.length > 0 && (
+                                        <div className="mobile-bulk-actions-container" style={{ display: "flex", justifyContent: "flex-end" }}>
+                                            <Button
+                                                danger
+                                                icon={<CloseCircleOutlined />}
+                                                onClick={handleCancelSelected}
+                                                disabled={!canUpdateOrders || isUpdating}
+                                                size="small"
+                                                className="bulk-action-btn"
+                                            >
+                                                <span>ยกเลิก ({selectedRowKeys.length})</span>
+                                            </Button>
+                                        </div>
+                                    )}
                                 </div>
                             }
                         >
@@ -1079,7 +1082,7 @@ export default function POSOrderDetailsPage() {
                             ) : (
                                 <div style={orderDetailStyles.emptyState}>
                                     <CheckCircleOutlined className="empty-state-icon" />
-                                    <Text className="empty-state-text">ไม่มีรายการที่กำลังรอ</Text>
+                                    <Text className="empty-state-text">ไม่มีรายการที่กำลังดำเนินการ</Text>
                                 </div>
                             )}
                         </Card>

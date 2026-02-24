@@ -49,8 +49,8 @@ dayjs.extend(relativeTime);
 type StatusTab = 'all' | 'in-progress' | 'waiting-payment';
 
 const STATUS_TABS: { key: StatusTab; label: string; icon: React.ReactNode; apiStatus: string }[] = [
-    { key: 'all', label: 'ทั้งหมด', icon: <ContainerOutlined />, apiStatus: 'Pending,Cooking,Served,WaitingForPayment' },
-    { key: 'in-progress', label: 'กำลังดำเนินการ', icon: <FireOutlined />, apiStatus: 'Pending,Cooking,Served' },
+    { key: 'all', label: 'ทั้งหมด', icon: <ContainerOutlined />, apiStatus: 'Pending,WaitingForPayment' },
+    { key: 'in-progress', label: 'กำลังดำเนินการ', icon: <FireOutlined />, apiStatus: 'Pending' },
     { key: 'waiting-payment', label: 'รอชำระเงิน', icon: <WalletOutlined />, apiStatus: 'WaitingForPayment' },
 ];
 
@@ -64,8 +64,6 @@ const CHANNEL_CONFIG: Record<string, { icon: React.ReactNode; color: string; bg:
 // ── Status Config ──
 const STATUS_CONFIG: Record<string, { color: string; bg: string; glow: string }> = {
     [OrderStatus.Pending]: { color: '#F59E0B', bg: '#FFFBEB', glow: 'rgba(245,158,11,0.15)' },
-    [OrderStatus.Cooking]: { color: '#3B82F6', bg: '#EFF6FF', glow: 'rgba(59,130,246,0.15)' },
-    [OrderStatus.Served]: { color: '#10B981', bg: '#ECFDF5', glow: 'rgba(16,185,129,0.15)' },
     [OrderStatus.WaitingForPayment]: { color: '#8B5CF6', bg: '#F5F3FF', glow: 'rgba(139,92,246,0.15)' },
 };
 
@@ -226,43 +224,29 @@ function POSOrdersPageContent() {
 
         // Filter out cancelled items for calculation
         const items = (order.items || []).filter(item => item.status !== ItemStatus.Cancelled);
-        if (items.length === 0) return order.status;
+        if (items.length === 0) return OrderStatus.Pending;
 
-        // If any item is cooking, entire order is Cooking
-        if (items.some(item => item.status === ItemStatus.Cooking)) {
-            return OrderStatus.Cooking;
-        }
-
-        // If no items cooking, but some are pending, it is Pending
-        if (items.some(item => item.status === ItemStatus.Pending)) {
+        // Legacy item states are collapsed into Pending/กำลังดำเนินการ.
+        if (items.some(item => item.status === ItemStatus.Pending || item.status === ItemStatus.Cooking || item.status === ItemStatus.Served)) {
             return OrderStatus.Pending;
         }
 
-        // If all active items are served, it is Served
-        if (items.every(item => item.status === ItemStatus.Served)) {
-            return OrderStatus.Served;
-        }
-
-        return order.status;
+        return OrderStatus.Pending;
     }, []);
 
     // ── Stats ──
     const stats = useMemo(() => {
         let pending = 0;
-        let cooking = 0;
-        let served = 0;
         let waitingPayment = 0;
 
         orders.forEach(o => {
             const effStatus = getEffectiveStatus(o);
             if (effStatus === OrderStatus.Pending) pending++;
-            else if (effStatus === OrderStatus.Cooking) cooking++;
-            else if (effStatus === OrderStatus.Served) served++;
             else if (effStatus === OrderStatus.WaitingForPayment) waitingPayment++;
         });
 
-        const inProgress = pending + cooking + served;
-        return { pending, cooking, served, waitingPayment, inProgress, total };
+        const inProgress = pending;
+        return { pending, waitingPayment, inProgress, total };
     }, [orders, total, getEffectiveStatus]);
 
     const navigateToOrder = useCallback((order: SalesOrder) => {
@@ -496,8 +480,7 @@ function POSOrdersPageContent() {
 
                                     const activeItems = order.items?.filter(i => i.status !== ItemStatus.Cancelled) || [];
                                     const totalQty = activeItems.reduce((sum, item) => sum + Number(item.quantity), 0) || 0;
-                                    const cookingQty = activeItems.filter(i => i.status === ItemStatus.Cooking).reduce((sum, item) => sum + Number(item.quantity), 0) || 0;
-                                    const servedQty = activeItems.filter(i => i.status === ItemStatus.Served).reduce((sum, item) => sum + Number(item.quantity), 0) || 0;
+                                    const inProgressQty = totalQty;
                                     const isUrgent = effStatus === OrderStatus.Pending && dayjs().diff(dayjs(order.create_date), 'minute') > 15;
 
                                     return (
@@ -625,31 +608,18 @@ function POSOrdersPageContent() {
                                                         )}
                                                     </div>
 
-                                                    {/* Status Progress Badges */}
-                                                    {(cookingQty > 0 || servedQty > 0) && (
+                                                    {/* Status Progress Badge */}
+                                                    {inProgressQty > 0 && (
                                                         <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-                                                            {cookingQty > 0 && (
-                                                                <span style={{
-                                                                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                                                                    padding: '3px 10px', borderRadius: 10,
-                                                                    background: '#EFF6FF', color: '#2563EB',
-                                                                    fontSize: 11, fontWeight: 700,
-                                                                    border: '1px solid #DBEAFE',
-                                                                }}>
-                                                                    🔥 {cookingQty} กำลังปรุง
-                                                                </span>
-                                                            )}
-                                                            {servedQty > 0 && (
-                                                                <span style={{
-                                                                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                                                                    padding: '3px 10px', borderRadius: 10,
-                                                                    background: '#ECFDF5', color: '#059669',
-                                                                    fontSize: 11, fontWeight: 700,
-                                                                    border: '1px solid #D1FAE5',
-                                                                }}>
-                                                                    ✅ {servedQty} เสิร์ฟแล้ว
-                                                                </span>
-                                                            )}
+                                                            <span style={{
+                                                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                                                padding: '3px 10px', borderRadius: 10,
+                                                                background: '#FFF7ED', color: '#C2410C',
+                                                                fontSize: 11, fontWeight: 700,
+                                                                border: '1px solid #FED7AA',
+                                                            }}>
+                                                                ⏳ {inProgressQty} กำลังดำเนินการ
+                                                            </span>
                                                         </div>
                                                     )}
 

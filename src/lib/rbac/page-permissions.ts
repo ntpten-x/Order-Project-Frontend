@@ -35,6 +35,7 @@ export const PAGE_PERMISSION_MAP: Array<{ prefix: string; requirement: Permissio
     { prefix: "/pos/paymentMethod/manager/edit", requirement: { resourceKey: "payment_method.page", action: "update" } },
     { prefix: "/pos/paymentMethod/manager", requirement: { resourceKey: "payment_method.page", action: "update" } },
     { prefix: "/pos/paymentMethod", requirement: { resourceKey: "payment_method.page", action: "view" } },
+    { prefix: "/pos/qr-code", requirement: { resourceKey: "tables.page", action: "view" } },
     { prefix: "/pos/tables/manager/add", requirement: { resourceKey: "tables.page", action: "create" } },
     { prefix: "/pos/tables/manager/edit", requirement: { resourceKey: "tables.page", action: "update" } },
     { prefix: "/pos/tables/manager", requirement: { resourceKey: "tables.page", action: "update" } },

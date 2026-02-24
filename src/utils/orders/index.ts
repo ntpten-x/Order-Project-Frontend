@@ -101,9 +101,9 @@ export const getOrderStatusColor = (status: OrderStatus | string): string => {
         case OrderStatus.Pending:
             return 'orange'; // กำลังดำเนินการ
         case OrderStatus.Cooking:
-            return 'blue';
+            return 'orange';
         case OrderStatus.Served:
-            return 'green';
+            return 'orange';
         case OrderStatus.Paid:
             return 'cyan';
         case OrderStatus.Cancelled:
@@ -121,28 +121,17 @@ export const isCancelledStatus = (status: unknown): boolean => {
 };
 
 export const getOrderStatusText = (status: OrderStatus | string, orderType?: string): string => {
-    switch (status) {
-        case OrderStatus.Pending:
-            return 'กำลังดำเนินการ';
-        case OrderStatus.Cooking:
-            return 'กำลังปรุง';
-        case OrderStatus.Served:
-            if (orderType === 'TakeAway' || orderType === 'Delivery') {
-                return 'ทำแล้ว';
-            }
-            return 'เสิร์ฟแล้ว';
-        case OrderStatus.Paid:
-            return 'ชำระเงินแล้ว';
-        case OrderStatus.Completed:
-            return 'สำเร็จ';
-        case OrderStatus.Cancelled:
-            return 'ยกเลิก';
-        case OrderStatus.WaitingForPayment:
-            return 'รอชำระเงิน';
-        default:
-            if (isCancelledStatus(status)) return 'ยกเลิก';
-            return status;
+    void orderType;
+    const normalized = String(status ?? '').trim().toLowerCase();
+
+    if (normalized === 'pending' || normalized === 'cooking' || normalized === 'served') {
+        return 'กำลังดำเนินการ';
     }
+    if (normalized === 'waitingforpayment') return 'รอชำระเงิน';
+    if (normalized === 'paid') return 'ชำระเงินแล้ว';
+    if (normalized === 'completed') return 'เสร็จสิ้น';
+    if (normalized === 'cancelled') return 'ยกเลิก';
+    return String(status ?? '');
 };
 
 export const getOrderChannelColor = (type: string): string => {
@@ -172,19 +161,18 @@ export const getOrderChannelText = (type: string): string => {
 };
 
 export const getServeActionText = (type?: string): string => {
-    if (type === 'DineIn') return 'เสิร์ฟ';
-    return 'ทำแล้ว';
+    if (type === 'Delivery') return 'ส่งให้ไรเดอร์';
+    return 'ดำเนินการต่อ';
 };
 
 export const getConfirmServeActionText = (type?: string): string => {
-    if (type === 'Delivery') return 'จัดออเดอร์เสร็จแล้วพร้อมส่งให้ไรเดอร์';
-    if (type === 'DineIn') return 'ยืนยันเสิร์ฟพร้อมชำระเงิน';
-    return 'ยืนยันทำแล้วพร้อมชำระเงิน';
+    if (type === 'Delivery') return 'ยืนยันจัดส่งให้ไรเดอร์';
+    return 'ยืนยันดำเนินการเพื่อชำระเงิน';
 };
 
-export const getServedStatusText = (type?: string): string => {
-    if (type === 'DineIn') return 'เสิร์ฟอาหารแล้ว';
-    return 'ปรุงเสร็จแล้ว';
+export const getServedStatusText = (_type?: string): string => {
+    void _type;
+    return 'กำลังดำเนินการ';
 };
 
 export const formatCurrency = (amount: number | string): string => {
@@ -370,9 +358,11 @@ export const createOrderPayload = (
                 total_price: totalPrice,
                 discount_amount: 0,
                 notes: item.notes || "",
-                status: OrderStatus.Cooking, // Default Item Status: Cooking
+                status: OrderStatus.Pending, // Default Item Status: In Progress
                 details: item.details || []
             };
         })
     };
 };
+
+

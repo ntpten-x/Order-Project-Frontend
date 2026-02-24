@@ -88,8 +88,8 @@ function getStatusMeta(status: OrderStatus): { label: string; color: string; ico
     if (status === OrderStatus.Completed) return { label: "เสร็จสิ้น", color: "green", icon: <CheckCircleOutlined /> };
     if (status === OrderStatus.Cancelled) return { label: "ยกเลิก", color: "red", icon: <CloseCircleOutlined /> };
     if (status === OrderStatus.WaitingForPayment) return { label: "รอชำระ", color: "orange" };
-    if (status === OrderStatus.Cooking) return { label: "กำลังทำ", color: "blue" };
-    if (status === OrderStatus.Served) return { label: "เสิร์ฟแล้ว", color: "cyan" };
+    if (status === OrderStatus.Cooking) return { label: "กำลังดำเนินการ", color: "gold" };
+    if (status === OrderStatus.Served) return { label: "กำลังดำเนินการ", color: "gold" };
     return { label: String(status), color: "default" };
 }
 

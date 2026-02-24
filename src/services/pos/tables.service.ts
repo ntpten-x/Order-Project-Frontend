@@ -1,4 +1,4 @@
-import { TableQrInfo, Tables } from "../../types/api/pos/tables";
+import { TableQrCodeListItem, TableQrInfo, Tables } from "../../types/api/pos/tables";
 import { getProxyUrl } from "../../lib/proxy-utils";
 import { API_ROUTES } from "../../config/api";
 import { normalizeBackendPaginated, throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
@@ -82,6 +82,32 @@ export const tablesService = {
             throwBackendHttpError(response, errorData, "Failed to fetch table QR token");
         }
         return unwrapBackendData(await response.json()) as TableQrInfo;
+    },
+
+    getAllQrCodes: async (
+        cookie?: string,
+        searchParams?: URLSearchParams
+    ): Promise<{ data: TableQrCodeListItem[]; total: number; page: number; last_page: number }> => {
+        let url = getProxyUrl("GET", `${BASE_PATH}/qr-codes`);
+        const params = new URLSearchParams(searchParams || "");
+        if (!params.has("page")) params.set("page", "1");
+        if (!params.has("limit")) params.set("limit", "200");
+        const query = params.toString();
+        if (query) {
+            url += `?${query}`;
+        }
+        const headers = getHeaders(cookie, "");
+
+        const response = await fetch(url!, {
+            cache: "no-store",
+            headers,
+            credentials: "include",
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            throwBackendHttpError(response, errorData, "Failed to fetch table QR codes");
+        }
+        return normalizeBackendPaginated<TableQrCodeListItem>(await response.json());
     },
 
     rotateQrToken: async (id: string, cookie?: string, csrfToken?: string): Promise<TableQrInfo> => {

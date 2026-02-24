@@ -163,7 +163,7 @@ function TakeawayPageContent() {
                     subtitle={
                         <Space size={8} wrap>
                             <Tag>ทั้งหมด {stats.total}</Tag>
-                            <Tag color="orange">กำลังปรุง {stats.cooking}</Tag>
+                            <Tag color="orange">กำลังดำเนินการ {stats.inProgress}</Tag>
                         </Space>
                     }
                     onBack={handleBack}

@@ -34,8 +34,8 @@ const STATUS_THAI: Record<string, string> = {
   Completed: "เสร็จสิ้น",
   Cancelled: "ยกเลิก",
   Pending: "รอดำเนินการ",
-  Cooking: "กำลังทำ",
-  Served: "เสิร์ฟแล้ว",
+  Cooking: "รอดำเนินการ",
+  Served: "รอดำเนินการ",
   WaitingForPayment: "รอชำระ",
 };
 

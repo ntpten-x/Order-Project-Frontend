@@ -262,7 +262,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                             display: 'flex', 
                             overflowX: 'auto', 
                             gap: 8, 
-                            paddingBottom: 4,
+                            paddingBottom: 6,
                             scrollBehavior: 'smooth',
                             scrollbarWidth: 'none', // For Firefox
                             msOverflowStyle: 'none' // For IE/Edge
@@ -273,7 +273,11 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                 onClick={() => handleCategoryClick(null)}
                                 style={{ 
                                     borderRadius: 20, 
-                                    minWidth: 70,
+                                    minWidth: 'max-content',
+                                    height: 36,
+                                    padding: '0 14px',
+                                    whiteSpace: 'nowrap',
+                                    flex: '0 0 auto',
                                     border: selectedCategoryId === null ? 'none' : `1px solid ${orderDetailColors.border}`
                                 }}
                             >
@@ -287,6 +291,11 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                     onClick={() => handleCategoryClick(cat.id)}
                                     style={{ 
                                         borderRadius: 20,
+                                        minWidth: 'max-content',
+                                        height: 36,
+                                        padding: '0 14px',
+                                        whiteSpace: 'nowrap',
+                                        flex: '0 0 auto',
                                         border: selectedCategoryId === cat.id ? 'none' : `1px solid ${orderDetailColors.border}`
                                     }}
                                 >

@@ -90,8 +90,8 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
   Completed: { label: "เสร็จสิ้น", color: "green" },
   Cancelled: { label: "ยกเลิก", color: "red" },
   Pending: { label: "รอดำเนินการ", color: "gold" },
-  Cooking: { label: "กำลังทำ", color: "blue" },
-  Served: { label: "เสิร์ฟแล้ว", color: "cyan" },
+  Cooking: { label: "รอดำเนินการ", color: "gold" },
+  Served: { label: "รอดำเนินการ", color: "gold" },
   WaitingForPayment: { label: "รอชำระ", color: "orange" },
 };
 

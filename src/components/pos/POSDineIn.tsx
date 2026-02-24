@@ -117,7 +117,7 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
                         total_price: totalPrice,
                         discount_amount: 0, 
                         notes: item.notes || "",
-                        status: OrderStatus.Cooking, // สถานะสินค้า: กำลังปรุง
+                        status: OrderStatus.Pending, // สถานะสินค้า: กำลังดำเนินการ
                         details: item.details || []
                     };
                 })
@@ -155,4 +155,3 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
         />
     );
 }
-

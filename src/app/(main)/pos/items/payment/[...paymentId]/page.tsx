@@ -390,7 +390,7 @@ export default function POSPaymentPage() {
                     const activeItems = order.items?.filter(item => !isCancelledStatus(item.status)) || [];
                     await Promise.all(
                         activeItems.map(item => 
-                            ordersService.updateItemStatus(item.id, OrderStatus.Served, undefined, csrfToken)
+                            ordersService.updateItemStatus(item.id, OrderStatus.Pending, undefined, csrfToken)
                         )
                     );
 

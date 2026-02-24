@@ -12,6 +12,7 @@ import {
   HomeOutlined,
   PoweroffOutlined,
   TableOutlined,
+  QrcodeOutlined,
   TagsOutlined,
   ClockCircleOutlined,
   HistoryOutlined,
@@ -102,6 +103,13 @@ const POSBottomNavigation = () => {
         label: "โต๊ะ",
         icon: <TableOutlined />,
         path: "/pos/tables",
+      },
+      {
+        key: "tableQr",
+        visibilityKey: "menu.pos.tables",
+        label: "QR โต๊ะ",
+        icon: <QrcodeOutlined />,
+        path: "/pos/qr-code",
       },
       {
         key: "delivery",
@@ -252,4 +260,3 @@ const POSBottomNavigation = () => {
 };
 
 export default POSBottomNavigation;
-

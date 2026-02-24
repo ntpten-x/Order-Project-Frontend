@@ -6,6 +6,7 @@ import {
     TableOutlined,
     PlusOutlined,
     ReloadOutlined,
+    QrcodeOutlined,
     EditOutlined,
     DeleteOutlined,
     CheckCircleFilled
@@ -319,6 +320,11 @@ export default function TablesPage() {
         router.push('/pos/tables/manager/add');
     };
 
+    const handleOpenQrCodes = () => {
+        showLoading('กำลังเปิดหน้า QR โต๊ะ...');
+        router.push('/pos/qr-code');
+    };
+
     const handleEdit = (table: Tables) => {
         if (!canUpdateTables) {
             message.error("คุณไม่มีสิทธิ์แก้ไขโต๊ะ");
@@ -420,6 +426,9 @@ export default function TablesPage() {
                 icon={<TableOutlined />}
                 actions={
                     <Space size={8} wrap>
+                        <Button icon={<QrcodeOutlined />} onClick={handleOpenQrCodes}>
+                            QR โต๊ะ
+                        </Button>
                         <Button icon={<ReloadOutlined />} onClick={fetchTables} />
                         {canCreateTables ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>

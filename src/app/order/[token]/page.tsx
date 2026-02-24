@@ -133,8 +133,8 @@ type NoteEditorState = {
 function mapStatus(status: string): { label: string; color: string } {
     const normalized = String(status || "").trim().toLowerCase();
     if (normalized === "pending") return { label: "รับออเดอร์แล้ว", color: "gold" };
-    if (normalized === "cooking") return { label: "กำลังเตรียม", color: "processing" };
-    if (normalized === "served") return { label: "เสิร์ฟแล้ว", color: "green" };
+    if (normalized === "cooking") return { label: "กำลังดำเนินการ", color: "gold" };
+    if (normalized === "served") return { label: "กำลังดำเนินการ", color: "gold" };
     if (normalized === "waitingforpayment") return { label: "รอพนักงานคิดเงิน", color: "cyan" };
     if (normalized === "paid" || normalized === "completed") return { label: "ชำระแล้ว", color: "success" };
     if (normalized === "cancelled") return { label: "ยกเลิกแล้ว", color: "red" };
@@ -222,6 +222,16 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 
 const QROrderMobileStyles = () => (
     <style jsx global>{`
+        .qr-order-page {
+            overflow-x: hidden;
+        }
+
+        .qr-order-page .qr-floating-cart-btn {
+            width: 62px !important;
+            height: 62px !important;
+            border-radius: 20px !important;
+        }
+
         @media (max-width: 768px) {
             .qr-order-page .qr-main-content {
                 padding: 12px !important;
@@ -316,6 +326,7 @@ const QROrderMobileStyles = () => (
             .qr-order-page .summary-item-row {
                 gap: 10px !important;
                 padding: 10px 0 !important;
+                align-items: flex-start !important;
             }
 
             .qr-order-page .summary-item-image {
@@ -333,9 +344,9 @@ const QROrderMobileStyles = () => (
             }
 
             .qr-order-page .qr-floating-cart-btn {
-                width: 58px !important;
-                height: 58px !important;
-                border-radius: 18px !important;
+                width: 64px !important;
+                height: 64px !important;
+                border-radius: 20px !important;
             }
         }
 

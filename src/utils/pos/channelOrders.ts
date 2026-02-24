@@ -10,8 +10,6 @@ const EXCLUDED_STATUSES = new Set<OrderStatus>([
 
 const DEFAULT_ACTIVE_STATUS_FILTER = [
     OrderStatus.Pending,
-    OrderStatus.Cooking,
-    OrderStatus.Served,
     OrderStatus.WaitingForPayment,
 ].join(",");
 
