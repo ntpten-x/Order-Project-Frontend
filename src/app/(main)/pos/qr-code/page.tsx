@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     Button,
     Modal,
-    Pagination,
     Radio,
     Space,
     Spin,
@@ -13,6 +12,8 @@ import {
     Typography,
     message,
 } from 'antd';
+import ListPagination from '../../../../components/ui/pagination/ListPagination';
+import type { CreatedSort } from '../../../../components/ui/pagination/ListPagination';
 import {
     DownloadOutlined,
     LinkOutlined,
@@ -35,12 +36,12 @@ import { SearchBar } from '../../../../components/ui/page/SearchBar';
 import { SearchInput } from '../../../../components/ui/input/SearchInput';
 import { ModalSelector } from '../../../../components/ui/select/ModalSelector';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
-import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 import { DynamicQRCode, DynamicQRCodeCanvas, loadPdfExport } from '../../../../lib/dynamic-imports';
+import { useListState } from '../../../../hooks/pos/useListState';
 
 const { Text } = Typography;
 
-const PAGE_SIZE = 12;
+const DEFAULT_PAGE_SIZE = 10;
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 type TableStateFilter = 'all' | TableStatus.Available | TableStatus.Unavailable;
@@ -263,6 +264,24 @@ export default function TableQrCodePage() {
 
     const canRotateQr = can('tables.page', 'update');
 
+    const {
+        page, setPage,
+        pageSize, setPageSize,
+        total, setTotal,
+        searchText, setSearchText,
+        debouncedSearch,
+        createdSort, setCreatedSort,
+        filters, updateFilter,
+        getQueryParams,
+        isUrlReady
+    } = useListState({
+        defaultPageSize: DEFAULT_PAGE_SIZE,
+        defaultFilters: {
+            status: 'all' as StatusFilter,
+            table_state: 'all' as TableStateFilter
+        }
+    });
+
     const [tables, setTables] = useState<TableQrCodeListItem[]>([]);
     const [loading, setLoading] = useState(false);
     const [rotatingId, setRotatingId] = useState<string | null>(null);
@@ -270,13 +289,9 @@ export default function TableQrCodePage() {
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [exportFormat, setExportFormat] = useState<ExportFormat>('png');
     const [exportTargetTable, setExportTargetTable] = useState<TableQrCodeListItem | null>(null);
-    const [searchText, setSearchText] = useState('');
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-    const [tableStateFilter, setTableStateFilter] = useState<TableStateFilter>('all');
-    const [page, setPage] = useState(1);
     const [csrfToken, setCsrfToken] = useState('');
 
-    const debouncedSearch = useDebouncedValue(searchText, 250);
+    // const debouncedSearch = useDebouncedValue(searchText, 250); // Managed by hook
 
     const buildCustomerUrl = useCallback((customerPath?: string | null) => {
         if (!customerPath) return '';
@@ -297,70 +312,16 @@ export default function TableQrCodePage() {
     const fetchQrCodes = useCallback(async () => {
         setLoading(true);
         try {
-            const params = new URLSearchParams();
-            params.set('limit', '200');
+            const params = getQueryParams();
             const response = await fetch(`/api/pos/tables/qr-codes?${params.toString()}`, { cache: 'no-store' });
             if (response.ok) {
                 const payload = await response.json();
-                const rows = Array.isArray(payload)
-                    ? payload
-                    : Array.isArray(payload?.data)
-                        ? payload.data
-                        : [];
-                setTables(rows);
+                setTables(payload.data || []);
+                setTotal(payload.total || 0);
                 return;
             }
 
-            // Fallback for backend versions that do not yet support /pos/tables/qr-codes.
-            if (response.status === 400 || response.status === 404) {
-                const baseRes = await fetch('/api/pos/tables?limit=200', { cache: 'no-store' });
-                if (!baseRes.ok) {
-                    const errorData = await baseRes.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลโต๊ะได้');
-                }
-
-                const basePayload = await baseRes.json();
-                const baseRows = Array.isArray(basePayload)
-                    ? basePayload
-                    : Array.isArray(basePayload?.data)
-                        ? basePayload.data
-                        : [];
-
-                const withQr = await Promise.all(
-                    baseRows.map(async (table: TableQrCodeListItem) => {
-                        try {
-                            const qrRes = await fetch(`/api/pos/tables/${table.id}/qr`, { cache: 'no-store' });
-                            if (!qrRes.ok) {
-                                return {
-                                    ...table,
-                                    qr_code_token: null,
-                                    qr_code_expires_at: null,
-                                    customer_path: null,
-                                } as TableQrCodeListItem;
-                            }
-                            const qrPayload = await qrRes.json() as TableQrInfo;
-                            return {
-                                ...table,
-                                qr_code_token: qrPayload.qr_code_token,
-                                qr_code_expires_at: qrPayload.qr_code_expires_at,
-                                customer_path: qrPayload.customer_path,
-                            } as TableQrCodeListItem;
-                        } catch {
-                            return {
-                                ...table,
-                                qr_code_token: null,
-                                qr_code_expires_at: null,
-                                customer_path: null,
-                            } as TableQrCodeListItem;
-                        }
-                    }),
-                );
-
-                setTables(withQr);
-                message.warning('กำลังใช้โหมดเข้ากันได้ย้อนหลังของ QR API');
-                return;
-            }
-
+            // Simplified old compatibility check - if this fails, we just show error
             const errorData = await response.json().catch(() => ({}));
             throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงรายการ QR โต๊ะได้');
         } catch (error) {
@@ -369,7 +330,7 @@ export default function TableQrCodePage() {
         } finally {
             setLoading(false);
         }
-    }, []);
+    }, [getQueryParams, setTotal]);
 
     useEffect(() => {
         getCsrfTokenCached()
@@ -378,44 +339,12 @@ export default function TableQrCodePage() {
     }, []);
 
     useEffect(() => {
-        if (isAuthorized && !permissionLoading) {
+        if (isUrlReady && isAuthorized && !permissionLoading) {
             fetchQrCodes();
         }
-    }, [isAuthorized, permissionLoading, fetchQrCodes]);
+    }, [isUrlReady, isAuthorized, permissionLoading, fetchQrCodes]);
 
-    const filteredTables = useMemo(() => {
-        let rows = tables;
-
-        if (statusFilter === 'active') {
-            rows = rows.filter((table) => table.is_active);
-        } else if (statusFilter === 'inactive') {
-            rows = rows.filter((table) => !table.is_active);
-        }
-
-        if (tableStateFilter !== 'all') {
-            rows = rows.filter((table) => table.status === tableStateFilter);
-        }
-
-        const keyword = debouncedSearch.trim().toLowerCase();
-        if (keyword) {
-            rows = rows.filter((table) => {
-                const tableName = (table.table_name || '').toLowerCase();
-                const token = (table.qr_code_token || '').toLowerCase();
-                return tableName.includes(keyword) || token.includes(keyword);
-            });
-        }
-
-        return rows;
-    }, [tables, statusFilter, tableStateFilter, debouncedSearch]);
-
-    useEffect(() => {
-        setPage(1);
-    }, [debouncedSearch, statusFilter, tableStateFilter]);
-
-    const pagedTables = useMemo(() => {
-        const start = (page - 1) * PAGE_SIZE;
-        return filteredTables.slice(start, start + PAGE_SIZE);
-    }, [filteredTables, page]);
+    const displayTables = tables;
 
     const handleOpenCustomerPage = useCallback((table: TableQrCodeListItem) => {
         const customerUrl = buildCustomerUrl(table.customer_path);
@@ -448,7 +377,7 @@ export default function TableQrCodePage() {
             }
 
             const payload = await response.json() as TableQrInfo;
-            setTables((prev) => prev.map((row) => {
+            setTables((prev: TableQrCodeListItem[]) => prev.map((row: TableQrCodeListItem) => {
                 if (row.id !== table.id) return row;
                 return {
                     ...row,
@@ -652,7 +581,7 @@ export default function TableQrCodePage() {
         return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
     }
 
-    const totalCount = tables.length;
+    const totalCount = total;
     const activeCount = tables.filter((table) => table.is_active).length;
     const availableCount = tables.filter((table) => table.status === TableStatus.Available).length;
     const unavailableCount = tables.filter((table) => table.status === TableStatus.Unavailable).length;
@@ -705,41 +634,48 @@ export default function TableQrCodePage() {
                         <Space wrap size={10}>
                             <ModalSelector<StatusFilter>
                                 title="สถานะใช้งาน"
-                                value={statusFilter}
-                                onChange={(value) => setStatusFilter(value)}
+                                value={filters.status}
+                                onChange={(value) => updateFilter('status', value)}
                                 options={[
-                                    { label: `ทั้งหมด (${totalCount})`, value: 'all' },
-                                    { label: `เปิดใช้งาน (${activeCount})`, value: 'active' },
-                                    { label: `ปิดใช้งาน (${totalCount - activeCount})`, value: 'inactive' },
+                                    { label: `ทั้งหมด`, value: 'all' },
+                                    { label: `เปิดใช้งาน`, value: 'active' },
+                                    { label: `ปิดใช้งาน`, value: 'inactive' },
                                 ]}
                                 style={{ minWidth: 140 }}
                             />
                             <ModalSelector<TableStateFilter>
                                 title="สถานะโต๊ะ"
-                                value={tableStateFilter}
-                                onChange={(value) => setTableStateFilter(value)}
+                                value={filters.table_state}
+                                onChange={(value) => updateFilter('table_state', value)}
                                 options={[
-                                    { label: `ทุกสถานะ (${totalCount})`, value: 'all' },
-                                    { label: `ว่าง (${availableCount})`, value: TableStatus.Available },
-                                    { label: `ไม่ว่าง (${unavailableCount})`, value: TableStatus.Unavailable },
+                                    { label: `ทุกสถานะ`, value: 'all' },
+                                    { label: `ว่าง`, value: TableStatus.Available },
+                                    { label: `ไม่ว่าง`, value: TableStatus.Unavailable },
                                 ]}
                                 style={{ minWidth: 140 }}
                             />
-                            <Text type="secondary" style={{ fontSize: 13 }}>
-                                แสดง {filteredTables.length} รายการ
-                            </Text>
-                        </Space>
-                    </SearchBar>
+                                <ModalSelector<CreatedSort>
+                                    title="เรียงลำดับ"
+                                    value={createdSort}
+                                    onChange={(value) => setCreatedSort(value)}
+                                    options={[
+                                        { label: 'เรียงจากเก่าก่อน', value: 'old' },
+                                        { label: 'เรียงจากใหม่ก่อน', value: 'new' },
+                                    ]}
+                                    style={{ minWidth: 140 }}
+                                />
+                            </Space>
+                        </SearchBar>
 
                     <PageSection
                         title="รายการ QR โต๊ะ"
-                        extra={<Text strong>{filteredTables.length} รายการ</Text>}
+                        extra={<Text strong>{total} รายการ</Text>}
                     >
                         {loading ? (
                             <div style={{ display: 'flex', justifyContent: 'center', padding: '90px 0' }}>
                                 <Spin size="large" tip="กำลังโหลด QR โต๊ะ..." />
                             </div>
-                        ) : filteredTables.length === 0 ? (
+                        ) : displayTables.length === 0 ? (
                             <UIEmptyState
                                 title={debouncedSearch.trim() ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีรายการโต๊ะ'}
                                 description={
@@ -751,7 +687,7 @@ export default function TableQrCodePage() {
                         ) : (
                             <Space direction="vertical" size={14} style={{ width: '100%' }}>
                                 <div className="qr-cards-grid">
-                                    {pagedTables.map((table) => {
+                                    {displayTables.map((table) => {
                                         const customerUrl = buildCustomerUrl(table.customer_path);
                                         return (
                                             <TableQrCard
@@ -769,14 +705,13 @@ export default function TableQrCodePage() {
                                     })}
                                 </div>
 
-                                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-                                    <Pagination
-                                        current={page}
-                                        total={filteredTables.length}
-                                        pageSize={PAGE_SIZE}
-                                        onChange={(nextPage) => setPage(nextPage)}
-                                        showSizeChanger={false}
-                                        responsive
+                                <div style={{ marginTop: 12 }}>
+                                    <ListPagination
+                                        page={page}
+                                        total={total}
+                                        pageSize={pageSize}
+                                        onPageChange={setPage}
+                                        onPageSizeChange={setPageSize}
                                     />
                                 </div>
                             </Space>

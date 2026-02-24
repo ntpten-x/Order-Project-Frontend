@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { message, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
 import {
     CarOutlined,
@@ -8,7 +8,6 @@ import {
     ReloadOutlined,
     EditOutlined,
     DeleteOutlined,
-    ShopOutlined
 } from '@ant-design/icons';
 import { Delivery } from '../../../../types/api/pos/delivery';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
@@ -20,7 +19,6 @@ import { useRoleGuard } from '../../../../utils/pos/accessControl';
 import { useRealtimeList } from '../../../../utils/pos/realtime';
 import { readCache, writeCache } from '../../../../utils/pos/cache';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
-import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 import { pageStyles, globalStyles } from '../../../../theme/pos/delivery/style';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 import PageContainer from '../../../../components/ui/page/PageContainer';
@@ -29,7 +27,8 @@ import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import type { CreatedSort } from '../../../../components/ui/pagination/ListPagination';
-import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../../lib/list-sort';
+import ListPagination from '../../../../components/ui/pagination/ListPagination';
+import { DEFAULT_CREATED_SORT } from '../../../../lib/list-sort';
 import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
 import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
 import { SearchInput } from "../../../../components/ui/input/SearchInput";
@@ -37,6 +36,7 @@ import { SearchBar } from "../../../../components/ui/page/SearchBar";
 import { resolveImageSource } from "../../../../utils/image/source";
 import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
 import SmartAvatar from "../../../../components/ui/image/SmartAvatar";
+import { useListState } from '../../../../hooks/pos/useListState';
 
 const { Text } = Typography;
 
@@ -178,13 +178,25 @@ export default function DeliveryPage() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const isUrlReadyRef = useRef(false);
     const [deliveries, setDeliveries] = useState<Delivery[]>([]);
-    const [searchText, setSearchText] = useState('');
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
+    const {
+        page, setPage,
+        pageSize, setPageSize,
+        total, setTotal,
+        searchText, setSearchText,
+        debouncedSearch,
+        createdSort, setCreatedSort,
+        filters, updateFilter,
+        getQueryParams,
+        isUrlReady
+    } = useListState({
+        defaultPageSize: 10,
+        defaultFilters: {
+            status: 'all' as StatusFilter,
+        }
+    });
+
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
-    const debouncedSearch = useDebouncedValue(searchText, 300);
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
@@ -199,32 +211,7 @@ export default function DeliveryPage() {
         getCsrfTokenCached();
     }, []);
 
-    useEffect(() => {
-        if (isUrlReadyRef.current) return;
-
-        const qParam = searchParams.get('q') || '';
-        const statusParam = searchParams.get('status');
-        const sortParam = searchParams.get('sort_created');
-        const nextStatus: StatusFilter =
-            statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all';
-
-        setSearchText(qParam);
-        setStatusFilter(nextStatus);
-        setCreatedSort(parseCreatedSort(sortParam));
-        isUrlReadyRef.current = true;
-    }, [searchParams]);
-
-    useEffect(() => {
-        if (!isUrlReadyRef.current) return;
-
-        const params = new URLSearchParams();
-        if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
-        if (statusFilter !== 'all') params.set('status', statusFilter);
-        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
-
-        const query = params.toString();
-        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [router, pathname, debouncedSearch, statusFilter, createdSort]);
+    // URL sync managed by useListState hook
 
     useEffect(() => {
         if (createdSort !== DEFAULT_CREATED_SORT) return;
@@ -236,26 +223,23 @@ export default function DeliveryPage() {
 
     const fetchDeliveries = useCallback(async () => {
         execute(async () => {
-            const params = new URLSearchParams();
-            params.set('limit', '200');
-            params.set('sort_created', createdSort);
+            const params = getQueryParams();
             const response = await fetch(`/api/pos/delivery?${params.toString()}`);
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลช่องทางจัดส่งได้');
             }
             const payload = await response.json();
-            const data = Array.isArray(payload) ? payload : payload?.data;
-            if (!Array.isArray(data)) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
-            setDeliveries(data);
+            setDeliveries(payload.data || []);
+            setTotal(payload.total || 0);
         }, 'กำลังโหลดข้อมูลช่องทางจัดส่ง...');
-    }, [execute, createdSort]);
+    }, [execute, getQueryParams, setTotal]);
 
     useEffect(() => {
-        if (isAuthorized) {
+        if (isUrlReady && isAuthorized) {
             fetchDeliveries();
         }
-    }, [isAuthorized, fetchDeliveries]);
+    }, [isUrlReady, isAuthorized, fetchDeliveries]);
 
     useRealtimeList(
         socket,
@@ -269,25 +253,7 @@ export default function DeliveryPage() {
         }
     }, [deliveries, createdSort]);
 
-    const filteredDeliveries = useMemo(() => {
-        let result = deliveries;
-
-        if (statusFilter === 'active') {
-            result = result.filter((item) => item.is_active);
-        } else if (statusFilter === 'inactive') {
-            result = result.filter((item) => !item.is_active);
-        }
-
-        const keyword = debouncedSearch.trim().toLowerCase();
-        if (keyword) {
-            result = result.filter((item) =>
-                item.delivery_name.toLowerCase().includes(keyword) ||
-                (item.delivery_prefix || '').toLowerCase().includes(keyword)
-            );
-        }
-
-        return result;
-    }, [deliveries, debouncedSearch, statusFilter]);
+    const displayDeliveries = deliveries;
 
     const handleAdd = () => {
         if (!canCreateDelivery) {
@@ -332,7 +298,7 @@ export default function DeliveryPage() {
                     if (!response.ok) {
                         throw new Error('ไม่สามารถลบช่องทางจัดส่งได้');
                     }
-                    setDeliveries((prev) => prev.filter((item) => item.id !== delivery.id));
+                    setDeliveries((prev: Delivery[]) => prev.filter((item: Delivery) => item.id !== delivery.id));
                     message.success(`ลบช่องทางจัดส่ง "${delivery.delivery_name}" สำเร็จ`);
                 }, 'กำลังลบช่องทางจัดส่ง...');
             },
@@ -362,7 +328,7 @@ export default function DeliveryPage() {
             }
 
             const updated = await response.json();
-            setDeliveries((prev) => prev.map((item) => item.id === delivery.id ? updated : item));
+            setDeliveries((prev: Delivery[]) => prev.map((item: Delivery) => item.id === delivery.id ? updated : item));
             message.success(next ? 'เปิดใช้งานช่องทางจัดส่งแล้ว' : 'ปิดใช้งานช่องทางจัดส่งแล้ว');
         } catch (error) {
             console.error(error);
@@ -424,46 +390,60 @@ export default function DeliveryPage() {
                                 setSearchText(val);
                             }}
                         />
-                        <ModalSelector<StatusFilter>
-                            title="เลือกสถานะ"
-                            options={[
-                                { label: `ทั้งหมด (${deliveries.length})`, value: 'all' },
-                                { label: `ใช้งาน (${activeDeliveries})`, value: 'active' },
-                                { label: `ปิดใช้งาน (${inactiveDeliveries})`, value: 'inactive' }
-                            ]}
-                            value={statusFilter}
-                            onChange={(value) => setStatusFilter(value)}
-                            style={{ minWidth: 150 }}
-                        />
-                        <ModalSelector<CreatedSort>
-                            title="เรียงลำดับ"
-                            options={[
-                                { label: 'เรียงจากเก่าก่อน', value: 'old' },
-                                { label: 'เรียงจากใหม่ก่อน', value: 'new' },
-                            ]}
-                            value={createdSort}
-                            onChange={(value) => setCreatedSort(value)}
-                            style={{ minWidth: 150 }}
-                        />
+                        <Space wrap size={10}>
+                            <ModalSelector<StatusFilter>
+                                title="เลือกสถานะ"
+                                options={[
+                                    { label: `ทั้งหมด`, value: 'all' },
+                                    { label: `ใช้งาน`, value: 'active' },
+                                    { label: `ปิดใช้งาน`, value: 'inactive' }
+                                ]}
+                                value={filters.status}
+                                onChange={(value) => updateFilter('status', value)}
+                                style={{ minWidth: 150 }}
+                            />
+                            <ModalSelector<CreatedSort>
+                                title="เรียงลำดับ"
+                                options={[
+                                    { label: 'เรียงจากเก่าก่อน', value: 'old' },
+                                    { label: 'เรียงจากใหม่ก่อน', value: 'new' },
+                                ]}
+                                value={createdSort}
+                                onChange={(value) => setCreatedSort(value)}
+                                style={{ minWidth: 150 }}
+                            />
+                        </Space>
                     </SearchBar>
 
                     <PageSection
                         title="รายการช่องทางจัดส่ง"
-                        extra={<span style={{ fontWeight: 600 }}>{filteredDeliveries.length} รายการ</span>}
+                        extra={<span style={{ fontWeight: 600 }}>{total} รายการ</span>}
                     >
-                        {filteredDeliveries.length > 0 ? (
-                            filteredDeliveries.map((delivery) => (
-                                <DeliveryCard
-                                    key={delivery.id}
-                                    delivery={delivery}
-                                    canUpdate={canUpdateDelivery}
-                                    canDelete={canDeleteDelivery}
-                                    onEdit={handleEdit}
-                                    onDelete={handleDelete}
-                                    onToggleActive={handleToggleActive}
-                                    updatingStatusId={updatingStatusId}
-                                />
-                            ))
+                        {displayDeliveries.length > 0 ? (
+                            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                                {displayDeliveries.map((delivery) => (
+                                    <DeliveryCard
+                                        key={delivery.id}
+                                        delivery={delivery}
+                                        canUpdate={canUpdateDelivery}
+                                        canDelete={canDeleteDelivery}
+                                        onEdit={handleEdit}
+                                        onDelete={handleDelete}
+                                        onToggleActive={handleToggleActive}
+                                        updatingStatusId={updatingStatusId}
+                                    />
+                                ))}
+
+                                <div style={{ marginTop: 12 }}>
+                                    <ListPagination
+                                        page={page}
+                                        total={total}
+                                        pageSize={pageSize}
+                                        onPageChange={setPage}
+                                        onPageSizeChange={setPageSize}
+                                    />
+                                </div>
+                            </Space>
                         ) : (
                             <UIEmptyState
                                 title={

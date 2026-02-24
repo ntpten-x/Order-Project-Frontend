@@ -37,29 +37,51 @@ export default function ListPagination({
     return (
         <div
             style={{
-                display: 'flex',
-                flexWrap: 'wrap',
+                display: 'grid',
+                gridTemplateColumns: 'minmax(250px, 1fr) auto minmax(250px, 1fr)',
                 alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 12,
+                gap: 16,
                 marginTop: 16,
                 paddingTop: 12,
                 borderTop: '1px solid #E2E8F0',
+                width: '100%',
+                //@ts-ignore
+                '--phone-layout': '1fr'
             }}
+            className="pagination-grid"
         >
-            <Space size={12} wrap>
-                <Text type="secondary">แสดง {start}-{end} จาก {total} รายการ</Text>
-                <Space size={6}>
-                    <Text type="secondary">ต่อหน้า</Text>
-                    <ModalSelector<number>
-                        title="เลือกจำนวนต่อหน้า"
-                        value={pageSize}
-                        disabled={loading}
-                        onChange={onPageSizeChange}
-                        options={pageSizeOptions.map((size) => ({ value: size, label: `${size}` }))}
-                        style={{ minWidth: 80 }}
-                    />
+            <div style={{ justifySelf: 'start' }}>
+                <Space size={12} wrap>
+                    <Text type="secondary" style={{ whiteSpace: 'nowrap' }}>
+                        แสดง {start}-{end} จาก {total} รายการ
+                    </Text>
+                    <Space size={6}>
+                        <Text type="secondary">ต่อหน้า</Text>
+                        <ModalSelector<number>
+                            title="เลือกจำนวนต่อหน้า"
+                            value={pageSize}
+                            disabled={loading}
+                            onChange={onPageSizeChange}
+                            options={pageSizeOptions.map((size) => ({ value: size, label: `${size}` }))}
+                            style={{ minWidth: 80 }}
+                        />
+                    </Space>
                 </Space>
+            </div>
+
+            <div style={{ justifySelf: 'center' }}>
+                <Pagination
+                    size="small"
+                    current={page}
+                    pageSize={pageSize}
+                    total={total}
+                    disabled={loading}
+                    showSizeChanger={false}
+                    onChange={onPageChange}
+                />
+            </div>
+
+            <div style={{ justifySelf: 'end' }}>
                 {onSortCreatedChange ? (
                     <Space size={6}>
                         <Text type="secondary">เรียงตาม</Text>
@@ -75,18 +97,20 @@ export default function ListPagination({
                             style={{ minWidth: 100 }}
                         />
                     </Space>
-                ) : null}
-            </Space>
-
-            <Pagination
-                size="small"
-                current={page}
-                pageSize={pageSize}
-                total={total}
-                disabled={loading}
-                showSizeChanger={false}
-                onChange={onPageChange}
-            />
+                ) : (
+                    <div style={{ width: 40 }} /> // Spacer to keep center balanced
+                )}
+            </div>
+            <style jsx>{`
+                @media (max-width: 991px) {
+                    .pagination-grid {
+                        display: flex !important;
+                        flex-direction: column;
+                        align-items: center;
+                        gap: 20px;
+                    }
+                }
+            `}</style>
         </div>
     );
 }

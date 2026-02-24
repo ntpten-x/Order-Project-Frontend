@@ -34,6 +34,7 @@ import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
 import { SearchInput } from "../../../../components/ui/input/SearchInput";
 import { SearchBar } from "../../../../components/ui/page/SearchBar";
 import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
+import { useListState } from '../../../../hooks/pos/useListState';
 
 const { Text } = Typography;
 
@@ -172,18 +173,27 @@ const UnitCard = ({ unit, canUpdate, canDelete, onEdit, onDelete, onToggleActive
 
 export default function ProductsUnitPage() {
     const router = useRouter();
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
-    const isUrlReadyRef = useRef(false);
+    const {
+        searchText,
+        setSearchText,
+        debouncedSearch,
+        page,
+        setPage,
+        pageSize,
+        setPageSize,
+        createdSort,
+        setCreatedSort,
+        filters,
+        updateFilter,
+        total,
+        setTotal,
+    } = useListState<{ status: StatusFilter }>({
+        defaultPageSize: 10,
+        defaultFilters: { status: 'all' }
+    });
+
     const [units, setUnits] = useState<ProductsUnit[]>([]);
-    const [searchText, setSearchText] = useState('');
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
-    const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(20);
-    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
-    const [totalUnits, setTotalUnits] = useState(0);
-    const debouncedSearch = useDebouncedValue(searchText, 300);
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
@@ -195,48 +205,19 @@ export default function ProductsUnitPage() {
 
     useEffect(() => {
         getCsrfTokenCached();
-    }, []);
-
-    useEffect(() => {
         const cached = readCache<ProductsUnit[]>('pos:products-units', 10 * 60 * 1000);
         if (cached && cached.length > 0) {
             setUnits(cached);
         }
     }, []);
 
-    useEffect(() => {
-        if (isUrlReadyRef.current) return;
-        const pageParam = parseInt(searchParams.get('page') || '1', 10);
-        const limitParam = parseInt(searchParams.get('limit') || '20', 10);
-        const qParam = searchParams.get('q') || '';
-        const statusParam = searchParams.get('status');
-        const sortParam = searchParams.get('sort_created');
-        setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
-        setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 20);
-        setSearchText(qParam);
-        setStatusFilter(statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all');
-        setCreatedSort(parseCreatedSort(sortParam));
-        isUrlReadyRef.current = true;
-    }, [searchParams]);
-
-    useEffect(() => {
-        if (!isUrlReadyRef.current) return;
-        const params = new URLSearchParams();
-        params.set('page', String(page));
-        params.set('limit', String(pageSize));
-        if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
-        if (statusFilter !== 'all') params.set('status', statusFilter);
-        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
-        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter, createdSort]);
-
-    const fetchUnits = useCallback(async (nextPage: number = page, nextPageSize: number = pageSize) => {
+    const fetchUnits = useCallback(async () => {
         execute(async () => {
             const params = new URLSearchParams();
-            params.set('page', String(nextPage));
-            params.set('limit', String(nextPageSize));
+            params.set('page', String(page));
+            params.set('limit', String(pageSize));
             if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
-            if (statusFilter !== 'all') params.set('status', statusFilter);
+            if (filters.status !== 'all') params.set('status', filters.status);
             params.set('sort_created', createdSort);
             const response = await fetch(`/api/pos/productsUnit?${params.toString()}`);
             if (!response.ok) {
@@ -245,20 +226,16 @@ export default function ProductsUnitPage() {
             }
             const payload = await response.json();
             const data = Array.isArray(payload?.data) ? payload.data : [];
-            if (!Array.isArray(data)) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
             setUnits(data);
-            setTotalUnits(typeof payload?.total === 'number' ? payload.total : 0);
-            setPage(typeof payload?.page === 'number' ? payload.page : nextPage);
-            setPageSize(nextPageSize);
+            setTotal(payload?.total || 0);
         }, 'กำลังโหลดข้อมูลหน่วยสินค้า...');
-    }, [execute, page, pageSize, debouncedSearch, statusFilter, createdSort]);
+    }, [execute, page, pageSize, debouncedSearch, filters.status, createdSort, setTotal]);
 
     useEffect(() => {
-        if (!isUrlReadyRef.current) return;
         if (isAuthorized) {
             fetchUnits();
         }
-    }, [isAuthorized, fetchUnits, page, pageSize]);
+    }, [isAuthorized, fetchUnits]);
 
     useRealtimeList(
         socket,
@@ -299,7 +276,7 @@ export default function ProductsUnitPage() {
         }
         Modal.confirm({
             title: 'ยืนยันการลบหน่วยสินค้า',
-            content: `คุณต้องการลบหน่วย "${unit.display_name}" หรือไม่?`,
+            content: `คุณต้องการลบหน่วยสินค้า ${unit.display_name} หรือไม่?`,
             okText: 'ลบ',
             okType: 'danger',
             cancelText: 'ยกเลิก',
@@ -317,7 +294,7 @@ export default function ProductsUnitPage() {
                     if (!response.ok) {
                         throw new Error('ไม่สามารถลบหน่วยสินค้าได้');
                     }
-                    await fetchUnits(page, pageSize);
+                    await fetchUnits();
                     message.success(`ลบหน่วย "${unit.display_name}" สำเร็จ`);
                 }, 'กำลังลบหน่วยสินค้า...');
             },
@@ -342,7 +319,7 @@ export default function ProductsUnitPage() {
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถเปลี่ยนสถานะหน่วยสินค้าได้');
             }
 
-            await fetchUnits(page, pageSize);
+            await fetchUnits();
             message.success(next ? 'เปิดใช้งานหน่วยสินค้าแล้ว' : 'ปิดใช้งานหน่วยสินค้าแล้ว');
         } catch (error) {
             console.error(error);
@@ -369,10 +346,9 @@ export default function ProductsUnitPage() {
 
             <UIPageHeader
                 title="หน่วยสินค้า"
-                subtitle={`ทั้งหมด ${totalUnits} รายการ`}
                 icon={<UnorderedListOutlined />}
                 actions={
-                    <Space size={8} wrap>
+                    <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} onClick={() => { void fetchUnits(); }} />
                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} disabled={!canCreateUnits}>
                             เพิ่มหน่วยสินค้า
@@ -385,7 +361,7 @@ export default function ProductsUnitPage() {
                 <PageStack>
                     <StatsGroup
                         stats={[
-                            { label: 'ทั้งหมด', value: totalUnits, color: '#0f172a' },
+                            { label: 'ทั้งหมด', value: total, color: '#0f172a' },
                             { label: 'ใช้งาน', value: activeUnits.length, color: '#0e7490' },
                             { label: 'ปิดใช้งาน', value: inactiveUnits.length, color: '#b91c1c' },
                         ]}
@@ -393,32 +369,40 @@ export default function ProductsUnitPage() {
 
                     <SearchBar>
                         <SearchInput
-                            placeholder="ค้นหาจากชื่อแสดงหรือชื่อระบบ..."
+                            placeholder="ค้นหา"
                             value={searchText}
                             onChange={(val) => {
-                                setPage(1);
                                 setSearchText(val);
                             }}
                         />
-                        <ModalSelector<StatusFilter>
-                            title="เลือกสถานะ"
-                            options={[
-                                { label: `ทั้งหมด (${units.length})`, value: 'all' },
-                                { label: `ใช้งาน (${activeUnits.length})`, value: 'active' },
-                                { label: `ปิดใช้งาน (${inactiveUnits.length})`, value: 'inactive' }
-                            ]}
-                            value={statusFilter}
-                            onChange={(value) => {
-                                setPage(1);
-                                setStatusFilter(value);
-                            }}
-                            style={{ minWidth: 150 }}
-                        />
+                        <Space wrap size={10}>
+                            <ModalSelector<StatusFilter>
+                                title="เลือกสถานะ"
+                                options={[
+                                    { label: `ทั้งหมด`, value: 'all' },
+                                    { label: `ใช้งาน`, value: 'active' },
+                                    { label: `ปิดใช้งาน`, value: 'inactive' }
+                                ]}
+                                value={filters.status}
+                                onChange={(value) => updateFilter('status', value)}
+                                style={{ minWidth: 120 }}
+                            />
+                            <ModalSelector<CreatedSort>
+                                title="เรียงลำดับ"
+                                options={[
+                                    { label: 'เรียงจากเก่าก่อน', value: 'old' },
+                                    { label: 'เรียงจากใหม่ก่อน', value: 'new' },
+                                ]}
+                                value={createdSort}
+                                onChange={(value) => setCreatedSort(value)}
+                                style={{ minWidth: 120 }}
+                            />
+                        </Space>
                     </SearchBar>
 
                     <PageSection
                         title="รายการหน่วยสินค้า"
-                        extra={<span style={{ fontWeight: 600 }}>{filteredUnits.length}</span>}
+                        extra={<span style={{ fontWeight: 600 }}>{filteredUnits.length} รายการ</span>}
                     >
                         {filteredUnits.length > 0 ? (
                             filteredUnits.map((unit) => (
@@ -445,30 +429,17 @@ export default function ProductsUnitPage() {
                                         ? 'ลองเปลี่ยนคำค้น หรือตัวกรองสถานะ'
                                         : 'เพิ่มหน่วยสินค้าแรกเพื่อเริ่มใช้งาน'
                                 }
-                                action={
-                                    !searchText.trim() ? (
-                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} disabled={!canCreateUnits}>
-                                            เพิ่มหน่วยสินค้า
-                                        </Button>
-                                    ) : null
-                                }
                             />
                         )}
-                        <ListPagination
-                            page={page}
-                            pageSize={pageSize}
-                            total={totalUnits}
-                            onPageChange={setPage}
-                            onPageSizeChange={(size) => {
-                                setPage(1);
-                                setPageSize(size);
-                            }}
-                            sortCreated={createdSort}
-                            onSortCreatedChange={(next) => {
-                                setPage(1);
-                                setCreatedSort(next);
-                            }}
-                        />
+                        <div style={{ marginTop: 12 }}>
+                            <ListPagination
+                                page={page}
+                                pageSize={pageSize}
+                                total={total}
+                                onPageChange={setPage}
+                                onPageSizeChange={setPageSize}
+                            />
+                        </div>
                     </PageSection>
                 </PageStack>
             </PageContainer>

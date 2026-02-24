@@ -87,7 +87,7 @@ const UnitPreviewCard = ({ displayName, unitName, isActive }: { displayName: str
                     {isActive && <CheckCircleFilled style={{ color: '#10B981', fontSize: 14 }} />}
                 </div>
                 <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>
-                    {unitName || 'unit_name'}
+                    {unitName || 'Unit name'}
                 </Text>
             </div>
         </div>
@@ -235,7 +235,7 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
         if (!id) return;
         Modal.confirm({
             title: 'ยืนยันการลบหน่วยสินค้า',
-            content: `คุณต้องการลบหน่วย "${displayName || originalUnit?.display_name || '-'}" หรือไม่?`,
+            content: `คุณต้องการลบหน่วยสินค้า ${displayName || originalUnit?.display_name || '-'} หรือไม่?`,
             okText: 'ลบ',
             okType: 'danger',
             cancelText: 'ยกเลิก',
@@ -273,7 +273,6 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
         <div className="manage-page" style={pageStyles.container}>
             <UIPageHeader
                 title={modeTitle}
-                subtitle={isEdit ? 'ปรับแก้ชื่อหน่วยและสถานะการใช้งาน' : 'สร้างหน่วยสินค้าใหม่ให้พร้อมใช้งานในระบบ POS'}
                 onBack={handleBack}
                 actions={
                     isEdit && canDeleteUnits ? (
@@ -322,10 +321,10 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
                                     >
                                         <Form.Item
                                             name="unit_name"
-                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อระบบ (unit_name)</span>}
+                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อหน่วยสินค้าภาษาอังกฤษ <span style={{ color: '#ff4d4f' }}>*</span></span>}
                                             validateTrigger={['onBlur', 'onSubmit']}
                                             rules={[
-                                                { required: true, message: 'กรุณากรอกชื่อระบบ' },
+                                                { required: true, message: 'กรุณากรอกชื่อหน่วยสินค้า' },
                                                 { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'กรอกได้เฉพาะภาษาอังกฤษ ตัวเลข และ - _ ( ) .' },
                                                 { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' },
                                                 {
@@ -339,7 +338,7 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
                                         >
                                             <Input
                                                 size="large"
-                                                placeholder="เช่น piece, box, kg"
+                                                placeholder="Plate, Bottle, ..."
                                                 style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
                                                 maxLength={100}
                                             />
@@ -347,15 +346,15 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
 
                                         <Form.Item
                                             name="display_name"
-                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อที่แสดง</span>}
+                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อหน่วยสินค้าภาษาไทย <span style={{ color: '#ff4d4f' }}>*</span></span>}
                                             rules={[
-                                                { required: true, message: 'กรุณากรอกชื่อที่แสดง' },
+                                                { required: true, message: 'กรุณากรอกชื่อหน่วยสินค้า' },
                                                 { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
                                             ]}
                                         >
                                             <Input
                                                 size="large"
-                                                placeholder="เช่น ชิ้น, กล่อง, กิโลกรัม"
+                                                placeholder="จาน, ขวด, ..."
                                                 style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
                                                 maxLength={100}
                                             />
@@ -372,16 +371,6 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
                                                 </Form.Item>
                                             </div>
                                         </div>
-
-                                        <Alert
-                                            showIcon
-                                            type="info"
-                                            icon={<InfoCircleOutlined />}
-                                            message="ข้อมูลที่จำเป็น"
-                                            description="ต้องกรอกชื่อระบบและชื่อที่แสดง โดยชื่อระบบจะถูกตรวจสอบไม่ให้ซ้ำในสาขาเดียวกัน"
-                                            style={{ marginBottom: 24 }}
-                                        />
-
                                         <div style={{ marginTop: 12, display: 'flex', gap: 12 }}>
                                             <Button
                                                 size="large"
@@ -426,7 +415,6 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
                                                 <Text strong>รายละเอียดรายการ</Text>
                                             </div>
                                             <div style={{ display: 'grid', gap: 8 }}>
-                                                <Text type="secondary">ID: {originalUnit?.id || '-'}</Text>
                                                 <Text type="secondary">สร้างเมื่อ: {formatDate(originalUnit?.create_date)}</Text>
                                                 <Text type="secondary">อัปเดตเมื่อ: {formatDate(originalUnit?.update_date)}</Text>
                                             </div>

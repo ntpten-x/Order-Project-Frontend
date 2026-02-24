@@ -88,7 +88,7 @@ const CategoryPreviewCard = ({ displayName, categoryName, isActive }: { displayN
                     {isActive && <CheckCircleFilled style={{ color: '#10B981', fontSize: 14 }} />}
                 </div>
                 <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>
-                    {categoryName || 'category_name'}
+                    {categoryName || 'Category name'}
                 </Text>
             </div>
         </div>
@@ -267,7 +267,7 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
         }
         Modal.confirm({
             title: 'ยืนยันการลบหมวดหมู่',
-            content: `คุณต้องการลบหมวดหมู่ "${displayName || originalCategory?.display_name || '-'}" หรือไม่?`,
+            content: `คุณต้องการลบหมวดหมู่ ${displayName || originalCategory?.display_name || '-'} หรือไม่?`,
             okText: 'ลบ',
             okType: 'danger',
             cancelText: 'ยกเลิก',
@@ -306,7 +306,6 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
         <div className="manage-page" style={pageStyles.container}>
             <UIPageHeader
                 title={modeTitle}
-                subtitle={isEdit ? 'ปรับแก้ชื่อหมวดหมู่และสถานะการใช้งาน' : 'สร้างหมวดหมู่ใหม่ให้พร้อมใช้งานในระบบ POS'}
                 onBack={handleBack}
                 actions={
                     isEdit && canDeleteCategory ? (
@@ -355,10 +354,10 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
                                     >
                                         <Form.Item
                                             name="category_name"
-                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อระบบ (category_name)</span>}
+                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อหมวดหมู่ภาษาอังกฤษ <span style={{ color: '#ff4d4f' }}>*</span></span>}
                                             validateTrigger={['onBlur', 'onSubmit']}
                                             rules={[
-                                                { required: true, message: 'กรุณากรอกชื่อระบบ' },
+                                                { required: true, message: 'กรุณากรอกชื่อหมวดหมู่' },
                                                 { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'กรอกได้เฉพาะภาษาอังกฤษ ตัวเลข และ - _ ( ) .' },
                                                 { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' },
                                                 {
@@ -372,7 +371,7 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
                                         >
                                             <Input
                                                 size="large"
-                                                placeholder="เช่น beverage, main-course"
+                                                placeholder="Drink, Food, ..."
                                                 style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
                                                 maxLength={100}
                                             />
@@ -380,7 +379,7 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
 
                                         <Form.Item
                                             name="display_name"
-                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อที่แสดง</span>}
+                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อหมวดหมู่ภาษาไทย <span style={{ color: '#ff4d4f' }}>*</span></span>}
                                             rules={[
                                                 { required: true, message: 'กรุณากรอกชื่อที่แสดง' },
                                                 { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
@@ -388,7 +387,7 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
                                         >
                                             <Input
                                                 size="large"
-                                                placeholder="เช่น เครื่องดื่ม, อาหารจานหลัก"
+                                                placeholder="เครื่องดื่ม, อาหาร, ..."
                                                 style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
                                                 maxLength={100}
                                             />
@@ -405,16 +404,6 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
                                                 </Form.Item>
                                             </div>
                                         </div>
-
-                                        <Alert
-                                            showIcon
-                                            type="info"
-                                            icon={<InfoCircleOutlined />}
-                                            message="ข้อมูลที่จำเป็น"
-                                            description="ต้องกรอกชื่อระบบและชื่อที่แสดง โดยชื่อระบบจะถูกตรวจสอบไม่ให้ซ้ำในสาขาเดียวกัน"
-                                            style={{ marginBottom: 24 }}
-                                        />
-
                                         <div style={{ marginTop: 12, display: 'flex', gap: 12 }}>
                                             <Button
                                                 size="large"
@@ -460,7 +449,6 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
                                                 <Text strong>รายละเอียดรายการ</Text>
                                             </div>
                                             <div style={{ display: 'grid', gap: 8 }}>
-                                                <Text type="secondary">ID: {originalCategory?.id || '-'}</Text>
                                                 <Text type="secondary">สร้างเมื่อ: {formatDate(originalCategory?.create_date)}</Text>
                                                 <Text type="secondary">อัปเดตเมื่อ: {formatDate(originalCategory?.update_date)}</Text>
                                             </div>
