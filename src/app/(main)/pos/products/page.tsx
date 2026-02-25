@@ -604,6 +604,7 @@ export default function ProductsPage() {
                                         total={total}
                                         onPageChange={setPage}
                                         onPageSizeChange={setPageSize}
+                                        activeColor="#d97706"
                                     />
                                 </div>
                             </>

@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { message, Modal, Typography, Tag, Button, Space, Switch } from 'antd';
 import {
     CreditCardOutlined,
@@ -19,7 +19,7 @@ import { useAsyncAction } from '../../../../hooks/useAsyncAction';
 import { useSocket } from '../../../../hooks/useSocket';
 import { getCsrfTokenCached } from '../../../../utils/pos/csrf';
 import { useRoleGuard } from '../../../../utils/pos/accessControl';
-import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
+import { useRealtimeList } from '../../../../utils/pos/realtime';
 import { readCache, writeCache } from '../../../../utils/pos/cache';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import { paymentMethodService } from '../../../../services/pos/paymentMethod.service';
@@ -38,10 +38,10 @@ import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
 import { SearchInput } from "../../../../components/ui/input/SearchInput";
 import { SearchBar } from "../../../../components/ui/page/SearchBar";
 import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
+import { useListState } from "../../../../hooks/pos/useListState";
 
 const { Text } = Typography;
 
-const PAYMENT_METHOD_LIMIT = 50;
 const PAYMENT_METHOD_CACHE_KEY = 'pos:payment-methods:v2';
 const PAYMENT_METHOD_CACHE_TTL = 5 * 60 * 1000;
 
@@ -185,15 +185,29 @@ export default function PaymentMethodPage() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const isUrlReadyRef = useRef(false);
+    const {
+        searchText,
+        setSearchText,
+        debouncedSearch,
+        page,
+        setPage,
+        pageSize,
+        setPageSize,
+        createdSort,
+        setCreatedSort,
+        filters,
+        updateFilter,
+        total,
+        setTotal,
+        getQueryParams,
+        isUrlReady
+    } = useListState<{ status: StatusFilter }>({
+        defaultPageSize: 10,
+        defaultFilters: { status: 'all' }
+    });
+
     const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
-    const [page, setPage] = useState(1);
-    const [total, setTotal] = useState(0);
-    const [searchValue, setSearchValue] = useState('');
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
-    const debouncedSearch = useDebouncedValue(searchValue.trim(), 350);
 
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
@@ -209,85 +223,47 @@ export default function PaymentMethodPage() {
     }, []);
 
     useEffect(() => {
-        if (isUrlReadyRef.current) return;
-
-        const pageParam = Number(searchParams.get('page') || '1');
-        const qParam = searchParams.get('q') || '';
-        const statusParam = searchParams.get('status');
-        const sortParam = searchParams.get('sort_created');
-        const nextStatus: StatusFilter =
-            statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all';
-
-        setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
-        setSearchValue(qParam);
-        setStatusFilter(nextStatus);
-        setCreatedSort(parseCreatedSort(sortParam));
-        isUrlReadyRef.current = true;
-    }, [searchParams]);
-
-    useEffect(() => {
-        if (!isUrlReadyRef.current) return;
-        const params = new URLSearchParams();
-        if (page > 1) params.set('page', String(page));
-        if (debouncedSearch) params.set('q', debouncedSearch);
-        if (statusFilter !== 'all') params.set('status', statusFilter);
-        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
-
-        const query = params.toString();
-        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [router, pathname, page, debouncedSearch, statusFilter, createdSort]);
-
-    useEffect(() => {
-        if (debouncedSearch || page !== 1 || createdSort !== DEFAULT_CREATED_SORT) return;
-        const cached = readCache<PaymentMethodCacheResult>(PAYMENT_METHOD_CACHE_KEY, PAYMENT_METHOD_CACHE_TTL);
-        if (cached?.data?.length) {
-            setPaymentMethods(cached.data);
-            setTotal(cached.total);
+        if (!debouncedSearch && page === 1 && createdSort === DEFAULT_CREATED_SORT && filters.status === 'all') {
+            const cached = readCache<PaymentMethodCacheResult>(PAYMENT_METHOD_CACHE_KEY, PAYMENT_METHOD_CACHE_TTL);
+            if (cached?.data?.length) {
+                setPaymentMethods(cached.data);
+                setTotal(cached.total);
+            }
         }
-    }, [debouncedSearch, page, createdSort]);
+    }, [debouncedSearch, page, createdSort, filters.status, setTotal]);
 
     const fetchPaymentMethods = useCallback(async () => {
         execute(async () => {
-            const params = new URLSearchParams();
-            params.set('page', page.toString());
-            params.set('limit', PAYMENT_METHOD_LIMIT.toString());
-            if (debouncedSearch) {
-                params.set('q', debouncedSearch);
-            }
-            if (statusFilter !== 'all') {
-                params.set('status', statusFilter);
-            }
-            params.set('sort_created', createdSort);
-
+            const params = getQueryParams();
             const result = await paymentMethodService.getAll(undefined, params);
             setPaymentMethods(result.data || []);
             setTotal(result.total || 0);
 
-            if (!debouncedSearch && page === 1 && createdSort === DEFAULT_CREATED_SORT) {
+            if (!debouncedSearch && page === 1 && createdSort === DEFAULT_CREATED_SORT && filters.status === 'all') {
                 writeCache(PAYMENT_METHOD_CACHE_KEY, result);
             }
         }, 'กำลังโหลดข้อมูลวิธีการชำระเงิน...');
-    }, [debouncedSearch, execute, page, statusFilter, createdSort]);
+    }, [getQueryParams, execute, debouncedSearch, page, createdSort, filters.status, setTotal]);
 
     useEffect(() => {
-        if (isAuthorized) {
+        if (isUrlReady && isAuthorized) {
             fetchPaymentMethods();
         }
-    }, [isAuthorized, fetchPaymentMethods]);
+    }, [isUrlReady, isAuthorized, fetchPaymentMethods]);
 
-    useRealtimeRefresh({
+    useRealtimeList(
         socket,
-        events: [RealtimeEvents.paymentMethods.create, RealtimeEvents.paymentMethods.update, RealtimeEvents.paymentMethods.delete],
-        onRefresh: () => fetchPaymentMethods(),
-        intervalMs: 20000,
-        debounceMs: 800,
-    });
+        { 
+            create: RealtimeEvents.paymentMethods.create, 
+            update: RealtimeEvents.paymentMethods.update, 
+            delete: RealtimeEvents.paymentMethods.delete 
+        },
+        setPaymentMethods
+    );
 
     const filteredPaymentMethods = useMemo(() => {
-        if (statusFilter === 'all') return paymentMethods;
-        if (statusFilter === 'active') return paymentMethods.filter((item) => item.is_active);
-        return paymentMethods.filter((item) => !item.is_active);
-    }, [paymentMethods, statusFilter]);
+        return paymentMethods;
+    }, [paymentMethods]);
 
     const handleAdd = () => {
         if (!canCreatePaymentMethods) {
@@ -314,7 +290,7 @@ export default function PaymentMethodPage() {
         }
         Modal.confirm({
             title: 'ยืนยันการลบวิธีการชำระเงิน',
-            content: `คุณต้องการลบวิธีการชำระเงิน "${paymentMethod.display_name}" หรือไม่?`,
+            content: `คุณต้องการลบวิธีการชำระเงิน ${paymentMethod.display_name} หรือไม่?`,
             okText: 'ลบ',
             okType: 'danger',
             cancelText: 'ยกเลิก',
@@ -386,10 +362,9 @@ export default function PaymentMethodPage() {
 
             <UIPageHeader
                 title="วิธีการชำระเงิน"
-                subtitle={`ทั้งหมด ${total} รายการ`}
                 icon={<CreditCardOutlined />}
                 actions={
-                    <Space size={8} wrap>
+                    <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} onClick={fetchPaymentMethods} />
                         <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} disabled={!canCreatePaymentMethods}>
                             เพิ่มวิธีชำระเงิน
@@ -402,7 +377,7 @@ export default function PaymentMethodPage() {
                 <PageStack>
                     <StatsGroup
                         stats={[
-                            { label: 'ทั้งหมด', value: paymentMethods.length, color: '#0f172a' },
+                            { label: 'ทั้งหมด', value: total, color: '#0f172a' },
                             { label: 'ใช้งาน', value: activePaymentMethods, color: '#0f766e' },
                             { label: 'ปิดใช้งาน', value: inactivePaymentMethods, color: '#b91c1c' },
                         ]}
@@ -410,33 +385,42 @@ export default function PaymentMethodPage() {
 
                     <SearchBar>
                         <SearchInput
-                            placeholder="ค้นหาวิธีการชำระเงิน..."
-                            value={searchValue}
-                            onChange={(val) => {
-                                setPage(1);
-                                setSearchValue(val);
-                            }}
+                            placeholder="ค้นหา"
+                            value={searchText}
+                            onChange={(val) => setSearchText(val)}
                         />
-                        <ModalSelector<StatusFilter>
-                            title="เลือกสถานะ"
-                            options={[
-                                { label: 'ทั้งหมด', value: 'all' },
-                                { label: 'ใช้งาน', value: 'active' },
-                                { label: 'ปิดใช้งาน', value: 'inactive' },
-                            ]}
-                            value={statusFilter}
-                            onChange={(value) => {
-                                setPage(1);
-                                setStatusFilter(value);
-                            }}
-                            style={{ minWidth: 150 }}
-                        />
+                        <Space wrap size={10}>
+                            <ModalSelector<StatusFilter>
+                                title="เลือกสถานะ"
+                                options={[
+                                    { label: 'ทั้งหมด', value: 'all' },
+                                    { label: 'ใช้งาน', value: 'active' },
+                                    { label: 'ปิดใช้งาน', value: 'inactive' },
+                                ]}
+                                value={filters.status}
+                                onChange={(value) => updateFilter('status', value)}
+                                style={{ minWidth: 150 }}
+                            />
+                            <ModalSelector<CreatedSort>
+                                title="เรียงลำดับ"
+                                options={[
+                                    { label: 'เก่าก่อน', value: 'old' },
+                                    { label: 'ใหม่ก่อน', value: 'new' },
+                                ]}
+                                value={createdSort}
+                                onChange={(value) => setCreatedSort(value)}
+                                style={{ minWidth: 150 }}
+                            />
+                        </Space>
                     </SearchBar>
 
-                    <PageSection title="รายการวิธีการชำระเงิน" extra={<span style={{ fontWeight: 600 }}>{filteredPaymentMethods.length}</span>}>
-                        {filteredPaymentMethods.length > 0 ? (
-                            <>
-                                {filteredPaymentMethods.map((paymentMethod) => (
+                    <PageSection 
+                        title="รายการวิธีการชำระเงิน" 
+                        extra={<span style={{ fontWeight: 600 }}>{total} รายการ</span>}
+                    >
+                        <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                            {paymentMethods.length > 0 ? (
+                                paymentMethods.map((paymentMethod) => (
                                     <PaymentMethodCard
                                         key={paymentMethod.id}
                                         paymentMethod={paymentMethod}
@@ -447,43 +431,29 @@ export default function PaymentMethodPage() {
                                         onToggleActive={handleToggleActive}
                                         updatingStatusId={updatingStatusId}
                                     />
-                                ))}
+                                ))
+                            ) : (
+                                <UIEmptyState
+                                    title={searchText.trim() ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีวิธีการชำระเงิน'}
+                                    description={
+                                        searchText.trim()
+                                            ? 'ลองเปลี่ยนคำค้น หรือตัวกรองสถานะ'
+                                            : 'เพิ่มวิธีการชำระเงินแรกเพื่อเริ่มใช้งาน'
+                                    }
+                                />
+                            )}
 
-                                <div style={{ marginTop: 16 }}>
-                                    <ListPagination
-                                        page={page}
-                                        pageSize={PAYMENT_METHOD_LIMIT}
-                                        pageSizeOptions={[PAYMENT_METHOD_LIMIT]}
-                                        total={total}
-                                        onPageChange={(p) => setPage(p)}
-                                        onPageSizeChange={() => {
-                                            setPage(1);
-                                        }}
-                                        sortCreated={createdSort}
-                                        onSortCreatedChange={(nextSort) => {
-                                            setPage(1);
-                                            setCreatedSort(nextSort);
-                                        }}
-                                    />
-                                </div>
-                            </>
-                        ) : (
-                            <UIEmptyState
-                                title={searchValue.trim() ? 'ไม่พบรายการที่ค้นหา' : 'ยังไม่มีวิธีการชำระเงิน'}
-                                description={
-                                    searchValue.trim()
-                                        ? 'ลองเปลี่ยนคำค้น หรือตัวกรองสถานะ'
-                                        : 'เพิ่มวิธีการชำระเงินแรกเพื่อเริ่มใช้งาน'
-                                }
-                                action={
-                                    !searchValue.trim() ? (
-                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} disabled={!canCreatePaymentMethods}>
-                                            เพิ่มวิธีชำระเงิน
-                                        </Button>
-                                    ) : null
-                                }
-                            />
-                        )}
+                            <div style={{ marginTop: 12 }}>
+                                <ListPagination
+                                    page={page}
+                                    pageSize={pageSize}
+                                    total={total}
+                                    onPageChange={setPage}
+                                    onPageSizeChange={setPageSize}
+                                    activeColor="#7C3AED"
+                                />
+                            </div>
+                        </Space>
                     </PageSection>
                 </PageStack>
             </PageContainer>

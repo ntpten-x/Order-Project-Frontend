@@ -97,12 +97,12 @@ const PaymentMethodPreviewCard = ({ displayName, methodName, isActive }: { displ
             <div style={{ textAlign: 'left', flex: 1 }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <Text strong style={{ fontSize: 16, color: '#0f172a' }}>
-                        {displayName || 'ชื่อแสดงผล'}
+                        {displayName || 'ชื่อที่แสดง'}
                     </Text>
                     {isActive && <CheckCircleFilled style={{ color: '#10B981', fontSize: 14 }} />}
                 </div>
                 <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>
-                    {methodName || 'payment_method_name'}
+                    {methodName || 'Payment method'}
                 </Text>
             </div>
         </div>
@@ -274,7 +274,7 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
         if (!id) return;
         Modal.confirm({
             title: 'ยืนยันการลบวิธีการชำระเงิน',
-            content: `คุณต้องการลบวิธีการชำระเงิน "${displayName || paymentMethodName || '-'}" หรือไม่?`,
+            content: `คุณต้องการลบวิธีการชำระเงิน ${displayName || paymentMethodName || '-'} หรือไม่?`,
             okText: 'ลบ',
             okType: 'danger',
             cancelText: 'ยกเลิก',
@@ -313,7 +313,6 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
         <div className="manage-page" style={pageStyles.container as React.CSSProperties}>
             <UIPageHeader
                 title={modeTitle}
-                subtitle={isEdit ? 'ปรับแก้ชื่อและสถานะวิธีการชำระเงิน' : 'สร้างวิธีการชำระเงินใหม่ให้พร้อมใช้งาน'}
                 onBack={handleBack}
                 actions={
                     isEdit && canDeletePaymentMethods ? (
@@ -362,10 +361,10 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                                     >
                                         <Form.Item
                                             name="payment_method_name"
-                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อในระบบ (payment_method_name)</span>}
+                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>ช่องทางการชำระเงิน <span style={{ color: '#ff4d4f' }}>*</span></span>}
                                             validateTrigger={['onBlur', 'onSubmit']}
                                             rules={[
-                                                { required: true, message: 'กรุณากรอกชื่อในระบบ' },
+                                                { required: true, message: 'กรุณาเลือกช่องทางการชำระเงิน' },
                                                 {
                                                     validator: async (_, value: string) => {
                                                         if (!value?.trim()) return;
@@ -412,7 +411,7 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
 
                                         <Form.Item
                                             name="display_name"
-                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อที่แสดง</span>}
+                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อที่แสดง <span style={{ color: '#ff4d4f' }}>*</span></span>}
                                             rules={[
                                                 { required: true, message: 'กรุณากรอกชื่อที่แสดง' },
                                                 { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
@@ -437,16 +436,6 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                                                 </Form.Item>
                                             </div>
                                         </div>
-
-                                        <Alert
-                                            showIcon
-                                            type="info"
-                                            icon={<InfoCircleOutlined />}
-                                            message="ข้อมูลที่จำเป็น"
-                                            description="ชื่อในระบบเลือกได้เฉพาะ 3 แบบ: Cash, PromptPay, Delivery และระบบจะตั้งชื่อที่แสดงให้อัตโนมัติ"
-                                            style={{ marginBottom: 24 }}
-                                        />
-
                                         <div style={{ marginTop: 12, display: 'flex', gap: 12 }}>
                                             <Button
                                                 size="large"

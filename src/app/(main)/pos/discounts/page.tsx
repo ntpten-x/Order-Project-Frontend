@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { message, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
 import {
     PercentageOutlined,
@@ -19,6 +19,7 @@ import { getCsrfTokenCached } from '../../../../utils/pos/csrf';
 import { useRoleGuard } from '../../../../utils/pos/accessControl';
 import { useRealtimeList } from '../../../../utils/pos/realtime';
 import { readCache, writeCache } from '../../../../utils/pos/cache';
+import { useListState } from '../../../../hooks/pos/useListState';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import { pageStyles, globalStyles } from '../../../../theme/pos/discounts/style';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
@@ -28,7 +29,6 @@ import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
-import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../../lib/list-sort';
 import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
 import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
@@ -193,17 +193,27 @@ export default function DiscountsPage() {
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const isUrlReadyRef = useRef(false);
+    const {
+        searchText,
+        setSearchText,
+        debouncedSearch,
+        page,
+        setPage,
+        pageSize,
+        setPageSize,
+        createdSort,
+        setCreatedSort,
+        filters,
+        updateFilter,
+        total,
+        setTotal,
+    } = useListState<{ status: StatusFilter; type: TypeFilter }>({
+        defaultPageSize: 10,
+        defaultFilters: { status: 'all', type: 'all' }
+    });
+
     const [discounts, setDiscounts] = useState<Discounts[]>([]);
-    const [searchText, setSearchText] = useState('');
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-    const [typeFilter, setTypeFilter] = useState<TypeFilter>('all');
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
-    const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(20);
-    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
-    const [totalDiscounts, setTotalDiscounts] = useState(0);
-    const debouncedSearch = useDebouncedValue(searchText, 300);
     const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
@@ -226,42 +236,20 @@ export default function DiscountsPage() {
     }, []);
 
     useEffect(() => {
-        if (isUrlReadyRef.current) return;
-        const pageParam = parseInt(searchParams.get('page') || '1', 10);
-        const limitParam = parseInt(searchParams.get('limit') || '20', 10);
-        const qParam = searchParams.get('q') || '';
-        const statusParam = searchParams.get('status');
-        const typeParam = searchParams.get('type');
-        const sortParam = searchParams.get('sort_created');
-        setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
-        setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? Math.min(limitParam, 200) : 20);
-        setSearchText(qParam);
-        setStatusFilter(statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all');
-        setTypeFilter(typeParam === DiscountType.Fixed || typeParam === DiscountType.Percentage ? typeParam : 'all');
-        setCreatedSort(parseCreatedSort(sortParam));
-        isUrlReadyRef.current = true;
-    }, [searchParams]);
+        const cached = readCache<Discounts[]>('pos:discounts:v2', 5 * 60 * 1000);
+        if (cached && cached.length > 0 && !debouncedSearch && filters.status === 'all' && filters.type === 'all' && page === 1) {
+            setDiscounts(cached);
+        }
+    }, [debouncedSearch, filters, page]);
 
-    useEffect(() => {
-        if (!isUrlReadyRef.current) return;
-        const params = new URLSearchParams();
-        params.set('page', String(page));
-        params.set('limit', String(pageSize));
-        if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
-        if (statusFilter !== 'all') params.set('status', statusFilter);
-        if (typeFilter !== 'all') params.set('type', typeFilter);
-        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
-        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter, typeFilter, createdSort]);
-
-    const fetchDiscounts = useCallback(async (nextPage: number = page, nextPageSize: number = pageSize) => {
+    const fetchDiscounts = useCallback(async () => {
         execute(async () => {
             const params = new URLSearchParams();
-            params.set('page', String(nextPage));
-            params.set('limit', String(nextPageSize));
+            params.set('page', String(page));
+            params.set('limit', String(pageSize));
             if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
-            if (statusFilter !== 'all') params.set('status', statusFilter);
-            if (typeFilter !== 'all') params.set('type', typeFilter);
+            if (filters.status !== 'all') params.set('status', filters.status);
+            if (filters.type !== 'all') params.set('type', filters.type);
             params.set('sort_created', createdSort);
             const response = await fetch(`/api/pos/discounts?${params.toString()}`);
             if (!response.ok) {
@@ -270,20 +258,20 @@ export default function DiscountsPage() {
             }
             const payload = await response.json();
             const data = Array.isArray(payload?.data) ? payload.data : [];
-            if (!Array.isArray(data)) throw new Error('รูปแบบข้อมูลไม่ถูกต้อง');
             setDiscounts(data);
-            setTotalDiscounts(typeof payload?.total === 'number' ? payload.total : 0);
-            setPage(typeof payload?.page === 'number' ? payload.page : nextPage);
-            setPageSize(nextPageSize);
+            setTotal(typeof payload?.total === 'number' ? payload.total : 0);
+
+            if (!debouncedSearch.trim() && filters.status === 'all' && filters.type === 'all' && createdSort === 'old' && page === 1) {
+                writeCache('pos:discounts:v2', data);
+            }
         }, 'กำลังโหลดข้อมูลส่วนลด...');
-    }, [execute, page, pageSize, debouncedSearch, statusFilter, typeFilter, createdSort]);
+    }, [execute, page, pageSize, debouncedSearch, filters.status, filters.type, createdSort, setTotal]);
 
     useEffect(() => {
-        if (!isUrlReadyRef.current) return;
         if (isAuthorized) {
             fetchDiscounts();
         }
-    }, [isAuthorized, fetchDiscounts, page, pageSize]);
+    }, [isAuthorized, fetchDiscounts]);
 
     useRealtimeList(
         socket,
@@ -291,11 +279,6 @@ export default function DiscountsPage() {
         setDiscounts
     );
 
-    useEffect(() => {
-        if (discounts.length > 0) {
-            writeCache('pos:discounts', discounts);
-        }
-    }, [discounts]);
 
     const filteredDiscounts = useMemo(() => discounts, [discounts]);
 
@@ -324,7 +307,7 @@ export default function DiscountsPage() {
         }
         Modal.confirm({
             title: 'ยืนยันการลบส่วนลด',
-            content: `คุณต้องการลบส่วนลด "${discount.display_name}" หรือไม่?`,
+            content: `คุณต้องการลบส่วนลด ${discount.display_name} หรือไม่?`,
             okText: 'ลบ',
             okType: 'danger',
             cancelText: 'ยกเลิก',
@@ -342,7 +325,7 @@ export default function DiscountsPage() {
                     if (!response.ok) {
                         throw new Error('ไม่สามารถลบส่วนลดได้');
                     }
-                    await fetchDiscounts(page, pageSize);
+                    await fetchDiscounts();
                     message.success(`ลบส่วนลด "${discount.display_name}" สำเร็จ`);
                 }, 'กำลังลบส่วนลด...');
             },
@@ -371,7 +354,7 @@ export default function DiscountsPage() {
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถเปลี่ยนสถานะส่วนลดได้');
             }
 
-            await fetchDiscounts(page, pageSize);
+            await fetchDiscounts();
             message.success(next ? 'เปิดใช้งานส่วนลดแล้ว' : 'ปิดใช้งานส่วนลดแล้ว');
         } catch (error) {
             console.error(error);
@@ -404,10 +387,9 @@ export default function DiscountsPage() {
 
             <UIPageHeader
                 title="ส่วนลด"
-                subtitle={`ทั้งหมด ${totalDiscounts} รายการ`}
                 icon={<PercentageOutlined />}
                 actions={
-                    <Space size={8} wrap>
+                    <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} onClick={() => { void fetchDiscounts(); }} />
                         {canCreateDiscounts ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
@@ -422,7 +404,7 @@ export default function DiscountsPage() {
                 <PageStack>
                     <StatsGroup
                         stats={[
-                            { label: 'ทั้งหมด', value: totalDiscounts, color: '#0f172a' },
+                            { label: 'ทั้งหมด', value: total, color: '#0f172a' },
                             { label: 'ใช้งาน', value: activeCount, color: '#d97706' },
                             { label: 'ปิดใช้งาน', value: inactiveCount, color: '#b91c1c' },
                             { label: 'ลดเป็นบาท', value: fixedCount, color: '#0369a1' },
@@ -432,46 +414,49 @@ export default function DiscountsPage() {
 
                     <SearchBar>
                         <SearchInput
-                            placeholder="ค้นหาจากชื่อแสดง ชื่อระบบ หรือคำอธิบาย..."
+                            placeholder="ค้นหา"
                             value={searchText}
-                            onChange={(val) => {
-                                setPage(1);
-                                setSearchText(val);
-                            }}
+                            onChange={(val) => setSearchText(val)}
                         />
-                        <ModalSelector<StatusFilter>
-                            title="เลือกสถานะ"
-                            options={[
-                                { label: `ทั้งหมด (${discounts.length})`, value: 'all' },
-                                { label: `ใช้งาน (${activeCount})`, value: 'active' },
-                                { label: `ปิดใช้งาน (${inactiveCount})`, value: 'inactive' }
-                            ]}
-                            value={statusFilter}
-                            onChange={(value) => {
-                                setPage(1);
-                                setStatusFilter(value);
-                            }}
-                            style={{ minWidth: 120 }}
-                        />
-                        <ModalSelector<TypeFilter>
-                            title="เลือกประเภท"
-                            options={[
-                                { label: `ทุกประเภท (${discounts.length})`, value: 'all' },
-                                { label: `ลดเป็นบาท (${fixedCount})`, value: DiscountType.Fixed },
-                                { label: `ลด % (${percentageCount})`, value: DiscountType.Percentage }
-                            ]}
-                            value={typeFilter}
-                            onChange={(value) => {
-                                setPage(1);
-                                setTypeFilter(value);
-                            }}
-                            style={{ minWidth: 120 }}
-                        />
+                        <Space wrap size={10}>
+                            <ModalSelector<StatusFilter>
+                                title="เลือกสถานะ"
+                                options={[
+                                    { label: `ทั้งหมด`, value: 'all' },
+                                    { label: `ใช้งาน`, value: 'active' },
+                                    { label: `ปิดใช้งาน`, value: 'inactive' }
+                                ]}
+                                value={filters.status}
+                                onChange={(value) => updateFilter('status', value)}
+                                style={{ minWidth: 120 }}
+                            />
+                            <ModalSelector<TypeFilter>
+                                title="เลือกประเภท"
+                                options={[
+                                    { label: `ทุกประเภท`, value: 'all' },
+                                    { label: `ลดเป็นบาท`, value: DiscountType.Fixed },
+                                    { label: `ลด %`, value: DiscountType.Percentage }
+                                ]}
+                                value={filters.type}
+                                onChange={(value) => updateFilter('type', value)}
+                                style={{ minWidth: 120 }}
+                            />
+                            <ModalSelector<CreatedSort>
+                                title="เรียงลำดับ"
+                                options={[
+                                    { label: 'เก่าก่อน', value: 'old' },
+                                    { label: 'ใหม่ก่อน', value: 'new' },
+                                ]}
+                                value={createdSort}
+                                onChange={(value) => setCreatedSort(value)}
+                                style={{ minWidth: 120 }}
+                            />
+                        </Space>
                     </SearchBar>
 
                     <PageSection
                         title="รายการส่วนลด"
-                        extra={<span style={{ fontWeight: 600 }}>{filteredDiscounts.length}</span>}
+                        extra={<span style={{ fontWeight: 600 }}>{total} รายการ</span>}
                     >
                         {filteredDiscounts.length > 0 ? (
                             filteredDiscounts.map((discount) => (
@@ -498,30 +483,18 @@ export default function DiscountsPage() {
                                         ? 'ลองเปลี่ยนคำค้น หรือตัวกรองสถานะ/ประเภท'
                                         : 'เพิ่มส่วนลดแรกเพื่อเริ่มใช้งาน'
                                 }
-                                action={
-                                    !searchText.trim() && canCreateDiscounts ? (
-                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                            เพิ่มส่วนลด
-                                        </Button>
-                                    ) : null
-                                }
                             />
                         )}
-                        <ListPagination
-                            page={page}
-                            pageSize={pageSize}
-                            total={totalDiscounts}
-                            onPageChange={setPage}
-                            onPageSizeChange={(size) => {
-                                setPage(1);
-                                setPageSize(size);
-                            }}
-                            sortCreated={createdSort}
-                            onSortCreatedChange={(next) => {
-                                setPage(1);
-                                setCreatedSort(next);
-                            }}
-                        />
+                        <div style={{ marginTop: 12 }}>
+                            <ListPagination
+                                page={page}
+                                pageSize={pageSize}
+                                total={total}
+                                onPageChange={setPage}
+                                onPageSizeChange={setPageSize}
+                                activeColor="#7C3AED"
+                            />
+                        </div>
                     </PageSection>
                 </PageStack>
             </PageContainer>

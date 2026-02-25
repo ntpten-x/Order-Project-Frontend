@@ -18,6 +18,7 @@ type ListPaginationProps = {
     onPageSizeChange: (size: number) => void;
     sortCreated?: CreatedSort;
     onSortCreatedChange?: (sort: CreatedSort) => void;
+    activeColor?: string;
 };
 
 export default function ListPagination({
@@ -30,6 +31,7 @@ export default function ListPagination({
     onPageSizeChange,
     sortCreated = "old",
     onSortCreatedChange,
+    activeColor,
 }: ListPaginationProps) {
     const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
     const end = Math.min(page * pageSize, total);
@@ -78,6 +80,32 @@ export default function ListPagination({
                     disabled={loading}
                     showSizeChanger={false}
                     onChange={onPageChange}
+                    itemRender={(current, type, originalElement) => {
+                        if (type === 'page' && current === page) {
+                            return (
+                                <div style={{
+                                    border: `1.5px solid ${activeColor || '#4F46E5'}`,
+                                    borderRadius: 10,
+                                    width: 32,
+                                    height: 32,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    background: 'white'
+                                }}>
+                                    <span style={{ 
+                                        color: activeColor || '#4F46E5', 
+                                        fontWeight: 800,
+                                        fontSize: 15,
+                                        fontFamily: 'inherit'
+                                    }}>
+                                        {current}
+                                    </span>
+                                </div>
+                            );
+                        }
+                        return originalElement;
+                    }}
                 />
             </div>
 
@@ -109,6 +137,18 @@ export default function ListPagination({
                         align-items: center;
                         gap: 20px;
                     }
+                }
+                :global(.ant-pagination-item-active) {
+                    border-color: transparent !important;
+                    background: transparent !important;
+                }
+                :global(.ant-pagination-item-active a) {
+                    color: inherit !important;
+                }
+                :global(.ant-pagination-item:focus-visible),
+                :global(.ant-pagination-item-active:focus-visible) {
+                    outline: none !important;
+                    border-color: transparent !important;
                 }
             `}</style>
         </div>

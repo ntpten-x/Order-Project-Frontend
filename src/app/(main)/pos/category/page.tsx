@@ -456,6 +456,7 @@ export default function CategoryPage() {
                                 total={total}
                                 onPageChange={setPage}
                                 onPageSizeChange={setPageSize}
+                                activeColor="#0369a1"
                             />
                         </div>
                     </PageSection>

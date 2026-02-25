@@ -5,12 +5,9 @@ import { Typography, Button, Space, Tag, message, Input, Segmented, Grid, Skelet
 import {
     SettingOutlined,
     CheckCircleOutlined,
-    PlusOutlined,
     QrcodeOutlined,
     ReloadOutlined,
-    EditOutlined,
-    SearchOutlined,
-    SwapOutlined
+    EditOutlined
 } from '@ant-design/icons';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { paymentAccountService } from '../../../../services/pos/paymentAccount.service';
@@ -90,6 +87,16 @@ function SectionLoadingSkeleton({ compact = false }: { compact?: boolean }) {
     );
 }
 
+const formatPromptPay = (num: string) => {
+    const cleaned = num.replace(/\D/g, '');
+    if (cleaned.length === 10) {
+        return `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6)}`;
+    } else if (cleaned.length === 13) {
+        return `${cleaned.slice(0, 1)}-${cleaned.slice(1, 5)}-${cleaned.slice(5, 10)}-${cleaned.slice(10, 12)}-${cleaned.slice(12)}`;
+    }
+    return num;
+};
+
 export default function POSSettingsPage() {
     const router = useRouter();
     const pathname = usePathname();
@@ -107,42 +114,15 @@ export default function POSSettingsPage() {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [accounts, setAccounts] = useState<ShopPaymentAccount[]>([]);
-    const [activatingId, setActivatingId] = useState<string | null>(null);
-    const [searchText, setSearchText] = useState('');
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-    const debouncedSearch = useDebouncedValue(searchText, 300);
 
-    useEffect(() => {
-        if (isUrlReadyRef.current) return;
-
-        const qParam = searchParams.get('q') || '';
-        const statusParam = searchParams.get('status');
-        const nextStatus: StatusFilter =
-            statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all';
-
-        setSearchText(qParam);
-        setStatusFilter(nextStatus);
-        isUrlReadyRef.current = true;
-    }, [searchParams]);
-
-    useEffect(() => {
-        if (!isUrlReadyRef.current) return;
-
-        const params = new URLSearchParams();
-        if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
-        if (statusFilter !== 'all') params.set('status', statusFilter);
-
-        const query = params.toString();
-        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [router, pathname, debouncedSearch, statusFilter]);
 
     const fetchAccounts = useCallback(async (silent = false) => {
         try {
             if (silent) setRefreshing(true);
             else setLoading(true);
 
-            const accountsList = await paymentAccountService.getByShopId();
-            setAccounts(accountsList);
+            const response = await paymentAccountService.getByShopId();
+            setAccounts(response.data);
         } catch (error) {
             console.error(error);
             message.error(getFriendlyErrorMessage(error, 'ไม่สามารถดึงข้อมูลบัญชีพร้อมเพย์ได้'));
@@ -177,51 +157,7 @@ export default function POSSettingsPage() {
         [promptPayAccounts]
     );
 
-    const stats = useMemo(() => {
-        const total = promptPayAccounts.length;
-        const active = promptPayAccounts.filter((acc) => acc.is_active).length;
-        const inactive = total - active;
-        return { total, active, inactive };
-    }, [promptPayAccounts]);
 
-    const filteredAccounts = useMemo(() => {
-        let result = promptPayAccounts;
-
-        if (statusFilter === 'active') {
-            result = result.filter((item) => item.is_active);
-        } else if (statusFilter === 'inactive') {
-            result = result.filter((item) => !item.is_active);
-        }
-
-        const keyword = debouncedSearch.trim().toLowerCase();
-        if (keyword) {
-            result = result.filter((item) =>
-                item.account_name.toLowerCase().includes(keyword) ||
-                item.account_number.toLowerCase().includes(keyword)
-            );
-        }
-
-        return result;
-    }, [promptPayAccounts, statusFilter, debouncedSearch]);
-
-    const handleActivate = async (id: string, accountName: string) => {
-        if (!canUpdateAccounts) {
-            message.error('คุณไม่มีสิทธิ์เปลี่ยนบัญชีหลัก (ต้องมีสิทธิ์ payment_accounts.page:update)');
-            return;
-        }
-        setActivatingId(id);
-        try {
-            const csrfToken = await getCsrfTokenCached();
-            await paymentAccountService.activate(id, undefined, undefined, csrfToken);
-            message.success(`ตั้ง "${accountName}" เป็นบัญชีหลักสำเร็จ`);
-            await fetchAccounts(true);
-        } catch (error) {
-            console.error(error);
-            message.error(getFriendlyErrorMessage(error, 'ไม่สามารถเปลี่ยนบัญชีหลักได้'));
-        } finally {
-            setActivatingId(null);
-        }
-    };
 
     if (isChecking) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
@@ -235,26 +171,17 @@ export default function POSSettingsPage() {
         <div style={pageStyles.container}>
             <UIPageHeader
                 title="ตั้งค่าบัญชีพร้อมเพย์"
-                subtitle="กำหนดบัญชีหลักและจัดการช่องทางรับชำระด้วยพร้อมเพย์"
                 icon={<SettingOutlined />}
                 onBack={() => router.back()}
                 actions={
-                    <Space size={8} wrap>
+                    <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} onClick={() => fetchAccounts(false)} loading={refreshing || loading} />
                         <Button
                             icon={<EditOutlined />}
                             disabled={!canUpdateAccounts}
                             onClick={() => router.push('/pos/settings/payment-accounts/manage')}
                         >
-                            จัดการทั้งหมด
-                        </Button>
-                        <Button
-                            type="primary"
-                            icon={<PlusOutlined />}
-                            disabled={!canCreateAccounts}
-                            onClick={() => router.push('/pos/settings/payment-accounts/add')}
-                        >
-                            เพิ่มพร้อมเพย์
+                            จัดการ
                         </Button>
                     </Space>
                 }
@@ -262,200 +189,107 @@ export default function POSSettingsPage() {
 
             <PageContainer maxWidth={1040}>
                 <PageStack>
-                    <PageSection title="ภาพรวมบัญชีพร้อมเพย์">
-                        {loading ? (
-                            <SectionLoadingSkeleton compact={isMobile} />
-                        ) : (
-                            <div style={{
-                                display: 'grid',
-                                gridTemplateColumns: isMobile ? 'repeat(2, minmax(0, 1fr))' : 'repeat(3, minmax(0, 1fr))',
-                                gap: isMobile ? 8 : 10
-                            }}>
-                                <StatCard label="ทั้งหมด" value={stats.total} color="#1e293b" />
-                                <StatCard label="บัญชีหลัก" value={stats.active} color="#16a34a" />
-                                <StatCard label="ไม่ใช้งาน" value={stats.inactive} color="#b91c1c" />
-                            </div>
-                        )}
-                    </PageSection>
 
                     <PageSection title="บัญชีหลักปัจจุบัน">
                         {loading ? (
                             <SectionLoadingSkeleton compact={isMobile} />
                         ) : activeAccount ? (
                             <div style={{
-                                borderRadius: 14,
-                                border: '1px solid #bbf7d0',
-                                background: '#f0fdf4',
-                                padding: isMobile ? 10 : 14,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'space-between',
-                                gap: 12,
-                                flexWrap: 'wrap'
+                                position: 'relative',
+                                overflow: 'hidden',
+                                borderRadius: '4px 16px 16px 4px', // Passbook spine feel
+                                background: '#f8fafc', // Paper-like background
+                                padding: isMobile ? '24px 20px' : '32px 40px',
+                                color: '#1e293b',
+                                boxShadow: 'inset 4px 0 8px rgba(0,0,0,0.05), 0 8px 16px -4px rgba(0,0,0,0.1), 0 4px 6px -2px rgba(0,0,0,0.05)',
+                                maxWidth: 480,
+                                borderLeft: '12px solid #0369a1', // Spine color (Navy/Blue)
+                                borderTop: '1px solid #e2e8f0',
+                                borderRight: '1px solid #e2e8f0',
+                                borderBottom: '1px solid #e2e8f0',
                             }}>
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 12, minWidth: 0 }}>
-                                    <div style={{
-                                        width: isMobile ? 38 : 44,
-                                        height: isMobile ? 38 : 44,
-                                        borderRadius: 10,
-                                        background: '#fdf2f8',
-                                        color: '#db2777',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center'
-                                    }}>
-                                        <QrcodeOutlined />
-                                    </div>
-                                    <div style={{ minWidth: 0 }}>
-                                        <Text strong style={{ display: 'block' }}>{activeAccount.account_name}</Text>
-                                        <Text type="secondary" style={{ fontSize: 12 }}>{activeAccount.account_number}</Text>
-                                        <div style={{ marginTop: 6, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                            <Tag color="green" style={{ margin: 0, borderRadius: 6 }}>
-                                                <CheckCircleOutlined /> บัญชีหลัก
-                                            </Tag>
-                                            <Tag style={{ margin: 0, borderRadius: 6 }}>พร้อมเพย์</Tag>
+                                {/* Passbook page fold texture */}
+                                <div style={{
+                                    position: 'absolute',
+                                    top: 0,
+                                    bottom: 0,
+                                    left: 12,
+                                    width: 20,
+                                    background: 'linear-gradient(to right, rgba(0,0,0,0.04) 0%, rgba(255,255,255,0.8) 20%, rgba(0,0,0,0.02) 100%)',
+                                    zIndex: 0
+                                }} />
+
+                                {/* Bank Logo / Header */}
+                                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, position: 'relative', zIndex: 1, borderBottom: '2px dotted #cbd5e1', paddingBottom: 16 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                                        <div style={{
+                                            width: 48,
+                                            height: 32,
+                                            borderRadius: 6,
+                                            background: '#0284c7', // Promptpay/Bank Primary Color
+                                            color: '#fff',
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                                        }}>
+                                            <QrcodeOutlined style={{ fontSize: 18 }} />
+                                        </div>
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                            <span style={{ fontSize: 16, fontWeight: 700, letterSpacing: 0.5, color: '#0f172a', lineHeight: 1.2 }}>
+                                                บัญชีพร้อมเพย์
+                                            </span>
                                         </div>
                                     </div>
+                                    <Tag color="cyan" style={{ border: '1px solid #bae6fd', background: '#e0f2fe', color: '#0369a1', margin: 0, borderRadius: 12, padding: '2px 10px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6 }}>
+                                        <CheckCircleOutlined style={{ fontSize: 12 }} /> บัญชีหลัก
+                                    </Tag>
+                                </div>
+
+                                {/* Account Details Printed on Paper */}
+                                <div style={{ position: 'relative', zIndex: 1, display: 'grid', gap: 16, paddingTop: 12 }}>
+                                    
+                                    {/* Branch / Type (Mock data for passbook feel) */}
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 13, color: '#475569', fontWeight: 500 }}>
+                                        <span>ประเภทบัญชี: พร้อมเพย์</span>
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 12 }}>
+                                        <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>ชื่อบัญชี ACCOUNT NAME</div>
+                                        <div style={{ fontSize: 18, fontWeight: 700, letterSpacing: 0.5, color: '#0f172a', fontFamily: 'serif' }}>
+                                            {activeAccount.account_name}
+                                        </div>
+                                    </div>
+
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2, marginTop: 12 }}>
+                                        <div style={{ fontSize: 12, color: '#64748b', fontWeight: 600 }}>เลขที่พร้อมเพย์ PROMPTPAY NO.</div>
+                                        <div style={{ fontSize: isMobile ? 22 : 26, fontWeight: 700, letterSpacing: 4, fontFamily: 'monospace', color: '#0f172a', background: 'rgba(241,245,249,0.5)', padding: '4px 12px', borderRadius: 6, display: 'inline-block', width: 'fit-content', border: '1px dashed #cbd5e1' }}>
+                                            {formatPromptPay(activeAccount.account_number)}
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {/* Watermark */}
+                                <div style={{
+                                    position: 'absolute',
+                                    bottom: -20,
+                                    right: -20,
+                                    opacity: 0.03,
+                                    fontSize: 160,
+                                    pointerEvents: 'none',
+                                    zIndex: 0
+                                }}>
+                                    <QrcodeOutlined />
                                 </div>
                             </div>
                         ) : (
                             <UIEmptyState
                                 title="ยังไม่มีบัญชีพร้อมเพย์หลัก"
                                 description="เพิ่มบัญชีพร้อมเพย์แรกเพื่อเริ่มใช้งานการรับชำระ"
-                                action={
-                                    <Button
-                                        type="primary"
-                                        icon={<PlusOutlined />}
-                                        disabled={!canCreateAccounts}
-                                        onClick={() => router.push('/pos/settings/payment-accounts/add')}
-                                    >
-                                        เพิ่มบัญชีแรก
-                                    </Button>
-                                }
                             />
                         )}
                     </PageSection>
 
-                    <PageSection title="ค้นหาและตัวกรอง">
-                        {loading ? (
-                            <SectionLoadingSkeleton compact={isMobile} />
-                        ) : (
-                            <div style={{ display: 'grid', gap: isMobile ? 8 : 10 }}>
-                                <Input
-                                    size={isMobile ? 'middle' : 'large'}
-                                    prefix={<SearchOutlined style={{ color: '#94a3b8' }} />}
-                                    placeholder="ค้นหาจากชื่อบัญชี หรือเลขพร้อมเพย์..."
-                                    allowClear
-                                    value={searchText}
-                                    onChange={(event) => setSearchText(event.target.value)}
-                                />
-                                <Segmented<StatusFilter>
-                                    options={[
-                                        { label: `ทั้งหมด (${promptPayAccounts.length})`, value: 'all' },
-                                        { label: `ใช้งาน (${stats.active})`, value: 'active' },
-                                        { label: `ไม่ใช้งาน (${stats.inactive})`, value: 'inactive' },
-                                    ]}
-                                    block={isMobile}
-                                    size={isMobile ? 'small' : 'middle'}
-                                    value={statusFilter}
-                                    onChange={(value) => setStatusFilter(value)}
-                                />
-                            </div>
-                        )}
-                    </PageSection>
-
-                    <PageSection title="รายการบัญชีพร้อมเพย์" extra={<span style={{ fontWeight: 600 }}>{filteredAccounts.length}</span>}>
-                        {loading ? (
-                            <div style={{ display: 'grid', gap: isMobile ? 8 : 10 }}>
-                                {Array.from({ length: 3 }).map((_, index) => (
-                                    <Card key={index} size="small" style={{ borderRadius: 12 }}>
-                                        <Skeleton active paragraph={{ rows: 1 }} title={{ width: '60%' }} />
-                                    </Card>
-                                ))}
-                            </div>
-                        ) : filteredAccounts.length > 0 ? (
-                            <div style={{ display: 'grid', gap: isMobile ? 8 : 10 }}>
-                                {filteredAccounts.map((account) => (
-                                    <div
-                                        key={account.id}
-                                        style={{
-                                            borderRadius: 14,
-                                            border: `1px solid ${account.is_active ? '#86efac' : '#e2e8f0'}`,
-                                            background: account.is_active ? '#f0fdf4' : '#fff',
-                                            padding: isMobile ? 10 : 12,
-                                            display: 'flex',
-                                            alignItems: 'center',
-                                            justifyContent: 'space-between',
-                                            gap: 12,
-                                            flexWrap: 'wrap'
-                                        }}
-                                    >
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
-                                            <div style={{
-                                                width: isMobile ? 34 : 38,
-                                                height: isMobile ? 34 : 38,
-                                                borderRadius: 10,
-                                                background: '#fdf2f8',
-                                                color: '#db2777',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'center'
-                                            }}>
-                                                <QrcodeOutlined />
-                                            </div>
-                                            <div style={{ minWidth: 0 }}>
-                                                <Text strong style={{ display: 'block' }}>{account.account_name}</Text>
-                                                <Text type="secondary" style={{ fontSize: 12 }}>{account.account_number}</Text>
-                                            </div>
-                                        </div>
-                                        <Space size={8} wrap>
-                                            <Tag color={account.is_active ? 'green' : 'default'} style={{ borderRadius: 6, margin: 0 }}>
-                                                {account.is_active ? 'บัญชีหลัก' : 'พร้อมเพย์'}
-                                            </Tag>
-                                            {!account.is_active ? (
-                                                <Button
-                                                    size="small"
-                                                    icon={<SwapOutlined />}
-                                                    loading={activatingId === account.id}
-                                                    disabled={!canUpdateAccounts}
-                                                    onClick={() => handleActivate(account.id, account.account_name)}
-                                                >
-                                                    เปลี่ยนเป็นบัญชีหลัก
-                                                </Button>
-                                            ) : null}
-                                            <Button
-                                                size="small"
-                                                disabled={!canUpdateAccounts}
-                                                onClick={() => router.push(`/pos/settings/payment-accounts/edit/${account.id}`)}
-                                            >
-                                                แก้ไข
-                                            </Button>
-                                        </Space>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <UIEmptyState
-                                title={debouncedSearch.trim() ? 'ไม่พบบัญชีตามคำค้น' : 'ยังไม่มีบัญชีพร้อมเพย์'}
-                                description={
-                                    debouncedSearch.trim()
-                                        ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรอง'
-                                        : 'เพิ่มบัญชีพร้อมเพย์เพื่อเริ่มใช้งานการชำระเงิน'
-                                }
-                                action={
-                                    !debouncedSearch.trim() ? (
-                                        <Button
-                                            type="primary"
-                                            icon={<PlusOutlined />}
-                                            onClick={() => router.push('/pos/settings/payment-accounts/add')}
-                                        >
-                                            เพิ่มบัญชีพร้อมเพย์
-                                        </Button>
-                                    ) : null
-                                }
-                            />
-                        )}
-                    </PageSection>
                 </PageStack>
             </PageContainer>
         </div>

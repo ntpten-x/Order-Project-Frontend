@@ -117,7 +117,7 @@ const DiscountPreviewCard = ({
                         {isActive && <CheckCircleFilled style={{ color: '#10B981', fontSize: 14 }} />}
                     </div>
                     <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>
-                        {discountName || 'discount_name'}
+                        {discountName || 'Discount name'}
                     </Text>
                     <Text style={{ fontSize: 13, display: 'block', color: '#D97706', fontWeight: 600 }}>
                         {formatDiscountAmount(discountType, discountAmount)}
@@ -288,7 +288,7 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
         }
         Modal.confirm({
             title: 'ยืนยันการลบส่วนลด',
-            content: `คุณต้องการลบส่วนลด "${displayName || '-'}" หรือไม่?`,
+            content: `คุณต้องการลบส่วนลด ${displayName || '-'} หรือไม่?`,
             okText: 'ลบ',
             okType: 'danger',
             cancelText: 'ยกเลิก',
@@ -335,7 +335,6 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
         <div className="manage-page" style={pageStyles.container as React.CSSProperties}>
             <UIPageHeader
                 title={modeTitle}
-                subtitle={isEdit ? 'ปรับแก้ชื่อ ประเภท มูลค่า และสถานะส่วนลด' : 'สร้างส่วนลดใหม่ให้พร้อมใช้งานในระบบ POS'}
                 onBack={handleBack}
                 actions={
                     isEdit && canDeleteDiscounts ? (
@@ -390,10 +389,10 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
                                     >
                                         <Form.Item
                                             name="discount_name"
-                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อระบบ (discount_name)</span>}
+                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>รหัสส่วนลด</span>}
                                             validateTrigger={['onBlur', 'onSubmit']}
                                             rules={[
-                                                { required: true, message: 'กรุณากรอกชื่อระบบ' },
+                                                { required: true, message: 'กรุณากรอกรหัสส่วนลด' },
                                                 { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'กรอกได้เฉพาะภาษาอังกฤษ ตัวเลข และ - _ ( ) .' },
                                                 { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' },
                                                 {
@@ -407,7 +406,7 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
                                         >
                                             <Input
                                                 size="large"
-                                                placeholder="เช่น DISCOUNT_10, VIP_MEMBER"
+                                                placeholder="NEWYEAR, VIPMEMBER, ..."
                                                 style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
                                                 maxLength={100}
                                             />
@@ -415,15 +414,15 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
 
                                         <Form.Item
                                             name="display_name"
-                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อที่แสดง</span>}
+                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อส่วนลด</span>}
                                             rules={[
-                                                { required: true, message: 'กรุณากรอกชื่อที่แสดง' },
+                                                { required: true, message: 'กรุณากรอกชื่อส่วนลด' },
                                                 { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
                                             ]}
                                         >
                                             <Input
                                                 size="large"
-                                                placeholder="เช่น ลดสมาชิก 10%, ส่วนลดพิเศษ"
+                                                placeholder="ส่วนลดปีใหม่, ส่วนลดสมาชิก, ..."
                                                 style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
                                                 maxLength={100}
                                             />
@@ -520,16 +519,6 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
                                                 </Form.Item>
                                             </div>
                                         </div>
-
-                                        <Alert
-                                            showIcon
-                                            type="info"
-                                            icon={<InfoCircleOutlined />}
-                                            message="ข้อมูลที่จำเป็น"
-                                            description="ต้องกรอกชื่อระบบ ชื่อที่แสดง ประเภทส่วนลด และมูลค่าส่วนลด โดยชื่อระบบจะถูกตรวจสอบไม่ให้ซ้ำในสาขาเดียวกัน"
-                                            style={{ marginBottom: 24 }}
-                                        />
-
                                         <div style={{ marginTop: 12, display: 'flex', gap: 12 }}>
                                             <Button
                                                 size="large"
@@ -576,7 +565,6 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
                                                 <Text strong>รายละเอียดรายการ</Text>
                                             </div>
                                             <div style={{ display: 'grid', gap: 8 }}>
-                                                <Text type="secondary">ID: {originalDiscount?.id || '-'}</Text>
                                                 <Text type="secondary">สร้างเมื่อ: {formatDate(originalDiscount?.create_date)}</Text>
                                             </div>
                                         </Card>

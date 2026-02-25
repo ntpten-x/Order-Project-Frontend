@@ -441,6 +441,7 @@ export default function DeliveryPage() {
                                         pageSize={pageSize}
                                         onPageChange={setPage}
                                         onPageSizeChange={setPageSize}
+                                        activeColor="#059669"
                                     />
                                 </div>
                             </Space>

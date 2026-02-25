@@ -467,6 +467,7 @@ export default function TablesPage() {
                                         pageSize={pageSize}
                                         onPageChange={setPage}
                                         onPageSizeChange={setPageSize}
+                                        activeColor="#7C3AED"
                                     />
                                 </div>
                             </Space>
