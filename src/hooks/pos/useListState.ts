@@ -22,7 +22,7 @@ export function useListState<F extends Record<string, any>>(options: ListStateOp
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
-    const isUrlReadyRef = useRef(false);
+    const [isUrlReady, setIsUrlReady] = useState(false);
 
     // Basic States
     const [page, setPage] = useState(1);
@@ -36,7 +36,7 @@ export function useListState<F extends Record<string, any>>(options: ListStateOp
 
     // Sync from URL on mount
     useEffect(() => {
-        if (isUrlReadyRef.current) return;
+        if (isUrlReady) return;
 
         const p = parseInt(searchParams.get('page') || '1', 10);
         const l = parseInt(searchParams.get('limit') || String(defaultPageSize), 10);
@@ -58,12 +58,12 @@ export function useListState<F extends Record<string, any>>(options: ListStateOp
         });
         setFilters(nextFilters);
 
-        isUrlReadyRef.current = true;
-    }, [searchParams, defaultFilters, defaultPageSize]);
+        setIsUrlReady(true);
+    }, [searchParams, defaultFilters, defaultPageSize, isUrlReady]);
 
     // Sync to URL
     useEffect(() => {
-        if (!isUrlReadyRef.current) return;
+        if (!isUrlReady) return;
 
         const params = new URLSearchParams();
         if (page > 1) params.set('page', String(page));
@@ -79,12 +79,13 @@ export function useListState<F extends Record<string, any>>(options: ListStateOp
 
         const query = params.toString();
         router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [router, pathname, page, pageSize, debouncedSearch, createdSort, filters, defaultPageSize]);
+    }, [router, pathname, page, pageSize, debouncedSearch, createdSort, filters, defaultPageSize, isUrlReady]);
 
     // Reset page on filter/search change
     useEffect(() => {
+        if (!isUrlReady) return;
         setPage(1);
-    }, [debouncedSearch, filters, createdSort]);
+    }, [debouncedSearch, filters, createdSort, isUrlReady]);
 
     const updateFilter = useCallback((key: keyof F, value: any) => {
         setFilters((prev) => ({ ...prev, [key]: value }));
@@ -128,6 +129,6 @@ export function useListState<F extends Record<string, any>>(options: ListStateOp
         // Helpers
         getQueryParams,
         searchParams,
-        isUrlReady: isUrlReadyRef.current,
+        isUrlReady,
     };
 }

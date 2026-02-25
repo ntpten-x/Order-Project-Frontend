@@ -10,6 +10,7 @@ import {
     DatePicker,
     Modal,
     Spin,
+    Grid,
 } from 'antd';
 import {
     HistoryOutlined,
@@ -43,17 +44,17 @@ import PageState from '../../../../components/ui/states/PageState';
 import { pageStyles, globalStyles } from '../../../../theme/pos/shiftHistory/style';
 import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
-import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../../lib/list-sort';
+import { parseCreatedSort } from '../../../../lib/list-sort';
 import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
 import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
 import { SearchInput } from "../../../../components/ui/input/SearchInput";
 import { SearchBar } from "../../../../components/ui/page/SearchBar";
+import { useListState } from '../../../../hooks/pos/useListState';
 
 dayjs.extend(duration);
 dayjs.locale('th');
 
 const { Text } = Typography;
-const { RangePicker } = DatePicker;
 
 type StatusFilter = 'all' | ShiftStatus;
 
@@ -89,13 +90,13 @@ function getDurationLabel(openTime: string, closeTime?: string | null) {
     return `${hours} ชม. ${minutes} นาที`;
 }
 
-function ShiftHistoryCard({
+const ShiftHistoryCard = React.memo(({
     shift,
     onViewSummary
 }: {
     shift: ShiftHistoryItem;
     onViewSummary: (id: string) => void;
-}) {
+}) => {
     const isClosed = shift.status === ShiftStatus.CLOSED;
     const diffNumber = shift.diff_amount === null || shift.diff_amount === undefined ? null : toNumber(shift.diff_amount);
 
@@ -142,101 +143,95 @@ function ShiftHistoryCard({
                 </div>
 
                 <Button onClick={() => onViewSummary(shift.id)}>
-                    ดูสรุปกะ
+                    ดูสรุป
                 </Button>
             </div>
         </div>
     );
-}
+});
+ShiftHistoryCard.displayName = 'ShiftHistoryCard';
 
 
 
-function MiniMetric({ label, value, color }: { label: string; value: string; color: string }) {
+const MiniMetric = React.memo(({ label, value, color }: { label: string; value: string; color: string }) => {
     return (
         <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: '8px 10px' }}>
             <Text type="secondary" style={{ fontSize: 12 }}>{label}</Text>
             <div style={{ fontWeight: 700, color, marginTop: 2 }}>{value}</div>
         </div>
     );
-}
+});
+MiniMetric.displayName = 'MiniMetric';
 
 export default function ShiftHistoryPage() {
     const router = useRouter();
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
     const queryClient = useQueryClient();
     const { socket } = useSocket();
     const { isAuthorized, isChecking } = useRoleGuard();
-    const isUrlReadyRef = useRef(false);
+    const screens = Grid.useBreakpoint();
+    const isMobile = !screens.md;
 
-    const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(10);
-    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
-    const [searchText, setSearchText] = useState('');
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-    const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
+    const {
+        page, setPage,
+        pageSize, setPageSize,
+        total, setTotal,
+        searchText, setSearchText,
+        debouncedSearch,
+        createdSort, setCreatedSort,
+        filters, setFilters, updateFilter,
+        isUrlReady
+    } = useListState({
+        defaultPageSize: 10,
+        defaultFilters: {
+            status: 'all' as StatusFilter,
+            date_from: '' as string,
+            date_to: '' as string
+        }
+    });
+
+    const statusFilter = filters.status;
+    const dateFrom = filters.date_from || undefined;
+    const dateTo = filters.date_to || undefined;
+
+    const dateRange = useMemo<[Dayjs | null, Dayjs | null] | null>(() => {
+        const from = dateFrom ? dayjs(dateFrom) : null;
+        const to = dateTo ? dayjs(dateTo) : null;
+        if (from?.isValid() || to?.isValid()) {
+            return [from?.isValid() ? from : null, to?.isValid() ? to : null];
+        }
+        return null;
+    }, [dateFrom, dateTo]);
+
+    const setDateRange = (range: [Dayjs | null, Dayjs | null] | null) => {
+        setFilters(prev => ({
+            ...prev,
+            date_from: range?.[0] ? range[0].toISOString() : '',
+            date_to: range?.[1] ? range[1].toISOString() : ''
+        }));
+    };
+
     const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null);
     const [isDateModalVisible, setIsDateModalVisible] = useState(false);
     const [isCustomDate, setIsCustomDate] = useState(false);
-    const debouncedSearch = useDebouncedValue(searchText, 300);
-
-    const dateFrom = useMemo(
-        () => (dateRange?.[0] ? dateRange[0].startOf('day').toISOString() : undefined),
-        [dateRange]
-    );
-    const dateTo = useMemo(
-        () => (dateRange?.[1] ? dateRange[1].endOf('day').toISOString() : undefined),
-        [dateRange]
-    );
+    const [tempDateRange, setTempDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null] | null>(dateRange);
+    const [isPickerOpen, setIsPickerOpen] = useState(false);
 
     useEffect(() => {
-        if (isUrlReadyRef.current) return;
+        setTempDateRange(dateRange);
+    }, [dateRange]);
 
-        const pageParam = Number(searchParams.get('page') || '1');
-        const limitParam = Number(searchParams.get('limit') || '10');
-        const qParam = searchParams.get('q') || '';
-        const statusParam = searchParams.get('status');
-        const fromParam = searchParams.get('date_from');
-        const toParam = searchParams.get('date_to');
-        const sortParam = searchParams.get('sort_created');
-
-        const parsedFrom = fromParam ? dayjs(fromParam) : null;
-        const parsedTo = toParam ? dayjs(toParam) : null;
-        const nextStatus: StatusFilter =
-            statusParam === ShiftStatus.OPEN || statusParam === ShiftStatus.CLOSED ? statusParam : 'all';
-
-        setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
-        setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 10);
-        setCreatedSort(parseCreatedSort(sortParam));
-        setSearchText(qParam);
-        setStatusFilter(nextStatus);
-        if (parsedFrom?.isValid() || parsedTo?.isValid()) {
-            setDateRange([parsedFrom?.isValid() ? parsedFrom : null, parsedTo?.isValid() ? parsedTo : null]);
-        }
-        isUrlReadyRef.current = true;
-    }, [searchParams]);
-
-    useEffect(() => {
-        if (!isUrlReadyRef.current) return;
-        const params = new URLSearchParams();
-        if (page > 1) params.set('page', String(page));
-        if (pageSize !== 10) params.set('limit', String(pageSize));
-        if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
-        if (statusFilter !== 'all') params.set('status', statusFilter);
-        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
-        if (dateFrom) params.set('date_from', dateFrom);
-        if (dateTo) params.set('date_to', dateTo);
-
-        const query = params.toString();
-        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [router, pathname, page, pageSize, debouncedSearch, statusFilter, createdSort, dateFrom, dateTo]);
+    const handleViewSummary = React.useCallback((id: string) => {
+        setSelectedShiftId(id);
+    }, []);
 
     const dateLabel = useMemo(() => {
         if (!dateRange || (!dateRange[0] && !dateRange[1])) return 'ทั้งหมด';
-        if (dateRange[0] && dateRange[1] && dateRange[0].isSame(dateRange[1], 'day')) {
-            return dateRange[0].format('DD/MM/YYYY');
+        const [start, end] = dateRange;
+        if (start && end && start.isSame(end, 'second')) {
+            return start.format('DD/MM/YYYY HH:mm');
         }
-        return `${dateRange[0]?.format('DD/MM/YYYY') ?? ''} - ${dateRange[1]?.format('DD/MM/YYYY') ?? ''}`;
+        const format = 'DD/MM/YYYY HH:mm';
+        return `${start?.format(format) ?? ''}${start && end ? ' - ' : ''}${end?.format(format) ?? ''}`;
     }, [dateRange]);
 
     const datePresets = [
@@ -261,9 +256,20 @@ export default function ShiftHistoryPage() {
             });
         },
         placeholderData: (prev) => prev,
-        enabled: isAuthorized,
+        enabled: isAuthorized && isUrlReady,
         staleTime: 15_000,
     });
+
+    useEffect(() => {
+        if (isCustomDate) {
+            const timer = setTimeout(() => {
+                setIsPickerOpen(true);
+            }, 300); // Increased delay for better stability
+            return () => clearTimeout(timer);
+        } else {
+            setIsPickerOpen(false);
+        }
+    }, [isCustomDate]);
 
     const summaryQuery = useQuery<ShiftSummary | null>({
         queryKey: ['shiftSummaryById', selectedShiftId],
@@ -291,6 +297,12 @@ export default function ShiftHistoryPage() {
     const pagination = historyData?.pagination;
     const stats = historyData?.stats;
 
+    useEffect(() => {
+        if (historyData?.pagination?.total !== undefined) {
+            setTotal(historyData.pagination.total);
+        }
+    }, [historyData, setTotal]);
+
     const openCount = stats?.open || 0;
     const closedCount = stats?.closed || 0;
     const totalCount = stats?.total || 0;
@@ -305,15 +317,89 @@ export default function ShiftHistoryPage() {
 
     return (
         <div className="shift-history-page" style={pageStyles.container}>
-            <style>{globalStyles}</style>
+            <style>{`
+                ${globalStyles}
+                @media (max-width: 576px) {
+                    .ant-picker-range-wrapper {
+                        flex-direction: column !important;
+                    }
+                    .ant-picker-panels {
+                        flex-direction: column !important;
+                    }
+                    .ant-picker-panel-container {
+                        max-width: 100vw !important;
+                    }
+                    .ant-modal {
+                        margin: 8px auto !important;
+                    }
+                }
+                /* Forced positioning fix for DatePicker dropdowns */
+                .datepicker-fix, .mobile-datepicker-dropdown {
+                    position: absolute !important;
+                    top: 100% !important; /* Force below input */
+                    left: 0 !important;
+                    display: block !important;
+                    inset: auto !important; /* Overrides the crazy -8000px values */
+                    transform: none !important;
+                    z-index: 2000 !important;
+                }
+                
+                .custom-date-section {
+                    background: #f8fafc;
+                    border-radius: 16px;
+                    padding: 16px;
+                    border: 1px solid #e2e8f0;
+                }
+
+                @media (max-width: 576px) {
+                    /* Advanced Mobile DatePicker CSS to prevent overflow */
+                    .mobile-datepicker-dropdown .ant-picker-panel-container {
+                        max-width: 90vw !important;
+                        overflow: hidden !important;
+                        margin: 0 auto !important;
+                    }
+                    .mobile-datepicker-dropdown .ant-picker-datetime-panel {
+                        display: flex !important;
+                        flex-direction: column !important;
+                    }
+                    .mobile-datepicker-dropdown .ant-picker-panel {
+                        width: auto !important;
+                        min-width: unset !important;
+                    }
+                    .mobile-datepicker-dropdown .ant-picker-date-panel,
+                    .mobile-datepicker-dropdown .ant-picker-time-panel,
+                    .mobile-datepicker-dropdown .ant-picker-month-panel,
+                    .mobile-datepicker-dropdown .ant-picker-year-panel,
+                    .mobile-datepicker-dropdown .ant-picker-decade-panel {
+                        width: 100% !important;
+                        min-width: unset !important;
+                        max-width: 90vw !important;
+                    }
+                    .mobile-datepicker-dropdown .ant-picker-content {
+                        width: 100% !important;
+                    }
+                    .mobile-datepicker-dropdown .ant-picker-time-panel {
+                        border-left: none !important;
+                        border-top: 1px solid #f0f0f0 !important;
+                        height: 250px !important; /* Fixed height to allow internal scrolling */
+                    }
+                    .mobile-datepicker-dropdown .ant-picker-time-panel-column {
+                        height: 100% !important;
+                        overflow-y: auto !important;
+                        -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
+                    }
+                    .mobile-datepicker-dropdown .ant-picker-time-panel-column > li {
+                        padding: 8px 0 !important; /* Larger touch area */
+                    }
+                }
+            `}</style>
 
             <UIPageHeader
                 title="ประวัติกะการทำงาน"
-                subtitle={`ทั้งหมด ${totalCount} กะ`}
                 icon={<HistoryOutlined />}
                 onBack={() => router.back()}
                 actions={
-                    <Space size={8}>
+                    <Space size={10}>
                         <Button icon={<ReloadOutlined />} onClick={() => historyQuery.refetch()} loading={historyQuery.isFetching} />
                         <Button icon={<ClockCircleOutlined />} onClick={() => router.push('/pos/shift')}>
                             ไปหน้ากะปัจจุบัน
@@ -325,6 +411,7 @@ export default function ShiftHistoryPage() {
             <PageContainer>
                 <PageStack>
                     <StatsGroup
+                        columns={isMobile ? 2 : 3}
                         stats={[
                             { label: 'จำนวนกะทั้งหมด', value: totalCount, color: '#0f172a' },
                             { label: 'กะที่เปิดอยู่', value: openCount, color: '#059669' },
@@ -337,59 +424,76 @@ export default function ShiftHistoryPage() {
 
                     <SearchBar>
                         <SearchInput
-                            placeholder="ค้นหาจาก Shift ID, username หรือชื่อผู้เปิดกะ"
+                            placeholder="ค้นหา"
                             value={searchText}
                             onChange={(val) => {
-                                setPage(1);
                                 setSearchText(val);
                             }}
                         />
-                        <ModalSelector<StatusFilter>
-                            title="เลือกสถานะ"
-                            options={[
-                                { label: `ทั้งหมด (${totalCount})`, value: 'all' },
-                                { label: `OPEN (${openCount})`, value: ShiftStatus.OPEN },
-                                { label: `CLOSED (${closedCount})`, value: ShiftStatus.CLOSED },
-                            ]}
-                            value={statusFilter}
-                            onChange={(value) => {
-                                setPage(1);
-                                setStatusFilter(value);
-                            }}
-                            style={{ minWidth: 150 }}
-                        />
-                        <div style={{ flex: 1, minWidth: 150 }}>
-                            <div 
-                                onClick={() => setIsDateModalVisible(true)}
-                                style={{
-                                    padding: '12px 16px',
-                                    border: '2px solid #e2e8f0',
-                                    borderRadius: 14,
-                                    background: (dateRange && (dateRange[0] || dateRange[1])) ? 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)' : '#fff',
-                                    borderColor: (dateRange && (dateRange[0] || dateRange[1])) ? '#4F46E5' : '#e2e8f0',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    cursor: 'pointer',
-                                    minHeight: 48,
-                                    transition: 'all 0.2s ease'
+                        <Space wrap size={10}>
+                            <ModalSelector<StatusFilter>
+                                title="เลือกสถานะ"
+                                options={[
+                                    { label: `ทั้งหมด (${totalCount})`, value: 'all' },
+                                    { label: `OPEN (${openCount})`, value: ShiftStatus.OPEN },
+                                    { label: `CLOSED (${closedCount})`, value: ShiftStatus.CLOSED },
+                                ]}
+                                value={statusFilter}
+                                onChange={(value) => {
+                                    updateFilter('status', value);
                                 }}
-                            >
-                                <Space>
-                                    <CalendarOutlined style={{ color: (dateRange && (dateRange[0] || dateRange[1])) ? '#4F46E5' : '#94a3b8' }} />
-                                    <Text style={{ 
-                                        color: (dateRange && (dateRange[0] || dateRange[1])) ? '#1e293b' : '#94a3b8',
-                                        fontWeight: (dateRange && (dateRange[0] || dateRange[1])) ? 600 : 400
-                                    }}>
-                                        {dateLabel}
-                                    </Text>
-                                </Space>
-                                <CheckCircleOutlined style={{ fontSize: 12, color: (dateRange && (dateRange[0] || dateRange[1])) ? '#4F46E5' : '#94a3b8' }} />
+                                style={{ minWidth: 150 }}
+                            />
+                            <ModalSelector<CreatedSort>
+                                title="เรียงลำดับ"
+                                options={[
+                                    { label: 'เรียงจากเก่าก่อน', value: 'old' },
+                                    { label: 'เรียงจากใหม่ก่อน', value: 'new' },
+                                ]}
+                                value={createdSort}
+                                onChange={(value) => setCreatedSort(value)}
+                                style={{ minWidth: 120 }}
+                            />
+                            <div style={{ flex: 1, minWidth: 200 }}>
+                                <Button
+                                    icon={<CalendarOutlined />}
+                                    onClick={() => {
+                                        setTempDateRange(dateRange);
+                                        setIsDateModalVisible(true);
+                                    }}
+                                    className="date-picker-button"
+                                    style={{
+                                        padding: '12px 16px',
+                                        border: '2px solid #e2e8f0',
+                                        borderRadius: 14,
+                                        background: (dateRange && (dateRange[0] || dateRange[1])) ? 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)' : '#fff',
+                                        borderColor: (dateRange && (dateRange[0] || dateRange[1])) ? '#4F46E5' : '#e2e8f0',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        cursor: 'pointer',
+                                        minHeight: 48,
+                                        transition: 'all 0.2s ease',
+                                        width: '100%',
+                                        height: 'auto'
+                                    }}
+                                >
+                                    <Space>
+                                        <CalendarOutlined style={{ color: (dateRange && (dateRange[0] || dateRange[1])) ? '#4F46E5' : '#94a3b8' }} />
+                                        <Text style={{ 
+                                            color: (dateRange && (dateRange[0] || dateRange[1])) ? '#1e293b' : '#94a3b8',
+                                            fontWeight: (dateRange && (dateRange[0] || dateRange[1])) ? 600 : 400
+                                        }}>
+                                            {dateLabel}
+                                        </Text>
+                                    </Space>
+                                    <CheckCircleOutlined style={{ fontSize: 12, color: (dateRange && (dateRange[0] || dateRange[1])) ? '#4F46E5' : '#94a3b8' }} />
+                                </Button>
                             </div>
-                        </div>
+                        </Space>
                     </SearchBar>
 
-                    <PageSection title="รายการประวัติกะ" extra={<span style={{ fontWeight: 600 }}>{rows.length}</span>}>
+                    <PageSection title="รายการประวัติกะ" extra={<span style={{ fontWeight: 600 }}>{total} รายการ</span>}>
                         {historyQuery.isLoading ? (
                             <div style={{ display: 'flex', justifyContent: 'center', padding: '48px 0' }}>
                                 <Spin size="large" />
@@ -407,28 +511,18 @@ export default function ShiftHistoryPage() {
                                     <ShiftHistoryCard
                                         key={shift.id}
                                         shift={shift}
-                                        onViewSummary={setSelectedShiftId}
+                                        onViewSummary={handleViewSummary}
                                     />
                                 ))}
 
-                                <div style={{ marginTop: 16 }}>
+                                <div style={{ marginTop: 12 }}>
                                     <ListPagination
-                                        page={pagination?.page || page}
-                                        pageSize={pagination?.limit || pageSize}
-                                        total={pagination?.total || 0}
-                                        loading={historyQuery.isFetching}
-                                        onPageChange={(nextPage: number) => {
-                                            setPage(nextPage);
-                                        }}
-                                        onPageSizeChange={(nextPageSize: number) => {
-                                            setPage(1);
-                                            setPageSize(nextPageSize);
-                                        }}
-                                        sortCreated={createdSort}
-                                        onSortCreatedChange={(nextSort: CreatedSort) => {
-                                            setPage(1);
-                                            setCreatedSort(nextSort);
-                                        }}
+                                        page={page}
+                                        total={total}
+                                        pageSize={pageSize}
+                                        onPageChange={setPage}
+                                        onPageSizeChange={setPageSize}
+                                        activeColor="#7C3AED"
                                     />
                                 </div>
                             </>
@@ -458,10 +552,13 @@ export default function ShiftHistoryPage() {
                 onCancel={() => {
                     setIsDateModalVisible(false);
                     setIsCustomDate(false);
+                    setIsPickerOpen(false);
                 }}
                 footer={null}
                 centered
-                width={400}
+                width={isMobile ? '100%' : 480}
+                style={{ maxWidth: '95vw', margin: '10px auto' }}
+                bodyStyle={{ padding: isMobile ? '16px 12px' : 24 }}
             >
                 <div id="date-selection-container" style={{ display: 'flex', flexDirection: 'column', gap: 10, position: 'relative' }}>
                     {!isCustomDate ? (
@@ -478,8 +575,9 @@ export default function ShiftHistoryPage() {
                                     <div
                                         key={preset.label}
                                         onClick={() => {
-                                            setPage(1);
-                                            setDateRange(preset.value);
+                                            const val = preset.value;
+                                            setDateRange(val);
+                                            setTempDateRange(val);
                                             setIsDateModalVisible(false);
                                         }}
                                         style={{
@@ -490,49 +588,99 @@ export default function ShiftHistoryPage() {
                                             display: 'flex',
                                             justifyContent: 'space-between',
                                             alignItems: 'center',
-                                            background: isPresetActive ? '#f0f9ff' : '#fff',
-                                            borderColor: isPresetActive ? '#0ea5e9' : '#e5e7eb'
+                                            background: isPresetActive ? '#f8fafc' : '#fff',
+                                            borderColor: isPresetActive ? '#4f46e5' : '#e5e7eb'
                                         }}
                                     >
-                                        <Text strong={isPresetActive}>
+                                        <Text strong={isPresetActive} style={{ color: isPresetActive ? '#4f46e5' : '#1e293b' }}>
                                             {preset.label}
                                         </Text>
                                         {isPresetActive && (
-                                            <CheckCircleOutlined style={{ color: '#0ea5e9' }} />
+                                            <CheckCircleOutlined style={{ color: '#4f46e5' }} />
                                         )}
                                     </div>
                                 );
                             })}
                             <Button 
                                 type="dashed" 
-                                style={{ height: 48, borderRadius: 12 }} 
-                                onClick={() => setIsCustomDate(true)}
+                                style={{ height: 48, borderRadius: 12, borderStyle: 'dashed', borderWidth: 2 }} 
+                                onClick={(e) => {
+                                    e.stopPropagation();
+                                    setTempDateRange(dateRange);
+                                    setIsCustomDate(true);
+                                }}
                             >
                                 เลือกช่วงวันที่เอง...
                             </Button>
                         </>
                     ) : (
-                        <div style={{ padding: '8px 0' }}>
-                            <Text type="secondary" style={{ display: 'block', marginBottom: 12 }}>เลือกช่วงวันที่ของคุณ</Text>
-                            <RangePicker
-                                value={dateRange}
-                                onChange={(values) => {
-                                    setPage(1);
-                                    setDateRange(values);
-                                    if (values && values[0] && values[1]) {
-                                        setIsDateModalVisible(false);
-                                        setIsCustomDate(false);
-                                    }
-                                }}
-                                format="DD/MM/YYYY"
-                                allowClear
-                                style={{ width: '100%' }}
-                                getPopupContainer={(trigger) => trigger.parentElement || document.body}
-                                defaultOpen
-                                placeholder={['วันที่เริ่มต้น', 'วันที่สิ้นสุด']}
-                            />
-                            <div style={{ marginTop: 20, display: 'flex', justifyContent: 'flex-end' }}>
-                                <Button onClick={() => setIsCustomDate(false)}>ย้อนกลับ</Button>
+                        <div className="custom-date-section">
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+                                <Text strong style={{ fontSize: 16, color: '#1e293b' }}>ระบุเวลาเอง</Text>
+                                <Button type="text" size="small" onClick={() => setIsCustomDate(false)}>ย้อนกลับ</Button>
+                            </div>
+                            
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                                <div style={{ position: 'relative' }}>
+                                    <Text type="secondary" style={{ display: 'block', marginBottom: 6, fontSize: 13 }}>ตั้งแต่วันที่/เวลา</Text>
+                                    <DatePicker
+                                        size="large"
+                                        value={tempDateRange?.[0]}
+                                        onChange={(val) => {
+                                            setTempDateRange([val, tempDateRange?.[1] || null]);
+                                        }}
+                                        format="DD/MM/YYYY HH:mm"
+                                        showTime={{ format: 'HH:mm' }}
+                                        allowClear
+                                        style={{ width: '100%', borderRadius: 10 }}
+                                        placeholder="เลือกเวลาเริ่มต้น"
+                                        getPopupContainer={(trigger) => trigger.parentElement!}
+                                        dropdownClassName="mobile-datepicker-dropdown"
+                                        inputReadOnly={isMobile}
+                                    />
+                                </div>
+
+                                <div style={{ position: 'relative' }}>
+                                    <Text type="secondary" style={{ display: 'block', marginBottom: 6, fontSize: 13 }}>ถึงวันที่/เวลา</Text>
+                                    <DatePicker
+                                        size="large"
+                                        value={tempDateRange?.[1]}
+                                        onChange={(val) => {
+                                            setTempDateRange([tempDateRange?.[0] || null, val]);
+                                        }}
+                                        format="DD/MM/YYYY HH:mm"
+                                        showTime={{ format: 'HH:mm' }}
+                                        allowClear
+                                        style={{ width: '100%', borderRadius: 10 }}
+                                        placeholder="เลือกเวลาสิ้นสุด"
+                                        getPopupContainer={(trigger) => trigger.parentElement!}
+                                        dropdownClassName="mobile-datepicker-dropdown"
+                                        inputReadOnly={isMobile}
+                                        disabledDate={(current) => {
+                                            if (!tempDateRange?.[0]) return false;
+                                            return current && current < tempDateRange[0].startOf('day');
+                                        }}
+                                    />
+                                </div>
+                            </div>
+
+                            <div style={{ marginTop: 24 }}>
+                                <Button 
+                                    type="primary" 
+                                    block 
+                                    size="large"
+                                    style={{ borderRadius: 10, background: '#4F46E5', height: 48, fontWeight: 600 }}
+                                    disabled={!tempDateRange?.[0] || !tempDateRange?.[1]}
+                                    onClick={() => {
+                                        if (tempDateRange && tempDateRange[0] && tempDateRange[1]) {
+                                            setDateRange(tempDateRange);
+                                            setIsDateModalVisible(false);
+                                            setIsCustomDate(false);
+                                        }
+                                    }}
+                                >
+                                    ยืนยันช่วงเวลา
+                                </Button>
                             </div>
                         </div>
                     )}
