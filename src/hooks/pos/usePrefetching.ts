@@ -32,11 +32,13 @@ export function usePOSPrefetching() {
                         queryKey: ['products', productsPage, productsLimit, productsCategoryKey],
                         queryFn: () => productsService.findAll(productsPage, productsLimit, undefined, new URLSearchParams()),
                         staleTime: 5 * 60 * 1000, // 5 minutes
+                        meta: { trackGlobalLoading: false },
                     }),
                     queryClient.prefetchQuery({
                         queryKey: ['categories'],
                         queryFn: () => categoryService.findAll(),
                         staleTime: 10 * 60 * 1000, // 10 minutes
+                        meta: { trackGlobalLoading: false },
                     }),
                 ]);
             } catch (error) {
@@ -63,6 +65,7 @@ export function useOrderListPrefetching() {
                     queryKey: ['ordersSummary', 1, 50, 'all', 'all', ''],
                     queryFn: () => ordersService.getAllSummary(undefined, 1, 50),
                     staleTime: 3000,
+                    meta: { trackGlobalLoading: false },
                 });
             } catch (error) {
                 console.debug('Order list prefetch failed:', error);
@@ -87,6 +90,7 @@ export function useQueuePrefetching() {
                     queryKey: ['orderQueue', 'all'],
                     queryFn: () => orderQueueService.getAll(),
                     staleTime: 2000,
+                    meta: { trackGlobalLoading: false },
                 });
             } catch (error) {
                 console.debug('Queue prefetch failed:', error);
@@ -112,6 +116,7 @@ export function useOrderDetailsPrefetching(orderId?: string) {
                     queryKey: ['order', orderId],
                     queryFn: () => ordersService.getById(orderId),
                     staleTime: 5000,
+                    meta: { trackGlobalLoading: false },
                 });
             } catch (error) {
                 console.debug('Order details prefetch failed:', error);

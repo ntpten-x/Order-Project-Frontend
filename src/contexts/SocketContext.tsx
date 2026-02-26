@@ -11,12 +11,23 @@ interface SocketContextType {
     isConnected: boolean;
 }
 
+type SocketTransport = "websocket" | "polling";
+
 export const SocketContext = createContext<SocketContextType>({
     socket: null,
     isConnected: false,
 });
 
 const SOCKET_STATUS_MESSAGE_KEY = "socket-status";
+
+function updateSocketPerfState(patch: Record<string, unknown>) {
+    if (typeof window === "undefined") return;
+    const perfWindow = window as Window & { __POS_PERF_SOCKET_STATE__?: Record<string, unknown> };
+    perfWindow.__POS_PERF_SOCKET_STATE__ = {
+        ...(perfWindow.__POS_PERF_SOCKET_STATE__ || {}),
+        ...patch,
+    };
+}
 
 function sanitizeSocketBaseUrl(raw?: string): string {
     const value = raw?.trim();
@@ -54,6 +65,23 @@ function sanitizeSocketPath(raw?: string): string {
 
     const withLeadingSlash = normalized.startsWith("/") ? normalized : `/${normalized}`;
     return withLeadingSlash || fallback;
+}
+
+function resolveSocketTransports(): SocketTransport[] {
+    const raw = (process.env.NEXT_PUBLIC_SOCKET_TRANSPORTS || "")
+        .split(",")
+        .map((item) => item.trim().toLowerCase())
+        .filter(Boolean);
+
+    const transports = raw.filter(
+        (item): item is SocketTransport => item === "websocket" || item === "polling"
+    );
+
+    if (transports.length === 0) {
+        return ["websocket", "polling"];
+    }
+
+    return Array.from(new Set(transports));
 }
 
 function enforceSecureSocketUrl(rawUrl: string): string {
@@ -146,6 +174,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
     const { user } = useAuth();
     const userId = user?.id ?? null;
     const userBranchId = user?.branch?.id || user?.branch_id || null;
+    const effectiveBranchId = activeBranchId ?? userBranchId;
 
     useEffect(() => {
         if (!userId) {
@@ -190,6 +219,11 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
             socketRef.current.disconnect();
             socketRef.current = null;
         }
+        updateSocketPerfState({
+            connected: false,
+            lastDisconnectReason: "disconnectSocket",
+            lastDisconnectAt: Date.now(),
+        });
 
         reconnectNoticeShown.current = false;
         hadSuccessfulConnection.current = false;
@@ -222,15 +256,25 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
         }
 
         const { url: socketUrl, path: socketPath } = resolveSocketConfig();
-        const branchId = activeBranchId || userBranchId;
         const socketDebug = process.env.NEXT_PUBLIC_SOCKET_DEBUG === "true";
+        const socketTransports = resolveSocketTransports();
+        updateSocketPerfState({
+            branchId: effectiveBranchId,
+            socketUrl,
+            socketPath,
+            socketTransports,
+            connected: false,
+            hasToken: !!socketToken,
+            userId,
+        });
 
         if (socketDebug) {
             console.info("[Socket] connect init", {
                 socketUrl,
                 socketPath,
                 userId,
-                branchId,
+                branchId: effectiveBranchId,
+                socketTransports,
                 hasToken: !!socketToken,
                 tokenFetching,
                 socketTokenLength: socketToken?.length || 0
@@ -239,12 +283,12 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
 
         const socketInstance = io(socketUrl, {
             path: socketPath,
-            transports: ["websocket", "polling"],
+            transports: socketTransports,
             withCredentials: true,
             timeout: 10000,
             auth: {
                 userId,
-                branchId,
+                branchId: effectiveBranchId,
                 token: socketToken, // Explicitly pass the token
             },
             reconnection: true,
@@ -259,6 +303,12 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
             clearDisconnectWarnTimer();
             hadSuccessfulConnection.current = true;
             setIsConnected(true);
+            updateSocketPerfState({
+                connected: true,
+                socketId: socketInstance.id,
+                transport: socketInstance.io.engine.transport.name,
+                lastConnectAt: Date.now(),
+            });
 
             if (reconnectNoticeShown.current) {
                 message.success({
@@ -279,6 +329,11 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
 
         socketInstance.on("disconnect", (reason) => {
             setIsConnected(false);
+            updateSocketPerfState({
+                connected: false,
+                lastDisconnectReason: reason,
+                lastDisconnectAt: Date.now(),
+            });
 
             if (reason === "io client disconnect" || !hadSuccessfulConnection.current) {
                 return;
@@ -299,12 +354,20 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
         });
 
         socketInstance.on("connect_error", (error) => {
+            const perfWindow = window as Window & { __POS_PERF_SOCKET_STATE__?: Record<string, unknown> };
+            const currentErrorCount = Number(perfWindow.__POS_PERF_SOCKET_STATE__?.connectErrorCount || 0);
+            updateSocketPerfState({
+                connected: false,
+                connectErrorCount: currentErrorCount + 1,
+                lastConnectError: error.message,
+                lastConnectErrorAt: Date.now(),
+            });
             console.error("[Socket] connect_error", {
                 message: error.message,
                 socketUrl,
                 socketPath,
                 userId,
-                branchId,
+                branchId: effectiveBranchId,
             });
         });
 
@@ -330,9 +393,14 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
             if (socketRef.current === socketInstance) {
                 socketRef.current = null;
             }
+            updateSocketPerfState({
+                connected: false,
+                lastDisconnectReason: "cleanup",
+                lastDisconnectAt: Date.now(),
+            });
             socketInstance.disconnect();
         };
-    }, [activeBranchId, clearDisconnectWarnTimer, disconnectSocket, userBranchId, userId, socketToken, tokenFetching]);
+    }, [effectiveBranchId, clearDisconnectWarnTimer, disconnectSocket, userId, socketToken, tokenFetching]);
 
     useEffect(() => {
         if (!userId) {

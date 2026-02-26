@@ -52,23 +52,53 @@ async function recoverInvalidBranchContext(messageText: string): Promise<void> {
  * Following: client-swr-dedup - provides automatic request deduplication via React Query
  */
 const QueryLoadingTracker = () => {
-  const isFetching = useIsFetching();
-  const isMutating = useIsMutating();
+  const isFetchingInitial = useIsFetching({
+    predicate: (query) =>
+      query.state.fetchStatus === "fetching" &&
+      query.state.status === "pending" &&
+      query.meta?.trackGlobalLoading !== false,
+  });
+  const isMutating = useIsMutating({
+    predicate: (mutation) => mutation.options.meta?.trackGlobalLoading !== false,
+  });
   const { showLoading, hideLoading } = useGlobalLoading();
-  const wasBusy = useRef(false);
-  const isBusy = isFetching + isMutating > 0;
+  const isShownRef = useRef(false);
+  const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isBusy = isFetchingInitial + isMutating > 0;
 
   useEffect(() => {
-    if (isBusy && !wasBusy.current) {
-      wasBusy.current = true;
-      showLoading("กำลังโหลดข้อมูล...", "query");
+    if (isBusy) {
+      if (isShownRef.current || showTimerRef.current) return;
+      showTimerRef.current = setTimeout(() => {
+        showTimerRef.current = null;
+        if (isShownRef.current) return;
+        isShownRef.current = true;
+        showLoading("Loading data...", "query");
+      }, 180);
       return;
     }
-    if (!isBusy && wasBusy.current) {
-      wasBusy.current = false;
+
+    if (showTimerRef.current) {
+      clearTimeout(showTimerRef.current);
+      showTimerRef.current = null;
+    }
+
+    if (isShownRef.current) {
+      isShownRef.current = false;
       hideLoading("query");
     }
   }, [isBusy, showLoading, hideLoading]);
+
+  useEffect(() => {
+    return () => {
+      if (showTimerRef.current) {
+        clearTimeout(showTimerRef.current);
+      }
+      if (isShownRef.current) {
+        hideLoading("query");
+      }
+    };
+  }, [hideLoading]);
 
   return null;
 };
@@ -148,7 +178,7 @@ function createQueryClient() {
         // Disable automatic refetch on window focus (can be noisy)
         refetchOnWindowFocus: false,
         // Refetch on reconnect for offline-first experience
-        refetchOnReconnect: 'always',
+        refetchOnReconnect: true,
         // Network mode for offline support
         networkMode: 'offlineFirst',
       },
@@ -200,11 +230,16 @@ export default function QueryProvider({ children }: { children: React.ReactNode 
   );
 }
 
-// Type augmentation for mutation meta
+// Type augmentation for query/mutation meta
 declare module '@tanstack/react-query' {
   interface Register {
+    queryMeta: {
+      trackGlobalLoading?: boolean;
+    };
     mutationMeta: {
       skipErrorToast?: boolean;
+      trackGlobalLoading?: boolean;
     };
   }
 }
+

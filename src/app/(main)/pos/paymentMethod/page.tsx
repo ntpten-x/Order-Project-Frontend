@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { message, Modal, Typography, Tag, Button, Space, Switch } from 'antd';
 import {
     CreditCardOutlined,
@@ -13,7 +13,7 @@ import {
     BankOutlined,
 } from '@ant-design/icons';
 import { PaymentMethod } from '../../../../types/api/pos/paymentMethod';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useAsyncAction } from '../../../../hooks/useAsyncAction';
 import { useSocket } from '../../../../hooks/useSocket';
@@ -24,7 +24,6 @@ import { readCache, writeCache } from '../../../../utils/pos/cache';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import { paymentMethodService } from '../../../../services/pos/paymentMethod.service';
 import { globalStyles, pageStyles } from '../../../../theme/pos/paymentMethod/style';
-import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 import PageContainer from '../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../components/ui/page/PageSection';
@@ -32,7 +31,7 @@ import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
-import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../../../lib/list-sort';
+import { DEFAULT_CREATED_SORT } from '../../../../lib/list-sort';
 import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
 import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
 import { SearchInput } from "../../../../components/ui/input/SearchInput";
@@ -183,8 +182,6 @@ const PaymentMethodCard = ({ paymentMethod, canUpdate, canDelete, onEdit, onDele
 
 export default function PaymentMethodPage() {
     const router = useRouter();
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
     const {
         searchText,
         setSearchText,
@@ -260,10 +257,6 @@ export default function PaymentMethodPage() {
         },
         setPaymentMethods
     );
-
-    const filteredPaymentMethods = useMemo(() => {
-        return paymentMethods;
-    }, [paymentMethods]);
 
     const handleAdd = () => {
         if (!canCreatePaymentMethods) {

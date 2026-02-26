@@ -36,7 +36,10 @@
     "test:go-live:phase8": "node scripts/run-go-live-phase8.mjs",
     "test:go-live:phase9": "node scripts/run-go-live-phase9.mjs",
     "test:go-live:phase7:signoff": "node scripts/run-go-live-phase7-signoff.mjs",
-    "test:go-live:phase9:signoff": "node scripts/run-go-live-phase9-signoff.mjs"
+    "test:go-live:phase9:signoff": "node scripts/run-go-live-phase9-signoff.mjs",
+    "perf:pos:profile": "node scripts/perf-pos-main-before-after.mjs",
+    "perf:pos:baseline:assert": "node scripts/assert-perf-pos-baseline.mjs",
+    "perf:pos:baseline:ci": "npm run perf:pos:profile && npm run perf:pos:baseline:assert"
   },
   "dependencies": {
     "@ant-design/icons": "^6.1.0",

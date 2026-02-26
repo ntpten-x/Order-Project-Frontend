@@ -1,14 +1,13 @@
 ﻿
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Typography,
     Button,
     Input,
     Space,
     Tag,
-    Segmented,
     message,
     Modal,
     Card,
@@ -26,7 +25,6 @@ import {
     DeleteOutlined,
     EditOutlined,
     ReloadOutlined,
-    SearchOutlined,
     SaveOutlined,
     ExclamationCircleOutlined,
     InfoCircleOutlined,
@@ -34,7 +32,7 @@ import {
     SwapOutlined,
     CheckCircleFilled
 } from '@ant-design/icons';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { pageStyles } from './style';
 import { paymentAccountService } from '../../../../../../services/pos/paymentAccount.service';
 import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
@@ -115,31 +113,6 @@ const getFriendlyErrorMessage = (error: unknown, fallback: string) => {
     return fallback;
 };
 
-const StatsCard = ({ total, active, inactive }: { total: number; active: number; inactive: number }) => (
-    <div style={{
-        background: '#fff',
-        borderRadius: 16,
-        border: '1px solid #e2e8f0',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-        gap: 8,
-        padding: 14
-    }}>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', display: 'block' }}>{total}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ทั้งหมด</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#16a34a', display: 'block' }}>{active}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>บัญชีหลัก</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#b91c1c', display: 'block' }}>{inactive}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ไม่ใช้งาน</Text>
-        </div>
-    </div>
-);
-
 const SectionLoadingSkeleton = ({ compact = false, rows = 3 }: { compact?: boolean; rows?: number }) => (
     <div style={{ display: 'grid', gap: compact ? 8 : 12 }}>
         {Array.from({ length: rows }).map((_, index) => (
@@ -213,8 +186,6 @@ const PaymentAccountPreviewCard = ({
 
 export default function PaymentAccountManagementPage({ params }: { params: { mode?: string[] } }) {
     const router = useRouter();
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
     const { socket } = useSocket();
     const { user } = useAuth();
     const screens = Grid.useBreakpoint();
@@ -224,7 +195,6 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
     const canCreateAccounts = can('payment_accounts.page', 'create');
     const canUpdateAccounts = can('payment_accounts.page', 'update');
     const canDeleteAccounts = can('payment_accounts.page', 'delete');
-    const isUrlReadyRef = useRef(false);
 
     const [form] = Form.useForm<PaymentAccountFormValues>();
     const [accounts, setAccounts] = useState<ShopPaymentAccount[]>([]);

@@ -10,7 +10,7 @@ import {
     DeleteOutlined,
 } from '@ant-design/icons';
 import { Delivery } from '../../../../types/api/pos/delivery';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useAsyncAction } from '../../../../hooks/useAsyncAction';
 import { useSocket } from '../../../../hooks/useSocket';
@@ -176,8 +176,6 @@ const DeliveryCard = ({ delivery, canUpdate, canDelete, onEdit, onDelete, onTogg
 
 export default function DeliveryPage() {
     const router = useRouter();
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
     const [deliveries, setDeliveries] = useState<Delivery[]>([]);
     const {
         page, setPage,

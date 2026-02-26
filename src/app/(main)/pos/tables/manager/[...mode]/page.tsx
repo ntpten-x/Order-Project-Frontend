@@ -16,7 +16,6 @@ import {
     SyncOutlined,
     CheckCircleFilled,
     AppstoreOutlined,
-    InfoCircleOutlined,
     ExclamationCircleOutlined,
     CheckCircleOutlined,
     DownOutlined

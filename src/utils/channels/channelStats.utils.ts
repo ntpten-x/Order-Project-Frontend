@@ -1,9 +1,13 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useContext, useEffect, useMemo } from "react";
+import { useCallback, useContext, useEffect, useMemo, useRef } from "react";
 import { SocketContext } from "../../contexts/SocketContext";
 import { ordersService } from "../../services/pos/orders.service";
 import { RealtimeEvents } from "../realtimeEvents";
-import { ORDER_REALTIME_EVENTS } from "../pos/orderRealtimeEvents";
+import {
+    shouldDisableInvalidateDebounce,
+    trackInvalidateExecuted,
+    trackInvalidateRequested
+} from "../pos/invalidateProfiler";
 
 /**
  * Statistics for each sales channel showing active order counts
@@ -21,17 +25,42 @@ export interface ChannelStats {
 export function useChannelStats() {
     const { socket, isConnected } = useContext(SocketContext);
     const queryClient = useQueryClient();
+    const invalidateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const refreshEvents = useMemo(
-        () =>
-            Array.from(
-                new Set([
-                    ...ORDER_REALTIME_EVENTS,
-                    RealtimeEvents.tables.create,
-                    RealtimeEvents.tables.update,
-                    RealtimeEvents.tables.delete,
-                ])
-            ),
+        () => [
+            RealtimeEvents.orders.create,
+            RealtimeEvents.orders.update,
+            RealtimeEvents.orders.delete,
+            RealtimeEvents.payments.create,
+            RealtimeEvents.payments.update,
+            RealtimeEvents.payments.delete,
+            RealtimeEvents.tables.create,
+            RealtimeEvents.tables.update,
+            RealtimeEvents.tables.delete,
+        ],
         []
+    );
+    const scheduleStatsInvalidate = useCallback(
+        (delayMs = 220) => {
+            const queryKey = ["channelStats"] as const;
+            trackInvalidateRequested(queryKey);
+
+            if (shouldDisableInvalidateDebounce()) {
+                queryClient.invalidateQueries({ queryKey });
+                trackInvalidateExecuted(queryKey);
+                return;
+            }
+
+            if (invalidateTimerRef.current) {
+                clearTimeout(invalidateTimerRef.current);
+            }
+            invalidateTimerRef.current = setTimeout(() => {
+                invalidateTimerRef.current = null;
+                queryClient.invalidateQueries({ queryKey });
+                trackInvalidateExecuted(queryKey);
+            }, delayMs);
+        },
+        [queryClient]
     );
 
     // Fetch initial data, disable auto-polling (rely on socket)
@@ -40,8 +69,9 @@ export function useChannelStats() {
         queryFn: async () => {
             return await ordersService.getStats();
         },
-        staleTime: isConnected ? 30_000 : 7_500,
+        staleTime: isConnected ? 45_000 : 7_500,
         refetchOnReconnect: true,
+        refetchOnWindowFocus: false,
         refetchInterval: isConnected ? false : 15_000,
         refetchIntervalInBackground: false,
     });
@@ -50,16 +80,20 @@ export function useChannelStats() {
         if (!socket) return;
 
         const handleOrderUpdate = () => {
-            // Re-fetch stats when orders change
-            queryClient.invalidateQueries({ queryKey: ['channelStats'] });
+            // Batch socket bursts to avoid redundant refetch storms.
+            scheduleStatsInvalidate();
         };
 
         refreshEvents.forEach((event) => socket.on(event, handleOrderUpdate));
 
         return () => {
             refreshEvents.forEach((event) => socket.off(event, handleOrderUpdate));
+            if (invalidateTimerRef.current) {
+                clearTimeout(invalidateTimerRef.current);
+                invalidateTimerRef.current = null;
+            }
         };
-    }, [socket, queryClient, refreshEvents]);
+    }, [socket, refreshEvents, scheduleStatsInvalidate]);
 
     return {
         stats: data,

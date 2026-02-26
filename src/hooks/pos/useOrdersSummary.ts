@@ -32,7 +32,8 @@ export function useOrdersSummary({ page = 1, limit = 50, status, type, query }: 
         },
         placeholderData: keepPreviousData,
         // Socket events invalidate this query globally; keep fallback stale window for disconnected clients.
-        staleTime: isConnected ? 30_000 : 7_500,
+        staleTime: isConnected ? 45_000 : 7_500,
+        refetchOnWindowFocus: false,
         refetchInterval: isConnected ? false : 15_000,
         refetchIntervalInBackground: false,
     });

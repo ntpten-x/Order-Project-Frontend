@@ -10,7 +10,6 @@ import {
     DeleteOutlined,
     SaveOutlined,
     AppstoreOutlined,
-    InfoCircleOutlined,
     ExclamationCircleOutlined,
     PercentageOutlined,
     DollarOutlined,

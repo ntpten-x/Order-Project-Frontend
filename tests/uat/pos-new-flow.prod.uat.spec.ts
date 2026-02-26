@@ -293,7 +293,17 @@ test.describe("UAT Production POS new flow", () => {
         const id = await mkOrder("TakeAway", 1);
         const o = await getOrder(api, id);
         const alive = items(o).filter((x: J) => !isCancelled(x.status));
-        await Promise.all(alive.map((x: J) => ok(api.patch(`/api/pos/orders/items/${x.id}/status`, { headers: { "X-CSRF-Token": token }, data: { status: "Cancelled" } }), "cancel all")));
+        await Promise.all(
+          alive.map(async (x: J) =>
+            ok(
+              await api.patch(`/api/pos/orders/items/${x.id}/status`, {
+                headers: { "X-CSRF-Token": token },
+                data: { status: "Cancelled" },
+              }),
+              "cancel all"
+            )
+          )
+        );
         await desk!.goto(`/pos/orders/${id}`, { waitUntil: "domcontentloaded" });
         await expect(desk!.getByRole("button", { name: "ไปขั้นตอนชำระเงิน" }).first()).toBeDisabled();
         await expect(desk!.getByRole("button", { name: "ต้องมีสินค้าอย่างน้อย 1 รายการเพื่อไปหน้าชำระเงิน" }).first()).toBeVisible();

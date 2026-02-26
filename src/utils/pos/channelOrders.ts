@@ -52,6 +52,7 @@ export function useChannelOrders({
         },
         enabled: enabled,
         staleTime: 1000 * 60, // 1 minute stale time, relies on invalidation
+        refetchOnWindowFocus: false,
     });
 
     return {

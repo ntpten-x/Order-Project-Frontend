@@ -18,7 +18,7 @@ export function useTables() {
             return result.data;
         },
         // Table changes are pushed by socket events; keep short fallback only when socket is unavailable.
-        staleTime: isConnected ? 30_000 : 7_500,
+        staleTime: isConnected ? 45_000 : 7_500,
         refetchInterval: isConnected ? false : 15_000,
         refetchIntervalInBackground: false,
         refetchOnReconnect: true

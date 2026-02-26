@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master, develop]
+  pull_request:
+    branches: [main, master, develop]
+
+jobs:
+  secret-scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Gitleaks Scan
+        uses: gitleaks/gitleaks-action@v2
+        with:
+          args: detect --no-git --redact --verbose
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  governance-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    needs: secret-scan
+    steps:
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Governance Gate (frontend static + guards + unit)
+        run: npm run gate:governance
+
+  staging-docker-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    needs: governance-gate
+    steps:
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+
+      - name: Checkout backend
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/Order-Project-Backend
+          path: Order-Project-Backend
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Install backend dependencies
+        run: npm --prefix ./Order-Project-Backend ci
+
+      - name: Staging-like Docker E2E Gate (clean DB each run)
+        run: npm run gate:staging-docker
+        env:
+          BACKEND_SOURCE_DIR: ./Order-Project-Backend

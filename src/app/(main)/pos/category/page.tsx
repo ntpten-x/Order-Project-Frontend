@@ -10,7 +10,7 @@ import {
     DeleteOutlined,
 } from '@ant-design/icons';
 import { Category } from '../../../../types/api/pos/category';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useAsyncAction } from '../../../../hooks/useAsyncAction';
 import { useSocket } from '../../../../hooks/useSocket';
@@ -179,15 +179,12 @@ const CategoryCard = ({
 
 export default function CategoryPage() {
     const router = useRouter();
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
     const [categories, setCategories] = useState<Category[]>([]);
     const {
         page, setPage,
         pageSize, setPageSize,
         total, setTotal,
         searchText, setSearchText,
-        debouncedSearch,
         createdSort, setCreatedSort,
         filters, updateFilter,
         getQueryParams,

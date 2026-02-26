@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useState, useRef } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Typography,
@@ -22,7 +22,7 @@ import {
 import dayjs, { Dayjs } from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import 'dayjs/locale/th';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useSocket } from '../../../../hooks/useSocket';
 import { useRoleGuard } from '../../../../utils/pos/accessControl';
 import { shiftsService } from '../../../../services/pos/shifts.service';
@@ -42,9 +42,7 @@ import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import PageState from '../../../../components/ui/states/PageState';
 import { pageStyles, globalStyles } from '../../../../theme/pos/shiftHistory/style';
-import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
 import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
-import { parseCreatedSort } from '../../../../lib/list-sort';
 import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
 import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
 import { SearchInput } from "../../../../components/ui/input/SearchInput";
@@ -214,7 +212,6 @@ export default function ShiftHistoryPage() {
     const [isDateModalVisible, setIsDateModalVisible] = useState(false);
     const [isCustomDate, setIsCustomDate] = useState(false);
     const [tempDateRange, setTempDateRange] = useState<[dayjs.Dayjs | null, dayjs.Dayjs | null] | null>(dateRange);
-    const [isPickerOpen, setIsPickerOpen] = useState(false);
 
     useEffect(() => {
         setTempDateRange(dateRange);
@@ -260,17 +257,6 @@ export default function ShiftHistoryPage() {
         staleTime: 15_000,
     });
 
-    useEffect(() => {
-        if (isCustomDate) {
-            const timer = setTimeout(() => {
-                setIsPickerOpen(true);
-            }, 300); // Increased delay for better stability
-            return () => clearTimeout(timer);
-        } else {
-            setIsPickerOpen(false);
-        }
-    }, [isCustomDate]);
-
     const summaryQuery = useQuery<ShiftSummary | null>({
         queryKey: ['shiftSummaryById', selectedShiftId],
         queryFn: async () => {
@@ -294,7 +280,6 @@ export default function ShiftHistoryPage() {
 
     const historyData = historyQuery.data;
     const rows = historyData?.data || [];
-    const pagination = historyData?.pagination;
     const stats = historyData?.stats;
 
     useEffect(() => {
@@ -552,7 +537,6 @@ export default function ShiftHistoryPage() {
                 onCancel={() => {
                     setIsDateModalVisible(false);
                     setIsCustomDate(false);
-                    setIsPickerOpen(false);
                 }}
                 footer={null}
                 centered

@@ -12,7 +12,6 @@ import {
     UnorderedListOutlined,
     CheckCircleFilled,
     AppstoreOutlined,
-    InfoCircleOutlined,
     ExclamationCircleOutlined
 } from '@ant-design/icons';
 import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';

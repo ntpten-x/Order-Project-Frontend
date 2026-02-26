@@ -1,7 +1,7 @@
 ﻿'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Typography, Button, Space, Tag, message, Input, Segmented, Grid, Skeleton, Card } from 'antd';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Button, Space, Tag, message, Grid, Skeleton } from 'antd';
 import {
     SettingOutlined,
     CheckCircleOutlined,
@@ -9,10 +9,9 @@ import {
     ReloadOutlined,
     EditOutlined
 } from '@ant-design/icons';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { paymentAccountService } from '../../../../services/pos/paymentAccount.service';
 import { ShopPaymentAccount } from '../../../../types/api/pos/shopPaymentAccount';
-import { getCsrfTokenCached } from '../../../../utils/pos/csrf';
 import { useSocket } from '../../../../hooks/useSocket';
 import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
 import { useRoleGuard } from '../../../../utils/pos/accessControl';
@@ -26,11 +25,6 @@ import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import { pageStyles } from '../../../../theme/pos/settings/style';
-import { useDebouncedValue } from '../../../../utils/useDebouncedValue';
-
-const { Text } = Typography;
-
-type StatusFilter = 'all' | 'active' | 'inactive';
 
 type ServiceError = Error & { status?: number; code?: string };
 
@@ -62,21 +56,6 @@ const getFriendlyErrorMessage = (error: unknown, fallback: string) => {
     return fallback;
 };
 
-function StatCard({ label, value, color }: { label: string; value: number; color: string }) {
-    return (
-        <div style={{
-            borderRadius: 14,
-            border: '1px solid #e2e8f0',
-            background: '#fff',
-            padding: 12,
-            textAlign: 'center'
-        }}>
-            <div style={{ fontSize: 24, fontWeight: 700, color }}>{value}</div>
-            <Text type="secondary" style={{ fontSize: 12 }}>{label}</Text>
-        </div>
-    );
-}
-
 function SectionLoadingSkeleton({ compact = false }: { compact?: boolean }) {
     return (
         <div style={{ display: 'grid', gap: compact ? 8 : 12 }}>
@@ -99,17 +78,13 @@ const formatPromptPay = (num: string) => {
 
 export default function POSSettingsPage() {
     const router = useRouter();
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
     const { socket, isConnected } = useSocket();
     const { user } = useAuth();
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.md;
     const { isAuthorized, isChecking } = useRoleGuard();
     const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canCreateAccounts = can('payment_accounts.page', 'create');
     const canUpdateAccounts = can('payment_accounts.page', 'update');
-    const isUrlReadyRef = useRef(false);
 
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);

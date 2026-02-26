@@ -12,7 +12,7 @@ import {
 } from '@ant-design/icons';
 import { Products } from '../../../../types/api/pos/products';
 
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useAsyncAction } from '../../../../hooks/useAsyncAction';
 import { useSocket } from '../../../../hooks/useSocket';
@@ -192,8 +192,6 @@ const ProductCard = ({ product, canUpdate, canDelete, onEdit, onDelete, onToggle
 
 export default function ProductsPage() {
     const router = useRouter();
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
     const {
         searchText,
         setSearchText,

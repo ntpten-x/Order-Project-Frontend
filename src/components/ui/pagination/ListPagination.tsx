@@ -35,21 +35,21 @@ export default function ListPagination({
 }: ListPaginationProps) {
     const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
     const end = Math.min(page * pageSize, total);
+    const containerStyle: React.CSSProperties & Record<"--phone-layout", string> = {
+        display: 'grid',
+        gridTemplateColumns: 'minmax(250px, 1fr) auto minmax(250px, 1fr)',
+        alignItems: 'center',
+        gap: 16,
+        marginTop: 16,
+        paddingTop: 12,
+        borderTop: '1px solid #E2E8F0',
+        width: '100%',
+        '--phone-layout': '1fr',
+    };
 
     return (
         <div
-            style={{
-                display: 'grid',
-                gridTemplateColumns: 'minmax(250px, 1fr) auto minmax(250px, 1fr)',
-                alignItems: 'center',
-                gap: 16,
-                marginTop: 16,
-                paddingTop: 12,
-                borderTop: '1px solid #E2E8F0',
-                width: '100%',
-                //@ts-ignore
-                '--phone-layout': '1fr'
-            }}
+            style={containerStyle}
             className="pagination-grid"
         >
             <div style={{ justifySelf: 'start' }}>
@@ -154,4 +154,3 @@ export default function ListPagination({
         </div>
     );
 }
-

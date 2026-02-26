@@ -4,8 +4,6 @@ import React from "react";
 import { Layout } from "antd";
 
 import { CartProvider } from "../../contexts/stock/CartContext";
-import { useOrderSocketEvents } from "../../hooks/pos/useOrderSocketEvents";
-import { usePOSPrefetching } from "../../hooks/pos/usePrefetching";
 import { useRoleGuard } from "../../utils/pos/accessControl";
 import { AccessGuardFallback } from "../../components/pos/AccessGuard";
 
@@ -31,12 +29,6 @@ export default function MainLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Prefetch POS data when user is in main layout (likely to navigate to POS)
-  usePOSPrefetching();
-  
-  // Listen for global order socket events to invalidate queries
-  useOrderSocketEvents();
-
   return (
     <CartProvider>
       <Layout style={{ minHeight: "100%", background: "transparent" }}>

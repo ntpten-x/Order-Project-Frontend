@@ -1,18 +1,21 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useDebouncedValue } from '../../utils/useDebouncedValue';
 import { type CreatedSort } from '../../components/ui/pagination/ListPagination';
 import { DEFAULT_CREATED_SORT, parseCreatedSort } from '../../lib/list-sort';
 
-export type ListStateOptions<F extends Record<string, any>> = {
+type ListFilterValue = string | number | boolean | null | undefined;
+type ListFilters = Record<string, ListFilterValue>;
+
+export type ListStateOptions<F extends ListFilters> = {
     defaultPageSize?: number;
     defaultFilters?: F;
     debounceMs?: number;
 };
 
-export function useListState<F extends Record<string, any>>(options: ListStateOptions<F> = {}) {
+export function useListState<F extends ListFilters>(options: ListStateOptions<F> = {}) {
     const {
         defaultPageSize = 12,
         defaultFilters = {} as F,
@@ -50,12 +53,12 @@ export function useListState<F extends Record<string, any>>(options: ListStateOp
 
         // Sync custom filters from URL
         const nextFilters = { ...defaultFilters };
-        Object.keys(defaultFilters).forEach((key) => {
-            const val = searchParams.get(key);
+        for (const key of Object.keys(defaultFilters) as Array<keyof F>) {
+            const val = searchParams.get(String(key));
             if (val !== null) {
-                (nextFilters as any)[key] = val;
+                nextFilters[key] = val as F[typeof key];
             }
-        });
+        }
         setFilters(nextFilters);
 
         setIsUrlReady(true);
@@ -78,8 +81,14 @@ export function useListState<F extends Record<string, any>>(options: ListStateOp
         });
 
         const query = params.toString();
-        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [router, pathname, page, pageSize, debouncedSearch, createdSort, filters, defaultPageSize, isUrlReady]);
+        const nextUrl = query ? `${pathname}?${query}` : pathname;
+        const currentQuery = searchParams.toString();
+        const currentUrl = currentQuery ? `${pathname}?${currentQuery}` : pathname;
+
+        if (nextUrl !== currentUrl) {
+            router.replace(nextUrl, { scroll: false });
+        }
+    }, [router, pathname, searchParams, page, pageSize, debouncedSearch, createdSort, filters, defaultPageSize, isUrlReady]);
 
     // Reset page on filter/search change
     useEffect(() => {
@@ -87,7 +96,7 @@ export function useListState<F extends Record<string, any>>(options: ListStateOp
         setPage(1);
     }, [debouncedSearch, filters, createdSort, isUrlReady]);
 
-    const updateFilter = useCallback((key: keyof F, value: any) => {
+    const updateFilter = useCallback((key: keyof F, value: F[keyof F]) => {
         setFilters((prev) => ({ ...prev, [key]: value }));
     }, []);
 

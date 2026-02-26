@@ -9,8 +9,10 @@ import { SyncManager } from '../../../components/shared/SyncManager';
 import OpenShiftModal from '../../../components/pos/shifts/OpenShiftModal';
 
 import { useOrderSocketEvents } from '../../../hooks/pos/useOrderSocketEvents';
+import { usePOSPrefetching } from '../../../hooks/pos/usePrefetching';
 
 export default function POSLayout({ children }: { children: React.ReactNode }) {
+    usePOSPrefetching();
     useOrderSocketEvents();
 
     return (

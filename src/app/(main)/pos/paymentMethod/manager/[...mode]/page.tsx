@@ -12,7 +12,6 @@ import {
     CreditCardOutlined,
     CheckCircleFilled,
     AppstoreOutlined,
-    InfoCircleOutlined,
     ExclamationCircleOutlined,
     DownOutlined,
     CheckCircleOutlined,

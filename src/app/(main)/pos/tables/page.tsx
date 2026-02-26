@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { message, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
 import {
     TableOutlined,
@@ -12,14 +12,14 @@ import {
     CheckCircleFilled
 } from '@ant-design/icons';
 import { Tables, TableStatus } from '../../../../types/api/pos/tables';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useAsyncAction } from '../../../../hooks/useAsyncAction';
 import { useSocket } from '../../../../hooks/useSocket';
 import { getCsrfTokenCached } from '../../../../utils/pos/csrf';
 import { useRoleGuard } from '../../../../utils/pos/accessControl';
 import { useRealtimeList } from '../../../../utils/pos/realtime';
-import { readCache, writeCache } from '../../../../utils/pos/cache';
+import { writeCache } from '../../../../utils/pos/cache';
 import { pageStyles, globalStyles } from '../../../../theme/pos/tables/style';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 import PageContainer from '../../../../components/ui/page/PageContainer';
@@ -186,9 +186,6 @@ const TableCard = ({ table, canUpdate, canDelete, onEdit, onDelete, onToggleActi
 
 export default function TablesPage() {
     const router = useRouter();
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
-    const isUrlReadyRef = useRef(false);
     const [tables, setTables] = useState<Tables[]>([]);
     const {
         page, setPage,

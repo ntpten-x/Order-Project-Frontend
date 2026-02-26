@@ -597,7 +597,7 @@ function KitchenDisplayPageContent() {
             );
         },
         // Primary freshness from socket events; polling is fallback only when socket is disconnected.
-        staleTime: isConnected ? 30_000 : 7_500,
+        staleTime: isConnected ? 45_000 : 7_500,
         refetchInterval: isConnected ? false : 30_000,
         refetchIntervalInBackground: false,
     });

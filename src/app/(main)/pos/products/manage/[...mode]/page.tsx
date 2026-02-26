@@ -11,7 +11,6 @@ import {
     SaveOutlined,
     ShopOutlined,
     AppstoreOutlined,
-    InfoCircleOutlined,
     ExclamationCircleOutlined,
     DownOutlined,
     CheckCircleOutlined,
