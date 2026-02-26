@@ -11,7 +11,7 @@ const burstApiMax = Number(process.env.PERF_THRESHOLD_BURST_API_MAX || 27);
 const burstInvalidateExecutedMax = Number(
   process.env.PERF_THRESHOLD_BURST_INVALIDATE_EXECUTED_MAX || 72
 );
-const burstSocketEventsMin = Number(process.env.PERF_THRESHOLD_BURST_SOCKET_EVENTS_MIN || 80);
+const burstSocketEventsMinFromEnv = process.env.PERF_THRESHOLD_BURST_SOCKET_EVENTS_MIN;
 const reconnectApiRequestsMax = Number(process.env.PERF_THRESHOLD_RECONNECT_API_MAX || 60);
 
 function toNumber(value, fallback = 0) {
@@ -32,7 +32,12 @@ async function main() {
   const burstApiRequests = toNumber(after.burstApiRequests);
   const burstInvalidateExecuted = toNumber(after.burstInvalidateExecuted);
   const burstSocketEventsTotal = toNumber(after.burstSocketEventsTotal);
+  const burstMutationRequests = toNumber(after.burstMutationRequests);
   const reconnectApiRequests = toNumber(after.reconnectApiRequests);
+  const burstSocketEventsMin = Number(
+    burstSocketEventsMinFromEnv ||
+      Math.max(20, Math.floor(burstMutationRequests * 0.8))
+  );
 
   const checks = [
     {
