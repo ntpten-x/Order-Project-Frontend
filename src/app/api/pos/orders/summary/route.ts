@@ -10,9 +10,10 @@ export async function GET(request: NextRequest) {
         const status = searchParams.get("status") || undefined;
         const type = searchParams.get("type") || undefined;
         const query = searchParams.get("q") || undefined;
+        const sortCreated = searchParams.get("sort_created") || undefined;
         const cookie = request.headers.get("cookie") || "";
 
-        const data = await ordersService.getAllSummary(cookie, page, limit, status, type, query);
+        const data = await ordersService.getAllSummary(cookie, page, limit, status, type, query, sortCreated);
         return NextResponse.json(data);
     } catch (error) {
         return handleApiRouteError(error);

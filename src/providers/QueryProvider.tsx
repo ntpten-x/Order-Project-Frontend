@@ -73,7 +73,7 @@ const QueryLoadingTracker = () => {
         showTimerRef.current = null;
         if (isShownRef.current) return;
         isShownRef.current = true;
-        showLoading("Loading data...", "query");
+        showLoading("กำลังโหลดข้อมูล...", "query");
       }, 180);
       return;
     }

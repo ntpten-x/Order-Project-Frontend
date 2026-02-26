@@ -146,18 +146,28 @@ function DineInTableSelectionPageContent() {
                     onBack={() => router.push("/pos/channels")}
                     icon={<ShopOutlined style={{ fontSize: 20 }} />}
                     actions={
-                        <Space size={8} wrap>
-                            <Tag color="success">ว่าง {stats.available}</Tag>
-                            <Tag color="warning">ไม่ว่าง {stats.occupied}</Tag>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', width: '100%', gap: 12 }}>
+                            <Tag color="success" style={{ fontSize: 18, padding: '6px 16px', fontWeight: 600, borderRadius: 8 }}>ว่าง {stats.available}</Tag>
+                            <Tag color="error" style={{ fontSize: 18, padding: '6px 16px', fontWeight: 600, borderRadius: 8 }}>ไม่ว่าง {stats.occupied}</Tag>
                             <Button
-                                icon={<ReloadOutlined spin={isRefreshing} />}
+                                size="large"
+                                icon={<ReloadOutlined spin={isRefreshing} style={{ fontSize: 18 }} />}
                                 onClick={handleRefresh}
                                 loading={isRefreshing}
-                                style={{ borderRadius: 10 }}
+                                style={{ 
+                                    borderRadius: 12, 
+                                    fontSize: 18, 
+                                    height: 48,
+                                    padding: '0 24px',
+                                    fontWeight: 600,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    marginLeft: 20
+                                }}
                             >
                                 รีเฟรช
                             </Button>
-                        </Space>
+                        </div>
                     }
                 />
 
@@ -260,7 +270,7 @@ function DineInTableSelectionPageContent() {
                                                     {!isInactive && (
                                                         <div
                                                             style={{
-                                                                fontSize: 13,
+                                                                fontSize: 15,
                                                                 fontWeight: 700,
                                                                 color: isAvailable ? tableColors.available.primary : '#EF4444',
                                                                 textTransform: 'uppercase',
@@ -286,8 +296,8 @@ function DineInTableSelectionPageContent() {
                                                                     ? tableColors.available.primary
                                                                     : "#fff",
                                                             border: isAvailable ? `1px solid ${tableColors.available.border}` : "none",
-                                                            fontSize: 12,
-                                                            padding: '6px 14px',
+                                                            fontSize: 14,
+                                                            padding: '8px 16px',
                                                         }}
                                                     >
                                                         {isInactive

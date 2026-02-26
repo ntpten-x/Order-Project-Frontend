@@ -15,7 +15,9 @@ import {
 export interface ChannelStats {
     dineIn: number;
     takeaway: number;
+    takeaway_waiting_payment: number;
     delivery: number;
+    delivery_waiting_payment: number;
     total: number;
 }
 

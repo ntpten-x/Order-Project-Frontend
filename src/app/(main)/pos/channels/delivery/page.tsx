@@ -245,24 +245,16 @@ function DeliverySelectionPageContent() {
             <div style={posPageStyles.container}>
                 <UIPageHeader
                     title="เดลิเวอรี่"
-                    subtitle={
-                        <Space size={8} wrap>
-                            <Tag>ทั้งหมด {stats.total}</Tag>
-                            <Tag color="orange">กำลังดำเนินการ {stats.inProgress}</Tag>
-                        </Space>
-                    }
                     onBack={handleBack}
                     icon={<RocketOutlined style={{ fontSize: 20 }} />}
                     actions={
-                        <Space size={8} wrap>
+                        <Space size={10} wrap>
                             <Button
                                 icon={<ReloadOutlined spin={isRefreshing} />}
                                 onClick={handleRefresh}
                                 loading={isRefreshing}
                                 style={{ borderRadius: 10 }}
-                            >
-                                รีเฟรช
-                            </Button>
+                            />
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateOrderClick} disabled={!canCreateOrder}>
                                 เพิ่มออเดอร์
                             </Button>
@@ -392,11 +384,6 @@ function DeliverySelectionPageContent() {
                         <UIEmptyState
                             title={t("delivery.noOrders")}
                             description="เริ่มรับออเดอร์โดยกดปุ่ม “เพิ่มออเดอร์”"
-                            action={
-                                <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateOrderClick}>
-                                    {t("delivery.createNewOrder")}
-                                </Button>
-                            }
                         />
                     )}
                     </PageSection>

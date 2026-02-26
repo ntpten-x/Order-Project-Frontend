@@ -12,13 +12,20 @@ import { OrderStatus, OrderType, SalesOrderSummary } from "../../../../../types/
 import { posPageStyles, channelColors, tableColors } from "../../../../../theme/pos";
 import { channelPageStyles, channelsResponsiveStyles } from "../../../../../theme/pos/channels/style";
 import { POSGlobalStyles } from "../../../../../theme/pos/GlobalStyles";
-import { getOrderChannelStats, getOrderColorScheme, formatOrderStatus } from "../../../../../utils/channels";
+import { getOrderColorScheme, formatOrderStatus } from "../../../../../utils/channels";
 import { getOrderNavigationPath } from "../../../../../utils/orders";
 import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
 import { useChannelOrders } from "../../../../../utils/pos/channelOrders";
 import RequireOpenShift from "../../../../../components/pos/shared/RequireOpenShift";
 import { useAuth } from "../../../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../../../hooks/useEffectivePermissions";
+import { useChannelStats } from "../../../../../utils/channels/channelStats.utils";
+import { useListState } from "../../../../../hooks/pos/useListState";
+import { SearchBar } from "../../../../../components/ui/page/SearchBar";
+import { SearchInput } from "../../../../../components/ui/input/SearchInput";
+import { ModalSelector } from "../../../../../components/ui/select/ModalSelector";
+import ListPagination from "../../../../../components/ui/pagination/ListPagination";
+import PageStack from "../../../../../components/ui/page/PageStack";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import 'dayjs/locale/th';
@@ -45,14 +52,60 @@ export default function TakeawayPage() {
 function TakeawayPageContent() {
     const router = useRouter();
     const { showLoading, hideLoading } = useGlobalLoading();
-    const { orders, isLoading, refresh: refreshOrders } = useChannelOrders({ orderType: OrderType.TakeAway });
+    
+    const {
+        page, setPage,
+        pageSize, setPageSize,
+        total, setTotal,
+        searchText, setSearchText,
+        debouncedSearch,
+        createdSort, setCreatedSort,
+        filters, updateFilter,
+        isUrlReady
+    } = useListState({
+        defaultPageSize: 10,
+        defaultFilters: {
+            status: 'active' as 'active' | 'waiting_payment' | 'all'
+        }
+    });
+
+    const statusFilter = useMemo(() => {
+        if (filters.status === 'active') {
+            return [OrderStatus.Pending, OrderStatus.Cooking, OrderStatus.Served].join(",");
+        }
+        if (filters.status === 'waiting_payment') {
+            return OrderStatus.WaitingForPayment;
+        }
+        return ""; // all
+    }, [filters.status]);
+
+    const { orders, total: apiTotal, isLoading, refresh: refreshOrders } = useChannelOrders({ 
+        orderType: OrderType.TakeAway,
+        page,
+        limit: pageSize,
+        statusFilter,
+        query: debouncedSearch,
+        createdSort,
+        enabled: isUrlReady
+    });
+
+    useEffect(() => {
+        setTotal(apiTotal);
+    }, [apiTotal, setTotal]);
+
     const loadingKey = "pos:channels:takeaway";
     const [isRefreshing, setIsRefreshing] = React.useState(false);
     const { user } = useAuth();
     const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     const canCreateOrder = can("orders.page", "create");
 
-    const stats = useMemo(() => getOrderChannelStats(orders), [orders]);
+    const { stats: globalStats } = useChannelStats();
+
+    const displayStats = useMemo(() => ({
+        inProgress: (globalStats?.takeaway ?? 0) - (globalStats?.takeaway_waiting_payment ?? 0),
+        waitingForPayment: globalStats?.takeaway_waiting_payment ?? 0,
+        total: globalStats?.takeaway ?? 0
+    }), [globalStats]);
 
     useEffect(() => {
         if (isLoading) {
@@ -160,139 +213,210 @@ function TakeawayPageContent() {
             <div style={posPageStyles.container}>
                 <UIPageHeader
                     title="สั่งกลับบ้าน"
-                    subtitle={
-                        <Space size={8} wrap>
-                            <Tag>ทั้งหมด {stats.total}</Tag>
-                            <Tag color="orange">กำลังดำเนินการ {stats.inProgress}</Tag>
-                        </Space>
-                    }
                     onBack={handleBack}
                     icon={<ShoppingOutlined style={{ fontSize: 20 }} />}
                     actions={
-                        <Space size={8} wrap>
-                            <Button
-                                icon={<ReloadOutlined spin={isRefreshing} />}
-                                onClick={handleRefresh}
-                                loading={isRefreshing}
-                                style={{ borderRadius: 10 }}
-                            >
-                                รีเฟรช
-                            </Button>
-                            <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateOrder} disabled={!canCreateOrder}>
-                                เพิ่มออเดอร์
-                            </Button>
-                        </Space>
+                        <div style={{ 
+                            display: 'flex', 
+                            flexWrap: 'wrap', 
+                            justifyContent: 'center', 
+                            alignItems: 'center', 
+                            width: '100%', 
+                            gap: '12px 16px',
+                            margin: '8px 0'
+                        }}>
+
+                            {/* Stats Group - Already centered by parent flex, but explicitly set for clarity */}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+                                <Tag color="blue" style={{ fontSize: 13, padding: '4px 10px', fontWeight: 600, borderRadius: 6, margin: 0 }}>รอชำระเงิน {displayStats.waitingForPayment} รายการ</Tag>
+                            </div>
+
+                            {/* Actions Group */}
+                            <Space size={10} wrap style={{ justifyContent: 'center' }}>
+                                <Button
+                                    size="middle"
+                                    icon={<ReloadOutlined spin={isRefreshing} />}
+                                    onClick={handleRefresh}
+                                    loading={isRefreshing}
+                                    style={{ borderRadius: 8 }}
+                                >
+                                    รีเฟรช
+                                </Button>
+                                <Button 
+                                    type="primary" 
+                                    size="middle"
+                                    icon={<PlusOutlined />} 
+                                    onClick={handleCreateOrder} 
+                                    disabled={!canCreateOrder}
+                                    className="add-button-hover"
+                                    style={{ borderRadius: 8, fontWeight: 600 }}
+                                >
+                                    เพิ่มออเดอร์
+                                </Button>
+                            </Space>
+                        </div>
                     }
                 />
 
                 <PageContainer>
-                    <PageSection title="ออเดอร์">
-                    {orders.length > 0 ? (
-                        <Row gutter={[16, 16]}>
-                            {orders.map((order: SalesOrderSummary, index) => {
-                                const colorScheme = getOrderColorScheme(order);
-                                const colors = getCardColors(order, colorScheme);
-                                const orderNum = order.order_no.split('-').pop();
+                    <PageStack>
+                        <SearchBar>
+                            <SearchInput
+                                placeholder="ค้นหา"
+                                value={searchText}
+                                onChange={setSearchText}
+                            />
+                            <ModalSelector
+                                title="เลือกสถานะ"
+                                options={[
+                                    { label: "กำลังดำเนินการ", value: "active" },
+                                    { label: "รอชำระเงิน", value: "waiting_payment" },
+                                    { label: "ทั้งหมด", value: "all" },
+                                ]}
+                                value={filters.status}
+                                onChange={(val) => updateFilter('status', val)}
+                                style={{ minWidth: 150 }}
+                            />
+                            <ModalSelector
+                                title="การเรียงลำดับ"
+                                options={[
+                                    { label: "สั่งก่อน", value: "old" },
+                                    { label: "สั่งล่าสุด", value: "new" },
+                                ]}
+                                value={createdSort}
+                                onChange={setCreatedSort}
+                                style={{ minWidth: 150 }}
+                            />
+                        </SearchBar>
 
-                                return (
-                                    <Col xs={24} sm={12} md={8} lg={6} xl={6} key={order.id} className="takeaway-order-col-mobile">
-                                        <article
-                                            className={`order-card-hover takeaway-order-card table-card-animate table-card-delay-${(index % 6) + 1}`}
-                                            style={{
-                                                ...channelPageStyles.orderCard,
-                                                border: `1.5px solid ${colors.border}`,
-                                            }}
-                                            onClick={() => handleOrderClick(order)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' || e.key === ' ') {
-                                                    e.preventDefault();
-                                                    handleOrderClick(order);
-                                                }
-                                            }}
-                                            role="button"
-                                            tabIndex={0}
-                                            aria-label={`ออเดอร์ #${orderNum} - ${formatOrderStatus(order.status)}`}
-                                        >
-                                            {/* Card Header */}
-                                            <div style={{
-                                                ...channelPageStyles.orderCardHeader,
-                                                background: colors.light,
-                                                flexWrap: "wrap",
-                                                rowGap: 8,
-                                            }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                    <div style={{
-                                                        width: 40,
-                                                        height: 40,
-                                                        borderRadius: 12,
-                                                        background: `${colors.primary}20`,
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                    }}>
-                                                        <ShoppingOutlined style={{ color: colors.primary, fontSize: 20 }} />
-                                                    </div>
-                                                    <Text strong style={{ fontSize: 18, color: '#1E293B' }}>#{orderNum}</Text>
-                                                </div>
-                                                <Tag
-                                                    color={getStatusColor(order, colorScheme)}
-                                                    style={{ borderRadius: 8, margin: 0, fontWeight: 600, border: 'none', padding: '4px 12px' }}
-                                                >
-                                                    {formatOrderStatus(order.status)}
-                                                </Tag>
-                                            </div>
+                        <PageSection 
+                            title="ออเดอร์" 
+                            extra={<span style={{ fontWeight: 600 }}>{total} รายการ</span>}
+                        >
+                        {orders.length > 0 ? (
+                            <Space direction="vertical" size={24} style={{ width: '100%' }}>
+                                <Row gutter={[16, 16]}>
+                                    {orders.map((order: SalesOrderSummary, index) => {
+                                        const colorScheme = getOrderColorScheme(order);
+                                        const colors = getCardColors(order, colorScheme);
+                                        const orderNum = order.order_no.split('-').pop();
 
-                                            {/* Card Content */}
-                                            <div style={channelPageStyles.orderCardContent}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
-                                                    <div>
-                                                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>รายการสินค้า</Text>
-                                                        <Text strong style={{ fontSize: 16 }}>{order.items_count || 0} รายการ</Text>
-                                                    </div>
-                                                    <div style={{ textAlign: 'right', marginLeft: 'auto' }}>
-                                                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>ยอดรวม</Text>
-                                                        <Text strong style={{ fontSize: 20, color: colors.primary }}>฿{order.total_amount?.toLocaleString()}</Text>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Card Footer */}
-                                            <div style={channelPageStyles.orderCardFooter}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                    <ClockCircleOutlined style={{ fontSize: 12, color: '#94A3B8' }} />
-                                                    <Text type="secondary" style={{ fontSize: 12 }}>{dayjs(order.create_date).fromNow()}</Text>
-                                                </div>
-                                                <Tag
+                                        return (
+                                            <Col xs={24} sm={12} md={8} lg={6} xl={6} key={order.id} className="takeaway-order-col-mobile">
+                                                <article
+                                                    className={`order-card-hover takeaway-order-card table-card-animate table-card-delay-${(index % 6) + 1}`}
                                                     style={{
-                                                        margin: 0,
-                                                        borderRadius: 6,
-                                                        background: channelColors.takeaway.light,
-                                                        color: channelColors.takeaway.primary,
-                                                        border: `1px solid ${channelColors.takeaway.border}`,
-                                                        fontSize: 11,
-                                                        fontWeight: 600,
+                                                        ...channelPageStyles.orderCard,
+                                                        border: `1.5px solid ${colors.border}`,
                                                     }}
+                                                    onClick={() => handleOrderClick(order)}
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter' || e.key === ' ') {
+                                                            e.preventDefault();
+                                                            handleOrderClick(order);
+                                                        }
+                                                    }}
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    aria-label={`ออเดอร์ #${orderNum} - ${formatOrderStatus(order.status)}`}
                                                 >
-                                                    Take Away
-                                                </Tag>
-                                            </div>
-                                        </article>
-                                    </Col>
-                                );
-                            })}
-                        </Row>
-                    ) : (
-                        <UIEmptyState
-                            title="ไม่มีออเดอร์ในขณะนี้"
-                            description="เริ่มรับออเดอร์สั่งกลับบ้านโดยกดปุ่ม “เพิ่มออเดอร์”"
-                            action={
-                                <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateOrder}>
-                                    สร้างออเดอร์ใหม่
-                                </Button>
-                            }
-                        />
-                    )}
-                    </PageSection>
+                                                    {/* Card Header */}
+                                                    <div style={{
+                                                        ...channelPageStyles.orderCardHeader,
+                                                        background: colors.light,
+                                                    }}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                                                            <div style={{
+                                                                width: 36,
+                                                                height: 36,
+                                                                borderRadius: 10,
+                                                                background: `${colors.primary}20`,
+                                                                display: 'flex',
+                                                                alignItems: 'center',
+                                                                justifyContent: 'center',
+                                                            }}>
+                                                                <ShoppingOutlined style={{ color: colors.primary, fontSize: 18 }} />
+                                                            </div>
+                                                            <Text strong style={{ fontSize: 17, color: '#1E293B' }}>#{orderNum}</Text>
+                                                        </div>
+                                                        <Tag
+                                                            color={getStatusColor(order, colorScheme)}
+                                                            style={{ 
+                                                                borderRadius: 8, 
+                                                                margin: 0, 
+                                                                fontWeight: 700, 
+                                                                border: 'none', 
+                                                                padding: '4px 12px', 
+                                                                fontSize: 13,
+                                                                whiteSpace: 'nowrap'
+                                                            }}
+                                                        >
+                                                            {formatOrderStatus(order.status)}
+                                                        </Tag>
+                                                    </div>
+
+                                                    {/* Card Content */}
+                                                    <div style={channelPageStyles.orderCardContent}>
+                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+                                                            <div>
+                                                                <Text type="secondary" style={{ fontSize: 16, display: 'block', marginBottom: 4 }}>รายการสินค้า</Text>
+                                                                <Text strong style={{ fontSize: 16 }}>{order.items_count || 0} รายการ</Text>
+                                                            </div>
+                                                            <div style={{ textAlign: 'right', marginLeft: 'auto' }}>
+                                                                <Text type="secondary" style={{ fontSize: 16, display: 'block', marginBottom: 4 }}>ยอดรวม</Text>
+                                                                <Text strong style={{ fontSize: 20, color: colors.primary }}>฿{order.total_amount?.toLocaleString()}</Text>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Card Footer */}
+                                                    <div style={channelPageStyles.orderCardFooter}>
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                            {(() => {
+                                                                const createdDate = dayjs(order.create_date);
+                                                                const diffMinutes = dayjs().diff(createdDate, 'minute');
+                                                                
+                                                                let durationColor = '#94A3B8'; // Default grey
+                                                                if (diffMinutes <= 7) durationColor = '#22C55E';      // Green
+                                                                else if (diffMinutes <= 14) durationColor = '#F59E0B'; // Orange
+                                                                else durationColor = '#EF4444';                       // Red
+
+                                                                return (
+                                                                    <>
+                                                                        <ClockCircleOutlined style={{ fontSize: 14, color: durationColor }} />
+                                                                        <Text style={{ fontSize: 14, color: durationColor, fontWeight: 500 }}>
+                                                                            {createdDate.fromNow()}
+                                                                        </Text>
+                                                                    </>
+                                                                );
+                                                            })()}
+                                                        </div>
+                                                    </div>
+                                                </article>
+                                            </Col>
+                                        );
+                                    })}
+                                </Row>
+
+                                <div style={{ marginTop: 12 }}>
+                                    <ListPagination
+                                        page={page}
+                                        total={total}
+                                        pageSize={pageSize}
+                                        onPageChange={setPage}
+                                        onPageSizeChange={setPageSize}
+                                        activeColor={channelColors.takeaway.primary}
+                                    />
+                                </div>
+                            </Space>
+                        ) : (
+                            <UIEmptyState
+                                title={debouncedSearch.trim() ? "ไม่พบออเดอร์ตามคำค้น" : "ไม่มีออเดอร์ในขณะนี้"}
+                                description={debouncedSearch.trim() ? "ลองเปลี่ยนคำค้น หรือตัวกรองสถานะ" : "เริ่มรับออเดอร์สั่งกลับบ้านโดยกดปุ่ม “เพิ่มออเดอร์”"}
+                            />
+                        )}
+                        </PageSection>
+                    </PageStack>
                 </PageContainer>
             </div>
         </>

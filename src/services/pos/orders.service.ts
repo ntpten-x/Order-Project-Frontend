@@ -58,14 +58,16 @@ export const ordersService = {
         limit: number = 50,
         status?: string,
         type?: string,
-        query?: string
+        query?: string,
+        sortCreated: string = "old"
     ): Promise<{ data: SalesOrderSummary[], total: number, page: number, last_page?: number }> => {
         const queryParams = new URLSearchParams({
             page: page.toString(),
             limit: limit.toString(),
             ...(status && { status }),
             ...(type && { type }),
-            ...(query && { q: query })
+            ...(query && { q: query }),
+            sort_created: sortCreated
         });
         const endpoint = `${BASE_PATH}/summary?${queryParams.toString()}`;
         const url = getProxyUrl("GET", endpoint);
@@ -93,7 +95,14 @@ export const ordersService = {
         }
     },
 
-    getStats: async (cookie?: string): Promise<{ dineIn: number, takeaway: number, delivery: number, total: number }> => {
+    getStats: async (cookie?: string): Promise<{
+        dineIn: number,
+        takeaway: number,
+        takeaway_waiting_payment: number,
+        delivery: number,
+        delivery_waiting_payment: number,
+        total: number
+    }> => {
         const url = getProxyUrl("GET", API_ROUTES.POS.CHANNELS.STATS);
         const headers = getHeaders(cookie, "");
 
@@ -114,7 +123,14 @@ export const ordersService = {
             throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลสถิติได้");
         }
         const json = await response.json();
-        return unwrapBackendData(json) as { dineIn: number; takeaway: number; delivery: number; total: number };
+        return unwrapBackendData(json) as {
+            dineIn: number;
+            takeaway: number;
+            takeaway_waiting_payment: number;
+            delivery: number;
+            delivery_waiting_payment: number;
+            total: number;
+        };
     },
 
 
@@ -270,12 +286,12 @@ export const ordersService = {
             credentials: "include",
             body: JSON.stringify(data)
         });
-        
+
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
             throwBackendHttpError(response, errorData, "ไม่สามารถแก้ไขรายการได้");
         }
-        
+
         return unwrapBackendData(await response.json()) as SalesOrder;
     },
 
