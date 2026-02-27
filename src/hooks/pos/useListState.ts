@@ -12,6 +12,7 @@ type ListFilters = Record<string, ListFilterValue>;
 export type ListStateOptions<F extends ListFilters> = {
     defaultPageSize?: number;
     defaultFilters?: F;
+    defaultSort?: CreatedSort;
     debounceMs?: number;
 };
 
@@ -19,6 +20,7 @@ export function useListState<F extends ListFilters>(options: ListStateOptions<F>
     const {
         defaultPageSize = 12,
         defaultFilters = {} as F,
+        defaultSort = DEFAULT_CREATED_SORT,
         debounceMs = 300,
     } = options;
 
@@ -32,7 +34,7 @@ export function useListState<F extends ListFilters>(options: ListStateOptions<F>
     const [pageSize, setPageSize] = useState(defaultPageSize);
     const [total, setTotal] = useState(0);
     const [searchText, setSearchText] = useState('');
-    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(defaultSort);
     const [filters, setFilters] = useState<F>(defaultFilters);
 
     const debouncedSearch = useDebouncedValue(searchText, debounceMs);
@@ -72,7 +74,7 @@ export function useListState<F extends ListFilters>(options: ListStateOptions<F>
         if (page > 1) params.set('page', String(page));
         if (pageSize !== defaultPageSize) params.set('limit', String(pageSize));
         if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
-        if (createdSort !== DEFAULT_CREATED_SORT) params.set('sort_created', createdSort);
+        if (createdSort !== defaultSort) params.set('sort_created', createdSort);
 
         Object.entries(filters).forEach(([key, value]) => {
             if (value !== 'all' && value !== undefined && value !== null && value !== '') {

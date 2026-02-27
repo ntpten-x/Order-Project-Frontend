@@ -180,6 +180,7 @@ export default function ShiftHistoryPage() {
         isUrlReady
     } = useListState({
         defaultPageSize: 10,
+        defaultSort: 'new',
         defaultFilters: {
             status: 'all' as StatusFilter,
             date_from: '' as string,
