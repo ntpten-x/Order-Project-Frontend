@@ -25,6 +25,7 @@ export interface RecentOrderSummary {
     order_type: "DineIn" | "TakeAway" | "Delivery" | string;
     status: string;
     create_date: string;
+    update_date?: string;
     total_amount: number;
     delivery_code?: string | null;
     table?: { table_name?: string | null } | null;

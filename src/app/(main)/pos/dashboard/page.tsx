@@ -275,7 +275,7 @@ function RecentOrdersList({ orders }: { orders: RecentOrderSummary[] }) {
                 }}
               >
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  {formatThaiDateTime(order.create_date)}
+                  {formatThaiDateTime(order.update_date || order.create_date)}
                 </Text>
                 <Space size={8}>
                   <Text type="secondary" style={{ fontSize: 12 }}>

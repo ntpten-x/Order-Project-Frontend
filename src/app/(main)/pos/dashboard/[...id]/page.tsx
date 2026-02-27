@@ -15,7 +15,9 @@ import {
     Spin,
     Tag,
     Typography,
+    Grid,
 } from "antd";
+const { useBreakpoint } = Grid;
 import {    CheckCircleOutlined,
     ClockCircleOutlined,
     CloseCircleOutlined,
@@ -94,6 +96,8 @@ function getStatusMeta(status: OrderStatus): { label: string; color: string; ico
 }
 
 export default function DashboardOrderDetailPage({ params }: Props) {
+    const screens = useBreakpoint();
+    const isMobile = !screens.md;
     const router = useRouter();
     const searchParams = useSearchParams();
     const { message: messageApi } = App.useApp();
@@ -242,7 +246,16 @@ export default function DashboardOrderDetailPage({ params }: Props) {
     return (
         <>
             <UIPageHeader
-                title={`ออเดอร์ #${order.order_no}`}
+                title={
+                    <div style={{ 
+                        fontSize: isMobile ? '15px' : 'inherit',
+                        fontWeight: 600,
+                        whiteSpace: 'nowrap',
+                        maxWidth: isMobile ? 'calc(100vw - 120px)' : '100%'
+                    }}>
+                        ออเดอร์ #{order.order_no}
+                    </div>
+                }
                 subtitle={formatDateTime(order.create_date)}
                 onBack={() => router.push(backPath)}
                 actions={
