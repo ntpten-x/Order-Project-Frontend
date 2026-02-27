@@ -684,7 +684,7 @@ export default function DashboardPage() {
           ) : (
             <>
               <Row gutter={[12, 12]}>
-                <Col xs={24} sm={12} lg={6}>
+                <Col xs={12} sm={12} lg={6}>
                   <Card>
                     <Text type="secondary">{t("dashboard.totalSales")}</Text>
                     <Title
@@ -695,7 +695,7 @@ export default function DashboardPage() {
                     </Title>
                   </Card>
                 </Col>
-                <Col xs={24} sm={12} lg={6}>
+                <Col xs={12} sm={12} lg={6}>
                   <Card>
                     <Text type="secondary">จำนวนออเดอร์</Text>
                     <Title level={4} style={{ margin: "6px 0 0" }}>
@@ -703,7 +703,7 @@ export default function DashboardPage() {
                     </Title>
                   </Card>
                 </Col>
-                <Col xs={24} sm={12} lg={6}>
+                <Col xs={12} sm={12} lg={6}>
                   <Card>
                     <Text type="secondary">ยอดเฉลี่ยต่อบิล</Text>
                     <Title level={4} style={{ margin: "6px 0 0" }}>
@@ -713,7 +713,7 @@ export default function DashboardPage() {
                     </Title>
                   </Card>
                 </Col>
-                <Col xs={24} sm={12} lg={6}>
+                <Col xs={12} sm={12} lg={6}>
                   <Card>
                     <Text type="secondary">
                       {t("dashboard.discount", { amount: "" }).replace(
