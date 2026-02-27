@@ -429,8 +429,8 @@ function POSOrdersPageContent() {
                 <div style={{ marginBottom: 12 }}>
                     <Segmented<CreatedSort>
                         options={[
-                            { label: 'เก่าก่อน', value: 'old' },
-                            { label: 'ใหม่ก่อน', value: 'new' },
+                            { label: 'สั่งก่อน', value: 'old' },
+                            { label: 'สั่งล่าสุด', value: 'new' },
                         ]}
                         value={createdSort}
                         onChange={(value) => {
@@ -510,14 +510,36 @@ function POSOrdersPageContent() {
                                                 alignItems: 'center',
                                                 padding: '14px 16px 10px',
                                             }}>
-                                                {/* Left: Order No + Status */}
+                                                {/* Left: Identifier + Status */}
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
                                                     <Text strong style={{ 
                                                         fontSize: 16, 
                                                         color: '#1E293B',
                                                         whiteSpace: 'nowrap',
                                                     }}>
-                                                        #{order.order_no}
+                                                        {order.order_type === OrderType.DineIn && (
+                                                            <span>🪑 โต๊ะ {order.table?.table_name || '-'}</span>
+                                                        )}
+                                                        {order.order_type === OrderType.TakeAway && (
+                                                            <span>🛍️ #{order.order_no?.substring(0, 11)}</span>
+                                                        )}
+                                                        {order.order_type === OrderType.Delivery && (
+                                                            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                                {order.delivery?.logo ? (
+                                                                    <img 
+                                                                        src={order.delivery.logo} 
+                                                                        alt={order.delivery.delivery_name} 
+                                                                        style={{ width: 20, height: 20, borderRadius: 4, objectFit: 'contain' }} 
+                                                                    />
+                                                                ) : <CarOutlined />}
+                                                                {order.delivery_code || order.order_no?.substring(0, 10)}
+                                                                {order.delivery?.delivery_name && (
+                                                                    <span style={{ fontSize: 13, color: '#64748B', fontWeight: 500 }}>
+                                                                        ({order.delivery.delivery_name})
+                                                                    </span>
+                                                                )}
+                                                            </span>
+                                                        )}
                                                     </Text>
                                                     <span style={{
                                                         display: 'inline-flex',
@@ -567,47 +589,8 @@ function POSOrdersPageContent() {
                                                 justifyContent: 'space-between',
                                                 gap: 12,
                                             }}>
-                                                {/* Left: Reference + Items + Time */}
+                                                {/* Left: Progress + Items + Time */}
                                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                                    {/* Reference */}
-                                                    <div style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: 6,
-                                                        marginBottom: 8,
-                                                    }}>
-                                                        {order.order_type === OrderType.DineIn && (
-                                                            <span style={{
-                                                                display: 'inline-flex', alignItems: 'center', gap: 4,
-                                                                padding: '3px 10px', borderRadius: 8,
-                                                                background: '#F0F9FF', color: '#0369A1',
-                                                                fontSize: 13, fontWeight: 600,
-                                                            }}>
-                                                                🪑 โต๊ะ {order.table?.table_name || '-'}
-                                                            </span>
-                                                        )}
-                                                        {order.order_type === OrderType.Delivery && (
-                                                            <span style={{
-                                                                display: 'inline-flex', alignItems: 'center', gap: 4,
-                                                                padding: '3px 10px', borderRadius: 8,
-                                                                background: '#FDF2F8', color: '#BE185D',
-                                                                fontSize: 13, fontWeight: 600,
-                                                            }}>
-                                                                📦 {order.delivery_code || 'ไม่ระบุ'}
-                                                            </span>
-                                                        )}
-                                                        {order.order_type === OrderType.TakeAway && (
-                                                            <span style={{
-                                                                display: 'inline-flex', alignItems: 'center', gap: 4,
-                                                                padding: '3px 10px', borderRadius: 8,
-                                                                background: '#FFFBEB', color: '#B45309',
-                                                                fontSize: 13, fontWeight: 600,
-                                                            }}>
-                                                                🛍️ สั่งกลับบ้าน
-                                                            </span>
-                                                        )}
-                                                    </div>
-
                                                     {/* Status Progress Badge */}
                                                     {inProgressQty > 0 && (
                                                         <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>

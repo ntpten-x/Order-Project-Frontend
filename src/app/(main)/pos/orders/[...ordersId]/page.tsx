@@ -733,12 +733,28 @@ export default function POSOrderDetailsPage() {
             
             <UIPageHeader
                 title={
-                    <span style={{ fontSize: 24, fontWeight: 700 }}>
+                    <span style={{ fontSize: 24, fontWeight: 700, display: 'flex', alignItems: 'center', gap: 12 }}>
                         {order
                             ? order.order_type === OrderType.DineIn
                                 ? `โต๊ะ ${order.table?.table_name || "-"}`
                                 : order.order_type === OrderType.Delivery
-                                    ? `${order.delivery_code || order.delivery?.delivery_name || "-"}`
+                                    ? (
+                                        <>
+                                            {order.delivery?.logo ? (
+                                                <img 
+                                                    src={order.delivery.logo} 
+                                                    alt={order.delivery.delivery_name || "Delivery Logo"} 
+                                                    style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'contain' }} 
+                                                />
+                                            ) : <RocketOutlined />}
+                                            {order.delivery_code || order.order_no?.substring(0, 10)}
+                                            {order.delivery?.delivery_name && (
+                                                <span style={{ fontSize: 18, color: '#64748B', fontWeight: 500 }}>
+                                                    ({order.delivery.delivery_name})
+                                                </span>
+                                            )}
+                                        </>
+                                    )
                                     : `${order.order_no}`
                             : "รายละเอียดออเดอร์"
                         }
