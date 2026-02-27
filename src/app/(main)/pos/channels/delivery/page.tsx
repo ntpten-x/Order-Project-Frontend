@@ -86,7 +86,7 @@ function DeliverySelectionPageContent() {
     } = useListState({
         defaultPageSize: 10,
         defaultFilters: {
-            status: 'active' as 'active' | 'waiting_payment' | 'all'
+            status: 'all' as 'active' | 'waiting_payment' | 'all'
         }
     });
 
