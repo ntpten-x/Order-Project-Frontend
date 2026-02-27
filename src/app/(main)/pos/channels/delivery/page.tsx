@@ -16,9 +16,16 @@ import { Delivery } from "../../../../../types/api/pos/delivery";
 import { posPageStyles, channelColors, tableColors } from "../../../../../theme/pos";
 import { channelPageStyles, channelsResponsiveStyles } from "../../../../../theme/pos/channels/style";
 import { POSGlobalStyles } from "../../../../../theme/pos/GlobalStyles";
-import { getOrderChannelStats, getOrderColorScheme, formatOrderStatus } from "../../../../../utils/channels";
+import { getOrderColorScheme, formatOrderStatus } from "../../../../../utils/channels";
 import { getOrderNavigationPath } from "../../../../../utils/orders";
 import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
+import { useChannelStats } from "../../../../../utils/channels/channelStats.utils";
+import { useListState } from "../../../../../hooks/pos/useListState";
+import { SearchBar } from "../../../../../components/ui/page/SearchBar";
+import { SearchInput } from "../../../../../components/ui/input/SearchInput";
+import { ModalSelector } from "../../../../../components/ui/select/ModalSelector";
+import ListPagination from "../../../../../components/ui/pagination/ListPagination";
+import PageStack from "../../../../../components/ui/page/PageStack";
 import { useChannelOrders } from "../../../../../utils/pos/channelOrders";
 import RequireOpenShift from "../../../../../components/pos/shared/RequireOpenShift";
 import { useAuth } from "../../../../../contexts/AuthContext";
@@ -47,6 +54,13 @@ const waitingToShipColors = {
     text: "#9D174D",
 };
 
+const skyBlueColors = {
+    primary: "#0EA5E9",
+    light: "#F0F9FF",
+    border: "#BAE6FD",
+    text: "#0369A1",
+};
+
 export default function DeliverySelectionPage() {
     return (
         <RequireOpenShift>
@@ -59,7 +73,46 @@ function DeliverySelectionPageContent() {
     const router = useRouter();
     const { showLoading, hideLoading } = useGlobalLoading();
     const { deliveryProviders, isLoading: isLoadingProviders, isError: deliveryError, mutate: refetchProviders } = useDelivery();
-    const { orders, isLoading, refresh: refreshOrders } = useChannelOrders({ orderType: OrderType.Delivery });
+    
+    const {
+        page, setPage,
+        pageSize, setPageSize,
+        total, setTotal,
+        searchText, setSearchText,
+        debouncedSearch,
+        createdSort, setCreatedSort,
+        filters, updateFilter,
+        isUrlReady
+    } = useListState({
+        defaultPageSize: 10,
+        defaultFilters: {
+            status: 'active' as 'active' | 'waiting_payment' | 'all'
+        }
+    });
+
+    const statusFilter = useMemo(() => {
+        if (filters.status === 'active') {
+            return [OrderStatus.Pending, OrderStatus.Cooking, OrderStatus.Served].join(",");
+        }
+        if (filters.status === 'waiting_payment') {
+            return OrderStatus.WaitingForPayment;
+        }
+        return ""; // all
+    }, [filters.status]);
+
+    const { orders, total: apiTotal, isLoading, refresh: refreshOrders } = useChannelOrders({ 
+        orderType: OrderType.Delivery,
+        page,
+        limit: pageSize,
+        statusFilter,
+        query: debouncedSearch,
+        createdSort,
+        enabled: isUrlReady
+    });
+
+    useEffect(() => {
+        setTotal(apiTotal);
+    }, [apiTotal, setTotal]);
     const loadingKey = "pos:channels:delivery";
     const navigateLoadingKey = "pos:channels:delivery:navigate";
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -68,8 +121,13 @@ function DeliverySelectionPageContent() {
     const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     const canCreateOrder = can("orders.page", "create");
 
-    const stats = useMemo(() => getOrderChannelStats(orders), [orders]);
+    const { stats: globalStats } = useChannelStats();
 
+    const displayStats = useMemo(() => ({
+        inProgress: (globalStats?.delivery ?? 0) - (globalStats?.delivery_waiting_payment ?? 0),
+        waitingForPayment: globalStats?.delivery_waiting_payment ?? 0,
+        total: globalStats?.delivery ?? 0
+    }), [globalStats]);
     // New Order Modal State
     const [deliveryCode, setDeliveryCode] = useState("");
     const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
@@ -248,21 +306,79 @@ function DeliverySelectionPageContent() {
                     onBack={handleBack}
                     icon={<RocketOutlined style={{ fontSize: 20 }} />}
                     actions={
-                        <Space size={10} wrap>
-                            <Button
-                                icon={<ReloadOutlined spin={isRefreshing} />}
-                                onClick={handleRefresh}
-                                loading={isRefreshing}
-                                style={{ borderRadius: 10 }}
-                            />
-                            <Button type="primary" icon={<PlusOutlined />} onClick={handleCreateOrderClick} disabled={!canCreateOrder}>
-                                เพิ่มออเดอร์
-                            </Button>
-                        </Space>
+                        <div style={{ 
+                            display: 'flex', 
+                            flexWrap: 'wrap', 
+                            justifyContent: 'center', 
+                            alignItems: 'center', 
+                            width: '100%', 
+                            gap: '12px 16px',
+                            margin: '8px 0'
+                        }}>
+
+                            {/* Stats Group */}
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
+                                <Tag color="pink" style={{ fontSize: 13, padding: '4px 10px', fontWeight: 600, borderRadius: 6, margin: 0 }}>รอส่ง {displayStats.waitingForPayment} รายการ</Tag>
+                            </div>
+
+                            {/* Actions Group */}
+                            <Space size={10} wrap style={{ justifyContent: 'center' }}>
+                                <Button
+                                    size="middle"
+                                    icon={<ReloadOutlined spin={isRefreshing} />}
+                                    onClick={handleRefresh}
+                                    loading={isRefreshing}
+                                    style={{ borderRadius: 8 }}
+                                />
+                                <Button 
+                                    type="primary" 
+                                    size="middle"
+                                    icon={<PlusOutlined />} 
+                                    onClick={handleCreateOrderClick} 
+                                    disabled={!canCreateOrder}
+                                    className="add-button-hover"
+                                    style={{ borderRadius: 8, fontWeight: 600 }}
+                                >
+                                    เพิ่มออเดอร์
+                                </Button>
+                            </Space>
+                        </div>
                     }
                 />
 
         <PageContainer>
+            <PageStack>
+                <SearchBar>
+                    <SearchInput
+                        placeholder="ค้นหา"
+                        value={searchText}
+                        onChange={setSearchText}
+                    />
+                    <Space wrap size={10}>
+                        <ModalSelector
+                            title="เลือกสถานะ"
+                            options={[
+                                { label: "กำลังดำเนินการ", value: "active" },
+                                { label: "รอส่ง", value: "waiting_payment" },
+                                { label: "ทั้งหมด", value: "all" },
+                            ]}
+                            value={filters.status}
+                            onChange={(val) => updateFilter('status', val)}
+                            style={{ minWidth: 150 }}
+                        />
+                        <ModalSelector
+                            title="การเรียงลำดับ"
+                            options={[
+                                { label: "สั่งก่อน", value: "old" },
+                                { label: "สั่งล่าสุด", value: "new" },
+                            ]}
+                            value={createdSort}
+                            onChange={setCreatedSort}
+                            style={{ minWidth: 150 }}
+                        />
+                    </Space>
+                </SearchBar>
+
             {deliveryError ? (
                 <PageState
                     status="error"
@@ -275,8 +391,12 @@ function DeliverySelectionPageContent() {
                     <Button onClick={() => refetchProviders()}>{t("delivery.retry")}</Button>
                 } />
             ) : (
-            <PageSection title="ออเดอร์">
+            <PageSection 
+                title="ออเดอร์"
+                extra={<span style={{ fontWeight: 600 }}>{total} รายการ</span>}
+            >
                     {orders.length > 0 ? (
+                        <Space direction="vertical" size={24} style={{ width: '100%' }}>
                         <Row gutter={[16, 16]}>
                             {orders.map((order: SalesOrderSummary, index) => {
                                 const colorScheme = getOrderColorScheme(order);
@@ -330,7 +450,20 @@ function DeliverySelectionPageContent() {
                                                     />
                                                     <div>
                                                         <Text strong style={{ fontSize: 16, color: '#1E293B', display: 'block', lineHeight: 1.2 }}>{orderNum}</Text>
-                                                        <Text type="secondary" style={{ fontSize: 11 }}>{provider?.delivery_name || 'Delivery'}</Text>
+                                                        {/* <Text type="secondary" style={{ fontSize: 14 }}>{provider?.delivery_name || 'Delivery'}</Text> */}
+                                                                                                        <Tag
+                                                    style={{
+                                                        margin: 0,
+                                                        borderRadius: 6,
+                                                        background: skyBlueColors.light,
+                                                        color: skyBlueColors.primary,
+                                                        border: `1px solid ${skyBlueColors.border}`,
+                                                        fontSize: 11,
+                                                        fontWeight: 600,
+                                                    }}
+                                                >
+                                                    {provider?.delivery_name || 'Delivery'}
+                                                </Tag>
                                                     </div>
                                                 </div>
                                                 <Tag
@@ -345,11 +478,11 @@ function DeliverySelectionPageContent() {
                                             <div style={channelPageStyles.orderCardContent}>
                                                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
                                                     <div>
-                                                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>รายการสินค้า</Text>
+                                                        <Text type="secondary" style={{ fontSize: 16, display: 'block', marginBottom: 4 }}>รายการสินค้า</Text>
                                                         <Text strong style={{ fontSize: 16 }}>{order.items_count || 0} รายการ</Text>
                                                     </div>
                                                     <div style={{ textAlign: 'right', marginLeft: 'auto' }}>
-                                                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginBottom: 4 }}>ยอดรวม</Text>
+                                                        <Text type="secondary" style={{ fontSize: 16, display: 'block', marginBottom: 4 }}>ยอดรวม</Text>
                                                         <Text strong style={{ fontSize: 20, color: colors.primary }}>฿{order.total_amount?.toLocaleString()}</Text>
                                                     </div>
                                                 </div>
@@ -358,8 +491,24 @@ function DeliverySelectionPageContent() {
                                             {/* Card Footer */}
                                             <div style={channelPageStyles.orderCardFooter}>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                    <ClockCircleOutlined style={{ fontSize: 12, color: '#94A3B8' }} />
-                                                    <Text type="secondary" style={{ fontSize: 12 }}>{dayjs(order.create_date).fromNow()}</Text>
+                                                    {(() => {
+                                                        const createdDate = dayjs(order.create_date);
+                                                        const diffMinutes = dayjs().diff(createdDate, 'minute');
+                                                        
+                                                        let durationColor = '#94A3B8'; // Default grey
+                                                        if (diffMinutes <= 7) durationColor = '#22C55E';      // Green
+                                                        else if (diffMinutes <= 14) durationColor = '#F59E0B'; // Orange
+                                                        else durationColor = '#EF4444';                       // Red
+
+                                                        return (
+                                                            <>
+                                                                <ClockCircleOutlined style={{ fontSize: 14, color: durationColor }} />
+                                                                <Text style={{ fontSize: 14, color: durationColor, fontWeight: 500 }}>
+                                                                    {createdDate.fromNow()}
+                                                                </Text>
+                                                            </>
+                                                        );
+                                                    })()}
                                                 </div>
                                                 <Tag
                                                     style={{
@@ -380,14 +529,26 @@ function DeliverySelectionPageContent() {
                                 );
                             })}
                         </Row>
+                        <div style={{ marginTop: 12 }}>
+                            <ListPagination
+                                page={page}
+                                total={total}
+                                pageSize={pageSize}
+                                onPageChange={setPage}
+                                onPageSizeChange={setPageSize}
+                                activeColor={channelColors.delivery.primary}
+                            />
+                        </div>
+                        </Space>
                     ) : (
                         <UIEmptyState
-                            title={t("delivery.noOrders")}
-                            description="เริ่มรับออเดอร์โดยกดปุ่ม “เพิ่มออเดอร์”"
+                            title={debouncedSearch.trim() ? "ไม่พบออเดอร์ตามคำค้น" : t("delivery.noOrders")}
+                            description={debouncedSearch.trim() ? "ลองเปลี่ยนคำค้น หรือตัวกรองสถานะ" : "เริ่มรับออเดอร์โดยกดปุ่ม “เพิ่มออเดอร์”"}
                         />
                     )}
                     </PageSection>
                 )}
+                </PageStack>
                 </PageContainer>
 
                 {/* Create Order Modal */}
@@ -407,7 +568,6 @@ function DeliverySelectionPageContent() {
                             </div>
                             <div>
                                 <div style={{ fontSize: 18, fontWeight: 700, color: '#1E293B' }}>{t("delivery.createOrder")}</div>
-                                <div style={{ fontSize: 13, fontWeight: 400, color: '#94A3B8' }}>{t("delivery.createOrderSubtitle")}</div>
                             </div>
                         </div>
                     }
@@ -420,12 +580,15 @@ function DeliverySelectionPageContent() {
                     className="delivery-modal"
                     okButtonProps={{
                         style: {
-                            background: channelColors.delivery.primary,
-                            borderColor: channelColors.delivery.primary,
+                            background: 'linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)',
+                            borderColor: '#BBF7D0',
                             height: 44,
                             borderRadius: 12,
-                            fontWeight: 600,
+                            fontWeight: 700,
                             padding: '0 24px',
+                            boxShadow: '0 4px 12px rgba(34, 197, 94, 0.15)',
+                            border: 'none',
+                            color: '#166534',
                         },
                         disabled: isLoadingProviders || !selectedProviderId || !deliveryCode.trim()
                     }}

@@ -239,9 +239,7 @@ function TakeawayPageContent() {
                                     onClick={handleRefresh}
                                     loading={isRefreshing}
                                     style={{ borderRadius: 8 }}
-                                >
-                                    รีเฟรช
-                                </Button>
+                                />
                                 <Button 
                                     type="primary" 
                                     size="middle"
@@ -266,27 +264,29 @@ function TakeawayPageContent() {
                                 value={searchText}
                                 onChange={setSearchText}
                             />
-                            <ModalSelector
-                                title="เลือกสถานะ"
-                                options={[
-                                    { label: "กำลังดำเนินการ", value: "active" },
-                                    { label: "รอชำระเงิน", value: "waiting_payment" },
-                                    { label: "ทั้งหมด", value: "all" },
-                                ]}
-                                value={filters.status}
-                                onChange={(val) => updateFilter('status', val)}
-                                style={{ minWidth: 150 }}
-                            />
-                            <ModalSelector
-                                title="การเรียงลำดับ"
-                                options={[
-                                    { label: "สั่งก่อน", value: "old" },
-                                    { label: "สั่งล่าสุด", value: "new" },
-                                ]}
-                                value={createdSort}
-                                onChange={setCreatedSort}
-                                style={{ minWidth: 150 }}
-                            />
+                            <Space wrap size={10}>
+                                <ModalSelector
+                                    title="เลือกสถานะ"
+                                    options={[
+                                        { label: "กำลังดำเนินการ", value: "active" },
+                                        { label: "รอส่ง", value: "waiting_payment" },
+                                        { label: "ทั้งหมด", value: "all" },
+                                    ]}
+                                    value={filters.status}
+                                    onChange={(val) => updateFilter('status', val)}
+                                    style={{ minWidth: 150 }}
+                                />
+                                <ModalSelector
+                                    title="การเรียงลำดับ"
+                                    options={[
+                                        { label: "สั่งก่อน", value: "old" },
+                                        { label: "สั่งล่าสุด", value: "new" },
+                                    ]}
+                                    value={createdSort}
+                                    onChange={setCreatedSort}
+                                    style={{ minWidth: 150 }}
+                                />
+                            </Space>
                         </SearchBar>
 
                         <PageSection 
