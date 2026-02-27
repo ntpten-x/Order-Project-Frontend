@@ -258,7 +258,7 @@ function RecentOrdersList({ orders }: { orders: RecentOrderSummary[] }) {
                 }}
               >
                 <Space size={6} wrap>
-                  <Text strong>#{order.order_no}</Text>
+                  <Text strong>#{order.order_no?.substring(0, 10)}</Text>
                   {getOrderTypeTag(order.order_type)}
                   <Tag color={status.color}>{status.label}</Tag>
                 </Space>
