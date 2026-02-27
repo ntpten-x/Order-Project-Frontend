@@ -202,7 +202,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
             
             {/* Modal Header - Enhanced */}
             <div style={{ ...modalStyles.modalHeader, flexShrink: 0 }} className="modal-header">
-                {selectedProduct ? (
+                {selectedProduct && (
                     <Button 
                         type="text" 
                         icon={<ArrowLeftOutlined />} 
@@ -217,24 +217,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                             alignItems: 'center',
                             justifyContent: 'center',
                             border: `1px solid ${orderDetailColors.border}`,
-                        }}
-                        className="scale-hover"
-                    />
-                ) : (
-                    <Button 
-                        type="text" 
-                        icon={<CloseOutlined />} 
-                        onClick={onClose}
-                        aria-label="ปิด"
-                        style={{ 
-                            height: 44, 
-                            width: 44, 
-                            borderRadius: 12,
-                            background: orderDetailColors.backgroundSecondary,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            border: `1px solid ${orderDetailColors.border}`,
+                            marginRight: 12
                         }}
                         className="scale-hover"
                     />
@@ -249,7 +232,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                     {/* Sticky Search & Filter Bar */}
                     <div style={{...addItemsModalStyles.searchBar, paddingBottom: 8, flexShrink: 0}}>
                         <Input 
-                            placeholder="ค้นหาสินค้าหรือรหัส..." 
+                            placeholder="ค้นหา" 
                             prefix={<SearchOutlined style={{ color: orderDetailColors.textSecondary }} />} 
                             value={searchText}
                             onChange={handleSearch} 
@@ -422,7 +405,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                             {/* Extras Section */}
                             <div>
                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                                    <Text strong style={{ fontSize: 16 }}>ตัวเลือกเพิ่มเติม (Optional)</Text>
+                                    <Text strong style={{ fontSize: 16 }}>เพิ่มเติม</Text>
                                     <Button 
                                         size="small" 
                                         type="dashed" 

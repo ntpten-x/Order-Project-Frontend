@@ -198,7 +198,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                 {/* Toppings / Details Section */}
                 <div style={{ marginBottom: 24 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                        <Text strong style={{ fontSize: 16, color: orderDetailColors.text }}>ตัวเลือกเพิ่มเติม (Topping)</Text>
+                        <Text strong style={{ fontSize: 16, color: orderDetailColors.text }}>เพิ่มเติม</Text>
                         <Button
                             type="text"
                             icon={<PlusOutlined style={{ fontSize: 12 }} />}
@@ -218,7 +218,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                             }}
                             className="scale-hover"
                         >
-                            เพิ่มตัวเลือก
+                            เพิ่ม
                         </Button>
                     </div>
 
@@ -245,7 +245,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                                     border: `1px solid ${orderDetailColors.border}`,
                                 }}>
                                     <Input
-                                        placeholder="ชื่อตัวเลือก"
+                                        placeholder="รายการ"
                                         value={detail.detail_name}
                                         onChange={(e) => handleUpdateDetail(index, 'detail_name', e.target.value)}
                                         style={{ flex: 2, borderRadius: 10, height: 44, fontSize: 15 }}
@@ -333,7 +333,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                 {/* Compact Notes */}
                 <div style={{ marginBottom: 24 }}>
                     <Text strong style={{ display: 'block', marginBottom: 10, fontSize: 16, color: orderDetailColors.text }}>
-                        หมายเหตุ / ความต้องการเพิ่มเติม
+                        หมายเหตุ
                     </Text>
                     <TextArea
                         value={notes}

@@ -903,6 +903,9 @@ export const addItemsModalStyles = {
     borderRadius: 14,
     height: 48,
     border: `1px solid ${orderColors.border}`,
+    display: 'flex',
+    alignItems: 'center',
+    fontSize: 16,
   } as CSSProperties,
 
   // Product grid
