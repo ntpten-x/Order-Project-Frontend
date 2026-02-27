@@ -57,7 +57,7 @@ const STATUS_TABS: { key: StatusTab; label: string; icon: React.ReactNode; apiSt
 // ── Channel Config ──
 const CHANNEL_CONFIG: Record<string, { icon: React.ReactNode; color: string; bg: string }> = {
     [OrderType.DineIn]: { icon: <ShopOutlined />, color: '#3B82F6', bg: '#EFF6FF' },
-    [OrderType.TakeAway]: { icon: <HomeOutlined />, color: '#F59E0B', bg: '#FFFBEB' },
+    [OrderType.TakeAway]: { icon: <HomeOutlined />, color: '#0EA5E9', bg: '#F0F9FF' },
     [OrderType.Delivery]: { icon: <CarOutlined />, color: '#EC4899', bg: '#FDF2F8' },
 };
 

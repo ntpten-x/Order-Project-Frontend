@@ -14,11 +14,11 @@ function MainPermissionGate({ children }: { children: React.ReactNode }) {
   });
 
   if (isChecking) {
-    return <AccessGuardFallback message="Checking permissions..." />;
+    return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
   }
 
   if (!isAuthorized) {
-    return <AccessGuardFallback message="You do not have permission to access this page." tone="danger" />;
+    return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
   }
 
   return <>{children}</>;

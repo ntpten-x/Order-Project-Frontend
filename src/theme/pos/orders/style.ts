@@ -753,7 +753,7 @@ export const orderDetailStyles = {
   } as CSSProperties,
 
   priceTag: {
-    fontSize: 16,
+    fontSize: 12,
     color: orderColors.primary,
     fontWeight: 600,
   } as CSSProperties,

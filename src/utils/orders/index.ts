@@ -139,7 +139,7 @@ export const getOrderChannelColor = (type: string): string => {
         case 'DineIn':
             return '#722ed1';
         case 'TakeAway':
-            return '#fa8c16';
+            return '#0EA5E9';
         case 'Delivery':
             return '#eb2f96';
         default:
