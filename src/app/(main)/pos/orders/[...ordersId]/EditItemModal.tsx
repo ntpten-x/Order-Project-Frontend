@@ -104,7 +104,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
             width={500}
             destroyOnHidden
             centered
-            closable={false}
+            closable={true}
             key={item?.id || 'edit-modal'}
             styles={{ 
                 body: {
@@ -123,24 +123,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                 <Text strong style={{ fontSize: 18, flex: 1, color: orderDetailColors.text, lineHeight: 1.4 }}>
                     แก้ไขรายการสินค้า
                 </Text>
-                <Button
-                    type="text"
-                    icon={<CloseOutlined />}
-                    onClick={onClose}
-                    aria-label="ปิด"
-                    style={{
-                        height: 44,
-                        width: 44,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: 12,
-                        color: orderDetailColors.textSecondary,
-                        background: orderDetailColors.backgroundSecondary,
-                        border: `1px solid ${orderDetailColors.border}`,
-                    }}
-                    className="scale-hover"
-                />
+
             </div>
 
             {/* Scrollable Content */}
