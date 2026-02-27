@@ -74,11 +74,12 @@ const { useBreakpoint } = Grid;
 
 dayjs.locale("th");
 
-type PresetKey = "today" | "7d" | "15d" | "30d" | "custom";
+type PresetKey = "today" | "yesterday" | "7d" | "15d" | "30d" | "custom";
 type ExportFormat = "pdf" | "xlsx";
 
 const PRESET_OPTIONS: Array<{ label: string; value: PresetKey }> = [
   { label: "วันนี้", value: "today" },
+  { label: "เมื่อวาน", value: "yesterday" },
   { label: "7 วันล่าสุด", value: "7d" },
   { label: "15 วันล่าสุด", value: "15d" },
   { label: "30 วันล่าสุด", value: "30d" },
@@ -98,6 +99,11 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
 function resolvePresetRange(preset: PresetKey): [dayjs.Dayjs, dayjs.Dayjs] {
   const today = dayjs();
   if (preset === "today") return [today.startOf("day"), today.endOf("day")];
+  if (preset === "yesterday")
+    return [
+      today.subtract(1, "day").startOf("day"),
+      today.subtract(1, "day").endOf("day"),
+    ];
   if (preset === "7d")
     return [today.subtract(6, "day").startOf("day"), today.endOf("day")];
   if (preset === "15d")
@@ -305,9 +311,9 @@ export default function DashboardPage() {
   });
   const canViewDashboard = can("reports.sales.page", "view");
 
-  const [preset, setPreset] = useState<PresetKey>("7d");
+  const [preset, setPreset] = useState<PresetKey>("today");
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>(
-    resolvePresetRange("7d"),
+    resolvePresetRange("today"),
   );
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [shopProfile, setShopProfile] = useState<ShopProfileExtended | null>(
