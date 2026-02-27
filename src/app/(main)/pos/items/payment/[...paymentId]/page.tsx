@@ -522,12 +522,12 @@ export default function POSPaymentPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                     <Button 
                         type="text" 
-                        icon={<ArrowLeftOutlined style={{ fontSize: 18, color: '#fff' }} />} 
+                        icon={<ArrowLeftOutlined style={{ fontSize: 24, color: '#000' }} />} 
                         style={{ 
                             height: 40, 
                             width: 40, 
                             borderRadius: 12,
-                            background: 'rgba(255,255,255,0.15)',
+                            background: 'rgba(0,0,0,0.05)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -535,12 +535,43 @@ export default function POSPaymentPage() {
                         onClick={handleBack}
                     />
                     <div style={{ flex: 1 }}>
-                        <Title level={4} style={{ margin: 0, color: '#fff', fontSize: 20 }}>ชำระเงิน</Title>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-                            <Tag color="rgba(255,255,255,0.2)" style={{ border: 'none', color: '#fff', fontSize: 12 }}>
-                                {getOrderChannelText(order.order_type)} {getOrderReference(order)}
-                            </Tag>
-                            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>#{order.order_no}</Text>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap' }}>
+                            <Title level={4} style={{ margin: 0, color: '#000', fontSize: 22 }}>ชำระเงิน</Title>
+                            
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                {/* Channel Tag - Purple */}
+                                <Tag 
+                                    style={{ 
+                                        border: 'none', 
+                                        background: '#f3e8ff', 
+                                        color: '#7e22ce', 
+                                        fontSize: 14, 
+                                        borderRadius: 8, 
+                                        padding: '2px 10px', 
+                                        margin: 0,
+                                        fontWeight: 600
+                                    }}
+                                >
+                                    {getOrderChannelText(order.order_type)}
+                                </Tag>
+
+                                {/* Reference Tag - Green */}
+                                <Tag 
+                                    style={{ 
+                                        border: 'none', 
+                                        background: '#dcfce7', 
+                                        color: '#15803d', 
+                                        fontSize: 20, 
+                                        borderRadius: 8, 
+                                        padding: '2px 10px', 
+                                        margin: 0,
+                                        fontWeight: 600
+                                    }}
+                                >
+                                    {order.order_type === OrderType.DineIn && `*โต๊ะ ${order.table?.table_name || 'ไม่ระบุ'}`}
+                                    {order.order_type === OrderType.TakeAway && `*${order.order_no?.substring(5, 10) || order.order_no}`}
+                                </Tag>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -552,7 +583,12 @@ export default function POSPaymentPage() {
                             icon={<EditOutlined />} 
                             onClick={handleEditOrder}
                             className="action-btn"
-                            style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff' }}
+                            style={{ 
+                                background: '#fef3c7', 
+                                border: '1.5px solid #f59e0b', 
+                                color: '#92400e',
+                                fontWeight: 600
+                            }}
                         >
                             แก้ไข
                         </Button>
