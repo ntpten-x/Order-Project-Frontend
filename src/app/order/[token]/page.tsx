@@ -39,6 +39,7 @@ import { POSNoteModal } from "../../../components/pos/shared/POSNoteModal";
 import { POSProductCard } from "../../../components/pos/shared/POSProductCard";
 import { POSProductDetailModal } from "../../../components/pos/shared/POSProductDetailModal";
 import { POSSharedStyles, posColors, posComponentStyles, posLayoutStyles, POSHeaderBadge } from "../../../components/pos/shared/style";
+import { usePublicTableOrderRealtime } from "../../../hooks/usePublicTableOrderRealtime";
 
 const { Text, Title } = Typography;
 
@@ -178,6 +179,16 @@ function createCartItem(product: Products): CartItem {
     };
 }
 
+class FetchJsonError extends Error {
+    status: number;
+
+    constructor(message: string, status: number) {
+        super(message);
+        this.name = "FetchJsonError";
+        this.status = status;
+    }
+}
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
     const response = await fetch(url, {
         ...init,
@@ -192,7 +203,7 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 
     if (!response.ok) {
         const message = payload?.error?.message || payload?.error || payload?.message || "Request failed";
-        throw new Error(message);
+        throw new FetchJsonError(message, response.status);
     }
 
     if (payload?.success === true && payload?.data !== undefined) {
@@ -365,6 +376,7 @@ export default function CustomerTableOrderPage() {
     const [isLoading, setIsLoading] = React.useState(true);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [bootstrap, setBootstrap] = React.useState<BootstrapData | null>(null);
+    const [accessDenied, setAccessDenied] = React.useState(false);
 
     const [selectedCategory, setSelectedCategory] = React.useState<string | undefined>(undefined);
     const [searchQuery, setSearchQuery] = React.useState("");
@@ -408,10 +420,17 @@ export default function CustomerTableOrderPage() {
     }, [cartSignature]);
 
     const loadBootstrap = React.useCallback(async () => {
-        if (!token) return;
+        if (!token) {
+            setBootstrap(null);
+            setAccessDenied(true);
+            setIsLoading(false);
+            return;
+        }
+
         setIsLoading(true);
         try {
             const data = await fetchJson<BootstrapData>(`/api/public/table-order/${encodeURIComponent(token)}`);
+            setAccessDenied(false);
             setBootstrap(data);
             setSelectedCategory((prev) => {
                 if (!data.menu?.length) return undefined;
@@ -419,7 +438,12 @@ export default function CustomerTableOrderPage() {
                 return data.menu.some((cat) => cat.id === prev) ? prev : undefined;
             });
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "ไม่สามารถโหลดข้อมูลเมนูได้");
+            setBootstrap(null);
+            if (error instanceof FetchJsonError && (error.status === 403 || error.status === 404)) {
+                setAccessDenied(true);
+            } else {
+                message.error(error instanceof Error ? error.message : "ไม่สามารถโหลดข้อมูลเมนูได้");
+            }
         } finally {
             setIsLoading(false);
         }
@@ -430,6 +454,7 @@ export default function CustomerTableOrderPage() {
             if (!token) return;
             try {
                 const data = await fetchJson<ActiveOrderData>(`/api/public/table-order/${encodeURIComponent(token)}/order`);
+                setAccessDenied(false);
                 setBootstrap((prev) => {
                     if (!prev) return prev;
                     return {
@@ -439,6 +464,12 @@ export default function CustomerTableOrderPage() {
                     };
                 });
             } catch (error) {
+                if (error instanceof FetchJsonError && (error.status === 403 || error.status === 404)) {
+                    setAccessDenied(true);
+                    setBootstrap(null);
+                    return;
+                }
+
                 if (showError) {
                     message.error(error instanceof Error ? error.message : "ไม่สามารถอัปเดตสถานะออเดอร์ได้");
                 }
@@ -450,6 +481,14 @@ export default function CustomerTableOrderPage() {
     React.useEffect(() => {
         void loadBootstrap();
     }, [loadBootstrap]);
+
+    usePublicTableOrderRealtime({
+        publicTableToken: token,
+        enabled: Boolean(token && bootstrap && !accessDenied),
+        onOrderChanged: async () => {
+            await refreshActiveOrder();
+        },
+    });
 
     const menuProducts = React.useMemo(() => {
         if (!bootstrap) return [];
@@ -678,6 +717,7 @@ export default function CustomerTableOrderPage() {
             });
 
             setCartItems([]);
+            setAccessDenied(false);
             submitIdempotencyKeyRef.current = null;
             setCheckoutVisible(false);
             setCartVisible(false);
@@ -685,6 +725,14 @@ export default function CustomerTableOrderPage() {
 
             message.success(result.mode === "create" ? "ส่งคำสั่งซื้อเรียบร้อยแล้ว" : "เพิ่มรายการเรียบร้อยแล้ว");
         } catch (error) {
+            if (error instanceof FetchJsonError && (error.status === 403 || error.status === 404)) {
+                setAccessDenied(true);
+                setBootstrap(null);
+                setCartVisible(false);
+                setCheckoutVisible(false);
+                return;
+            }
+
             message.error(error instanceof Error ? error.message : "ไม่สามารถส่งคำสั่งซื้อได้");
         } finally {
             setIsSubmitting(false);
@@ -828,20 +876,24 @@ export default function CustomerTableOrderPage() {
             <QROrderMobileStyles />
 
             <div style={posLayoutStyles.container} className="qr-order-page">
-                <POSHeaderBar
-                    title="สั่งอาหาร"
-                    subtitle={tableName}
-                    icon={<QrcodeOutlined style={{ fontSize: 26 }} />}
-                    subtitlePosition="aside"
-                />
+                {!accessDenied ? (
+                    <>
+                        <POSHeaderBar
+                            title="สั่งอาหาร"
+                            subtitle={tableName}
+                            icon={<QrcodeOutlined style={{ fontSize: 26 }} />}
+                            subtitlePosition="aside"
+                        />
 
-                <POSCategoryFilterBar
-                    categories={bootstrap?.menu || []}
-                    searchQuery={searchQuery}
-                    selectedCategory={selectedCategory}
-                    onSearchChange={setSearchQuery}
-                    onSelectCategory={setSelectedCategory}
-                />
+                        <POSCategoryFilterBar
+                            categories={bootstrap?.menu || []}
+                            searchQuery={searchQuery}
+                            selectedCategory={selectedCategory}
+                            onSearchChange={setSearchQuery}
+                            onSelectCategory={setSelectedCategory}
+                        />
+                    </>
+                ) : null}
 
                 <main style={posLayoutStyles.content} className="pos-content-mobile qr-main-content" role="main">
                     {isLoading ? (
@@ -850,6 +902,53 @@ export default function CustomerTableOrderPage() {
                             <Text style={{ display: "block", marginTop: 16, color: posColors.textSecondary }}>
                                 กำลังโหลดเมนู...
                             </Text>
+                        </div>
+                    ) : accessDenied ? (
+                        <div
+                            style={{
+                                minHeight: "calc(100vh - 180px)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                padding: "24px 16px",
+                            }}
+                        >
+                            <Card
+                                bordered={false}
+                                style={{
+                                    width: "100%",
+                                    maxWidth: 520,
+                                    borderRadius: 28,
+                                    padding: 8,
+                                    textAlign: "center",
+                                    background:
+                                        "linear-gradient(180deg, rgba(255,255,255,0.98) 0%, rgba(255,247,237,0.96) 100%)",
+                                    boxShadow: "0 24px 80px rgba(15, 23, 42, 0.10)",
+                                }}
+                            >
+                                <div
+                                    style={{
+                                        width: 88,
+                                        height: 88,
+                                        margin: "0 auto 20px",
+                                        borderRadius: 28,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        background: "linear-gradient(135deg, #fff1f2 0%, #ffedd5 100%)",
+                                        color: "#dc2626",
+                                        boxShadow: "inset 0 0 0 1px rgba(220, 38, 38, 0.08)",
+                                    }}
+                                >
+                                    <LockOutlined style={{ fontSize: 34 }} />
+                                </div>
+                                <Title level={2} style={{ marginBottom: 8, fontSize: 30 }}>
+                                    ไม่อนุญาตให้ใช้งาน
+                                </Title>
+                                <Text style={{ display: "block", fontSize: 16, color: "#64748b", lineHeight: 1.7 }}>
+                                    QR Code นี้ไม่ถูกต้อง ถูกปิดการใช้งานแล้ว หรือหมดอายุแล้ว
+                                </Text>
+                            </Card>
                         </div>
                     ) : !bootstrap ? (
                         <div style={posLayoutStyles.emptyContainer}>
@@ -1103,39 +1202,43 @@ export default function CustomerTableOrderPage() {
                     )}
                 </main>
 
-                <div className="pos-floating-btn-container">
-                    <Badge count={totalItems} size="default" offset={[-5, 5]}>
-                        <Button
-                            type="primary"
-                            shape="circle"
-                            size="large"
-                            icon={<ShoppingCartOutlined style={{ fontSize: 26 }} />}
-                            onClick={() => setCartVisible(true)}
-                            style={posLayoutStyles.floatingCartButton}
-                            className={`qr-floating-cart-btn ${totalItems > 0 ? "pos-cart-pulse" : ""}`.trim()}
-                            aria-label={`ตะกร้าสินค้า ${totalItems} รายการ`}
-                        />
-                    </Badge>
-                </div>
+                {!accessDenied ? (
+                    <div className="pos-floating-btn-container">
+                        <Badge count={totalItems} size="default" offset={[-5, 5]}>
+                            <Button
+                                type="primary"
+                                shape="circle"
+                                size="large"
+                                icon={<ShoppingCartOutlined style={{ fontSize: 26 }} />}
+                                onClick={() => setCartVisible(true)}
+                                style={posLayoutStyles.floatingCartButton}
+                                className={`qr-floating-cart-btn ${totalItems > 0 ? "pos-cart-pulse" : ""}`.trim()}
+                                aria-label={`ตะกร้าสินค้า ${totalItems} รายการ`}
+                            />
+                        </Badge>
+                    </div>
+                ) : null}
 
-                <POSCartDrawer
-                    rootClassName="qr-mobile-cart-drawer"
-                    open={cartVisible}
-                    onClose={() => {
-                        setCartVisible(false);
-                        setCheckoutVisible(false);
-                    }}
-                    totalItems={totalItems}
-                    subtotal={subtotal}
-                    discountAmount={0}
-                    finalPrice={subtotal}
-                    cartItems={cartItems}
-                    onClearCart={clearCart}
-                    onCheckout={handleCheckout}
-                    renderCartItem={renderCartItem}
-                />
+                {!accessDenied ? (
+                    <POSCartDrawer
+                        rootClassName="qr-mobile-cart-drawer"
+                        open={cartVisible}
+                        onClose={() => {
+                            setCartVisible(false);
+                            setCheckoutVisible(false);
+                        }}
+                        totalItems={totalItems}
+                        subtotal={subtotal}
+                        discountAmount={0}
+                        finalPrice={subtotal}
+                        cartItems={cartItems}
+                        onClearCart={clearCart}
+                        onCheckout={handleCheckout}
+                        renderCartItem={renderCartItem}
+                    />
+                ) : null}
 
-                {cartVisible ? (
+                {!accessDenied && cartVisible ? (
                     <POSCheckoutDrawer
                         rootClassName="qr-mobile-checkout-drawer"
                         open={checkoutVisible}
