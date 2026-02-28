@@ -140,6 +140,8 @@ export const MENU_VISIBILITY_RULES: Record<string, MenuVisibilityRule> = {
             { resourceKey: "payment_accounts.page", action: "view" },
             { resourceKey: "shop_profile.page", action: "view" },
             { resourceKey: "shop_profile.page", action: "update" },
+            { resourceKey: "print_settings.page", action: "view" },
+            { resourceKey: "print_settings.page", action: "update" },
         ],
     },
 

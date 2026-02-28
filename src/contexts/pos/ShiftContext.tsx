@@ -11,7 +11,7 @@ interface ShiftContextType {
     currentShift: Shift | null;
     loading: boolean;
     openShift: (startAmount: number) => Promise<void>;
-    closeShift: (endAmount: number) => Promise<void>;
+    closeShift: (endAmount: number) => Promise<Shift>;
     refreshShift: () => Promise<void>;
 }
 
@@ -51,12 +51,16 @@ export const ShiftProvider = ({ children }: { children: React.ReactNode }) => {
         }
     };
 
-    const closeShift = async (endAmount: number) => {
-        if (!user) return;
+    const closeShift = async (endAmount: number): Promise<Shift> => {
+        if (!user) {
+            throw new Error("User not authenticated");
+        }
+
         try {
-            await shiftsService.closeShift(endAmount);
+            const closedShift = await shiftsService.closeShift(endAmount);
             setCurrentShift(null);
             message.success("ปิดกะเรียบร้อยแล้ว");
+            return closedShift;
         } catch (error) {
             // Let caller decide how to present rich errors (e.g. pending orders by channel).
             throw error;

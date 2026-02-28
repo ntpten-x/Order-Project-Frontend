@@ -24,8 +24,16 @@ import { useRouter } from "next/navigation";
 
 import { useShift } from "../../../contexts/pos/ShiftContext";
 import { shiftsService } from "../../../services/pos/shifts.service";
-import type { ShiftClosePreview } from "../../../types/api/pos/shifts";
+import type { ShiftClosePreview, ShiftSummary } from "../../../types/api/pos/shifts";
 import { BackendHttpError } from "../../../utils/api/backendResponse";
+import {
+    closePrintWindow,
+    getPrintSettings,
+    peekPrintSettings,
+    primePrintResources,
+    printShiftSummaryDocument,
+    reservePrintWindow,
+} from "../../../utils/print-settings/runtime";
 
 const { Title, Text } = Typography;
 
@@ -153,6 +161,10 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
         }
     }, [open, form]);
 
+    useEffect(() => {
+        primePrintResources();
+    }, []);
+
     const pendingSummaryText = useMemo(() => {
         if (!blockedInfo?.details.byOrderType.length) return "";
         return blockedInfo.details.byOrderType.map((item) => `${item.label} ${item.count} รายการ`).join(", ");
@@ -185,13 +197,38 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
         setCloseLoading(true);
         setBlockedInfo(null);
 
+        const cachedPrintSettings = peekPrintSettings();
+        const reservedPrintWindow =
+            !cachedPrintSettings || cachedPrintSettings.automation.auto_print_order_summary_after_close_shift
+                ? reservePrintWindow("Shift Summary")
+                : null;
+
         try {
-            await closeShift(Number(closePreview.endAmount));
+            const closedShift = await closeShift(Number(closePreview.endAmount));
+            const printSettings = await getPrintSettings();
+            if (printSettings.automation.auto_print_order_summary_after_close_shift) {
+                try {
+                    const summary = (await shiftsService.getSummary(closedShift.id)) as ShiftSummary;
+                    await printShiftSummaryDocument({
+                        summary,
+                        shift: closedShift,
+                        settings: printSettings,
+                        targetWindow: reservedPrintWindow,
+                    });
+                } catch (printError) {
+                    closePrintWindow(reservedPrintWindow);
+                    console.error("Close shift auto print failed", printError);
+                    message.warning("ปิดกะสำเร็จ แต่เปิดหน้าพิมพ์สรุปกะไม่สำเร็จ");
+                }
+            } else {
+                closePrintWindow(reservedPrintWindow);
+            }
             setClosePreview(null);
             onCancel();
             if (onSuccess) onSuccess();
             router.push("/");
         } catch (error) {
+            closePrintWindow(reservedPrintWindow);
             const parsed = parsePendingCloseShiftError(error);
             if (parsed) {
                 setClosePreview(null);

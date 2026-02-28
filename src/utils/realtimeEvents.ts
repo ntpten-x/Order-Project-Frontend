@@ -100,6 +100,9 @@ export const RealtimeEvents = {
     shopProfile: {
         update: "shopProfile:update",
     },
+    printSettings: {
+        update: "printSettings:update",
+    },
     salesOrderItem: {
         create: "salesOrderItem:create",
         update: "salesOrderItem:update",

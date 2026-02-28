@@ -67,6 +67,10 @@ import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
 import { t } from "../../../../utils/i18n";
 import { resolveImageSource } from "../../../../utils/image/source";
 import SmartAvatar from "../../../../components/ui/image/SmartAvatar";
+import {
+  getPrintSettings,
+  primePrintResources,
+} from "../../../../utils/print-settings/runtime";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -382,6 +386,10 @@ export default function DashboardPage() {
     void fetchShopProfile();
   }, [fetchShopProfile]);
 
+  useEffect(() => {
+    primePrintResources();
+  }, []);
+
   useRealtimeRefresh({
     socket,
     events: [
@@ -460,6 +468,7 @@ export default function DashboardPage() {
           top_items: exportOverview.top_items,
           recent_orders: exportOverview.recent_orders,
         };
+        const printSettings = await getPrintSettings();
         const branding: SalesReportBranding = {
           shopName: shopProfile?.shop_name || "ร้านค้า POS",
           branchName: user?.branch?.branch_name,
@@ -474,7 +483,10 @@ export default function DashboardPage() {
             [exportStart, exportEnd],
             exportLabel,
             branding,
-            { targetWindow: pdfPreviewWindow },
+            {
+              targetWindow: pdfPreviewWindow,
+              documentSetting: printSettings.documents.order_summary,
+            },
           );
         } else {
           exportSalesReportExcel(
@@ -482,6 +494,7 @@ export default function DashboardPage() {
             [exportStart, exportEnd],
             exportLabel,
             branding,
+            { documentSetting: printSettings.documents.order_summary },
           );
         }
 

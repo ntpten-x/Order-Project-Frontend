@@ -136,6 +136,13 @@ export const PERMISSION_ROUTE_MATRIX: readonly PermissionRouteRule[] = [
     allowedRoles: ["Admin", "Manager"],
   },
   {
+    id: "api-print-settings-admin-manager",
+    resourceKey: "api.pos.print-settings",
+    description: "Branch-scoped print settings API.",
+    match: { mode: "prefix", value: "/api/pos/print-settings" },
+    allowedRoles: ["Admin", "Manager"],
+  },
+  {
     id: "api-shop-profile-read-all",
     resourceKey: "api.pos.shop-profile.read",
     description: "Read POS shop profile.",
@@ -312,6 +319,14 @@ export const PERMISSION_ROUTE_MATRIX: readonly PermissionRouteRule[] = [
     match: { mode: "prefix", value: "/pos/settings" },
     allowedRoles: ["Admin", "Manager"],
     redirectTo: "/pos",
+  },
+  {
+    id: "page-print-settings-admin-manager",
+    resourceKey: "page.print-settings",
+    description: "Branch print setting page.",
+    match: { mode: "prefix", value: "/print-setting" },
+    allowedRoles: ["Admin", "Manager"],
+    redirectTo: "/pos/settings",
   },
   {
     id: "page-pos-product-manage-admin-manager",

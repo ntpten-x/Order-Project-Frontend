@@ -7,7 +7,8 @@ import {
     CheckCircleOutlined,
     QrcodeOutlined,
     ReloadOutlined,
-    EditOutlined
+    EditOutlined,
+    PrinterOutlined
 } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import { paymentAccountService } from '../../../../services/pos/paymentAccount.service';
@@ -85,6 +86,7 @@ export default function POSSettingsPage() {
     const { isAuthorized, isChecking } = useRoleGuard();
     const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     const canUpdateAccounts = can('payment_accounts.page', 'update');
+    const canViewPrintSettings = can('print_settings.page', 'view');
 
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -263,6 +265,63 @@ export default function POSSettingsPage() {
                                 description="เพิ่มบัญชีพร้อมเพย์แรกเพื่อเริ่มใช้งานการรับชำระ"
                             />
                         )}
+                    </PageSection>
+
+                    <PageSection title="การพิมพ์เอกสาร">
+                        <div style={{
+                            display: 'grid',
+                            gap: 14,
+                            borderRadius: 18,
+                            background: 'linear-gradient(135deg, #fff7ed 0%, #fffbeb 100%)',
+                            border: '1px solid #fed7aa',
+                            padding: isMobile ? 18 : 22,
+                            maxWidth: 620,
+                        }}>
+                            <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
+                                <div style={{ minWidth: 0 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 8 }}>
+                                        <div style={{
+                                            width: 42,
+                                            height: 42,
+                                            borderRadius: 12,
+                                            background: '#ea580c',
+                                            color: '#fff',
+                                            display: 'grid',
+                                            placeItems: 'center',
+                                            boxShadow: '0 8px 16px rgba(234,88,12,0.18)',
+                                        }}>
+                                            <PrinterOutlined />
+                                        </div>
+                                        <div style={{ fontSize: 18, fontWeight: 700, color: '#7c2d12' }}>
+                                            Print setting by branch
+                                        </div>
+                                    </div>
+                                    <div style={{ color: '#9a3412', lineHeight: 1.6 }}>
+                                        กำหนดขนาดใบเสร็จ, ใบสรุป, ใบสั่งซื้อ, QR โต๊ะ และรูปแบบการพิมพ์อื่น ๆ
+                                        แยกตามสาขา พร้อม preset มาตรฐานและ test print ก่อนใช้งานจริง
+                                    </div>
+                                </div>
+                                <Tag color="orange" style={{ margin: 0 }}>Ready</Tag>
+                            </div>
+
+                            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                                <Tag color="gold" style={{ margin: 0 }}>Thermal 58/80 mm</Tag>
+                                <Tag color="blue" style={{ margin: 0 }}>A4 / A5</Tag>
+                                <Tag color="green" style={{ margin: 0 }}>Label 4x6</Tag>
+                                <Tag color="cyan" style={{ margin: 0 }}>Branch isolated</Tag>
+                            </div>
+
+                            <div>
+                                <Button
+                                    type="primary"
+                                    icon={<PrinterOutlined />}
+                                    disabled={!canViewPrintSettings}
+                                    onClick={() => router.push('/print-setting')}
+                                >
+                                    เปิดหน้าตั้งค่าการพิมพ์
+                                </Button>
+                            </div>
+                        </div>
                     </PageSection>
 
                 </PageStack>

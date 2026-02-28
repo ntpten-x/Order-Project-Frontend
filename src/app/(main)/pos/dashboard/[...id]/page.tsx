@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
     Alert,
     App,
@@ -9,7 +9,6 @@ import {
     Col,
     Divider,
     Empty,    List,
-    Modal,
     Row,
     Space,
     Spin,
@@ -43,12 +42,17 @@ import { RealtimeEvents } from "../../../../../utils/realtimeEvents";
 import { groupOrderItems } from "../../../../../utils/orderGrouping";
 import { isCancelledStatus } from "../../../../../utils/orders";
 import { getStatusTextStyle, sortOrderItems } from "../../../../../utils/dashboard/orderUtils";
-import ReceiptTemplate from "../../../../../components/pos/shared/ReceiptTemplate";
 import UIPageHeader from "../../../../../components/ui/page/PageHeader";
 import PageContainer from "../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../components/ui/page/PageSection";
 import PageStack from "../../../../../components/ui/page/PageStack";
 import { resolveImageSource } from "../../../../../utils/image/source";
+import {
+    closePrintWindow,
+    primePrintResources,
+    printReceiptDocument,
+    reservePrintWindow,
+} from "../../../../../utils/print-settings/runtime";
 import SmartAvatar from "../../../../../components/ui/image/SmartAvatar";
 
 const { Title, Text } = Typography;
@@ -108,9 +112,6 @@ export default function DashboardOrderDetailPage({ params }: Props) {
     const [order, setOrder] = useState<SalesOrder | null>(null);
     const [loading, setLoading] = useState(true);
     const [shopProfile, setShopProfile] = useState<ShopProfileExtended | null>(null);
-    const [printModalOpen, setPrintModalOpen] = useState(false);
-
-    const receiptRef = useRef<HTMLDivElement>(null);
 
     const fetchOrderDetail = useCallback(async () => {
         if (!orderId) return;
@@ -143,6 +144,10 @@ export default function DashboardOrderDetailPage({ params }: Props) {
     useEffect(() => {
         void fetchShopProfile();
     }, [fetchShopProfile]);
+
+    useEffect(() => {
+        primePrintResources();
+    }, []);
 
     useRealtimeRefresh({
         socket,
@@ -182,40 +187,18 @@ export default function DashboardOrderDetailPage({ params }: Props) {
     const statusMeta = order ? getStatusMeta(order.status) : null;
 
     const handlePrint = () => {
-        setPrintModalOpen(true);
-        setTimeout(() => {
-            if (receiptRef.current) {
-                const printContents = receiptRef.current.outerHTML;
-                const printWindow = window.open("", "", "width=400,height=700");
-                if (printWindow) {
-                    printWindow.document.write(`
-                        <html>
-                            <head>
-                                <title>พิมพ์ใบเสร็จ #${order?.order_no || ""}</title>
-                                <style>
-                                    @page { size: 80mm auto; margin: 4mm; }
-                                    body {
-                                        font-family: "Noto Sans Thai", Tahoma, sans-serif;
-                                        margin: 0;
-                                        background: #fff;
-                                        display: flex;
-                                        justify-content: center;
-                                    }
-                                </style>
-                            </head>
-                            <body>
-                                ${printContents}
-                            </body>
-                        </html>
-                    `);
-                    printWindow.document.close();
-                    printWindow.focus();
-                    printWindow.print();
-                    printWindow.close();
-                }
-            }
-            setPrintModalOpen(false);
-        }, 450);
+        if (!order) return;
+
+        const reservedPrintWindow = reservePrintWindow(`Receipt #${order.order_no || ""}`.trim());
+        void printReceiptDocument({
+            order,
+            shopProfile,
+            targetWindow: reservedPrintWindow,
+        }).catch((error) => {
+            closePrintWindow(reservedPrintWindow);
+            console.error("Receipt print failed", error);
+            messageApi.error("เปิดหน้าพิมพ์ใบเสร็จไม่สำเร็จ");
+        });
     };
 
     if (loading) {
@@ -443,25 +426,6 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                     </Row>
                 </PageStack>
             </PageContainer>
-
-            <Modal open={printModalOpen} footer={null} closable={false} centered width={360}>
-                <div style={{ textAlign: "center", padding: 16 }}>
-                    <Spin size="large" />
-                    <div style={{ marginTop: 12 }}>กำลังเตรียมพิมพ์...</div>
-                </div>
-            </Modal>
-
-            <div style={{ position: "absolute", left: "-9999px", top: "-9999px" }}>
-                <ReceiptTemplate
-                    ref={receiptRef}
-                    order={order}
-                    shopName={shopProfile?.shop_name}
-                    shopAddress={shopProfile?.address}
-                    shopPhone={shopProfile?.phone}
-                    shopTaxId={shopProfile?.tax_id}
-                    shopLogo={shopProfile?.logo_url}
-                />
-            </div>
         </>
     );
 }

@@ -42,6 +42,15 @@ import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../../../utils/realtimeEvents";
 import { ORDER_REALTIME_EVENTS } from "../../../../../../utils/pos/orderRealtimeEvents";
 import { resolveImageSource } from "../../../../../../utils/image/source";
+import {
+    closePrintWindow,
+    getPrintSettings,
+    peekPrintSettings,
+    primePrintResources,
+    PrintShopProfile,
+    printReceiptDocument,
+    reservePrintWindow,
+} from "../../../../../../utils/print-settings/runtime";
 import SmartAvatar from "../../../../../../components/ui/image/SmartAvatar";
 
 
@@ -217,6 +226,10 @@ export default function POSPaymentPage() {
         }
     }, [fetchInitialData, paymentId]);
 
+    useEffect(() => {
+        primePrintResources();
+    }, []);
+
     const realtimeEnabled = !discountModalVisible && !confirmConfig.open;
 
     useRealtimeRefresh({
@@ -335,6 +348,11 @@ export default function POSPaymentPage() {
             okText: 'ยืนยัน',
             cancelText: 'ยกเลิก',
             onOk: async () => {
+                const cachedPrintSettings = peekPrintSettings();
+                const reservedPrintWindow =
+                    !cachedPrintSettings || cachedPrintSettings.automation.auto_print_receipt_after_payment
+                        ? reservePrintWindow(`Receipt #${order?.order_no || ""}`.trim())
+                        : null;
                 try {
                     showLoading("กำลังดำเนินการชำระเงิน...");
                     closeConfirm();
@@ -349,12 +367,47 @@ export default function POSPaymentPage() {
                         status: PaymentStatus.Success
                     };
 
-                    await paymentsService.create(paymentData, undefined, csrfToken);
+                    const createdPayment = await paymentsService.create(paymentData, undefined, csrfToken);
+
+                    const printSettings = await getPrintSettings();
+                    if (printSettings.automation.auto_print_receipt_after_payment && order) {
+                        const printableOrder: SalesOrder = {
+                            ...order,
+                            status: OrderStatus.Paid,
+                            received_amount: receivedAmount,
+                            change_amount: change,
+                            payments: [
+                                ...(order.payments || []),
+                                {
+                                    ...createdPayment,
+                                    amount_received: receivedAmount,
+                                    change_amount: change,
+                                    payment_method: method || null,
+                                },
+                            ] as SalesOrder["payments"],
+                        };
+
+                        try {
+                            await printReceiptDocument({
+                                order: printableOrder,
+                                settings: printSettings,
+                                shopProfile: (shopProfile as PrintShopProfile | null) ?? undefined,
+                                targetWindow: reservedPrintWindow,
+                            });
+                        } catch (printError) {
+                            closePrintWindow(reservedPrintWindow);
+                            console.error("Receipt auto print failed", printError);
+                            messageApi.warning("ชำระเงินสำเร็จ แต่เปิดหน้าพิมพ์ใบเสร็จไม่สำเร็จ");
+                        }
+                    } else {
+                        closePrintWindow(reservedPrintWindow);
+                    }
 
                     messageApi.success("ชำระเงินเรียบร้อย");
                     router.push(`/pos/dashboard/${order!.id}?from=payment`);
 
                 } catch (error) {
+                    closePrintWindow(reservedPrintWindow);
                     const errorMessage = error instanceof Error && error.message
                         ? error.message
                         : "การชำระเงินล้มเหลว";
