@@ -9,6 +9,7 @@ import {
     BranchesOutlined,
     SafetyCertificateOutlined,
     DashboardOutlined,
+    PrinterOutlined,
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../contexts/AuthContext";
@@ -43,6 +44,13 @@ export default function LandingPage() {
             iconColor: "#3b82f6",
             path: "/stock",
             enabled: canSeeMenu("menu.module.stock"),
+        },
+        {
+            title: "ตั้งค่าการพิมพ์",
+            icon: PrinterOutlined,
+            iconColor: "#10b981",
+            path: "/print-setting",
+            enabled: canSeeMenu("menu.module.print-setting"),
         },
         {
             title: "ตั้งค่าและสิทธิ์ผู้ใช้",
