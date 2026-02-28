@@ -23,6 +23,7 @@ import {
     ReloadOutlined,
     ShoppingCartOutlined,
     ShopOutlined,
+    LockOutlined,
 } from "@ant-design/icons";
 import { useParams, useRouter } from "next/navigation";
 import type { CartItem } from "../../../contexts/pos/CartContext";
@@ -379,7 +380,7 @@ export default function CustomerTableOrderPage() {
     const params = useParams();
     const router = useRouter();
     const token = String((params as Record<string, string | string[]>)?.token || "");
-    const { message } = App.useApp();
+    const { message, modal } = App.useApp();
 
     const [isLoading, setIsLoading] = React.useState(true);
     const [isRefreshingOrder, setIsRefreshingOrder] = React.useState(false);
@@ -558,7 +559,29 @@ export default function CustomerTableOrderPage() {
     const addToCart = React.useCallback(
         (product: Products) => {
             if (isOrderLocked) {
-                message.error("บิลนี้ถูกล็อกแล้ว กรุณาเรียกพนักงาน");
+                modal.info({
+                    title: <span style={{ fontSize: 18, fontWeight: 700 }}>ไม่สามารถเพิ่มรายการได้</span>,
+                    icon: <LockOutlined style={{ color: posColors.primary }} />,
+                    content: (
+                        <div style={{ marginTop: 8 }}>
+                            <Text style={{ fontSize: 15, color: posColors.textSecondary }}>
+                                บิลนี้ถูกล็อกแล้ว เนื่องจากอยู่ระหว่างการรอชำระเงิน
+                            </Text>
+                        </div>
+                    ),
+                    okText: "ตกลง",
+                    centered: true,
+                    maskClosable: true,
+                    okButtonProps: {
+                        size: "large",
+                        style: { 
+                            borderRadius: 10,
+                            height: 44,
+                            minWidth: 100,
+                            fontWeight: 600
+                        }
+                    }
+                });
                 return;
             }
             setCartItems((prev) => [...prev, createCartItem(product)]);
@@ -861,11 +884,11 @@ export default function CustomerTableOrderPage() {
                         <div style={{ display: "flex", flexDirection: "column", gap: 20 }} className="qr-main-stack">
                             {isOrderLocked ? (
                                 <Alert
-                                    type="warning"
+                                    type="info"
                                     showIcon
-                                    className="qr-alert qr-alert-warning"
+                                    className="qr-alert qr-alert-info"
                                     message="บิลนี้ถูกล็อกแล้ว"
-                                    description="ไม่สามารถเพิ่มรายการใหม่ได้ กรุณาเรียกพนักงาน"
+                                    description="ไม่สามารถเพิ่มรายการใหม่ได้ เนื่องจากอยู่ระหว่างการรอชำระเงิน กรุณาสอบถามพนักงาน"
                                     style={{ borderRadius: 14 }}
                                 />
                             ) : null}
@@ -920,27 +943,27 @@ export default function CustomerTableOrderPage() {
                                 </Card>
                             )}
 
-                            <Card
-                                className="summary-card qr-summary-card"
-                                style={{
-                                    ...orderDetailStyles.summaryCard,
-                                    position: "static",
-                                    top: "auto",
-                                    marginTop: 4,
-                                }}
-                            >
-                                <div
-                                    style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 12 }}
-                                    className="qr-summary-header"
+                            {bootstrap.active_order && (
+                                <Card
+                                    className="summary-card qr-summary-card"
+                                    style={{
+                                        ...orderDetailStyles.summaryCard,
+                                        position: "static",
+                                        top: "auto",
+                                        marginTop: 4,
+                                    }}
                                 >
-                                    <div>
-                                        <Title level={5} style={{ margin: 0, fontSize: 18, fontWeight: 600 }} className="qr-summary-title">
-                                            สรุปการสั่งซื้อ
-                                        </Title>
+                                    <div
+                                        style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 12 }}
+                                        className="qr-summary-header"
+                                    >
+                                        <div>
+                                            <Title level={5} style={{ margin: 0, fontSize: 18, fontWeight: 600 }} className="qr-summary-title">
+                                                สรุปการสั่งซื้อ
+                                            </Title>
+                                        </div>
                                     </div>
-                                </div>
 
-                                {bootstrap.active_order ? (
                                     <>
                                         <div style={orderDetailStyles.summaryList} className="summary-list">
                                             <Text
@@ -1099,12 +1122,8 @@ export default function CustomerTableOrderPage() {
                                             </div>
                                         </div>
                                     </>
-                                ) : (
-                                    <div style={orderDetailStyles.emptyState}>
-                                        <Empty description="ยังไม่มีรายการที่สั่งผ่าน QR Code" />
-                                    </div>
-                                )}
-                            </Card>
+                                </Card>
+                            )}
                         </div>
                     )}
                 </main>
