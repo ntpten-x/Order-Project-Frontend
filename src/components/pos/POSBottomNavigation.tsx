@@ -77,6 +77,20 @@ const POSBottomNavigation = () => {
   const secondaryItems: MenuItem[] = useMemo(() => {
     const items: MenuItem[] = [
       {
+        key: "tableQr",
+        visibilityKey: "menu.pos.tables",
+        label: "QR Code โต๊ะ",
+        icon: <QrcodeOutlined />,
+        path: "/pos/qr-code",
+      },
+      {
+        key: "dashboard",
+        visibilityKey: "menu.pos.dashboard",
+        label: "สรุป",
+        icon: <AppstoreOutlined />,
+        path: "/pos/dashboard",
+      },
+      {
         key: "shift",
         visibilityKey: "menu.pos.shift",
         label: "กะการทำงาน",
@@ -91,25 +105,11 @@ const POSBottomNavigation = () => {
         path: "/pos/shiftHistory",
       },
       {
-        key: "dashboard",
-        visibilityKey: "menu.pos.dashboard",
-        label: "สรุป",
-        icon: <AppstoreOutlined />,
-        path: "/pos/dashboard",
-      },
-      {
         key: "tables",
         visibilityKey: "menu.pos.tables",
         label: "โต๊ะ",
         icon: <TableOutlined />,
         path: "/pos/tables",
-      },
-      {
-        key: "tableQr",
-        visibilityKey: "menu.pos.tables",
-        label: "QR โต๊ะ",
-        icon: <QrcodeOutlined />,
-        path: "/pos/qr-code",
       },
       {
         key: "delivery",
@@ -119,18 +119,18 @@ const POSBottomNavigation = () => {
         path: "/pos/delivery",
       },
       {
-        key: "category",
-        visibilityKey: "menu.pos.category",
-        label: "หมวดหมู่",
-        icon: <AppstoreOutlined />,
-        path: "/pos/category",
-      },
-      {
         key: "products",
         visibilityKey: "menu.pos.products",
         label: "สินค้า",
         icon: <ShopOutlined />,
         path: "/pos/products",
+      },
+      {
+        key: "category",
+        visibilityKey: "menu.pos.category",
+        label: "หมวดหมู่",
+        icon: <AppstoreOutlined />,
+        path: "/pos/category",
       },
       {
         key: "productsUnit",
@@ -149,14 +149,14 @@ const POSBottomNavigation = () => {
       {
         key: "payment",
         visibilityKey: "menu.pos.payment",
-        label: "ชำระเงิน",
+        label: "วิธีการชำระเงิน",
         icon: <CreditCardOutlined />,
         path: "/pos/paymentMethod",
       },
       {
         key: "settings",
         visibilityKey: "menu.pos.settings",
-        label: "ตั้งค่า",
+        label: "ตั้งค่าบัญชี",
         icon: <SettingOutlined />,
         path: "/pos/settings",
       },

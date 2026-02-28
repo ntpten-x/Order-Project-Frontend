@@ -11,6 +11,7 @@ import { getPostCreateOrderNavigationPath } from "../../utils/channels";
 import { OrderType, CreateSalesOrderDTO } from "../../types/api/pos/salesOrder";
 import { useGlobalLoading } from "../../contexts/pos/GlobalLoadingContext";
 import POSPageLayout from "./shared/POSPageLayout";
+import { POSHeaderBadge } from "./shared/style";
 import { getCsrfTokenCached } from "../../utils/pos/csrf";
 
 interface POSTakeAwayProps {
@@ -89,10 +90,15 @@ export default function POSTakeAway({ queueNumber }: POSTakeAwayProps) {
 
     return (
         <POSPageLayout 
-            title="ระบบขายหน้าร้าน (Take Away)"
-            subtitle={`สั่งกลับบ้าน ${queueNumber ? `- คิว ${queueNumber}` : ''}`}
+            title="หน้าร้าน"
+            subtitle={
+                <POSHeaderBadge>
+                    *สั่งกลับบ้าน {queueNumber ? `- คิว ${queueNumber}` : ''}
+                </POSHeaderBadge>
+            }
             icon={<ShoppingOutlined style={{ fontSize: 28 }} />}
             onConfirmOrder={handleCreateOrder}
+            subtitlePosition="aside"
         />
     );
 }

@@ -1143,7 +1143,7 @@ export default function POSOrderDetailsPage() {
                                                                 </div>
                                                                 {item.details && item.details.length > 0 && (
                                                                     <div style={{ fontSize: 13, color: orderDetailColors.served, opacity: 0.7, marginBottom: 4, lineHeight: 1.4, whiteSpace: 'nowrap' }}>
-                                                                        {item.details.map((d: { detail_name: string; extra_price: number }) => `+ ${d.detail_name} (+ ฿${Number(d.extra_price).toLocaleString()})`).join(', ')}
+                                                                        {item.details.map((d: { detail_name: string; extra_price: number }) => `+ ${d.detail_name} (+฿${Number(d.extra_price).toLocaleString()})`).join(', ')}
                                                                     </div>
                                                                 )}
                                                                 <Space orientation="vertical" size={2} style={{ marginTop: 4, width: '100%' }}>

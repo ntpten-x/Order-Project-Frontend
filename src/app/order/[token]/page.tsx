@@ -38,7 +38,7 @@ import { POSHeaderBar } from "../../../components/pos/shared/POSHeaderBar";
 import { POSNoteModal } from "../../../components/pos/shared/POSNoteModal";
 import { POSProductCard } from "../../../components/pos/shared/POSProductCard";
 import { POSProductDetailModal } from "../../../components/pos/shared/POSProductDetailModal";
-import { POSSharedStyles, posColors, posComponentStyles, posLayoutStyles } from "../../../components/pos/shared/style";
+import { POSSharedStyles, posColors, posComponentStyles, posLayoutStyles, POSHeaderBadge } from "../../../components/pos/shared/style";
 
 const { Text, Title } = Typography;
 
@@ -818,7 +818,11 @@ export default function CustomerTableOrderPage() {
         [openNoteModal, removeFromCart, updateQuantity]
     );
 
-    const tableName = bootstrap?.table.table_name ? `โต๊ะ ${bootstrap.table.table_name}` : "โต๊ะ";
+    const tableName = (
+        <POSHeaderBadge>
+            *{bootstrap?.table.table_name ? `โต๊ะ ${bootstrap.table.table_name}` : "โต๊ะ"}
+        </POSHeaderBadge>
+    );
 
     return (
         <>
@@ -827,10 +831,10 @@ export default function CustomerTableOrderPage() {
 
             <div style={posLayoutStyles.container} className="qr-order-page">
                 <POSHeaderBar
-                    title="ระบบสั่งอาหารผ่าน QR Code"
+                    title="สั่งอาหาร"
                     subtitle={tableName}
                     icon={<QrcodeOutlined style={{ fontSize: 26 }} />}
-                    onBack={() => router.back()}
+                    subtitlePosition="aside"
                 />
 
                 <POSCategoryFilterBar
@@ -855,15 +859,6 @@ export default function CustomerTableOrderPage() {
                         </div>
                     ) : (
                         <div style={{ display: "flex", flexDirection: "column", gap: 20 }} className="qr-main-stack">
-                            <Alert
-                                type="info"
-                                showIcon
-                                className="qr-alert qr-alert-info"
-                                message="การสั่งผ่าน QR Code (ลูกค้า)"
-                                description="ลูกค้าสามารถเพิ่มจำนวนและระบุโน้ตได้เท่านั้น หากต้องการเพิ่มท็อปปิงหรือรายละเอียดเพิ่มเติม กรุณาแจ้งพนักงาน"
-                                style={{ borderRadius: 14 }}
-                            />
-
                             {isOrderLocked ? (
                                 <Alert
                                     type="warning"
@@ -893,18 +888,20 @@ export default function CustomerTableOrderPage() {
                                         ))}
                                     </div>
 
-                                    {filteredProducts.length > MENU_PAGE_SIZE ? (
-                                        <div style={posLayoutStyles.paginationContainer}>
-                                            <Pagination
-                                                current={page}
-                                                total={filteredProducts.length}
-                                                pageSize={MENU_PAGE_SIZE}
-                                                onChange={(nextPage) => setPage(nextPage)}
-                                                showSizeChanger={false}
-                                                showTotal={(total) => `ทั้งหมด ${total} รายการ`}
-                                            />
+                                    <div className="pos-pagination-container" style={{ ...posLayoutStyles.paginationContainer, position: 'relative' }}>
+                                        <div className="pos-pagination-total" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)' }}>
+                                            <Text type="secondary" style={{ fontSize: 13 }}>
+                                                ทั้งหมด {filteredProducts.length} รายการ
+                                            </Text>
                                         </div>
-                                    ) : null}
+                                        <Pagination
+                                            current={page}
+                                            total={filteredProducts.length}
+                                            pageSize={MENU_PAGE_SIZE}
+                                            onChange={(nextPage) => setPage(nextPage)}
+                                            showSizeChanger={false}
+                                        />
+                                    </div>
                                 </>
                             ) : (
                                 <Card style={posLayoutStyles.emptyContainer}>
@@ -940,32 +937,11 @@ export default function CustomerTableOrderPage() {
                                         <Title level={5} style={{ margin: 0, fontSize: 18, fontWeight: 600 }} className="qr-summary-title">
                                             สรุปการสั่งซื้อ
                                         </Title>
-                                        <Text type="secondary" style={{ fontSize: 13 }} className="qr-summary-subtitle">
-                                            แสดงรายการที่ส่งเข้าครัวแล้ว
-                                        </Text>
                                     </div>
-                                    <Button
-                                        icon={<ReloadOutlined spin={isRefreshingOrder} />}
-                                        onClick={() => {
-                                            void refreshActiveOrder(true);
-                                        }}
-                                        className="qr-summary-refresh-btn"
-                                        style={{ borderRadius: 10 }}
-                                    >
-                                        อัปเดตสถานะ
-                                    </Button>
                                 </div>
 
                                 {bootstrap.active_order ? (
                                     <>
-                                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginBottom: 14 }} className="qr-order-meta">
-                                            <Tag color={activeOrderStatus?.color || "default"}>{activeOrderStatus?.label}</Tag>
-                                            <Tag color="blue">เลขออเดอร์ #{bootstrap.active_order.order_no}</Tag>
-                                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                                อัปเดตล่าสุด: {formatDateTime(bootstrap.active_order.update_date)}
-                                            </Text>
-                                        </div>
-
                                         <div style={orderDetailStyles.summaryList} className="summary-list">
                                             <Text
                                                 strong
@@ -1048,6 +1024,16 @@ export default function CustomerTableOrderPage() {
                                                                         ราคา: {formatPrice(Number(item.price || 0))}
                                                                     </Text>
                                                                 </div>
+
+                                                                {item.details && item.details.length > 0 && (
+                                                                    <div style={{ marginTop: 2, display: "flex", flexDirection: "column", gap: 0 }}>
+                                                                        {item.details.map((d: any, idx: number) => (
+                                                                            <Text key={idx} style={{ fontSize: 13, color: "#10B981", lineHeight: 1.4 }}>
+                                                                                + {d.detail_name} (+{formatPrice(Number(d.extra_price))})
+                                                                            </Text>
+                                                                        ))}
+                                                                    </div>
+                                                                )}
 
                                                                 {item.notes ? (
                                                                     <div

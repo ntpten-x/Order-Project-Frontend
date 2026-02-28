@@ -384,7 +384,25 @@ export default function DashboardOrderDetailPage({ params }: Props) {
                                                                 </Space>
                                                                 <Text strong style={{ color: "#0f766e" }}>{formatCurrency(Number(payment.amount || 0))}</Text>
                                                             </div>
-                                                            <Text type="secondary" style={{ fontSize: 12 }}>{formatDateTime(payment.payment_date)}</Text>
+                                                            {(() => {
+                                                                const received = Number(payment.amount_received) > 0 ? Number(payment.amount_received) : Number(payment.amount || 0);
+                                                                const change = Number(payment.change_amount || 0);
+                                                                return (
+                                                                    <>
+                                                                        <div style={{ display: "flex", justifyContent: "space-between", paddingLeft: 22 }}>
+                                                                            <Text type="secondary" style={{ fontSize: 13 }}>รับเงินมา</Text>
+                                                                            <Text type="secondary" style={{ fontSize: 13 }}>{formatCurrency(received)}</Text>
+                                                                        </div>
+                                                                        <div style={{ display: "flex", justifyContent: "space-between", paddingLeft: 22 }}>
+                                                                            <Text type="secondary" style={{ fontSize: 13 }}>เงินทอน</Text>
+                                                                            <Text type="secondary" style={{ fontSize: 13, color: change > 0 ? undefined : "#0f766e" }}>
+                                                                                {change > 0 ? formatCurrency(change) : "พอดี"}
+                                                                            </Text>
+                                                                        </div>
+                                                                    </>
+                                                                );
+                                                            })()}
+                                                            <Text type="secondary" style={{ fontSize: 12, marginTop: 4 }}>{formatDateTime(payment.payment_date)}</Text>
                                                         </div>
                                                     </List.Item>
                                                 )}

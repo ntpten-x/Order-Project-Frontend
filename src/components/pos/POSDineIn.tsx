@@ -10,6 +10,12 @@ import { ordersService } from "../../services/pos/orders.service";
 import { useAuth } from "../../contexts/AuthContext";
 import POSPageLayout from "./shared/POSPageLayout";
 import { useNetwork } from "../../hooks/useNetwork";
+import {
+  posLayoutStyles,
+  posColors,
+  POSSharedStyles,
+  POSHeaderBadge
+} from "./shared/style";
 import { CreateSalesOrderDTO, OrderType, OrderStatus } from "../../types/api/pos/salesOrder";
 import { offlineQueueService } from "../../services/pos/offline.queue.service";
 import { getPostCreateOrderNavigationPath } from "../../utils/channels";
@@ -148,10 +154,15 @@ export default function POSDineIn({ tableId }: POSDineInProps) {
 
     return (
         <POSPageLayout 
-            title="ระบบขายหน้าร้าน"
-            subtitle={tableName ? `ทานที่ร้าน - โต๊ะ ${tableName}` : `ทานที่ร้าน - โต๊ะ ${tableId.substring(0, 8)}...`}
+            title="หน้าร้าน"
+            subtitle={
+                <POSHeaderBadge>
+                    *โต๊ะ {tableName || tableId.substring(0, 8)}
+                </POSHeaderBadge>
+            }
             icon={<ShopOutlined style={{ fontSize: 28 }} />}
             onConfirmOrder={handleCreateOrder}
+            subtitlePosition="aside"
         />
     );
 }

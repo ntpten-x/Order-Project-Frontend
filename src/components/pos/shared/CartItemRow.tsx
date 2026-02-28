@@ -99,10 +99,10 @@ export const CartItemRow = React.memo(function CartItemRow({
           </div>
 
           {item.details && item.details.length > 0 && (
-            <div style={{ marginTop: 6, marginBottom: 4 }}>
+            <div style={{ marginTop: 2, display: "flex", flexDirection: "column", gap: 0 }}>
               {item.details.map((d: CartDetail, idx: number) => (
-                <Text key={idx} style={{ display: "block", fontSize: 12, color: "#10b981", lineHeight: 1.4 }}>
-                  + {d.detail_name} <span style={{ opacity: 0.8 }}>(+{formatPrice(Number(d.extra_price || 0))})</span>
+                <Text key={idx} style={{ fontSize: 13, color: "#10B981", lineHeight: 1.4 }}>
+                  + {d.detail_name} (+{formatPrice(Number(d.extra_price || 0))})
                 </Text>
               ))}
             </div>
