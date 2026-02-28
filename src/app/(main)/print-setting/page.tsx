@@ -13,7 +13,6 @@ import {
     Modal,
     Row,
     Segmented,
-    Select,
     Slider,
     Space,
     Spin,
@@ -49,6 +48,7 @@ import {
     BranchPrintSettings,
     PrintDocumentSetting,
     PrintDocumentType,
+    PrintPrinterProfile,
     PrintUnit,
 } from '../../../types/api/pos/printSettings';
 import { useRoleGuard } from '../../../utils/pos/accessControl';
@@ -773,15 +773,16 @@ export default function PrintSettingPage() {
                                 <Row gutter={[12, 12]}>
                                     <Col xs={24} md={8}>
                                         <Text type="secondary">Printer profile</Text>
-                                        <Select
+                                        <Segmented<PrintPrinterProfile>
+                                            block
                                             style={{ width: '100%', marginTop: 6 }}
                                             value={currentDocument.printer_profile}
                                             disabled={!canUpdateSettings}
                                             onChange={(value) => updateDocument({ printer_profile: value })}
                                             options={[
                                                 { label: 'Thermal', value: 'thermal' },
-                                                { label: 'Laser / Inkjet', value: 'laser' },
-                                                { label: 'Label printer', value: 'label' },
+                                                { label: 'Laser', value: 'laser' },
+                                                { label: 'Label', value: 'label' },
                                             ]}
                                         />
                                     </Col>

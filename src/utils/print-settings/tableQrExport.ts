@@ -3,11 +3,6 @@ import { PrintDocumentSetting, PrintUnit } from "../../types/api/pos/printSettin
 
 const DEFAULT_PX_PER_MM = 12;
 
-function toNumber(value: unknown): number {
-    const numberValue = Number(value || 0);
-    return Number.isFinite(numberValue) ? numberValue : 0;
-}
-
 function convertToMm(value: number, unit: PrintUnit): number {
     return unit === "mm" ? value : value * 25.4;
 }
