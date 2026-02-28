@@ -946,7 +946,7 @@ export default function CustomerTableOrderPage() {
                                     ไม่อนุญาตให้ใช้งาน
                                 </Title>
                                 <Text style={{ display: "block", fontSize: 16, color: "#64748b", lineHeight: 1.7 }}>
-                                    QR Code นี้ไม่ถูกต้อง ถูกปิดการใช้งานแล้ว หรือหมดอายุแล้ว
+                                    กรุณาสอบถามพนักงาน
                                 </Text>
                             </Card>
                         </div>

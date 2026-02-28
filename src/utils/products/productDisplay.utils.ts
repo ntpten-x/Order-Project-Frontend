@@ -5,7 +5,7 @@ import { isSupportedImageSource } from "../image/source";
  * Format price to Thai Baht.
  */
 export function formatPrice(price: number): string {
-    return `เธฟ${price.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    return `฿${price.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 }
 
 /**
