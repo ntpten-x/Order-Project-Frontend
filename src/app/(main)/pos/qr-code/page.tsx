@@ -98,6 +98,17 @@ const pageGlobalStyles = `
     justify-content: center;
     align-items: center;
     background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+  }
+
+  .qr-code-box-clickable {
+    cursor: pointer;
+  }
+
+  .qr-code-box-clickable:hover {
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+    border-color: #94a3b8;
   }
 
   @media (max-width: 768px) {
@@ -157,6 +168,7 @@ type TableQrCardProps = {
     onOpen: (table: TableQrCodeListItem) => void;
     onRotate: (table: TableQrCodeListItem) => void;
     onExport: (table: TableQrCodeListItem) => void;
+    onPreviewQr: (table: TableQrCodeListItem) => void;
 };
 
 const TableQrCard = ({
@@ -168,6 +180,7 @@ const TableQrCard = ({
     onOpen,
     onRotate,
     onExport,
+    onPreviewQr,
 }: TableQrCardProps) => {
     const hasQrUrl = Boolean(customerUrl);
 
@@ -193,7 +206,10 @@ const TableQrCard = ({
                 </Space>
             </div>
 
-            <div className="qr-code-box">
+            <div 
+                className={`qr-code-box ${hasQrUrl ? 'qr-code-box-clickable' : ''}`}
+                onClick={() => hasQrUrl && onPreviewQr(table)}
+            >
                 {hasQrUrl ? (
                     <DynamicQRCode value={customerUrl} size={140} />
                 ) : (
@@ -289,6 +305,7 @@ export default function TableQrCodePage() {
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
     const [exportFormat, setExportFormat] = useState<ExportFormat>('png');
     const [exportTargetTable, setExportTargetTable] = useState<TableQrCodeListItem | null>(null);
+    const [previewTable, setPreviewTable] = useState<TableQrCodeListItem | null>(null);
     const [csrfToken, setCsrfToken] = useState('');
 
     // const debouncedSearch = useDebouncedValue(searchText, 250); // Managed by hook
@@ -700,6 +717,7 @@ export default function TableQrCodePage() {
                                                 onOpen={handleOpenCustomerPage}
                                                 onRotate={handleRotateQr}
                                                 onExport={handleStartExport}
+                                                onPreviewQr={setPreviewTable}
                                             />
                                         );
                                     })}
@@ -750,6 +768,40 @@ export default function TableQrCodePage() {
                         </Space>
                     </Radio.Group>
                 </Space>
+            </Modal>
+
+            {/* QR Preview Modal */}
+            <Modal
+                title={`โต๊ะ ${previewTable?.table_name || ''}`}
+                open={Boolean(previewTable)}
+                onCancel={() => setPreviewTable(null)}
+                footer={null}
+                centered
+                destroyOnClose
+                bodyStyle={{ padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' }}
+                width={400}
+            >
+                {previewTable && previewTable.customer_path && (
+                    <div style={{
+                        background: '#fff',
+                        padding: '16px',
+                        borderRadius: '16px',
+                        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+                        border: '1px solid #f1f5f9',
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        width: '100%',
+                    }}>
+                        <DynamicQRCode 
+                            value={buildCustomerUrl(previewTable.customer_path)} 
+                            size={280} 
+                        />
+                    </div>
+                )}
+                <Text type="secondary" style={{ textAlign: 'center', marginTop: 8 }}>
+                    ให้ลูกค้าสแกน QR Code นี้เพื่อเปิดเมนูสั่งอาหาร
+                </Text>
             </Modal>
         </div>
     );
