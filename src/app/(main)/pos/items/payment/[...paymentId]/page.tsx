@@ -27,7 +27,6 @@ import 'dayjs/locale/th';
 import {
     getCancelOrderNavigationPath,
     getOrderChannelText,
-    getOrderReference,
     ConfirmationConfig,
     formatCurrency,
     isCancelledStatus,

@@ -7,7 +7,6 @@ import { Typography, Row, Col, Card, Tag, Button, Empty, Table, Checkbox, messag
 import { 
     ShopOutlined, 
     PlusOutlined, 
-    DeleteOutlined, 
     CloseCircleOutlined,
     EditOutlined, 
     InfoCircleOutlined,
@@ -55,7 +54,7 @@ import { useSocket } from "../../../../../hooks/useSocket";
 import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
 import { ORDER_REALTIME_EVENTS } from "../../../../../utils/pos/orderRealtimeEvents";
 import { useOrderQueue } from "../../../../../hooks/pos/useOrderQueue";
-import { QueueStatus, QueuePriority } from "../../../../../types/api/pos/orderQueue";
+import { QueuePriority } from "../../../../../types/api/pos/orderQueue";
 import UIPageHeader from "../../../../../components/ui/page/PageHeader";
 import { resolveImageSource } from "../../../../../utils/image/source";
 
@@ -87,7 +86,7 @@ export default function POSOrderDetailsPage() {
     const isOnline = useNetwork();
     
     // Queue management
-    const { queue, addToQueue, removeFromQueue, isLoading: isQueueLoading } = useOrderQueue();
+    const { queue, addToQueue, isLoading: isQueueLoading } = useOrderQueue();
     const currentQueueItem = order ? queue.find(q => q.order_id === order.id) : null;
     
     // Selection State
@@ -741,11 +740,14 @@ export default function POSOrderDetailsPage() {
                                     ? (
                                         <>
                                             {order.delivery?.logo ? (
-                                                <img 
-                                                    src={order.delivery.logo} 
-                                                    alt={order.delivery.delivery_name || "Delivery Logo"} 
-                                                    style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'contain' }} 
-                                                />
+                                                <>
+                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                    <img 
+                                                        src={order.delivery.logo} 
+                                                        alt={order.delivery.delivery_name || "Delivery Logo"} 
+                                                        style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'contain' }} 
+                                                    />
+                                                </>
                                             ) : <RocketOutlined />}
                                             {order.delivery_code || order.order_no?.substring(0, 10)}
                                             {order.delivery?.delivery_name && (

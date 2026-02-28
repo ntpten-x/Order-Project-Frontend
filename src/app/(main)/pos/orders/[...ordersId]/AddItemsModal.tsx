@@ -7,7 +7,6 @@ import {
     MinusOutlined, 
     ShoppingCartOutlined,
     ArrowLeftOutlined,
-    CloseOutlined,
     DeleteOutlined
 } from '@ant-design/icons';
 import { categoryService } from '../../../../../services/pos/category.service';

@@ -15,6 +15,7 @@ import {
   RightOutlined,
   FireOutlined,
   WalletOutlined,
+  RocketOutlined,
 } from "@ant-design/icons";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SalesOrder, OrderStatus, OrderType } from "../../../../types/api/pos/salesOrder";
@@ -525,13 +526,16 @@ function POSOrdersPageContent() {
                                                         )}
                                                         {order.order_type === OrderType.Delivery && (
                                                             <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                                {order.delivery?.logo ? (
-                                                                    <img 
-                                                                        src={order.delivery.logo} 
-                                                                        alt={order.delivery.delivery_name} 
-                                                                        style={{ width: 20, height: 20, borderRadius: 4, objectFit: 'contain' }} 
-                                                                    />
-                                                                ) : <CarOutlined />}
+                                                        {order.delivery?.logo ? (
+                                                                    <>
+                                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                                                        <img 
+                                                                            src={order.delivery.logo} 
+                                                                            alt={order.delivery.delivery_name} 
+                                                                            style={{ width: 20, height: 20, borderRadius: 4, objectFit: 'contain' }} 
+                                                                        />
+                                                                    </>
+                                                                ) : <RocketOutlined />}
                                                                 {order.delivery_code || order.order_no?.substring(0, 10)}
                                                                 {order.delivery?.delivery_name && (
                                                                     <span style={{ fontSize: 13, color: '#64748B', fontWeight: 500 }}>

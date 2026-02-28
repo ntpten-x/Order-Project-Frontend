@@ -90,7 +90,7 @@ export function useListState<F extends ListFilters>(options: ListStateOptions<F>
         if (nextUrl !== currentUrl) {
             router.replace(nextUrl, { scroll: false });
         }
-    }, [router, pathname, searchParams, page, pageSize, debouncedSearch, createdSort, filters, defaultPageSize, isUrlReady]);
+    }, [router, pathname, searchParams, page, pageSize, debouncedSearch, createdSort, filters, defaultPageSize, isUrlReady, defaultSort]);
 
     // Reset page on filter/search change
     useEffect(() => {

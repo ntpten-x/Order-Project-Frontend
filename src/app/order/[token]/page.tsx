@@ -20,12 +20,11 @@ import {
     MinusOutlined,
     PlusOutlined,
     QrcodeOutlined,
-    ReloadOutlined,
     ShoppingCartOutlined,
     ShopOutlined,
     LockOutlined,
 } from "@ant-design/icons";
-import { useParams, useRouter } from "next/navigation";
+import { useParams } from "next/navigation";
 import type { CartItem } from "../../../contexts/pos/CartContext";
 import type { Products } from "../../../types/api/pos/products";
 import { groupOrderItems } from "../../../utils/orderGrouping";
@@ -131,25 +130,7 @@ type NoteEditorState = {
     note: string;
 };
 
-function mapStatus(status: string): { label: string; color: string } {
-    const normalized = String(status || "").trim().toLowerCase();
-    if (normalized === "pending") return { label: "รับออเดอร์แล้ว", color: "gold" };
-    if (normalized === "cooking") return { label: "กำลังดำเนินการ", color: "gold" };
-    if (normalized === "served") return { label: "กำลังดำเนินการ", color: "gold" };
-    if (normalized === "waitingforpayment") return { label: "รอพนักงานคิดเงิน", color: "cyan" };
-    if (normalized === "paid" || normalized === "completed") return { label: "ชำระแล้ว", color: "success" };
-    if (normalized === "cancelled") return { label: "ยกเลิกแล้ว", color: "red" };
-    return { label: status || "-", color: "default" };
-}
 
-function formatDateTime(value: string): string {
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "-";
-    return new Intl.DateTimeFormat("th-TH", {
-        dateStyle: "medium",
-        timeStyle: "short",
-    }).format(date);
-}
 
 function mapMenuToProduct(item: MenuItem, category: MenuCategory): Products {
     const now = new Date();
@@ -378,12 +359,10 @@ const QROrderMobileStyles = () => (
 
 export default function CustomerTableOrderPage() {
     const params = useParams();
-    const router = useRouter();
     const token = String((params as Record<string, string | string[]>)?.token || "");
     const { message, modal } = App.useApp();
 
     const [isLoading, setIsLoading] = React.useState(true);
-    const [isRefreshingOrder, setIsRefreshingOrder] = React.useState(false);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
     const [bootstrap, setBootstrap] = React.useState<BootstrapData | null>(null);
 
@@ -449,7 +428,6 @@ export default function CustomerTableOrderPage() {
     const refreshActiveOrder = React.useCallback(
         async (showError = false) => {
             if (!token) return;
-            setIsRefreshingOrder(true);
             try {
                 const data = await fetchJson<ActiveOrderData>(`/api/public/table-order/${encodeURIComponent(token)}/order`);
                 setBootstrap((prev) => {
@@ -464,8 +442,6 @@ export default function CustomerTableOrderPage() {
                 if (showError) {
                     message.error(error instanceof Error ? error.message : "ไม่สามารถอัปเดตสถานะออเดอร์ได้");
                 }
-            } finally {
-                setIsRefreshingOrder(false);
             }
         },
         [message, token]
@@ -554,7 +530,6 @@ export default function CustomerTableOrderPage() {
         return Object.entries(summaryMap);
     }, [menuProductById, purchasedItems]);
 
-    const activeOrderStatus = bootstrap?.active_order ? mapStatus(bootstrap.active_order.status) : null;
 
     const addToCart = React.useCallback(
         (product: Products) => {
@@ -587,7 +562,7 @@ export default function CustomerTableOrderPage() {
             setCartItems((prev) => [...prev, createCartItem(product)]);
             message.success(`เพิ่ม ${product.display_name} ลงตะกร้าเรียบร้อยแล้ว`);
         },
-        [isOrderLocked, message]
+        [isOrderLocked, message, modal]
     );
 
     const updateQuantity = React.useCallback((cartItemId: string, quantity: number) => {
@@ -1050,7 +1025,7 @@ export default function CustomerTableOrderPage() {
 
                                                                 {item.details && item.details.length > 0 && (
                                                                     <div style={{ marginTop: 2, display: "flex", flexDirection: "column", gap: 0 }}>
-                                                                        {item.details.map((d: any, idx: number) => (
+                                                                        {item.details.map((d: { detail_name: string; extra_price: number }, idx: number) => (
                                                                             <Text key={idx} style={{ fontSize: 13, color: "#10B981", lineHeight: 1.4 }}>
                                                                                 + {d.detail_name} (+{formatPrice(Number(d.extra_price))})
                                                                             </Text>

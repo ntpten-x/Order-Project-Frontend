@@ -2,7 +2,7 @@
 
 import React, { useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { Button, Col, Row, Space, Tag } from "antd";
+import { Button, Col, Row, Tag } from "antd";
 import {
     ShopOutlined,
     CloseCircleOutlined,

@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Modal, Input, Button, Typography, Space, Divider, InputNumber, Tag, message } from 'antd';
 import Image from '../../../../../components/ui/image/SmartImage';
-import { PlusOutlined, MinusOutlined, SaveOutlined, CloseOutlined, InfoCircleOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, MinusOutlined, SaveOutlined, InfoCircleOutlined, DeleteOutlined } from '@ant-design/icons';
 import { SalesOrderItem } from '../../../../../types/api/pos/salesOrderItem';
 import { orderDetailColors, modalStyles } from '../../../../../theme/pos/orders/style';
 import { calculateItemTotal, formatCurrency } from '../../../../../utils/orders';

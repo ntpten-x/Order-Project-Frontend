@@ -1,12 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { ordersService } from "../../services/pos/orders.service";
-import { OrderStatus, OrderType, SalesOrderSummary } from "../../types/api/pos/salesOrder";
+import { OrderStatus, OrderType } from "../../types/api/pos/salesOrder";
 
-const EXCLUDED_STATUSES = new Set<OrderStatus>([
-    OrderStatus.Paid,
-    OrderStatus.Completed,
-    OrderStatus.Cancelled,
-]);
 
 const DEFAULT_ACTIVE_STATUS_FILTER = [
     OrderStatus.Pending,
