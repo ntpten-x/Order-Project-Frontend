@@ -100,31 +100,3 @@ export function useQueuePrefetching() {
         prefetchData();
     }, [queryClient]);
 }
-
-/**
- * Prefetch order details when hovering over order link
- */
-export function useOrderDetailsPrefetching(orderId?: string) {
-    const queryClient = useQueryClient();
-
-    useEffect(() => {
-        if (!orderId) return;
-
-        const prefetchData = async () => {
-            try {
-                await queryClient.prefetchQuery({
-                    queryKey: ['order', orderId],
-                    queryFn: () => ordersService.getById(orderId),
-                    staleTime: 5000,
-                    meta: { trackGlobalLoading: false },
-                });
-            } catch (error) {
-                console.debug('Order details prefetch failed:', error);
-            }
-        };
-
-        // Debounce prefetch to avoid too many requests
-        const timer = setTimeout(prefetchData, 200);
-        return () => clearTimeout(timer);
-    }, [orderId, queryClient]);
-}

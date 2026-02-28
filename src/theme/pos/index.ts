@@ -112,18 +112,6 @@ export const tableColors = {
 };
 
 // =============================================================================
-// ORDER STATUS COLORS
-// =============================================================================
-export const orderStatusColors = {
-    pending: { bg: '#FEF3C7', text: '#92400E', border: '#FCD34D' },
-    cooking: { bg: '#FEE2E2', text: '#991B1B', border: '#FCA5A5' },
-    served: { bg: '#DBEAFE', text: '#1E40AF', border: '#93C5FD' },
-    waitingForPayment: { bg: '#E0E7FF', text: '#3730A3', border: '#A5B4FC' },
-    completed: { bg: '#D1FAE5', text: '#065F46', border: '#6EE7B7' },
-    cancelled: { bg: '#F3F4F6', text: '#4B5563', border: '#D1D5DB' },
-};
-
-// =============================================================================
 // PAGE STYLES
 // =============================================================================
 export const posPageStyles = {
@@ -225,29 +213,3 @@ export const posPageStyles = {
         color: posColors.text,
     } as CSSProperties,
 };
-
-// =============================================================================
-// UTILITY FUNCTIONS
-// =============================================================================
-
-/**
- * Get channel color scheme
- */
-export const getChannelColorScheme = (channel: 'dineIn' | 'takeaway' | 'delivery') => {
-    return channelColors[channel] || channelColors.dineIn;
-};
-
-/**
- * Get table status color scheme
- */
-export const getTableStatusColors = (status: 'available' | 'occupied' | 'inactive' | 'waitingForPayment') => {
-    return tableColors[status] || tableColors.inactive;
-};
-
-/**
- * Create gradient header style
- */
-export const createHeaderGradient = (startColor: string, endColor: string): CSSProperties => ({
-    ...posPageStyles.header,
-    background: `linear-gradient(135deg, ${startColor} 0%, ${endColor} 100%)`,
-});

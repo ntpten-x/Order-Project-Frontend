@@ -61,8 +61,3 @@ export function trackInvalidateExecuted(queryKey: readonly unknown[]) {
   snapshot.executedTotal += 1;
   bumpCount(snapshot.executedByKey, normalizedKey);
 }
-
-export function resetInvalidateMetrics() {
-  if (typeof window === "undefined") return;
-  window.__POS_PERF_INVALIDATE_METRICS__ = createEmptySnapshot();
-}

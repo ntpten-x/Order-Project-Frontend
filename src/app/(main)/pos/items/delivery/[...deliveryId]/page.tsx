@@ -295,7 +295,7 @@ export default function POSDeliverySummaryPage() {
                 title="403"
                 subTitle="คุณไม่มีสิทธิ์ชำระเงิน (ต้องมีสิทธิ์ payments.page:create)"
                 extra={
-                    <Button type="primary" onClick={() => router.push("/pos/items")}>
+                    <Button type="primary" onClick={() => router.push("/pos/orders")}>
                         กลับไปหน้ารายการ
                     </Button>
                 }

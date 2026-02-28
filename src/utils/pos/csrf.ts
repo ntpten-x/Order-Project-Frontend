@@ -26,9 +26,3 @@ export async function getCsrfTokenCached(forceRefresh = false): Promise<string> 
 
     return inflight;
 }
-
-export function clearCsrfTokenCache() {
-    cachedToken = null;
-    cachedAt = 0;
-    inflight = null;
-}

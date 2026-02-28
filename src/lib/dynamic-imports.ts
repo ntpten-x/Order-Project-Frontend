@@ -7,30 +7,9 @@
  */
 
 import dynamic from 'next/dynamic';
-import { ComponentType, ForwardRefExoticComponent } from 'react';
-
-// Utility type for dynamic component options
-interface DynamicOptions {
-  ssr?: boolean;
-  loading?: () => JSX.Element | null;
-}
 
 // Default loading placeholder
 const DefaultLoading = () => null;
-
-/**
- * Create a dynamically imported component with consistent defaults
- * Supports both ComponentType and ForwardRefExoticComponent
- */
-export function createDynamicComponent<P extends object>(
-  importFn: () => Promise<{ default: ComponentType<P> | ForwardRefExoticComponent<P> }>,
-  options: DynamicOptions = {}
-) {
-  return dynamic(importFn, {
-    ssr: options.ssr ?? false,
-    loading: options.loading ?? DefaultLoading,
-  });
-}
 
 // ============================================
 // Heavy Third-Party Components
@@ -60,21 +39,9 @@ export const DynamicQRCodeCanvas = dynamic(
 );
 
 /**
- * Chart components - load on demand for dashboard
- */
-export const DynamicChart = {
-  // Add chart library imports here when needed
-};
-
-// ============================================
-// Heavy Internal Components
-// ============================================
-
-/**
  * PDF Export utilities - only load when user initiates export
  */
 export const loadPdfExport = () => import('jspdf');
-export const loadPdfAutoTable = () => import('jspdf-autotable');
 
 /**
  * Excel Export - only load when user initiates export
@@ -99,7 +66,6 @@ export function preloadModule(module: PreloadModules) {
   switch (module) {
     case 'pdf':
       loadPdfExport();
-      loadPdfAutoTable();
       break;
     case 'xlsx':
       loadXlsx();
@@ -110,12 +76,4 @@ export function preloadModule(module: PreloadModules) {
   }
   
   preloadCache.add(module);
-}
-
-/**
- * Create hover handler for preloading
- * Usage: <Button onMouseEnter={createPreloadHandler('pdf')}>Export PDF</Button>
- */
-export function createPreloadHandler(module: PreloadModules) {
-  return () => preloadModule(module);
 }

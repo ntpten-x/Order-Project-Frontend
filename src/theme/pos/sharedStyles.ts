@@ -223,15 +223,6 @@ export const cardInnerStyle: CSSProperties = {
 };
 
 /**
- * Action button style - consistent across pages
- */
-export const actionButtonStyle: CSSProperties = {
-    borderRadius: tokens.radius.md,
-    fontWeight: 500,
-    height: 40,
-};
-
-/**
  * Generate page-specific global CSS
  */
 export const sharedGlobalStyles = (pageSelector: string, cardSelector: string) => `
@@ -265,7 +256,3 @@ export const sharedGlobalStyles = (pageSelector: string, cardSelector: string) =
     background: #94A3B8;
   }
 `;
-
-// Export base styles for direct use
-export const sharedStyles = sharedBaseStyles;
-export default sharedBaseStyles;
