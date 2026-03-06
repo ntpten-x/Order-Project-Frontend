@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Typography, Card, Button, Tag, Spin, Space } from 'antd';
+import { Button, Tag, Spin, Space } from 'antd';
 import {
     ClockCircleOutlined,
     PlayCircleOutlined,
@@ -12,7 +12,8 @@ import {
     HistoryOutlined,
     ReloadOutlined,
     WalletOutlined,
-    ShoppingOutlined
+    ShoppingOutlined,
+    ExclamationCircleOutlined,
 } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import dayjs from 'dayjs';
@@ -32,7 +33,6 @@ import PageContainer from '../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../components/ui/page/PageSection';
 import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
-import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import PageState from '../../../../components/ui/states/PageState';
 import { pageStyles, globalStyles } from '../../../../theme/pos/shift/style';
 import { useSearchParams } from 'next/navigation';
@@ -40,7 +40,7 @@ import { useSearchParams } from 'next/navigation';
 dayjs.extend(duration);
 dayjs.locale('th');
 
-const { Title, Text } = Typography;
+
 
 const toNumber = (value: number | string | undefined | null) => Number(value || 0);
 
@@ -102,7 +102,6 @@ export default function ShiftPage() {
         }
     }, [canCreateShifts, openShiftVisible]);
 
-    // If the user was redirected here by the middleware shift-guard, auto-open the shift modal.
     useEffect(() => {
         if (!openShiftRequested) return;
         if (isShiftLoading) return;
@@ -111,7 +110,6 @@ export default function ShiftPage() {
         setOpenShiftVisible(true);
     }, [openShiftRequested, isShiftLoading, currentShift, canCreateShifts]);
 
-    // After opening shift, send user back to the originally requested page.
     useEffect(() => {
         if (!redirectAfterOpen) return;
         if (!currentShift) return;
@@ -219,6 +217,16 @@ export default function ShiftPage() {
         );
     }
 
+    const metricCards = [
+        { icon: <RiseOutlined />, label: 'ยอดขายรวม', value: `฿${totalSales.toLocaleString()}`, color: '#10b981', bg: '#ecfdf5' },
+        { icon: <ShoppingOutlined />, label: 'กำไรสุทธิ', value: `฿${netProfit.toLocaleString()}`, color: '#0ea5e9', bg: '#f0f9ff' },
+        { icon: <WalletOutlined />, label: 'เงินทอนเริ่มต้น', value: `฿${startAmount.toLocaleString()}`, color: '#f59e0b', bg: '#fffbeb' },
+        { icon: <SafetyCertificateOutlined />, label: 'เงินสดในลิ้นชัก', value: `฿${cashInDrawer.toLocaleString()}`, color: '#7c3aed', bg: '#f5f3ff' },
+        { icon: <SafetyCertificateOutlined />, label: 'ยอดคาดหวัง', value: `฿${expectedAmount.toLocaleString()}`, color: '#334155', bg: '#f1f5f9' },
+        { icon: <SafetyCertificateOutlined />, label: 'ผลต่าง', value: `฿${diffAmount.toLocaleString()}`, color: diffAmount >= 0 ? '#059669' : '#dc2626', bg: diffAmount >= 0 ? '#ecfdf5' : '#fef2f2' },
+        { icon: <WalletOutlined />, label: 'ยอดนับจริงล่าสุด', value: endAmount > 0 ? `฿${endAmount.toLocaleString()}` : '-', color: '#64748b', bg: '#f8fafc' },
+    ];
+
     return (
         <div style={pageStyles.container}>
             <style>{globalStyles}</style>
@@ -250,54 +258,59 @@ export default function ShiftPage() {
                 <PageStack>
                     {!currentShift ? (
                         <PageSection>
-                            <UIEmptyState
-                                title="ยังไม่มีกะที่เปิดใช้งาน"
-                                description="กรุณาเปิดกะเพื่อเริ่มต้นการขายและบันทึกสรุปรายวัน"
-                            />
-                            {!canCreateShifts ? (
-                                <AlertBox text="คุณไม่มีสิทธิ์เปิดกะ" />
-                            ) : null}
+                            <div className="shift-empty-box">
+                                <div className="shift-empty-icon">
+                                    <ClockCircleOutlined />
+                                </div>
+                                <div className="shift-empty-title">ยังไม่มีกะที่เปิดใช้งาน</div>
+                                <div className="shift-empty-desc">กรุณาเปิดกะเพื่อเริ่มต้นการขายและบันทึกสรุปรายวัน</div>
+                            </div>
+                            {!canCreateShifts ? <AlertBox text="คุณไม่มีสิทธิ์เปิดกะ" /> : null}
                         </PageSection>
                     ) : (
                         <>
-                            <PageSection title="สถานะกะปัจจุบัน">
-                                <div style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                                    gap: 12
-                                }}>
-                                    <Card size="small" style={{ borderRadius: 14 }}>
-                                        <Text type="secondary">สถานะ</Text>
-                                        <div style={{ marginTop: 6 }}>
-                                            <Tag color="success" style={{ borderRadius: 6 }}>เปิดกะอยู่</Tag>
+                            {/* ── Status Banner ── */}
+                            <PageSection>
+                                <div className="shift-status-banner">
+                                    <div className="shift-status-icon">
+                                        <ClockCircleOutlined />
+                                    </div>
+                                    <div className="shift-status-text">
+                                        <div className="status-label">
+                                            <Tag color="success" style={{ borderRadius: 6, marginRight: 8 }}>เปิดกะอยู่</Tag>
+                                            {shiftDuration}
                                         </div>
-                                    </Card>
+                                        <div className="status-sub">
+                                            เปิดกะเมื่อ {dayjs(currentShift.open_time).format('DD/MM/YYYY HH:mm')} น.
+                                        </div>
+                                    </div>
+                                </div>
 
-                                    <Card size="small" style={{ borderRadius: 14 }}>
-                                        <Text type="secondary">ระยะเวลากะ</Text>
-                                        <Title level={5} style={{ margin: '6px 0 0' }}>{shiftDuration}</Title>
-                                    </Card>
-
-                                    <Card size="small" style={{ borderRadius: 14 }}>
-                                        <Text type="secondary">ผู้เปิดกะ</Text>
-                                        <Title level={5} style={{ margin: '6px 0 0' }}>
+                                <div className="shift-info-grid" style={{ marginTop: 12 }}>
+                                    <div className="shift-info-item">
+                                        <div className="info-label">ผู้เปิดกะ</div>
+                                        <div className="info-value">
                                             {currentShift.user?.display_name || currentShift.user?.username || '-'}
-                                        </Title>
-                                    </Card>
-
-                                    <Card size="small" style={{ borderRadius: 14 }}>
-                                        <Text type="secondary">เวลาเปิดกะ</Text>
-                                        <Title level={5} style={{ margin: '6px 0 0' }}>
+                                        </div>
+                                    </div>
+                                    <div className="shift-info-item">
+                                        <div className="info-label">ระยะเวลากะ</div>
+                                        <div className="info-value">{shiftDuration}</div>
+                                    </div>
+                                    <div className="shift-info-item">
+                                        <div className="info-label">เวลาเปิดกะ</div>
+                                        <div className="info-value">
                                             {dayjs(currentShift.open_time).format('DD/MM/YYYY HH:mm')} น.
-                                        </Title>
-                                    </Card>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {!canCloseShift ? (
-                                    <AlertBox text="คุณไม่มีสิทธิ์ปิดกะนี้ (เฉพาะ  ผู้จัดการหรือผู้เปิดกะ)" />
+                                    <AlertBox text="คุณไม่มีสิทธิ์ปิดกะนี้ (เฉพาะผู้จัดการหรือผู้เปิดกะ)" />
                                 ) : null}
                             </PageSection>
 
+                            {/* ── Summary Metrics ── */}
                             <PageSection title="สรุปยอดกะปัจจุบัน">
                                 {isSummaryLoading ? (
                                     <div style={{ padding: '24px 0', textAlign: 'center' }}>
@@ -311,80 +324,68 @@ export default function ShiftPage() {
                                         onRetry={() => refetchCurrentSummary()}
                                     />
                                 ) : summary ? (
-                                    <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                        <MetricCard icon={<RiseOutlined />} label="ยอดขายรวม" value={`฿${totalSales.toLocaleString()}`} color="#10b981" />
-                                        <MetricCard icon={<ShoppingOutlined />} label="กำไรสุทธิ" value={`฿${netProfit.toLocaleString()}`} color="#0ea5e9" />
-                                        <MetricCard icon={<WalletOutlined />} label="เงินทอนเริ่มต้น" value={`฿${startAmount.toLocaleString()}`} color="#f59e0b" />
-                                        <MetricCard icon={<SafetyCertificateOutlined />} label="เงินสดในลิ้นชัก" value={`฿${cashInDrawer.toLocaleString()}`} color="#7c3aed" />
-                                        <MetricCard icon={<SafetyCertificateOutlined />} label="ยอดคาดหวัง" value={`฿${expectedAmount.toLocaleString()}`} color="#334155" />
-                                        <MetricCard icon={<SafetyCertificateOutlined />} label="ผลต่าง" value={`฿${diffAmount.toLocaleString()}`} color={diffAmount >= 0 ? '#059669' : '#dc2626'} />
-                                        <MetricCard icon={<WalletOutlined />} label="ยอดนับจริงล่าสุด" value={endAmount > 0 ? `฿${endAmount.toLocaleString()}` : '-'} color="#64748b" />
-                                    </div>
-                                ) : (
-                                    <Text type="secondary">ยังไม่มีข้อมูลสรุปยอดกะ</Text>
-                                )}
-                            </PageSection>
-
-                            <PageSection title="รายละเอียดวิธีชำระเงิน">
-                                {Object.keys(paymentMethods).length > 0 ? (
-                                    <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                        {Object.entries(paymentMethods).map(([method, amount]) => (
-                                            <Card key={method} size="small" style={{ borderRadius: 12 }}>
-                                                <Text type="secondary" style={{ fontSize: 13 }}>{method}</Text>
-                                                <Title level={5} style={{ margin: '4px 0 0', fontSize: 16 }}>
-                                                    ฿{toNumber(amount).toLocaleString()}
-                                                </Title>
-                                            </Card>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <Text type="secondary">ยังไม่มีข้อมูลวิธีชำระเงินในกะนี้</Text>
-                                )}
-                            </PageSection>
-
-                            <PageSection title="สินค้าขายดี">
-                                {summary?.top_products?.length ? (
-                                    <div style={{ display: 'grid', gap: 10 }}>
-                                        {summary.top_products.slice(0, 5).map((item, index) => (
-                                            <div
-                                                key={`${item.id}-${index}`}
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'space-between',
-                                                    border: '1px solid #e2e8f0',
-                                                    borderRadius: 12,
-                                                    padding: '10px 12px'
-                                                }}
-                                            >
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                    <div style={{
-                                                        width: 26,
-                                                        height: 26,
-                                                        borderRadius: '50%',
-                                                        background: '#f1f5f9',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        fontSize: 12,
-                                                        fontWeight: 700,
-                                                        color: '#475569'
-                                                    }}>
-                                                        {index + 1}
+                                    <div className="shift-metric-grid">
+                                        {metricCards.map((card) => (
+                                            <div key={card.label} className="shift-metric-card">
+                                                <div className="metric-icon-row">
+                                                    <div className="metric-icon-box" style={{ background: card.bg, color: card.color }}>
+                                                        {card.icon}
                                                     </div>
-                                                    <div>
-                                                        <Text strong>{item.name}</Text>
-                                                        <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
-                                                            จำนวน {item.quantity} {item.unit || 'หน่วย'}
-                                                        </Text>
-                                                    </div>
+                                                    <span className="metric-label">{card.label}</span>
                                                 </div>
-                                                <Text strong>฿{toNumber(item.revenue).toLocaleString()}</Text>
+                                                <div className="metric-value" style={{ color: card.color }}>{card.value}</div>
                                             </div>
                                         ))}
                                     </div>
                                 ) : (
-                                    <Text type="secondary">ยังไม่มีข้อมูลสินค้าขายดีในกะนี้</Text>
+                                    <span style={{ color: '#94a3b8', fontSize: 14 }}>ยังไม่มีข้อมูลสรุปยอดกะ</span>
+                                )}
+                            </PageSection>
+
+                            {/* ── Payment Methods ── */}
+                            <PageSection title="รายละเอียดวิธีชำระเงิน">
+                                {Object.keys(paymentMethods).length > 0 ? (
+                                    <div className="shift-payment-grid">
+                                        {Object.entries(paymentMethods).map(([method, amount]) => (
+                                            <div key={method} className="shift-payment-card">
+                                                <div className="payment-method">{method}</div>
+                                                <div className="payment-value">฿{toNumber(amount).toLocaleString()}</div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                ) : (
+                                    <span style={{ color: '#94a3b8', fontSize: 14 }}>ยังไม่มีข้อมูลวิธีชำระเงินในกะนี้</span>
+                                )}
+                            </PageSection>
+
+                            {/* ── Top Products ── */}
+                            <PageSection title="สินค้าขายดี">
+                                {summary?.top_products?.length ? (
+                                    <div className="shift-top-products">
+                                        {summary.top_products.slice(0, 5).map((item, index) => {
+                                            const rankClass = index < 3 ? `rank-${index + 1}` : 'rank-other';
+                                            return (
+                                                <div key={`${item.id}-${index}`} className="shift-product-row">
+                                                    <div className="shift-product-left">
+                                                        <div className={`shift-product-rank ${rankClass}`}>
+                                                            {index + 1}
+                                                        </div>
+                                                        <div className="shift-product-info">
+                                                            <div className="shift-product-name">{item.name}</div>
+                                                            <div className="shift-product-qty">
+                                                                จำนวน {item.quantity} {item.unit || 'หน่วย'}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <div className="shift-product-revenue">
+                                                        ฿{toNumber(item.revenue).toLocaleString()}
+                                                    </div>
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
+                                ) : (
+                                    <span style={{ color: '#94a3b8', fontSize: 14 }}>ยังไม่มีข้อมูลสินค้าขายดีในกะนี้</span>
                                 )}
                             </PageSection>
                         </>
@@ -406,28 +407,11 @@ export default function ShiftPage() {
     );
 }
 
-function MetricCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
-    return (
-        <Card size="small" style={{ borderRadius: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, color }}>
-                {icon}
-                <Text type="secondary">{label}</Text>
-            </div>
-            <Title level={4} style={{ margin: 0, color }}>{value}</Title>
-        </Card>
-    );
-}
-
 function AlertBox({ text }: { text: string }) {
     return (
-        <div style={{
-            marginTop: 12,
-            borderRadius: 10,
-            border: '1px solid #fecaca',
-            background: '#fef2f2',
-            padding: '10px 12px'
-        }}>
-            <Text style={{ color: '#b91c1c' }}>{text}</Text>
+        <div className="shift-alert-box">
+            <ExclamationCircleOutlined className="alert-icon" />
+            <span className="alert-text">{text}</span>
         </div>
     );
 }

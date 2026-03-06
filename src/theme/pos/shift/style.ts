@@ -8,251 +8,374 @@ export const pageStyles = {
     container: {
         paddingBottom: 100,
         backgroundColor: posColors.background,
-        minHeight: '100vh',
+        minHeight: '100dvh',
         fontFamily:
             "var(--font-sans), 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     } as CSSProperties,
-
-    header: {
-        background: 'linear-gradient(135deg, #10B981 0%, #059669 100%)',
-        padding: '16px 16px 48px 16px',
-        position: 'relative' as const,
-        overflow: 'hidden' as const,
-        borderBottomLeftRadius: 20,
-        borderBottomRightRadius: 20,
-        boxShadow: '0 4px 16px rgba(16, 185, 129, 0.2)'
-    } as CSSProperties,
-
-    headerDecoCircle1: {
-        position: 'absolute' as const,
-        top: -50,
-        right: -50,
-        width: 150,
-        height: 150,
-        borderRadius: '50%',
-        background: 'rgba(255,255,255,0.1)'
-    } as CSSProperties,
-
-    headerDecoCircle2: {
-        position: 'absolute' as const,
-        bottom: -30,
-        left: -30,
-        width: 100,
-        height: 100,
-        borderRadius: '50%',
-        background: 'rgba(255,255,255,0.08)'
-    } as CSSProperties,
-
-    headerContent: {
-        position: 'relative' as const,
-        zIndex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        maxWidth: 1200,
-        margin: '0 auto'
-    } as CSSProperties,
-
-    headerLeft: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 16
-    } as CSSProperties,
-
-    headerIconBox: {
-        width: 56,
-        height: 56,
-        borderRadius: 16,
-        background: 'rgba(255,255,255,0.2)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backdropFilter: 'blur(8px)',
-        boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-    } as CSSProperties,
-
-    headerTitleBox: {
-        display: 'flex',
-        flexDirection: 'column' as const
-    } as CSSProperties,
-
-    headerTitle: {
-        color: 'white',
-        fontSize: 24,
-        margin: 0,
-        fontWeight: 700,
-        letterSpacing: '0.5px',
-        lineHeight: 1.2
-    } as CSSProperties,
-
-    headerSubtitle: {
-        color: 'rgba(255,255,255,0.9)',
-        fontSize: 14,
-        display: 'block'
-    } as CSSProperties,
-
-    contentContainer: {
-        maxWidth: 1200,
-        margin: '0 auto',
-        padding: '0 24px',
-        position: 'relative' as const,
-        zIndex: 10
-    } as CSSProperties,
-
-    card: {
-        borderRadius: 24,
-        border: 'none',
-        boxShadow: '0 10px 25px rgba(0,0,0,0.05)',
-        background: 'white',
-        overflow: 'hidden',
-        height: '100%'
-    } as CSSProperties,
-
-    activeShiftCard: {
-        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-        color: 'white',
-        textAlign: 'center' as const,
-        padding: '40px 24px',
-        position: 'relative' as const,
-        overflow: 'hidden' as const
-    } as CSSProperties,
-
-    summaryCard: {
-        background: 'white',
-        padding: '24px'
-    } as CSSProperties,
-
-    statisticValue: (color: string) => ({
-        color: color,
-        fontWeight: 600
-    }) as CSSProperties,
-
-    noShiftCard: {
-        textAlign: 'center' as const,
-        padding: '60px 20px',
-        background: 'rgba(255,255,255,0.8)',
-        backdropFilter: 'blur(10px)',
-        borderRadius: 24,
-        border: '1px dashed #d9d9d9'
-    } as CSSProperties,
-
-    sectionDivider: {
-        margin: '24px 0'
-    } as CSSProperties,
-
-    trendUp: {
-        color: '#52c41a'
-    } as CSSProperties,
-
-    trendDown: {
-        color: '#ff4d4f'
-    } as CSSProperties
 };
 
 export const globalStyles = `
-    @keyframes pulse {
-        0% { transform: scale(1); }
-        50% { transform: scale(1.05); }
-        100% { transform: scale(1); }
+    /* ═══════════════════════════════════════════
+       Shift Page – Clean Modern Design
+       ═══════════════════════════════════════════ */
+
+    .shift-page-content {
+        max-width: 960px;
+        margin: 0 auto;
     }
 
-    @keyframes fadeInUp {
-        from {
-            opacity: 0;
-            transform: translateY(20px);
-        }
-        to {
-            opacity: 1;
-            transform: translateY(0);
-        }
-    }
-    
-    .pulse-animation {
-        animation: pulse 2s infinite ease-in-out;
-    }
-
-    .shift-card-animate {
-        animation: fadeInUp 0.5s ease forwards;
-        opacity: 0;
-    }
-
-    .shift-card-delay-1 { animation-delay: 0.1s; }
-    .shift-card-delay-2 { animation-delay: 0.2s; }
-    
-    .shift-modal .ant-modal-content {
-        border-radius: 20px;
-        overflow: hidden;
-    }
-    
-    .shift-modal .ant-modal-header {
-        background: transparent;
-    }
-
-    .stat-card-inner {
-        transition: all 0.3s ease;
-        padding: 16px;
+    /* ── Status Banner ── */
+    .shift-status-banner {
+        display: flex;
+        align-items: center;
+        gap: 14px;
+        padding: 18px 20px;
         border-radius: 16px;
-        background: #f8fafc;
-    }
-    
-    .stat-card-inner:hover {
-        background: #f1f5f9;
-        transform: translateY(-2px);
+        border: 1px solid #d1fae5;
+        background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
     }
 
-    /* Mobile-first responsive */
-    .shift-header-mobile {
-        flex-direction: column !important;
-        align-items: flex-start !important;
-        gap: 16px !important;
+    .shift-status-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 14px;
+        background: linear-gradient(135deg, #10b981, #059669);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        color: #fff;
+        font-size: 22px;
+        box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
     }
 
-    .shift-content-mobile {
-        padding: 0 16px !important;
+    .shift-status-text {
+        flex: 1;
+        min-width: 0;
     }
 
-    .shift-stat-grid {
+    .shift-status-text .status-label {
+        font-size: 16px;
+        font-weight: 700;
+        color: #065f46;
+        margin: 0;
+        line-height: 1.3;
+    }
+
+    .shift-status-text .status-sub {
+        font-size: 13px;
+        color: #047857;
+        margin-top: 2px;
+    }
+
+    /* ── Info Grid ── */
+    .shift-info-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+    }
+
+    .shift-info-item {
+        padding: 14px 16px;
+        border-radius: 14px;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .shift-info-item:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    }
+
+    .shift-info-item .info-label {
+        font-size: 12px;
+        color: #94a3b8;
+        font-weight: 500;
+        margin-bottom: 4px;
+    }
+
+    .shift-info-item .info-value {
+        font-size: 15px;
+        font-weight: 700;
+        color: #1e293b;
+        line-height: 1.3;
+        word-break: break-word;
+    }
+
+    /* ── Metric Cards ── */
+    .shift-metric-grid {
         display: grid;
         grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .shift-metric-card {
+        padding: 16px;
+        border-radius: 14px;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .shift-metric-card:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+    }
+
+    .shift-metric-card .metric-icon-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 8px;
+    }
+
+    .shift-metric-card .metric-icon-box {
+        width: 32px;
+        height: 32px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 14px;
+        flex-shrink: 0;
+    }
+
+    .shift-metric-card .metric-label {
+        font-size: 12px;
+        color: #64748b;
+        font-weight: 500;
+    }
+
+    .shift-metric-card .metric-value {
+        font-size: 22px;
+        font-weight: 800;
+        line-height: 1.2;
+        letter-spacing: -0.02em;
+    }
+
+    /* ── Payment Method Cards ── */
+    .shift-payment-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .shift-payment-card {
+        padding: 14px 16px;
+        border-radius: 12px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        transition: background 0.15s ease;
+    }
+
+    .shift-payment-card:hover {
+        background: #f1f5f9;
+    }
+
+    .shift-payment-card .payment-method {
+        font-size: 13px;
+        color: #64748b;
+        font-weight: 500;
+        margin-bottom: 4px;
+    }
+
+    .shift-payment-card .payment-value {
+        font-size: 18px;
+        font-weight: 700;
+        color: #0f172a;
+    }
+
+    /* ── Top Products ── */
+    .shift-top-products {
+        display: grid;
+        gap: 8px;
+    }
+
+    .shift-product-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 12px 14px;
+        border-radius: 12px;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        transition: background 0.15s ease, transform 0.15s ease;
         gap: 12px;
     }
 
-    @media (max-width: 576px) {
-        .shift-header-mobile {
-            padding: 16px 16px 40px !important;
-        }
+    .shift-product-row:hover {
+        background: #f8fafc;
+        transform: translateX(2px);
+    }
 
-        .shift-stat-grid {
+    .shift-product-left {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        min-width: 0;
+        flex: 1;
+    }
+
+    .shift-product-rank {
+        width: 30px;
+        height: 30px;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        font-weight: 800;
+        flex-shrink: 0;
+    }
+
+    .shift-product-rank.rank-1 {
+        background: linear-gradient(135deg, #fef3c7, #fde68a);
+        color: #92400e;
+    }
+
+    .shift-product-rank.rank-2 {
+        background: linear-gradient(135deg, #e2e8f0, #cbd5e1);
+        color: #475569;
+    }
+
+    .shift-product-rank.rank-3 {
+        background: linear-gradient(135deg, #fed7aa, #fdba74);
+        color: #9a3412;
+    }
+
+    .shift-product-rank.rank-other {
+        background: #f1f5f9;
+        color: #64748b;
+    }
+
+    .shift-product-info {
+        min-width: 0;
+    }
+
+    .shift-product-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: #1e293b;
+        line-height: 1.3;
+    }
+
+    .shift-product-qty {
+        font-size: 12px;
+        color: #94a3b8;
+        margin-top: 1px;
+    }
+
+    .shift-product-revenue {
+        font-size: 15px;
+        font-weight: 700;
+        color: #0f172a;
+        flex-shrink: 0;
+    }
+
+    /* ── Empty State ── */
+    .shift-empty-box {
+        text-align: center;
+        padding: 48px 20px;
+        border-radius: 16px;
+        background: #f8fafc;
+        border: 2px dashed #e2e8f0;
+    }
+
+    .shift-empty-icon {
+        width: 64px;
+        height: 64px;
+        border-radius: 20px;
+        background: linear-gradient(135deg, #e0e7ff, #c7d2fe);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin: 0 auto 16px;
+        font-size: 28px;
+        color: #6366f1;
+    }
+
+    .shift-empty-title {
+        font-size: 17px;
+        font-weight: 700;
+        color: #1e293b;
+        margin-bottom: 6px;
+    }
+
+    .shift-empty-desc {
+        font-size: 14px;
+        color: #64748b;
+    }
+
+    /* ── Alert Box ── */
+    .shift-alert-box {
+        margin-top: 12px;
+        border-radius: 12px;
+        border: 1px solid #fecaca;
+        background: linear-gradient(135deg, #fef2f2, #fee2e2);
+        padding: 12px 16px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .shift-alert-box .alert-icon {
+        color: #ef4444;
+        font-size: 16px;
+        flex-shrink: 0;
+    }
+
+    .shift-alert-box .alert-text {
+        color: #991b1b;
+        font-size: 13px;
+        font-weight: 500;
+    }
+
+    /* ═══════════════════════════════════════════
+       RESPONSIVE
+       ═══════════════════════════════════════════ */
+
+    @media (max-width: 767px) {
+        .shift-info-grid {
             grid-template-columns: 1fr;
         }
 
-        .shift-action-btn {
-            width: 100% !important;
-            height: 52px !important;
-            font-size: 16px !important;
+        .shift-metric-grid {
+            grid-template-columns: 1fr;
         }
 
-        .shift-modal .ant-modal {
-            max-width: calc(100vw - 32px) !important;
-            margin: 16px !important;
+        .shift-payment-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .shift-status-banner {
+            padding: 14px 16px;
+        }
+
+        .shift-metric-card .metric-value {
+            font-size: 20px;
         }
     }
 
-    @media (min-width: 768px) {
-        .shift-stat-grid {
-            grid-template-columns: repeat(3, 1fr);
+    @media (min-width: 768px) and (max-width: 1023px) {
+        .shift-info-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+
+        .shift-metric-grid {
+            grid-template-columns: repeat(2, 1fr);
         }
     }
 
     @media (min-width: 1024px) {
-        .shift-stat-grid {
-            grid-template-columns: repeat(4, 1fr);
+        .shift-metric-grid {
+            grid-template-columns: repeat(3, 1fr);
         }
-    }
 
-    /* Touch-friendly */
-    .shift-action-btn {
-        -webkit-tap-highlight-color: rgba(16, 185, 129, 0.1);
-        touch-action: manipulation;
+        .shift-info-grid {
+            grid-template-columns: repeat(3, 1fr);
+        }
     }
 `;

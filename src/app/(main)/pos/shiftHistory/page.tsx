@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-    Typography,
     Button,
     Space,
     Tag,
@@ -13,6 +12,9 @@ import {
     Grid,
 } from 'antd';
 import {
+    UserOutlined,
+    ClockCircleOutlined as ClockIcon,
+    FieldTimeOutlined,
     HistoryOutlined,
     ReloadOutlined,
     ClockCircleOutlined,
@@ -52,7 +54,7 @@ import { useListState } from '../../../../hooks/pos/useListState';
 dayjs.extend(duration);
 dayjs.locale('th');
 
-const { Text } = Typography;
+
 
 type StatusFilter = 'all' | ShiftStatus;
 
@@ -99,36 +101,32 @@ const ShiftHistoryCard = React.memo(({
     const diffNumber = shift.diff_amount === null || shift.diff_amount === undefined ? null : toNumber(shift.diff_amount);
 
     return (
-        <div
-            className="shift-history-card"
-            style={{
-                ...pageStyles.shiftCard(true),
-                borderRadius: 16,
-                marginBottom: 12
-            }}
-        >
+        <div className="shift-history-card" style={{ ...pageStyles.shiftCard(true), marginBottom: 12 }}>
             <div style={{ ...pageStyles.shiftCardInner, alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
-                        <Text strong style={{ fontSize: 15, color: '#0f172a' }}>
-                            Shift #{shift.id.slice(0, 8)}
-                        </Text>
-                        <Tag color={isClosed ? 'default' : 'green'}>
+                    <div className="shift-card-header">
+                        <span className="shift-card-id">Shift #{shift.id.slice(0, 8)}</span>
+                        <Tag color={isClosed ? 'default' : 'green'} style={{ margin: 0, borderRadius: 6 }}>
                             {isClosed ? 'ปิดกะแล้ว' : 'กำลังเปิดกะ'}
                         </Tag>
                     </div>
 
-                    <Text type="secondary" style={{ display: 'block', fontSize: 13 }}>
-                        ผู้เปิดกะ: {shift.user?.name || shift.user?.username || '-'}
-                    </Text>
-                    <Text type="secondary" style={{ display: 'block', fontSize: 13 }}>
-                        เปิดกะ: {formatDateTime(shift.open_time)} | ปิดกะ: {formatDateTime(shift.close_time)}
-                    </Text>
-                    <Text type="secondary" style={{ display: 'block', fontSize: 12, marginTop: 2 }}>
-                        ระยะเวลากะ: {getDurationLabel(shift.open_time, shift.close_time)}
-                    </Text>
+                    <div className="shift-card-meta">
+                        <div className="shift-card-meta-row">
+                            <UserOutlined className="meta-icon" />
+                            <span>{shift.user?.name || shift.user?.username || '-'}</span>
+                        </div>
+                        <div className="shift-card-meta-row">
+                            <ClockIcon className="meta-icon" />
+                            <span>เปิดกะ: {formatDateTime(shift.open_time)} | ปิดกะ: {formatDateTime(shift.close_time)}</span>
+                        </div>
+                        <div className="shift-card-meta-row">
+                            <FieldTimeOutlined className="meta-icon" />
+                            <span>ระยะเวลา: {getDurationLabel(shift.open_time, shift.close_time)}</span>
+                        </div>
+                    </div>
 
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 8, marginTop: 10 }}>
+                    <div className="shift-mini-metrics">
                         <MiniMetric label="เงินเริ่มต้น" value={formatMoney(shift.start_amount)} color="#334155" />
                         <MiniMetric label="ยอดคาดหวัง" value={formatMoney(shift.expected_amount, { dashWhenNull: true })} color="#0369a1" />
                         <MiniMetric label="ยอดนับจริง" value={formatMoney(shift.end_amount, { dashWhenNull: true })} color="#0f766e" />
@@ -140,7 +138,7 @@ const ShiftHistoryCard = React.memo(({
                     </div>
                 </div>
 
-                <Button onClick={() => onViewSummary(shift.id)}>
+                <Button className="shift-view-btn" onClick={() => onViewSummary(shift.id)}>
                     ดูสรุป
                 </Button>
             </div>
@@ -149,13 +147,11 @@ const ShiftHistoryCard = React.memo(({
 });
 ShiftHistoryCard.displayName = 'ShiftHistoryCard';
 
-
-
 const MiniMetric = React.memo(({ label, value, color }: { label: string; value: string; color: string }) => {
     return (
-        <div style={{ border: '1px solid #e2e8f0', borderRadius: 10, padding: '8px 10px' }}>
-            <Text type="secondary" style={{ fontSize: 12 }}>{label}</Text>
-            <div style={{ fontWeight: 700, color, marginTop: 2 }}>{value}</div>
+        <div className="mini-metric">
+            <div className="mini-label">{label}</div>
+            <div className="mini-value" style={{ color }}>{value}</div>
         </div>
     );
 });
@@ -303,82 +299,7 @@ export default function ShiftHistoryPage() {
 
     return (
         <div className="shift-history-page" style={pageStyles.container}>
-            <style>{`
-                ${globalStyles}
-                @media (max-width: 576px) {
-                    .ant-picker-range-wrapper {
-                        flex-direction: column !important;
-                    }
-                    .ant-picker-panels {
-                        flex-direction: column !important;
-                    }
-                    .ant-picker-panel-container {
-                        max-width: 100vw !important;
-                    }
-                    .ant-modal {
-                        margin: 8px auto !important;
-                    }
-                }
-                /* Forced positioning fix for DatePicker dropdowns */
-                .datepicker-fix, .mobile-datepicker-dropdown {
-                    position: absolute !important;
-                    top: 100% !important; /* Force below input */
-                    left: 0 !important;
-                    display: block !important;
-                    inset: auto !important; /* Overrides the crazy -8000px values */
-                    transform: none !important;
-                    z-index: 2000 !important;
-                }
-                
-                .custom-date-section {
-                    background: #f8fafc;
-                    border-radius: 16px;
-                    padding: 16px;
-                    border: 1px solid #e2e8f0;
-                }
-
-                @media (max-width: 576px) {
-                    /* Advanced Mobile DatePicker CSS to prevent overflow */
-                    .mobile-datepicker-dropdown .ant-picker-panel-container {
-                        max-width: 90vw !important;
-                        overflow: hidden !important;
-                        margin: 0 auto !important;
-                    }
-                    .mobile-datepicker-dropdown .ant-picker-datetime-panel {
-                        display: flex !important;
-                        flex-direction: column !important;
-                    }
-                    .mobile-datepicker-dropdown .ant-picker-panel {
-                        width: auto !important;
-                        min-width: unset !important;
-                    }
-                    .mobile-datepicker-dropdown .ant-picker-date-panel,
-                    .mobile-datepicker-dropdown .ant-picker-time-panel,
-                    .mobile-datepicker-dropdown .ant-picker-month-panel,
-                    .mobile-datepicker-dropdown .ant-picker-year-panel,
-                    .mobile-datepicker-dropdown .ant-picker-decade-panel {
-                        width: 100% !important;
-                        min-width: unset !important;
-                        max-width: 90vw !important;
-                    }
-                    .mobile-datepicker-dropdown .ant-picker-content {
-                        width: 100% !important;
-                    }
-                    .mobile-datepicker-dropdown .ant-picker-time-panel {
-                        border-left: none !important;
-                        border-top: 1px solid #f0f0f0 !important;
-                        height: 250px !important; /* Fixed height to allow internal scrolling */
-                    }
-                    .mobile-datepicker-dropdown .ant-picker-time-panel-column {
-                        height: 100% !important;
-                        overflow-y: auto !important;
-                        -webkit-overflow-scrolling: touch; /* Smooth scrolling on iOS */
-                    }
-                    .mobile-datepicker-dropdown .ant-picker-time-panel-column > li {
-                        padding: 8px 0 !important; /* Larger touch area */
-                    }
-                }
-            `}</style>
+            <style>{globalStyles}</style>
 
             <UIPageHeader
                 title="ประวัติกะการทำงาน"
@@ -466,12 +387,12 @@ export default function ShiftHistoryPage() {
                                 >
                                     <Space>
                                         <CalendarOutlined style={{ color: (dateRange && (dateRange[0] || dateRange[1])) ? '#4F46E5' : '#94a3b8' }} />
-                                        <Text style={{ 
+                                        <span style={{ 
                                             color: (dateRange && (dateRange[0] || dateRange[1])) ? '#1e293b' : '#94a3b8',
                                             fontWeight: (dateRange && (dateRange[0] || dateRange[1])) ? 600 : 400
                                         }}>
                                             {dateLabel}
-                                        </Text>
+                                        </span>
                                     </Space>
                                     <CheckCircleOutlined style={{ fontSize: 12, color: (dateRange && (dateRange[0] || dateRange[1])) ? '#4F46E5' : '#94a3b8' }} />
                                 </Button>
@@ -577,9 +498,9 @@ export default function ShiftHistoryPage() {
                                             borderColor: isPresetActive ? '#4f46e5' : '#e5e7eb'
                                         }}
                                     >
-                                        <Text strong={isPresetActive} style={{ color: isPresetActive ? '#4f46e5' : '#1e293b' }}>
+                                        <span style={{ fontWeight: isPresetActive ? 600 : 400, color: isPresetActive ? '#4f46e5' : '#1e293b' }}>
                                             {preset.label}
-                                        </Text>
+                                        </span>
                                         {isPresetActive && (
                                             <CheckCircleOutlined style={{ color: '#4f46e5' }} />
                                         )}
@@ -601,13 +522,13 @@ export default function ShiftHistoryPage() {
                     ) : (
                         <div className="custom-date-section">
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-                                <Text strong style={{ fontSize: 16, color: '#1e293b' }}>ระบุเวลาเอง</Text>
+                                <span style={{ fontWeight: 600, fontSize: 16, color: '#1e293b' }}>ระบุเวลาเอง</span>
                                 <Button type="text" size="small" onClick={() => setIsCustomDate(false)}>ย้อนกลับ</Button>
                             </div>
                             
                             <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                                 <div style={{ position: 'relative' }}>
-                                    <Text type="secondary" style={{ display: 'block', marginBottom: 6, fontSize: 13 }}>ตั้งแต่วันที่/เวลา</Text>
+                                    <span style={{ display: 'block', marginBottom: 6, fontSize: 13, color: '#64748b' }}>ตั้งแต่วันที่/เวลา</span>
                                     <DatePicker
                                         size="large"
                                         value={tempDateRange?.[0]}
@@ -626,7 +547,7 @@ export default function ShiftHistoryPage() {
                                 </div>
 
                                 <div style={{ position: 'relative' }}>
-                                    <Text type="secondary" style={{ display: 'block', marginBottom: 6, fontSize: 13 }}>ถึงวันที่/เวลา</Text>
+                                    <span style={{ display: 'block', marginBottom: 6, fontSize: 13, color: '#64748b' }}>ถึงวันที่/เวลา</span>
                                     <DatePicker
                                         size="large"
                                         value={tempDateRange?.[1]}

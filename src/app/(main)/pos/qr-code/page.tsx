@@ -67,50 +67,64 @@ type PendingQrAutoPrint = {
 };
 
 const pageGlobalStyles = `
+  /* ═══════════════════════════════════════════
+     QR Code Page – Clean Modern Design
+     ═══════════════════════════════════════════ */
+
   .qr-code-page {
     background: #f8fafc;
     min-height: 100dvh;
     padding-bottom: 96px;
+    font-family: var(--font-sans), 'Sarabun', -apple-system, sans-serif;
   }
 
+  /* ── Summary Cards ── */
   .qr-summary-grid {
     display: grid;
-    gap: 12px;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    grid-template-columns: repeat(4, 1fr);
   }
 
   .qr-summary-card {
     background: #ffffff;
     border: 1px solid #e2e8f0;
     border-radius: 14px;
-    padding: 14px 12px;
+    padding: 16px 14px;
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
   }
 
+  .qr-summary-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  }
+
+  /* ── Table Cards Grid ── */
   .qr-cards-grid {
     display: grid;
     gap: 14px;
-    grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
   }
 
   .qr-table-card {
     border: 1px solid #e2e8f0;
-    border-radius: 18px;
+    border-radius: 16px;
     background: #ffffff;
-    padding: 14px;
+    padding: 16px;
     display: flex;
     flex-direction: column;
     gap: 12px;
-    box-shadow: 0 8px 22px rgba(15, 23, 42, 0.04);
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
     transition: transform 0.2s ease, box-shadow 0.2s ease;
   }
 
   .qr-table-card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08);
+    box-shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
   }
 
+  /* ── QR Code Display ── */
   .qr-code-box {
-    border: 1px dashed #cbd5e1;
+    border: 2px dashed #e2e8f0;
     border-radius: 14px;
     min-height: 170px;
     display: flex;
@@ -118,6 +132,7 @@ const pageGlobalStyles = `
     align-items: center;
     background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    padding: 16px;
   }
 
   .qr-code-box-clickable {
@@ -126,13 +141,45 @@ const pageGlobalStyles = `
 
   .qr-code-box-clickable:hover {
     transform: scale(1.02);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-    border-color: #94a3b8;
+    box-shadow: 0 6px 20px rgba(99, 102, 241, 0.1);
+    border-color: #6366f1;
+    background: linear-gradient(180deg, #fafafe 0%, #eef2ff 100%);
   }
 
-  @media (max-width: 768px) {
+  /* ── Card Action Buttons ── */
+  .qr-table-card .ant-btn {
+    border-radius: 8px;
+    font-weight: 600;
+    font-size: 13px;
+    transition: all 0.15s ease;
+  }
+
+  /* ── Scrollbar ── */
+  .qr-code-page *::-webkit-scrollbar {
+    width: 5px;
+    height: 5px;
+  }
+
+  .qr-code-page *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  .qr-code-page *::-webkit-scrollbar-thumb {
+    background: #CBD5E1;
+    border-radius: 3px;
+  }
+
+  /* ═══════════════════════════════════════════
+     RESPONSIVE
+     ═══════════════════════════════════════════ */
+  @media (max-width: 767px) {
     .qr-code-page {
       padding-bottom: calc(108px + env(safe-area-inset-bottom));
+    }
+
+    .qr-summary-grid {
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
     }
 
     .qr-cards-grid {
@@ -141,8 +188,28 @@ const pageGlobalStyles = `
     }
 
     .qr-table-card {
-      padding: 12px;
-      border-radius: 16px;
+      padding: 14px;
+      border-radius: 14px;
+    }
+
+    .qr-summary-card {
+      padding: 12px 10px;
+    }
+  }
+
+  @media (min-width: 768px) and (max-width: 1023px) {
+    .qr-summary-grid {
+      grid-template-columns: repeat(4, 1fr);
+    }
+
+    .qr-cards-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (min-width: 1024px) {
+    .qr-cards-grid {
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
     }
   }
 `;
