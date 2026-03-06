@@ -20,6 +20,7 @@ type POSCartDrawerProps = {
   onClearCart: () => void;
   onCheckout: () => void;
   renderCartItem: (item: CartItem) => React.ReactNode;
+  rootClassName?: string;
 };
 
 export function POSCartDrawer({
@@ -33,9 +34,11 @@ export function POSCartDrawer({
   onClearCart,
   onCheckout,
   renderCartItem,
+  rootClassName,
 }: POSCartDrawerProps) {
   return (
     <Drawer
+      rootClassName={rootClassName}
       title={
         <div style={posComponentStyles.drawerTitleRow}>
           <div style={posComponentStyles.drawerTitleIcon}>
@@ -129,7 +132,7 @@ export function POSCartDrawer({
                 boxShadow: "0 4px 12px rgba(16, 185, 129, 0.4)",
               }}
             >
-              ชำระเงิน
+              เพิ่มออเดอร์
             </Button>
           </div>
         </div>

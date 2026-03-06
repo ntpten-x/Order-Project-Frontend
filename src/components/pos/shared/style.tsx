@@ -514,6 +514,34 @@ export const posComponentStyles = {
   } as CSSProperties,
 };
 
+export const POSHeaderBadge = ({ children }: { children: React.ReactNode }) => (
+  <div 
+      style={{ 
+          display: 'inline-flex',
+          alignItems: 'center',
+          padding: '6px 14px',
+          background: 'rgba(255, 255, 255, 0.95)',
+          borderRadius: 14,
+          border: '2px solid #10B981',
+          boxShadow: '0 4px 12px rgba(16, 185, 129, 0.25), inset 0 0 8px rgba(16, 185, 129, 0.1)',
+          backdropFilter: 'blur(8px)',
+      }}
+      className="qr-header-table-badge"
+  >
+      <span 
+          style={{ 
+              color: "#059669", 
+              fontSize: 18, 
+              fontWeight: 900,
+              letterSpacing: '0.02em',
+              whiteSpace: 'nowrap'
+          }}
+      >
+          {children}
+      </span>
+  </div>
+);
+
 // ============================================
 // Global Styles Component
 // ============================================
@@ -594,7 +622,7 @@ export const POSSharedStyles = () => (
       transition: all 0.2s ease !important;
     }
     
-    .pos-category-btn:hover {
+    .pos-category-btn:not(.ant-btn-primary):hover {
       border-color: ${posColors.primary} !important;
       color: ${posColors.primary} !important;
     }
@@ -644,6 +672,36 @@ export const POSSharedStyles = () => (
       right: 32px !important;
       z-index: 1000 !important;
       transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+
+    /* Table Badge Responsiveness */
+    .qr-header-table-badge {
+      transition: all 0.2s ease-in-out;
+      flex-shrink: 0;
+    }
+
+    @media (max-width: 480px) {
+      .qr-header-table-badge {
+        padding: 4px 10px !important;
+        border-radius: 10px !important;
+        border-width: 1.5px !important;
+      }
+      .qr-header-table-badge span {
+        font-size: 14px !important;
+      }
+      .pos-header-title-mobile {
+        font-size: 15px !important;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        max-width: 140px;
+      }
+    }
+
+    @media (max-width: 380px) {
+      .pos-header-title-mobile {
+        max-width: 110px;
+      }
     }
 
     /* Pulse Animation for Cart */
@@ -740,6 +798,27 @@ export const POSSharedStyles = () => (
         height: 38px !important;
         padding: 0 16px !important;
         font-size: 13px !important;
+      }
+    }
+
+    .pos-pagination-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+      width: 100%;
+    }
+
+    @media (max-width: 640px) {
+      .pos-pagination-container {
+        flex-direction: column !important;
+        gap: 8px !important;
+      }
+      .pos-pagination-total {
+        position: static !important;
+        transform: none !important;
+        width: 100%;
+        text-align: center;
       }
     }
 

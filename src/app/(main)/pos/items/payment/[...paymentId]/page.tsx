@@ -27,7 +27,6 @@ import 'dayjs/locale/th';
 import {
     getCancelOrderNavigationPath,
     getOrderChannelText,
-    getOrderReference,
     ConfirmationConfig,
     formatCurrency,
     isCancelledStatus,
@@ -43,6 +42,15 @@ import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../../../utils/realtimeEvents";
 import { ORDER_REALTIME_EVENTS } from "../../../../../../utils/pos/orderRealtimeEvents";
 import { resolveImageSource } from "../../../../../../utils/image/source";
+import {
+    closePrintWindow,
+    getPrintSettings,
+    peekPrintSettings,
+    primePrintResources,
+    PrintShopProfile,
+    printReceiptDocument,
+    reservePrintWindow,
+} from "../../../../../../utils/print-settings/runtime";
 import SmartAvatar from "../../../../../../components/ui/image/SmartAvatar";
 
 
@@ -218,6 +226,10 @@ export default function POSPaymentPage() {
         }
     }, [fetchInitialData, paymentId]);
 
+    useEffect(() => {
+        primePrintResources();
+    }, []);
+
     const realtimeEnabled = !discountModalVisible && !confirmConfig.open;
 
     useRealtimeRefresh({
@@ -336,6 +348,11 @@ export default function POSPaymentPage() {
             okText: 'ยืนยัน',
             cancelText: 'ยกเลิก',
             onOk: async () => {
+                const cachedPrintSettings = peekPrintSettings();
+                const reservedPrintWindow =
+                    !cachedPrintSettings || cachedPrintSettings.automation.auto_print_receipt_after_payment
+                        ? reservePrintWindow(`Receipt #${order?.order_no || ""}`.trim())
+                        : null;
                 try {
                     showLoading("กำลังดำเนินการชำระเงิน...");
                     closeConfirm();
@@ -350,12 +367,47 @@ export default function POSPaymentPage() {
                         status: PaymentStatus.Success
                     };
 
-                    await paymentsService.create(paymentData, undefined, csrfToken);
+                    const createdPayment = await paymentsService.create(paymentData, undefined, csrfToken);
+
+                    const printSettings = await getPrintSettings();
+                    if (printSettings.automation.auto_print_receipt_after_payment && order) {
+                        const printableOrder: SalesOrder = {
+                            ...order,
+                            status: OrderStatus.Paid,
+                            received_amount: receivedAmount,
+                            change_amount: change,
+                            payments: [
+                                ...(order.payments || []),
+                                {
+                                    ...createdPayment,
+                                    amount_received: receivedAmount,
+                                    change_amount: change,
+                                    payment_method: method || null,
+                                },
+                            ] as SalesOrder["payments"],
+                        };
+
+                        try {
+                            await printReceiptDocument({
+                                order: printableOrder,
+                                settings: printSettings,
+                                shopProfile: (shopProfile as PrintShopProfile | null) ?? undefined,
+                                targetWindow: reservedPrintWindow,
+                            });
+                        } catch (printError) {
+                            closePrintWindow(reservedPrintWindow);
+                            console.error("Receipt auto print failed", printError);
+                            messageApi.warning("ชำระเงินสำเร็จ แต่เปิดหน้าพิมพ์ใบเสร็จไม่สำเร็จ");
+                        }
+                    } else {
+                        closePrintWindow(reservedPrintWindow);
+                    }
 
                     messageApi.success("ชำระเงินเรียบร้อย");
                     router.push(`/pos/dashboard/${order!.id}?from=payment`);
 
                 } catch (error) {
+                    closePrintWindow(reservedPrintWindow);
                     const errorMessage = error instanceof Error && error.message
                         ? error.message
                         : "การชำระเงินล้มเหลว";
@@ -390,7 +442,7 @@ export default function POSPaymentPage() {
                     const activeItems = order.items?.filter(item => !isCancelledStatus(item.status)) || [];
                     await Promise.all(
                         activeItems.map(item => 
-                            ordersService.updateItemStatus(item.id, OrderStatus.Served, undefined, csrfToken)
+                            ordersService.updateItemStatus(item.id, OrderStatus.Pending, undefined, csrfToken)
                         )
                     );
 
@@ -494,7 +546,7 @@ export default function POSPaymentPage() {
                 title="403"
                 subTitle="คุณไม่มีสิทธิ์ชำระเงิน (ต้องมีสิทธิ์ payments.page:create)"
                 extra={
-                    <Button type="primary" onClick={() => router.push("/pos/items")}>
+                    <Button type="primary" onClick={() => router.push("/pos/orders")}>
                         กลับไปหน้ารายการ
                     </Button>
                 }
@@ -522,12 +574,12 @@ export default function POSPaymentPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
                     <Button 
                         type="text" 
-                        icon={<ArrowLeftOutlined style={{ fontSize: 18, color: '#fff' }} />} 
+                        icon={<ArrowLeftOutlined style={{ fontSize: 24, color: '#000' }} />} 
                         style={{ 
                             height: 40, 
                             width: 40, 
                             borderRadius: 12,
-                            background: 'rgba(255,255,255,0.15)',
+                            background: 'rgba(0,0,0,0.05)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
@@ -535,12 +587,43 @@ export default function POSPaymentPage() {
                         onClick={handleBack}
                     />
                     <div style={{ flex: 1 }}>
-                        <Title level={4} style={{ margin: 0, color: '#fff', fontSize: 20 }}>ชำระเงิน</Title>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4, flexWrap: 'wrap' }}>
-                            <Tag color="rgba(255,255,255,0.2)" style={{ border: 'none', color: '#fff', fontSize: 12 }}>
-                                {getOrderChannelText(order.order_type)} {getOrderReference(order)}
-                            </Tag>
-                            <Text style={{ color: 'rgba(255,255,255,0.85)', fontSize: 12 }}>#{order.order_no}</Text>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', flexWrap: 'wrap' }}>
+                            <Title level={4} style={{ margin: 0, color: '#000', fontSize: 22 }}>ชำระเงิน</Title>
+                            
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                {/* Channel Tag - Purple */}
+                                <Tag 
+                                    style={{ 
+                                        border: 'none', 
+                                        background: '#f3e8ff', 
+                                        color: '#7e22ce', 
+                                        fontSize: 14, 
+                                        borderRadius: 8, 
+                                        padding: '2px 10px', 
+                                        margin: 0,
+                                        fontWeight: 600
+                                    }}
+                                >
+                                    {getOrderChannelText(order.order_type)}
+                                </Tag>
+
+                                {/* Reference Tag - Green */}
+                                <Tag 
+                                    style={{ 
+                                        border: 'none', 
+                                        background: '#dcfce7', 
+                                        color: '#15803d', 
+                                        fontSize: 20, 
+                                        borderRadius: 8, 
+                                        padding: '2px 10px', 
+                                        margin: 0,
+                                        fontWeight: 600
+                                    }}
+                                >
+                                    {order.order_type === OrderType.DineIn && `*โต๊ะ ${order.table?.table_name || 'ไม่ระบุ'}`}
+                                    {order.order_type === OrderType.TakeAway && `*${order.order_no?.substring(5, 10) || order.order_no}`}
+                                </Tag>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -552,7 +635,12 @@ export default function POSPaymentPage() {
                             icon={<EditOutlined />} 
                             onClick={handleEditOrder}
                             className="action-btn"
-                            style={{ background: 'rgba(255,255,255,0.15)', border: 'none', color: '#fff' }}
+                            style={{ 
+                                background: '#fef3c7', 
+                                border: '1.5px solid #f59e0b', 
+                                color: '#92400e',
+                                fontWeight: 600
+                            }}
                         >
                             แก้ไข
                         </Button>

@@ -1,6 +1,9 @@
 export const API_PREFIX = '/api';
 
 export const API_ROUTES = {
+    PUBLIC: {
+        TABLE_ORDER: "/public/table-order",
+    },
     AUTH: {
         LOGIN: '/auth/login',
         LOGOUT: '/auth/logout',
@@ -14,6 +17,7 @@ export const API_ROUTES = {
     POS: {
         PRODUCTS: '/pos/products',
         ORDERS: '/pos/orders',
+        SERVING_BOARD: '/pos/orders/serve-board',
         TABLES: '/pos/tables',
         DISCOUNTS: '/pos/discounts',
         DELIVERY: '/pos/delivery',

@@ -215,7 +215,7 @@ export default function POSDeliverySummaryPage() {
                     const activeItems = order.items?.filter(item => !isCancelledStatus(item.status)) || [];
                     await Promise.all(
                         activeItems.map(item => 
-                            ordersService.updateItemStatus(item.id, OrderStatus.Served, undefined, csrfToken)
+                            ordersService.updateItemStatus(item.id, OrderStatus.Pending, undefined, csrfToken)
                         )
                     );
 
@@ -295,7 +295,7 @@ export default function POSDeliverySummaryPage() {
                 title="403"
                 subTitle="คุณไม่มีสิทธิ์ชำระเงิน (ต้องมีสิทธิ์ payments.page:create)"
                 extra={
-                    <Button type="primary" onClick={() => router.push("/pos/items")}>
+                    <Button type="primary" onClick={() => router.push("/pos/orders")}>
                         กลับไปหน้ารายการ
                     </Button>
                 }

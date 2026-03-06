@@ -67,6 +67,10 @@ import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
 import { t } from "../../../../utils/i18n";
 import { resolveImageSource } from "../../../../utils/image/source";
 import SmartAvatar from "../../../../components/ui/image/SmartAvatar";
+import {
+  getPrintSettings,
+  primePrintResources,
+} from "../../../../utils/print-settings/runtime";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -74,11 +78,12 @@ const { useBreakpoint } = Grid;
 
 dayjs.locale("th");
 
-type PresetKey = "today" | "7d" | "15d" | "30d" | "custom";
+type PresetKey = "today" | "yesterday" | "7d" | "15d" | "30d" | "custom";
 type ExportFormat = "pdf" | "xlsx";
 
 const PRESET_OPTIONS: Array<{ label: string; value: PresetKey }> = [
   { label: "วันนี้", value: "today" },
+  { label: "เมื่อวาน", value: "yesterday" },
   { label: "7 วันล่าสุด", value: "7d" },
   { label: "15 วันล่าสุด", value: "15d" },
   { label: "30 วันล่าสุด", value: "30d" },
@@ -90,14 +95,19 @@ const STATUS_META: Record<string, { label: string; color: string }> = {
   Completed: { label: "เสร็จสิ้น", color: "green" },
   Cancelled: { label: "ยกเลิก", color: "red" },
   Pending: { label: "รอดำเนินการ", color: "gold" },
-  Cooking: { label: "กำลังทำ", color: "blue" },
-  Served: { label: "เสิร์ฟแล้ว", color: "cyan" },
+  Cooking: { label: "รอดำเนินการ", color: "gold" },
+  Served: { label: "รอดำเนินการ", color: "gold" },
   WaitingForPayment: { label: "รอชำระ", color: "orange" },
 };
 
 function resolvePresetRange(preset: PresetKey): [dayjs.Dayjs, dayjs.Dayjs] {
   const today = dayjs();
   if (preset === "today") return [today.startOf("day"), today.endOf("day")];
+  if (preset === "yesterday")
+    return [
+      today.subtract(1, "day").startOf("day"),
+      today.subtract(1, "day").endOf("day"),
+    ];
   if (preset === "7d")
     return [today.subtract(6, "day").startOf("day"), today.endOf("day")];
   if (preset === "15d")
@@ -252,7 +262,7 @@ function RecentOrdersList({ orders }: { orders: RecentOrderSummary[] }) {
                 }}
               >
                 <Space size={6} wrap>
-                  <Text strong>#{order.order_no}</Text>
+                  <Text strong>#{order.order_no?.substring(0, 10)}</Text>
                   {getOrderTypeTag(order.order_type)}
                   <Tag color={status.color}>{status.label}</Tag>
                 </Space>
@@ -269,7 +279,7 @@ function RecentOrdersList({ orders }: { orders: RecentOrderSummary[] }) {
                 }}
               >
                 <Text type="secondary" style={{ fontSize: 12 }}>
-                  {formatThaiDateTime(order.create_date)}
+                  {formatThaiDateTime(order.update_date || order.create_date)}
                 </Text>
                 <Space size={8}>
                   <Text type="secondary" style={{ fontSize: 12 }}>
@@ -305,9 +315,9 @@ export default function DashboardPage() {
   });
   const canViewDashboard = can("reports.sales.page", "view");
 
-  const [preset, setPreset] = useState<PresetKey>("7d");
+  const [preset, setPreset] = useState<PresetKey>("today");
   const [dateRange, setDateRange] = useState<[dayjs.Dayjs, dayjs.Dayjs]>(
-    resolvePresetRange("7d"),
+    resolvePresetRange("today"),
   );
   const [overview, setOverview] = useState<DashboardOverview | null>(null);
   const [shopProfile, setShopProfile] = useState<ShopProfileExtended | null>(
@@ -375,6 +385,10 @@ export default function DashboardPage() {
   useEffect(() => {
     void fetchShopProfile();
   }, [fetchShopProfile]);
+
+  useEffect(() => {
+    primePrintResources();
+  }, []);
 
   useRealtimeRefresh({
     socket,
@@ -454,6 +468,7 @@ export default function DashboardPage() {
           top_items: exportOverview.top_items,
           recent_orders: exportOverview.recent_orders,
         };
+        const printSettings = await getPrintSettings();
         const branding: SalesReportBranding = {
           shopName: shopProfile?.shop_name || "ร้านค้า POS",
           branchName: user?.branch?.branch_name,
@@ -468,7 +483,10 @@ export default function DashboardPage() {
             [exportStart, exportEnd],
             exportLabel,
             branding,
-            { targetWindow: pdfPreviewWindow },
+            {
+              targetWindow: pdfPreviewWindow,
+              documentSetting: printSettings.documents.order_summary,
+            },
           );
         } else {
           exportSalesReportExcel(
@@ -476,6 +494,7 @@ export default function DashboardPage() {
             [exportStart, exportEnd],
             exportLabel,
             branding,
+            { documentSetting: printSettings.documents.order_summary },
           );
         }
 
@@ -678,7 +697,7 @@ export default function DashboardPage() {
           ) : (
             <>
               <Row gutter={[12, 12]}>
-                <Col xs={24} sm={12} lg={6}>
+                <Col xs={12} sm={12} lg={6}>
                   <Card>
                     <Text type="secondary">{t("dashboard.totalSales")}</Text>
                     <Title
@@ -689,7 +708,7 @@ export default function DashboardPage() {
                     </Title>
                   </Card>
                 </Col>
-                <Col xs={24} sm={12} lg={6}>
+                <Col xs={12} sm={12} lg={6}>
                   <Card>
                     <Text type="secondary">จำนวนออเดอร์</Text>
                     <Title level={4} style={{ margin: "6px 0 0" }}>
@@ -697,7 +716,7 @@ export default function DashboardPage() {
                     </Title>
                   </Card>
                 </Col>
-                <Col xs={24} sm={12} lg={6}>
+                <Col xs={12} sm={12} lg={6}>
                   <Card>
                     <Text type="secondary">ยอดเฉลี่ยต่อบิล</Text>
                     <Title level={4} style={{ margin: "6px 0 0" }}>
@@ -707,7 +726,7 @@ export default function DashboardPage() {
                     </Title>
                   </Card>
                 </Col>
-                <Col xs={24} sm={12} lg={6}>
+                <Col xs={12} sm={12} lg={6}>
                   <Card>
                     <Text type="secondary">
                       {t("dashboard.discount", { amount: "" }).replace(

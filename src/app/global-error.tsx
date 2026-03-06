@@ -33,7 +33,7 @@ export default function GlobalError({
                   className="bg-emerald-500"
                   style={{ backgroundColor: '#10b981', borderColor: '#10b981' }}
                 >
-                  รีโหลดหน้าเว็บ
+                  ลองอีกครั้ง
                 </Button>
               }
             />

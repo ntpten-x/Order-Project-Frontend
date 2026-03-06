@@ -58,6 +58,7 @@ const DeliveryRelationSchema = z
         id: z.string().optional(),
         delivery_name: z.string().optional().nullable(),
         delivery_prefix: z.string().optional().nullable(),
+        logo: z.string().optional().nullable(),
     })
     .partial()
     .nullable();
@@ -131,6 +132,7 @@ const OrderSummaryRelationSchema = z
     .object({
         table_name: z.string().nullable().optional(),
         delivery_name: z.string().nullable().optional(),
+        logo: z.string().nullable().optional(),
     })
     .partial()
     .nullable();

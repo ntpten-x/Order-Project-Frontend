@@ -106,9 +106,9 @@ export default function OpenShiftModal({ open, onCancel }: OpenShiftModalProps =
                     <DollarOutlined style={{ fontSize: 32, color: "#10b981" }} />
                 </div>
                 <Title level={3} style={{ margin: 0, color: "#1f1f1f", fontWeight: 700 }}>
-                    เปิดรอบการขาย
+                    เปิดการขาย
                 </Title>
-                <Text type="secondary" style={{ fontSize: 16 }}>
+                <Text type="secondary" style={{ fontSize: 12 }}>
                     เปิดกะเพื่อเริ่มรับออเดอร์
                 </Text>
             </div>
@@ -189,7 +189,7 @@ export default function OpenShiftModal({ open, onCancel }: OpenShiftModalProps =
                             marginTop: 12,
                         }}
                     >
-                        ยืนยันเปิดกะ
+                        ยืนยันการเปิด
                     </Button>
                 </Form>
             </div>

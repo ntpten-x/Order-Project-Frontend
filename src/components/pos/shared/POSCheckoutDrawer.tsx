@@ -23,6 +23,7 @@ type POSCheckoutDrawerProps = {
   discountAmount: number;
   finalPrice: number;
   getProductUnitPrice: (product: Products) => number;
+  rootClassName?: string;
 };
 
 export function POSCheckoutDrawer({
@@ -36,9 +37,11 @@ export function POSCheckoutDrawer({
   discountAmount,
   finalPrice,
   getProductUnitPrice,
+  rootClassName,
 }: POSCheckoutDrawerProps) {
   return (
     <Drawer
+      rootClassName={rootClassName}
       title={
         <div style={{ ...posComponentStyles.modalTitleRow, color: "#fff" }}>
           <ShoppingCartOutlined style={{ fontSize: 20 }} />

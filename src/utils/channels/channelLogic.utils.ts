@@ -82,18 +82,15 @@ export function getTableColorScheme(table: Tables) {
 export function formatOrderStatus(status?: string): string {
     if (!status) return '';
 
-    const statusMap: Record<string, string> = {
-        'Pending': 'กำลังดำเนินการ',
-        'Cooking': 'กำลังปรุง',
-        'Served': 'เสิร์ฟแล้ว',
-        'WaitingForOrder': 'รอรับออเดอร์',
-        'WaitingForPayment': 'รอชำระเงิน',
-        'Paid': 'ชำระเงินแล้ว',
-        'Completed': 'เสร็จสมบูรณ์',
-        'Cancelled': 'ยกเลิก',
-    };
-
-    return statusMap[status] || status;
+    const normalized = String(status).trim().toLowerCase();
+    if (normalized === 'pending' || normalized === 'cooking' || normalized === 'served') {
+        return 'กำลังดำเนินการ';
+    }
+    if (normalized === 'waitingforpayment') return 'รอชำระเงิน';
+    if (normalized === 'paid') return 'ชำระเงินแล้ว';
+    if (normalized === 'completed') return 'เสร็จสมบูรณ์';
+    if (normalized === 'cancelled') return 'ยกเลิก';
+    return status;
 }
 
 /**
@@ -101,9 +98,8 @@ export function formatOrderStatus(status?: string): string {
  */
 export interface OrderChannelStats {
     total: number;
-    pending: number;
-    cooking: number;
-    served: number;
+    inProgress: number;
+    waitingForPayment: number;
 }
 
 /**
@@ -114,11 +110,14 @@ type OrderLike = Pick<SalesOrder, "status"> | Pick<SalesOrderSummary, "status">;
 export function getOrderChannelStats(orders: OrderLike[]): OrderChannelStats {
     return orders.reduce((acc, order) => {
         acc.total++;
-        if (order.status === OrderStatus.Pending) acc.pending++;
-        if (order.status === OrderStatus.Cooking) acc.cooking++;
-        if (order.status === OrderStatus.Served) acc.served++;
+        if (order.status === OrderStatus.Pending || order.status === OrderStatus.Cooking || order.status === OrderStatus.Served) {
+            acc.inProgress++;
+        }
+        if (order.status === OrderStatus.WaitingForPayment) {
+            acc.waitingForPayment++;
+        }
         return acc;
-    }, { total: 0, pending: 0, cooking: 0, served: 0 });
+    }, { total: 0, inProgress: 0, waitingForPayment: 0 });
 }
 
 /**
@@ -131,7 +130,7 @@ export function getOrderColorScheme(order: Pick<SalesOrder, "status"> | Pick<Sal
         case OrderStatus.Cooking:
             return 'occupied'; // Keep it active
         case OrderStatus.Served:
-            return 'waitingForPayment'; // Blue/Ready
+            return 'occupied'; // Blue/Ready
         case OrderStatus.WaitingForPayment:
             return 'waitingForPayment';
         case OrderStatus.Paid:
@@ -140,3 +139,4 @@ export function getOrderColorScheme(order: Pick<SalesOrder, "status"> | Pick<Sal
             return 'inactive';
     }
 }
+

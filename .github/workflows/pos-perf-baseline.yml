@@ -1,0 +1,101 @@
+name: POS Perf Baseline
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - "**"
+      - ".github/workflows/pos-perf-baseline.yml"
+  push:
+    branches:
+      - main
+      - master
+    paths:
+      - "**"
+      - ".github/workflows/pos-perf-baseline.yml"
+
+jobs:
+  pos-perf-baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: order_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d order_ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      NODE_ENV: development
+      JWT_SECRET: ci-pos-perf-jwt-secret
+      PORT: 3000
+      FRONTEND_URL: http://127.0.0.1:3310
+      FRONTEND_ALLOWED_ORIGINS: http://127.0.0.1:3310,http://localhost:3310
+      DATABASE_HOST: 127.0.0.1
+      DATABASE_PORT: 5432
+      DATABASE_USER: postgres
+      DATABASE_PASSWORD: postgres
+      DATABASE_NAME: order_ci
+      DATABASE_SSL: "false"
+      TYPEORM_SYNC: "false"
+      RUN_MIGRATIONS_ON_START: "true"
+      REQUIRE_NO_PENDING_MIGRATIONS: "false"
+      RUN_RBAC_BASELINE_ON_START: "true"
+      ENFORCE_DB_ROLE_POLICY: "0"
+      REDIS_DISABLED: "true"
+      RATE_LIMIT_REDIS_DISABLED: "true"
+      SOCKET_REDIS_ADAPTER_ENABLED: "false"
+      PERF_COMPARE_MODE: debounce-toggle
+      PERF_PROFILE_PATH: /pos/orders
+      PERF_BACKEND_DIR: ./Order-Project-Backend
+      PERF_THRESHOLD_BURST_API_MAX: "27"
+      PERF_THRESHOLD_BURST_INVALIDATE_EXECUTED_MAX: "72"
+      PERF_THRESHOLD_BURST_SOCKET_EVENTS_MIN: "80"
+      PERF_THRESHOLD_RECONNECT_API_MAX: "60"
+
+    steps:
+      - name: Checkout frontend
+        uses: actions/checkout@v4
+
+      - name: Checkout backend
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository_owner }}/Order-Project-Backend
+          path: Order-Project-Backend
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            Order-Project-Backend/package-lock.json
+
+      - name: Install backend deps
+        run: npm ci
+        working-directory: ./Order-Project-Backend
+
+      - name: Install frontend deps
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run POS perf profile + baseline gate
+        run: npm run perf:pos:baseline:ci
+
+      - name: Upload perf artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pos-perf-baseline-report
+          path: test-results/perf-pos-main/

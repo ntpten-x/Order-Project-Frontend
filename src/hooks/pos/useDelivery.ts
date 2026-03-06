@@ -14,7 +14,7 @@ export function useDelivery() {
             const result = await deliveryService.getAll();
             return result.data;
         },
-        staleTime: isConnected ? 30_000 : 7_500,
+        staleTime: isConnected ? 45_000 : 7_500,
         refetchInterval: isConnected ? false : 20_000,
         refetchIntervalInBackground: false,
         refetchOnReconnect: true,

@@ -24,8 +24,16 @@ import { useRouter } from "next/navigation";
 
 import { useShift } from "../../../contexts/pos/ShiftContext";
 import { shiftsService } from "../../../services/pos/shifts.service";
-import type { ShiftClosePreview } from "../../../types/api/pos/shifts";
+import type { ShiftClosePreview, ShiftSummary } from "../../../types/api/pos/shifts";
 import { BackendHttpError } from "../../../utils/api/backendResponse";
+import {
+    closePrintWindow,
+    getPrintSettings,
+    peekPrintSettings,
+    primePrintResources,
+    printShiftSummaryDocument,
+    reservePrintWindow,
+} from "../../../utils/print-settings/runtime";
 
 const { Title, Text } = Typography;
 
@@ -85,7 +93,7 @@ function parsePendingCloseShiftError(error: unknown): { message: string; details
     };
 
     return {
-        message: payload?.error?.message || "ไม่สามารถปิดกะได้ เนื่องจากยังมีออเดอร์ค้างในระบบ",
+        message: payload?.error?.message || "ไม่สามารถปิดการขายได้ เนื่องจากยังมีออเดอร์ค้างในระบบ",
         details: normalized,
     };
 }
@@ -110,7 +118,7 @@ function getVarianceMeta(preview: ShiftClosePreview): {
             color: "#dc2626",
             tagColor: "red",
             title: `พบว่าเงินขาดไป ${formatMoney(Math.abs(preview.diffAmount))}`,
-            summary: "ยอดเงินนับจริงน้อยกว่ายอดที่ควรมี แต่ยังสามารถยืนยันปิดกะได้",
+            summary: "ยอดเงินนับจริงน้อยกว่ายอดที่ควรมี แต่ยังสามารถยืนยันปิดการขายได้",
         };
     }
 
@@ -120,7 +128,7 @@ function getVarianceMeta(preview: ShiftClosePreview): {
             color: "#16a34a",
             tagColor: "green",
             title: `พบว่าเงินเกินมา ${formatMoney(Math.abs(preview.diffAmount))}`,
-            summary: "ยอดเงินนับจริงมากกว่ายอดที่ควรมี แต่ยังสามารถยืนยันปิดกะได้",
+            summary: "ยอดเงินนับจริงมากกว่ายอดที่ควรมี แต่ยังสามารถยืนยันปิดการขายได้",
         };
     }
 
@@ -153,6 +161,10 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
         }
     }, [open, form]);
 
+    useEffect(() => {
+        primePrintResources();
+    }, []);
+
     const pendingSummaryText = useMemo(() => {
         if (!blockedInfo?.details.byOrderType.length) return "";
         return blockedInfo.details.byOrderType.map((item) => `${item.label} ${item.count} รายการ`).join(", ");
@@ -172,7 +184,7 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
             if (parsed) {
                 setBlockedInfo(parsed);
             } else {
-                message.error(error instanceof Error ? error.message : "ตรวจสอบก่อนปิดกะไม่สำเร็จ");
+                message.error(error instanceof Error ? error.message : "ตรวจสอบก่อนปิดการขายไม่สำเร็จ");
             }
         } finally {
             setPreviewLoading(false);
@@ -185,19 +197,44 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
         setCloseLoading(true);
         setBlockedInfo(null);
 
+        const cachedPrintSettings = peekPrintSettings();
+        const reservedPrintWindow =
+            !cachedPrintSettings || cachedPrintSettings.automation.auto_print_order_summary_after_close_shift
+                ? reservePrintWindow("Shift Summary")
+                : null;
+
         try {
-            await closeShift(Number(closePreview.endAmount));
+            const closedShift = await closeShift(Number(closePreview.endAmount));
+            const printSettings = await getPrintSettings();
+            if (printSettings.automation.auto_print_order_summary_after_close_shift) {
+                try {
+                    const summary = (await shiftsService.getSummary(closedShift.id)) as ShiftSummary;
+                    await printShiftSummaryDocument({
+                        summary,
+                        shift: closedShift,
+                        settings: printSettings,
+                        targetWindow: reservedPrintWindow,
+                    });
+                } catch (printError) {
+                    closePrintWindow(reservedPrintWindow);
+                    console.error("Close shift auto print failed", printError);
+                    message.warning("ปิดกะสำเร็จ แต่เปิดหน้าพิมพ์สรุปกะไม่สำเร็จ");
+                }
+            } else {
+                closePrintWindow(reservedPrintWindow);
+            }
             setClosePreview(null);
             onCancel();
             if (onSuccess) onSuccess();
             router.push("/");
         } catch (error) {
+            closePrintWindow(reservedPrintWindow);
             const parsed = parsePendingCloseShiftError(error);
             if (parsed) {
                 setClosePreview(null);
                 setBlockedInfo(parsed);
             } else {
-                message.error(error instanceof Error ? error.message : "ปิดกะไม่สำเร็จ");
+                message.error(error instanceof Error ? error.message : "ปิดการขายไม่สำเร็จ");
             }
         } finally {
             setCloseLoading(false);
@@ -229,10 +266,10 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
                         <DollarOutlined style={{ fontSize: 32, color: "#ef4444" }} />
                     </div>
                     <Title level={3} style={{ margin: 0, color: "#1f1f1f", fontWeight: 700 }}>
-                        ปิดรอบการขาย
+                        ปิดการขาย
                     </Title>
-                    <Text type="secondary" style={{ fontSize: 16 }}>
-                        ระบุยอดเงินสดที่นับได้จริงก่อนปิดกะ
+                    <Text type="secondary" style={{ fontSize: 12 }}>
+                        ระบุยอดเงินสดที่นับได้จริงก่อนปิดการขาย
                     </Text>
                 </div>
 
@@ -241,7 +278,7 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
                         <>
                             <div className="info-card">
                                 <div className="info-row">
-                                    <Text type="secondary">เวลาเปิดกะ</Text>
+                                    <Text type="secondary">เวลาเปิดการขาย</Text>
                                     <Text strong>{dayjs(currentShift.open_time).format("DD/MM/YYYY HH:mm")}</Text>
                                 </div>
                                 <div className="info-divider" />
@@ -302,7 +339,7 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
                                 </Form.Item>
 
                                 <Text type="secondary" style={{ display: "block", marginTop: -6, marginBottom: 12 }}>
-                                    ระบบจะตรวจสอบออเดอร์ค้าง และสรุปผลต่างเงินให้ก่อนยืนยันปิดกะอีกครั้ง
+                                    ระบบจะตรวจสอบออเดอร์ค้าง และสรุปผลต่างเงินให้ก่อนยืนยันปิดการขายอีกครั้ง
                                 </Text>
 
                                 <div style={{ display: "flex", gap: 12, marginTop: 24 }}>
@@ -339,7 +376,7 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
                                             boxShadow: "0 4px 14px rgba(239, 68, 68, 0.4)",
                                         }}
                                     >
-                                        ยืนยันปิดกะ
+                                        ยืนยันปิดการขาย
                                     </Button>
                                 </div>
                             </Form>
@@ -410,7 +447,7 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
                         ) : (
                             <WarningOutlined style={{ color: varianceMeta?.color || "#d97706" }} />
                         )}
-                        ยืนยันการปิดกะ
+                        ยืนยันปิดการขาย
                     </Space>
                 }
                 onCancel={() => {
@@ -422,7 +459,7 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
                         กลับไปแก้ยอด
                     </Button>,
                     <Button key="confirm" type="primary" danger loading={closeLoading} onClick={handleConfirmClose}>
-                        ยืนยันปิดกะอีกครั้ง
+                        ยืนยันปิดการขายอีกครั้ง
                     </Button>,
                 ]}
             >
@@ -469,14 +506,9 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
                                 </div>
                             </Space>
                         </div>
-
                         <Tag color={varianceMeta.tagColor} style={{ margin: 0, borderRadius: 999, width: "fit-content" }}>
-                            สถานะ: {varianceMeta.status}
+                            {varianceMeta.status}
                         </Tag>
-
-                        <Text type="secondary">
-                            หมายเหตุ: แม้มียอดขาดหรือเกิน คุณยังสามารถปิดกะได้ ระบบจะแจ้งข้อมูลไว้เพื่อความเข้าใจและตรวจสอบย้อนหลัง
-                        </Text>
                     </Space>
                 ) : null}
             </Modal>
@@ -487,7 +519,7 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
                 title={
                     <Space>
                         <ExclamationCircleOutlined style={{ color: "#d97706" }} />
-                        ยังปิดกะไม่ได้
+                        ยังปิดการขายไม่ได้
                     </Space>
                 }
                 onCancel={() => setBlockedInfo(null)}
@@ -537,7 +569,7 @@ export default function CloseShiftModal({ open, onCancel, onSuccess }: CloseShif
                         />
 
                         <Text type="secondary">
-                            กรุณาจัดการออเดอร์ให้เสร็จสิ้นหรือยกเลิกให้ครบทั้งหมดก่อน แล้วจึงปิดกะอีกครั้ง
+                            กรุณาจัดการออเดอร์ให้เสร็จสิ้นหรือยกเลิกให้ครบทั้งหมดก่อน แล้วจึงปิดการขายอีกครั้ง
                         </Text>
                     </Space>
                 ) : null}

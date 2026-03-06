@@ -18,6 +18,7 @@ type ListPaginationProps = {
     onPageSizeChange: (size: number) => void;
     sortCreated?: CreatedSort;
     onSortCreatedChange?: (sort: CreatedSort) => void;
+    activeColor?: string;
 };
 
 export default function ListPagination({
@@ -30,36 +31,85 @@ export default function ListPagination({
     onPageSizeChange,
     sortCreated = "old",
     onSortCreatedChange,
+    activeColor,
 }: ListPaginationProps) {
     const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
     const end = Math.min(page * pageSize, total);
+    const containerStyle: React.CSSProperties & Record<"--phone-layout", string> = {
+        display: 'grid',
+        gridTemplateColumns: 'minmax(250px, 1fr) auto minmax(250px, 1fr)',
+        alignItems: 'center',
+        gap: 16,
+        marginTop: 16,
+        paddingTop: 12,
+        borderTop: '1px solid #E2E8F0',
+        width: '100%',
+        '--phone-layout': '1fr',
+    };
 
     return (
         <div
-            style={{
-                display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 12,
-                marginTop: 16,
-                paddingTop: 12,
-                borderTop: '1px solid #E2E8F0',
-            }}
+            style={containerStyle}
+            className="pagination-grid"
         >
-            <Space size={12} wrap>
-                <Text type="secondary">แสดง {start}-{end} จาก {total} รายการ</Text>
-                <Space size={6}>
-                    <Text type="secondary">ต่อหน้า</Text>
-                    <ModalSelector<number>
-                        title="เลือกจำนวนต่อหน้า"
-                        value={pageSize}
-                        disabled={loading}
-                        onChange={onPageSizeChange}
-                        options={pageSizeOptions.map((size) => ({ value: size, label: `${size}` }))}
-                        style={{ minWidth: 80 }}
-                    />
+            <div style={{ justifySelf: 'start' }}>
+                <Space size={12} wrap>
+                    <Text type="secondary" style={{ whiteSpace: 'nowrap' }}>
+                        แสดง {start}-{end} จาก {total} รายการ
+                    </Text>
+                    <Space size={6}>
+                        <Text type="secondary">ต่อหน้า</Text>
+                        <ModalSelector<number>
+                            title="เลือกจำนวนต่อหน้า"
+                            value={pageSize}
+                            disabled={loading}
+                            onChange={onPageSizeChange}
+                            options={pageSizeOptions.map((size) => ({ value: size, label: `${size}` }))}
+                            style={{ minWidth: 80 }}
+                        />
+                    </Space>
                 </Space>
+            </div>
+
+            <div style={{ justifySelf: 'center' }}>
+                <Pagination
+                    size="small"
+                    current={page}
+                    pageSize={pageSize}
+                    total={total}
+                    disabled={loading}
+                    showSizeChanger={false}
+                    onChange={onPageChange}
+                    itemRender={(current, type, originalElement) => {
+                        if (type === 'page' && current === page) {
+                            return (
+                                <div style={{
+                                    border: `1.5px solid ${activeColor || '#4F46E5'}`,
+                                    borderRadius: 10,
+                                    width: 32,
+                                    height: 32,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'center',
+                                    background: 'white'
+                                }}>
+                                    <span style={{ 
+                                        color: activeColor || '#4F46E5', 
+                                        fontWeight: 800,
+                                        fontSize: 15,
+                                        fontFamily: 'inherit'
+                                    }}>
+                                        {current}
+                                    </span>
+                                </div>
+                            );
+                        }
+                        return originalElement;
+                    }}
+                />
+            </div>
+
+            <div style={{ justifySelf: 'end' }}>
                 {onSortCreatedChange ? (
                     <Space size={6}>
                         <Text type="secondary">เรียงตาม</Text>
@@ -75,19 +125,32 @@ export default function ListPagination({
                             style={{ minWidth: 100 }}
                         />
                     </Space>
-                ) : null}
-            </Space>
-
-            <Pagination
-                size="small"
-                current={page}
-                pageSize={pageSize}
-                total={total}
-                disabled={loading}
-                showSizeChanger={false}
-                onChange={onPageChange}
-            />
+                ) : (
+                    <div style={{ width: 40 }} /> // Spacer to keep center balanced
+                )}
+            </div>
+            <style jsx>{`
+                @media (max-width: 991px) {
+                    .pagination-grid {
+                        display: flex !important;
+                        flex-direction: column;
+                        align-items: center;
+                        gap: 20px;
+                    }
+                }
+                :global(.ant-pagination-item-active) {
+                    border-color: transparent !important;
+                    background: transparent !important;
+                }
+                :global(.ant-pagination-item-active a) {
+                    color: inherit !important;
+                }
+                :global(.ant-pagination-item:focus-visible),
+                :global(.ant-pagination-item-active:focus-visible) {
+                    outline: none !important;
+                    border-color: transparent !important;
+                }
+            `}</style>
         </div>
     );
 }
-

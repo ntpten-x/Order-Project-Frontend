@@ -23,6 +23,7 @@ const KNOWN_API_PREFIXES = [
     "/api/auth",
     "/api/audit",
     "/api/branches",
+    "/api/public",
     "/api/system",
     "/api/csrf",
     "/api/health",
@@ -38,12 +39,13 @@ const PUBLIC_API_PREFIXES = [
     "/api/auth/login",
     "/api/auth/logout",
     "/api/auth/me",
+    "/api/public",
     "/api/csrf",
     "/api/health",
     "/api/cron/keep-alive",
 ];
 
-const PROTECTED_PAGE_PREFIXES = ["/users", "/branch", "/pos", "/stock", "/audit", "/Health-System"];
+const PROTECTED_PAGE_PREFIXES = ["/users", "/branch", "/pos", "/stock", "/audit", "/Health-System", "/print-setting"];
 
 function readCache<T>(store: Map<string, CacheEntry<T>>, key: string): T | null {
     const hit = store.get(key);
@@ -83,6 +85,7 @@ function isShiftProtectedPath(pathname: string): boolean {
         "/pos/orders",
         "/pos/items",
         "/pos/kitchen",
+        "/pos/list",
     ];
 
     return protectedPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
@@ -266,9 +269,13 @@ export const config = {
         "/pos/orders/:path*",
         "/pos/items/:path*",
         "/pos/kitchen/:path*",
+        "/pos/list",
+        "/pos/list/:path*",
         "/stock/:path*",
         "/audit/:path*",
         "/Health-System/:path*",
         "/Health-System",
+        "/print-setting/:path*",
+        "/print-setting",
     ],
 };

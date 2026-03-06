@@ -12,7 +12,6 @@ import {
     CarOutlined,
     CheckCircleFilled,
     AppstoreOutlined,
-    InfoCircleOutlined,
     ExclamationCircleOutlined
 } from '@ant-design/icons';
 import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
@@ -104,7 +103,7 @@ const DeliveryPreviewCard = ({
                     {isActive && <CheckCircleFilled style={{ color: '#10B981', fontSize: 14 }} />}
                 </div>
                 <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>
-                    Prefix: {deliveryPrefix || '-'}
+                    รหัสย่อ : {deliveryPrefix || '-'}
                 </Text>
             </div>
         </div>
@@ -266,7 +265,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
         }
         Modal.confirm({
             title: 'ยืนยันการลบช่องทางจัดส่ง',
-            content: `คุณต้องการลบช่องทางจัดส่ง "${deliveryName || '-'}" หรือไม่?`,
+            content: `คุณต้องการลบช่องทางจัดส่ง ${deliveryName || '-'} หรือไม่?`,
             okText: 'ลบ',
             okType: 'danger',
             cancelText: 'ยกเลิก',
@@ -313,7 +312,6 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
         <div className="manage-page" style={pageStyles.container as React.CSSProperties}>
             <UIPageHeader
                 title={modeTitle}
-                subtitle={isEdit ? 'ปรับแก้ชื่อ Prefix รูปโลโก้ และสถานะการใช้งาน' : 'สร้างช่องทางจัดส่งใหม่ให้พร้อมใช้งานในระบบ POS'}
                 onBack={handleBack}
                 actions={
                     isEdit && canDeleteDelivery ? (
@@ -363,7 +361,11 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                     >
                                         <Form.Item
                                             name="delivery_name"
-                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อระบบ (delivery_name)</span>}
+                                            label={
+                                                <span style={{ fontWeight: 600, color: '#334155' }}>
+                                                    ผู้จัดส่ง <span style={{ color: '#EF4444', marginLeft: 2 }}>*</span>
+                                                </span>
+                                            }
                                             validateTrigger={['onBlur', 'onSubmit']}
                                             rules={[
                                                 { required: true, message: 'กรุณากรอกชื่อระบบ' },
@@ -379,7 +381,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                         >
                                             <Input
                                                 size="large"
-                                                placeholder="เช่น GrabFood, LINE MAN, ShopeeFood"
+                                                placeholder="GrabFood, LINE MAN, ShopeeFood"
                                                 style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
                                                 maxLength={100}
                                             />
@@ -395,7 +397,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                         >
                                             <Input
                                                 size="large"
-                                                placeholder="เช่น GF, LM"
+                                                placeholder="GF, LM, SP"
                                                 style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', textTransform: 'uppercase' }}
                                                 maxLength={10}
                                             />
@@ -418,7 +420,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                         >
                                             <Input
                                                 size="large"
-                                                placeholder="https://example.com/logo.png หรือ data:image/...;base64,..."
+                                                placeholder="https://example.com/logo.png"
                                                 style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
                                             />
                                         </Form.Item>
@@ -434,16 +436,6 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                                 </Form.Item>
                                             </div>
                                         </div>
-
-                                        <Alert
-                                            showIcon
-                                            type="info"
-                                            icon={<InfoCircleOutlined />}
-                                            message="ข้อมูลที่จำเป็น"
-                                            description="ต้องกรอกชื่อระบบ และควรกำหนด Prefix ให้สั้นเพื่อใช้อ้างอิงรหัสออเดอร์"
-                                            style={{ marginBottom: 24 }}
-                                        />
-
                                         <div style={{ marginTop: 12, display: 'flex', gap: 12 }}>
                                             <Button
                                                 size="large"
@@ -489,7 +481,6 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                                 <Text strong>รายละเอียดรายการ</Text>
                                             </div>
                                             <div style={{ display: 'grid', gap: 8 }}>
-                                                <Text type="secondary">ID: {originalDelivery?.id || '-'}</Text>
                                                 <Text type="secondary">สร้างเมื่อ: {formatDate(originalDelivery?.create_date)}</Text>
                                                 <Text type="secondary">อัปเดตเมื่อ: {formatDate(originalDelivery?.update_date)}</Text>
                                             </div>

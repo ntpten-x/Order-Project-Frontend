@@ -49,7 +49,7 @@ describe("ordersService contract", () => {
 
         const result = await ordersService.getAllSummary("sid=abc", 2, 10, "Paid,Completed", "DineIn", "ORD");
 
-        expect(getProxyUrl).toHaveBeenCalledWith("GET", "/pos/orders/summary?page=2&limit=10&status=Paid%2CCompleted&type=DineIn&q=ORD");
+        expect(getProxyUrl).toHaveBeenCalledWith("GET", "/pos/orders/summary?page=2&limit=10&status=Paid%2CCompleted&type=DineIn&q=ORD&sort_created=old");
         expect(fetchMock).toHaveBeenCalledWith(
             "http://backend/mock",
             expect.objectContaining({

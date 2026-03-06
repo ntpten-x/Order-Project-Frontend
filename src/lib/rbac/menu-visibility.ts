@@ -86,6 +86,9 @@ export const MENU_VISIBILITY_RULES: Record<string, MenuVisibilityRule> = {
         explicitAnyOf: [{ resourceKey: "menu.pos.kitchen", action: "view" }],
         fallbackAnyOf: [{ resourceKey: "orders.page", action: "view" }],
     },
+    "menu.pos.list": {
+        fallbackAnyOf: [{ resourceKey: "orders.page", action: "view" }],
+    },
     "menu.pos.shift": {
         explicitAnyOf: [{ resourceKey: "menu.pos.shift", action: "view" }],
         fallbackAnyOf: [
@@ -140,6 +143,8 @@ export const MENU_VISIBILITY_RULES: Record<string, MenuVisibilityRule> = {
             { resourceKey: "payment_accounts.page", action: "view" },
             { resourceKey: "shop_profile.page", action: "view" },
             { resourceKey: "shop_profile.page", action: "update" },
+            { resourceKey: "print_settings.page", action: "view" },
+            { resourceKey: "print_settings.page", action: "update" },
         ],
     },
 

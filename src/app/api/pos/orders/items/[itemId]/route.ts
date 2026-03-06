@@ -22,7 +22,7 @@ export async function PUT(request: NextRequest, { params }: Params) {
     }
 }
 
-// DELETE: Remove item from order
+// DELETE: Soft-cancel item from order (backend keeps item history)
 export async function DELETE(request: NextRequest, { params }: Params) {
     try {
         const cookie = request.headers.get("cookie") || "";

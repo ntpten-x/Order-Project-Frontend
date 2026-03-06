@@ -14,6 +14,23 @@ function decodePercentEncoded(value: string): string {
     }
 }
 
+function normalizeGoogleImageSearchSource(source: string): string {
+    try {
+        const url = new URL(source);
+        const host = url.hostname.toLowerCase();
+        if (!host.endsWith("google.com")) return source;
+        if (url.pathname.toLowerCase() !== "/imgres") return source;
+
+        const imgUrl = url.searchParams.get("imgurl");
+        if (!imgUrl) return source;
+
+        const normalizedTarget = normalizeImageSource(imgUrl);
+        return normalizedTarget || source;
+    } catch {
+        return source;
+    }
+}
+
 function normalizeBase64Payload(payload: string): string {
     const decoded = decodePercentEncoded(payload);
     let normalized = decoded
@@ -135,7 +152,8 @@ export function normalizeImageSource(source?: string | null): string {
     }
 
     if (HTTP_URL_PREFIX.test(value)) {
-        return normalizeGoogleDriveImageSource(value);
+        const normalizedGoogleImageSearch = normalizeGoogleImageSearchSource(value);
+        return normalizeGoogleDriveImageSource(normalizedGoogleImageSearch);
     }
 
     return value;

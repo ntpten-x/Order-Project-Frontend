@@ -418,12 +418,13 @@ export const itemsResponsiveStyles = `
 
     /* Hero Header - Compact Mobile */
     .payment-hero-mobile {
-        background: linear-gradient(145deg, #4F46E5 0%, #6366F1 50%, #818CF8 100%) !important;
+        background: linear-gradient(180deg, #f0f9ff 0%, #e0f2fe 100%) !important;
         padding: 16px 16px 24px !important;
         border-radius: 0 0 24px 24px !important;
-        box-shadow: 0 8px 32px rgba(79, 70, 229, 0.25) !important;
+        box-shadow: 0 4px 20px rgba(186, 230, 253, 0.4) !important;
         position: relative;
         z-index: 10;
+        border-bottom: 1px solid #bae6fd;
     }
 
     .payment-content-mobile {

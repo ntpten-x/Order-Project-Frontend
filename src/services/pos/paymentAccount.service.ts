@@ -1,6 +1,6 @@
 import { ShopPaymentAccount, CreatePaymentAccountDto } from "../../types/api/pos/shopPaymentAccount";
 import { getProxyUrl } from "../../lib/proxy-utils";
-import { getBackendErrorMessage, unwrapBackendData } from "../../utils/api/backendResponse";
+import { getBackendErrorMessage, unwrapBackendData, normalizeBackendPaginated } from "../../utils/api/backendResponse";
 // import { API_ROUTES } from "../../config/api";
 
 // Assuming we add a new route constant or just use a hardcoded path for now if not in config
@@ -22,9 +22,22 @@ export const paymentAccountService = {
         const url = getProxyUrl("GET", `${BASE_PATH}/accounts`);
         return shopId ? `${url}?shopId=${shopId}` : url;
     },
-    getByShopId: async (shopId?: string, cookie?: string): Promise<ShopPaymentAccount[]> => {
+    getByShopId: async (shopId?: string, cookie?: string, params?: Record<string, string | number> | URLSearchParams): Promise<{ data: ShopPaymentAccount[]; total: number; page: number; last_page: number }> => {
         let url = getProxyUrl("GET", `${BASE_PATH}/accounts`);
-        if (shopId) url += `?shopId=${shopId}`;
+        const queryParams = params instanceof URLSearchParams ? params : new URLSearchParams();
+
+        if (shopId) queryParams.append("shopId", shopId);
+
+        if (params && !(params instanceof URLSearchParams)) {
+            Object.entries(params).forEach(([key, value]) => {
+                if (value !== undefined && value !== null && value !== '') {
+                    queryParams.append(key, String(value));
+                }
+            });
+        }
+
+        const queryString = queryParams.toString();
+        if (queryString) url += `?${queryString}`;
 
         const headers: HeadersInit = {};
         if (cookie) headers.Cookie = cookie;
@@ -43,7 +56,8 @@ export const paymentAccountService = {
             throw err;
         }
 
-        return unwrapBackendData(await response.json()) as ShopPaymentAccount[];
+        const rawData = await response.json();
+        return normalizeBackendPaginated<ShopPaymentAccount>(rawData);
     },
 
     create: async (data: CreatePaymentAccountDto, shopId?: string, cookie?: string, csrfToken?: string): Promise<ShopPaymentAccount> => {

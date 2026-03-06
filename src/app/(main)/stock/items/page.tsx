@@ -41,6 +41,14 @@ import PageContainer from "../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../components/ui/page/PageSection";
 import PageStack from "../../../../components/ui/page/PageStack";
 import PageState from "../../../../components/ui/states/PageState";
+import {
+  buildPageMarginCss,
+  buildPageSizeCss,
+  getPrintSettings,
+  primePrintResources,
+} from "../../../../utils/print-settings/runtime";
+import { toCssLength } from "../../../../utils/print-settings/defaults";
+import { PrintDocumentSetting } from "../../../../types/api/pos/printSettings";
 
 const { Text, Title } = Typography;
 
@@ -68,6 +76,18 @@ function escapeHtml(value: string): string {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#39;");
+}
+
+function getEffectiveDocumentSize(setting: Pick<PrintDocumentSetting, "width" | "height" | "height_mode" | "orientation" | "unit">) {
+  const baseWidth = setting.width;
+  const baseHeight =
+    setting.height_mode === "fixed" && setting.height != null ? setting.height : null;
+
+  if (setting.orientation === "landscape" && baseHeight != null) {
+    return { width: baseHeight, height: baseWidth };
+  }
+
+  return { width: baseWidth, height: baseHeight };
 }
 
 export default function StockOrdersQueuePage() {
@@ -109,6 +129,10 @@ export default function StockOrdersQueuePage() {
   useEffect(() => {
     void fetchOrders();
   }, [fetchOrders]);
+
+  useEffect(() => {
+    primePrintResources();
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -181,12 +205,20 @@ export default function StockOrdersQueuePage() {
     });
   };
 
-  const printOrderToPdf = useCallback((order: Order) => {
+  const printOrderToPdf = useCallback(async (order: Order) => {
     const popup = window.open("", "_blank", "width=960,height=720");
     if (!popup) {
       messageApi.error("เบราว์เซอร์บล็อกหน้าต่างพิมพ์ กรุณาอนุญาตป๊อปอัป");
       return;
     }
+
+    const printSettings = await getPrintSettings();
+    const documentSetting = printSettings.documents.purchase_order;
+    const pageSizeCss = buildPageSizeCss(documentSetting);
+    const pagePaddingCss = buildPageMarginCss(documentSetting);
+    const effectiveSize = getEffectiveDocumentSize(documentSetting);
+    const sheetWidthCss = toCssLength(effectiveSize.width, documentSetting.unit);
+    const sheetHeightCss = effectiveSize.height == null ? "auto" : toCssLength(effectiveSize.height, documentSetting.unit);
 
     const createdAt = formatDateTime(order.create_date);
     const orderedBy = order.ordered_by?.name || order.ordered_by?.username || "-";
@@ -231,18 +263,23 @@ export default function StockOrdersQueuePage() {
           <title>ใบสั่งซื้อ ${orderCode}</title>
           <style>
             * { box-sizing: border-box; }
+            @page {
+              size: ${pageSizeCss};
+              margin: 0;
+            }
             body {
               margin: 0;
+              padding: 0;
               background: #eef2f7;
               font-family: "Tahoma", "Noto Sans Thai", sans-serif;
               color: #1f2937;
             }
             .sheet {
-              width: 210mm;
-              min-height: 297mm;
+              width: ${sheetWidthCss};
+              min-height: ${sheetHeightCss};
               margin: 10mm auto;
               background: #fff;
-              padding: 14mm 12mm;
+              padding: ${pagePaddingCss};
               border-radius: 10px;
               box-shadow: 0 8px 28px rgba(15, 23, 42, 0.14);
             }
@@ -363,9 +400,8 @@ export default function StockOrdersQueuePage() {
                 margin: 0;
                 border-radius: 0;
                 box-shadow: none;
-                width: auto;
-                min-height: auto;
-                padding: 8mm 6mm;
+                width: ${sheetWidthCss};
+                min-height: ${sheetHeightCss};
               }
             }
           </style>

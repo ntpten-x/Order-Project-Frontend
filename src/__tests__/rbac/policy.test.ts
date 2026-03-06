@@ -35,4 +35,14 @@ describe("rbac policy resolver", () => {
         expect(readRule?.resourceKey).toBe("api.pos.tables");
         expect(writeRule?.resourceKey).toBe("api.pos.tables.manage");
     });
+
+    it("guards print setting page and api for admin and manager roles", () => {
+        const pagePolicy = requiredRolesForPath("/print-setting", "GET");
+        const apiRule = findRouteRule("/api/pos/print-settings", "GET");
+
+        expect(pagePolicy.deniedByDefault).toBe(false);
+        expect(pagePolicy.allowed).toEqual(["Admin", "Manager"]);
+        expect(pagePolicy.resourceKey).toBe("page.print-settings");
+        expect(apiRule?.resourceKey).toBe("api.pos.print-settings");
+    });
 });

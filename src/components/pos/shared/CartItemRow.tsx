@@ -9,6 +9,7 @@ import {
   PlusOutlined,
   ShopOutlined,
 } from "@ant-design/icons";
+import SmartImage from "../../ui/image/SmartImage";
 import { CartDetail, CartItem } from "../../../contexts/pos/CartContext";
 import { Products } from "../../../types/api/pos/products";
 import { resolveImageSource } from "../../../utils/image/source";
@@ -53,12 +54,13 @@ export const CartItemRow = React.memo(function CartItemRow({
       <div style={posComponentStyles.cartItemRow}>
         <div style={{ flexShrink: 0 }}>
           {item.product.img_url ? (
-            <div style={posComponentStyles.cartItemImage}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+            <div style={{ ...posComponentStyles.cartItemImage, position: "relative" }}>
+              <SmartImage
                 src={resolveImageSource(item.product.img_url) || undefined}
                 alt={productName}
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                fill
+                style={{ objectFit: "cover" }}
+                sizes="72px"
               />
             </div>
           ) : (
@@ -99,10 +101,10 @@ export const CartItemRow = React.memo(function CartItemRow({
           </div>
 
           {item.details && item.details.length > 0 && (
-            <div style={{ marginTop: 6, marginBottom: 4 }}>
+            <div style={{ marginTop: 2, display: "flex", flexDirection: "column", gap: 0 }}>
               {item.details.map((d: CartDetail, idx: number) => (
-                <Text key={idx} style={{ display: "block", fontSize: 12, color: "#10b981", lineHeight: 1.4 }}>
-                  + {d.detail_name} <span style={{ opacity: 0.8 }}>(+{formatPrice(Number(d.extra_price || 0))})</span>
+                <Text key={idx} style={{ fontSize: 13, color: "#10B981", lineHeight: 1.4 }}>
+                  + {d.detail_name} (+{formatPrice(Number(d.extra_price || 0))})
                 </Text>
               ))}
             </div>

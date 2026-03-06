@@ -1,14 +1,13 @@
 ﻿
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
     Typography,
     Button,
     Input,
     Space,
     Tag,
-    Segmented,
     message,
     Modal,
     Card,
@@ -26,7 +25,6 @@ import {
     DeleteOutlined,
     EditOutlined,
     ReloadOutlined,
-    SearchOutlined,
     SaveOutlined,
     ExclamationCircleOutlined,
     InfoCircleOutlined,
@@ -34,7 +32,7 @@ import {
     SwapOutlined,
     CheckCircleFilled
 } from '@ant-design/icons';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { pageStyles } from './style';
 import { paymentAccountService } from '../../../../../../services/pos/paymentAccount.service';
 import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
@@ -51,7 +49,11 @@ import PageSection from '../../../../../../components/ui/page/PageSection';
 import PageStack from '../../../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../../../components/ui/states/EmptyState';
-import { useDebouncedValue } from '../../../../../../utils/useDebouncedValue';
+import ListPagination from '../../../../../../components/ui/pagination/ListPagination';
+import { ModalSelector } from "../../../../../../components/ui/select/ModalSelector";
+import { SearchInput } from "../../../../../../components/ui/input/SearchInput";
+import { SearchBar } from "../../../../../../components/ui/page/SearchBar";
+import { useListState } from '../../../../../../hooks/pos/useListState';
 
 const { Title, Text } = Typography;
 const { TextArea } = Input;
@@ -111,31 +113,6 @@ const getFriendlyErrorMessage = (error: unknown, fallback: string) => {
     return fallback;
 };
 
-const StatsCard = ({ total, active, inactive }: { total: number; active: number; inactive: number }) => (
-    <div style={{
-        background: '#fff',
-        borderRadius: 16,
-        border: '1px solid #e2e8f0',
-        display: 'grid',
-        gridTemplateColumns: 'repeat(3, minmax(0, 1fr))',
-        gap: 8,
-        padding: 14
-    }}>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#0f172a', display: 'block' }}>{total}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ทั้งหมด</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#16a34a', display: 'block' }}>{active}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>บัญชีหลัก</Text>
-        </div>
-        <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: 24, fontWeight: 700, color: '#b91c1c', display: 'block' }}>{inactive}</span>
-            <Text style={{ fontSize: 12, color: '#64748b' }}>ไม่ใช้งาน</Text>
-        </div>
-    </div>
-);
-
 const SectionLoadingSkeleton = ({ compact = false, rows = 3 }: { compact?: boolean; rows?: number }) => (
     <div style={{ display: 'grid', gap: compact ? 8 : 12 }}>
         {Array.from({ length: rows }).map((_, index) => (
@@ -194,9 +171,8 @@ const PaymentAccountPreviewCard = ({
                     {isActive && <CheckCircleFilled style={{ color: '#16a34a', fontSize: 14 }} />}
                 </div>
                 <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>
-                    {accountNumber || 'เลขพร้อมเพย์'}
+                    {accountNumber || 'เลขพร้อมเพย์ (PromptPay)'}
                 </Text>
-                <Text type="secondary" style={{ fontSize: 12, display: 'block' }}>พร้อมเพย์ (PromptPay)</Text>
             </div>
         </div>
 
@@ -210,8 +186,6 @@ const PaymentAccountPreviewCard = ({
 
 export default function PaymentAccountManagementPage({ params }: { params: { mode?: string[] } }) {
     const router = useRouter();
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
     const { socket } = useSocket();
     const { user } = useAuth();
     const screens = Grid.useBreakpoint();
@@ -221,7 +195,6 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
     const canCreateAccounts = can('payment_accounts.page', 'create');
     const canUpdateAccounts = can('payment_accounts.page', 'update');
     const canDeleteAccounts = can('payment_accounts.page', 'delete');
-    const isUrlReadyRef = useRef(false);
 
     const [form] = Form.useForm<PaymentAccountFormValues>();
     const [accounts, setAccounts] = useState<ShopPaymentAccount[]>([]);
@@ -230,10 +203,26 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
     const [fetchedOnce, setFetchedOnce] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [activatingId, setActivatingId] = useState<string | null>(null);
-    const [searchText, setSearchText] = useState('');
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
     const [initializedEditId, setInitializedEditId] = useState<string | null>(null);
-    const debouncedSearch = useDebouncedValue(searchText, 300);
+
+    const {
+        page, setPage,
+        pageSize, setPageSize,
+        total, setTotal,
+        searchText, setSearchText,
+        debouncedSearch,
+        filters, updateFilter,
+        getQueryParams,
+        isUrlReady
+    } = useListState({
+        defaultPageSize: 10,
+        defaultFilters: {
+            status: 'all' as StatusFilter,
+        }
+    });
+
+    const statusFilter = filters.status;
+    const setStatusFilter = (val: StatusFilter) => updateFilter('status', val);
 
     const modeSegment = params.mode?.[0];
     const routeMode: PaymentAccountRouteMode | null = modeSegment === 'manage' || modeSegment === 'add' || modeSegment === 'edit'
@@ -249,37 +238,18 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
     const watchedAccountNumber = Form.useWatch('account_number', form) ?? '';
     const watchedIsActive = Form.useWatch('is_active', form) ?? false;
 
-    useEffect(() => {
-        if (isUrlReadyRef.current || !isManage) return;
-
-        const qParam = searchParams.get('q') || '';
-        const statusParam = searchParams.get('status');
-        const nextStatus: StatusFilter =
-            statusParam === 'active' || statusParam === 'inactive' ? statusParam : 'all';
-
-        setSearchText(qParam);
-        setStatusFilter(nextStatus);
-        isUrlReadyRef.current = true;
-    }, [isManage, searchParams]);
-
-    useEffect(() => {
-        if (!isManage || !isUrlReadyRef.current) return;
-
-        const params = new URLSearchParams();
-        if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
-        if (statusFilter !== 'all') params.set('status', statusFilter);
-
-        const query = params.toString();
-        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [router, pathname, isManage, debouncedSearch, statusFilter]);
+    // URL sync and state management are now handled by useListState
 
     const fetchAccounts = useCallback(async (silent = false) => {
+        if (!isUrlReady) return;
         try {
             if (silent) setRefreshing(true);
             else setLoading(true);
 
-            const data = await paymentAccountService.getByShopId();
-            setAccounts(data.filter((item) => item.account_type === 'PromptPay'));
+            const result = await paymentAccountService.getByShopId(undefined, undefined, getQueryParams());
+            
+            setAccounts(result.data.filter((item) => item.account_type === 'PromptPay'));
+            setTotal(result.total);
         } catch (error) {
             console.error(error);
             message.error(getFriendlyErrorMessage(error, 'ไม่สามารถโหลดข้อมูลบัญชีพร้อมเพย์ได้'));
@@ -288,13 +258,13 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
             else setLoading(false);
             setFetchedOnce(true);
         }
-    }, []);
+    }, [getQueryParams, isUrlReady, setTotal]);
 
     useEffect(() => {
-        if (isAuthorized) {
+        if (isAuthorized && isUrlReady) {
             fetchAccounts();
         }
-    }, [isAuthorized, fetchAccounts]);
+    }, [isAuthorized, isUrlReady, fetchAccounts]);
 
     useEffect(() => {
         if (!isValidRoute) {
@@ -364,32 +334,6 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
         setInitializedEditId(editId);
     }, [editId, editingAccount, fetchedOnce, form, initializedEditId, isEdit, router]);
 
-    const stats = useMemo(() => {
-        const total = accounts.length;
-        const active = accounts.filter((item) => item.is_active).length;
-        const inactive = total - active;
-        return { total, active, inactive };
-    }, [accounts]);
-
-    const filteredAccounts = useMemo(() => {
-        let result = accounts;
-
-        if (statusFilter === 'active') {
-            result = result.filter((item) => item.is_active);
-        } else if (statusFilter === 'inactive') {
-            result = result.filter((item) => !item.is_active);
-        }
-
-        const keyword = debouncedSearch.trim().toLowerCase();
-        if (keyword) {
-            result = result.filter((item) =>
-                item.account_name.toLowerCase().includes(keyword) ||
-                item.account_number.toLowerCase().includes(keyword)
-            );
-        }
-
-        return result;
-    }, [accounts, debouncedSearch, statusFilter]);
 
     const handleActivate = async (account: ShopPaymentAccount) => {
         if (account.is_active) return;
@@ -422,7 +366,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
             title: 'ยืนยันการลบบัญชีพร้อมเพย์',
             content: account.is_active
                 ? 'บัญชีหลักไม่สามารถลบได้ กรุณาเปลี่ยนบัญชีหลักก่อน'
-                : `คุณต้องการลบบัญชี "${account.account_name}" หรือไม่?`,
+                : `คุณต้องการลบบัญชี ${account.account_name} หรือไม่?`,
             okText: 'ลบ',
             okType: 'danger',
             cancelText: 'ยกเลิก',
@@ -466,8 +410,8 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
             const normalizedAccountNumber = normalizeDigits(values.account_number || '');
             const normalizedPhone = normalizeDigits(values.phone || '');
 
-            if (normalizedAccountNumber.length !== 10 && normalizedAccountNumber.length !== 13) {
-                throw new Error('เลขพร้อมเพย์ต้องมีความยาว 10 หรือ 13 หลัก');
+            if (normalizedAccountNumber.length !== 10) {
+                throw new Error('เลขพร้อมเพย์ต้องมีความยาว 10 หลัก');
             }
 
             if (normalizedPhone && normalizedPhone.length !== 10) {
@@ -526,22 +470,15 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
     }
 
     const modeTitle = isManage ? 'จัดการบัญชีพร้อมเพย์' : isEdit ? 'แก้ไขบัญชีพร้อมเพย์' : 'เพิ่มบัญชีพร้อมเพย์';
-    const modeSubtitle = isManage
-        ? 'จัดการรายการพร้อมเพย์ ตั้งบัญชีหลัก และแก้ไขข้อมูล'
-        : isEdit
-            ? 'ปรับแก้ข้อมูลบัญชีพร้อมเพย์ที่มีอยู่'
-            : 'เพิ่มบัญชีพร้อมเพย์ใหม่สำหรับรับชำระใน POS';
-
     return (
         <div style={pageStyles.container}>
             <UIPageHeader
                 title={modeTitle}
-                subtitle={modeSubtitle}
                 icon={<SettingOutlined />}
                 onBack={() => router.push('/pos/settings')}
                 actions={
                     isManage ? (
-                        <Space size={8} wrap>
+                        <Space size={10} wrap>
                             <Button icon={<ReloadOutlined />} onClick={() => fetchAccounts(false)} loading={loading || refreshing} />
                             <Button
                                 type="primary"
@@ -549,11 +486,11 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                 disabled={!canCreateAccounts}
                                 onClick={() => router.push('/pos/settings/payment-accounts/add')}
                             >
-                                เพิ่มพร้อมเพย์
+                                เพิ่มบัญชี
                             </Button>
                         </Space>
                     ) : (
-                        <Space size={8} wrap>
+                        <Space size={10} wrap>
                             {isEdit && editingAccount ? (
                                 <Button
                                     danger
@@ -564,9 +501,6 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                     ลบ
                                 </Button>
                             ) : null}
-                            <Button onClick={() => router.push('/pos/settings/payment-accounts/manage')}>
-                                กลับหน้ารายการ
-                            </Button>
                         </Space>
                     )
                 }
@@ -575,43 +509,31 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
             <PageContainer maxWidth={1100}>
                 {isManage ? (
                     <PageStack>
-                        <PageSection title="ภาพรวมบัญชีพร้อมเพย์">
-                            {loading ? (
-                                <SectionLoadingSkeleton compact={isMobile} rows={2} />
-                            ) : (
-                                <StatsCard total={stats.total} active={stats.active} inactive={stats.inactive} />
-                            )}
-                        </PageSection>
 
-                        <PageSection title="ค้นหาและตัวกรอง">
-                            {loading ? (
-                                <SectionLoadingSkeleton compact={isMobile} rows={3} />
-                            ) : (
-                                <div style={{ display: 'grid', gap: isMobile ? 8 : 10 }}>
-                                    <Input
-                                        size={isMobile ? 'middle' : 'large'}
-                                        prefix={<SearchOutlined style={{ color: '#94A3B8' }} />}
-                                        allowClear
-                                        placeholder="ค้นหาจากชื่อบัญชี หรือเลขพร้อมเพย์..."
-                                        value={searchText}
-                                        onChange={(event) => setSearchText(event.target.value)}
-                                    />
-                                    <Segmented<StatusFilter>
-                                        options={[
-                                            { label: `ทั้งหมด (${accounts.length})`, value: 'all' },
-                                            { label: `บัญชีหลัก (${stats.active})`, value: 'active' },
-                                            { label: `ไม่ใช้งาน (${stats.inactive})`, value: 'inactive' }
-                                        ]}
-                                        block={isMobile}
-                                        size={isMobile ? 'small' : 'middle'}
-                                        value={statusFilter}
-                                        onChange={(value) => setStatusFilter(value)}
-                                    />
-                                </div>
-                            )}
-                        </PageSection>
+                        <SearchBar>
+                            <SearchInput
+                                placeholder="ค้นหา"
+                                value={searchText}
+                                onChange={(val) => {
+                                    setSearchText(val);
+                                }}
+                            />
+                            <Space wrap size={10}>
+                                <ModalSelector<StatusFilter>
+                                    title="เลือกสถานะ"
+                                    options={[
+                                        { label: `ทั้งหมด`, value: 'all' },
+                                        { label: `ใช้งาน (หลัก)`, value: 'active' },
+                                        { label: `ไม่ใช้งาน`, value: 'inactive' }
+                                    ]}
+                                    value={statusFilter}
+                                    onChange={(value) => setStatusFilter(value)}
+                                    style={{ minWidth: 120 }}
+                                />
+                            </Space>
+                        </SearchBar>
 
-                        <PageSection title="รายการบัญชีพร้อมเพย์" extra={<span style={{ fontWeight: 600 }}>{filteredAccounts.length}</span>}>
+                        <PageSection title="รายการบัญชีพร้อมเพย์" extra={<span style={{ fontWeight: 600 }}>{total} รายการ</span>}>
                             {loading ? (
                                 <div style={{ display: 'grid', gap: isMobile ? 8 : 10 }}>
                                     {Array.from({ length: 3 }).map((_, index) => (
@@ -620,21 +542,21 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                         </Card>
                                     ))}
                                 </div>
-                            ) : filteredAccounts.length > 0 ? (
+                            ) : accounts.length > 0 ? (
                                 <div style={{ display: 'grid', gap: isMobile ? 8 : 10 }}>
-                                    {filteredAccounts.map((account) => (
+                                    {accounts.map((account) => (
                                         <div
                                             key={account.id}
                                             style={{
                                                 borderRadius: 16,
                                                 border: `1px solid ${account.is_active ? '#86efac' : '#e2e8f0'}`,
                                                 background: account.is_active ? '#f0fdf4' : '#fff',
-                                                padding: isMobile ? 10 : 14,
+                                                padding: isMobile ? '10px 12px' : '12px 16px',
                                                 display: 'flex',
                                                 alignItems: 'center',
                                                 justifyContent: 'space-between',
-                                                gap: 10,
-                                                flexWrap: 'wrap'
+                                                gap: 12,
+                                                flexWrap: isMobile ? 'wrap' : 'nowrap'
                                             }}
                                         >
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
@@ -663,56 +585,76 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                                 </div>
                                             </div>
 
-                                            <Space size={8} wrap>
+                                            <Space size={8} style={{ marginLeft: 'auto' }}>
                                                 {!account.is_active ? (
                                                     <Button
                                                         type="primary"
+                                                        size="small"
                                                         icon={<SwapOutlined />}
                                                         loading={activatingId === account.id}
                                                         disabled={!canUpdateAccounts}
                                                         onClick={() => handleActivate(account)}
+                                                        style={{ borderRadius: 10, height: 36, fontSize: 13 }}
                                                     >
                                                         ตั้งเป็นบัญชีหลัก
                                                     </Button>
                                                 ) : null}
                                                 <Button
+                                                    type="text"
                                                     icon={<EditOutlined />}
                                                     disabled={!canUpdateAccounts}
                                                     onClick={() => router.push(`/pos/settings/payment-accounts/edit/${account.id}`)}
-                                                >
-                                                    แก้ไข
-                                                </Button>
+                                                    style={{
+                                                        borderRadius: 10,
+                                                        color: '#0369a1',
+                                                        background: '#e0f2fe',
+                                                        width: 36,
+                                                        height: 36,
+                                                        padding: 0,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
+                                                    }}
+                                                />
                                                 <Button
+                                                    type="text"
                                                     danger
                                                     icon={<DeleteOutlined />}
                                                     onClick={() => handleDelete(account)}
                                                     disabled={account.is_active || !canDeleteAccounts}
-                                                >
-                                                    ลบ
-                                                </Button>
+                                                    style={{
+                                                        borderRadius: 10,
+                                                        background: '#fef2f2',
+                                                        width: 36,
+                                                        height: 36,
+                                                        padding: 0,
+                                                        display: 'flex',
+                                                        alignItems: 'center',
+                                                        justifyContent: 'center'
+                                                    }}
+                                                />
                                             </Space>
                                         </div>
                                     ))}
+
+                                    <div style={{ marginTop: 20, display: 'flex', justifyContent: 'center' }}>
+                                        <ListPagination
+                                            page={page}
+                                            total={total}
+                                            pageSize={pageSize}
+                                            onPageChange={setPage}
+                                            onPageSizeChange={setPageSize}
+                                            activeColor="#7C3AED"
+                                        />
+                                    </div>
                                 </div>
                             ) : (
                                 <UIEmptyState
-                                title={debouncedSearch.trim() ? 'ไม่พบบัญชีตามคำค้น' : 'ยังไม่มีบัญชีพร้อมเพย์'}
-                                description={
-                                    debouncedSearch.trim()
-                                        ? 'ลองเปลี่ยนคำค้นหาหรือฟิลเตอร์'
-                                        : 'เพิ่มบัญชีแรกเพื่อเริ่มรับชำระเงินผ่านระบบ POS'
-                                }
-                                action={
-                                    !debouncedSearch.trim() ? (
-                                        <Button
-                                            type="primary"
-                                            icon={<PlusOutlined />}
-                                            disabled={!canCreateAccounts}
-                                            onClick={() => router.push('/pos/settings/payment-accounts/add')}
-                                        >
-                                            เพิ่มบัญชีแรก
-                                        </Button>
-                                        ) : null
+                                    title={debouncedSearch.trim() ? 'ไม่พบบัญชีตามคำค้น' : 'ยังไม่มีบัญชีพร้อมเพย์'}
+                                    description={
+                                        debouncedSearch.trim()
+                                            ? 'ลองเปลี่ยนคำค้นหาหรือฟิลเตอร์'
+                                            : 'เพิ่มบัญชีแรกเพื่อเริ่มรับชำระเงินผ่านระบบ POS'
                                     }
                                 />
                             )}
@@ -755,13 +697,12 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                                 type="info"
                                                 icon={<InfoCircleOutlined />}
                                                 message="รองรับเฉพาะพร้อมเพย์"
-                                                description="หน้าจอนี้รองรับการเพิ่ม/แก้ไขบัญชีพร้อมเพย์เท่านั้น"
                                                 style={{ marginBottom: 16 }}
                                             />
 
                                             <Form.Item
                                                 name="account_name"
-                                                label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อบัญชี</span>}
+                                                label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อบัญชี <span style={{ color: '#ff4d4f' }}>*</span></span>}
                                                 rules={[
                                                     { required: true, message: 'กรุณากรอกชื่อบัญชี' },
                                                     { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
@@ -769,7 +710,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                             >
                                                 <Input
                                                     size={isMobile ? 'middle' : 'large'}
-                                                    placeholder="เช่น ร้านกาแฟสาขาหลัก"
+                                                    placeholder=""
                                                     style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
                                                     maxLength={100}
                                                 />
@@ -777,7 +718,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
 
                                             <Form.Item
                                                 name="account_number"
-                                                label={<span style={{ fontWeight: 600, color: '#334155' }}>เลขพร้อมเพย์</span>}
+                                                label={<span style={{ fontWeight: 600, color: '#334155' }}>เลขพร้อมเพย์ <span style={{ color: '#ff4d4f' }}>*</span></span>}
                                                 validateTrigger={['onBlur', 'onSubmit']}
                                                 rules={[
                                                     { required: true, message: 'กรุณากรอกเลขพร้อมเพย์' },
@@ -786,8 +727,8 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                                             const normalized = normalizeDigits(value || '');
                                                             if (!normalized) return;
 
-                                                            if (normalized.length !== 10 && normalized.length !== 13) {
-                                                                throw new Error('เลขพร้อมเพย์ต้องมีความยาว 10 หรือ 13 หลัก');
+                                                            if (normalized.length !== 10) {
+                                                                throw new Error('เลขพร้อมเพย์ต้องมีความยาว 10 หลัก');
                                                             }
 
                                                             const duplicated = accounts.some((item) =>
@@ -804,11 +745,11 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                             >
                                                 <Input
                                                     size={isMobile ? 'middle' : 'large'}
-                                                    placeholder="08xxxxxxxx หรือเลข 13 หลัก"
+                                                    placeholder=""
                                                     style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
-                                                    maxLength={13}
+                                                    maxLength={10}
                                                     onChange={(event) => {
-                                                        form.setFieldValue('account_number', normalizeDigits(event.target.value).slice(0, 13));
+                                                        form.setFieldValue('account_number', normalizeDigits(event.target.value).slice(0, 10));
                                                     }}
                                                 />
                                             </Form.Item>
@@ -830,7 +771,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                             >
                                                 <Input
                                                     size={isMobile ? 'middle' : 'large'}
-                                                    placeholder="08xxxxxxxx"
+                                                    placeholder=""
                                                     style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
                                                     maxLength={10}
                                                     onChange={(event) => {
@@ -846,7 +787,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                             >
                                                 <TextArea
                                                     rows={3}
-                                                    placeholder="เช่น ใช้สำหรับหน้าร้านชั้น 1"
+                                                    placeholder=""
                                                     maxLength={255}
                                                     style={{ borderRadius: 12, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
                                                 />
@@ -910,7 +851,6 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                                     <Text strong>รายละเอียดรายการ</Text>
                                                 </div>
                                                 <div style={{ display: 'grid', gap: 8 }}>
-                                                    <Text type="secondary">ID: {editingAccount.id}</Text>
                                                     <Text type="secondary">สร้างเมื่อ: {formatDate(editingAccount.created_at)}</Text>
                                                     <Text type="secondary">อัปเดตเมื่อ: {formatDate(editingAccount.updated_at)}</Text>
                                                     <Text type="secondary">สถานะ: {editingAccount.is_active ? 'บัญชีหลัก' : 'ยังไม่ใช้งาน'}</Text>

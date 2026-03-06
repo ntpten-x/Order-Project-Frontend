@@ -1,7 +1,7 @@
 ﻿import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Modal, Input, Button, Typography, Space, Divider, InputNumber, Tag, message } from 'antd';
 import Image from '../../../../../components/ui/image/SmartImage';
-import { PlusOutlined, MinusOutlined, SaveOutlined, CloseOutlined, InfoCircleOutlined, DeleteOutlined } from '@ant-design/icons';
+import { PlusOutlined, MinusOutlined, SaveOutlined, InfoCircleOutlined, DeleteOutlined } from '@ant-design/icons';
 import { SalesOrderItem } from '../../../../../types/api/pos/salesOrderItem';
 import { orderDetailColors, modalStyles } from '../../../../../theme/pos/orders/style';
 import { calculateItemTotal, formatCurrency } from '../../../../../utils/orders';
@@ -104,7 +104,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
             width={500}
             destroyOnHidden
             centered
-            closable={false}
+            closable={true}
             key={item?.id || 'edit-modal'}
             styles={{ 
                 body: {
@@ -123,24 +123,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                 <Text strong style={{ fontSize: 18, flex: 1, color: orderDetailColors.text, lineHeight: 1.4 }}>
                     แก้ไขรายการสินค้า
                 </Text>
-                <Button
-                    type="text"
-                    icon={<CloseOutlined />}
-                    onClick={onClose}
-                    aria-label="ปิด"
-                    style={{
-                        height: 44,
-                        width: 44,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        borderRadius: 12,
-                        color: orderDetailColors.textSecondary,
-                        background: orderDetailColors.backgroundSecondary,
-                        border: `1px solid ${orderDetailColors.border}`,
-                    }}
-                    className="scale-hover"
-                />
+
             </div>
 
             {/* Scrollable Content */}
@@ -198,7 +181,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                 {/* Toppings / Details Section */}
                 <div style={{ marginBottom: 24 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                        <Text strong style={{ fontSize: 16, color: orderDetailColors.text }}>ตัวเลือกเพิ่มเติม (Topping)</Text>
+                        <Text strong style={{ fontSize: 16, color: orderDetailColors.text }}>เพิ่มเติม</Text>
                         <Button
                             type="text"
                             icon={<PlusOutlined style={{ fontSize: 12 }} />}
@@ -218,7 +201,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                             }}
                             className="scale-hover"
                         >
-                            เพิ่มตัวเลือก
+                            เพิ่ม
                         </Button>
                     </div>
 
@@ -245,7 +228,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                                     border: `1px solid ${orderDetailColors.border}`,
                                 }}>
                                     <Input
-                                        placeholder="ชื่อตัวเลือก"
+                                        placeholder="รายการ"
                                         value={detail.detail_name}
                                         onChange={(e) => handleUpdateDetail(index, 'detail_name', e.target.value)}
                                         style={{ flex: 2, borderRadius: 10, height: 44, fontSize: 15 }}
@@ -333,7 +316,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, onCl
                 {/* Compact Notes */}
                 <div style={{ marginBottom: 24 }}>
                     <Text strong style={{ display: 'block', marginBottom: 10, fontSize: 16, color: orderDetailColors.text }}>
-                        หมายเหตุ / ความต้องการเพิ่มเติม
+                        หมายเหตุ
                     </Text>
                     <TextArea
                         value={notes}

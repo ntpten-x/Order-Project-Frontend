@@ -13,6 +13,7 @@ export const PAGE_PERMISSION_MAP: Array<{ prefix: string; requirement: Permissio
     { prefix: "/branch", requirement: { resourceKey: "branches.page", action: "view" } },
     { prefix: "/audit", requirement: { resourceKey: "audit.page", action: "view" } },
     { prefix: "/Health-System", requirement: { resourceKey: "health_system.page", action: "view" } },
+    { prefix: "/print-setting", requirement: { resourceKey: "print_settings.page", action: "view" } },
 
     // POS settings: split add/edit/manage by permission.
     { prefix: "/pos/settings/payment-accounts/manage", requirement: { resourceKey: "payment_accounts.page", action: "update" } },
@@ -35,6 +36,7 @@ export const PAGE_PERMISSION_MAP: Array<{ prefix: string; requirement: Permissio
     { prefix: "/pos/paymentMethod/manager/edit", requirement: { resourceKey: "payment_method.page", action: "update" } },
     { prefix: "/pos/paymentMethod/manager", requirement: { resourceKey: "payment_method.page", action: "update" } },
     { prefix: "/pos/paymentMethod", requirement: { resourceKey: "payment_method.page", action: "view" } },
+    { prefix: "/pos/qr-code", requirement: { resourceKey: "tables.page", action: "view" } },
     { prefix: "/pos/tables/manager/add", requirement: { resourceKey: "tables.page", action: "create" } },
     { prefix: "/pos/tables/manager/edit", requirement: { resourceKey: "tables.page", action: "update" } },
     { prefix: "/pos/tables/manager", requirement: { resourceKey: "tables.page", action: "update" } },
@@ -52,6 +54,7 @@ export const PAGE_PERMISSION_MAP: Array<{ prefix: string; requirement: Permissio
     { prefix: "/pos/shiftHistory", requirement: { resourceKey: "shifts.page", action: "view" } },
     { prefix: "/pos/shift", requirement: { resourceKey: "shifts.page", action: "view" } },
     { prefix: "/pos/dashboard", requirement: { resourceKey: "reports.sales.page", action: "view" } },
+    { prefix: "/pos/list", requirement: { resourceKey: "orders.page", action: "view" } },
     { prefix: "/pos/orders", requirement: { resourceKey: "orders.page", action: "view" } },
 
     // POS channel buying flows: require create permission (view-only users can still see channel lists).

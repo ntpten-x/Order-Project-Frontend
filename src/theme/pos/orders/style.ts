@@ -569,6 +569,10 @@ export const orderDetailStyles = {
     color: orderColors.success,
     marginTop: 2,
     paddingLeft: 0,
+    wordBreak: 'break-word',
+    overflowWrap: 'break-word',
+    whiteSpace: 'pre-wrap',
+    maxWidth: '100%',
   } as CSSProperties,
 
   // Empty State
@@ -753,7 +757,7 @@ export const orderDetailStyles = {
   } as CSSProperties,
 
   priceTag: {
-    fontSize: 16,
+    fontSize: 12,
     color: orderColors.primary,
     fontWeight: 600,
   } as CSSProperties,
@@ -903,6 +907,9 @@ export const addItemsModalStyles = {
     borderRadius: 14,
     height: 48,
     border: `1px solid ${orderColors.border}`,
+    display: 'flex',
+    alignItems: 'center',
+    fontSize: 16,
   } as CSSProperties,
 
   // Product grid
@@ -1912,6 +1919,31 @@ export const ordersResponsiveStyles = `
   }
 
   /* ===== Utilities ===== */
+  .card-header-right {
+    display: flex !important;
+    flex-direction: column !important;
+    align-items: flex-end !important;
+    gap: 8px !important;
+  }
+
+  .header-bulk-actions-container {
+    display: flex !important;
+    justify-content: flex-end !important;
+    width: 100% !important;
+  }
+
+  @media (max-width: 767px) {
+    .card-header-right {
+      flex-direction: row !important;
+      align-items: center !important;
+      gap: 8px !important;
+    }
+
+    .header-bulk-actions-container {
+      display: none !important;
+    }
+  }
+
   .hide-on-mobile {
     display: none !important;
   }

@@ -1,24 +1,15 @@
 ﻿"use client";
 
-import jsPDF from "jspdf";
-import autoTable from "jspdf-autotable";
 import * as XLSX from "xlsx";
 import dayjs from "dayjs";
 import "dayjs/locale/th";
 import { resolveImageSource } from "./image/source";
+import { PrintDocumentSetting } from "../types/api/pos/printSettings";
+import { buildPageMarginCss, buildPageSizeCss } from "./print-settings/runtime";
+import { createDefaultDocumentSetting, toCssLength } from "./print-settings/defaults";
+import { applyWorkbookPageSetup, downloadWorkbookBytes } from "./print-settings/excelPageSetup";
 
 dayjs.locale("th");
-
-type AutoTableDocument = jsPDF & {
-  lastAutoTable?: {
-    finalY: number;
-  };
-};
-
-const getLastAutoTableY = (pdf: jsPDF): number => {
-  const table = (pdf as AutoTableDocument).lastAutoTable;
-  return table?.finalY ?? 0;
-};
 
 const formatMoney = (value: number): string => `฿${Number(value || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 const formatDate = (value: string): string => dayjs(value).format("DD/MM/YYYY");
@@ -34,8 +25,8 @@ const STATUS_THAI: Record<string, string> = {
   Completed: "เสร็จสิ้น",
   Cancelled: "ยกเลิก",
   Pending: "รอดำเนินการ",
-  Cooking: "กำลังทำ",
-  Served: "เสิร์ฟแล้ว",
+  Cooking: "รอดำเนินการ",
+  Served: "รอดำเนินการ",
   WaitingForPayment: "รอชำระ",
 };
 
@@ -93,21 +84,6 @@ export interface SalesReportBranding {
   logoUrl?: string;
   primaryColor?: string;
   secondaryColor?: string;
-}
-
-export interface ShiftSummaryExport {
-  shift_id: string;
-  user_name: string;
-  open_time: string;
-  close_time: string;
-  start_amount: number;
-  expected_amount: number;
-  end_amount: number;
-  diff_amount: number;
-  total_sales: number;
-  cash_sales: number;
-  qr_sales: number;
-  order_count: number;
 }
 
 function parseHexColor(hex: string | undefined, fallback: [number, number, number]): [number, number, number] {
@@ -168,6 +144,41 @@ function colorToCss(color: [number, number, number]): string {
 export interface SalesReportPdfOptions {
   targetWindow?: Window | null;
   autoPrint?: boolean;
+  documentSetting?: PrintDocumentSetting | null;
+  locale?: string;
+}
+
+export interface SalesReportExcelOptions {
+  documentSetting?: PrintDocumentSetting | null;
+}
+
+function getEffectiveDocumentSize(setting: Pick<PrintDocumentSetting, "width" | "height" | "height_mode" | "orientation" | "unit">) {
+  const baseWidth = setting.width;
+  const baseHeight =
+    setting.height_mode === "fixed" && setting.height != null ? setting.height : null;
+
+  if (setting.orientation === "landscape" && baseHeight != null) {
+    return { width: baseHeight, height: baseWidth };
+  }
+
+  return { width: baseWidth, height: baseHeight };
+}
+
+function convertToInches(value: number, unit: PrintDocumentSetting["unit"]): number {
+  return unit === "in" ? value : value / 25.4;
+}
+
+function buildWorksheetMargins(
+  setting: Pick<PrintDocumentSetting, "margin_top" | "margin_right" | "margin_bottom" | "margin_left" | "unit">
+): XLSX.MarginInfo {
+  return {
+    top: convertToInches(setting.margin_top, setting.unit),
+    right: convertToInches(setting.margin_right, setting.unit),
+    bottom: convertToInches(setting.margin_bottom, setting.unit),
+    left: convertToInches(setting.margin_left, setting.unit),
+    header: 0.2,
+    footer: 0.2,
+  };
 }
 
 export const exportSalesReportPDF = async (
@@ -178,6 +189,20 @@ export const exportSalesReportPDF = async (
   options: SalesReportPdfOptions = {}
 ): Promise<void> => {
   const summary = payload.summary || buildFallbackSummary(payload.daily_sales);
+  const documentSetting = options.documentSetting ?? createDefaultDocumentSetting("order_summary");
+  const pageSizeCss = buildPageSizeCss(documentSetting);
+  const pagePaddingCss = buildPageMarginCss(documentSetting);
+  const effectiveSize = getEffectiveDocumentSize(documentSetting);
+  const sheetWidthCss = toCssLength(effectiveSize.width, documentSetting.unit);
+  const sheetHeightCss = effectiveSize.height == null ? "auto" : toCssLength(effectiveSize.height, documentSetting.unit);
+  const fontScale = Math.max(documentSetting.font_scale, 70) / 100;
+  const densityScale = documentSetting.density === "compact" ? 0.9 : documentSetting.density === "spacious" ? 1.12 : 1;
+  const bodyFontSize = Math.max(11, Math.round(13 * fontScale));
+  const tableFontSize = Math.max(10, Math.round(12 * fontScale));
+  const headerTitleSize = Math.max(18, Math.round(20 * fontScale));
+  const sectionGap = Math.max(12, Math.round(14 * densityScale));
+  const cellPaddingY = Math.max(5, Math.round(6 * densityScale));
+  const cellPaddingX = Math.max(6, Math.round(8 * densityScale));
   const shopName = branding.shopName || "ร้านค้า POS";
   const branchName = branding.branchName;
   const primaryColor = parseHexColor(branding.primaryColor, [15, 118, 110]);
@@ -267,19 +292,22 @@ export const exportSalesReportPDF = async (
         <title>${escapeHtml(filename)}</title>
         <style>
           * { box-sizing: border-box; }
-          @page { size: A4 portrait; margin: 10mm; }
+          @page { size: ${pageSizeCss}; margin: 0; }
           body {
             margin: 0;
             background: #edf2f7;
             color: #111827;
             font-family: "Sarabun", "Tahoma", "Noto Sans Thai", sans-serif;
+            font-size: ${bodyFontSize}px;
+            line-height: ${Math.max(1.1, documentSetting.line_spacing).toFixed(2)};
           }
           .sheet {
-            width: 210mm;
+            width: ${sheetWidthCss};
+            min-height: ${sheetHeightCss};
             margin: 10mm auto;
             background: #ffffff;
             border-radius: 10px;
-            padding: 12mm;
+            padding: ${pagePaddingCss};
             box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
           }
           .header {
@@ -308,7 +336,7 @@ export const exportSalesReportPDF = async (
           }
           .header-title {
             margin: 0;
-            font-size: 20px;
+            font-size: ${headerTitleSize}px;
             line-height: 1.2;
           }
           .header-meta {
@@ -317,7 +345,7 @@ export const exportSalesReportPDF = async (
             opacity: 0.95;
           }
           .section {
-            margin-top: 14px;
+            margin-top: ${sectionGap}px;
           }
           .section-title {
             margin: 0 0 6px;
@@ -328,13 +356,13 @@ export const exportSalesReportPDF = async (
           .report-table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 12px;
+            font-size: ${tableFontSize}px;
           }
           .summary-table td,
           .report-table th,
           .report-table td {
             border: 1px solid #dbe4f0;
-            padding: 6px 8px;
+            padding: ${cellPaddingY}px ${cellPaddingX}px;
             vertical-align: top;
           }
           .report-table th {
@@ -359,11 +387,11 @@ export const exportSalesReportPDF = async (
           @media print {
             body { background: #ffffff; }
             .sheet {
-              width: auto;
+              width: ${sheetWidthCss};
+              min-height: ${sheetHeightCss};
               margin: 0;
               box-shadow: none;
               border-radius: 0;
-              padding: 0;
             }
           }
         </style>
@@ -475,10 +503,13 @@ export const exportSalesReportExcel = (
   payload: SalesReportExportPayload,
   dateRange: [string, string],
   rangeLabel: string,
-  branding: SalesReportBranding = {}
+  branding: SalesReportBranding = {},
+  options: SalesReportExcelOptions = {}
 ) => {
   const workbook = XLSX.utils.book_new();
   const summary = payload.summary || buildFallbackSummary(payload.daily_sales);
+  const documentSetting = options.documentSetting ?? createDefaultDocumentSetting("order_summary");
+  const worksheetMargins = buildWorksheetMargins(documentSetting);
 
   const summaryRows = [
     ["รายงานสรุปผลการขาย"],
@@ -501,6 +532,7 @@ export const exportSalesReportExcel = (
 
   const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
   summarySheet["!cols"] = [{ wch: 32 }, { wch: 24 }];
+  summarySheet["!margins"] = worksheetMargins;
   XLSX.utils.book_append_sheet(workbook, summarySheet, "สรุปภาพรวม");
 
   const dailyHeader = [
@@ -546,6 +578,7 @@ export const exportSalesReportExcel = (
     { wch: 12 },
     { wch: 12 },
   ];
+  dailySheet["!margins"] = worksheetMargins;
   XLSX.utils.book_append_sheet(workbook, dailySheet, "ยอดขายรายวัน");
 
   const topItemHeader = ["อันดับ", "สินค้า", "จำนวนขาย", "ยอดขายรวม"];
@@ -557,6 +590,7 @@ export const exportSalesReportExcel = (
   ]);
   const topSheet = XLSX.utils.aoa_to_sheet([topItemHeader, ...topItemRows]);
   topSheet["!cols"] = [{ wch: 10 }, { wch: 34 }, { wch: 14 }, { wch: 16 }];
+  topSheet["!margins"] = worksheetMargins;
   XLSX.utils.book_append_sheet(workbook, topSheet, "สินค้าขายดี");
 
   const recentOrders = payload.recent_orders || [];
@@ -573,65 +607,12 @@ export const exportSalesReportExcel = (
 
     const recentSheet = XLSX.utils.aoa_to_sheet([recentHeader, ...recentRows]);
     recentSheet["!cols"] = [{ wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 18 }, { wch: 12 }, { wch: 14 }];
+    recentSheet["!margins"] = worksheetMargins;
     XLSX.utils.book_append_sheet(workbook, recentSheet, "ออเดอร์ล่าสุด");
   }
 
   const filename = `รายงานสรุปผลการขาย_${rangeLabel.replace(/\s+/g, "_")}_${dateRange[0]}_${dateRange[1]}.xlsx`;
-  XLSX.writeFile(workbook, filename);
-};
-
-export const exportShiftSummaryPDF = (
-  shift: ShiftSummaryExport,
-  orders: { order_no: string; total_amount: number; payment_method: string; create_date: string }[],
-  shopName: string = "ร้านค้า POS"
-) => {
-  const doc = new jsPDF();
-  const pageWidth = doc.internal.pageSize.getWidth();
-
-  doc.setFontSize(16);
-  doc.text(shopName, pageWidth / 2, 16, { align: "center" });
-  doc.setFontSize(13);
-  doc.text("รายงานสรุปกะ", pageWidth / 2, 24, { align: "center" });
-  doc.setFontSize(10);
-  doc.text(`พนักงาน: ${shift.user_name}`, 14, 34);
-  doc.text(`เวลาเปิดกะ: ${shift.open_time}`, 14, 40);
-  doc.text(`เวลาปิดกะ: ${shift.close_time}`, 14, 46);
-
-  autoTable(doc, {
-    startY: 52,
-    head: [["หัวข้อ", "ค่า"]],
-    body: [
-      ["เงินเริ่มต้น", formatMoney(shift.start_amount)],
-      ["เงินที่ควรมี", formatMoney(shift.expected_amount)],
-      ["เงินสดจริง", formatMoney(shift.end_amount)],
-      ["ผลต่าง", formatMoney(shift.diff_amount)],
-      ["ยอดขายรวม", formatMoney(shift.total_sales)],
-      ["ยอดเงินสด", formatMoney(shift.cash_sales)],
-      ["ยอด QR", formatMoney(shift.qr_sales)],
-      ["จำนวนออเดอร์", Number(shift.order_count || 0).toLocaleString()],
-    ],
-    theme: "grid",
-    headStyles: { fillColor: [15, 118, 110] },
-    styles: { fontSize: 9 },
-    columnStyles: { 1: { halign: "right" } },
-  });
-
-  autoTable(doc, {
-    startY: getLastAutoTableY(doc) + 8,
-    head: [["เลขออเดอร์", "เวลา", "วิธีชำระ", "ยอดรวม"]],
-    body: orders.map((order) => [
-      `#${order.order_no}`,
-      dayjs(order.create_date).format("HH:mm"),
-      order.payment_method,
-      formatMoney(order.total_amount),
-    ]),
-    theme: "grid",
-    headStyles: { fillColor: [30, 64, 175] },
-    styles: { fontSize: 9 },
-    columnStyles: { 3: { halign: "right" } },
-  });
-
-  doc.setFontSize(9);
-  doc.text(`พิมพ์เมื่อ: ${dayjs().format("DD/MM/YYYY HH:mm:ss")}`, pageWidth / 2, getLastAutoTableY(doc) + 12, { align: "center" });
-  doc.save(`รายงานสรุปกะ_${shift.user_name}_${dayjs(shift.close_time).format("YYYYMMDD_HHmm")}.pdf`);
+  const workbookBytes = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
+  const patchedWorkbookBytes = applyWorkbookPageSetup(workbookBytes, documentSetting);
+  downloadWorkbookBytes(patchedWorkbookBytes, filename);
 };

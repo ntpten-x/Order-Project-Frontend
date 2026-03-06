@@ -225,15 +225,10 @@ export default function ShiftPage() {
 
             <UIPageHeader
                 title="กะการทำงาน"
-                subtitle={
-                    currentShift
-                        ? `เปิดกะเมื่อ ${dayjs(currentShift.open_time).format('DD/MM/YYYY HH:mm')} น.`
-                        : 'ยังไม่เปิดกะ'
-                }
                 icon={<ClockCircleOutlined />}
                 onBack={() => router.back()}
                 actions={
-                    <Space size={8}>
+                    <Space size={10}>
                         <Button icon={<ReloadOutlined />} onClick={handleRefresh} />
                         <Button icon={<HistoryOutlined />} onClick={() => router.push('/pos/shiftHistory')}>
                             ประวัติกะ
@@ -244,7 +239,7 @@ export default function ShiftPage() {
                             </Button>
                         ) : canCloseShift ? (
                             <Button danger icon={<StopOutlined />} onClick={() => setCloseShiftVisible(true)}>
-                                ปิดกะ
+                                ปิดการขาย
                             </Button>
                         ) : null}
                     </Space>
@@ -258,14 +253,9 @@ export default function ShiftPage() {
                             <UIEmptyState
                                 title="ยังไม่มีกะที่เปิดใช้งาน"
                                 description="กรุณาเปิดกะเพื่อเริ่มต้นการขายและบันทึกสรุปรายวัน"
-                                action={canCreateShifts ? (
-                                    <Button type="primary" icon={<PlayCircleOutlined />} onClick={() => setOpenShiftVisible(true)}>
-                                        เปิดกะการทำงาน
-                                    </Button>
-                                ) : null}
                             />
                             {!canCreateShifts ? (
-                                <AlertBox text="คุณไม่มีสิทธิ์เปิดกะ (ต้องมีสิทธิ์ shifts.page:create)" />
+                                <AlertBox text="คุณไม่มีสิทธิ์เปิดกะ" />
                             ) : null}
                         </PageSection>
                     ) : (
@@ -304,7 +294,7 @@ export default function ShiftPage() {
                                 </div>
 
                                 {!canCloseShift ? (
-                                    <AlertBox text="คุณไม่มีสิทธิ์ปิดกะนี้ (เฉพาะ Admin/Manager หรือผู้เปิดกะ)" />
+                                    <AlertBox text="คุณไม่มีสิทธิ์ปิดกะนี้ (เฉพาะ  ผู้จัดการหรือผู้เปิดกะ)" />
                                 ) : null}
                             </PageSection>
 
@@ -321,13 +311,13 @@ export default function ShiftPage() {
                                         onRetry={() => refetchCurrentSummary()}
                                     />
                                 ) : summary ? (
-                                    <div style={{ display: 'grid', gap: 12, gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+                                    <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(2, 1fr)' }}>
                                         <MetricCard icon={<RiseOutlined />} label="ยอดขายรวม" value={`฿${totalSales.toLocaleString()}`} color="#10b981" />
                                         <MetricCard icon={<ShoppingOutlined />} label="กำไรสุทธิ" value={`฿${netProfit.toLocaleString()}`} color="#0ea5e9" />
                                         <MetricCard icon={<WalletOutlined />} label="เงินทอนเริ่มต้น" value={`฿${startAmount.toLocaleString()}`} color="#f59e0b" />
                                         <MetricCard icon={<SafetyCertificateOutlined />} label="เงินสดในลิ้นชัก" value={`฿${cashInDrawer.toLocaleString()}`} color="#7c3aed" />
-                                        <MetricCard icon={<SafetyCertificateOutlined />} label="ยอดคาดหวังปิดกะ" value={`฿${expectedAmount.toLocaleString()}`} color="#334155" />
-                                        <MetricCard icon={<SafetyCertificateOutlined />} label="ผลต่างปิดกะ" value={`฿${diffAmount.toLocaleString()}`} color={diffAmount >= 0 ? '#059669' : '#dc2626'} />
+                                        <MetricCard icon={<SafetyCertificateOutlined />} label="ยอดคาดหวัง" value={`฿${expectedAmount.toLocaleString()}`} color="#334155" />
+                                        <MetricCard icon={<SafetyCertificateOutlined />} label="ผลต่าง" value={`฿${diffAmount.toLocaleString()}`} color={diffAmount >= 0 ? '#059669' : '#dc2626'} />
                                         <MetricCard icon={<WalletOutlined />} label="ยอดนับจริงล่าสุด" value={endAmount > 0 ? `฿${endAmount.toLocaleString()}` : '-'} color="#64748b" />
                                     </div>
                                 ) : (
@@ -337,11 +327,11 @@ export default function ShiftPage() {
 
                             <PageSection title="รายละเอียดวิธีชำระเงิน">
                                 {Object.keys(paymentMethods).length > 0 ? (
-                                    <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+                                    <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(2, 1fr)' }}>
                                         {Object.entries(paymentMethods).map(([method, amount]) => (
                                             <Card key={method} size="small" style={{ borderRadius: 12 }}>
-                                                <Text type="secondary">{method}</Text>
-                                                <Title level={5} style={{ margin: '6px 0 0' }}>
+                                                <Text type="secondary" style={{ fontSize: 13 }}>{method}</Text>
+                                                <Title level={5} style={{ margin: '4px 0 0', fontSize: 16 }}>
                                                     ฿{toNumber(amount).toLocaleString()}
                                                 </Title>
                                             </Card>

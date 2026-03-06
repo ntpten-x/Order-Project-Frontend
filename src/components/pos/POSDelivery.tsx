@@ -11,7 +11,9 @@ import { getPostCreateOrderNavigationPath } from "../../utils/channels";
 import { OrderType, CreateSalesOrderDTO } from "../../types/api/pos/salesOrder";
 import { useGlobalLoading } from "../../contexts/pos/GlobalLoadingContext";
 import POSPageLayout from "./shared/POSPageLayout";
+import { POSHeaderBadge } from "./shared/style";
 import { getCsrfTokenCached } from "../../utils/pos/csrf";
+import { deliveryService } from "../../services/pos/delivery.service";
 
 interface POSDeliveryProps {
     providerId: string;
@@ -21,22 +23,27 @@ interface POSDeliveryProps {
 export default function POSDelivery({ providerId, deliveryCode }: POSDeliveryProps) {
     const { showLoading, hideLoading } = useGlobalLoading();
     const [csrfToken, setCsrfToken] = useState<string>("");
+    const [providerName, setProviderName] = useState<string>("");
     const router = useRouter(); 
 
     useEffect(() => {
         const init = async () => {
             showLoading();
             try {
-                const token = await getCsrfTokenCached();
+                const [token, provider] = await Promise.all([
+                    getCsrfTokenCached(),
+                    deliveryService.getById(providerId)
+                ]);
                 if (token) setCsrfToken(token);
+                if (provider) setProviderName(provider.delivery_name);
             } catch {
-                message.error("ไม่สามารถเตรียมความปลอดภัยการทำรายการได้");
+                message.error("ไม่สามารถเตรียมความปลอดภัยหรือโหลดข้อมูลผู้ให้บริการได้");
             } finally {
                 hideLoading();
             }
         };
         init();
-    }, [showLoading, hideLoading]);
+    }, [providerId, showLoading, hideLoading]);
 
     const { 
         cartItems, 
@@ -91,10 +98,20 @@ export default function POSDelivery({ providerId, deliveryCode }: POSDeliveryPro
 
     return (
         <POSPageLayout 
-            title="เดริเวอรี่ (Delivery)"
-            subtitle={`เดลิเวอรี่ ${deliveryCode}`}
+            title="เดริเวอรี่"
+            subtitle={
+                <POSHeaderBadge>
+                    {providerName && (
+                        <span style={{ fontWeight: 400, fontSize: '0.85em', opacity: 0.8, marginRight: 8 }}>
+                            ({providerName})
+                        </span>
+                    )}
+                    *{deliveryCode} 
+                </POSHeaderBadge>
+            }
             icon={<RocketOutlined style={{ fontSize: 28 }} />}
             onConfirmOrder={handleCreateOrder}
+            subtitlePosition="aside"
         />
     );
 }

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleApiRouteError } from "../../_utils/route-error";
 
+export const dynamic = "force-dynamic";
+
 /**
  * This route allows the frontend to retrieve the HttpOnly 'token' cookie.
  * This is used to pass the token explicitly to Socket.IO 'auth' object

@@ -36,9 +36,16 @@ interface POSPageLayoutProps {
   subtitle: React.ReactNode;
   icon: React.ReactNode;
   onConfirmOrder: () => Promise<void>;
+  subtitlePosition?: 'below' | 'aside';
 }
 
-export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }: POSPageLayoutProps) {
+export default function POSPageLayout({ 
+  title, 
+  subtitle, 
+  icon, 
+  onConfirmOrder,
+  subtitlePosition = 'below'
+}: POSPageLayoutProps) {
   const { isLoading: isGlobalLoading } = useGlobalLoading();
   const router = useRouter();
   const [page, setPage] = useState(1);
@@ -272,7 +279,13 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
       <POSSharedStyles />
 
       <div style={posLayoutStyles.container}>
-        <POSHeaderBar title={title} subtitle={subtitle} icon={icon} onBack={handleBack} />
+        <POSHeaderBar 
+          title={title} 
+          subtitle={subtitle} 
+          icon={icon} 
+          onBack={handleBack} 
+          subtitlePosition={subtitlePosition}
+        />
         <POSCategoryFilterBar
           categories={categories}
           searchQuery={searchQuery}
@@ -319,14 +332,18 @@ export default function POSPageLayout({ title, subtitle, icon, onConfirmOrder }:
               </div>
               
               {/* Pagination */}
-              <div style={posLayoutStyles.paginationContainer}>
+              <div className="pos-pagination-container" style={{ ...posLayoutStyles.paginationContainer, position: 'relative' }}>
+                <div className="pos-pagination-total" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)' }}>
+                   <Text type="secondary" style={{ fontSize: 13 }}>
+                      ทั้งหมด {total} รายการ
+                   </Text>
+                </div>
                 <Pagination
                   current={page}
                   total={total}
                   pageSize={LIMIT}
                   onChange={(p) => setPage(p)}
                   showSizeChanger={false}
-                  showTotal={(total) => `ทั้งหมด ${total} รายการ`}
                 />
               </div>
             </>

@@ -15,6 +15,7 @@ import {
   RightOutlined,
   FireOutlined,
   WalletOutlined,
+  RocketOutlined,
 } from "@ant-design/icons";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { SalesOrder, OrderStatus, OrderType } from "../../../../types/api/pos/salesOrder";
@@ -36,6 +37,7 @@ import PageContainer from "../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../components/ui/page/PageSection";
 import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import PageState from "../../../../components/ui/states/PageState";
+import SmartImage from "../../../../components/ui/image/SmartImage";
 import type { CreatedSort } from "../../../../components/ui/pagination/ListPagination";
 import { DEFAULT_CREATED_SORT, parseCreatedSort } from "../../../../lib/list-sort";
 import RequireOpenShift from "../../../../components/pos/shared/RequireOpenShift";
@@ -49,23 +51,21 @@ dayjs.extend(relativeTime);
 type StatusTab = 'all' | 'in-progress' | 'waiting-payment';
 
 const STATUS_TABS: { key: StatusTab; label: string; icon: React.ReactNode; apiStatus: string }[] = [
-    { key: 'all', label: 'ทั้งหมด', icon: <ContainerOutlined />, apiStatus: 'Pending,Cooking,Served,WaitingForPayment' },
-    { key: 'in-progress', label: 'กำลังดำเนินการ', icon: <FireOutlined />, apiStatus: 'Pending,Cooking,Served' },
+    { key: 'all', label: 'ทั้งหมด', icon: <ContainerOutlined />, apiStatus: 'Pending,WaitingForPayment' },
+    { key: 'in-progress', label: 'กำลังดำเนินการ', icon: <FireOutlined />, apiStatus: 'Pending' },
     { key: 'waiting-payment', label: 'รอชำระเงิน', icon: <WalletOutlined />, apiStatus: 'WaitingForPayment' },
 ];
 
 // ── Channel Config ──
 const CHANNEL_CONFIG: Record<string, { icon: React.ReactNode; color: string; bg: string }> = {
     [OrderType.DineIn]: { icon: <ShopOutlined />, color: '#3B82F6', bg: '#EFF6FF' },
-    [OrderType.TakeAway]: { icon: <HomeOutlined />, color: '#F59E0B', bg: '#FFFBEB' },
+    [OrderType.TakeAway]: { icon: <HomeOutlined />, color: '#0EA5E9', bg: '#F0F9FF' },
     [OrderType.Delivery]: { icon: <CarOutlined />, color: '#EC4899', bg: '#FDF2F8' },
 };
 
 // ── Status Config ──
 const STATUS_CONFIG: Record<string, { color: string; bg: string; glow: string }> = {
     [OrderStatus.Pending]: { color: '#F59E0B', bg: '#FFFBEB', glow: 'rgba(245,158,11,0.15)' },
-    [OrderStatus.Cooking]: { color: '#3B82F6', bg: '#EFF6FF', glow: 'rgba(59,130,246,0.15)' },
-    [OrderStatus.Served]: { color: '#10B981', bg: '#ECFDF5', glow: 'rgba(16,185,129,0.15)' },
     [OrderStatus.WaitingForPayment]: { color: '#8B5CF6', bg: '#F5F3FF', glow: 'rgba(139,92,246,0.15)' },
 };
 
@@ -226,43 +226,29 @@ function POSOrdersPageContent() {
 
         // Filter out cancelled items for calculation
         const items = (order.items || []).filter(item => item.status !== ItemStatus.Cancelled);
-        if (items.length === 0) return order.status;
+        if (items.length === 0) return OrderStatus.Pending;
 
-        // If any item is cooking, entire order is Cooking
-        if (items.some(item => item.status === ItemStatus.Cooking)) {
-            return OrderStatus.Cooking;
-        }
-
-        // If no items cooking, but some are pending, it is Pending
-        if (items.some(item => item.status === ItemStatus.Pending)) {
+        // Legacy item states are collapsed into Pending/กำลังดำเนินการ.
+        if (items.some(item => item.status === ItemStatus.Pending || item.status === ItemStatus.Cooking || item.status === ItemStatus.Served)) {
             return OrderStatus.Pending;
         }
 
-        // If all active items are served, it is Served
-        if (items.every(item => item.status === ItemStatus.Served)) {
-            return OrderStatus.Served;
-        }
-
-        return order.status;
+        return OrderStatus.Pending;
     }, []);
 
     // ── Stats ──
     const stats = useMemo(() => {
         let pending = 0;
-        let cooking = 0;
-        let served = 0;
         let waitingPayment = 0;
 
         orders.forEach(o => {
             const effStatus = getEffectiveStatus(o);
             if (effStatus === OrderStatus.Pending) pending++;
-            else if (effStatus === OrderStatus.Cooking) cooking++;
-            else if (effStatus === OrderStatus.Served) served++;
             else if (effStatus === OrderStatus.WaitingForPayment) waitingPayment++;
         });
 
-        const inProgress = pending + cooking + served;
-        return { pending, cooking, served, waitingPayment, inProgress, total };
+        const inProgress = pending;
+        return { pending, waitingPayment, inProgress, total };
     }, [orders, total, getEffectiveStatus]);
 
     const navigateToOrder = useCallback((order: SalesOrder) => {
@@ -445,8 +431,8 @@ function POSOrdersPageContent() {
                 <div style={{ marginBottom: 12 }}>
                     <Segmented<CreatedSort>
                         options={[
-                            { label: 'เก่าก่อน', value: 'old' },
-                            { label: 'ใหม่ก่อน', value: 'new' },
+                            { label: 'สั่งก่อน', value: 'old' },
+                            { label: 'สั่งล่าสุด', value: 'new' },
                         ]}
                         value={createdSort}
                         onChange={(value) => {
@@ -496,8 +482,7 @@ function POSOrdersPageContent() {
 
                                     const activeItems = order.items?.filter(i => i.status !== ItemStatus.Cancelled) || [];
                                     const totalQty = activeItems.reduce((sum, item) => sum + Number(item.quantity), 0) || 0;
-                                    const cookingQty = activeItems.filter(i => i.status === ItemStatus.Cooking).reduce((sum, item) => sum + Number(item.quantity), 0) || 0;
-                                    const servedQty = activeItems.filter(i => i.status === ItemStatus.Served).reduce((sum, item) => sum + Number(item.quantity), 0) || 0;
+                                    const inProgressQty = totalQty;
                                     const isUrgent = effStatus === OrderStatus.Pending && dayjs().diff(dayjs(order.create_date), 'minute') > 15;
 
                                     return (
@@ -527,14 +512,40 @@ function POSOrdersPageContent() {
                                                 alignItems: 'center',
                                                 padding: '14px 16px 10px',
                                             }}>
-                                                {/* Left: Order No + Status */}
+                                                {/* Left: Identifier + Status */}
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
                                                     <Text strong style={{ 
                                                         fontSize: 16, 
                                                         color: '#1E293B',
                                                         whiteSpace: 'nowrap',
                                                     }}>
-                                                        #{order.order_no}
+                                                        {order.order_type === OrderType.DineIn && (
+                                                            <span>🪑 โต๊ะ {order.table?.table_name || '-'}</span>
+                                                        )}
+                                                        {order.order_type === OrderType.TakeAway && (
+                                                            <span>🛍️ #{order.order_no?.substring(0, 11)}</span>
+                                                        )}
+                                                        {order.order_type === OrderType.Delivery && (
+                                                            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                                        {order.delivery?.logo ? (
+                                                                    <span style={{ width: 20, height: 20, borderRadius: 4, position: 'relative', overflow: 'hidden', display: 'inline-block' }}>
+                                                                        <SmartImage 
+                                                                            src={order.delivery.logo} 
+                                                                            alt={order.delivery.delivery_name || "Delivery Logo"} 
+                                                                            fill
+                                                                            style={{ objectFit: 'contain' }}
+                                                                            sizes="20px"
+                                                                        />
+                                                                    </span>
+                                                                ) : <RocketOutlined />}
+                                                                {order.delivery_code || order.order_no?.substring(0, 10)}
+                                                                {order.delivery?.delivery_name && (
+                                                                    <span style={{ fontSize: 13, color: '#64748B', fontWeight: 500 }}>
+                                                                        ({order.delivery.delivery_name})
+                                                                    </span>
+                                                                )}
+                                                            </span>
+                                                        )}
                                                     </Text>
                                                     <span style={{
                                                         display: 'inline-flex',
@@ -584,72 +595,20 @@ function POSOrdersPageContent() {
                                                 justifyContent: 'space-between',
                                                 gap: 12,
                                             }}>
-                                                {/* Left: Reference + Items + Time */}
+                                                {/* Left: Progress + Items + Time */}
                                                 <div style={{ flex: 1, minWidth: 0 }}>
-                                                    {/* Reference */}
-                                                    <div style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        gap: 6,
-                                                        marginBottom: 8,
-                                                    }}>
-                                                        {order.order_type === OrderType.DineIn && (
-                                                            <span style={{
-                                                                display: 'inline-flex', alignItems: 'center', gap: 4,
-                                                                padding: '3px 10px', borderRadius: 8,
-                                                                background: '#F0F9FF', color: '#0369A1',
-                                                                fontSize: 13, fontWeight: 600,
-                                                            }}>
-                                                                🪑 โต๊ะ {order.table?.table_name || '-'}
-                                                            </span>
-                                                        )}
-                                                        {order.order_type === OrderType.Delivery && (
-                                                            <span style={{
-                                                                display: 'inline-flex', alignItems: 'center', gap: 4,
-                                                                padding: '3px 10px', borderRadius: 8,
-                                                                background: '#FDF2F8', color: '#BE185D',
-                                                                fontSize: 13, fontWeight: 600,
-                                                            }}>
-                                                                📦 {order.delivery_code || 'ไม่ระบุ'}
-                                                            </span>
-                                                        )}
-                                                        {order.order_type === OrderType.TakeAway && (
-                                                            <span style={{
-                                                                display: 'inline-flex', alignItems: 'center', gap: 4,
-                                                                padding: '3px 10px', borderRadius: 8,
-                                                                background: '#FFFBEB', color: '#B45309',
-                                                                fontSize: 13, fontWeight: 600,
-                                                            }}>
-                                                                🛍️ สั่งกลับบ้าน
-                                                            </span>
-                                                        )}
-                                                    </div>
-
-                                                    {/* Status Progress Badges */}
-                                                    {(cookingQty > 0 || servedQty > 0) && (
+                                                    {/* Status Progress Badge */}
+                                                    {inProgressQty > 0 && (
                                                         <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-                                                            {cookingQty > 0 && (
-                                                                <span style={{
-                                                                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                                                                    padding: '3px 10px', borderRadius: 10,
-                                                                    background: '#EFF6FF', color: '#2563EB',
-                                                                    fontSize: 11, fontWeight: 700,
-                                                                    border: '1px solid #DBEAFE',
-                                                                }}>
-                                                                    🔥 {cookingQty} กำลังปรุง
-                                                                </span>
-                                                            )}
-                                                            {servedQty > 0 && (
-                                                                <span style={{
-                                                                    display: 'inline-flex', alignItems: 'center', gap: 4,
-                                                                    padding: '3px 10px', borderRadius: 10,
-                                                                    background: '#ECFDF5', color: '#059669',
-                                                                    fontSize: 11, fontWeight: 700,
-                                                                    border: '1px solid #D1FAE5',
-                                                                }}>
-                                                                    ✅ {servedQty} เสิร์ฟแล้ว
-                                                                </span>
-                                                            )}
+                                                            <span style={{
+                                                                display: 'inline-flex', alignItems: 'center', gap: 4,
+                                                                padding: '3px 10px', borderRadius: 10,
+                                                                background: '#FFF7ED', color: '#C2410C',
+                                                                fontSize: 11, fontWeight: 700,
+                                                                border: '1px solid #FED7AA',
+                                                            }}>
+                                                                ⏳ {inProgressQty} กำลังดำเนินการ
+                                                            </span>
                                                         </div>
                                                     )}
 
