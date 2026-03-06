@@ -7,7 +7,6 @@ import {
     App,
     Badge,
     Button,
-    Card,
     Empty,
     Input,
     Popover,
@@ -97,10 +96,6 @@ function getStatusCategoryOptions() {
     ];
 }
 
-function getStatusCategoryLabel(category: StatusCategory): string {
-    return category === "pending" ? "รอดำเนินการ" : "ได้รับแล้ว";
-}
-
 function getOrderTypeMeta(orderType: ServingBoardGroup["order_type"]) {
     switch (orderType) {
         case "DineIn":
@@ -169,12 +164,13 @@ function getDeliveryProviderLabel(sourceTitle: string): string {
     return sourceTitle.replace(/^delivery\s*/i, "").trim() || sourceTitle;
 }
 
-function sortCards(cards: ColumnCard[], tone: ColumnTone): ColumnCard[] {
+function sortCards(cards: ColumnCard[]): ColumnCard[] {
     return [...cards].sort((left, right) => {
         return dayjs(left.batch_created_at).valueOf() - dayjs(right.batch_created_at).valueOf();
     });
 }
 
+/* ─── Item Action Button ─── */
 function ItemActionButton({
     item,
     disabled,
@@ -202,9 +198,9 @@ function ItemActionButton({
     );
 }
 
+/* ─── Column Component ─── */
 function Column({
     title,
-    hint,
     tone,
     cards,
     itemLoadingIds,
@@ -245,18 +241,16 @@ function Column({
 
             {cards.length === 0 ? (
                 <div className="sb-empty-card">
-                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={<span style={{ color: "#94a3b8" }}>{emptyText}</span>} />
+                    <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description={<span style={{ color: "#64748b" }}>{emptyText}</span>} />
                 </div>
             ) : (
                 <div className="sb-card-grid">
                     {cards.map((card) => {
                         const urgency = getUrgencyConfig(card.batch_created_at);
-                        const orderTypeMeta = getOrderTypeMeta(card.order_type);
                         const themeClass = getCardThemeClass(card.order_type);
                         const displaySourceTitle = getDisplaySourceTitle(card);
                         const displaySubtitle = card.order_type === "Delivery" ? card.source_subtitle : null;
                         const deliveryProviderLabel = card.order_type === "Delivery" ? getDeliveryProviderLabel(card.source_title) : "";
-                        const showOrderTypeTag = false;
                         const progress = Math.max(8, Math.round((card.served_count / Math.max(card.total_items, 1)) * 100));
                         const canServeAll = card.pending_count > 0;
                         const canUndoAll = card.served_count > 0;
@@ -271,6 +265,7 @@ function Column({
                                 data-order-no={card.order_no}
                                 data-order-type={card.order_type}
                             >
+                                {/* Card Header */}
                                 <div className="sb-order-header">
                                     <div className="sb-order-header-top">
                                         <div className="sb-order-id-wrap">
@@ -295,14 +290,7 @@ function Column({
                                     </div>
 
                                     <div className="sb-order-header-meta">
-                                        {showOrderTypeTag ? (
-                                            <Tag className={`sb-order-type-tag ${orderTypeMeta.className}`}>
-                                                {orderTypeMeta.icon}
-                                                <span>{orderTypeMeta.label}</span>
-                                            </Tag>
-                                        ) : (
-                                            <span />
-                                        )}
+                                        <span />
                                         <div className="sb-order-meta-right">
                                             {isFresh(card.batch_created_at) ? <span className="sb-order-fresh">NEW</span> : null}
                                             <span className="sb-order-urgency" style={{ color: urgency.color }}>
@@ -316,6 +304,7 @@ function Column({
                                     </div>
                                 </div>
 
+                                {/* Items List */}
                                 <div className="sb-items-list">
                                     {card.visibleItems.map((item) => {
                                         const isServed = resolveServingStatus(item.serving_status) === ServingStatus.Served;
@@ -327,8 +316,8 @@ function Column({
                                                 className={`sb-item-row ${isServed ? "served" : "pending"}`}
                                                 data-testid={`serving-item-${item.id}`}
                                             >
-                                                {item.product_image_url && (
-                                                    <div className="sb-item-image">
+                                                <div className="sb-item-image">
+                                                    {item.product_image_url ? (
                                                         <SmartImage
                                                             src={item.product_image_url}
                                                             alt={item.product_name}
@@ -336,24 +325,29 @@ function Column({
                                                             height={44}
                                                             style={{ objectFit: "cover", borderRadius: "8px" }}
                                                         />
-                                                    </div>
-                                                )}
+                                                    ) : (
+                                                        <span className="sb-item-image-placeholder">
+                                                            {item.product_name.charAt(0)}
+                                                        </span>
+                                                    )}
+                                                </div>
+
                                                 <div className="sb-item-info">
                                                     <div className="sb-item-name">{item.product_name}</div>
-                                                    <div className="sb-item-quantity-text">จำนวน: {item.quantity}</div>
+                                                    <div className="sb-item-quantity-text">x{item.quantity}</div>
                                                     {item.details && item.details.length > 0 && (
-                                                        <div className="sb-item-details" style={{ fontSize: '13px', color: '#10b981', marginTop: '2px', marginLeft: '8px' }}>
+                                                        <div className="sb-item-details" style={{ fontSize: '12px', color: '#10b981', marginTop: '2px' }}>
                                                             {item.details.map((detail, idx) => (
                                                                 <div key={idx} className="sb-item-detail-row">
                                                                     <span>+ {detail.detail_name}</span>
                                                                     {detail.extra_price > 0 && (
-                                                                        <span style={{ marginLeft: '4px' }}>(+{detail.extra_price}฿)</span>
+                                                                        <span style={{ marginLeft: '4px', opacity: 0.8 }}>(+{detail.extra_price}฿)</span>
                                                                     )}
                                                                 </div>
                                                             ))}
                                                         </div>
                                                     )}
-                                                    {item.notes ? <div className="sb-item-note">โน้ต: {item.notes}</div> : null}
+                                                    {item.notes ? <div className="sb-item-note">{item.notes}</div> : null}
                                                 </div>
                                                 <div className="sb-item-action">
                                                     <ItemActionButton
@@ -368,6 +362,7 @@ function Column({
                                     })}
                                 </div>
 
+                                {/* Card Footer */}
                                 <div className="sb-order-footer">
                                     {tone === "pending" ? (
                                         <Button
@@ -378,7 +373,7 @@ function Column({
                                             onClick={() => onUpdateGroup(card.id, ServingStatus.Served)}
                                             className="sb-serve-all-btn"
                                         >
-                                            ได้รับแล้วทั้งหมด
+                                            ได้รับทั้งหมด
                                         </Button>
                                     ) : null}
                                     {tone === "served" ? (
@@ -390,7 +385,7 @@ function Column({
                                             onClick={() => onUpdateGroup(card.id, ServingStatus.PendingServe)}
                                             className="sb-reset-btn"
                                         >
-                                            ย้ายกลับรอดำเนินการ
+                                            ย้ายกลับทั้งหมด
                                         </Button>
                                     ) : null}
                                 </div>
@@ -403,6 +398,7 @@ function Column({
     );
 }
 
+/* ─── Main Page Content ─── */
 function ServingBoardPageContent() {
     const { message } = App.useApp();
     const { socket, isConnected } = useSocket();
@@ -532,8 +528,7 @@ function ServingBoardPageContent() {
             sortCards(
                 filteredGroups
                     .map((group) => toColumnCard(group, ServingStatus.PendingServe))
-                    .filter((group): group is ColumnCard => Boolean(group)),
-                "pending"
+                    .filter((group): group is ColumnCard => Boolean(group))
             ),
         [filteredGroups]
     );
@@ -543,8 +538,7 @@ function ServingBoardPageContent() {
             sortCards(
                 filteredGroups
                     .map((group) => toColumnCard(group, ServingStatus.Served))
-                    .filter((group): group is ColumnCard => Boolean(group)),
-                "served"
+                    .filter((group): group is ColumnCard => Boolean(group))
             ),
         [filteredGroups]
     );
@@ -595,6 +589,7 @@ function ServingBoardPageContent() {
         }
     };
 
+    /* ── Sound Settings Popover ── */
     const soundSettingsContent = (
         <div className="sb-sound-popover">
             <div className="sb-sound-section">
@@ -642,9 +637,8 @@ function ServingBoardPageContent() {
     );
 
     const statusCategories = getStatusCategoryOptions();
-    const statusCategoryLabel = getStatusCategoryLabel(statusCategory);
     const summaryCards = [
-        { label: "รวมทั้งหมด", value: stats.totalBatches, color: "#38bdf8" },
+        { label: "รวมทั้งหมด", value: stats.totalBatches, color: "#818cf8" },
         { label: "รอดำเนินการ", value: stats.pendingItems, color: "#f59e0b" },
         { label: "ได้รับแล้ว", value: stats.servedItems, color: "#10b981" },
     ];
@@ -653,41 +647,42 @@ function ServingBoardPageContent() {
         <div className="sb-page" data-testid="serving-board-page">
             <style jsx global>{servingBoardStyles}</style>
 
+            {/* ═══ Sticky Header ═══ */}
             <div className="sb-hero">
+                {/* Top Row: Title + Actions */}
                 <div className="sb-hero-top">
                     <div className="sb-title-section">
                         <div className="sb-fire-icon">
-                            <FireOutlined style={{ fontSize: 26, color: "#fff" }} />
+                            <FireOutlined style={{ fontSize: 20, color: "#fff" }} />
                         </div>
-                        <div>
-                            <div className="sb-title-line">
-                                <Title className="sb-title">Serving Board</Title>
-                                <Tag className={`sb-live-tag ${isConnected ? "online" : "offline"}`} icon={<WifiOutlined />}>
-                                    {isConnected ? "LIVE" : "OFFLINE"}
-                                </Tag>
-                            </div>
+                        <div className="sb-title-line">
+                            <Title className="sb-title">Serving Board</Title>
+                            <Tag className={`sb-live-tag ${isConnected ? "online" : "offline"}`} icon={<WifiOutlined />}>
+                                {isConnected ? "LIVE" : "OFFLINE"}
+                            </Tag>
                         </div>
                     </div>
 
                     <div className="sb-action-btns">
                         <Button
                             type="text"
-                            icon={<SoundOutlined style={{ fontSize: 18 }} />}
+                            icon={<SoundOutlined style={{ fontSize: 16 }} />}
                             onClick={() => {
                                 void toggleSound();
                             }}
                             data-testid="serving-sound-toggle"
                             className="sb-action-btn"
                             style={{
-                                color: soundEnabled ? "#10b981" : "#64748b",
-                                background: soundEnabled ? "rgba(16, 185, 129, 0.15)" : "rgba(255,255,255,0.08)",
+                                color: soundEnabled ? "#10b981" : undefined,
+                                background: soundEnabled ? "rgba(16, 185, 129, 0.12)" : undefined,
+                                borderColor: soundEnabled ? "rgba(16, 185, 129, 0.2)" : undefined,
                             }}
                         />
                         <Popover trigger="click" placement="bottomRight" content={soundSettingsContent}>
                             <Button className="sb-action-btn sb-action-btn-settings">เสียง</Button>
                         </Popover>
                         <Button
-                            icon={<ReloadOutlined style={{ fontSize: 18 }} />}
+                            icon={<ReloadOutlined style={{ fontSize: 16 }} />}
                             onClick={() => void refetch()}
                             loading={isFetching}
                             className="sb-action-btn sb-action-btn-refresh"
@@ -695,9 +690,10 @@ function ServingBoardPageContent() {
                     </div>
                 </div>
 
+                {/* Stats Toggle */}
                 <div className="sb-stats-toggle" onClick={() => setStatsExpanded((prev) => !prev)}>
                     <div className="sb-stats-toggle-left">
-                        <Badge count={stats.totalItems} style={{ backgroundColor: "#38bdf8" }} />
+                        <Badge count={stats.totalItems} style={{ backgroundColor: "#6366f1" }} />
                         <Text className="sb-stats-toggle-text">ภาพรวม</Text>
                     </div>
                     <Button type="text" size="small" icon={statsExpanded ? <UpOutlined /> : <DownOutlined />} className="sb-toggle-btn" />
@@ -716,6 +712,7 @@ function ServingBoardPageContent() {
                     </div>
                 ) : null}
 
+                {/* Filter Tabs */}
                 <div className="sb-filter-row">
                     {statusCategories.map((category) => {
                         const active = statusCategory === category.value;
@@ -734,13 +731,14 @@ function ServingBoardPageContent() {
                         );
                     })}
                 </div>
-                
+
+                {/* Search */}
                 <div className="sb-hero-search">
                     <Input
                         allowClear
                         size="large"
                         prefix={<SearchOutlined className="sb-search-icon" />}
-                        placeholder="ค้นหา"
+                        placeholder="ค้นหาออเดอร์..."
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
                         className="sb-search-glass-input"
@@ -748,12 +746,11 @@ function ServingBoardPageContent() {
                 </div>
             </div>
 
+            {/* ═══ Main Content ═══ */}
             <div className="sb-content">
-
-
                 {error ? (
                     <div className="sb-empty-state">
-                        <Text style={{ color: "#fca5a5", fontSize: 16 }}>โหลดข้อมูลบอร์ดเสิร์ฟไม่สำเร็จ</Text>
+                        <Text style={{ color: "#fca5a5", fontSize: 15 }}>โหลดข้อมูลบอร์ดเสิร์ฟไม่สำเร็จ</Text>
                         <Button onClick={() => void refetch()} type="primary" style={{ marginTop: 16 }}>
                             ลองใหม่
                         </Button>
@@ -773,7 +770,7 @@ function ServingBoardPageContent() {
                                 groupLoadingIds={groupLoadingIds}
                                 onUpdateItem={handleUpdateItem}
                                 onUpdateGroup={handleUpdateGroup}
-                                emptyText="ไม่มีรายการรอดำเนินการในเงื่อนไขที่เลือก"
+                                emptyText="ไม่มีรายการรอดำเนินการ"
                             />
                         ) : (
                             <Column
@@ -784,7 +781,7 @@ function ServingBoardPageContent() {
                                 groupLoadingIds={groupLoadingIds}
                                 onUpdateItem={handleUpdateItem}
                                 onUpdateGroup={handleUpdateGroup}
-                                emptyText="ยังไม่มีรายการที่ถูกทำเครื่องหมายว่าได้รับแล้ว"
+                                emptyText="ยังไม่มีรายการที่ได้รับแล้ว"
                             />
                         )}
                     </div>
