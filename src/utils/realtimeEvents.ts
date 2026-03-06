@@ -103,6 +103,9 @@ export const RealtimeEvents = {
     printSettings: {
         update: "printSettings:update",
     },
+    servingBoard: {
+        update: "serving-board:update",
+    },
     salesOrderItem: {
         create: "salesOrderItem:create",
         update: "salesOrderItem:update",

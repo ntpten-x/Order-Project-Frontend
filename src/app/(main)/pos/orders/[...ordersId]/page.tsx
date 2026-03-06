@@ -56,6 +56,7 @@ import { ORDER_REALTIME_EVENTS } from "../../../../../utils/pos/orderRealtimeEve
 import { useOrderQueue } from "../../../../../hooks/pos/useOrderQueue";
 import { QueuePriority } from "../../../../../types/api/pos/orderQueue";
 import UIPageHeader from "../../../../../components/ui/page/PageHeader";
+import SmartImage from "../../../../../components/ui/image/SmartImage";
 import { resolveImageSource } from "../../../../../utils/image/source";
 
 
@@ -498,14 +499,15 @@ export default function POSOrderDetailsPage() {
             align: 'center' as const,
             render: (_value: unknown, record: SalesOrderItem) => (
                 record.product?.img_url ? (
-                    <>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
+                    <span style={{ ...orderDetailStyles.productThumb, position: 'relative', overflow: 'hidden', display: 'inline-block' }}>
+                        <SmartImage
                             src={resolveImageSource(record.product.img_url) || undefined}
                             alt={record.product?.display_name ?? "สินค้า"}
-                            style={orderDetailStyles.productThumb}
+                            fill
+                            style={{ objectFit: 'cover' }}
+                            sizes="56px"
                         />
-                    </>
+                    </span>
                 ) : (
                     <div style={orderDetailStyles.productThumbPlaceholder}><ShopOutlined /></div>
                 )
@@ -519,13 +521,13 @@ export default function POSOrderDetailsPage() {
                 <Space orientation="vertical" size={2} align="center">
                     <Text strong style={{ fontSize: 15, lineHeight: '1.2' }}>{record.product?.display_name}</Text>
                     {record.details && record.details.length > 0 && (
-                        <div style={{ fontSize: 13, color: orderDetailColors.served, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: 13, color: orderDetailColors.served, textAlign: 'center', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                             {record.details.map((d, i) => (
                                 <div key={i} style={{ lineHeight: '1.4' }}>+ {d.detail_name} (+฿{Number(d.extra_price).toLocaleString()})</div>
                             ))}
                         </div>
                     )}
-                    {record.notes && <Text style={{ fontSize: 13, color: orderDetailColors.cancelled }}><InfoCircleOutlined /> {record.notes}</Text>}
+                    {record.notes && <Text style={{ fontSize: 13, color: orderDetailColors.cancelled, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}><InfoCircleOutlined /> {record.notes}</Text>}
                 </Space>
             )
         },
@@ -614,14 +616,15 @@ export default function POSOrderDetailsPage() {
             align: 'center' as const,
             render: (_value: unknown, record: SalesOrderItem) => (
                 record.product?.img_url ? (
-                    <>
-                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                        <img
+                    <span style={{ ...orderDetailStyles.productThumb, opacity: 0.7, position: 'relative', overflow: 'hidden', display: 'inline-block' }}>
+                        <SmartImage
                             src={resolveImageSource(record.product.img_url) || undefined}
                             alt={record.product?.display_name ?? "สินค้า"}
-                            style={{...orderDetailStyles.productThumb, opacity: 0.7}}
+                            fill
+                            style={{ objectFit: 'cover' }}
+                            sizes="56px"
                         />
-                    </>
+                    </span>
                 ) : (
                     <div style={orderDetailStyles.productThumbPlaceholder}><ShopOutlined /></div>
                 )
@@ -642,13 +645,13 @@ export default function POSOrderDetailsPage() {
                         {record.product?.display_name}
                     </Text>
                     {record.details && record.details.length > 0 && (
-                        <div style={{ fontSize: 12, color: orderDetailColors.served, opacity: 0.7, textAlign: 'center', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontSize: 12, color: orderDetailColors.served, opacity: 0.7, textAlign: 'center', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                             {record.details.map((d, i) => (
                                 <div key={i} style={{ lineHeight: '1.4' }}>+ {d.detail_name} (+฿{Number(d.extra_price).toLocaleString()})</div>
                             ))}
                         </div>
                     )}
-                    {record.notes && <Text style={{ fontSize: 12, opacity: 0.7, color: orderDetailColors.cancelled }}><InfoCircleOutlined /> {record.notes}</Text>}
+                    {record.notes && <Text style={{ fontSize: 12, opacity: 0.7, color: orderDetailColors.cancelled, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}><InfoCircleOutlined /> {record.notes}</Text>}
                 </Space>
             )
         },
@@ -740,14 +743,15 @@ export default function POSOrderDetailsPage() {
                                     ? (
                                         <>
                                             {order.delivery?.logo ? (
-                                                <>
-                                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                    <img 
+                                                <span style={{ width: 28, height: 28, borderRadius: 6, position: 'relative', overflow: 'hidden', display: 'inline-block' }}>
+                                                    <SmartImage 
                                                         src={order.delivery.logo} 
                                                         alt={order.delivery.delivery_name || "Delivery Logo"} 
-                                                        style={{ width: 28, height: 28, borderRadius: 6, objectFit: 'contain' }} 
+                                                        fill
+                                                        style={{ objectFit: 'contain' }}
+                                                        sizes="28px"
                                                     />
-                                                </>
+                                                </span>
                                             ) : <RocketOutlined />}
                                             {order.delivery_code || order.order_no?.substring(0, 10)}
                                             {order.delivery?.delivery_name && (
@@ -963,14 +967,15 @@ export default function POSOrderDetailsPage() {
                                                     {/* Product Image */}
                                                     <div style={{ flexShrink: 0 }}>
                                                         {item.product?.img_url ? (
-                                                            <>
-                                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                                <img
+                                                            <span style={{ ...orderDetailStyles.productThumb, width: 72, height: 72, position: 'relative', overflow: 'hidden', display: 'inline-block' }}>
+                                                                <SmartImage
                                                                     src={resolveImageSource(item.product.img_url) || undefined}
                                                                     alt={item.product?.display_name ?? "สินค้า"}
-                                                                    style={{...orderDetailStyles.productThumb, width: 72, height: 72}}
+                                                                    fill
+                                                                    style={{ objectFit: 'cover' }}
+                                                                    sizes="72px"
                                                                 />
-                                                            </>
+                                                            </span>
                                                         ) : (
                                                             <div style={{...orderDetailStyles.productThumbPlaceholder, width: 72, height: 72}}><ShopOutlined style={{ fontSize: 28 }} /></div>
                                                         )}
@@ -1003,11 +1008,11 @@ export default function POSOrderDetailsPage() {
                                                         </div>
                                                         <div style={{ paddingLeft: 24, marginTop: 2 }}>
                                                             {item.details && item.details.length > 0 && (
-                                                                <div style={{ fontSize: 13, color: orderDetailColors.served, marginBottom: 4, lineHeight: 1.4, whiteSpace: 'nowrap' }}>
+                                                                <div style={{ fontSize: 13, color: orderDetailColors.served, marginBottom: 4, lineHeight: 1.4, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                                                                     {item.details.map((d: { detail_name: string; extra_price: number }) => `+ ${d.detail_name} (+ ฿${Number(d.extra_price).toLocaleString()})`).join(', ')}
                                                                 </div>
                                                             )}
-                                                            <Space orientation="vertical" size={2}>
+                                                            <Space orientation="vertical" size={2} style={{ width: '100%' }}>
                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
                                                                     <Text style={{...orderDetailStyles.priceTag, fontSize: 19}}>฿{Number(item.price).toLocaleString()}</Text>
                                                                     <Text strong style={{ color: orderDetailColors.priceTotal, fontSize: 19 }}>
@@ -1017,7 +1022,7 @@ export default function POSOrderDetailsPage() {
                                                             </Space>
                                                             {item.notes && (
                                                                 <div style={{ marginTop: 4 }}>
-                                                                    <Text style={{ fontSize: 13, color: orderDetailColors.cancelled, lineHeight: 1.4 }}>
+                                                                    <Text style={{ fontSize: 13, color: orderDetailColors.cancelled, lineHeight: 1.4, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                                                                         <InfoCircleOutlined style={{ fontSize: 13 }} /> {item.notes}
                                                                     </Text>
                                                                 </div>
@@ -1112,14 +1117,15 @@ export default function POSOrderDetailsPage() {
                                                     {/* Product Image */}
                                                     <div style={{ flexShrink: 0 }}>
                                                         {item.product?.img_url ? (
-                                                            <>
-                                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                                <img
+                                                            <span style={{ ...orderDetailStyles.productThumb, width: 52, height: 52, borderRadius: 10, opacity: 0.7, position: 'relative', overflow: 'hidden', display: 'inline-block' }}>
+                                                                <SmartImage
                                                                     src={resolveImageSource(item.product.img_url) || undefined}
                                                                     alt={item.product?.display_name ?? "สินค้า"}
-                                                                    style={{...orderDetailStyles.productThumb, width: 52, height: 52, borderRadius: 10, opacity: 0.7}}
+                                                                    fill
+                                                                    style={{ objectFit: 'cover' }}
+                                                                    sizes="52px"
                                                                 />
-                                                            </>
+                                                            </span>
                                                         ) : (
                                                             <div style={{...orderDetailStyles.productThumbPlaceholder, width: 52, height: 52, borderRadius: 10}}><ShopOutlined style={{ fontSize: 18 }} /></div>
                                                         )}
@@ -1144,7 +1150,7 @@ export default function POSOrderDetailsPage() {
                                                                     )}
                                                                 </div>
                                                                 {item.details && item.details.length > 0 && (
-                                                                    <div style={{ fontSize: 13, color: orderDetailColors.served, opacity: 0.7, marginBottom: 4, lineHeight: 1.4, whiteSpace: 'nowrap' }}>
+                                                                    <div style={{ fontSize: 13, color: orderDetailColors.served, opacity: 0.7, marginBottom: 4, lineHeight: 1.4, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                                                                         {item.details.map((d: { detail_name: string; extra_price: number }) => `+ ${d.detail_name} (+฿${Number(d.extra_price).toLocaleString()})`).join(', ')}
                                                                     </div>
                                                                 )}
@@ -1161,7 +1167,7 @@ export default function POSOrderDetailsPage() {
                                                                 </Space>
                                                                 {item.notes && (
                                                                     <div style={{ marginTop: 4 }}>
-                                                                        <Text style={{ fontSize: 13, opacity: 0.7, color: orderDetailColors.cancelled, lineHeight: 1.4 }}>
+                                                                        <Text style={{ fontSize: 13, opacity: 0.7, color: orderDetailColors.cancelled, lineHeight: 1.4, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
                                                                             <InfoCircleOutlined style={{ fontSize: 13 }} /> {item.notes}
                                                                         </Text>
                                                                     </div>
@@ -1195,14 +1201,15 @@ export default function POSOrderDetailsPage() {
                                     <div key={item.id || index} style={orderDetailStyles.summaryItemRow}>
                                         {/* Product Image */}
                                         {item.product?.img_url ? (
-                                            <>
-                                                {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                <img 
+                                            <div style={{ ...orderDetailStyles.summaryItemImage, position: 'relative', overflow: 'hidden' }}>
+                                                <SmartImage 
                                                     src={resolveImageSource(item.product.img_url) || undefined} 
                                                     alt={item.product?.display_name || 'สินค้า'} 
-                                                    style={orderDetailStyles.summaryItemImage} 
+                                                    fill
+                                                    style={{ objectFit: 'cover' }}
+                                                    sizes="48px"
                                                 />
-                                            </>
+                                            </div>
                                         ) : (
                                             <div style={{ ...orderDetailStyles.summaryItemImage, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#f8fafc' }}>
                                                 <ShopOutlined style={{ fontSize: 16, color: '#bfbfbf' }} />
@@ -1211,7 +1218,7 @@ export default function POSOrderDetailsPage() {
 
                                         <div style={orderDetailStyles.summaryItemContent}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                                <Text strong style={{ fontSize: 15, flex: 1, lineHeight: 1.4 }}>{item.product?.display_name}</Text>
+                                                <Text strong style={{ fontSize: 15, flex: 1, lineHeight: 1.4, wordBreak: 'break-word', whiteSpace: 'normal', minWidth: 0, paddingRight: 8 }}>{item.product?.display_name}</Text>
                                                 <Text strong style={{ fontSize: 15, color: orderDetailColors.primary, lineHeight: 1.4 }}>฿{Number(item.total_price).toLocaleString()}</Text>
                                             </div>
                                             

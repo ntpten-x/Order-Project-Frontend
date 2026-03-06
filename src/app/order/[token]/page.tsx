@@ -38,6 +38,7 @@ import { POSHeaderBar } from "../../../components/pos/shared/POSHeaderBar";
 import { POSNoteModal } from "../../../components/pos/shared/POSNoteModal";
 import { POSProductCard } from "../../../components/pos/shared/POSProductCard";
 import { POSProductDetailModal } from "../../../components/pos/shared/POSProductDetailModal";
+import SmartImage from "../../../components/ui/image/SmartImage";
 import { POSSharedStyles, posColors, posComponentStyles, posLayoutStyles, POSHeaderBadge } from "../../../components/pos/shared/style";
 import { usePublicTableOrderRealtime } from "../../../hooks/usePublicTableOrderRealtime";
 
@@ -755,12 +756,13 @@ export default function CustomerTableOrderPage() {
                     <div style={posComponentStyles.cartItemRow}>
                         <div style={{ flexShrink: 0 }}>
                             {imageSrc ? (
-                                <div style={posComponentStyles.cartItemImage}>
-                                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                                    <img
+                                <div style={{ ...posComponentStyles.cartItemImage, position: "relative" }}>
+                                    <SmartImage
                                         src={imageSrc}
                                         alt={productName}
-                                        style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                                        fill
+                                        style={{ objectFit: "cover" }}
+                                        sizes="72px"
                                     />
                                 </div>
                             ) : (
@@ -1068,13 +1070,22 @@ export default function CustomerTableOrderPage() {
                                                             className="summary-item-row"
                                                         >
                                                             {imageSrc ? (
-                                                                // eslint-disable-next-line @next/next/no-img-element
-                                                                <img
-                                                                    src={imageSrc}
-                                                                    alt={item.product_name || "สินค้า"}
-                                                                    style={orderDetailStyles.summaryItemImage}
+                                                                <div
+                                                                    style={{
+                                                                        ...orderDetailStyles.summaryItemImage,
+                                                                        position: "relative",
+                                                                        overflow: "hidden",
+                                                                    }}
                                                                     className="summary-item-image"
-                                                                />
+                                                                >
+                                                                    <SmartImage
+                                                                        src={imageSrc}
+                                                                        alt={item.product_name || "สินค้า"}
+                                                                        fill
+                                                                        style={{ objectFit: "cover" }}
+                                                                        sizes="48px"
+                                                                    />
+                                                                </div>
                                                             ) : (
                                                                 <div
                                                                     style={{

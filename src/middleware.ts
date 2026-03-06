@@ -85,6 +85,7 @@ function isShiftProtectedPath(pathname: string): boolean {
         "/pos/orders",
         "/pos/items",
         "/pos/kitchen",
+        "/pos/list",
     ];
 
     return protectedPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
@@ -268,6 +269,8 @@ export const config = {
         "/pos/orders/:path*",
         "/pos/items/:path*",
         "/pos/kitchen/:path*",
+        "/pos/list",
+        "/pos/list/:path*",
         "/stock/:path*",
         "/audit/:path*",
         "/Health-System/:path*",

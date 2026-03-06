@@ -12,6 +12,7 @@ import {
   HomeOutlined,
   PoweroffOutlined,
   TableOutlined,
+  UnorderedListOutlined,
   QrcodeOutlined,
   TagsOutlined,
   ClockCircleOutlined,
@@ -89,6 +90,13 @@ const POSBottomNavigation = () => {
         label: "สรุป",
         icon: <AppstoreOutlined />,
         path: "/pos/dashboard",
+      },
+      {
+        key: "list",
+        visibilityKey: "menu.pos.list",
+        label: "เช็กรายการ",
+        icon: <UnorderedListOutlined />,
+        path: "/pos/list",
       },
       {
         key: "shift",

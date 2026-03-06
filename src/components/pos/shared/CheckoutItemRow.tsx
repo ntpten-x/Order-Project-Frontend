@@ -3,6 +3,7 @@
 import React from "react";
 import { Typography } from "antd";
 import { ShopOutlined } from "@ant-design/icons";
+import SmartImage from "../../ui/image/SmartImage";
 import type { GroupedOrderItem } from "../../../utils/orderGrouping";
 import type { CartItem, CartDetail } from "../../../contexts/pos/CartContext";
 import type { Products } from "../../../types/api/pos/products";
@@ -30,13 +31,14 @@ export const CheckoutItemRow = React.memo(function CheckoutItemRow({
 
   return (
     <div key={item.id} style={posComponentStyles.checkoutItemRow}>
-      <div style={posComponentStyles.checkoutItemImage}>
+      <div style={{ ...posComponentStyles.checkoutItemImage, position: "relative" }}>
         {item.product.img_url ? (
-          /* eslint-disable-next-line @next/next/no-img-element */
-          <img
+          <SmartImage
             src={resolveImageSource(item.product.img_url) || undefined}
             alt={item.product.display_name}
-            style={{ width: "100%", height: "100%", objectFit: "cover" }}
+            fill
+            style={{ objectFit: "cover" }}
+            sizes="44px"
           />
         ) : (
           <div style={posComponentStyles.checkoutItemImagePlaceholder}>

@@ -569,6 +569,10 @@ export const orderDetailStyles = {
     color: orderColors.success,
     marginTop: 2,
     paddingLeft: 0,
+    wordBreak: 'break-word',
+    overflowWrap: 'break-word',
+    whiteSpace: 'pre-wrap',
+    maxWidth: '100%',
   } as CSSProperties,
 
   // Empty State

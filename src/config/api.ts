@@ -17,6 +17,7 @@ export const API_ROUTES = {
     POS: {
         PRODUCTS: '/pos/products',
         ORDERS: '/pos/orders',
+        SERVING_BOARD: '/pos/orders/serve-board',
         TABLES: '/pos/tables',
         DISCOUNTS: '/pos/discounts',
         DELIVERY: '/pos/delivery',

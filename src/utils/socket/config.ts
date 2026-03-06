@@ -84,8 +84,13 @@ function inferLocalBackendOrigin(): string {
         return `${protocol}//${hostname}:8002`;
     }
 
-    if (port === "3001") {
-        return `${protocol}//${hostname}:3000`;
+    const mappedLocalPorts: Record<string, string> = {
+        "3001": "3000",
+        "4100": "4000",
+    };
+
+    if (mappedLocalPorts[port]) {
+        return `${protocol}//${hostname}:${mappedLocalPorts[port]}`;
     }
 
     return "";

@@ -54,6 +54,7 @@ export const PAGE_PERMISSION_MAP: Array<{ prefix: string; requirement: Permissio
     { prefix: "/pos/shiftHistory", requirement: { resourceKey: "shifts.page", action: "view" } },
     { prefix: "/pos/shift", requirement: { resourceKey: "shifts.page", action: "view" } },
     { prefix: "/pos/dashboard", requirement: { resourceKey: "reports.sales.page", action: "view" } },
+    { prefix: "/pos/list", requirement: { resourceKey: "orders.page", action: "view" } },
     { prefix: "/pos/orders", requirement: { resourceKey: "orders.page", action: "view" } },
 
     // POS channel buying flows: require create permission (view-only users can still see channel lists).

@@ -36,4 +36,13 @@ describe("image source utilities", () => {
     expect(isSupportedImageSource(raw)).toBe(false);
     expect(resolveImageSource(raw)).toBeNull();
   });
+
+  it("extracts direct image URL from google imgres links", () => {
+    const raw =
+      "https://www.google.com/imgres?q=%E0%B8%82%E0%B9%89%E0%B8%B2%E0%B8%A7%E0%B8%9C%E0%B8%B1%E0%B8%94&imgurl=https%3A%2F%2Fimg.wongnai.com%2Fp%2F1920x0%2F2019%2F12%2F19%2Fd5537700a7274ac09964b6a51dd0a9f6.jpg&imgrefurl=https%3A%2F%2Fwww.wongnai.com%2Frecipes%2Fegg-fried-rice";
+
+    expect(normalizeImageSource(raw)).toBe(
+      "https://img.wongnai.com/p/1920x0/2019/12/19/d5537700a7274ac09964b6a51dd0a9f6.jpg"
+    );
+  });
 });

@@ -9,6 +9,7 @@ import {
   PlusOutlined,
   ShopOutlined,
 } from "@ant-design/icons";
+import SmartImage from "../../ui/image/SmartImage";
 import { CartDetail, CartItem } from "../../../contexts/pos/CartContext";
 import { Products } from "../../../types/api/pos/products";
 import { resolveImageSource } from "../../../utils/image/source";
@@ -53,12 +54,13 @@ export const CartItemRow = React.memo(function CartItemRow({
       <div style={posComponentStyles.cartItemRow}>
         <div style={{ flexShrink: 0 }}>
           {item.product.img_url ? (
-            <div style={posComponentStyles.cartItemImage}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+            <div style={{ ...posComponentStyles.cartItemImage, position: "relative" }}>
+              <SmartImage
                 src={resolveImageSource(item.product.img_url) || undefined}
                 alt={productName}
-                style={{ width: "100%", height: "100%", objectFit: "cover" }}
+                fill
+                style={{ objectFit: "cover" }}
+                sizes="72px"
               />
             </div>
           ) : (

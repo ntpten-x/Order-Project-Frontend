@@ -37,6 +37,7 @@ import PageContainer from "../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../components/ui/page/PageSection";
 import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import PageState from "../../../../components/ui/states/PageState";
+import SmartImage from "../../../../components/ui/image/SmartImage";
 import type { CreatedSort } from "../../../../components/ui/pagination/ListPagination";
 import { DEFAULT_CREATED_SORT, parseCreatedSort } from "../../../../lib/list-sort";
 import RequireOpenShift from "../../../../components/pos/shared/RequireOpenShift";
@@ -527,14 +528,15 @@ function POSOrdersPageContent() {
                                                         {order.order_type === OrderType.Delivery && (
                                                             <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                                                         {order.delivery?.logo ? (
-                                                                    <>
-                                                                        {/* eslint-disable-next-line @next/next/no-img-element */}
-                                                                        <img 
+                                                                    <span style={{ width: 20, height: 20, borderRadius: 4, position: 'relative', overflow: 'hidden', display: 'inline-block' }}>
+                                                                        <SmartImage 
                                                                             src={order.delivery.logo} 
-                                                                            alt={order.delivery.delivery_name} 
-                                                                            style={{ width: 20, height: 20, borderRadius: 4, objectFit: 'contain' }} 
+                                                                            alt={order.delivery.delivery_name || "Delivery Logo"} 
+                                                                            fill
+                                                                            style={{ objectFit: 'contain' }}
+                                                                            sizes="20px"
                                                                         />
-                                                                    </>
+                                                                    </span>
                                                                 ) : <RocketOutlined />}
                                                                 {order.delivery_code || order.order_no?.substring(0, 10)}
                                                                 {order.delivery?.delivery_name && (
