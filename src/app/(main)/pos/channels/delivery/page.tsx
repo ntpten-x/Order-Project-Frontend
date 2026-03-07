@@ -589,7 +589,8 @@ function DeliveryContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                             size="large"
                             value={deliveryCode}
                             onChange={(e) => setDeliveryCode(e.target.value)}
-                            placeholder="ระบุรหัสออเดอร์"
+                            disabled={!selectedProviderId}
+                            placeholder={selectedProviderId ? "ระบุรหัสออเดอร์" : "กรุณาเลือกผู้ให้บริการก่อน"}
                             addonBefore={selectedProvider?.delivery_prefix ? `${selectedProvider.delivery_prefix}-` : undefined}
                             style={{ borderRadius: 10 }}
                             onPressEnter={() => {
