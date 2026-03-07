@@ -46,6 +46,8 @@ interface PaginatedCache<T> {
 
 const INVALIDATION_DEBOUNCE_MS = 200;
 const PATCH_FALLBACK_INVALIDATION_MS = 220;
+const RECONNECT_SYNC_DEBOUNCE_MS = 900;
+const RECONNECT_SYNC_COOLDOWN_MS = 2500;
 
 function trackSocketEventReceived(event: string) {
     if (typeof window === "undefined") return;
@@ -265,6 +267,9 @@ export const useOrderSocketEvents = () => {
     const { socket } = useContext(SocketContext);
     const queryClient = useQueryClient();
     const invalidateTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+    const reconnectSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const lastReconnectSyncAtRef = useRef(0);
+    const wasDisconnectedRef = useRef(false);
     const realtimeEvents = useMemo(
         () =>
             Array.from(
@@ -360,6 +365,35 @@ export const useOrderSocketEvents = () => {
             );
         },
         [scheduleInvalidateFilteredActive]
+    );
+
+    const scheduleReconnectSync = useCallback(
+        (source: 'connect' | 'reconnect') => {
+            const now = Date.now();
+            if (now - lastReconnectSyncAtRef.current < RECONNECT_SYNC_COOLDOWN_MS) {
+                return;
+            }
+
+            if (reconnectSyncTimerRef.current) {
+                clearTimeout(reconnectSyncTimerRef.current);
+            }
+
+            reconnectSyncTimerRef.current = setTimeout(() => {
+                reconnectSyncTimerRef.current = null;
+                lastReconnectSyncAtRef.current = Date.now();
+
+                // Re-sync only the POS views that can go stale while the socket was offline.
+                scheduleInvalidateActive(['orders'], RECONNECT_SYNC_DEBOUNCE_MS);
+                scheduleInvalidateActive(['ordersSummary'], RECONNECT_SYNC_DEBOUNCE_MS);
+                scheduleInvalidateActive(['orders', 'channel'], RECONNECT_SYNC_DEBOUNCE_MS);
+                scheduleInvalidateActive(['serving-board'], RECONNECT_SYNC_DEBOUNCE_MS);
+                scheduleInvalidateActive(['tables'], RECONNECT_SYNC_DEBOUNCE_MS);
+                scheduleInvalidateActive(['channelStats'], RECONNECT_SYNC_DEBOUNCE_MS);
+
+                console.info(`[Socket] Connection restored via ${source}, syncing latest POS data...`);
+            }, RECONNECT_SYNC_DEBOUNCE_MS);
+        },
+        [scheduleInvalidateActive]
     );
 
     const patchOrderUpdateCaches = useCallback(
@@ -594,8 +628,43 @@ export const useOrderSocketEvents = () => {
         return () => {
             timers.forEach((timer) => clearTimeout(timer));
             timers.clear();
+            if (reconnectSyncTimerRef.current) {
+                clearTimeout(reconnectSyncTimerRef.current);
+                reconnectSyncTimerRef.current = null;
+            }
         };
     }, []);
+
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleDisconnect = () => {
+            wasDisconnectedRef.current = true;
+        };
+
+        const handleReconnect = (source: 'connect' | 'reconnect') => {
+            if (!wasDisconnectedRef.current) {
+                return;
+            }
+
+            // A reconnect can emit both manager and socket events; the debounced sync keeps that to one refetch burst.
+            wasDisconnectedRef.current = false;
+            scheduleReconnectSync(source);
+        };
+
+        const handleSocketConnect = () => handleReconnect('connect');
+        const handleSocketReconnect = () => handleReconnect('reconnect');
+
+        socket.on('disconnect', handleDisconnect);
+        socket.on('connect', handleSocketConnect);
+        socket.io.on('reconnect', handleSocketReconnect);
+
+        return () => {
+            socket.off('disconnect', handleDisconnect);
+            socket.off('connect', handleSocketConnect);
+            socket.io.off('reconnect', handleSocketReconnect);
+        };
+    }, [socket, scheduleReconnectSync]);
 
     useEffect(() => {
         if (!socket) return;

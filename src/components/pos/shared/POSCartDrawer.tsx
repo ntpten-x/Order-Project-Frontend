@@ -3,7 +3,7 @@
 import React from "react";
 import { DeleteOutlined, ShoppingCartOutlined } from "@ant-design/icons";
 import { Button, Drawer, List, Modal, Typography } from "antd";
-import { CartItem } from "../../../contexts/pos/CartContext";
+import { CartItem } from "../../../store/useCartStore";
 import { formatPrice } from "../../../utils/products/productDisplay.utils";
 import { posComponentStyles } from "./style";
 

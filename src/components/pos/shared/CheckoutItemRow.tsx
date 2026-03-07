@@ -5,7 +5,7 @@ import { Typography } from "antd";
 import { ShopOutlined } from "@ant-design/icons";
 import SmartImage from "../../ui/image/SmartImage";
 import type { GroupedOrderItem } from "../../../utils/orderGrouping";
-import type { CartItem, CartDetail } from "../../../contexts/pos/CartContext";
+import type { CartItem, CartDetail } from "../../../store/useCartStore";
 import type { Products } from "../../../types/api/pos/products";
 import { resolveImageSource } from "../../../utils/image/source";
 import { formatPrice } from "../../../utils/products/productDisplay.utils";

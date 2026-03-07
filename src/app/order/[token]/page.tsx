@@ -25,7 +25,7 @@ import {
     LockOutlined,
 } from "@ant-design/icons";
 import { useParams } from "next/navigation";
-import type { CartItem } from "../../../contexts/pos/CartContext";
+import type { CartItem } from "../../../store/useCartStore";
 import type { Products } from "../../../types/api/pos/products";
 import { groupOrderItems } from "../../../utils/orderGrouping";
 import { resolveImageSource } from "../../../utils/image/source";

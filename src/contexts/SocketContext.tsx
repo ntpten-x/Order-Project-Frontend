@@ -38,6 +38,8 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
     const socketRef = useRef<Socket | null>(null);
     const reconnectNoticeShown = useRef(false);
     const hadSuccessfulConnection = useRef(false);
+    // Track whether we already had a live socket and then lost it, so the next connect is a true recovery.
+    const didDisconnectSinceLastConnect = useRef(false);
     const disconnectWarnTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const { user } = useAuth();
@@ -96,6 +98,7 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
 
         reconnectNoticeShown.current = false;
         hadSuccessfulConnection.current = false;
+        didDisconnectSinceLastConnect.current = false;
         message.destroy(SOCKET_STATUS_MESSAGE_KEY);
 
         setSocket(null);
@@ -179,13 +182,15 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
                 lastConnectAt: Date.now(),
             });
 
-            if (reconnectNoticeShown.current) {
+            if (didDisconnectSinceLastConnect.current || reconnectNoticeShown.current) {
                 message.success({
                     content: "เชื่อมต่อเรียลไทม์กลับมาแล้ว",
                     key: SOCKET_STATUS_MESSAGE_KEY,
-                    duration: 1.5,
+                    duration: 2,
                 });
                 reconnectNoticeShown.current = false;
+                didDisconnectSinceLastConnect.current = false;
+                console.info("[Socket] Connection restored, syncing latest data...");
             }
 
             if (socketDebug) {
@@ -207,6 +212,8 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
             if (reason === "io client disconnect" || !hadSuccessfulConnection.current) {
                 return;
             }
+
+            didDisconnectSinceLastConnect.current = true;
 
             // Wait briefly before warning to avoid false alarms during quick reconnects.
             clearDisconnectWarnTimer();
@@ -242,6 +249,13 @@ export const SocketProvider = ({ children }: { children: ReactNode }) => {
 
         socketInstance.io.on("reconnect_attempt", () => {
             setIsConnected(false);
+        });
+
+        socketInstance.io.on("reconnect", (attempt) => {
+            updateSocketPerfState({
+                lastReconnectAttempt: attempt,
+                lastReconnectAt: Date.now(),
+            });
         });
 
         socketInstance.io.on("reconnect_failed", () => {

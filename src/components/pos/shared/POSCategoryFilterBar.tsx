@@ -33,6 +33,7 @@ export function POSCategoryFilterBar({
       aria-label="ตัวกรองหมวดหมู่"
     >
       <div style={{ maxWidth: 1400, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12 }}>
+        {/* Controlled by the parent so the input always reflects the URL-backed search state. */}
         <Input
           value={searchQuery}
           allowClear
@@ -45,6 +46,7 @@ export function POSCategoryFilterBar({
         />
 
         <div style={posLayoutStyles.categoryScroll} className="pos-category-scroll-row">
+          {/* The active category comes from props so refresh/back restores the same selected chip. */}
           <Button
             type={!selectedCategory ? "primary" : "text"}
             onClick={() => onSelectCategory(undefined)}

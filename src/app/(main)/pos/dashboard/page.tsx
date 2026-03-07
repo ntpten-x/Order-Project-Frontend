@@ -490,7 +490,7 @@ export default function DashboardPage() {
             },
           );
         } else {
-          exportSalesReportExcel(
+          await exportSalesReportExcel(
             payload,
             [exportStart, exportEnd],
             exportLabel,

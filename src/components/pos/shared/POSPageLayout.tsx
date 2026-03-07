@@ -5,11 +5,11 @@ import { Typography, Button, Spin, Badge, message, Pagination } from "antd";
 import { 
   ShoppingCartOutlined
 } from "@ant-design/icons";
-import { useRouter } from "next/navigation";
-import { useCart, CartItem } from "../../../contexts/pos/CartContext";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useGlobalLoading } from "../../../contexts/pos/GlobalLoadingContext";
 import { useProducts } from "../../../hooks/pos/useProducts";
 import { useCategories } from "../../../hooks/pos/useCategories";
+import { CartItem, useCartStore } from "../../../store/useCartStore";
 import { Products } from "../../../types/api/pos/products";
 import { 
   posLayoutStyles, 
@@ -48,27 +48,67 @@ export default function POSPageLayout({
 }: POSPageLayoutProps) {
   const { isLoading: isGlobalLoading } = useGlobalLoading();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [page, setPage] = useState(1);
   const LIMIT = 20;
   
-  // Category State
-  const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
+  // The URL is the durable source of truth so refresh/back keeps the current filters.
+  const selectedCategory = searchParams.get("category") || undefined;
+  const searchQueryFromUrl = searchParams.get("search") || "";
   const { data: categories = [] } = useCategories();
 
-  // Search State
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
+  // Keep a local draft for the input so typing stays responsive while URL updates are debounced.
+  const [searchQuery, setSearchQuery] = useState(searchQueryFromUrl);
   const deferredSearchQuery = React.useDeferredValue(searchQuery);
 
   React.useEffect(() => {
+    setSearchQuery(searchQueryFromUrl);
+  }, [searchQueryFromUrl]);
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [searchQueryFromUrl, selectedCategory]);
+
+  const updateFilterParams = useCallback(
+    (mutateParams: (params: URLSearchParams) => void) => {
+      const nextParams = new URLSearchParams(searchParams.toString());
+      mutateParams(nextParams);
+
+      const nextQuery = nextParams.toString();
+      const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
+      const currentQuery = searchParams.toString();
+      const currentUrl = currentQuery ? `${pathname}?${currentQuery}` : pathname;
+
+      if (nextUrl !== currentUrl) {
+        router.replace(nextUrl, { scroll: false });
+      }
+    },
+    [pathname, router, searchParams]
+  );
+
+  React.useEffect(() => {
+    const trimmedSearch = deferredSearchQuery.trim();
+
+    if (trimmedSearch === searchQueryFromUrl) {
+      return;
+    }
+
     const handle = window.setTimeout(() => {
-      setDebouncedQuery(deferredSearchQuery.trim());
+      updateFilterParams((params) => {
+        if (trimmedSearch) {
+          params.set("search", trimmedSearch);
+        } else {
+          params.delete("search");
+        }
+      });
+      setPage(1);
     }, 250);
 
     return () => {
       window.clearTimeout(handle);
     };
-  }, [deferredSearchQuery]);
+  }, [deferredSearchQuery, searchQueryFromUrl, updateFilterParams]);
 
   const {
     products,
@@ -76,7 +116,7 @@ export default function POSPageLayout({
     isError: productsError,
     mutate: refetchProducts,
     total,
-  } = useProducts(page, LIMIT, selectedCategory, debouncedQuery);
+  } = useProducts(page, LIMIT, selectedCategory, searchQueryFromUrl);
 
   // UI State
   const [cartVisible, setCartVisible] = useState(false);
@@ -85,26 +125,17 @@ export default function POSPageLayout({
   const [isProductModalVisible, setIsProductModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Products | null>(null);
 
-  // Context State
-  const { 
-    cartItems, 
-    addToCart, 
-    removeFromCart, 
-    updateQuantity, 
-    updateItemNote,
-    clearCart,
-    updateItemDetails,
-    orderMode,
-    getTotalItems,
-    getSubtotal,
-    getDiscountAmount,
-    getFinalPrice,
-  } = useCart();
-
-  const totalItems = getTotalItems();
-  const subtotal = getSubtotal();
-  const discountAmount = getDiscountAmount();
-  const finalPrice = getFinalPrice();
+  const cartItems = useCartStore((state) => state.cartItems);
+  const orderMode = useCartStore((state) => state.orderMode);
+  const addToCart = useCartStore((state) => state.addToCart);
+  const removeFromCart = useCartStore((state) => state.removeFromCart);
+  const updateItemNote = useCartStore((state) => state.updateItemNote);
+  const clearCart = useCartStore((state) => state.clearCart);
+  const updateItemDetails = useCartStore((state) => state.updateItemDetails);
+  const totalItems = useCartStore((state) => state.getTotalItems());
+  const subtotal = useCartStore((state) => state.getSubtotal());
+  const discountAmount = useCartStore((state) => state.getDiscountAmount());
+  const finalPrice = useCartStore((state) => state.getFinalPrice());
 
   const getProductUnitPrice = useCallback(
     (product: Products): number => {
@@ -250,15 +281,12 @@ export default function POSPageLayout({
   const renderCartItem = useCallback(
     (item: CartItem) => (
       <CartItemRow
-        item={item}
-        getProductUnitPrice={getProductUnitPrice}
-        onUpdateQuantity={updateQuantity}
-        onRemove={removeFromCart}
+        cartItemId={item.cart_item_id}
         onOpenNote={openNoteModal}
         onOpenDetail={openDetailModal}
       />
     ),
-    [getProductUnitPrice, updateQuantity, removeFromCart, openNoteModal, openDetailModal]
+    [openNoteModal, openDetailModal]
   );
 
   const handleBack = useCallback(() => {
@@ -267,8 +295,11 @@ export default function POSPageLayout({
 
   const handleClearSearch = useCallback(() => {
     setSearchQuery("");
+    updateFilterParams((params) => {
+      params.delete("search");
+    });
     setPage(1);
-  }, []);
+  }, [updateFilterParams]);
 
   const handleGoManageProducts = useCallback(() => {
     router.push("/pos/products");
@@ -292,10 +323,15 @@ export default function POSPageLayout({
           selectedCategory={selectedCategory}
           onSearchChange={(value) => {
             setSearchQuery(value);
-            setPage(1);
           }}
           onSelectCategory={(categoryId) => {
-            setSelectedCategory(categoryId);
+            updateFilterParams((params) => {
+              if (categoryId) {
+                params.set("category", categoryId);
+              } else {
+                params.delete("category");
+              }
+            });
             setPage(1);
           }}
         />
@@ -347,9 +383,9 @@ export default function POSPageLayout({
                 />
               </div>
             </>
-                    ) : (
+          ) : (
             <POSProductsEmptyState
-              query={debouncedQuery}
+              query={searchQueryFromUrl}
               onClearSearch={handleClearSearch}
               onGoManageProducts={handleGoManageProducts}
             />
@@ -424,9 +460,5 @@ export default function POSPageLayout({
     </>
   );
 }
-
-
-
-
 
 
