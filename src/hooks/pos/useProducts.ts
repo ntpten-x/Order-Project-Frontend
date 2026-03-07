@@ -51,7 +51,7 @@ export function useProducts(page: number = 1, limit: number = 20, categoryId?: s
             return result;
         },
         placeholderData: keepPreviousData,
-        staleTime: 30_000,
+        staleTime: 5 * 60 * 1000,
     });
 
     useEffect(() => {

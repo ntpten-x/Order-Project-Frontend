@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 import dynamic from "next/dynamic";
 import { useRouter, useParams } from "next/navigation";
-import { Typography, Row, Col, Card, Button, Empty, Divider, message, InputNumber, Tag, Alert, Modal, Result, Spin } from "antd";
+import { Typography, Row, Col, Card, Button, Empty, Divider, message, InputNumber, Tag, Alert, Result, Spin } from "antd";
 import { ArrowLeftOutlined, ShopOutlined, DollarOutlined, CreditCardOutlined, QrcodeOutlined, UndoOutlined, EditOutlined, SettingOutlined, DownOutlined, UpOutlined, CheckCircleOutlined } from "@ant-design/icons";
 import { ordersService } from "../../../../../../services/pos/orders.service";
 import { paymentMethodService } from "../../../../../../services/pos/paymentMethod.service";
@@ -30,7 +30,6 @@ import {
     isPaidOrCompletedStatus,
     isWaitingForPaymentStatus,
 } from "../../../../../../utils/orders";
-import ConfirmationDialog from "../../../../../../components/dialog/ConfirmationDialog";
 import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingContext";
 import { useAuth } from "../../../../../../contexts/AuthContext";
 import { useSocket } from "../../../../../../hooks/useSocket";
@@ -50,6 +49,16 @@ dayjs.locale('th');
 const PromptPayQr = dynamic(() => import("./PromptPayQr"), {
     ssr: false,
     loading: () => <Spin size="large" />,
+});
+
+const DiscountSelectionModal = dynamic(() => import("./DiscountSelectionModal"), {
+    ssr: false,
+    loading: () => null,
+});
+
+const ConfirmationDialog = dynamic(() => import("../../../../../../components/dialog/ConfirmationDialog"), {
+    ssr: false,
+    loading: () => null,
 });
 
 const loadPrintRuntime = () => import("../../../../../../utils/print-settings/runtime");
@@ -1039,85 +1048,31 @@ export default function POSPaymentPage() {
                 </div>
             </div>
             
-            {/* Discount Selection Modal */}
-            <Modal
-                title="เลือกส่วนลด"
-                open={discountModalVisible}
-                onCancel={() => setDiscountModalVisible(false)}
-                footer={null}
-                centered
-                width={400}
-                zIndex={10001}
-            >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
-                    {discountOptions.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: 24, color: '#9ca3af' }}>
-                            ไม่มีส่วนลดที่ใช้งานได้
-                        </div>
-                    ) : (
-                        discountOptions.map(opt => (
-                            <div
-                                key={opt.value}
-                                onClick={() => {
-                                    handleDiscountChange(opt.value);
-                                    setDiscountModalVisible(false);
-                                }}
-                                style={{
-                                    padding: '14px 18px',
-                                    border: '2px solid',
-                                    borderRadius: 12,
-                                    cursor: 'pointer',
-                                    background: appliedDiscount?.id === opt.value ? '#eff6ff' : '#fff',
-                                    borderColor: appliedDiscount?.id === opt.value ? '#3b82f6' : '#e5e7eb',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    minHeight: 54
-                                }}
-                            >
-                                <span style={{ fontWeight: appliedDiscount?.id === opt.value ? 600 : 400 }}>
-                                    {opt.label}
-                                </span>
-                                {appliedDiscount?.id === opt.value && (
-                                    <CheckCircleOutlined style={{ color: '#3b82f6', fontSize: 18 }} />
-                                )}
-                            </div>
-                        ))
-                    )}
-                    <div
-                        onClick={() => {
-                            handleDiscountChange(undefined);
-                            setDiscountModalVisible(false);
-                        }}
-                        style={{
-                            padding: '14px 18px',
-                            marginTop: 8,
-                            textAlign: 'center',
-                            color: '#ef4444',
-                            cursor: 'pointer',
-                            border: '2px dashed #ef4444',
-                            borderRadius: 12,
-                            minHeight: 54,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}
-                    >
-                        ไม่ใช้ส่วนลด
-                    </div>
-                </div>
-            </Modal>
+            {discountModalVisible && (
+                <DiscountSelectionModal
+                    open={discountModalVisible}
+                    options={discountOptions}
+                    appliedDiscountId={appliedDiscount?.id}
+                    onCancel={() => setDiscountModalVisible(false)}
+                    onSelect={(value) => {
+                        void handleDiscountChange(value);
+                        setDiscountModalVisible(false);
+                    }}
+                />
+            )}
             
-            <ConfirmationDialog
-                open={confirmConfig.open}
-                type={confirmConfig.type}
-                title={confirmConfig.title}
-                content={confirmConfig.content}
-                okText={confirmConfig.okText}
-                cancelText={confirmConfig.cancelText}
-                onOk={confirmConfig.onOk}
-                onCancel={closeConfirm}
-            />
+            {confirmConfig.open && (
+                <ConfirmationDialog
+                    open={confirmConfig.open}
+                    type={confirmConfig.type}
+                    title={confirmConfig.title}
+                    content={confirmConfig.content}
+                    okText={confirmConfig.okText}
+                    cancelText={confirmConfig.cancelText}
+                    onOk={confirmConfig.onOk}
+                    onCancel={closeConfirm}
+                />
+            )}
         </div>
     );
 }

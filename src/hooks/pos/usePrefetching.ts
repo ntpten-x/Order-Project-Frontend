@@ -37,10 +37,11 @@ export function usePOSPrefetching() {
                 const productsPage = 1;
                 const productsLimit = 20;
                 const productsCategoryKey = "all";
+                const productsQueryKey = "";
 
                 await Promise.all([
                     queryClient.prefetchQuery({
-                        queryKey: ['products', productsPage, productsLimit, productsCategoryKey],
+                        queryKey: ['products', productsPage, productsLimit, productsCategoryKey, productsQueryKey],
                         queryFn: () => productsService.findAll(productsPage, productsLimit, undefined, new URLSearchParams()),
                         staleTime: 5 * 60 * 1000, // 5 minutes
                         meta: { trackGlobalLoading: false },

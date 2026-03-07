@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import React, { useCallback, useEffect, useState, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useParams } from "next/navigation";
 import { groupOrderItems } from "../../../../../utils/orderGrouping";
 import { Typography, Row, Col, Card, Tag, Button, Empty, Table, Checkbox, message, Tooltip, Space, Divider } from "antd";
@@ -38,9 +39,6 @@ import {
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 
-import { AddItemsModal } from "./AddItemsModal";
-import { EditItemModal } from "./EditItemModal";
-import ConfirmationDialog from "../../../../../components/dialog/ConfirmationDialog";
 import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
 import { useAuth } from "../../../../../contexts/AuthContext";
 import { Products } from "../../../../../types/api/pos/products";
@@ -58,6 +56,21 @@ import { resolveImageSource } from "../../../../../utils/image/source";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
+
+const AddItemsModal = dynamic(() => import("./AddItemsModal").then((module) => module.AddItemsModal), {
+    ssr: false,
+    loading: () => null,
+});
+
+const EditItemModal = dynamic(() => import("./EditItemModal").then((module) => module.EditItemModal), {
+    ssr: false,
+    loading: () => null,
+});
+
+const ConfirmationDialog = dynamic(() => import("../../../../../components/dialog/ConfirmationDialog"), {
+    ssr: false,
+    loading: () => null,
+});
 
 type ItemDetailInput = {
     detail_name: string;
@@ -1253,12 +1266,14 @@ export default function POSOrderDetailsPage() {
 
             {/* Floating Action Bar (Mobile Only) */}
             
-            <AddItemsModal 
-                isOpen={isAddModalOpen} 
-                onClose={() => setIsAddModalOpen(false)} 
-                onAddItem={handleAddItem} 
-                orderType={order?.order_type}
-            />
+            {isAddModalOpen && (
+                <AddItemsModal 
+                    isOpen={isAddModalOpen} 
+                    onClose={() => setIsAddModalOpen(false)} 
+                    onAddItem={handleAddItem} 
+                    orderType={order?.order_type}
+                />
+            )}
             
             {editModalOpen && itemToEdit && (
                 <EditItemModal
@@ -1273,17 +1288,19 @@ export default function POSOrderDetailsPage() {
                 />
             )}
 
-            <ConfirmationDialog
-                open={confirmConfig.open}
-                type={confirmConfig.type}
-                title={confirmConfig.title}
-                content={confirmConfig.content}
-                okText={confirmConfig.okText}
-                cancelText={confirmConfig.cancelText}
-                onOk={confirmConfig.onOk}
-                onCancel={closeConfirm}
-                loading={isUpdating}
-            />
+            {confirmConfig.open && (
+                <ConfirmationDialog
+                    open={confirmConfig.open}
+                    type={confirmConfig.type}
+                    title={confirmConfig.title}
+                    content={confirmConfig.content}
+                    okText={confirmConfig.okText}
+                    cancelText={confirmConfig.cancelText}
+                    onOk={confirmConfig.onOk}
+                    onCancel={closeConfirm}
+                    loading={isUpdating}
+                />
+            )}
         </div>
     );
 }
