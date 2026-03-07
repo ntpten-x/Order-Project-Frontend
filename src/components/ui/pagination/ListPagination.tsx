@@ -42,22 +42,34 @@ export default function ListPagination({
         <div
             className="pagination-grid"
             style={{
-                display: 'grid',
-                gridTemplateColumns: isMobile ? '1fr' : 'minmax(240px, 1fr) auto minmax(240px, 1fr)',
+                display: 'flex',
+                flexDirection: 'column',
                 alignItems: 'center',
-                gap: isMobile ? 14 : 16,
+                gap: 12,
                 marginTop: 16,
-                paddingTop: 14,
-                borderTop: '1px solid #E2E8F0',
+                paddingTop: 16,
+                borderTop: '1px solid #F1F5F9',
                 width: '100%',
             }}
         >
-            <div style={{ justifySelf: isMobile ? 'stretch' : 'start' }}>
-                <Space size={12} wrap>
-                    <Text type="secondary" style={{ whiteSpace: 'nowrap' }}>
-                        แสดง {start}-{end} จาก {total} รายการ
-                    </Text>
-                    <Space size={6}>
+            {/* ── Record Range (Centered) ── */}
+            <Text type="secondary" style={{ fontSize: 14, color: '#64748B' }}>
+                แสดง {start}-{end} จาก {total} รายการ
+            </Text>
+
+            {/* ── Controls Row ── */}
+            <div
+                style={{
+                    display: 'grid',
+                    gridTemplateColumns: isMobile ? '1fr' : 'minmax(150px, 1fr) auto minmax(150px, 1fr)',
+                    alignItems: 'center',
+                    gap: isMobile ? 12 : 16,
+                    width: '100%',
+                }}
+            >
+                {/* Left: Page Size Selector */}
+                <div style={{ justifySelf: isMobile ? 'center' : 'start' }}>
+                    <Space size={8}>
                         <Text type="secondary">ต่อหน้า</Text>
                         <ModalSelector<number>
                             title="เลือกจำนวนรายการต่อหน้า"
@@ -68,71 +80,74 @@ export default function ListPagination({
                             style={{ minWidth: 88 }}
                         />
                     </Space>
-                </Space>
-            </div>
+                </div>
 
-            <div style={{ justifySelf: 'center' }}>
-                <Pagination
-                    size={isMobile ? 'small' : undefined}
-                    current={page}
-                    pageSize={pageSize}
-                    total={total}
-                    disabled={loading}
-                    showSizeChanger={false}
-                    onChange={onPageChange}
-                    itemRender={(current, type, originalElement) => {
-                        if (type === 'page' && current === page) {
-                            return (
-                                <div
-                                    style={{
-                                        border: `1.5px solid ${activeColor || '#4F46E5'}`,
-                                        borderRadius: 10,
-                                        width: 32,
-                                        height: 32,
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        background: '#ffffff',
-                                    }}
-                                >
-                                    <span
+                {/* Center: Pagination controls */}
+                <div style={{ justifySelf: 'center' }}>
+                    <Pagination
+                        size={isMobile ? 'small' : undefined}
+                        current={page}
+                        pageSize={pageSize}
+                        total={total}
+                        disabled={loading}
+                        showSizeChanger={false}
+                        onChange={onPageChange}
+                        itemRender={(current, type, originalElement) => {
+                            if (type === 'page' && current === page) {
+                                return (
+                                    <div
                                         style={{
-                                            color: activeColor || '#4F46E5',
-                                            fontWeight: 800,
-                                            fontSize: 15,
-                                            fontFamily: 'inherit',
+                                            border: `1.5px solid ${activeColor || '#4F46E5'}`,
+                                            borderRadius: 10,
+                                            width: 32,
+                                            height: 32,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'center',
+                                            background: '#ffffff',
                                         }}
                                     >
-                                        {current}
-                                    </span>
-                                </div>
-                            );
-                        }
-                        return originalElement;
-                    }}
-                />
+                                        <span
+                                            style={{
+                                                color: activeColor || '#4F46E5',
+                                                fontWeight: 800,
+                                                fontSize: 15,
+                                                fontFamily: 'inherit',
+                                            }}
+                                        >
+                                            {current}
+                                        </span>
+                                    </div>
+                                );
+                            }
+                            return originalElement;
+                        }}
+                    />
+                </div>
+
+                {/* Right: Sort selector (if any) */}
+                <div style={{ justifySelf: isMobile ? 'center' : 'end' }}>
+                    {onSortCreatedChange ? (
+                        <Space size={8}>
+                            <Text type="secondary">เรียงตาม</Text>
+                            <ModalSelector<CreatedSort>
+                                title="เลือกรูปแบบการเรียงลำดับ"
+                                value={sortCreated}
+                                disabled={loading}
+                                onChange={onSortCreatedChange}
+                                options={[
+                                    { value: 'old', label: 'เก่าก่อน' },
+                                    { value: 'new', label: 'ใหม่ก่อน' },
+                                ]}
+                                style={{ minWidth: 100 }}
+                            />
+                        </Space>
+                    ) : (
+                        <div style={{ width: 40 }} />
+                    )}
+                </div>
             </div>
 
-            <div style={{ justifySelf: isMobile ? 'stretch' : 'end' }}>
-                {onSortCreatedChange ? (
-                    <Space size={6}>
-                        <Text type="secondary">เรียงตาม</Text>
-                        <ModalSelector<CreatedSort>
-                            title="เลือกรูปแบบการเรียงลำดับ"
-                            value={sortCreated}
-                            disabled={loading}
-                            onChange={onSortCreatedChange}
-                            options={[
-                                { value: 'old', label: 'เก่าก่อน' },
-                                { value: 'new', label: 'ใหม่ก่อน' },
-                            ]}
-                            style={{ minWidth: 100 }}
-                        />
-                    </Space>
-                ) : (
-                    <div style={{ width: 40 }} />
-                )}
-            </div>
             <style jsx>{`
                 :global(.ant-pagination-item-active) {
                     border-color: transparent !important;

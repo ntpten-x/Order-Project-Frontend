@@ -36,9 +36,11 @@ export const AccessGuardFallback = ({ message, tone = "secondary" }: AccessGuard
                     )}
 
                     <div className="text-content">
-                        <Title level={4} style={{ margin: 0, color: '#1e293b' }}>
-                            {tone === 'danger' ? 'Access Denied' : 'กำลังโหลด...'}
-                        </Title>
+                        {tone === 'danger' && (
+                            <Title level={4} style={{ margin: 0, color: '#1e293b' }}>
+                                Access Denied
+                            </Title>
+                        )}
                         <Text type={tone} style={{ fontSize: 16 }}>{message}</Text>
                     </div>
 
