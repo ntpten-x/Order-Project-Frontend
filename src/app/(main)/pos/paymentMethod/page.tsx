@@ -28,7 +28,6 @@ import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import PageState from '../../../../components/ui/states/PageState';
 import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
 import { ModalSelector } from '../../../../components/ui/select/ModalSelector';
-import { StatsGroup } from '../../../../components/ui/card/StatsGroup';
 import { SearchInput } from '../../../../components/ui/input/SearchInput';
 import { SearchBar } from '../../../../components/ui/page/SearchBar';
 import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissions';
@@ -142,13 +141,7 @@ const PaymentMethodCard = ({
                         <Tag color={paymentMethod.is_active ? 'green' : 'default'} style={{ borderRadius: 999 }}>
                             {paymentMethod.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}
                         </Tag>
-                        <Tag color={visual.tagColor} style={{ borderRadius: 999 }}>
-                            {paymentMethod.payment_method_name}
-                        </Tag>
                     </div>
-                    <Text type="secondary" style={{ fontSize: 13, display: 'block', color: '#334155' }}>
-                        รหัสในระบบ {paymentMethod.payment_method_name}
-                    </Text>
                     <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
                         อัปเดตล่าสุด {formatDate(paymentMethod.create_date)}
                     </Text>
@@ -216,7 +209,6 @@ export default function PaymentMethodPage() {
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [hasCachedSnapshot, setHasCachedSnapshot] = useState(false);
-    const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
     const requestRef = useRef<AbortController | null>(null);
     const cacheHydratedRef = useRef(false);
     const {
@@ -322,7 +314,6 @@ export default function PaymentMethodPage() {
 
                 setPaymentMethods(payload.data || []);
                 setTotal(payload.total || 0);
-                setLastSyncedAt(new Date().toISOString());
             } catch (fetchError) {
                 if (controller.signal.aborted) return;
                 setError(fetchError instanceof Error ? fetchError : new Error('ไม่สามารถดึงข้อมูลวิธีการชำระเงินได้'));
@@ -470,21 +461,16 @@ export default function PaymentMethodPage() {
         return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
     }
 
-    const activePaymentMethods = paymentMethods.filter((item) => item.is_active).length;
-    const inactivePaymentMethods = paymentMethods.filter((item) => !item.is_active).length;
-
     return (
         <div className="payment-method-page" style={pageStyles.container}>
             <style>{globalStyles}</style>
 
             <UIPageHeader
                 title="วิธีการชำระเงิน"
-                subtitle="จัดการช่องทางรับชำระให้เรียบง่าย ชัดเจน และพร้อมใช้งานจริงบนหน้า POS"
                 icon={<CreditCardOutlined />}
                 actions={
                     <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchPaymentMethods({ background: paymentMethods.length > 0 })}>
-                            รีเฟรช
                         </Button>
                         {canCreatePaymentMethod ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
@@ -497,17 +483,9 @@ export default function PaymentMethodPage() {
 
             <PageContainer>
                 <PageStack>
-                    <StatsGroup
-                        stats={[
-                            { label: 'ผลลัพธ์ทั้งหมด', value: total, color: '#0f172a', subLabel: 'ตามตัวกรองปัจจุบัน' },
-                            { label: 'ใช้งานในหน้านี้', value: activePaymentMethods, color: '#047857', subLabel: 'พร้อมให้เลือกชำระเงิน' },
-                            { label: 'ปิดใช้งานในหน้านี้', value: inactivePaymentMethods, color: '#b91c1c', subLabel: 'ซ่อนจากหน้าเลือกชำระเงิน' },
-                        ]}
-                    />
-
                     <SearchBar>
                         <SearchInput
-                            placeholder="ค้นหาชื่อที่แสดงหรือชื่อในระบบ"
+                            placeholder="ค้นหา"
                             value={searchText}
                             onChange={setSearchText}
                         />
@@ -535,9 +513,6 @@ export default function PaymentMethodPage() {
                                     style={{ minWidth: 120 }}
                                 />
                             </Space>
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                {lastSyncedAt ? `อัปเดตล่าสุด ${formatDate(lastSyncedAt)}` : 'ยังไม่มีข้อมูลล่าสุด'}
-                            </Text>
                         </Space>
                     </SearchBar>
 
@@ -594,13 +569,6 @@ export default function PaymentMethodPage() {
                                     debouncedSearch.trim()
                                         ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรอง แล้วค้นหาอีกครั้ง'
                                         : 'เพิ่มช่องทางชำระเงินแรกเพื่อให้หน้า POS พร้อมใช้งานจริง'
-                                }
-                                action={
-                                    canCreatePaymentMethod ? (
-                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                            เพิ่มวิธีการชำระเงินแรก
-                                        </Button>
-                                    ) : null
                                 }
                             />
                         )}

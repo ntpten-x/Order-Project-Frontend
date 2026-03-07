@@ -28,7 +28,6 @@ import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import PageState from '../../../../components/ui/states/PageState';
 import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
 import { ModalSelector } from '../../../../components/ui/select/ModalSelector';
-import { StatsGroup } from '../../../../components/ui/card/StatsGroup';
 import { SearchInput } from '../../../../components/ui/input/SearchInput';
 import { SearchBar } from '../../../../components/ui/page/SearchBar';
 import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissions';
@@ -214,7 +213,6 @@ export default function DiscountsPage() {
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [hasCachedSnapshot, setHasCachedSnapshot] = useState(false);
-    const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
     const requestRef = useRef<AbortController | null>(null);
     const cacheHydratedRef = useRef(false);
     const {
@@ -321,7 +319,6 @@ export default function DiscountsPage() {
 
                 setDiscounts(payload.data || []);
                 setTotal(payload.total || 0);
-                setLastSyncedAt(new Date().toISOString());
             } catch (fetchError) {
                 if (controller.signal.aborted) return;
                 setError(fetchError instanceof Error ? fetchError : new Error('ไม่สามารถดึงข้อมูลส่วนลดได้'));
@@ -469,21 +466,16 @@ export default function DiscountsPage() {
         return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
     }
 
-    const activeDiscounts = discounts.filter((discount) => discount.is_active).length;
-    const inactiveDiscounts = discounts.filter((discount) => !discount.is_active).length;
-
     return (
         <div className="discount-page" style={pageStyles.container}>
             <style>{globalStyles}</style>
 
             <UIPageHeader
                 title="ส่วนลด"
-                subtitle="จัดการส่วนลดให้ใช้งานง่าย ชัดเจน และพร้อมใช้บนหน้า POS ทุกขนาดหน้าจอ"
                 icon={<PercentageOutlined />}
                 actions={
                     <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchDiscounts({ background: discounts.length > 0 })}>
-                            รีเฟรช
                         </Button>
                         {canCreateDiscounts ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
@@ -496,17 +488,9 @@ export default function DiscountsPage() {
 
             <PageContainer>
                 <PageStack>
-                    <StatsGroup
-                        stats={[
-                            { label: 'ผลลัพธ์ทั้งหมด', value: total, color: '#0f172a', subLabel: 'ตามตัวกรองปัจจุบัน' },
-                            { label: 'ใช้งานในหน้านี้', value: activeDiscounts, color: '#b45309', subLabel: 'พร้อมเลือกใช้ใน POS' },
-                            { label: 'ปิดใช้งานในหน้านี้', value: inactiveDiscounts, color: '#b91c1c', subLabel: 'ซ่อนจากรายการเลือกส่วนลด' },
-                        ]}
-                    />
-
                     <SearchBar>
                         <SearchInput
-                            placeholder="ค้นหาชื่อส่วนลด รหัสส่วนลด หรือคำอธิบาย"
+                            placeholder="ค้นหา"
                             value={searchText}
                             onChange={setSearchText}
                         />
@@ -545,9 +529,6 @@ export default function DiscountsPage() {
                                     style={{ minWidth: 120 }}
                                 />
                             </Space>
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                {lastSyncedAt ? `อัปเดตล่าสุด ${formatDate(lastSyncedAt)}` : 'ยังไม่มีข้อมูลล่าสุด'}
-                            </Text>
                         </Space>
                     </SearchBar>
 
@@ -604,13 +585,6 @@ export default function DiscountsPage() {
                                     debouncedSearch.trim()
                                         ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรอง แล้วค้นหาอีกครั้ง'
                                         : 'เพิ่มส่วนลดแรกเพื่อให้ทีมงานเลือกใช้งานบนหน้า POS ได้ทันที'
-                                }
-                                action={
-                                    canCreateDiscounts ? (
-                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                            เพิ่มส่วนลดแรก
-                                        </Button>
-                                    ) : null
                                 }
                             />
                         )}

@@ -191,7 +191,6 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
         <div style={pageStyles.container}>
             <UIPageHeader
                 title={title}
-                subtitle={isEdit ? 'แก้ไขชื่อและสถานะของหน่วยสินค้า' : 'เพิ่มหน่วยสินค้าใหม่สำหรับสินค้าใน POS'}
                 onBack={() => router.replace('/pos/productsUnit')}
                 actions={isEdit && canDelete ? <Button danger icon={<DeleteOutlined />} onClick={handleDelete}>ลบ</Button> : null}
             />
@@ -223,7 +222,7 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
                                     >
                                         <Form.Item
                                             name="display_name"
-                                            label={<span style={{ fontWeight: 600 }}>ชื่อหน่วยสินค้า <span style={{ color: '#ff4d4f' }}>*</span></span>}
+                                            label={<span style={{ fontWeight: 600 }}>ชื่อหน่วยสินค้า</span>}
                                             validateTrigger={['onBlur', 'onSubmit']}
                                             rules={[
                                                 { required: true, message: 'กรุณากรอกชื่อหน่วยสินค้า' },

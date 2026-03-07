@@ -424,12 +424,30 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                 locale: printSettings.locale,
             });
 
-            await saveCanvasAsPdf({
-                canvas: exportCanvas,
-                filename: `qr-table-${toSafeFilename(tableDisplayName)}.pdf`,
-                setting,
-            });
-            message.success('ดาวน์โหลด PDF สำเร็จ');
+            const targetWindow = reservePrintWindow(`Table QR ${tableDisplayName}`);
+            if (!targetWindow) {
+                await saveCanvasAsPdf({
+                    canvas: exportCanvas,
+                    filename: `qr-table-${toSafeFilename(tableDisplayName)}.pdf`,
+                    setting,
+                });
+                message.success('ดาวน์โหลด PDF สำเร็จ');
+            } else {
+                try {
+                    await printTableQrDocument({
+                        tableName: tableDisplayName,
+                        customerUrl,
+                        qrImageDataUrl,
+                        qrCodeExpiresAt: qrInfo?.qr_code_expires_at,
+                        settings: printSettings,
+                        targetWindow,
+                    });
+                    message.success('เปิดหน้าพิมพ์ PDF แล้ว');
+                } catch (error) {
+                    closePrintWindow(targetWindow);
+                    throw error;
+                }
+            }
         } catch (error) {
             console.error(error);
             message.error(error instanceof Error ? error.message : 'ดาวน์โหลด PDF ไม่สำเร็จ');

@@ -70,6 +70,7 @@ import {
     mergePrintSettings,
     toCssLength,
 } from '../../../utils/print-settings/defaults';
+import { closePrintWindow, reservePrintWindow } from '../../../utils/print-settings/runtime';
 
 const { Text, Title, Paragraph } = Typography;
 
@@ -451,13 +452,14 @@ export default function PrintSettingPage() {
 
     const handlePrintTest = useCallback(() => {
         setPrinting(true);
-        try {
-            const windowRef = window.open('', '_blank', 'width=960,height=720');
-            if (!windowRef) {
-                message.error('เน€เธเธฃเธฒเธงเนเน€เธเธญเธฃเนเธเธฅเนเธญเธ popup เธชเธณเธซเธฃเธฑเธ test print');
-                return;
-            }
+        const windowRef = reservePrintWindow(`Print Test - ${selectedMeta.label}`);
+        if (!windowRef) {
+            message.error('เบราว์เซอร์บล็อก popup สำหรับ test print');
+            setPrinting(false);
+            return;
+        }
 
+        try {
             const rows = getDocumentRows(selectedDocument).map(([label, value]) => `<div class="row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join('');
             const marginCss = [toCssLength(currentDocument.margin_top, currentDocument.unit), toCssLength(currentDocument.margin_right, currentDocument.unit), toCssLength(currentDocument.margin_bottom, currentDocument.unit), toCssLength(currentDocument.margin_left, currentDocument.unit)].join(' ');
             const pageSizeCss = currentDocument.height_mode === 'fixed' && currentDocument.height != null
@@ -467,9 +469,11 @@ export default function PrintSettingPage() {
                 ? `min-height: ${toCssLength(currentDocument.height, currentDocument.unit)};`
                 : '';
 
+            windowRef.document.open();
             windowRef.document.write(`<!doctype html><html><head><meta charset="utf-8" /><title>Print Test - ${escapeHtml(selectedMeta.label)}</title><style>@page { ${pageSizeCss} margin: ${marginCss}; } body { margin: 0; background: #eef2f7; font-family: "Segoe UI", "Sarabun", sans-serif; color: #0f172a; } .stage { min-height: 100vh; display: grid; place-items: center; padding: 16px; } .sheet { width: ${toCssLength(currentDocument.width, currentDocument.unit)}; ${sheetHeightCss} box-sizing: border-box; background: #fffef9; border: 1px solid rgba(15, 23, 42, 0.1); box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16); } .content { padding: ${marginCss}; font-size: ${formatNumber(12 * (currentDocument.font_scale / 100))}px; line-height: ${formatNumber(currentDocument.line_spacing)}; } .pill { display: inline-flex; gap: 6px; padding: 4px 10px; border-radius: 999px; background: #fef3c7; font-size: 12px; font-weight: 700; } .header { text-align: center; padding-bottom: 10px; border-bottom: 1px dashed #cbd5e1; } .meta { padding: 10px 0; font-size: 12px; border-bottom: 1px dashed #cbd5e1; } .meta-row, .row { display: flex; justify-content: space-between; gap: 10px; } .rows { padding-top: 14px; display: grid; gap: 8px; } .footer { margin-top: 14px; padding-top: 10px; border-top: 1px dashed #cbd5e1; text-align: center; font-size: 11px; color: #475569; } .qr { margin: 16px auto 0; width: 82px; height: 82px; border-radius: 12px; border: 2px dashed #0f766e; display: grid; place-items: center; color: #0f766e; background: #ecfeff; } @media print { body { background: #fff; } .stage { padding: 0; } .sheet { box-shadow: none; border: none; } }</style></head><body><div class="stage"><div class="sheet"><div class="content"><div class="header">${currentDocument.show_logo ? `<div class="pill">${escapeHtml(branchName)}</div>` : ''}<div style="margin-top: 8px; font-size: ${formatNumber(14 * (currentDocument.font_scale / 100))}px; font-weight: 800;">${escapeHtml(selectedMeta.label)}</div>${currentDocument.show_branch_address ? `<div style="margin-top: 4px; font-size: 11px; color: #475569;">128 Branch Road, Service Lane</div>` : ''}</div>${currentDocument.show_order_meta ? `<div class="meta"><div class="meta-row"><span>Printer profile</span><strong>${escapeHtml(currentDocument.printer_profile)}</strong></div><div class="meta-row"><span>Paper</span><strong>${escapeHtml(formatPaperSize(currentDocument))}</strong></div></div>` : ''}<div class="rows">${rows}</div>${currentDocument.show_qr ? `<div class="qr">QR</div>` : ''}${currentDocument.show_footer ? `<div class="footer">Branch isolated setting. Copies: ${currentDocument.copies}</div>` : ''}</div></div></div><script>window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 250); }); window.addEventListener('afterprint', function () { window.close(); });</script></body></html>`);
             windowRef.document.close();
         } catch (error) {
+            closePrintWindow(windowRef);
             console.error(error);
             message.error(error instanceof Error ? error.message : 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เน€เธเธดเธ” test print เนเธ”เน');
         } finally {
@@ -989,4 +993,3 @@ export default function PrintSettingPage() {
         </div>
     );
 }
-

@@ -1,5 +1,6 @@
 import { loadPdfExport } from "../../lib/dynamic-imports";
 import { PrintDocumentSetting, PrintUnit } from "../../types/api/pos/printSettings";
+import { downloadBlob, triggerDownloadFromUrl } from "../browser/download";
 
 const DEFAULT_PX_PER_MM = 12;
 
@@ -132,10 +133,7 @@ export async function buildTableQrExportCanvas(options: {
 }
 
 export function downloadCanvasAsPng(canvas: HTMLCanvasElement, filename: string): void {
-    const link = document.createElement("a");
-    link.href = canvas.toDataURL("image/png");
-    link.download = filename;
-    link.click();
+    triggerDownloadFromUrl(canvas.toDataURL("image/png"), filename);
 }
 
 export async function saveCanvasAsPdf(options: {
@@ -154,5 +152,6 @@ export async function saveCanvasAsPdf(options: {
     });
 
     doc.addImage(imageDataUrl, "PNG", 0, 0, pageSize.width, pageSize.height, undefined, "FAST");
-    doc.save(filename);
+    const blob = doc.output("blob");
+    downloadBlob(blob, filename);
 }

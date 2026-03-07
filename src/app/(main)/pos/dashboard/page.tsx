@@ -68,8 +68,10 @@ import { t } from "../../../../utils/i18n";
 import { resolveImageSource } from "../../../../utils/image/source";
 import SmartAvatar from "../../../../components/ui/image/SmartAvatar";
 import {
+  closePrintWindow,
   getPrintSettings,
   primePrintResources,
+  reservePrintWindow,
 } from "../../../../utils/print-settings/runtime";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
 
@@ -431,35 +433,11 @@ export default function DashboardPage() {
     async (format: ExportFormat) => {
       let pdfPreviewWindow: Window | null = null;
       if (format === "pdf") {
-        pdfPreviewWindow = window.open("", "_blank", "width=1024,height=768");
+        pdfPreviewWindow = reservePrintWindow("รายงานสรุปผลการขาย");
         if (!pdfPreviewWindow) {
           messageApi.error("เบราว์เซอร์บล็อกหน้าต่าง PDF กรุณาอนุญาตป๊อปอัป");
           return;
         }
-        pdfPreviewWindow.document.open();
-        pdfPreviewWindow.document.write(`
-          <!DOCTYPE html>
-          <html lang="th">
-            <head>
-              <meta charset="UTF-8" />
-              <title>กำลังเตรียมรายงาน</title>
-              <style>
-                body {
-                  margin: 0;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  min-height: 100vh;
-                  background: #f8fafc;
-                  color: #0f172a;
-                  font-family: "Sarabun", "Tahoma", sans-serif;
-                }
-              </style>
-            </head>
-            <body>กำลังเตรียมไฟล์สรุปผลการขาย...</body>
-          </html>
-        `);
-        pdfPreviewWindow.document.close();
       }
 
       try {
@@ -526,9 +504,7 @@ export default function DashboardPage() {
         );
         setExportDialogOpen(false);
       } catch (error) {
-        if (pdfPreviewWindow && !pdfPreviewWindow.closed) {
-          pdfPreviewWindow.close();
-        }
+        closePrintWindow(pdfPreviewWindow);
         console.error("Export sales summary failed", error);
         messageApi.error("ส่งออกไฟล์สรุปผลการขายไม่สำเร็จ");
       } finally {

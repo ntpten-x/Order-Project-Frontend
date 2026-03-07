@@ -206,7 +206,6 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
         <div style={pageStyles.container}>
             <UIPageHeader
                 title={title}
-                subtitle={isEdit ? 'แก้ไขชื่อและสถานะของหมวดหมู่' : 'เพิ่มหมวดหมู่ใหม่สำหรับหน้า POS'}
                 onBack={() => router.replace('/pos/category')}
                 actions={isEdit && canDelete ? <Button danger icon={<DeleteOutlined />} onClick={handleDelete}>ลบ</Button> : null}
             />
@@ -238,7 +237,7 @@ export default function CategoryManagePage({ params }: { params: { mode: string[
                                     >
                                         <Form.Item
                                             name="display_name"
-                                            label={<span style={{ fontWeight: 600 }}>ชื่อหมวดหมู่ <span style={{ color: '#ff4d4f' }}>*</span></span>}
+                                            label={<span style={{ fontWeight: 600 }}>ชื่อหมวดหมู่</span>}
                                             validateTrigger={['onBlur', 'onSubmit']}
                                             rules={[
                                                 { required: true, message: 'กรุณากรอกชื่อหมวดหมู่' },

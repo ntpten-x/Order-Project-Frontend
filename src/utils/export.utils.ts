@@ -5,7 +5,7 @@ import dayjs from "dayjs";
 import "dayjs/locale/th";
 import { resolveImageSource } from "./image/source";
 import { PrintDocumentSetting } from "../types/api/pos/printSettings";
-import { buildPageMarginCss, buildPageSizeCss } from "./print-settings/runtime";
+import { buildPageMarginCss, buildPageSizeCss, reservePrintWindow } from "./print-settings/runtime";
 import { createDefaultDocumentSetting, toCssLength } from "./print-settings/defaults";
 import { applyWorkbookPageSetup, downloadWorkbookBytes } from "./print-settings/excelPageSetup";
 
@@ -207,7 +207,7 @@ export const exportSalesReportPDF = async (
   const branchName = branding.branchName;
   const primaryColor = parseHexColor(branding.primaryColor, [15, 118, 110]);
   const secondaryColor = parseHexColor(branding.secondaryColor, [30, 64, 175]);
-  const printWindow = options.targetWindow ?? window.open("", "_blank", "width=1024,height=768");
+  const printWindow = options.targetWindow ?? reservePrintWindow(`รายงานสรุปผลการขาย ${rangeLabel}`);
   if (!printWindow) {
     throw new Error("เบราว์เซอร์บล็อกหน้าต่าง PDF");
   }

@@ -122,9 +122,6 @@ const CategoryCard = ({
                             {category.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}
                         </Tag>
                     </div>
-                    <Text type="secondary" style={{ fontSize: 13, display: 'block', color: '#334155' }} ellipsis={{ tooltip: category.display_name }}>
-                        {category.display_name}
-                    </Text>
                     <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
                         อัปเดตล่าสุด {formatDate(category.update_date)}
                     </Text>
@@ -454,12 +451,10 @@ export default function CategoryPage() {
 
             <UIPageHeader
                 title="หมวดหมู่สินค้า"
-                subtitle="จัดการหมวดหมู่สำหรับหน้า POS ให้ค้นหาและดูแลง่ายในทุกอุปกรณ์"
                 icon={<TagsOutlined />}
                 actions={
                     <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchCategories({ background: categories.length > 0 })}>
-                            รีเฟรช
                         </Button>
                         {canCreateCategory ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
@@ -472,17 +467,9 @@ export default function CategoryPage() {
 
             <PageContainer>
                 <PageStack>
-                    <StatsGroup
-                        stats={[
-                            { label: 'ผลลัพธ์ทั้งหมด', value: total, color: '#0f172a', subLabel: 'ตามตัวกรองปัจจุบัน' },
-                            { label: 'ใช้งานในหน้านี้', value: activeCategories, color: '#0f766e', subLabel: 'พร้อมแสดงใน POS' },
-                            { label: 'ปิดใช้งานในหน้านี้', value: inactiveCategories, color: '#b91c1c', subLabel: 'ซ่อนจากหน้าเลือกสินค้า' },
-                        ]}
-                    />
-
                     <SearchBar>
                         <SearchInput
-                            placeholder="ค้นหาชื่อหมวดหมู่หรือชื่อระบบ"
+                            placeholder="ค้นหา"
                             value={searchText}
                             onChange={setSearchText}
                         />
@@ -510,9 +497,6 @@ export default function CategoryPage() {
                                     style={{ minWidth: 120 }}
                                 />
                             </Space>
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                {lastSyncedAt ? `อัปเดตล่าสุด ${formatDate(lastSyncedAt)}` : 'ยังไม่มีข้อมูลล่าสุด'}
-                            </Text>
                         </Space>
                     </SearchBar>
 
@@ -569,13 +553,6 @@ export default function CategoryPage() {
                                     debouncedSearch.trim()
                                         ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ'
                                         : 'เพิ่มหมวดหมู่แรกเพื่อเริ่มใช้งานเมนูสินค้าใน POS'
-                                }
-                                action={
-                                    canCreateCategory ? (
-                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                            เพิ่มหมวดหมู่แรก
-                                        </Button>
-                                    ) : null
                                 }
                             />
                         )}

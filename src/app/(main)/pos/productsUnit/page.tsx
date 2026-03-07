@@ -27,7 +27,6 @@ import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import PageState from '../../../../components/ui/states/PageState';
 import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
 import { ModalSelector } from '../../../../components/ui/select/ModalSelector';
-import { StatsGroup } from '../../../../components/ui/card/StatsGroup';
 import { SearchInput } from '../../../../components/ui/input/SearchInput';
 import { SearchBar } from '../../../../components/ui/page/SearchBar';
 import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissions';
@@ -122,9 +121,6 @@ const UnitCard = ({
                             {unit.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}
                         </Tag>
                     </div>
-                    <Text type="secondary" style={{ fontSize: 13, display: 'block', color: '#334155' }} ellipsis={{ tooltip: unit.display_name }}>
-                        {unit.display_name}
-                    </Text>
                     <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
                         อัปเดตล่าสุด {formatDate(unit.update_date)}
                     </Text>
@@ -192,7 +188,6 @@ export default function ProductsUnitPage() {
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [hasCachedSnapshot, setHasCachedSnapshot] = useState(false);
-    const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
     const requestRef = useRef<AbortController | null>(null);
     const cacheHydratedRef = useRef(false);
     const {
@@ -298,7 +293,6 @@ export default function ProductsUnitPage() {
 
                 setUnits(payload.data || []);
                 setTotal(payload.total || 0);
-                setLastSyncedAt(new Date().toISOString());
             } catch (fetchError) {
                 if (controller.signal.aborted) return;
                 setError(fetchError instanceof Error ? fetchError : new Error('ไม่สามารถดึงข้อมูลหน่วยสินค้าได้'));
@@ -443,21 +437,16 @@ export default function ProductsUnitPage() {
         return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
     }
 
-    const activeUnits = units.filter((unit) => unit.is_active).length;
-    const inactiveUnits = units.filter((unit) => !unit.is_active).length;
-
     return (
         <div className="unit-page" style={pageStyles.container}>
             <style>{globalStyles}</style>
 
             <UIPageHeader
                 title="หน่วยสินค้า"
-                subtitle="จัดการหน่วยนับของสินค้าให้ใช้งานง่ายและสอดคล้องกับหน้าขายสินค้า"
                 icon={<UnorderedListOutlined />}
                 actions={
                     <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchUnits({ background: units.length > 0 })}>
-                            รีเฟรช
                         </Button>
                         {canCreateUnits ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
@@ -470,17 +459,9 @@ export default function ProductsUnitPage() {
 
             <PageContainer>
                 <PageStack>
-                    <StatsGroup
-                        stats={[
-                            { label: 'ผลลัพธ์ทั้งหมด', value: total, color: '#0f172a', subLabel: 'ตามตัวกรองปัจจุบัน' },
-                            { label: 'ใช้งานในหน้านี้', value: activeUnits, color: '#0e7490', subLabel: 'พร้อมใช้งานใน POS' },
-                            { label: 'ปิดใช้งานในหน้านี้', value: inactiveUnits, color: '#b91c1c', subLabel: 'ซ่อนจากหน้าเลือกสินค้า' },
-                        ]}
-                    />
-
                     <SearchBar>
                         <SearchInput
-                            placeholder="ค้นหาชื่อหน่วยหรือชื่อระบบ"
+                            placeholder="ค้นหา"
                             value={searchText}
                             onChange={setSearchText}
                         />
@@ -508,9 +489,6 @@ export default function ProductsUnitPage() {
                                     style={{ minWidth: 120 }}
                                 />
                             </Space>
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                {lastSyncedAt ? `อัปเดตล่าสุด ${formatDate(lastSyncedAt)}` : 'ยังไม่มีข้อมูลล่าสุด'}
-                            </Text>
                         </Space>
                     </SearchBar>
 
@@ -567,13 +545,6 @@ export default function ProductsUnitPage() {
                                     debouncedSearch.trim()
                                         ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ'
                                         : 'เพิ่มหน่วยสินค้าแรกเพื่อให้ทีมงานเลือกใช้งานได้ถูกต้อง'
-                                }
-                                action={
-                                    canCreateUnits ? (
-                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                            เพิ่มหน่วยสินค้าแรก
-                                        </Button>
-                                    ) : null
                                 }
                             />
                         )}
