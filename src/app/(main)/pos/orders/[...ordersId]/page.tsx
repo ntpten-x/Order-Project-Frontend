@@ -50,6 +50,7 @@ import { offlineQueueService } from "../../../../../services/pos/offline.queue.s
 import { useSocket } from "../../../../../hooks/useSocket";
 import { matchesRealtimeEntityPayload, useRealtimeRefresh } from "../../../../../utils/pos/realtime";
 import { ORDER_REALTIME_EVENTS } from "../../../../../utils/pos/orderRealtimeEvents";
+import { primeOrderTransitionCache } from "../../../../../utils/pos/orderTransitionCache";
 import UIPageHeader from "../../../../../components/ui/page/PageHeader";
 import SmartImage from "../../../../../components/ui/image/SmartImage";
 import { resolveImageSource } from "../../../../../utils/image/source";
@@ -176,8 +177,20 @@ export default function POSOrderDetailsPage() {
     const groupedNonCancelledItems = useMemo(() => groupOrderItems(nonCancelledItems), [nonCancelledItems]);
     const calculatedTotal = calculateOrderTotal(order?.items);
     const canMoveToWaitingForPayment = nonCancelledItems.length > 0;
+    const waitingPaymentPath = useMemo(() => {
+        if (!order) return null;
+        return order.order_type === OrderType.Delivery
+            ? `/pos/items/delivery/${order.id}`
+            : `/pos/items/payment/${order.id}`;
+    }, [order]);
     const shouldVirtualizeActive = groupedActiveItems.length > 12;
     const shouldVirtualizeServed = groupedServedItems.length > 12;
+
+    useEffect(() => {
+        if (waitingPaymentPath) {
+            router.prefetch(waitingPaymentPath);
+        }
+    }, [router, waitingPaymentPath]);
 
     const handleCancelSelected = async () => {
         if (!canUpdateOrders) {
@@ -411,9 +424,6 @@ export default function POSOrderDetailsPage() {
         }
 
         const isDelivery = order.order_type === OrderType.Delivery;
-        const nextPath = isDelivery
-            ? `/pos/items/delivery/${order.id}`
-            : `/pos/items/payment/${order.id}`;
 
         setConfirmConfig({
             open: true,
@@ -430,9 +440,10 @@ export default function POSOrderDetailsPage() {
                     showLoading("กำลังย้ายออเดอร์ไปขั้นตอนรอชำระเงิน...");
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
-                    await ordersService.updateStatus(orderId as string, OrderStatus.WaitingForPayment, csrfToken);
+                    const updatedOrder = await ordersService.updateStatus(orderId as string, OrderStatus.WaitingForPayment, csrfToken);
+                    primeOrderTransitionCache(updatedOrder);
                     message.success("เปลี่ยนสถานะเป็นรอชำระเงินเรียบร้อย");
-                    router.push(nextPath);
+                    router.push(getOrderNavigationPath(updatedOrder));
                 } catch {
                     message.error("เกิดข้อผิดพลาดในการย้ายออเดอร์");
                 } finally {

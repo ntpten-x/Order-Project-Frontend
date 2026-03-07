@@ -250,7 +250,6 @@ export default function ShiftPage() {
 
             <UIPageHeader
                 title="กะการทำงาน"
-                subtitle={currentShift ? 'สรุปภาพรวมกะปัจจุบันแบบเรียลไทม์' : 'จัดการการเปิดและปิดกะการขาย'}
                 icon={<ClockCircleOutlined />}
                 onBack={() => router.back()}
                 actions={
@@ -307,23 +306,6 @@ export default function ShiftPage() {
                     ) : (
                         <>
                             <PageSection>
-                                <div className="shift-status-banner">
-                                    <div className="shift-status-icon">
-                                        <ClockCircleOutlined />
-                                    </div>
-                                    <div className="shift-status-text">
-                                        <div className="status-label">
-                                            <Tag color="success" style={{ borderRadius: 8, marginRight: 8 }}>
-                                                เปิดกะอยู่
-                                            </Tag>
-                                            {shiftDuration}
-                                        </div>
-                                        <div className="status-sub">
-                                            เปิดกะเมื่อ {dayjs(currentShift.open_time).format('DD/MM/YYYY HH:mm')} น.
-                                        </div>
-                                    </div>
-                                </div>
-
                                 <div className="shift-info-grid" style={{ marginTop: 12 }}>
                                     <div className="shift-info-item">
                                         <div className="info-label">ผู้เปิดกะ</div>

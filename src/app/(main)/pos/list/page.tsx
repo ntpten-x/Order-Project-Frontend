@@ -746,7 +746,7 @@ function ServingBoardPageContent() {
                         allowClear
                         size="large"
                         prefix={<SearchOutlined className="sb-search-icon" />}
-                        placeholder="ค้นหาออเดอร์..."
+                        placeholder="ค้นหา"
                         value={search}
                         onChange={(event) => setSearch(event.target.value)}
                         className="sb-search-glass-input"

@@ -315,7 +315,6 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
         <div className="manage-page" style={pageStyles.container as React.CSSProperties}>
             <UIPageHeader
                 title={modeTitle}
-                subtitle={isEdit ? 'แก้ไขผู้ให้บริการ, Prefix และโลโก้ที่ใช้ใน POS' : 'เพิ่มผู้ให้บริการเดลิเวอรี่ใหม่ให้พร้อมใช้งาน'}
                 onBack={handleBack}
                 actions={
                     isEdit && canDeleteDelivery ? (

@@ -577,7 +577,6 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
         <div className="manage-page" style={pageStyles.container as React.CSSProperties}>
             <UIPageHeader
                 title={modeTitle}
-                subtitle={isEdit ? 'ปรับข้อมูลโต๊ะ, สถานะใช้งาน และ QR สำหรับลูกค้า' : 'สร้างโต๊ะใหม่ให้พร้อมใช้งานใน POS'}
                 onBack={handleBack}
                 actions={
                     isEdit && canDeleteTables ? (

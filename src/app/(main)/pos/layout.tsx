@@ -1,15 +1,25 @@
 "use client";
 
 import React from 'react';
+import dynamic from "next/dynamic";
 import { Layout } from "antd";
 import { CartProvider } from '../../../contexts/pos/CartContext';
 import { ShiftProvider } from '../../../contexts/pos/ShiftContext';
-import POSBottomNavigation from '../../../components/pos/POSBottomNavigation';
-import { SyncManager } from '../../../components/shared/SyncManager';
-import OpenShiftModal from '../../../components/pos/shifts/OpenShiftModal';
-
 import { useOrderSocketEvents } from '../../../hooks/pos/useOrderSocketEvents';
 import { usePOSPrefetching } from '../../../hooks/pos/usePrefetching';
+
+const POSBottomNavigation = dynamic(() => import('../../../components/pos/POSBottomNavigation'), {
+    ssr: false,
+});
+
+const SyncManager = dynamic(
+    () => import('../../../components/shared/SyncManager').then((module) => module.SyncManager),
+    { ssr: false }
+);
+
+const OpenShiftModal = dynamic(() => import('../../../components/pos/shifts/OpenShiftModal'), {
+    ssr: false,
+});
 
 export default function POSLayout({ children }: { children: React.ReactNode }) {
     usePOSPrefetching();

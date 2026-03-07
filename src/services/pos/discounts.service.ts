@@ -2,14 +2,54 @@ import { Discounts } from "../../types/api/pos/discounts";
 import { getProxyUrl } from "../../lib/proxy-utils";
 import { API_ROUTES } from "../../config/api";
 import { normalizeBackendPaginated, throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
+import { withInflightDedup } from "../../utils/api/inflight";
 
 const BASE_PATH = API_ROUTES.POS.DISCOUNTS;
+const DISCOUNT_CACHE_TTL_MS = 60_000;
+
+type DiscountListCacheEntry = {
+    ts: number;
+    data: Discounts[];
+};
+
+const discountListCache = new Map<string, DiscountListCacheEntry>();
 
 const getHeaders = (cookie?: string, contentType: string = "application/json"): HeadersInit => {
     const headers: Record<string, string> = {};
     if (contentType) headers["Content-Type"] = contentType;
     if (cookie) headers.Cookie = cookie;
     return headers;
+};
+
+const normalizeDiscountList = (json: unknown): Discounts[] => {
+    if (Array.isArray(json)) {
+        return json as Discounts[];
+    }
+
+    if (json && typeof json === "object" && !Array.isArray(json)) {
+        const record = json as Record<string, unknown>;
+
+        if (record.success === true && Array.isArray(record.data)) {
+            return record.data as Discounts[];
+        }
+
+        if (Array.isArray(record.data)) {
+            return record.data as Discounts[];
+        }
+
+        if (record.success === true && record.data && typeof record.data === "object" && !Array.isArray(record.data)) {
+            const data = record.data as Record<string, unknown>;
+            if (data.id && data.display_name) {
+                return [data as unknown as Discounts];
+            }
+        }
+
+        if (record.id && record.display_name) {
+            return [record as unknown as Discounts];
+        }
+    }
+
+    return [];
 };
 
 export const discountsService = {
@@ -31,64 +71,41 @@ export const discountsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลส่วนลดได้");
+            throwBackendHttpError(response, errorData, "Unable to load discounts");
         }
 
         return normalizeBackendPaginated<Discounts>(await response.json());
     },
 
     getAll: async (cookie?: string, searchParams?: URLSearchParams): Promise<Discounts[]> => {
-        let url = getProxyUrl("GET", BASE_PATH);
         const params = new URLSearchParams(searchParams || "");
-        if (params.toString()) {
-            url += `?${params.toString()}`;
+        const cacheKey = `${cookie ?? "client"}:${params.toString()}`;
+        const cached = discountListCache.get(cacheKey);
+        if (cached && Date.now() - cached.ts < DISCOUNT_CACHE_TTL_MS) {
+            return cached.data;
         }
-        const headers = getHeaders(cookie, "");
 
-        const response = await fetch(url!, {
-            cache: "no-store",
-            headers,
-            credentials: "include"
+        return withInflightDedup(`discounts:getAll:${cacheKey}`, async () => {
+            let url = getProxyUrl("GET", BASE_PATH);
+            if (params.toString()) {
+                url += `?${params.toString()}`;
+            }
+            const headers = getHeaders(cookie, "");
+
+            const response = await fetch(url!, {
+                cache: "no-store",
+                headers,
+                credentials: "include"
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throwBackendHttpError(response, errorData, "Unable to load discounts");
+            }
+
+            const payload = normalizeDiscountList(await response.json());
+            discountListCache.set(cacheKey, { ts: Date.now(), data: payload });
+            return payload;
         });
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลส่วนลดได้");
-        }
-        const json = await response.json();
-
-        // Handle different response formats
-        if (Array.isArray(json)) {
-            return json;
-        }
-
-        // Backend returns { success: true, data: [...] }
-        if (json?.success && Array.isArray(json.data)) {
-            return json.data;
-        }
-
-        // Backend returns { data: [...] } without success flag
-        if (json?.data && Array.isArray(json.data)) {
-            return json.data;
-        }
-
-        // Backend returns single object (shouldn't happen but handle it)
-        // Check if it's a discount object by checking required fields
-        if (json && typeof json === 'object' && !Array.isArray(json)) {
-            // Check if it's wrapped in success response but data is object instead of array
-            if (json.success && json.data && typeof json.data === 'object' && !Array.isArray(json.data)) {
-                if (json.data.id && json.data.display_name) {
-                    return [json.data as Discounts];
-                }
-            }
-
-            // Check if it's a single discount object
-            if (json.id && json.display_name) {
-                // Single discount object - convert to array
-                return [json as Discounts];
-            }
-        }
-
-        return [];
     },
 
     getById: async (id: string, cookie?: string): Promise<Discounts> => {
@@ -102,7 +119,7 @@ export const discountsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลส่วนลดได้");
+            throwBackendHttpError(response, errorData, "Unable to load discount");
         }
         return unwrapBackendData(await response.json()) as Discounts;
     },
@@ -118,7 +135,7 @@ export const discountsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลส่วนลดได้");
+            throwBackendHttpError(response, errorData, "Unable to load discount");
         }
         return unwrapBackendData(await response.json()) as Discounts;
     },
@@ -136,9 +153,11 @@ export const discountsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถสร้างส่วนลดได้");
+            throwBackendHttpError(response, errorData, "Unable to create discount");
         }
-        return unwrapBackendData(await response.json()) as Discounts;
+        const payload = unwrapBackendData(await response.json()) as Discounts;
+        discountListCache.clear();
+        return payload;
     },
 
     update: async (id: string, data: Partial<Discounts>, cookie?: string, csrfToken?: string): Promise<Discounts> => {
@@ -154,9 +173,11 @@ export const discountsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถแก้ไขส่วนลดได้");
+            throwBackendHttpError(response, errorData, "Unable to update discount");
         }
-        return unwrapBackendData(await response.json()) as Discounts;
+        const payload = unwrapBackendData(await response.json()) as Discounts;
+        discountListCache.clear();
+        return payload;
     },
 
     delete: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
@@ -171,7 +192,8 @@ export const discountsService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถลบส่วนลดได้");
+            throwBackendHttpError(response, errorData, "Unable to delete discount");
         }
+        discountListCache.clear();
     }
 };

@@ -141,9 +141,6 @@ const ProductCard = ({
                         {product.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}
                     </Tag>
                 </div>
-                <Text type="secondary" style={{ display: 'block', marginBottom: 6 }} ellipsis={{ tooltip: product.display_name }}>
-                    {product.display_name}
-                </Text>
                 <Space size={6} wrap>
                     <Tag style={{ margin: 0, border: 'none', background: '#ecfdf5', color: '#047857' }}>
                         {formatPrice(Number(product.price || 0))}
@@ -646,12 +643,10 @@ export default function ProductsPage() {
 
             <UIPageHeader
                 title="สินค้า"
-                subtitle="จัดการสินค้า ราคา และสถานะการขายให้ทีมงานค้นหาและใช้งานได้ง่ายบนทุกขนาดหน้าจอ"
                 icon={<ShopOutlined />}
                 actions={
                     <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchProducts({ background: products.length > 0 })}>
-                            รีเฟรช
                         </Button>
                         {canCreateProducts ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} disabled={!setupState.isReady}>
@@ -689,17 +684,9 @@ export default function ProductsPage() {
                         </PageSection>
                     ) : null}
 
-                    <StatsGroup
-                        stats={[
-                            { label: 'ผลลัพธ์ทั้งหมด', value: total, color: '#0f172a', subLabel: 'ตามตัวกรองปัจจุบัน' },
-                            { label: 'พร้อมขาย', value: activeCount, color: '#047857', subLabel: 'สินค้าที่เปิดใช้งานอยู่' },
-                            { label: 'ปิดใช้งาน', value: inactiveCount, color: '#b91c1c', subLabel: 'สินค้าที่ซ่อนจากหน้า POS' },
-                        ]}
-                    />
-
                     <SearchBar>
                         <SearchInput
-                            placeholder="ค้นหาชื่อสินค้า ชื่อในระบบ หรือรายละเอียด"
+                            placeholder="ค้นหา"
                             value={searchText}
                             onChange={setSearchText}
                         />
@@ -737,9 +724,6 @@ export default function ProductsPage() {
                                     style={{ minWidth: 120 }}
                                 />
                             </Space>
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                {lastSyncedAt ? `อัปเดตล่าสุด ${formatDate(lastSyncedAt)}` : 'ยังไม่มีข้อมูลล่าสุด'}
-                            </Text>
                         </Space>
                     </SearchBar>
 
@@ -753,7 +737,7 @@ export default function ProductsPage() {
                         }
                     >
                         {loading && products.length === 0 ? (
-                            <PageState status="loading" title="กำลังโหลดข้อมูลสินค้า..." />
+                            <PageState status="loading"/>
                         ) : error && products.length === 0 ? (
                             <PageState
                                 status="error"
@@ -796,13 +780,6 @@ export default function ProductsPage() {
                                     debouncedSearch.trim()
                                         ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรอง แล้วค้นหาอีกครั้ง'
                                         : 'เพิ่มสินค้าแรกเพื่อเริ่มใช้งานการขายในหน้า POS'
-                                }
-                                action={
-                                    canCreateProducts && setupState.isReady ? (
-                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                            เพิ่มสินค้าแรก
-                                        </Button>
-                                    ) : null
                                 }
                             />
                         )}

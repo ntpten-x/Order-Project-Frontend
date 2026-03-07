@@ -31,7 +31,8 @@ const SHOP_PROFILE_CACHE_TTL_MS = 60_000;
 
 let printSettingsCache: BranchPrintSettings | null = null;
 let printSettingsCacheExpiresAt = 0;
-let printSettingsInflight: Promise<BranchPrintSettings> | null = null;
+let printSettingsLenientInflight: Promise<BranchPrintSettings> | null = null;
+let printSettingsStrictInflight: Promise<BranchPrintSettings> | null = null;
 
 let shopProfileCache: PrintShopProfile | null = null;
 let shopProfileCacheExpiresAt = 0;
@@ -136,37 +137,73 @@ export function peekPrintSettings(): BranchPrintSettings | null {
     return printSettingsCache;
 }
 
-export async function getPrintSettings(options?: { forceRefresh?: boolean }): Promise<BranchPrintSettings> {
+export function hydratePrintSettingsCache(
+    settings: BranchPrintSettings | null,
+    ttlMs: number = PRINT_SETTINGS_CACHE_TTL_MS
+): void {
+    if (!settings) {
+        printSettingsCache = null;
+        printSettingsCacheExpiresAt = 0;
+        printSettingsLenientInflight = null;
+        printSettingsStrictInflight = null;
+        return;
+    }
+
+    printSettingsCache = normalizeSettings(settings);
+    printSettingsCacheExpiresAt = Date.now() + ttlMs;
+}
+
+export function invalidatePrintSettingsCache(): void {
+    hydratePrintSettingsCache(null);
+}
+
+export async function getPrintSettings(options?: {
+    forceRefresh?: boolean;
+    allowFallback?: boolean;
+}): Promise<BranchPrintSettings> {
     const forceRefresh = Boolean(options?.forceRefresh);
+    const allowFallback = options?.allowFallback !== false;
     const now = Date.now();
 
     if (!forceRefresh && printSettingsCache && printSettingsCacheExpiresAt > now) {
         return printSettingsCache;
     }
 
-    if (!forceRefresh && printSettingsInflight) {
-        return printSettingsInflight;
+    const activeInflight = allowFallback ? printSettingsLenientInflight : printSettingsStrictInflight;
+    if (!forceRefresh && activeInflight) {
+        return activeInflight;
     }
 
-    printSettingsInflight = (async () => {
+    const inflightPromise = (async () => {
         try {
             const payload = await printSettingsService.getSettings();
             const normalized = normalizeSettings(payload);
-            printSettingsCache = normalized;
-            printSettingsCacheExpiresAt = Date.now() + PRINT_SETTINGS_CACHE_TTL_MS;
+            hydratePrintSettingsCache(normalized);
             return normalized;
         } catch (error) {
+            if (!allowFallback) {
+                throw error;
+            }
             console.warn("Unable to load print settings, fallback to defaults", error);
             const fallback = normalizeSettings(undefined);
-            printSettingsCache = fallback;
-            printSettingsCacheExpiresAt = Date.now() + 10_000;
+            hydratePrintSettingsCache(fallback, 10_000);
             return fallback;
         } finally {
-            printSettingsInflight = null;
+            if (allowFallback) {
+                printSettingsLenientInflight = null;
+            } else {
+                printSettingsStrictInflight = null;
+            }
         }
     })();
 
-    return printSettingsInflight;
+    if (allowFallback) {
+        printSettingsLenientInflight = inflightPromise;
+    } else {
+        printSettingsStrictInflight = inflightPromise;
+    }
+
+    return inflightPromise;
 }
 
 async function getPrintShopProfile(options?: {

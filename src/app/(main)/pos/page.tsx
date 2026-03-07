@@ -65,7 +65,6 @@ export default function POSPage() {
     const router = useRouter();
     const { currentShift, loading: shiftLoading } = useShift();
     const { stats, isLoading: statsLoading } = useChannelStats();
-    const { profile, isLoading: profileLoading } = useShopProfile();
 
 
 
@@ -90,7 +89,6 @@ export default function POSPage() {
             {
                 key: "dine-in",
                 title: "หน้าร้าน",
-                description: "เลือกโต๊ะและเริ่มออเดอร์สำหรับลูกค้านั่งทานที่ร้าน",
                 icon: <ShopOutlined style={{ fontSize: 22 }} />,
                 path: "/pos/channels/dine-in",
                 accent: accents.dineIn,
@@ -99,7 +97,6 @@ export default function POSPage() {
             {
                 key: "takeaway",
                 title: "สั่งกลับบ้าน",
-                description: "ดูคิวออเดอร์กลับบ้านและสร้างออเดอร์ใหม่ได้ทันที",
                 icon: <ShoppingOutlined style={{ fontSize: 22 }} />,
                 path: "/pos/channels/takeaway",
                 accent: accents.takeaway,
@@ -108,7 +105,6 @@ export default function POSPage() {
             {
                 key: "delivery",
                 title: "เดลิเวอรี่",
-                description: "ติดตามออเดอร์จัดส่งและแยกตามผู้ให้บริการได้ชัดเจน",
                 icon: <RocketOutlined style={{ fontSize: 22 }} />,
                 path: "/pos/channels/delivery",
                 accent: accents.delivery,
@@ -118,7 +114,7 @@ export default function POSPage() {
         [stats]
     );
 
-    const isLoading = shiftLoading || statsLoading || profileLoading;
+    const isLoading = shiftLoading || statsLoading ;
 
     if (authLoading || permissionLoading) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
@@ -130,46 +126,6 @@ export default function POSPage() {
     return (
         <PageContainer>
             <PageStack gap={20}>
-                <ChannelHero
-                    eyebrow="POS Workspace"
-                    title={profile?.shop_name || "POS"}
-                    subtitle={
-                        currentShift
-                            ? `กะกำลังเปิดอยู่ เริ่มต้นเงินทอน ${formatMoney(currentShift.start_amount)}`
-                            : "เริ่มงานจากหน้าเดียว ดูภาพรวมกะขาย ช่องทางขาย และงานที่ต้องทำทันที"
-                    }
-                    icon={<AppstoreOutlined style={{ fontSize: 22 }} />}
-                    accent={accents.neutral}
-                    metrics={[
-                        { label: "ออเดอร์หน้าร้าน", value: stats?.dineIn ?? 0 },
-                        { label: "ออเดอร์กลับบ้าน", value: stats?.takeaway ?? 0 },
-                        { label: "ออเดอร์เดลิเวอรี่", value: stats?.delivery ?? 0 },
-                    ]}
-                    actions={
-                        <>
-                            <Button onClick={() => router.push("/pos/channels")}>เปิดช่องทางขาย</Button>
-                            <Button
-                                type="primary"
-                                onClick={() => router.push(currentShift ? "/pos/list" : "/pos/shift?openShift=1")}
-                            >
-                                {currentShift ? "ไปบอร์ดรายการ" : "เปิดกะขาย"}
-                            </Button>
-                        </>
-                    }
-                    footer={
-                        <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                            <Tag color={currentShift ? "success" : "warning"} style={{ margin: 0, borderRadius: 999, paddingInline: 12 }}>
-                                {currentShift ? "กะเปิดอยู่" : "ยังไม่เปิดกะ"}
-                            </Tag>
-                            {profile?.phone ? (
-                                <Tag style={{ margin: 0, borderRadius: 999, paddingInline: 12 }}>
-                                    โทร {profile.phone}
-                                </Tag>
-                            ) : null}
-                        </div>
-                    }
-                />
-
                 <Row gutter={[16, 16]}>
                     <Col xs={24} lg={16}>
                         <PageSection title="เริ่มงานได้ทันที">
@@ -181,7 +137,7 @@ export default function POSPage() {
                                         <Col xs={24} md={12} xl={8} key={card.key}>
                                             <DashboardTile
                                                 title={card.title}
-                                                description={card.description}
+                                                description={""}
                                                 icon={card.icon}
                                                 accent={card.accent}
                                                 meta={
@@ -207,31 +163,6 @@ export default function POSPage() {
                             )}
                         </PageSection>
                     </Col>
-
-                    <Col xs={24} lg={8}>
-                        <PageSection title="งานที่เกี่ยวข้อง">
-                            <PageStack gap={12}>
-                                <SummaryPanel
-                                    title="สถานะกะขาย"
-                                    value={currentShift ? "เปิดอยู่" : "ยังไม่เปิด"}
-                                    hint={currentShift ? `เปิดเมื่อ ${formatDateTime(currentShift.open_time)}` : "ต้องเปิดกะก่อนเริ่มรับออเดอร์"}
-                                    accent={accents.neutral}
-                                />
-                                <Button block icon={<ClockCircleOutlined />} onClick={() => router.push("/pos/shift")}>
-                                    จัดการกะขาย
-                                </Button>
-                                <Button block icon={<HistoryOutlined />} onClick={() => router.push("/pos/shiftHistory")}>
-                                    ประวัติกะขาย
-                                </Button>
-                                <Button block icon={<SwapOutlined />} onClick={() => router.push("/pos/list")}>
-                                    บอร์ดรายการสด
-                                </Button>
-                                <Button block icon={<SettingOutlined />} onClick={() => router.push("/pos/settings")}>
-                                    ตั้งค่าร้าน
-                                </Button>
-                            </PageStack>
-                        </PageSection>
-                    </Col>
                 </Row>
 
                 {!isLoading && !currentShift ? (
@@ -244,18 +175,4 @@ export default function POSPage() {
             </PageStack>
         </PageContainer>
     );
-}
-
-function formatMoney(value: number): string {
-    return `฿${Number(value || 0).toLocaleString()}`;
-}
-
-function formatDateTime(value?: string): string {
-    if (!value) return "-";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "-";
-    return new Intl.DateTimeFormat("th-TH", {
-        dateStyle: "medium",
-        timeStyle: "short",
-    }).format(date);
 }

@@ -1,10 +1,12 @@
-import { SalesOrder, SalesOrderSummary, CreateSalesOrderDTO, CreateOrderItemDTO } from "../../types/api/pos/salesOrder";
 import { ZodError } from "zod";
-import { getProxyUrl } from "../../lib/proxy-utils";
-import { SalesOrderItem } from "../../types/api/pos/salesOrderItem";
+
 import { API_ROUTES } from "../../config/api";
+import { getProxyUrl } from "../../lib/proxy-utils";
 import { OrdersResponseSchema, OrdersSummaryResponseSchema, SalesOrderSchema } from "../../schemas/api/pos/orders.schema";
+import { CreateOrderItemDTO, CreateSalesOrderDTO, SalesOrder, SalesOrderSummary } from "../../types/api/pos/salesOrder";
+import { SalesOrderItem } from "../../types/api/pos/salesOrderItem";
 import { normalizeBackendPaginated, throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
+import { withInflightDedup } from "../../utils/api/inflight";
 
 const BASE_PATH = API_ROUTES.POS.ORDERS;
 
@@ -15,16 +17,40 @@ const getHeaders = (cookie?: string, contentType: string = "application/json"): 
     return headers;
 };
 
+const parseValidatedOrder = (json: unknown): SalesOrder => {
+    try {
+        const payload = unwrapBackendData(json) as unknown;
+        if (Array.isArray(payload)) {
+            if (payload.length === 0) throw new Error("Order not found");
+            return SalesOrderSchema.parse(payload[0]) as unknown as SalesOrder;
+        }
+        return SalesOrderSchema.parse(payload) as unknown as SalesOrder;
+    } catch (error) {
+        console.error("Zod Validation Error in ordersService.getById:", error);
+        if (error instanceof ZodError) {
+            console.error("Zod Issues:", error.issues);
+        }
+        throw error;
+    }
+};
+
 export const ordersService = {
-    getAll: async (cookie?: string, page: number = 1, limit: number = 50, status?: string, type?: string, query?: string, sortCreated: "old" | "new" = "old"): Promise<{ data: SalesOrder[], total: number, page: number, last_page: number }> => {
-        // Construct URL with query parameters manually or use URLSearchParams
+    getAll: async (
+        cookie?: string,
+        page: number = 1,
+        limit: number = 50,
+        status?: string,
+        type?: string,
+        query?: string,
+        sortCreated: "old" | "new" = "old"
+    ): Promise<{ data: SalesOrder[]; total: number; page: number; last_page: number }> => {
         const queryParams = new URLSearchParams({
             page: page.toString(),
             limit: limit.toString(),
             sort_created: sortCreated,
             ...(status && { status }),
             ...(type && { type }),
-            ...(query && { q: query })
+            ...(query && { q: query }),
         });
         const endpoint = `${BASE_PATH}?${queryParams.toString()}`;
         const url = getProxyUrl("GET", endpoint);
@@ -33,16 +59,21 @@ export const ordersService = {
         const response = await fetch(url!, {
             cache: "no-store",
             headers,
-            credentials: "include"
+            credentials: "include",
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลออเดอร์ได้");
+            throwBackendHttpError(response, errorData, "Unable to load orders");
         }
 
         const json = await response.json();
         try {
-            return OrdersResponseSchema.parse(normalizeBackendPaginated<SalesOrder>(json)) as unknown as { data: SalesOrder[], total: number, page: number, last_page: number };
+            return OrdersResponseSchema.parse(normalizeBackendPaginated<SalesOrder>(json)) as unknown as {
+                data: SalesOrder[];
+                total: number;
+                page: number;
+                last_page: number;
+            };
         } catch (error) {
             console.error("Zod Validation Error in ordersService.getAll:", error);
             if (error instanceof ZodError) {
@@ -60,14 +91,14 @@ export const ordersService = {
         type?: string,
         query?: string,
         sortCreated: string = "old"
-    ): Promise<{ data: SalesOrderSummary[], total: number, page: number, last_page?: number }> => {
+    ): Promise<{ data: SalesOrderSummary[]; total: number; page: number; last_page?: number }> => {
         const queryParams = new URLSearchParams({
             page: page.toString(),
             limit: limit.toString(),
             ...(status && { status }),
             ...(type && { type }),
             ...(query && { q: query }),
-            sort_created: sortCreated
+            sort_created: sortCreated,
         });
         const endpoint = `${BASE_PATH}/summary?${queryParams.toString()}`;
         const url = getProxyUrl("GET", endpoint);
@@ -76,16 +107,21 @@ export const ordersService = {
         const response = await fetch(url!, {
             cache: "no-store",
             headers,
-            credentials: "include"
+            credentials: "include",
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลออเดอร์ได้");
+            throwBackendHttpError(response, errorData, "Unable to load order summary");
         }
 
         const json = await response.json();
         try {
-            return OrdersSummaryResponseSchema.parse(normalizeBackendPaginated<SalesOrderSummary>(json)) as unknown as { data: SalesOrderSummary[], total: number, page: number, last_page?: number };
+            return OrdersSummaryResponseSchema.parse(normalizeBackendPaginated<SalesOrderSummary>(json)) as unknown as {
+                data: SalesOrderSummary[];
+                total: number;
+                page: number;
+                last_page?: number;
+            };
         } catch (error) {
             console.error("Zod Validation Error in ordersService.getAllSummary:", error);
             if (error instanceof ZodError) {
@@ -96,78 +132,65 @@ export const ordersService = {
     },
 
     getStats: async (cookie?: string): Promise<{
-        dineIn: number,
-        takeaway: number,
-        takeaway_waiting_payment: number,
-        delivery: number,
-        delivery_waiting_payment: number,
-        pending: number,
-        waiting_payment: number,
-        total: number
-    }> => {
-        const url = getProxyUrl("GET", API_ROUTES.POS.CHANNELS.STATS);
-        const headers = getHeaders(cookie, "");
+        dineIn: number;
+        takeaway: number;
+        takeaway_waiting_payment: number;
+        delivery: number;
+        delivery_waiting_payment: number;
+        pending: number;
+        waiting_payment: number;
+        total: number;
+    }> =>
+        withInflightDedup(`orders:getStats:${cookie ?? "client"}`, async () => {
+            const url = getProxyUrl("GET", API_ROUTES.POS.CHANNELS.STATS);
+            const headers = getHeaders(cookie, "");
 
-        const response = await fetch(url!, {
-            cache: "no-store",
-            headers,
-            credentials: "include"
-        });
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error("Order Stats Backend Error:", errorText);
-            let errorData: unknown = {};
-            try {
-                errorData = JSON.parse(errorText);
-            } catch {
-                errorData = {};
+            const response = await fetch(url!, {
+                cache: "no-store",
+                headers,
+                credentials: "include",
+            });
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error("Order Stats Backend Error:", errorText);
+                let errorData: unknown = {};
+                try {
+                    errorData = JSON.parse(errorText);
+                } catch {
+                    errorData = {};
+                }
+                throwBackendHttpError(response, errorData, "Unable to load order stats");
             }
-            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลสถิติได้");
-        }
-        const json = await response.json();
-        return unwrapBackendData(json) as {
-            dineIn: number;
-            takeaway: number;
-            takeaway_waiting_payment: number;
-            delivery: number;
-            delivery_waiting_payment: number;
-            pending: number;
-            waiting_payment: number;
-            total: number;
-        };
-    },
+            const json = await response.json();
+            return unwrapBackendData(json) as {
+                dineIn: number;
+                takeaway: number;
+                takeaway_waiting_payment: number;
+                delivery: number;
+                delivery_waiting_payment: number;
+                pending: number;
+                waiting_payment: number;
+                total: number;
+            };
+        }),
 
+    getById: async (id: string, cookie?: string): Promise<SalesOrder> =>
+        withInflightDedup(`orders:getById:${cookie ?? "client"}:${id}`, async () => {
+            const url = getProxyUrl("GET", `${BASE_PATH}/${id}`);
+            const headers = getHeaders(cookie, "");
 
-    getById: async (id: string, cookie?: string): Promise<SalesOrder> => {
-        const url = getProxyUrl("GET", `${BASE_PATH}/${id}`);
-        const headers = getHeaders(cookie, "");
-
-        const response = await fetch(url!, {
-            cache: "no-store",
-            headers,
-            credentials: "include"
-        });
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลออเดอร์ได้");
-        }
-
-        const json = await response.json();
-        try {
-            const payload = unwrapBackendData(json) as unknown;
-            if (Array.isArray(payload)) {
-                if (payload.length === 0) throw new Error("Order not found");
-                return SalesOrderSchema.parse(payload[0]) as unknown as SalesOrder;
+            const response = await fetch(url!, {
+                cache: "no-store",
+                headers,
+                credentials: "include",
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throwBackendHttpError(response, errorData, "Unable to load order");
             }
-            return SalesOrderSchema.parse(payload) as unknown as SalesOrder;
-        } catch (error) {
-            console.error("Zod Validation Error in ordersService.getById:", error);
-            if (error instanceof ZodError) {
-                console.error("Zod Issues:", error.issues);
-            }
-            throw error;
-        }
-    },
+
+            return parseValidatedOrder(await response.json());
+        }),
 
     create: async (data: CreateSalesOrderDTO, cookie?: string, csrfToken?: string): Promise<SalesOrder> => {
         const url = getProxyUrl("POST", `${BASE_PATH}`);
@@ -182,7 +205,7 @@ export const ordersService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถสร้างออเดอร์ได้");
+            throwBackendHttpError(response, errorData, "Unable to create order");
         }
         return unwrapBackendData(await response.json()) as SalesOrder;
     },
@@ -200,7 +223,7 @@ export const ordersService = {
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถแก้ไขออเดอร์ได้");
+            throwBackendHttpError(response, errorData, "Unable to update order");
         }
         return unwrapBackendData(await response.json()) as SalesOrder;
     },
@@ -213,11 +236,11 @@ export const ordersService = {
         const response = await fetch(url!, {
             method: "DELETE",
             headers,
-            credentials: "include"
+            credentials: "include",
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถลบออเดอร์ได้");
+            throwBackendHttpError(response, errorData, "Unable to delete order");
         }
     },
 
@@ -230,27 +253,27 @@ export const ordersService = {
             method: "PATCH",
             headers,
             credentials: "include",
-            body: JSON.stringify({ status })
+            body: JSON.stringify({ status }),
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถอัปเดตสถานะรายการได้");
+            throwBackendHttpError(response, errorData, "Unable to update item status");
         }
     },
 
     getItems: async (status?: string, cookie?: string): Promise<SalesOrderItem[]> => {
-        const query = status ? `?status=${status}` : '';
+        const query = status ? `?status=${status}` : "";
         const url = getProxyUrl("GET", `${BASE_PATH}/items${query}`);
         const headers = getHeaders(cookie, "");
 
         const response = await fetch(url!, {
             cache: "no-store",
             headers,
-            credentials: "include"
+            credentials: "include",
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลรายการได้");
+            throwBackendHttpError(response, errorData, "Unable to load order items");
         }
         const payload = unwrapBackendData(await response.json()) as unknown;
         if (Array.isArray(payload)) return payload as SalesOrderItem[];
@@ -270,16 +293,21 @@ export const ordersService = {
             method: "POST",
             headers,
             credentials: "include",
-            body: JSON.stringify(itemData)
+            body: JSON.stringify(itemData),
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถเพิ่มรายการได้");
+            throwBackendHttpError(response, errorData, "Unable to add item");
         }
         return unwrapBackendData(await response.json()) as SalesOrder;
     },
 
-    updateItem: async (itemId: string, data: { quantity?: number, notes?: string, details?: Record<string, unknown>[] }, cookie?: string, csrfToken?: string): Promise<SalesOrder> => {
+    updateItem: async (
+        itemId: string,
+        data: { quantity?: number; notes?: string; details?: Record<string, unknown>[] },
+        cookie?: string,
+        csrfToken?: string
+    ): Promise<SalesOrder> => {
         const url = getProxyUrl("PUT", `${BASE_PATH}/items/${itemId}`);
         const headers = getHeaders(cookie, "application/json") as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
@@ -288,12 +316,12 @@ export const ordersService = {
             method: "PUT",
             headers,
             credentials: "include",
-            body: JSON.stringify(data)
+            body: JSON.stringify(data),
         });
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถแก้ไขรายการได้");
+            throwBackendHttpError(response, errorData, "Unable to update item");
         }
 
         return unwrapBackendData(await response.json()) as SalesOrder;
@@ -307,11 +335,11 @@ export const ordersService = {
         const response = await fetch(url!, {
             method: "DELETE",
             headers,
-            credentials: "include"
+            credentials: "include",
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถลบรายการได้");
+            throwBackendHttpError(response, errorData, "Unable to delete item");
         }
         return unwrapBackendData(await response.json()) as SalesOrder;
     },
@@ -325,14 +353,14 @@ export const ordersService = {
             method: "PUT",
             headers,
             body: JSON.stringify({ status }),
-            credentials: 'include'
+            credentials: "include",
         });
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถอัปเดตสถานะออเดอร์ได้");
+            throwBackendHttpError(response, errorData, "Unable to update order status");
         }
 
         return unwrapBackendData(await response.json()) as SalesOrder;
-    }
+    },
 };

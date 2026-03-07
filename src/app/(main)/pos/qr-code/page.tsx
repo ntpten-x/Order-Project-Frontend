@@ -59,7 +59,6 @@ function TableQrCard({ table, customerUrl, canRotate, rotating, exporting, onOpe
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                 <div style={{ minWidth: 0 }}>
                     <Text strong style={{ fontSize: 16, color: '#0f172a' }} ellipsis={{ tooltip: table.table_name }}>โต๊ะ {table.table_name}</Text>
-                    <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>อัปเดตล่าสุด {formatDate(table.update_date)}</Text>
                 </div>
                 <Space size={6} wrap>
                     <Tag color={table.status === TableStatus.Available ? 'green' : 'orange'} style={{ margin: 0, borderRadius: 999 }}>{getTableStatusLabel(table.status)}</Tag>
@@ -300,19 +299,17 @@ export default function TableQrCodePage() {
     return (
         <div className="qr-code-page">
             <style>{pageGlobalStyles}</style>
-            <UIPageHeader title="QR Code โต๊ะ" subtitle="จัดการลิงก์ลูกค้า รีเฟรช QR และส่งออกไฟล์จากหน้าเดียว" icon={<QrcodeOutlined />} actions={<Space size={10} wrap><Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchQrCodes({ background: tables.length > 0 })}>รีเฟรช</Button><Button icon={<TableOutlined />} onClick={() => router.push('/pos/tables')}>จัดการโต๊ะ</Button></Space>} />
+            <UIPageHeader title="QR Code โต๊ะ" icon={<QrcodeOutlined />} actions={<Space size={10} wrap><Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchQrCodes({ background: tables.length > 0 })}></Button><Button icon={<TableOutlined />} onClick={() => router.push('/pos/tables')}>จัดการโต๊ะ</Button></Space>} />
             <PageContainer>
                 <PageStack>
-                    <StatsGroup stats={[{ label: 'ผลลัพธ์ทั้งหมด', value: total, color: '#0f172a', subLabel: 'ตามตัวกรองปัจจุบัน' }, { label: 'เปิดใช้งานในหน้านี้', value: activeCount, color: '#2563eb', subLabel: 'พร้อมให้ลูกค้าใช้งาน' }, { label: 'สถานะว่าง', value: availableCount, color: '#059669', subLabel: 'พร้อมรับลูกค้า' }, { label: 'สถานะไม่ว่าง', value: unavailableCount, color: '#b45309', subLabel: 'กำลังมีการใช้งาน' }]} />
                     <SearchBar>
-                        <SearchInput placeholder="ค้นหาชื่อโต๊ะ" value={searchText} onChange={setSearchText} />
+                        <SearchInput placeholder="ค้นหา" value={searchText} onChange={setSearchText} />
                         <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
                             <Space wrap size={10}>
                                 <ModalSelector<StatusFilter> title="สถานะการใช้งาน" value={filters.status} onChange={(value) => updateFilter('status', value)} options={[{ label: 'ทั้งหมด', value: 'all' }, { label: 'ใช้งาน', value: 'active' }, { label: 'ปิดใช้งาน', value: 'inactive' }]} style={{ minWidth: 140 }} />
                                 <ModalSelector<TableStateFilter> title="สถานะโต๊ะ" value={filters.table_state} onChange={(value) => updateFilter('table_state', value)} options={[{ label: 'ทุกสถานะ', value: 'all' }, { label: 'ว่าง', value: TableStatus.Available }, { label: 'ไม่ว่าง', value: TableStatus.Unavailable }]} style={{ minWidth: 140 }} />
                                 <ModalSelector<CreatedSort> title="เรียงลำดับ" value={createdSort} onChange={setCreatedSort} options={[{ label: 'เก่าก่อน', value: 'old' }, { label: 'ใหม่ก่อน', value: 'new' }]} style={{ minWidth: 140 }} />
                             </Space>
-                            <Text type="secondary" style={{ fontSize: 12 }}>{lastSyncedAt ? `อัปเดตล่าสุด ${formatDate(lastSyncedAt)}` : 'ยังไม่มีข้อมูลล่าสุด'}</Text>
                         </Space>
                     </SearchBar>
                     <PageSection title="รายการ QR โต๊ะ" extra={<Space size={8} wrap>{refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}<Text strong>{total} รายการ</Text></Space>}>

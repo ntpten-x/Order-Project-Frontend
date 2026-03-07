@@ -94,61 +94,10 @@ function DineInTableSelectionPageContent({ canManageTables }: { canManageTables:
     return (
         <PageContainer>
             <PageStack gap={20}>
-                <ChannelHero
-                    eyebrow="Dine In"
-                    title="โต๊ะหน้าร้าน"
-                    subtitle="ดูสถานะโต๊ะทั้งหมดในหน้าเดียว เลือกโต๊ะว่างได้ทันที และเห็นโต๊ะที่มีออเดอร์ค้างอย่างชัดเจน"
-                    icon={<ShopOutlined style={{ fontSize: 22 }} />}
-                    accent={dineInAccent}
-                    metrics={[
-                        { label: "โต๊ะทั้งหมด", value: stats.total },
-                        { label: "พร้อมรับลูกค้า", value: stats.available },
-                        { label: "กำลังใช้งาน", value: stats.occupied },
-                    ]}
-                    actions={
-                        <Space wrap>
-                            <Button icon={<ReloadOutlined />} onClick={() => void mutate()} loading={isLoading}>
-                                รีเฟรช
-                            </Button>
-                            {canManageTables ? (
-                                <Button type="primary" onClick={() => router.push("/pos/tables")}>
-                                    จัดการโต๊ะ
-                                </Button>
-                            ) : null}
-                        </Space>
-                    }
-                    footer={<Tag color="blue" style={{ margin: 0, borderRadius: 999, paddingInline: 12 }}>ปิดใช้งาน {stats.inactive} โต๊ะ</Tag>}
-                />
-
                 <Row gutter={[16, 16]}>
                     <Col xs={24} lg={17}>
                         <PageSection title="รายการโต๊ะ" extra={<Text strong>{visibleTables.length} โต๊ะ</Text>}>
                             <PageStack gap={16}>
-                                <Space wrap size={10}>
-                                    <Input
-                                        allowClear
-                                        prefix={<SearchOutlined />}
-                                        placeholder="ค้นหาเลขโต๊ะหรือสถานะ"
-                                        value={searchText}
-                                        onChange={(event) => setSearchText(event.target.value)}
-                                        style={{ minWidth: 240 }}
-                                    />
-                                    {[
-                                        { key: "all", label: "ทั้งหมด" },
-                                        { key: "available", label: "ว่าง" },
-                                        { key: "occupied", label: "กำลังใช้งาน" },
-                                        { key: "inactive", label: "ปิดใช้งาน" },
-                                    ].map((item) => (
-                                        <Button
-                                            key={item.key}
-                                            type={filter === item.key ? "primary" : "default"}
-                                            onClick={() => setFilter(item.key as FilterKey)}
-                                        >
-                                            {item.label}
-                                        </Button>
-                                    ))}
-                                </Space>
-
                                 {isLoading ? (
                                     <Skeleton active paragraph={{ rows: 8 }} />
                                 ) : (
@@ -207,42 +156,6 @@ function DineInTableSelectionPageContent({ canManageTables }: { canManageTables:
                                         })}
                                     </Row>
                                 )}
-                            </PageStack>
-                        </PageSection>
-                    </Col>
-
-                    <Col xs={24} lg={7}>
-                        <PageSection title="สรุปสถานะโต๊ะ">
-                            <PageStack gap={12}>
-                                <SummaryPanel title="โต๊ะว่าง" value={stats.available} hint="พร้อมเริ่มออเดอร์ใหม่" accent={dineInAccent} />
-                                <SummaryPanel
-                                    title="โต๊ะกำลังใช้งาน"
-                                    value={stats.occupied}
-                                    hint="มีออเดอร์หรือมีลูกค้านั่งอยู่"
-                                    accent={{
-                                        primary: "#DC2626",
-                                        soft: "#FEF2F2",
-                                        border: "#FECACA",
-                                        gradient: dineInAccent.gradient,
-                                    }}
-                                />
-                                <SummaryPanel
-                                    title="โต๊ะปิดใช้งาน"
-                                    value={stats.inactive}
-                                    hint="ยังไม่เปิดให้รับลูกค้า"
-                                    accent={{
-                                        primary: "#64748B",
-                                        soft: "#F8FAFC",
-                                        border: "#E2E8F0",
-                                        gradient: dineInAccent.gradient,
-                                    }}
-                                />
-
-                                <div style={{ display: "grid", gap: 8 }}>
-                                    <Legend icon={<CheckCircleOutlined />} label="โต๊ะพร้อมใช้งาน" color="#16A34A" />
-                                    <Legend icon={<CloseCircleOutlined />} label="มีออเดอร์กำลังดำเนินการ" color="#DC2626" />
-                                    <Legend icon={<StopOutlined />} label="โต๊ะถูกปิดใช้งาน" color="#64748B" />
-                                </div>
                             </PageStack>
                         </PageSection>
                     </Col>

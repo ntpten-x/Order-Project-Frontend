@@ -206,7 +206,7 @@ export default function POSDeliverySummaryPage() {
             open: true,
             type: 'warning',
             title: 'ย้อนกลับไปแก้ไขออเดอร์?',
-            content: 'สถานะออเดอร์จะถูกเปลี่ยนกลับเป็น "กำลังดำเนินการ" เพื่อให้คุณสามารถแก้ไขรายการอาหารได้ คุณแน่ใจหรือไม่?',
+  content: 'สถานะออเดอร์จะถูกเปลี่ยนเป็นกำลังดำเนินการคุณแน่ใจหรือไม่?',
             okText: 'ตกลง',
             cancelText: 'ยกเลิก',
             onOk: async () => {

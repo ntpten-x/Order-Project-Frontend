@@ -279,7 +279,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                     >
                                         <Form.Item
                                             name="display_name"
-                                            label={<span style={{ fontWeight: 600 }}>ชื่อสินค้า <span style={{ color: '#ff4d4f' }}>*</span></span>}
+                                            label={<span style={{ fontWeight: 600 }}>ชื่อสินค้า</span>}
                                             validateTrigger={['onBlur', 'onSubmit']}
                                             rules={[
                                                 { required: true, message: 'กรุณากรอกชื่อสินค้า' },
@@ -297,7 +297,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
 
                                         <Row gutter={12}>
                                             <Col xs={24} md={8}>
-                                                <Form.Item name="price" label={<span style={{ fontWeight: 600 }}>ราคาขาย <span style={{ color: '#ff4d4f' }}>*</span></span>} rules={[{ required: true, message: 'กรุณากรอกราคา' }]}>
+                                                <Form.Item name="price" label={<span style={{ fontWeight: 600 }}>ราคาขาย</span>} rules={[{ required: true, message: 'กรุณากรอกราคา' }]}>
                                                     <InputNumber min={0} precision={2} style={{ width: '100%' }} />
                                                 </Form.Item>
                                             </Col>
@@ -315,7 +315,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
 
                                         <Row gutter={12}>
                                             <Col xs={24} md={12}>
-                                                <Form.Item name="category_id" label={<span style={{ fontWeight: 600 }}>หมวดหมู่ <span style={{ color: '#ff4d4f' }}>*</span></span>} rules={[{ required: true, message: 'กรุณาเลือกหมวดหมู่' }]}>
+                                                <Form.Item name="category_id" label={<span style={{ fontWeight: 600 }}>หมวดหมู่</span>} rules={[{ required: true, message: 'กรุณาเลือกหมวดหมู่' }]}>
                                                     <div onClick={() => setIsCategoryModalVisible(true)} style={{ padding: '10px 16px', borderRadius: 12, border: '2px solid #e2e8f0', cursor: 'pointer', minHeight: 46, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                         <span>{selectedCategoryId ? categories.find((c) => c.id === selectedCategoryId)?.display_name : 'เลือกหมวดหมู่'}</span>
                                                         <DownOutlined />
@@ -323,7 +323,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                                 </Form.Item>
                                             </Col>
                                             <Col xs={24} md={12}>
-                                                <Form.Item name="unit_id" label={<span style={{ fontWeight: 600 }}>หน่วยสินค้า <span style={{ color: '#ff4d4f' }}>*</span></span>} rules={[{ required: true, message: 'กรุณาเลือกหน่วยสินค้า' }]}>
+                                                <Form.Item name="unit_id" label={<span style={{ fontWeight: 600 }}>หน่วยสินค้า</span>} rules={[{ required: true, message: 'กรุณาเลือกหน่วยสินค้า' }]}>
                                                     <div onClick={() => setIsUnitModalVisible(true)} style={{ padding: '10px 16px', borderRadius: 12, border: '2px solid #e2e8f0', cursor: 'pointer', minHeight: 46, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                         <span>{selectedUnitId ? units.find((u) => u.id === selectedUnitId)?.display_name : 'เลือกหน่วยสินค้า'}</span>
                                                         <DownOutlined />

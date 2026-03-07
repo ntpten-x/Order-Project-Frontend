@@ -146,18 +146,7 @@ const TableCard = ({
                         <Tag color={isAvailable ? 'green' : 'orange'} style={{ margin: 0, borderRadius: 999 }}>
                             {getTableStatusLabel(table.status)}
                         </Tag>
-                        {hasActiveOrder ? (
-                            <Tag icon={<ClockCircleOutlined />} color="volcano" style={{ margin: 0, borderRadius: 999 }}>
-                                มีออเดอร์ค้าง
-                            </Tag>
-                        ) : null}
                     </div>
-
-                    <Text type="secondary" style={{ fontSize: 13, display: 'block', color: '#334155' }}>
-                        {hasActiveOrder
-                            ? `กำลังใช้งานอยู่${table.active_order_status ? ` โดยสถานะ ${table.active_order_status}` : ''}`
-                            : 'พร้อมรับลูกค้าหรือใช้สำหรับเปิดออเดอร์ใหม่'}
-                    </Text>
                     <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 6 }}>
                         อัปเดตล่าสุด {formatDate(table.update_date)}
                     </Text>
@@ -503,12 +492,10 @@ export default function TablesPage() {
 
             <UIPageHeader
                 title="โต๊ะ"
-                subtitle="จัดการโต๊ะ สถานะการพร้อมใช้งาน และ QR สำหรับลูกค้าในสาขานี้"
                 icon={<TableOutlined />}
                 actions={
                     <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchTables({ background: tables.length > 0 })}>
-                            รีเฟรช
                         </Button>
                         <Button icon={<QrcodeOutlined />} onClick={handleOpenQrCodes}>
                             QR โต๊ะ
@@ -524,19 +511,9 @@ export default function TablesPage() {
 
             <PageContainer>
                 <PageStack>
-                    <StatsGroup
-                        stats={[
-                            { label: 'ผลลัพธ์ทั้งหมด', value: total, color: '#0f172a', subLabel: 'ตามตัวกรองปัจจุบัน' },
-                            { label: 'ใช้งานในหน้านี้', value: activeCount, color: '#7C3AED', subLabel: 'พร้อมให้เปิดออเดอร์' },
-                            { label: 'ปิดใช้งานในหน้านี้', value: inactiveCount, color: '#b91c1c', subLabel: 'ซ่อนจากหน้า POS' },
-                            { label: 'ว่างในหน้านี้', value: availableCount, color: '#059669', subLabel: 'พร้อมรับลูกค้า' },
-                            { label: 'ไม่ว่างในหน้านี้', value: unavailableCount, color: '#d97706', subLabel: 'กำลังมีการใช้งาน' },
-                        ]}
-                    />
-
                     <SearchBar>
                         <SearchInput
-                            placeholder="ค้นหาชื่อโต๊ะ"
+                            placeholder="ค้นหา"
                             value={searchText}
                             onChange={setSearchText}
                         />
@@ -575,9 +552,6 @@ export default function TablesPage() {
                                     style={{ minWidth: 132 }}
                                 />
                             </Space>
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                {lastSyncedAt ? `อัปเดตล่าสุด ${formatDate(lastSyncedAt)}` : 'ยังไม่มีข้อมูลล่าสุด'}
-                            </Text>
                         </Space>
                     </SearchBar>
 
@@ -634,13 +608,6 @@ export default function TablesPage() {
                                     debouncedSearch.trim()
                                         ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรองเพื่อค้นหาโต๊ะที่ต้องการ'
                                         : 'เพิ่มโต๊ะแรกเพื่อเริ่มใช้งาน POS และสร้าง QR ให้ลูกค้า'
-                                }
-                                action={
-                                    canCreateTables ? (
-                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                            เพิ่มโต๊ะแรก
-                                        </Button>
-                                    ) : null
                                 }
                             />
                         )}

@@ -134,12 +134,6 @@ const DeliveryCard = ({
                             </Tag>
                         ) : null}
                     </div>
-
-                    <Text type="secondary" style={{ fontSize: 13, display: 'block', color: '#334155' }}>
-                        {delivery.is_active
-                            ? 'พร้อมใช้งานในหน้าเดลิเวอรีและการเปิดออเดอร์'
-                            : 'ยังไม่แสดงในหน้าที่เกี่ยวข้องกับเดลิเวอรี'}
-                    </Text>
                     <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 6 }}>
                         อัปเดตล่าสุด {formatDate(delivery.update_date)}
                     </Text>
@@ -477,12 +471,10 @@ export default function DeliveryPage() {
 
             <UIPageHeader
                 title="ช่องทางจัดส่ง"
-                subtitle="จัดการผู้ให้บริการเดลิเวอรี โลโก้ และสถานะการพร้อมใช้งานในสาขานี้"
                 icon={<CarOutlined />}
                 actions={
                     <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchDeliveries({ background: deliveries.length > 0 })}>
-                            รีเฟรช
                         </Button>
                         {canCreateDelivery ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
@@ -495,18 +487,9 @@ export default function DeliveryPage() {
 
             <PageContainer>
                 <PageStack>
-                    <StatsGroup
-                        stats={[
-                            { label: 'ผลลัพธ์ทั้งหมด', value: total, color: '#0f172a', subLabel: 'ตามตัวกรองปัจจุบัน' },
-                            { label: 'ใช้งานในหน้านี้', value: activeDeliveries, color: '#0891B2', subLabel: 'พร้อมใช้งานใน POS' },
-                            { label: 'ปิดใช้งานในหน้านี้', value: inactiveDeliveries, color: '#b91c1c', subLabel: 'ยังไม่แสดงให้เลือก' },
-                            { label: 'มี Prefix ในหน้านี้', value: withPrefixCount, color: '#0f766e', subLabel: 'ช่วยให้อ่านบิลและออเดอร์ง่ายขึ้น' },
-                        ]}
-                    />
-
                     <SearchBar>
                         <SearchInput
-                            placeholder="ค้นหาชื่อผู้ให้บริการหรือ Prefix"
+                            placeholder="ค้นหา"
                             value={searchText}
                             onChange={setSearchText}
                         />
@@ -534,9 +517,6 @@ export default function DeliveryPage() {
                                     style={{ minWidth: 150 }}
                                 />
                             </Space>
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                {lastSyncedAt ? `อัปเดตล่าสุด ${formatDate(lastSyncedAt)}` : 'ยังไม่มีข้อมูลล่าสุด'}
-                            </Text>
                         </Space>
                     </SearchBar>
 
@@ -593,13 +573,6 @@ export default function DeliveryPage() {
                                     debouncedSearch.trim()
                                         ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรองเพื่อค้นหารายการที่ต้องการ'
                                         : 'เพิ่มผู้ให้บริการเดลิเวอรีเพื่อให้พนักงานเลือกใช้งานได้ทันที'
-                                }
-                                action={
-                                    canCreateDelivery ? (
-                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                            เพิ่มช่องทางจัดส่งแรก
-                                        </Button>
-                                    ) : null
                                 }
                             />
                         )}

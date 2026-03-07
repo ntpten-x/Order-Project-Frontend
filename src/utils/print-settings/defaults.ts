@@ -30,8 +30,8 @@ type DocumentMeta = {
 export const PRINT_PRESET_OPTIONS: PresetMeta[] = [
     {
         value: "thermal_58mm",
-        label: "Thermal 58 mm",
-        description: "Compact receipt roll for low-volume counters.",
+        label: "ใบเสร็จม้วน 58 มม.",
+        description: "เหมาะกับเคาน์เตอร์ขนาดเล็กหรือจุดขายที่ใช้กระดาษหน้ากว้างไม่มาก",
         printerProfile: "thermal",
         width: 58,
         height: null,
@@ -40,8 +40,8 @@ export const PRINT_PRESET_OPTIONS: PresetMeta[] = [
     },
     {
         value: "thermal_80mm",
-        label: "Thermal 80 mm",
-        description: "Recommended for standard POS receipts and kitchen slips.",
+        label: "ใบเสร็จม้วน 80 มม.",
+        description: "เหมาะกับใบเสร็จ POS ทั่วไป อ่านง่าย และรองรับรายละเอียดได้มากกว่า",
         printerProfile: "thermal",
         width: 80,
         height: null,
@@ -50,8 +50,8 @@ export const PRINT_PRESET_OPTIONS: PresetMeta[] = [
     },
     {
         value: "a4_portrait",
-        label: "A4 Portrait",
-        description: "Standard office print for summary and purchase documents.",
+        label: "A4 แนวตั้ง",
+        description: "เหมาะกับเอกสารสรุปยอดและเอกสารสำนักงานที่ต้องการรายละเอียดครบ",
         printerProfile: "laser",
         width: 210,
         height: 297,
@@ -60,8 +60,8 @@ export const PRINT_PRESET_OPTIONS: PresetMeta[] = [
     },
     {
         value: "a5_portrait",
-        label: "A5 Portrait",
-        description: "Half-sheet operational print, useful for compact handouts.",
+        label: "A5 แนวตั้ง",
+        description: "เหมาะกับเอกสารขนาดกะทัดรัดที่ต้องการถือใช้งานสะดวก",
         printerProfile: "laser",
         width: 148,
         height: 210,
@@ -70,8 +70,8 @@ export const PRINT_PRESET_OPTIONS: PresetMeta[] = [
     },
     {
         value: "label_4x6",
-        label: "Label 4x6",
-        description: "Common shipping and table QR label format.",
+        label: "สติ๊กเกอร์ 4x6",
+        description: "เหมาะกับป้าย QR โต๊ะหรือฉลากที่ต้องการขนาดคงที่และสแกนง่าย",
         printerProfile: "label",
         width: 101.6,
         height: 152.4,
@@ -80,8 +80,8 @@ export const PRINT_PRESET_OPTIONS: PresetMeta[] = [
     },
     {
         value: "custom",
-        label: "Custom",
-        description: "Manual dimensions for branch-specific hardware.",
+        label: "กำหนดเอง",
+        description: "ใช้เมื่อเครื่องพิมพ์ของสาขามีขนาดกระดาษหรือข้อจำกัดเฉพาะ",
         printerProfile: "laser",
         width: 210,
         height: 297,
@@ -97,37 +97,37 @@ const PRESET_BY_VALUE = Object.fromEntries(
 export const PRINT_DOCUMENT_META: Record<PrintDocumentType, DocumentMeta> = {
     receipt: {
         key: "receipt",
-        label: "เนเธเน€เธชเธฃเนเธ",
-        shortLabel: "Receipt",
-        description: "เธฅเธนเธเธเนเธฒเธฃเธฑเธเธซเธฅเธฑเธเธเธณเธฃเธฐเน€เธเธดเธ เธ•เนเธญเธเธญเนเธฒเธเธเนเธฒเธขเนเธฅเธฐเธเธดเธกเธเนเนเธง",
+        label: "ใบเสร็จ",
+        shortLabel: "ใบเสร็จ",
+        description: "เอกสารสำหรับลูกค้าหลังชำระเงิน ควรอ่านง่าย พิมพ์ไว และแสดงข้อมูลสำคัญครบถ้วน",
         recommendedPresets: ["thermal_80mm", "thermal_58mm"],
     },
     order_summary: {
         key: "order_summary",
-        label: "เนเธเธชเธฃเธธเธ",
-        shortLabel: "Summary",
-        description: "เน€เธญเธเธชเธฒเธฃเธชเธฃเธธเธเธขเธญเธ”เธซเธฃเธทเธญเธเธดเธ”เธเธฐเธชเธณเธซเธฃเธฑเธเธเธฒเธเธซเธฅเธฑเธเธเนเธฒเธ",
+        label: "ใบสรุปยอด",
+        shortLabel: "สรุปยอด",
+        description: "เอกสารสรุปยอดขายหรือปิดกะ สำหรับงานหลังบ้านที่ต้องการดูตัวเลขชัดเจน",
         recommendedPresets: ["a4_portrait", "a5_portrait"],
     },
     purchase_order: {
         key: "purchase_order",
-        label: "เนเธเธชเธฑเนเธเธเธทเนเธญ",
-        shortLabel: "Purchase",
-        description: "เน€เธญเธเธชเธฒเธฃเธชเธฑเนเธเธเธทเนเธญเธชเธณเธซเธฃเธฑเธ supplier เธซเธฃเธทเธญ stock workflow",
+        label: "ใบสั่งซื้อ",
+        shortLabel: "สั่งซื้อ",
+        description: "เอกสารสั่งซื้อสำหรับซัพพลายเออร์หรือ workflow จัดการสต๊อก",
         recommendedPresets: ["a4_portrait", "a5_portrait"],
     },
     table_qr: {
         key: "table_qr",
-        label: "QR Code เนเธ•เนเธฐ",
-        shortLabel: "Table QR",
-        description: "เธเนเธฒเธข QR เธชเธณเธซเธฃเธฑเธเธซเธเนเธฒเธฃเนเธฒเธ เธ•เนเธญเธเธชเนเธเธเธเนเธฒเธขเนเธฅเธฐเธเธกเธเธฑเธ”",
+        label: "QR Code โต๊ะ",
+        shortLabel: "QR โต๊ะ",
+        description: "ป้าย QR สำหรับหน้าร้าน ต้องสแกนง่าย คมชัด และพร้อมใช้งานหน้างาน",
         recommendedPresets: ["label_4x6", "a5_portrait"],
     },
     custom: {
         key: "custom",
-        label: "เน€เธญเธเธชเธฒเธฃเธญเธทเนเธ เน",
-        shortLabel: "Custom",
-        description: "เธเธทเนเธเธ—เธตเนเน€เธเธทเนเธญเธชเธณเธซเธฃเธฑเธ template เธเธดเน€เธจเธฉเธเธญเธเนเธ•เนเธฅเธฐเธชเธฒเธเธฒ",
+        label: "เอกสารอื่นๆ",
+        shortLabel: "อื่นๆ",
+        description: "พื้นที่สำหรับเทมเพลตพิเศษหรือเอกสารเฉพาะของแต่ละสาขา",
         recommendedPresets: ["custom", "a4_portrait"],
     },
 };
@@ -365,4 +365,3 @@ export function countEnabledDocuments(settings: PrintSettingsPayload): number {
 export function countAutomationJobs(settings: PrintSettingsPayload): number {
     return Object.values(settings.automation).filter(Boolean).length;
 }
-

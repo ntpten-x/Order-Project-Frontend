@@ -5,22 +5,31 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 
 import { ordersService } from "../../services/pos/orders.service";
 import { productsService } from "../../services/pos/products.service";
 import { categoryService } from "../../services/pos/category.service";
 import { deliveryService } from "../../services/pos/delivery.service";
 import { tablesService } from "../../services/pos/tables.service";
-import { shopProfileService } from "../../services/pos/shopProfile.service";
 
 /**
  * Prefetch data when user is likely to navigate to POS pages
  */
 export function usePOSPrefetching() {
     const queryClient = useQueryClient();
-
+    const pathname = usePathname();
 
     useEffect(() => {
+        const shouldPrefetch =
+            pathname === "/pos" ||
+            pathname === "/pos/orders" ||
+            pathname.startsWith("/pos/channels");
+
+        if (!shouldPrefetch) {
+            return;
+        }
+
         // Prefetch common POS data
         const prefetchData = async () => {
             try {
@@ -60,12 +69,6 @@ export function usePOSPrefetching() {
                         staleTime: 45 * 1000,
                         meta: { trackGlobalLoading: false },
                     }),
-                    queryClient.prefetchQuery({
-                        queryKey: ['shopProfile'],
-                        queryFn: () => shopProfileService.getProfile(),
-                        staleTime: 5 * 60 * 1000,
-                        meta: { trackGlobalLoading: false },
-                    }),
                 ]);
             } catch (error) {
                 // Silent fail - prefetching should not break the app
@@ -73,8 +76,32 @@ export function usePOSPrefetching() {
             }
         };
 
-        prefetchData();
-    }, [queryClient]);
+        let cancelled = false;
+        const runPrefetch = () => {
+            if (!cancelled) {
+                void prefetchData();
+            }
+        };
+
+        const idleCallback =
+            typeof window !== "undefined" && "requestIdleCallback" in window
+                ? window.requestIdleCallback(runPrefetch, { timeout: 1500 })
+                : null;
+        const timeoutId =
+            idleCallback === null
+                ? window.setTimeout(runPrefetch, 800)
+                : null;
+
+        return () => {
+            cancelled = true;
+            if (idleCallback !== null && typeof window !== "undefined" && "cancelIdleCallback" in window) {
+                window.cancelIdleCallback(idleCallback);
+            }
+            if (timeoutId !== null) {
+                window.clearTimeout(timeoutId);
+            }
+        };
+    }, [pathname, queryClient]);
 }
 
 /**
