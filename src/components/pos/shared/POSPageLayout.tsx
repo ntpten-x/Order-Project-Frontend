@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useCallback, useMemo, useState } from "react";
-import { Typography, Button, Spin, Badge, message, Pagination } from "antd";
+import React, { useCallback, useMemo, useState, useTransition } from "react";
+import { Typography, Button, Spin, Badge, message, Pagination, InputRef } from "antd";
 import { 
   ShoppingCartOutlined
 } from "@ant-design/icons";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useGlobalLoading } from "../../../contexts/pos/GlobalLoadingContext";
+import { usePOSHotkeys } from "../../../hooks/pos/usePOSHotkeys";
 import { useProducts } from "../../../hooks/pos/useProducts";
 import { useCategories } from "../../../hooks/pos/useCategories";
 import { CartItem, useCartStore } from "../../../store/useCartStore";
@@ -51,6 +52,8 @@ export default function POSPageLayout({
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [page, setPage] = useState(1);
+  const [isFilterPending, startFilterTransition] = useTransition();
+  const searchInputRef = React.useRef<InputRef>(null);
   const LIMIT = 20;
   
   // The URL is the durable source of truth so refresh/back keeps the current filters.
@@ -95,20 +98,22 @@ export default function POSPageLayout({
     }
 
     const handle = window.setTimeout(() => {
-      updateFilterParams((params) => {
-        if (trimmedSearch) {
-          params.set("search", trimmedSearch);
-        } else {
-          params.delete("search");
-        }
+      startFilterTransition(() => {
+        updateFilterParams((params) => {
+          if (trimmedSearch) {
+            params.set("search", trimmedSearch);
+          } else {
+            params.delete("search");
+          }
+        });
+        setPage(1);
       });
-      setPage(1);
     }, 250);
 
     return () => {
       window.clearTimeout(handle);
     };
-  }, [deferredSearchQuery, searchQueryFromUrl, updateFilterParams]);
+  }, [deferredSearchQuery, searchQueryFromUrl, startFilterTransition, updateFilterParams]);
 
   const {
     products,
@@ -236,6 +241,41 @@ export default function POSPageLayout({
     setCurrentDetailItem(null);
   }, []);
 
+  const handleCloseTopLayer = useCallback(() => {
+    // Close the top-most layer first so Esc feels predictable when several overlays can be open.
+    if (isNoteModalVisible) {
+      closeNoteModal();
+      return true;
+    }
+    if (isDetailModalVisible) {
+      closeDetailModal();
+      return true;
+    }
+    if (isProductModalVisible) {
+      closeProductModal();
+      return true;
+    }
+    if (checkoutVisible) {
+      setCheckoutVisible(false);
+      return true;
+    }
+    if (cartVisible) {
+      setCartVisible(false);
+      return true;
+    }
+
+    return false;
+  }, [
+    cartVisible,
+    checkoutVisible,
+    closeDetailModal,
+    closeNoteModal,
+    closeProductModal,
+    isDetailModalVisible,
+    isNoteModalVisible,
+    isProductModalVisible,
+  ]);
+
   const handleSaveDetails = useCallback(
     (details: { detail_name: string; extra_price: number }[]) => {
       if (currentDetailItem) {
@@ -250,6 +290,8 @@ export default function POSPageLayout({
       message.warning("กรุณาเพิ่มสินค้าลงตะกร้าก่อน");
       return;
     }
+    // Checkout is rendered from the cart area, so the shortcut opens both layers together.
+    setCartVisible(true);
     setCheckoutVisible(true);
   }, [cartItems.length]);
 
@@ -295,15 +337,32 @@ export default function POSPageLayout({
 
   const handleClearSearch = useCallback(() => {
     setSearchQuery("");
-    updateFilterParams((params) => {
-      params.delete("search");
+    startFilterTransition(() => {
+      updateFilterParams((params) => {
+        params.delete("search");
+      });
+      setPage(1);
     });
-    setPage(1);
-  }, [updateFilterParams]);
+  }, [startFilterTransition, updateFilterParams]);
 
   const handleGoManageProducts = useCallback(() => {
     router.push("/pos/products");
   }, [router]);
+
+  const handleFocusSearch = useCallback(() => {
+    searchInputRef.current?.focus({
+      cursor: "all",
+    });
+  }, []);
+
+  usePOSHotkeys({
+    onCheckout: handleCheckout,
+    onFocusSearch: handleFocusSearch,
+    onCloseTopLayer: handleCloseTopLayer,
+    onOpenCart: () => setCartVisible(true),
+    // Leave destructive shortcuts off by default. Flip this to true if the cashier team wants it.
+    allowClearCartShortcut: false,
+  });
 
   return (
     <>
@@ -321,23 +380,36 @@ export default function POSPageLayout({
           categories={categories}
           searchQuery={searchQuery}
           selectedCategory={selectedCategory}
+          isPending={isFilterPending}
+          searchInputRef={searchInputRef}
           onSearchChange={(value) => {
             setSearchQuery(value);
           }}
           onSelectCategory={(categoryId) => {
-            updateFilterParams((params) => {
-              if (categoryId) {
-                params.set("category", categoryId);
-              } else {
-                params.delete("category");
-              }
+            startFilterTransition(() => {
+              updateFilterParams((params) => {
+                if (categoryId) {
+                  params.set("category", categoryId);
+                } else {
+                  params.delete("category");
+                }
+              });
+              setPage(1);
             });
-            setPage(1);
           }}
         />
 
         {/* Content */}
-        <main style={posLayoutStyles.content} className="pos-content-mobile" role="main">
+        <main
+          style={{
+            ...posLayoutStyles.content,
+            opacity: isFilterPending ? 0.78 : 1,
+            transition: "opacity 0.18s ease",
+          }}
+          className="pos-content-mobile"
+          role="main"
+          aria-busy={isFilterPending}
+        >
           {isLoading && !isGlobalLoading ? (
             <div style={posLayoutStyles.loadingContainer}>
               <Spin size="large" />
@@ -460,5 +532,3 @@ export default function POSPageLayout({
     </>
   );
 }
-
-
