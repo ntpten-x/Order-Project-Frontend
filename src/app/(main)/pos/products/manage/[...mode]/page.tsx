@@ -1,37 +1,27 @@
-﻿'use client';
+'use client';
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Form, Input, InputNumber, message, Spin, Switch, Modal, Button, Card, Row, Col, Typography, Alert } from 'antd';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, Button, Card, Col, Form, Input, InputNumber, Modal, Row, Spin, Switch, Typography, message } from 'antd';
+import { AppstoreOutlined, CheckCircleOutlined, DeleteOutlined, DownOutlined, ExclamationCircleOutlined, SaveOutlined, ShopOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import PageContainer from '../../../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../../../components/ui/page/PageSection';
 import UIPageHeader from '../../../../../../components/ui/page/PageHeader';
-import {
-    DeleteOutlined,
-    SaveOutlined,
-    ShopOutlined,
-    AppstoreOutlined,
-    ExclamationCircleOutlined,
-    DownOutlined,
-    CheckCircleOutlined,
-} from '@ant-design/icons';
-import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
-import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
 import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuard';
-import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
-import { pageStyles, ProductPreview } from './style';
+import { useEffectivePermissions } from '../../../../../../hooks/useEffectivePermissions';
+import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
+import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
 import { Category } from '../../../../../../types/api/pos/category';
-import { ProductsUnit } from '../../../../../../types/api/pos/productsUnit';
 import { Products } from '../../../../../../types/api/pos/products';
+import { ProductsUnit } from '../../../../../../types/api/pos/productsUnit';
 import { isSupportedImageSource, normalizeImageSource } from '../../../../../../utils/image/source';
+import { pageStyles, ProductPreview } from './style';
 
 const { TextArea } = Input;
 const { Title, Text } = Typography;
 
 type ManageMode = 'add' | 'edit';
-
 type ProductFormValues = {
-    product_name: string;
     display_name: string;
     description?: string;
     img_url?: string;
@@ -54,11 +44,9 @@ const parseListResponse = <T,>(payload: unknown): T[] => {
 const formatDate = (raw?: string | Date) => {
     if (!raw) return '-';
     const date = new Date(raw);
-    if (Number.isNaN(date.getTime())) return '-';
-    return new Intl.DateTimeFormat('th-TH', {
-        dateStyle: 'medium',
-        timeStyle: 'short'
-    }).format(date);
+    return Number.isNaN(date.getTime())
+        ? '-'
+        : new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 };
 
 export default function ProductsManagePage({ params }: { params: { mode: string[] } }) {
@@ -68,9 +56,9 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     const [submitting, setSubmitting] = useState(false);
     const [categories, setCategories] = useState<Category[]>([]);
     const [units, setUnits] = useState<ProductsUnit[]>([]);
-    const [csrfToken, setCsrfToken] = useState<string>('');
-    const [currentProductName, setCurrentProductName] = useState<string>('');
+    const [csrfToken, setCsrfToken] = useState('');
     const [originalProduct, setOriginalProduct] = useState<Products | null>(null);
+    const [currentName, setCurrentName] = useState('');
     const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
     const [isUnitModalVisible, setIsUnitModalVisible] = useState(false);
 
@@ -78,16 +66,16 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     const id = params.mode?.[1] || null;
     const isEdit = mode === 'edit' && Boolean(id);
     const isValidMode = mode === 'add' || mode === 'edit';
+
     const { isAuthorized, isChecking, user } = useRoleGuard();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canCreateProducts = can("products.page", "create");
-    const canUpdateProducts = can("products.page", "update");
-    const canDeleteProducts = can("products.page", "delete");
+    const canCreate = can('products.page', 'create');
+    const canUpdate = can('products.page', 'update');
+    const canDelete = can('products.page', 'delete');
 
     const selectedCategoryId = Form.useWatch('category_id', form);
     const selectedUnitId = Form.useWatch('unit_id', form);
     const displayName = Form.useWatch('display_name', form);
-    const productName = Form.useWatch('product_name', form);
     const imageUrl = Form.useWatch('img_url', form);
     const price = Form.useWatch('price', form);
     const priceDelivery = Form.useWatch('price_delivery', form);
@@ -104,56 +92,51 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     }, [id, isValidMode, mode, router]);
 
     useEffect(() => {
-        const fetchCsrf = async () => {
-            const token = await getCsrfTokenCached();
-            setCsrfToken(token);
-        };
-        fetchCsrf();
+        void getCsrfTokenCached().then(setCsrfToken);
     }, []);
 
-    const fetchCategories = useCallback(async () => {
-        try {
-            const response = await fetch('/api/pos/category');
-            if (!response.ok) return;
-            const payload = await response.json();
-            setCategories(parseListResponse<Category>(payload));
-        } catch (error) {
-            console.error('Failed to fetch categories', error);
+    useEffect(() => {
+        if (isChecking || permissionLoading || !isAuthorized) return;
+        if (mode === 'add' && !canCreate) {
+            message.warning('คุณไม่มีสิทธิ์เพิ่มสินค้า');
+            router.replace('/pos/products');
+            return;
         }
+        if (mode === 'edit' && !canUpdate) {
+            message.warning('คุณไม่มีสิทธิ์แก้ไขสินค้า');
+            router.replace('/pos/products');
+        }
+    }, [canCreate, canUpdate, isAuthorized, isChecking, mode, permissionLoading, router]);
+
+    const fetchCategories = useCallback(async () => {
+        const response = await fetch('/api/pos/category', { cache: 'no-store' });
+        if (response.ok) setCategories(parseListResponse<Category>(await response.json()));
     }, []);
 
     const fetchUnits = useCallback(async () => {
-        try {
-            const response = await fetch('/api/pos/productsUnit');
-            if (!response.ok) return;
-            const payload = await response.json();
-            setUnits(parseListResponse<ProductsUnit>(payload));
-        } catch (error) {
-            console.error('Failed to fetch units', error);
-        }
+        const response = await fetch('/api/pos/productsUnit', { cache: 'no-store' });
+        if (response.ok) setUnits(parseListResponse<ProductsUnit>(await response.json()));
     }, []);
 
     const fetchProduct = useCallback(async () => {
         if (!id) return;
         setLoading(true);
         try {
-            const response = await fetch(`/api/pos/products/getById/${id}`);
+            const response = await fetch(`/api/pos/products/getById/${id}`, { cache: 'no-store' });
             if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลสินค้าได้');
             const data = await response.json();
-
             form.setFieldsValue({
-                product_name: data.product_name,
                 display_name: data.display_name,
                 description: data.description,
                 img_url: data.img_url || undefined,
-                price: Number(data.price ?? 0),
+                price: Number(data.price || 0),
                 price_delivery: Number(data.price_delivery ?? data.price ?? 0),
                 cost: data.cost !== undefined && data.cost !== null ? Number(data.cost) : undefined,
                 category_id: data.category_id,
                 unit_id: data.unit_id,
                 is_active: data.is_active,
             });
-            setCurrentProductName((data.product_name || '').toLowerCase());
+            setCurrentName((data.display_name || '').toLowerCase());
             setOriginalProduct(data);
         } catch (error) {
             console.error(error);
@@ -165,362 +148,185 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     }, [form, id, router]);
 
     useEffect(() => {
-        fetchCategories();
-        fetchUnits();
-        if (isEdit) {
-            fetchProduct();
-        }
-    }, [isEdit, fetchCategories, fetchUnits, fetchProduct]);
+        if (!isAuthorized || permissionLoading) return;
+        void fetchCategories();
+        void fetchUnits();
+        if (isEdit) void fetchProduct();
+    }, [fetchCategories, fetchProduct, fetchUnits, isAuthorized, isEdit, permissionLoading]);
 
-    const checkProductNameConflict = useCallback(async (rawValue: string) => {
+    const checkNameConflict = useCallback(async (rawValue: string) => {
         const value = rawValue.trim();
         if (!value) return false;
-
-        if (isEdit && value.toLowerCase() === currentProductName) {
-            return false;
-        }
-
+        if (isEdit && value.toLowerCase() === currentName) return false;
         try {
-            const response = await fetch(`/api/pos/products/getByName/${encodeURIComponent(value)}`);
+            const response = await fetch(`/api/pos/products/getByName/${encodeURIComponent(value)}`, { cache: 'no-store' });
             if (!response.ok) return false;
             const found = await response.json();
-            if (!found?.id) return false;
-            if (isEdit && found.id === id) return false;
-            return true;
+            return Boolean(found?.id && (!isEdit || found.id !== id));
         } catch {
             return false;
         }
-    }, [currentProductName, id, isEdit]);
+    }, [currentName, id, isEdit]);
 
-    const onFinish = async (values: ProductFormValues) => {
+    const handleSubmit = async (values: ProductFormValues) => {
+        if (isEdit ? !canUpdate : !canCreate) {
+            message.warning(isEdit ? 'คุณไม่มีสิทธิ์แก้ไขสินค้า' : 'คุณไม่มีสิทธิ์เพิ่มสินค้า');
+            return;
+        }
         setSubmitting(true);
         try {
-            if (isEdit ? !canUpdateProducts : !canCreateProducts) {
-                throw new Error('คุณไม่มีสิทธิ์บันทึกข้อมูลสินค้า');
-            }
+            const token = csrfToken || await getCsrfTokenCached();
             const payload = {
-                product_name: values.product_name.trim(),
                 display_name: values.display_name.trim(),
                 description: values.description?.trim() ?? '',
                 img_url: normalizeImageSource(values.img_url) || null,
                 price: Number(values.price || 0),
-                price_delivery: values.price_delivery === undefined || values.price_delivery === null
-                    ? Number(values.price || 0)
-                    : Number(values.price_delivery),
+                price_delivery: values.price_delivery === undefined || values.price_delivery === null ? Number(values.price || 0) : Number(values.price_delivery),
                 cost: values.cost === undefined || values.cost === null ? undefined : Number(values.cost),
                 category_id: values.category_id,
                 unit_id: values.unit_id,
                 is_active: values.is_active,
             };
-
-            const endpoint = isEdit ? `/api/pos/products/update/${id}` : '/api/pos/products/create';
-            const method = isEdit ? 'PUT' : 'POST';
-
-            const response = await fetch(endpoint, {
-                method,
+            const response = await fetch(isEdit ? `/api/pos/products/update/${id}` : '/api/pos/products/create', {
+                method: isEdit ? 'PUT' : 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken
+                    'X-CSRF-Token': token,
                 },
                 body: JSON.stringify(payload),
             });
-
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || (isEdit ? 'ไม่สามารถอัปเดตสินค้าได้' : 'ไม่สามารถสร้างสินค้าได้'));
+                throw new Error(errorData.error || errorData.message || 'ไม่สามารถบันทึกสินค้าได้');
             }
-
             message.success(isEdit ? 'อัปเดตสินค้าสำเร็จ' : 'สร้างสินค้าสำเร็จ');
-            router.push('/pos/products');
+            router.replace('/pos/products');
         } catch (error) {
             console.error(error);
-            message.error(error instanceof Error ? error.message : (isEdit ? 'ไม่สามารถอัปเดตสินค้าได้' : 'ไม่สามารถสร้างสินค้าได้'));
+            message.error(error instanceof Error ? error.message : 'ไม่สามารถบันทึกสินค้าได้');
         } finally {
             setSubmitting(false);
         }
     };
 
     const handleDelete = () => {
-        if (!id) return;
+        if (!id || !canDelete) return;
         Modal.confirm({
             title: 'ยืนยันการลบสินค้า',
             content: `คุณต้องการลบสินค้า "${displayName || '-'}" หรือไม่?`,
             okText: 'ลบ',
-            okType: 'danger',
             cancelText: 'ยกเลิก',
+            okType: 'danger',
             centered: true,
-            icon: <DeleteOutlined style={{ color: '#EF4444' }} />,
+            icon: <DeleteOutlined style={{ color: '#ef4444' }} />,
             onOk: async () => {
                 try {
+                    const token = csrfToken || await getCsrfTokenCached();
                     const response = await fetch(`/api/pos/products/delete/${id}`, {
                         method: 'DELETE',
-                        headers: {
-                            'X-CSRF-Token': csrfToken
-                        }
+                        headers: { 'X-CSRF-Token': token },
                     });
-                    if (!response.ok) throw new Error('ไม่สามารถลบสินค้าได้');
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error || errorData.message || 'ไม่สามารถลบสินค้าได้');
+                    }
                     message.success('ลบสินค้าสำเร็จ');
-                    router.push('/pos/products');
+                    router.replace('/pos/products');
                 } catch (error) {
                     console.error(error);
-                    message.error('ไม่สามารถลบสินค้าได้');
+                    message.error(error instanceof Error ? error.message : 'ไม่สามารถลบสินค้าได้');
                 }
-            }
+            },
         });
     };
 
-    const handleBack = () => router.push('/pos/products');
-
-    if (isChecking || permissionLoading) {
-        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
-    }
-
-    if (!isAuthorized) {
-        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
-    }
+    if (isChecking || permissionLoading) return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
+    if (!isAuthorized) return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
 
     return (
-        <div className="manage-page" style={pageStyles.container}>
+        <div style={pageStyles.container}>
             <UIPageHeader
                 title={isEdit ? 'แก้ไขสินค้า' : 'เพิ่มสินค้า'}
-                onBack={handleBack}
-                actions={
-                    isEdit && canDeleteProducts ? (
-                        <Button danger onClick={handleDelete} icon={<DeleteOutlined />}>
-                            ลบ
-                        </Button>
-                    ) : null
-                }
+                onBack={() => router.replace('/pos/products')}
+                actions={isEdit && canDelete ? <Button danger icon={<DeleteOutlined />} onClick={handleDelete}>ลบ</Button> : null}
             />
 
             <PageContainer maxWidth={1040}>
                 <PageSection style={{ background: 'transparent', border: 'none' }}>
                     {loading ? (
-                        <div style={{ display: 'flex', justifyContent: 'center', padding: '90px 0' }}>
-                            <Spin size="large" tip="กำลังโหลดข้อมูล..." />
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
+                            <Spin size="large" />
                         </div>
                     ) : (
                         <Row gutter={[20, 20]}>
                             <Col xs={24} lg={15}>
-                                <Card
-                                    bordered={false}
-                                    style={{
-                                        borderRadius: 20,
-                                        boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-                                        overflow: 'hidden'
-                                    }}
-                                    styles={{ body: { padding: 24 } }}
-                                >
+                                <Card bordered={false} style={{ borderRadius: 20 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-                                        <AppstoreOutlined style={{ fontSize: 20, color: '#4F46E5' }} />
+                                        <AppstoreOutlined style={{ fontSize: 20, color: '#4f46e5' }} />
                                         <Title level={5} style={{ margin: 0 }}>ข้อมูลสินค้า</Title>
                                     </div>
 
                                     <Form<ProductFormValues>
                                         form={form}
                                         layout="vertical"
-                                        onFinish={onFinish}
-                                        requiredMark={false}
-                                        autoComplete="off"
+                                        onFinish={handleSubmit}
                                         initialValues={{ is_active: true, price: 0, price_delivery: 0 }}
-                                        onValuesChange={(changedValues) => {
-                                            if (
-                                                !isEdit &&
-                                                changedValues.price !== undefined &&
-                                                !form.isFieldTouched('price_delivery')
-                                            ) {
-                                                form.setFieldsValue({ price_delivery: changedValues.price });
+                                        onValuesChange={(changed) => {
+                                            if (!isEdit && changed.price !== undefined && !form.isFieldTouched('price_delivery')) {
+                                                form.setFieldsValue({ price_delivery: changed.price });
                                             }
                                         }}
                                     >
-                                        <Row gutter={12}>
-                                            <Col xs={24} md={12}>
-                                                <Form.Item
-                                                    name="display_name"
-                                                    label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อสินค้าภาษาไทย <span style={{ color: '#ff4d4f' }}>*</span></span>}
-                                                    rules={[
-                                                        { required: true, message: 'กรุณากรอกชื่อสินค้าภาษาไทย' },
-                                                        { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
-                                                    ]}
-                                                >
-                                                    <Input size="large" placeholder="ข้าว, น้ำ, ..." maxLength={100} />
-                                                </Form.Item>
-                                            </Col>
-                                            <Col xs={24} md={12}>
-                                                <Form.Item
-                                                    name="product_name"
-                                                    label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อสินค้าภาษาอังกฤษ <span style={{ color: '#ff4d4f' }}>*</span></span>}
-                                                    validateTrigger={['onBlur', 'onSubmit']}
-                                                    rules={[
-                                                        { required: true, message: 'กรุณากรอกชื่อสินค้าภาษาอังกฤษ' },
-                                                        { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' },
-                                                        {
-                                                            validator: async (_, value: string) => {
-                                                                if (!value?.trim()) return;
-                                                                const duplicated = await checkProductNameConflict(value);
-                                                                if (duplicated) throw new Error('ชื่อสินค้าในระบบนี้ถูกใช้งานแล้ว');
-                                                            }
-                                                        }
-                                                    ]}
-                                                >
-                                                    <Input size="large" placeholder="Rice, Water, ..." maxLength={100} />
-                                                </Form.Item>
-                                            </Col>
-                                        </Row>
+                                        <Form.Item
+                                            name="display_name"
+                                            label={<span style={{ fontWeight: 600 }}>ชื่อสินค้า <span style={{ color: '#ff4d4f' }}>*</span></span>}
+                                            validateTrigger={['onBlur', 'onSubmit']}
+                                            rules={[
+                                                { required: true, message: 'กรุณากรอกชื่อสินค้า' },
+                                                { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' },
+                                                {
+                                                    validator: async (_, value: string) => {
+                                                        if (!value?.trim()) return;
+                                                        if (await checkNameConflict(value)) throw new Error('ชื่อนี้ถูกใช้งานแล้ว');
+                                                    },
+                                                },
+                                            ]}
+                                        >
+                                            <Input size="large" maxLength={100} placeholder="อเมริกาโน่, ข้าวกะเพรา..." />
+                                        </Form.Item>
 
                                         <Row gutter={12}>
                                             <Col xs={24} md={8}>
-                                                <Form.Item
-                                                    name="price"
-                                                    label={<span style={{ fontWeight: 600, color: '#334155' }}>ราคา (หน้าร้าน) <span style={{ color: '#ff4d4f' }}>*</span></span>}
-                                                    rules={[
-                                                        { required: true, message: 'กรุณากรอกราคา' },
-                                                        { type: 'number', min: 0, message: 'ราคาต้องไม่ติดลบ' }
-                                                    ]}
-                                                >
-                                                    <InputNumber<number>
-                                                        size="large"
-                                                        min={0}
-                                                        precision={2}
-                                                        style={{ width: '100%' }}
-                                                        controls={false}
-                                                        formatter={(value) => `${value}`.replace(/[^0-9.]/g, "")}
-                                                        parser={(value) => value?.replace(/[^0-9.]/g, "") as unknown as number}
-                                                        onKeyDown={(e) => {
-                                                            // Allow: backspace, delete, tab, escape, enter
-                                                            if (
-                                                                [8, 46, 9, 27, 13, 110, 190].indexOf(e.keyCode) !== -1 ||
-                                                                // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
-                                                                (e.ctrlKey === true && [65, 67, 86, 88].indexOf(e.keyCode) !== -1) ||
-                                                                // Allow: home, end, left, right
-                                                                (e.keyCode >= 35 && e.keyCode <= 39)
-                                                            ) {
-                                                                return;
-                                                            }
-                                                            // Ensure that it is a number and stop the keypress
-                                                            if (
-                                                                (e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) &&
-                                                                (e.keyCode < 96 || e.keyCode > 105)
-                                                            ) {
-                                                                e.preventDefault();
-                                                            }
-                                                        }}
-                                                    />
+                                                <Form.Item name="price" label={<span style={{ fontWeight: 600 }}>ราคาขาย <span style={{ color: '#ff4d4f' }}>*</span></span>} rules={[{ required: true, message: 'กรุณากรอกราคา' }]}>
+                                                    <InputNumber min={0} precision={2} style={{ width: '100%' }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col xs={24} md={8}>
-                                                <Form.Item
-                                                    name="price_delivery"
-                                                    label={<span style={{ fontWeight: 600, color: '#334155' }}>ราคา Delivery</span>}
-                                                    rules={[{ type: 'number', min: 0, message: 'ราคาต้องไม่ติดลบ' }]}
-                                                >
-                                                    <InputNumber<number>
-                                                        size="large"
-                                                        min={0}
-                                                        precision={2}
-                                                        style={{ width: '100%' }}
-                                                        controls={false}
-                                                        formatter={(value) => `${value}`.replace(/[^0-9.]/g, "")}
-                                                        parser={(value) => value?.replace(/[^0-9.]/g, "") as unknown as number}
-                                                        onKeyDown={(e) => {
-                                                            // Allow: backspace, delete, tab, escape, enter
-                                                            if (
-                                                                [8, 46, 9, 27, 13, 110, 190].indexOf(e.keyCode) !== -1 ||
-                                                                // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
-                                                                (e.ctrlKey === true && [65, 67, 86, 88].indexOf(e.keyCode) !== -1) ||
-                                                                // Allow: home, end, left, right
-                                                                (e.keyCode >= 35 && e.keyCode <= 39)
-                                                            ) {
-                                                                return;
-                                                            }
-                                                            // Ensure that it is a number and stop the keypress
-                                                            if (
-                                                                (e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) &&
-                                                                (e.keyCode < 96 || e.keyCode > 105)
-                                                            ) {
-                                                                e.preventDefault();
-                                                            }
-                                                        }}
-                                                    />
+                                                <Form.Item name="price_delivery" label={<span style={{ fontWeight: 600 }}>ราคาเดลิเวอรี</span>}>
+                                                    <InputNumber min={0} precision={2} style={{ width: '100%' }} />
                                                 </Form.Item>
                                             </Col>
                                             <Col xs={24} md={8}>
-                                                <Form.Item
-                                                    name="cost"
-                                                    label={<span style={{ fontWeight: 600, color: '#334155' }}>ต้นทุน (ไม่บังคับ)</span>}
-                                                    rules={[{ type: 'number', min: 0, message: 'ต้นทุนต้องไม่ติดลบ' }]}
-                                                >
-                                                    <InputNumber<number>
-                                                        size="large"
-                                                        min={0}
-                                                        precision={2}
-                                                        style={{ width: '100%' }}
-                                                        controls={false}
-                                                        formatter={(value) => `${value}`.replace(/[^0-9.]/g, "")}
-                                                        parser={(value) => value?.replace(/[^0-9.]/g, "") as unknown as number}
-                                                    />
+                                                <Form.Item name="cost" label={<span style={{ fontWeight: 600 }}>ต้นทุน</span>}>
+                                                    <InputNumber min={0} precision={2} style={{ width: '100%' }} />
                                                 </Form.Item>
                                             </Col>
                                         </Row>
 
                                         <Row gutter={12}>
                                             <Col xs={24} md={12}>
-                                                <Form.Item
-                                                    name="category_id"
-                                                    label={<span style={{ fontWeight: 600, color: '#334155' }}>หมวดหมู่ <span style={{ color: '#ff4d4f' }}>*</span></span>}
-                                                    rules={[{ required: true, message: 'กรุณาเลือกหมวดหมู่' }]}
-                                                >
-                                                    <div 
-                                                        onClick={() => setIsCategoryModalVisible(true)}
-                                                        style={{
-                                                            padding: '10px 16px',
-                                                            borderRadius: 12,
-                                                            border: '2px solid',
-                                                            cursor: 'pointer',
-                                                            background: selectedCategoryId ? 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)' : '#fff',
-                                                            borderColor: selectedCategoryId ? '#4F46E5' : '#e2e8f0',
-                                                            display: 'flex',
-                                                            justifyContent: 'space-between',
-                                                            alignItems: 'center',
-                                                            minHeight: 46
-                                                        }}
-                                                    >
-                                                        <span style={{ color: selectedCategoryId ? '#1e293b' : '#94a3b8', fontWeight: selectedCategoryId ? 600 : 400 }}>
-                                                            {selectedCategoryId 
-                                                                ? categories.find(c => c.id === selectedCategoryId)?.display_name 
-                                                                : 'เลือกหมวดหมู่'}
-                                                        </span>
-                                                        <DownOutlined style={{ fontSize: 12, color: '#94a3b8' }} />
+                                                <Form.Item name="category_id" label={<span style={{ fontWeight: 600 }}>หมวดหมู่ <span style={{ color: '#ff4d4f' }}>*</span></span>} rules={[{ required: true, message: 'กรุณาเลือกหมวดหมู่' }]}>
+                                                    <div onClick={() => setIsCategoryModalVisible(true)} style={{ padding: '10px 16px', borderRadius: 12, border: '2px solid #e2e8f0', cursor: 'pointer', minHeight: 46, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <span>{selectedCategoryId ? categories.find((c) => c.id === selectedCategoryId)?.display_name : 'เลือกหมวดหมู่'}</span>
+                                                        <DownOutlined />
                                                     </div>
                                                 </Form.Item>
                                             </Col>
                                             <Col xs={24} md={12}>
-                                                <Form.Item
-                                                    name="unit_id"
-                                                    label={<span style={{ fontWeight: 600, color: '#334155' }}>หน่วยสินค้า <span style={{ color: '#ff4d4f' }}>*</span></span>}
-                                                    rules={[{ required: true, message: 'กรุณาเลือกหน่วยสินค้า' }]}
-                                                >
-                                                    <div 
-                                                        onClick={() => setIsUnitModalVisible(true)}
-                                                        style={{
-                                                            padding: '10px 16px',
-                                                            borderRadius: 12,
-                                                            border: '2px solid',
-                                                            cursor: 'pointer',
-                                                            background: selectedUnitId ? 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)' : '#fff',
-                                                            borderColor: selectedUnitId ? '#4F46E5' : '#e2e8f0',
-                                                            display: 'flex',
-                                                            justifyContent: 'space-between',
-                                                            alignItems: 'center',
-                                                            minHeight: 46
-                                                        }}
-                                                    >
-                                                        <span style={{ color: selectedUnitId ? '#1e293b' : '#94a3b8', fontWeight: selectedUnitId ? 600 : 400 }}>
-                                                            {selectedUnitId 
-                                                                ? units.find(u => u.id === selectedUnitId)?.display_name 
-                                                                : 'เลือกหน่วยสินค้า'}
-                                                        </span>
-                                                        <DownOutlined style={{ fontSize: 12, color: '#94a3b8' }} />
+                                                <Form.Item name="unit_id" label={<span style={{ fontWeight: 600 }}>หน่วยสินค้า <span style={{ color: '#ff4d4f' }}>*</span></span>} rules={[{ required: true, message: 'กรุณาเลือกหน่วยสินค้า' }]}>
+                                                    <div onClick={() => setIsUnitModalVisible(true)} style={{ padding: '10px 16px', borderRadius: 12, border: '2px solid #e2e8f0', cursor: 'pointer', minHeight: 46, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <span>{selectedUnitId ? units.find((u) => u.id === selectedUnitId)?.display_name : 'เลือกหน่วยสินค้า'}</span>
+                                                        <DownOutlined />
                                                     </div>
                                                 </Form.Item>
                                             </Col>
@@ -528,60 +334,40 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
 
                                         <Form.Item
                                             name="img_url"
-                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>รูปภาพ URL</span>}
+                                            label={<span style={{ fontWeight: 600 }}>รูปภาพ URL</span>}
                                             rules={[
                                                 {
                                                     validator: async (_, value: string | undefined) => {
                                                         if (!value?.trim()) return;
-                                                        const normalized = normalizeImageSource(value);
-                                                        if (!isSupportedImageSource(normalized)) {
+                                                        if (!isSupportedImageSource(normalizeImageSource(value))) {
                                                             throw new Error('รองรับเฉพาะ URL รูปภาพแบบ http(s), data:image และ blob');
                                                         }
-                                                    }
-                                                }
+                                                    },
+                                                },
                                             ]}
                                         >
                                             <Input size="large" placeholder="https://example.com/image.jpg" />
                                         </Form.Item>
 
-                                        <Form.Item name="description" label={<span style={{ fontWeight: 600, color: '#334155' }}>รายละเอียดเพิ่มเติม</span>}>
-                                            <TextArea rows={4} placeholder="รายละเอียดสินค้า, หมายเหตุ" style={{ borderRadius: 12 }} maxLength={500} />
+                                        <Form.Item name="description" label={<span style={{ fontWeight: 600 }}>รายละเอียดเพิ่มเติม</span>}>
+                                            <TextArea rows={4} maxLength={500} placeholder="รายละเอียดสินค้า, หมายเหตุ" />
                                         </Form.Item>
 
-                                        <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: 14, marginTop: 8, marginBottom: 18 }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                                        <div style={{ padding: 16, background: '#f8fafc', borderRadius: 14, marginBottom: 18 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <div>
-                                                    <Text strong style={{ fontSize: 15, display: 'block' }}>สถานะการใช้งาน</Text>
-                                                    <Text type="secondary" style={{ fontSize: 13 }}>เปิดเพื่อให้แสดงในหน้า POS</Text>
+                                                    <Text strong>สถานะการใช้งาน</Text>
+                                                    <Text type="secondary" style={{ display: 'block', fontSize: 13 }}>เปิดเพื่อให้แสดงในหน้า POS</Text>
                                                 </div>
                                                 <Form.Item name="is_active" valuePropName="checked" noStyle>
-                                                    <Switch style={{ background: isActive ? '#10B981' : undefined }} />
+                                                    <Switch checked={isActive} />
                                                 </Form.Item>
                                             </div>
                                         </div>
 
-                                        <div style={{ marginTop: 12, display: 'flex', gap: 12 }}>
-                                            <Button
-                                                size="large"
-                                                onClick={handleBack}
-                                                style={{ flex: 1, borderRadius: 12, height: 46, fontWeight: 600 }}
-                                            >
-                                                ยกเลิก
-                                            </Button>
-                                            <Button
-                                                type="primary"
-                                                htmlType="submit"
-                                                loading={submitting}
-                                                icon={<SaveOutlined />}
-                                                style={{
-                                                    flex: 2,
-                                                    borderRadius: 12,
-                                                    height: 46,
-                                                    fontWeight: 600,
-                                                    background: '#4F46E5',
-                                                    boxShadow: '0 4px 12px rgba(79, 70, 229, 0.25)'
-                                                }}
-                                            >
+                                        <div style={{ display: 'flex', gap: 12 }}>
+                                            <Button size="large" onClick={() => router.replace('/pos/products')} style={{ flex: 1 }}>ยกเลิก</Button>
+                                            <Button type="primary" htmlType="submit" size="large" icon={<SaveOutlined />} loading={submitting} style={{ flex: 2 }}>
                                                 บันทึกข้อมูล
                                             </Button>
                                         </div>
@@ -591,24 +377,18 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
 
                             <Col xs={24} lg={9}>
                                 <div style={{ display: 'grid', gap: 14 }}>
-                                    <div style={{
-                                        background: 'white',
-                                        borderRadius: 20,
-                                        padding: 20,
-                                        boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
-                                        border: '1px solid #F1F5F9',
-                                    }}>
-                                        <Title level={5} style={{ color: '#4F46E5', marginBottom: 16, fontWeight: 700 }}>ตัวอย่างการแสดงผล</Title>
+                                    <Card style={{ borderRadius: 20 }}>
+                                        <Title level={5} style={{ color: '#4f46e5', marginBottom: 16 }}>ตัวอย่างการแสดงผล</Title>
                                         <ProductPreview
                                             name={displayName}
-                                            productName={productName}
+                                            productName={displayName}
                                             imageUrl={imageUrl}
                                             price={price}
                                             priceDelivery={priceDelivery}
-                                            category={categories.find(c => c.id === selectedCategoryId)?.display_name}
-                                            unit={units.find(u => u.id === selectedUnitId)?.display_name}
+                                            category={categories.find((c) => c.id === selectedCategoryId)?.display_name}
+                                            unit={units.find((u) => u.id === selectedUnitId)?.display_name}
                                         />
-                                    </div>
+                                    </Card>
 
                                     {isEdit ? (
                                         <Card style={{ borderRadius: 16 }}>
@@ -616,10 +396,8 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                                 <ExclamationCircleOutlined style={{ color: '#0369a1' }} />
                                                 <Text strong>รายละเอียดรายการ</Text>
                                             </div>
-                                            <div style={{ display: 'grid', gap: 8 }}>
-                                                <Text type="secondary">สร้างเมื่อ: {formatDate(originalProduct?.create_date)}</Text>
-                                                <Text type="secondary">อัปเดตเมื่อ: {formatDate(originalProduct?.update_date)}</Text>
-                                            </div>
+                                            <Text type="secondary" style={{ display: 'block' }}>สร้างเมื่อ: {formatDate(originalProduct?.create_date)}</Text>
+                                            <Text type="secondary" style={{ display: 'block' }}>อัปเดตเมื่อ: {formatDate(originalProduct?.update_date)}</Text>
                                         </Card>
                                     ) : null}
 
@@ -629,16 +407,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                             showIcon
                                             icon={<ShopOutlined />}
                                             message="ข้อมูลอ้างอิงยังไม่ครบ"
-                                            description={
-                                                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
-                                                    {activeCategories.length === 0 ? (
-                                                        <Button size="small" onClick={() => router.push('/pos/category')}>จัดการหมวดหมู่</Button>
-                                                    ) : null}
-                                                    {activeUnits.length === 0 ? (
-                                                        <Button size="small" onClick={() => router.push('/pos/productsUnit')}>จัดการหน่วยสินค้า</Button>
-                                                    ) : null}
-                                                </div>
-                                            }
+                                            description="กรุณาตรวจสอบหมวดหมู่และหน่วยสินค้าที่เปิดใช้งานก่อนบันทึกสินค้า"
                                         />
                                     ) : null}
                                 </div>
@@ -648,81 +417,23 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                 </PageSection>
             </PageContainer>
 
-            {/* Category Selection Modal */}
-            <Modal
-                title="เลือกหมวดหมู่"
-                open={isCategoryModalVisible}
-                onCancel={() => setIsCategoryModalVisible(false)}
-                footer={null}
-                centered
-                width={400}
-                styles={{ body: { padding: '12px 16px 24px' } }}
-            >
+            <Modal title="เลือกหมวดหมู่" open={isCategoryModalVisible} onCancel={() => setIsCategoryModalVisible(false)} footer={null} centered width={400}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
-                    {activeCategories.map(cat => (
-                        <div
-                            key={cat.id}
-                            onClick={() => {
-                                form.setFieldsValue({ category_id: cat.id });
-                                setIsCategoryModalVisible(false);
-                            }}
-                            style={{
-                                padding: '14px 18px',
-                                border: '2px solid',
-                                borderRadius: 12,
-                                cursor: 'pointer',
-                                background: selectedCategoryId === cat.id ? '#eff6ff' : '#fff',
-                                borderColor: selectedCategoryId === cat.id ? '#3b82f6' : '#e5e7eb',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                minHeight: 54
-                            }}
-                        >
-                            <span style={{ fontWeight: selectedCategoryId === cat.id ? 600 : 400 }}>
-                                {cat.display_name}
-                            </span>
-                            {selectedCategoryId === cat.id && <CheckCircleOutlined style={{ color: '#3b82f6', fontSize: 18 }} />}
+                    {activeCategories.map((cat) => (
+                        <div key={cat.id} onClick={() => { form.setFieldsValue({ category_id: cat.id }); setIsCategoryModalVisible(false); }} style={{ padding: '14px 18px', border: '2px solid', borderRadius: 12, cursor: 'pointer', background: selectedCategoryId === cat.id ? '#eff6ff' : '#fff', borderColor: selectedCategoryId === cat.id ? '#3b82f6' : '#e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>{cat.display_name}</span>
+                            {selectedCategoryId === cat.id ? <CheckCircleOutlined style={{ color: '#3b82f6' }} /> : null}
                         </div>
                     ))}
                 </div>
             </Modal>
 
-            {/* Unit Selection Modal */}
-            <Modal
-                title="เลือกหน่วยสินค้า"
-                open={isUnitModalVisible}
-                onCancel={() => setIsUnitModalVisible(false)}
-                footer={null}
-                centered
-                width={400}
-                styles={{ body: { padding: '12px 16px 24px' } }}
-            >
+            <Modal title="เลือกหน่วยสินค้า" open={isUnitModalVisible} onCancel={() => setIsUnitModalVisible(false)} footer={null} centered width={400}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
-                    {activeUnits.map(unit => (
-                        <div
-                            key={unit.id}
-                            onClick={() => {
-                                form.setFieldsValue({ unit_id: unit.id });
-                                setIsUnitModalVisible(false);
-                            }}
-                            style={{
-                                padding: '14px 18px',
-                                border: '2px solid',
-                                borderRadius: 12,
-                                cursor: 'pointer',
-                                background: selectedUnitId === unit.id ? '#eff6ff' : '#fff',
-                                borderColor: selectedUnitId === unit.id ? '#3b82f6' : '#e5e7eb',
-                                display: 'flex',
-                                justifyContent: 'space-between',
-                                alignItems: 'center',
-                                minHeight: 54
-                            }}
-                        >
-                            <span style={{ fontWeight: selectedUnitId === unit.id ? 600 : 400 }}>
-                                {unit.display_name}
-                            </span>
-                            {selectedUnitId === unit.id && <CheckCircleOutlined style={{ color: '#3b82f6', fontSize: 18 }} />}
+                    {activeUnits.map((unit) => (
+                        <div key={unit.id} onClick={() => { form.setFieldsValue({ unit_id: unit.id }); setIsUnitModalVisible(false); }} style={{ padding: '14px 18px', border: '2px solid', borderRadius: 12, cursor: 'pointer', background: selectedUnitId === unit.id ? '#eff6ff' : '#fff', borderColor: selectedUnitId === unit.id ? '#3b82f6' : '#e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>{unit.display_name}</span>
+                            {selectedUnitId === unit.id ? <CheckCircleOutlined style={{ color: '#3b82f6' }} /> : null}
                         </div>
                     ))}
                 </div>

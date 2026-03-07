@@ -76,13 +76,13 @@ export const discountsService = {
         if (json && typeof json === 'object' && !Array.isArray(json)) {
             // Check if it's wrapped in success response but data is object instead of array
             if (json.success && json.data && typeof json.data === 'object' && !Array.isArray(json.data)) {
-                if (json.data.id && (json.data.discount_name || json.data.display_name)) {
+                if (json.data.id && json.data.display_name) {
                     return [json.data as Discounts];
                 }
             }
 
             // Check if it's a single discount object
-            if (json.id && (json.discount_name || json.display_name)) {
+            if (json.id && json.display_name) {
                 // Single discount object - convert to array
                 return [json as Discounts];
             }
@@ -108,7 +108,7 @@ export const discountsService = {
     },
 
     getByName: async (name: string, cookie?: string): Promise<Discounts> => {
-        const url = getProxyUrl("GET", `${BASE_PATH}/getByName/${encodeURIComponent(name)}`);
+        const url = getProxyUrl("GET", `${BASE_PATH}/name/${encodeURIComponent(name)}`);
         const headers = getHeaders(cookie, "");
 
         const response = await fetch(url!, {

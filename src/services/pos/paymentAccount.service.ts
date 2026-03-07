@@ -60,6 +60,33 @@ export const paymentAccountService = {
         return normalizeBackendPaginated<ShopPaymentAccount>(rawData);
     },
 
+    getOne: async (id: string, shopId?: string, cookie?: string): Promise<ShopPaymentAccount> => {
+        let url = getProxyUrl("GET", `${BASE_PATH}/accounts/${id}`);
+        if (shopId) {
+            const query = new URLSearchParams({ shopId });
+            url += `?${query.toString()}`;
+        }
+
+        const headers: HeadersInit = {};
+        if (cookie) headers.Cookie = cookie;
+
+        const response = await fetch(url!, {
+            cache: "no-store",
+            credentials: "include",
+            headers,
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            const err: Error & { status?: number } = new Error(getBackendErrorMessage(errorData, "Failed to fetch account"));
+            err.status = response.status;
+            (err as Error & { code?: string }).code = getErrorCode(errorData);
+            throw err;
+        }
+
+        return unwrapBackendData(await response.json()) as ShopPaymentAccount;
+    },
+
     create: async (data: CreatePaymentAccountDto, shopId?: string, cookie?: string, csrfToken?: string): Promise<ShopPaymentAccount> => {
         let url = getProxyUrl("POST", `${BASE_PATH}/accounts`);
         if (shopId) url += `?shopId=${shopId}`;

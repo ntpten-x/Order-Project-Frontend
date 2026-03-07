@@ -26,6 +26,10 @@ export interface Shift {
 
 export interface ShiftSummary {
     shift_info: {
+        id?: string;
+        status?: ShiftStatus | string;
+        open_time?: string;
+        close_time?: string | null;
         start_amount: number | string;
         end_amount?: number | string;
         expected_amount?: number | string;
@@ -33,7 +37,9 @@ export interface ShiftSummary {
     };
     summary: {
         total_sales: number | string;
+        total_cost?: number | string;
         net_profit: number | string;
+        gross_profit_margin?: number | string;
         payment_methods?: Record<string, number | string>;
         order_types?: {
             DineIn?: number | string;

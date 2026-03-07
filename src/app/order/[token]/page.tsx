@@ -53,12 +53,11 @@ type MenuItem = {
     description: string;
     price: number;
     img_url: string | null;
-    unit_name: string | null;
+    unit_display_name: string | null;
 };
 
 type MenuCategory = {
     id: string;
-    category_name: string;
     display_name: string;
     items: MenuItem[];
 };
@@ -66,7 +65,7 @@ type MenuCategory = {
 type CustomerOrderItem = {
     id: string;
     product_id: string;
-    product_name: string;
+    display_name: string;
     quantity: number;
     price: number;
     total_price: number;
@@ -140,7 +139,6 @@ function mapMenuToProduct(item: MenuItem, category: MenuCategory): Products {
 
     return {
         id: item.id,
-        product_name: item.display_name,
         display_name: item.display_name,
         description: item.description || "",
         price: Number(item.price || 0),
@@ -153,7 +151,6 @@ function mapMenuToProduct(item: MenuItem, category: MenuCategory): Products {
         is_active: true,
         category: {
             id: category.id,
-            category_name: category.category_name || category.display_name,
             display_name: category.display_name,
             create_date: now,
             update_date: now,
@@ -161,8 +158,7 @@ function mapMenuToProduct(item: MenuItem, category: MenuCategory): Products {
         },
         unit: {
             id: unitId,
-            unit_name: item.unit_name || "รายการ",
-            display_name: item.unit_name || "รายการ",
+            display_name: item.unit_display_name || "รายการ",
             create_date: now,
             update_date: now,
             is_active: true,
@@ -394,6 +390,10 @@ export default function CustomerTableOrderPage() {
     const [isProductModalVisible, setIsProductModalVisible] = React.useState(false);
     const [selectedProduct, setSelectedProduct] = React.useState<Products | null>(null);
     const submitIdempotencyKeyRef = React.useRef<string | null>(null);
+    const cartStorageKey = React.useMemo(
+        () => (token ? `public-table-order-cart:${token}` : null),
+        [token]
+    );
 
     const deferredSearchQuery = React.useDeferredValue(searchQuery);
     const cartSignature = React.useMemo(
@@ -419,6 +419,39 @@ export default function CustomerTableOrderPage() {
     React.useEffect(() => {
         submitIdempotencyKeyRef.current = null;
     }, [cartSignature]);
+
+    React.useEffect(() => {
+        if (!cartStorageKey || typeof window === "undefined") {
+            setCartItems([]);
+            return;
+        }
+
+        try {
+            const rawCart = window.sessionStorage.getItem(cartStorageKey);
+            if (!rawCart) {
+                setCartItems([]);
+                return;
+            }
+
+            const parsedCart = JSON.parse(rawCart);
+            setCartItems(Array.isArray(parsedCart) ? (parsedCart as CartItem[]) : []);
+        } catch {
+            setCartItems([]);
+        }
+    }, [cartStorageKey]);
+
+    React.useEffect(() => {
+        if (!cartStorageKey || typeof window === "undefined") {
+            return;
+        }
+
+        if (cartItems.length === 0) {
+            window.sessionStorage.removeItem(cartStorageKey);
+            return;
+        }
+
+        window.sessionStorage.setItem(cartStorageKey, JSON.stringify(cartItems));
+    }, [cartItems, cartStorageKey]);
 
     const loadBootstrap = React.useCallback(async () => {
         if (!token) {
@@ -504,6 +537,30 @@ export default function CustomerTableOrderPage() {
         return map;
     }, [menuProducts]);
 
+    React.useEffect(() => {
+        if (!menuProductById.size) return;
+
+        setCartItems((prev) => {
+            let changed = false;
+            const nextCart = prev.flatMap((item) => {
+                const latestProduct = menuProductById.get(item.product.id);
+                if (!latestProduct) {
+                    changed = true;
+                    return [];
+                }
+
+                if (latestProduct !== item.product) {
+                    changed = true;
+                    return [{ ...item, product: latestProduct }];
+                }
+
+                return [item];
+            });
+
+            return changed ? nextCart : prev;
+        });
+    }, [menuProductById]);
+
     const filteredProducts = React.useMemo(() => {
         const keyword = deferredSearchQuery.trim().toLowerCase();
 
@@ -532,6 +589,12 @@ export default function CustomerTableOrderPage() {
     }, [filteredProducts.length, page]);
 
     const isOrderLocked = Boolean(bootstrap?.active_order && !bootstrap.active_order.can_add_items);
+
+    React.useEffect(() => {
+        if (!isOrderLocked) return;
+        setCartItems([]);
+        setCheckoutVisible(false);
+    }, [isOrderLocked]);
 
     const getProductUnitPrice = React.useCallback((product: Products) => Number(product.price || 0), []);
 
@@ -599,7 +662,27 @@ export default function CustomerTableOrderPage() {
                 });
                 return;
             }
-            setCartItems((prev) => [...prev, createCartItem(product)]);
+            setCartItems((prev) => {
+                const existingItem = prev.find(
+                    (item) =>
+                        item.product.id === product.id &&
+                        !item.notes &&
+                        (!item.details || item.details.length === 0)
+                );
+
+                if (!existingItem) {
+                    return [...prev, createCartItem(product)];
+                }
+
+                return prev.map((item) =>
+                    item.cart_item_id === existingItem.cart_item_id
+                        ? {
+                              ...item,
+                              quantity: item.quantity + 1,
+                          }
+                        : item
+                );
+            });
             message.success(`เพิ่ม ${product.display_name} ลงตะกร้าเรียบร้อยแล้ว`);
         },
         [isOrderLocked, message, modal]
@@ -748,7 +831,7 @@ export default function CustomerTableOrderPage() {
         (item: CartItem) => {
             const lineTotal = Number(item.product.price || 0) * item.quantity;
             const imageSrc = resolveImageSource(item.product.img_url);
-            const productName = item.product.display_name || item.product.product_name || "สินค้า";
+            const productName = item.product.display_name || "สินค้า";
             const categoryName = item.product.category?.display_name || "ทั่วไป";
 
             return (
@@ -1080,7 +1163,7 @@ export default function CustomerTableOrderPage() {
                                                                 >
                                                                     <SmartImage
                                                                         src={imageSrc}
-                                                                        alt={item.product_name || "สินค้า"}
+                                                                        alt={item.display_name || "สินค้า"}
                                                                         fill
                                                                         style={{ objectFit: "cover" }}
                                                                         sizes="48px"
@@ -1110,7 +1193,7 @@ export default function CustomerTableOrderPage() {
                                                                     }}
                                                                 >
                                                                     <Text strong style={{ fontSize: 15, flex: 1, lineHeight: 1.4 }}>
-                                                                        {item.product_name}
+                                                                        {item.display_name}
                                                                     </Text>
                                                                     <Text strong style={{ fontSize: 15, color: orderDetailColors.primary, lineHeight: 1.4 }}>
                                                                         {formatPrice(Number(item.total_price || 0))}

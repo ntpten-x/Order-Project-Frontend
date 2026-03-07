@@ -13,7 +13,7 @@ describe("print settings defaults", () => {
         expect(settings.documents.receipt.width).toBe(80);
         expect(settings.documents.table_qr.preset).toBe("label_4x6");
         expect(settings.documents.custom.enabled).toBe(false);
-        expect(countEnabledDocuments(settings)).toBe(5);
+        expect(countEnabledDocuments(settings)).toBe(4);
     });
 
     it("applies preset dimensions while preserving the current unit", () => {

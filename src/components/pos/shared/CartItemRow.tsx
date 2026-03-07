@@ -46,7 +46,7 @@ export const CartItemRow = React.memo(function CartItemRow({
   );
   const itemDiscountAmount = Number(item.discount || 0);
   const lineTotal = Math.max(0, (unitPrice + detailsTotal) * item.quantity - itemDiscountAmount);
-  const productName = item.product.display_name || item.product.product_name || "สินค้า";
+  const productName = item.product.display_name || "สินค้า";
   const categoryName = item.product.category?.display_name || "ทั่วไป";
 
   return (

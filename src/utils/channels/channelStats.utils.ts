@@ -18,6 +18,8 @@ export interface ChannelStats {
     takeaway_waiting_payment: number;
     delivery: number;
     delivery_waiting_payment: number;
+    pending: number;
+    waiting_payment: number;
     total: number;
 }
 

@@ -43,7 +43,7 @@ describe("servingBoardService contract", () => {
                             {
                                 id: "i-1",
                                 product_id: "p-1",
-                                product_name: "ไก่ทอด",
+                                display_name: "ไก่ทอด",
                                 product_image_url: null,
                                 quantity: "1",
                                 notes: null,

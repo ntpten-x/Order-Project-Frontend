@@ -30,6 +30,10 @@ import {
 import { orderColors } from "../../../../theme/pos/orders/style";
 import { useDebouncedValue } from "../../../../utils/useDebouncedValue";
 import { useOrders } from "../../../../hooks/pos/useOrders";
+import { useAuth } from "../../../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
+import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
+import { useChannelStats } from "../../../../utils/channels/channelStats.utils";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import 'dayjs/locale/th';
@@ -154,6 +158,17 @@ const responsiveCSS = `
 `;
 
 export default function POSOrdersPage() {
+    const { user, loading: authLoading } = useAuth();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+
+    if (authLoading || permissionLoading) {
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
+    }
+
+    if (!can("orders.page", "view")) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    }
+
     return (
         <RequireOpenShift>
             <POSOrdersPageContent />
@@ -217,6 +232,7 @@ function POSOrdersPageContent() {
         query: debouncedSearch || undefined,
         sortCreated: createdSort,
     });
+    const { stats: ordersStats } = useChannelStats();
 
     const getEffectiveStatus = useCallback((order: SalesOrder): OrderStatus => {
         // Only override for In-Progress orders
@@ -237,7 +253,7 @@ function POSOrdersPageContent() {
     }, []);
 
     // ── Stats ──
-    const stats = useMemo(() => {
+    const pageStats = useMemo(() => {
         let pending = 0;
         let waitingPayment = 0;
 
@@ -250,6 +266,21 @@ function POSOrdersPageContent() {
         const inProgress = pending;
         return { pending, waitingPayment, inProgress, total };
     }, [orders, total, getEffectiveStatus]);
+
+    const tabCounts = useMemo(() => ({
+        all: ordersStats?.total ?? (activeTab === "all" ? total : pageStats.total),
+        inProgress: ordersStats?.pending ?? pageStats.inProgress,
+        waitingPayment: ordersStats?.waiting_payment ?? pageStats.waitingPayment,
+    }), [
+        activeTab,
+        ordersStats?.pending,
+        ordersStats?.total,
+        ordersStats?.waiting_payment,
+        pageStats.inProgress,
+        pageStats.total,
+        pageStats.waitingPayment,
+        total,
+    ]);
 
     const navigateToOrder = useCallback((order: SalesOrder) => {
         const path = getOrderNavigationPath(order);
@@ -375,9 +406,9 @@ function POSOrdersPageContent() {
                     {STATUS_TABS.map(tab => {
                         const isActive = activeTab === tab.key;
                         let badgeCount = 0;
-                        if (tab.key === 'all') badgeCount = total;
-                        else if (tab.key === 'in-progress') badgeCount = stats.inProgress;
-                        else if (tab.key === 'waiting-payment') badgeCount = stats.waitingPayment;
+                        if (tab.key === 'all') badgeCount = tabCounts.all;
+                        else if (tab.key === 'in-progress') badgeCount = tabCounts.inProgress;
+                        else if (tab.key === 'waiting-payment') badgeCount = tabCounts.waitingPayment;
 
                         return (
                             <button

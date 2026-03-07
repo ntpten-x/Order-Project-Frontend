@@ -3,7 +3,6 @@ export type PrintDocumentType =
     | "order_summary"
     | "purchase_order"
     | "table_qr"
-    | "kitchen_ticket"
     | "custom";
 
 export type PrintUnit = "mm" | "in";
@@ -51,7 +50,6 @@ export interface PrintAutomationSettings {
     auto_print_order_summary_after_close_shift: boolean;
     auto_print_purchase_order_after_submit: boolean;
     auto_print_table_qr_after_rotation: boolean;
-    auto_print_kitchen_ticket_after_submit: boolean;
 }
 
 export interface PrintSettingsDocuments {
@@ -59,7 +57,6 @@ export interface PrintSettingsDocuments {
     order_summary: PrintDocumentSetting;
     purchase_order: PrintDocumentSetting;
     table_qr: PrintDocumentSetting;
-    kitchen_ticket: PrintDocumentSetting;
     custom: PrintDocumentSetting;
 }
 
@@ -77,4 +74,3 @@ export interface BranchPrintSettings extends PrintSettingsPayload {
     created_at?: string;
     updated_at?: string;
 }
-

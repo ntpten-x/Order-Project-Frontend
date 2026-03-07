@@ -61,12 +61,6 @@ export const RealtimeEvents = {
     shifts: {
         update: "shifts:update",
     },
-    orderQueue: {
-        added: "order-queue:added",
-        updated: "order-queue:updated",
-        removed: "order-queue:removed",
-        reordered: "order-queue:reordered",
-    },
     ingredients: {
         create: "ingredients:create",
         update: "ingredients:update",

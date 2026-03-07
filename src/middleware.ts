@@ -84,7 +84,6 @@ function isShiftProtectedPath(pathname: string): boolean {
         "/pos/channels/takeaway",
         "/pos/orders",
         "/pos/items",
-        "/pos/kitchen",
         "/pos/list",
     ];
 
@@ -268,7 +267,6 @@ export const config = {
         "/pos/channels/takeaway/:path*",
         "/pos/orders/:path*",
         "/pos/items/:path*",
-        "/pos/kitchen/:path*",
         "/pos/list",
         "/pos/list/:path*",
         "/stock/:path*",

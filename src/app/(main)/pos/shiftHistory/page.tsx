@@ -101,7 +101,7 @@ const ShiftHistoryCard = React.memo(({
     const diffNumber = shift.diff_amount === null || shift.diff_amount === undefined ? null : toNumber(shift.diff_amount);
 
     return (
-        <div className="shift-history-card" style={{ ...pageStyles.shiftCard(true), marginBottom: 12 }}>
+        <div className="shift-history-card" style={{ ...pageStyles.shiftCard(), marginBottom: 12 }}>
             <div style={{ ...pageStyles.shiftCardInner, alignItems: 'flex-start' }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="shift-card-header">
@@ -252,6 +252,7 @@ export default function ShiftHistoryPage() {
         placeholderData: (prev) => prev,
         enabled: isAuthorized && isUrlReady,
         staleTime: 15_000,
+        refetchOnWindowFocus: false,
     });
 
     const summaryQuery = useQuery<ShiftSummary | null>({
@@ -262,6 +263,7 @@ export default function ShiftHistoryPage() {
         },
         enabled: Boolean(selectedShiftId),
         staleTime: 10_000,
+        refetchOnWindowFocus: false,
     });
 
     useEffect(() => {

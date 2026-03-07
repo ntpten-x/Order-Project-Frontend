@@ -58,6 +58,37 @@ describe("permissionsService cache behavior", () => {
         expect(fetchMock).toHaveBeenCalledTimes(2);
     });
 
+    it("deduplicates concurrent effective permission requests for the same user", async () => {
+        let resolveFetch: ((value: MockFetchResponse) => void) | null = null;
+        fetchMock.mockImplementation(
+            () =>
+                new Promise<MockFetchResponse>((resolve) => {
+                    resolveFetch = resolve;
+                })
+        );
+
+        const first = permissionsService.getUserEffectivePermissions("u1");
+        const second = permissionsService.getUserEffectivePermissions("u1");
+
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+
+        expect(resolveFetch).not.toBeNull();
+        resolveFetch!({
+            ok: true,
+            json: async () => ({
+                success: true,
+                data: {
+                    user: { id: "u1", username: "alice", roleId: "r1" },
+                    role: { id: "r1", roles_name: "manager", display_name: "Manager" },
+                    permissions: [],
+                },
+            }),
+        });
+
+        await expect(Promise.all([first, second])).resolves.toHaveLength(2);
+        expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
     it("invalidates effective user cache after successful update", async () => {
         fetchMock
             .mockResolvedValueOnce({
@@ -101,4 +132,3 @@ describe("permissionsService cache behavior", () => {
         expect(fetchMock).toHaveBeenCalledTimes(3);
     });
 });
-

@@ -12,14 +12,12 @@ import {
 const { Text } = Typography;
 
 const { pageStyles, ManagePageStyles } = createManagePageStyles({
-    focusColor: "#722ed1",
-    focusShadow: "rgba(114, 46, 209, 0.1)",
-    switchGradient: "linear-gradient(135deg, #722ed1 0%, #531dab 100%)",
+    focusColor: "#0e7490",
+    focusShadow: "rgba(14, 116, 144, 0.12)",
+    switchGradient: "linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)",
 });
 
 export { pageStyles, ManagePageStyles };
-
-// ============ HEADER COMPONENT ============
 
 interface HeaderProps {
     isEdit: boolean;
@@ -38,47 +36,47 @@ export const PageHeader = ({ isEdit, onBack, onDelete }: HeaderProps) => (
     />
 );
 
-// ============ PRODUCT UNIT PREVIEW COMPONENT ============
-
 interface ProductsUnitPreviewProps {
     displayName?: string;
     unitName?: string;
 }
 
 export const ProductsUnitPreview = ({ displayName, unitName }: ProductsUnitPreviewProps) => (
-    <div style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 14,
-        padding: 16,
-        background: "#fafafa",
-        borderRadius: 16,
-        marginTop: 12,
-    }}>
-        <div style={{
-            width: 60,
-            height: 60,
-            borderRadius: 14,
-            background: "linear-gradient(135deg, #f9f0ff 0%, #efdbff 100%)",
+    <div
+        style={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-        }}>
-            <AppstoreOutlined style={{ fontSize: 24, color: "#722ed1" }} />
+            gap: 14,
+            padding: 16,
+            background: "#f8fafc",
+            borderRadius: 16,
+            marginTop: 12,
+        }}
+    >
+        <div
+            style={{
+                width: 60,
+                height: 60,
+                borderRadius: 14,
+                background: "linear-gradient(135deg, #cffafe 0%, #a5f3fc 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+            }}
+        >
+            <AppstoreOutlined style={{ fontSize: 24, color: "#0e7490" }} />
         </div>
         <div>
             <Text strong style={{ display: "block", marginBottom: 4 }}>
                 {displayName || unitName || "ตัวอย่างหน่วยสินค้า"}
             </Text>
             <Text type="secondary" style={{ fontSize: 12 }}>
-                {unitName || "หน่วยนับของสินค้า"}
+                {unitName || "ชื่อหน่วยสินค้า (EN)"}
             </Text>
         </div>
     </div>
 );
-
-// ============ ACTION BUTTONS COMPONENT ============
 
 interface ActionButtonsProps {
     isEdit: boolean;

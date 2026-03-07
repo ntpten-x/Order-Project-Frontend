@@ -8,7 +8,6 @@ import {
   CreditCardOutlined,
   EllipsisOutlined,
   FileTextOutlined,
-  FireOutlined,
   HomeOutlined,
   PoweroffOutlined,
   TableOutlined,
@@ -62,13 +61,6 @@ const POSBottomNavigation = () => {
         label: "ออเดอร์",
         icon: <FileTextOutlined />,
         path: "/pos/orders",
-      },
-      {
-        key: "kitchen",
-        visibilityKey: "menu.pos.kitchen",
-        label: "ครัว",
-        icon: <FireOutlined />,
-        path: "/pos/kitchen",
       },
     ];
 

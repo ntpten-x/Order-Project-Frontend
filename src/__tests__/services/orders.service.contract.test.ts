@@ -154,13 +154,31 @@ describe("ordersService contract", () => {
             ok: true,
             json: async () => ({
                 success: true,
-                data: { dineIn: 1, takeaway: 2, delivery: 3, total: 6 },
+                data: {
+                    dineIn: 1,
+                    takeaway: 2,
+                    takeaway_waiting_payment: 1,
+                    delivery: 3,
+                    delivery_waiting_payment: 2,
+                    pending: 4,
+                    waiting_payment: 2,
+                    total: 6,
+                },
             }),
             text: async () => "",
         });
 
         const stats = await ordersService.getStats("sid=xyz");
-        expect(stats).toEqual({ dineIn: 1, takeaway: 2, delivery: 3, total: 6 });
+        expect(stats).toEqual({
+            dineIn: 1,
+            takeaway: 2,
+            takeaway_waiting_payment: 1,
+            delivery: 3,
+            delivery_waiting_payment: 2,
+            pending: 4,
+            waiting_payment: 2,
+            total: 6,
+        });
     });
 
     it("getStats returns backend error message when request fails", async () => {

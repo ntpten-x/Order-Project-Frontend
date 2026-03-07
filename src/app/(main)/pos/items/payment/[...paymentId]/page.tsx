@@ -10,14 +10,12 @@ import { ordersService } from "../../../../../../services/pos/orders.service";
 import { paymentMethodService } from "../../../../../../services/pos/paymentMethod.service";
 import { discountsService } from "../../../../../../services/pos/discounts.service";
 import { paymentsService } from "../../../../../../services/pos/payments.service";
-import { tablesService } from "../../../../../../services/pos/tables.service";
 import { shopProfileService, ShopProfile } from "../../../../../../services/pos/shopProfile.service";
 import { getCsrfTokenCached } from "../../../../../../utils/pos/csrf";
 import { groupOrderItems } from "../../../../../../utils/orderGrouping";
 
 import { SalesOrder, OrderStatus, OrderType } from "../../../../../../types/api/pos/salesOrder";
 import { PaymentMethod } from "../../../../../../types/api/pos/paymentMethod";
-import { TableStatus } from "../../../../../../types/api/pos/tables";
 import { Discounts, DiscountType } from "../../../../../../types/api/pos/discounts";
 import { PaymentStatus } from "../../../../../../types/api/pos/payments";
 import { itemsResponsiveStyles, itemsColors } from "../../../../../../theme/pos/items/style";
@@ -38,7 +36,7 @@ import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingCo
 import { useAuth } from "../../../../../../contexts/AuthContext";
 import { useSocket } from "../../../../../../hooks/useSocket";
 import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
-import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
+import { matchesRealtimeEntityPayload, useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../../../utils/realtimeEvents";
 import { ORDER_REALTIME_EVENTS } from "../../../../../../utils/pos/orderRealtimeEvents";
 import { resolveImageSource } from "../../../../../../utils/image/source";
@@ -152,7 +150,7 @@ export default function POSPaymentPage() {
 
                 if (
                     "id" in record &&
-                    (typeof record.discount_name === "string" || typeof record.display_name === "string")
+                    typeof record.display_name === "string"
                 ) {
                     discountsArray = [record as unknown as Discounts];
                 } else if (Array.isArray(record.data)) {
@@ -163,7 +161,7 @@ export default function POSPaymentPage() {
                     const data = record.data as Record<string, unknown>;
                     if (
                         "id" in data &&
-                        (typeof data.discount_name === "string" || typeof data.display_name === "string")
+                        typeof data.display_name === "string"
                     ) {
                         discountsArray = [data as unknown as Discounts];
                     }
@@ -209,7 +207,7 @@ export default function POSPaymentPage() {
         }
         
         const options = activeDiscounts.map(d => {
-            const displayName = d.display_name || d.discount_name;
+            const displayName = d.display_name;
             if (!displayName || !d.id) {
                 return null;
             }
@@ -234,20 +232,27 @@ export default function POSPaymentPage() {
 
     useRealtimeRefresh({
         socket,
+        events: ORDER_REALTIME_EVENTS,
+        onRefresh: async () => {
+            if (paymentId) {
+                await fetchInitialData(true);
+            }
+        },
+        enabled: Boolean(paymentId) && realtimeEnabled,
+        debounceMs: 800,
+        shouldRefresh: (payload) =>
+            matchesRealtimeEntityPayload(payload as Parameters<typeof matchesRealtimeEntityPayload>[0], paymentId as string | undefined),
+    });
+
+    useRealtimeRefresh({
+        socket,
         events: [
-            ...ORDER_REALTIME_EVENTS,
             RealtimeEvents.paymentMethods.create,
             RealtimeEvents.paymentMethods.update,
             RealtimeEvents.discounts.create,
             RealtimeEvents.discounts.update,
             RealtimeEvents.discounts.delete,
             RealtimeEvents.shopProfile.update,
-            RealtimeEvents.salesOrderItem.create,
-            RealtimeEvents.salesOrderItem.update,
-            RealtimeEvents.salesOrderItem.delete,
-            RealtimeEvents.salesOrderDetail.create,
-            RealtimeEvents.salesOrderDetail.update,
-            RealtimeEvents.salesOrderDetail.delete,
         ],
         onRefresh: async () => {
             if (paymentId) {
@@ -438,14 +443,6 @@ export default function POSPaymentPage() {
                     showLoading("กำลังดำเนินการ...");
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
-                    
-                    const activeItems = order.items?.filter(item => !isCancelledStatus(item.status)) || [];
-                    await Promise.all(
-                        activeItems.map(item => 
-                            ordersService.updateItemStatus(item.id, OrderStatus.Pending, undefined, csrfToken)
-                        )
-                    );
-
                     await ordersService.updateStatus(order.id, OrderStatus.Pending, csrfToken);
 
                     messageApi.success("ย้อนกลับไปแก้ไขออเดอร์เรียบร้อย");
@@ -480,18 +477,7 @@ export default function POSPaymentPage() {
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
 
-                    const activeItems = order.items?.filter(item => !isCancelledStatus(item.status)) || [];
-                    await Promise.all(
-                        activeItems.map(item => 
-                            ordersService.updateItemStatus(item.id, OrderStatus.Cancelled, undefined, csrfToken)
-                        )
-                    );
-
                     await ordersService.updateStatus(order.id, OrderStatus.Cancelled, csrfToken);
-
-                    if (order.table_id) {
-                        await tablesService.update(order.table_id, { status: TableStatus.Available }, undefined, csrfToken);
-                    }
 
                     messageApi.success("ยกเลิกออเดอร์เรียบร้อย");
                     router.push(getPostCancelPaymentRedirect());
@@ -752,7 +738,7 @@ export default function POSPaymentPage() {
                         >
                             <span style={{ color: appliedDiscount ? '#1f2937' : '#9ca3af' }}>
                                 {appliedDiscount 
-                                    ? `🎁 ${appliedDiscount.display_name || appliedDiscount.discount_name} (${appliedDiscount.discount_type === 'Percentage' ? `${appliedDiscount.discount_amount}%` : `-${appliedDiscount.discount_amount}฿`})`
+                                    ? `🎁 ${appliedDiscount.display_name} (${appliedDiscount.discount_type === 'Percentage' ? `${appliedDiscount.discount_amount}%` : `-${appliedDiscount.discount_amount}฿`})`
                                     : "เลือกส่วนลด (ถ้ามี)"}
                             </span>
                             {appliedDiscount ? (

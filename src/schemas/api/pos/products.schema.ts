@@ -3,7 +3,6 @@ import { z } from 'zod';
 const CategoryRelationSchema = z
     .object({
         id: z.string().optional(),
-        category_name: z.string().optional().nullable(),
         display_name: z.string().optional().nullable(),
     })
     .partial()
@@ -12,7 +11,6 @@ const CategoryRelationSchema = z
 const UnitRelationSchema = z
     .object({
         id: z.string().optional(),
-        unit_name: z.string().optional().nullable(),
         display_name: z.string().optional().nullable(),
     })
     .partial()
@@ -20,7 +18,6 @@ const UnitRelationSchema = z
 
 export const ProductSchema = z.object({
     id: z.string(),
-    product_name: z.string(),
     display_name: z.string(),
     description: z.string().optional().nullable(),
     price: z.coerce.number().finite(),
@@ -31,7 +28,6 @@ export const ProductSchema = z.object({
     create_date: z.coerce.date(),
     update_date: z.coerce.date(),
     is_active: z.boolean().optional().default(true),
-    // Relations (optional for basic list)
     category: CategoryRelationSchema.optional(),
     unit: UnitRelationSchema.optional(),
 }).transform((value) => ({

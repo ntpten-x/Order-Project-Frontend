@@ -20,8 +20,6 @@ const { pageStyles, ManagePageStyles } = createManagePageStyles({
 
 export { pageStyles, ManagePageStyles };
 
-// ============ HEADER COMPONENT ============
-
 interface HeaderProps {
     isEdit: boolean;
     onBack: () => void;
@@ -39,37 +37,39 @@ export const PageHeader = ({ isEdit, onBack, onDelete }: HeaderProps) => (
     />
 );
 
-// ============ DELIVERY PREVIEW COMPONENT ============
-
 interface DeliveryPreviewProps {
     name?: string;
     logo?: string;
 }
 
 export const DeliveryPreview = ({ name, logo }: DeliveryPreviewProps) => (
-    <div style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 14,
-        padding: 16,
-        background: "#fafafa",
-        borderRadius: 16,
-        marginTop: 12,
-    }}>
-        <div style={{
-            width: 80,
-            height: 80,
-            borderRadius: 14,
-            border: "2px solid white",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
-            overflow: "hidden",
-            position: "relative",
-            flexShrink: 0,
-            background: "linear-gradient(135deg, #e6fffb 0%, #b5f5ec 100%)",
+    <div
+        style={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-        }}>
+            gap: 14,
+            padding: 16,
+            background: "#fafafa",
+            borderRadius: 16,
+            marginTop: 12,
+        }}
+    >
+        <div
+            style={{
+                width: 80,
+                height: 80,
+                borderRadius: 14,
+                border: "2px solid white",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.08)",
+                overflow: "hidden",
+                position: "relative",
+                flexShrink: 0,
+                background: "linear-gradient(135deg, #e6fffb 0%, #b5f5ec 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+            }}
+        >
             {logo ? (
                 <Image
                     src={logo}
@@ -95,8 +95,6 @@ export const DeliveryPreview = ({ name, logo }: DeliveryPreviewProps) => (
         </div>
     </div>
 );
-
-// ============ ACTION BUTTONS COMPONENT ============
 
 interface ActionButtonsProps {
     isEdit: boolean;

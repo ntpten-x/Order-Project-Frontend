@@ -13,7 +13,7 @@ const base = {
 
 export const pageStyles = {
     ...base,
-    shiftCard: (_isActive: boolean): CSSProperties => ({
+    shiftCard: (): CSSProperties => ({
         marginBottom: 0,
         borderRadius: 16,
         border: `1px solid ${tokens.colors.border}`,

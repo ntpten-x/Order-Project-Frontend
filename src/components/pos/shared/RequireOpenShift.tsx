@@ -3,10 +3,14 @@
 import React, { useEffect, useState } from "react";
 import { Button, Modal, Spin, Typography } from "antd";
 import { useRouter } from "next/navigation";
+
 import { useEffectivePermissions } from "../../../hooks/useEffectivePermissions";
 import { useShift } from "../../../contexts/pos/ShiftContext";
 import OpenShiftModal from "../shifts/OpenShiftModal";
-import { clearShiftPromptSuppressed, setShiftPromptSuppressed } from "../../../utils/pos/shiftPrompt";
+import {
+    clearShiftPromptSuppressed,
+    setShiftPromptSuppressed,
+} from "../../../utils/pos/shiftPrompt";
 
 const { Text } = Typography;
 
@@ -18,7 +22,6 @@ export default function RequireOpenShift({ children }: RequireOpenShiftProps) {
     const router = useRouter();
     const { currentShift, loading: shiftLoading } = useShift();
     const { can, loading: permissionLoading } = useEffectivePermissions();
-
     const canCreateShift = can("shifts.page", "create");
     const [promptOpen, setPromptOpen] = useState(false);
 
@@ -31,7 +34,6 @@ export default function RequireOpenShift({ children }: RequireOpenShiftProps) {
             return;
         }
 
-        // User intentionally entered a guarded page again, so enforce open-shift prompt.
         clearShiftPromptSuppressed();
         setPromptOpen(true);
     }, [currentShift, permissionLoading, shiftLoading]);
@@ -50,16 +52,18 @@ export default function RequireOpenShift({ children }: RequireOpenShiftProps) {
         );
     }
 
-    if (currentShift) return <>{children}</>;
+    if (currentShift) {
+        return <>{children}</>;
+    }
 
     if (canCreateShift) {
-        return <OpenShiftModal open={promptOpen} onCancel={dismissPrompt} />;
+        return <OpenShiftModal open={promptOpen} onCancel={dismissPrompt} onSuccess={() => setPromptOpen(false)} />;
     }
 
     return (
         <Modal
             open={promptOpen}
-            title="ยังไม่เปิดกะ"
+            title="ยังไม่ได้เปิดกะ"
             centered
             closable
             maskClosable

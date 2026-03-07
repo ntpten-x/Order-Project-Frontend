@@ -4,7 +4,7 @@ import { getCsrfToken, login, readJson, unwrapData, unwrapList } from "./helpers
 type ProductRecord = {
     id: string;
     name?: string;
-    product_name?: string;
+    display_name?: string;
     is_active?: boolean;
 };
 

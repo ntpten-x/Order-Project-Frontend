@@ -166,7 +166,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
         if (!id) return;
         setLoading(true);
         try {
-            const response = await fetch(`/api/pos/delivery/getById/${id}`);
+            const response = await fetch(`/api/pos/delivery/getById/${id}`, { cache: 'no-store' });
             if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลช่องทางจัดส่งได้');
             const data = await response.json();
             form.setFieldsValue({
@@ -191,10 +191,10 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
     }, [id, form, router]);
 
     useEffect(() => {
-        if (isEdit) {
-            fetchDelivery();
+        if (isEdit && isAuthorized && !permissionLoading) {
+            void fetchDelivery();
         }
-    }, [isEdit, fetchDelivery]);
+    }, [fetchDelivery, isAuthorized, isEdit, permissionLoading]);
 
     const checkNameConflict = useCallback(async (rawValue: string) => {
         const value = rawValue.trim();
@@ -205,7 +205,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
         }
 
         try {
-            const response = await fetch(`/api/pos/delivery/getByName/${encodeURIComponent(value)}`);
+            const response = await fetch(`/api/pos/delivery/getByName/${encodeURIComponent(value)}`, { cache: 'no-store' });
             if (!response.ok) return false;
             const found = await response.json();
             if (!found?.id) return false;
@@ -279,18 +279,21 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                             'X-CSRF-Token': csrfToken
                         }
                     });
-                    if (!response.ok) throw new Error('ไม่สามารถลบช่องทางจัดส่งได้');
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error || errorData.message || 'ไม่สามารถลบช่องทางจัดส่งได้');
+                    }
                     message.success('ลบช่องทางจัดส่งสำเร็จ');
-                    router.push('/pos/delivery');
+                    router.replace('/pos/delivery');
                 } catch (error) {
                     console.error(error);
-                    message.error('ไม่สามารถลบช่องทางจัดส่งได้');
+                    message.error(error instanceof Error ? error.message : 'ไม่สามารถลบช่องทางจัดส่งได้');
                 }
             }
         });
     };
 
-    const handleBack = () => router.push('/pos/delivery');
+    const handleBack = () => router.replace('/pos/delivery');
 
     if (isChecking) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
@@ -312,6 +315,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
         <div className="manage-page" style={pageStyles.container as React.CSSProperties}>
             <UIPageHeader
                 title={modeTitle}
+                subtitle={isEdit ? 'แก้ไขผู้ให้บริการ, Prefix และโลโก้ที่ใช้ใน POS' : 'เพิ่มผู้ให้บริการเดลิเวอรี่ใหม่ให้พร้อมใช้งาน'}
                 onBack={handleBack}
                 actions={
                     isEdit && canDeleteDelivery ? (
@@ -354,7 +358,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                         initialValues={{ is_active: true }}
                                         onValuesChange={(changedValues) => {
                                             if (changedValues.delivery_name !== undefined) setDeliveryName(changedValues.delivery_name);
-                                            if (changedValues.delivery_prefix !== undefined) setDeliveryPrefix(changedValues.delivery_prefix);
+                                            if (changedValues.delivery_prefix !== undefined) setDeliveryPrefix((changedValues.delivery_prefix || '').toUpperCase());
                                             if (changedValues.logo !== undefined) setLogo(changedValues.logo);
                                             if (changedValues.is_active !== undefined) setIsActive(changedValues.is_active);
                                         }}
@@ -368,7 +372,7 @@ export default function DeliveryManagePage({ params }: { params: { mode: string[
                                             }
                                             validateTrigger={['onBlur', 'onSubmit']}
                                             rules={[
-                                                { required: true, message: 'กรุณากรอกชื่อระบบ' },
+                                                { required: true, message: 'กรุณากรอกชื่อช่องทางจัดส่ง' },
                                                 { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' },
                                                 {
                                                     validator: async (_, value: string) => {

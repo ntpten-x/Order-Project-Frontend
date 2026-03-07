@@ -32,9 +32,17 @@ export async function GET(request: NextRequest) {
         }
 
         const data = await response.json();
-        return NextResponse.json(data);
+        const nextResponse = NextResponse.json(data);
+        const cacheControl = response.headers.get("cache-control");
+        const vary = response.headers.get("vary");
+        if (cacheControl) {
+            nextResponse.headers.set("Cache-Control", cacheControl);
+        }
+        if (vary) {
+            nextResponse.headers.set("Vary", vary);
+        }
+        return nextResponse;
     } catch (error) {
         return handleApiRouteError(error);
     }
 }
-

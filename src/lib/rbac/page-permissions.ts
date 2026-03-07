@@ -50,7 +50,6 @@ export const PAGE_PERMISSION_MAP: Array<{ prefix: string; requirement: Permissio
     { prefix: "/pos/productsUnit", requirement: { resourceKey: "products_unit.page", action: "view" } },
     { prefix: "/pos/products", requirement: { resourceKey: "products.page", action: "view" } },
     { prefix: "/pos/payments", requirement: { resourceKey: "payments.page", action: "view" } },
-    { prefix: "/pos/queue", requirement: { resourceKey: "queue.page", action: "view" } },
     { prefix: "/pos/shiftHistory", requirement: { resourceKey: "shifts.page", action: "view" } },
     { prefix: "/pos/shift", requirement: { resourceKey: "shifts.page", action: "view" } },
     { prefix: "/pos/dashboard", requirement: { resourceKey: "reports.sales.page", action: "view" } },
@@ -66,7 +65,6 @@ export const PAGE_PERMISSION_MAP: Array<{ prefix: string; requirement: Permissio
 
     { prefix: "/pos/channels", requirement: { resourceKey: "orders.page", action: "view" } },
     { prefix: "/pos/items", requirement: { resourceKey: "orders.page", action: "view" } },
-    { prefix: "/pos/kitchen", requirement: { resourceKey: "orders.page", action: "view" } },
     { prefix: "/pos", requirement: { resourceKey: "orders.page", action: "view" } },
 
     // Stock: split add vs edit so create-only users can access add page.

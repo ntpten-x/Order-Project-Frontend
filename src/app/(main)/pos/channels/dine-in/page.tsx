@@ -1,339 +1,270 @@
-﻿"use client";
+"use client";
 
-import React, { useMemo } from "react";
-import { useRouter } from "next/navigation";
-import { Button, Col, Row, Tag } from "antd";
+import React, { useMemo, useState } from "react";
 import {
-    ShopOutlined,
-    CloseCircleOutlined,
-    StopOutlined,
     CheckCircleOutlined,
+    CloseCircleOutlined,
     ReloadOutlined,
+    SearchOutlined,
+    ShopOutlined,
+    StopOutlined,
+    TableOutlined,
 } from "@ant-design/icons";
+import { Button, Col, Input, Row, Skeleton, Space, Tag, Typography } from "antd";
+import { useRouter } from "next/navigation";
+
+import { ChannelHero, DashboardTile, SummaryPanel, type ChannelAccent } from "../../../../../components/pos/channels/ChannelPrimitives";
+import { AccessGuardFallback } from "../../../../../components/pos/AccessGuard";
+import RequireOpenShift from "../../../../../components/pos/shared/RequireOpenShift";
 import PageContainer from "../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../components/ui/page/PageSection";
-import UIPageHeader from "../../../../../components/ui/page/PageHeader";
-import UIEmptyState from "../../../../../components/ui/states/EmptyState";
-import { Tables } from "../../../../../types/api/pos/tables";
-import { useTables } from "../../../../../hooks/pos/useTables";
-import { posPageStyles, tableColors } from "../../../../../theme/pos";
-import { channelPageStyles, channelsResponsiveStyles } from "../../../../../theme/pos/channels/style";
-import { POSGlobalStyles } from "../../../../../theme/pos/GlobalStyles";
-import { getTableNavigationPath } from "../../../../../utils/orders";
-import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
-import RequireOpenShift from "../../../../../components/pos/shared/RequireOpenShift";
+import PageStack from "../../../../../components/ui/page/PageStack";
 import { useAuth } from "../../../../../contexts/AuthContext";
-import {
-    getTableStats,
-    sortTables,
-    getActiveTables,
-    getTableColorScheme,
-    formatOrderStatus,
-} from "../../../../../utils/channels";
+import { useTables } from "../../../../../hooks/pos/useTables";
+import { useEffectivePermissions } from "../../../../../hooks/useEffectivePermissions";
+import { Tables, TableStatus } from "../../../../../types/api/pos/tables";
+import { getTableNavigationPath } from "../../../../../utils/orders";
+
+const { Text } = Typography;
+
+const dineInAccent: ChannelAccent = {
+    primary: "#2563EB",
+    soft: "#EFF6FF",
+    border: "#BFDBFE",
+    gradient: "linear-gradient(135deg, rgba(37,99,235,0.16) 0%, rgba(255,255,255,0.95) 72%)",
+};
+
+type FilterKey = "all" | "available" | "occupied" | "inactive";
 
 export default function DineInTableSelectionPage() {
+    const { user, loading: authLoading } = useAuth();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canManageTables = can("tables.page", "update");
+
+    if (authLoading || permissionLoading) {
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
+    }
+
+    if (!can("tables.page", "view")) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    }
+
     return (
         <RequireOpenShift>
-            <DineInTableSelectionPageContent />
+            <DineInTableSelectionPageContent canManageTables={canManageTables} />
         </RequireOpenShift>
     );
 }
 
-function DineInTableSelectionPageContent() {
+function DineInTableSelectionPageContent({ canManageTables }: { canManageTables: boolean }) {
     const router = useRouter();
-    const { user } = useAuth();
-    const { showLoading, hideLoading } = useGlobalLoading();
-    const { tables, isLoading, mutate: refetchTables } = useTables();
-    const loadingKey = "pos:channels:dine-in";
-    const [isRefreshing, setIsRefreshing] = React.useState(false);
-    const normalizedRole = String(user?.role || "").trim().toLowerCase();
-    const canSeeManageTablesAction = normalizedRole === "admin" || normalizedRole === "manager";
+    const { tables, isLoading, mutate } = useTables();
+    const [searchText, setSearchText] = useState("");
+    const [filter, setFilter] = useState<FilterKey>("all");
 
-    // Use global loading for initial tables fetch
-    React.useEffect(() => {
-        if (isLoading) {
-            showLoading("กำลังโหลดข้อมูลโต๊ะ...", loadingKey);
-        } else {
-            hideLoading(loadingKey);
-        }
-        return () => hideLoading(loadingKey);
-    }, [isLoading, showLoading, hideLoading, loadingKey]);
+    const stats = useMemo(() => {
+        const allTables = tables as Tables[];
+        return {
+            total: allTables.length,
+            available: allTables.filter((table) => table.is_active && table.status === TableStatus.Available).length,
+            occupied: allTables.filter((table) => table.is_active && table.status !== TableStatus.Available).length,
+            inactive: allTables.filter((table) => !table.is_active).length,
+        };
+    }, [tables]);
 
-    // Calculate statistics and sort tables
-    const stats = useMemo(() => getTableStats(tables as Tables[]), [tables]);
-    const activeTables = useMemo(() => getActiveTables(tables as Tables[]), [tables]);
-    const sortedTables = useMemo(() => sortTables(activeTables as Tables[]), [activeTables]);
-
-    const handleTableClick = (table: Tables, isInactive: boolean) => {
-        if (!isInactive) {
-            const link = getTableNavigationPath(table);
-            router.push(link);
-        }
-    };
-
-    const handleRefresh = async () => {
-        setIsRefreshing(true);
-        try {
-            await Promise.resolve(refetchTables());
-        } finally {
-            setIsRefreshing(false);
-        }
-    };
+    const visibleTables = useMemo(() => {
+        const query = searchText.trim().toLowerCase();
+        return (tables as Tables[])
+            .filter((table) => {
+                if (filter === "available") return table.is_active && table.status === TableStatus.Available;
+                if (filter === "occupied") return table.is_active && table.status !== TableStatus.Available;
+                if (filter === "inactive") return !table.is_active;
+                return true;
+            })
+            .filter((table) => {
+                if (!query) return true;
+                return (
+                    table.table_name.toLowerCase().includes(query) ||
+                    String(table.active_order_status || "").toLowerCase().includes(query)
+                );
+            })
+            .sort((left, right) => left.table_name.localeCompare(right.table_name, "th"));
+    }, [filter, searchText, tables]);
 
     return (
-        <>
-            <POSGlobalStyles />
-            <style jsx global>{channelsResponsiveStyles}</style>
-            <style jsx global>{`
-                /* Table Card Hover Effects */
-                .table-card-hover {
-                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-                }
-                .table-card-hover:hover {
-                    transform: translateY(-6px) !important;
-                    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.08) !important;
-                }
-                .table-card-hover:hover .table-icon {
-                    transform: scale(1.1) !important;
-                }
-                .table-card-hover:active {
-                    transform: translateY(-2px) scale(0.98) !important;
-                }
-                @media (hover: none) {
-                    .table-card-hover:active {
-                        transform: scale(0.97) !important;
-                    }
-                    .table-card-hover:hover {
-                        transform: none !important;
-                    }
-                }
-                /* Table Icon Container */
-                .table-icon-wrapper {
-                    width: 64px;
-                    height: 64px;
-                    border-radius: 20px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    margin-bottom: 12px;
-                    position: relative;
-                    transition: all 0.3s ease;
-                }
-                /* Pulse animation for occupied tables */
-                .pulse-soft {
-                    animation: pulseSoft 2s ease-in-out infinite;
-                }
-                @keyframes pulseSoft {
-                    0%, 100% { transform: scale(1); opacity: 1; }
-                    50% { transform: scale(1.05); opacity: 0.9; }
-                }
-                /* Back button hover */
-                .back-button-hover:hover {
-                    background: rgba(255, 255, 255, 0.28) !important;
-                    transform: translateX(-2px);
-                }
-                /* Show on mobile */
-                .show-on-mobile { display: none !important; }
-                @media (max-width: 768px) {
-                    .show-on-mobile { display: inline !important; }
-                }
-            `}</style>
-            
-            <div style={posPageStyles.container}>
-                <UIPageHeader
-                    title="หน้าร้าน"
-                    subtitle="เลือกโต๊ะ"
-                    onBack={() => router.push("/pos/channels")}
-                    icon={<ShopOutlined style={{ fontSize: 20 }} />}
+        <PageContainer>
+            <PageStack gap={20}>
+                <ChannelHero
+                    eyebrow="Dine In"
+                    title="โต๊ะหน้าร้าน"
+                    subtitle="ดูสถานะโต๊ะทั้งหมดในหน้าเดียว เลือกโต๊ะว่างได้ทันที และเห็นโต๊ะที่มีออเดอร์ค้างอย่างชัดเจน"
+                    icon={<ShopOutlined style={{ fontSize: 22 }} />}
+                    accent={dineInAccent}
+                    metrics={[
+                        { label: "โต๊ะทั้งหมด", value: stats.total },
+                        { label: "พร้อมรับลูกค้า", value: stats.available },
+                        { label: "กำลังใช้งาน", value: stats.occupied },
+                    ]}
                     actions={
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', width: '100%', gap: 12 }}>
-                            <Tag color="success" style={{ fontSize: 18, padding: '6px 16px', fontWeight: 600, borderRadius: 8 }}>ว่าง {stats.available}</Tag>
-                            <Tag color="error" style={{ fontSize: 18, padding: '6px 16px', fontWeight: 600, borderRadius: 8 }}>ไม่ว่าง {stats.occupied}</Tag>
-                            <Button
-                                size="large"
-                                icon={<ReloadOutlined spin={isRefreshing} style={{ fontSize: 18 }} />}
-                                onClick={handleRefresh}
-                                loading={isRefreshing}
-                                style={{ 
-                                    borderRadius: 12, 
-                                    fontSize: 18, 
-                                    height: 48,
-                                    padding: '0 24px',
-                                    fontWeight: 600,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    marginLeft: 20
-                                }}
-                            >
+                        <Space wrap>
+                            <Button icon={<ReloadOutlined />} onClick={() => void mutate()} loading={isLoading}>
                                 รีเฟรช
                             </Button>
-                        </div>
+                            {canManageTables ? (
+                                <Button type="primary" onClick={() => router.push("/pos/tables")}>
+                                    จัดการโต๊ะ
+                                </Button>
+                            ) : null}
+                        </Space>
                     }
+                    footer={<Tag color="blue" style={{ margin: 0, borderRadius: 999, paddingInline: 12 }}>ปิดใช้งาน {stats.inactive} โต๊ะ</Tag>}
                 />
 
-                <PageContainer>
-                    <PageSection title="โต๊ะ">
-                    {(tables as Tables[]).length > 0 ? (
-                        <Row gutter={[16, 16]}>
-                            {(sortedTables as Tables[]).map((table: Tables, index: number) => {
-                                const colorScheme = getTableColorScheme(table);
-                                const colors = tableColors[colorScheme];
-                                const isAvailable = table.status === "Available";
-                                const isInactive = !table.is_active;
-
-                                return (
-                                    <Col xs={12} sm={8} md={6} lg={6} xl={4} key={table.id}>
-                                        <article
-                                            className={`table-card-hover dine-in-table-card dine-in-table-card-mobile table-card-animate table-card-delay-${(index % 6) + 1}`}
-                                            style={{
-                                                ...channelPageStyles.channelPageCard,
-                                                background: isInactive ? '#F8FAFC' : colors.light,
-                                                border: `2px solid ${colors.border}`,
-                                                opacity: isInactive ? 0.5 : 1,
-                                                cursor: isInactive ? 'not-allowed' : 'pointer',
-                                            }}
-                                            onClick={() => handleTableClick(table, isInactive)}
-                                            onKeyDown={(e) => {
-                                                if (!isInactive && (e.key === 'Enter' || e.key === ' ')) {
-                                                    e.preventDefault();
-                                                    handleTableClick(table, isInactive);
-                                                }
-                                            }}
-                                            role="button"
-                                            tabIndex={isInactive ? -1 : 0}
-                                            aria-label={`โต๊ะ ${table.table_name} - ${isInactive ? 'ปิดใช้งาน' : isAvailable ? 'ว่าง' : 'ไม่ว่าง'}`}
-                                            aria-disabled={isInactive}
+                <Row gutter={[16, 16]}>
+                    <Col xs={24} lg={17}>
+                        <PageSection title="รายการโต๊ะ" extra={<Text strong>{visibleTables.length} โต๊ะ</Text>}>
+                            <PageStack gap={16}>
+                                <Space wrap size={10}>
+                                    <Input
+                                        allowClear
+                                        prefix={<SearchOutlined />}
+                                        placeholder="ค้นหาเลขโต๊ะหรือสถานะ"
+                                        value={searchText}
+                                        onChange={(event) => setSearchText(event.target.value)}
+                                        style={{ minWidth: 240 }}
+                                    />
+                                    {[
+                                        { key: "all", label: "ทั้งหมด" },
+                                        { key: "available", label: "ว่าง" },
+                                        { key: "occupied", label: "กำลังใช้งาน" },
+                                        { key: "inactive", label: "ปิดใช้งาน" },
+                                    ].map((item) => (
+                                        <Button
+                                            key={item.key}
+                                            type={filter === item.key ? "primary" : "default"}
+                                            onClick={() => setFilter(item.key as FilterKey)}
                                         >
-                                            {/* Gradient Overlay */}
-                                            <div
-                                                style={{
-                                                    ...channelPageStyles.channelPageCardGradientOverlay,
-                                                    background: colors.gradient,
-                                                }}
-                                            />
+                                            {item.label}
+                                        </Button>
+                                    ))}
+                                </Space>
 
-                                            {/* Card Content */}
-                                            <div style={channelPageStyles.channelPageCardInner}>
-                                                {/* Icon with background wrapper */}
-                                                <div
-                                                    className="table-icon-wrapper"
-                                                    style={{
-                                                        background: `${colors.primary}15`,
-                                                        border: `2px solid ${colors.primary}30`,
-                                                    }}
-                                                >
-                                                    {isInactive ? (
-                                                        <StopOutlined
-                                                            className="table-icon dine-in-table-icon-mobile"
-                                                            style={{
-                                                                fontSize: 32,
-                                                                color: colors.primary,
-                                                                transition: 'transform 0.3s ease',
-                                                            }}
-                                                        />
-                                                    ) : isAvailable ? (
-                                                        <CheckCircleOutlined
-                                                            className="table-icon dine-in-table-icon-mobile"
-                                                            style={{
-                                                                fontSize: 32,
-                                                                color: colors.primary,
-                                                                transition: 'transform 0.3s ease',
-                                                            }}
-                                                        />
-                                                    ) : (
-                                                        <CloseCircleOutlined
-                                                            className="table-icon pulse-soft dine-in-table-icon-mobile"
-                                                            style={{
-                                                                fontSize: 32,
-                                                                color: colors.primary,
-                                                                transition: 'transform 0.3s ease',
-                                                            }}
-                                                        />
-                                                    )}
-                                                </div>
+                                {isLoading ? (
+                                    <Skeleton active paragraph={{ rows: 8 }} />
+                                ) : (
+                                    <Row gutter={[16, 16]}>
+                                        {visibleTables.map((table) => {
+                                            const isInactive = !table.is_active;
+                                            const isAvailable = table.status === TableStatus.Available && table.is_active;
+                                            const statusLabel = isInactive
+                                                ? "ปิดใช้งาน"
+                                                : isAvailable
+                                                    ? "ว่าง"
+                                                    : "กำลังใช้งาน";
 
-                                                {/* Table Name */}
-                                                <div
-                                                    style={{
-                                                        ...channelPageStyles.channelPageCardMainText,
-                                                        fontSize: 24,
-                                                        color: colors.text || colors.primary,
-                                                    }}
-                                                    className="dine-in-table-name-mobile"
-                                                >
-                                                    {table.table_name}
-                                                </div>
-
-                                                {/* Two-Tier Status Display */}
-                                                <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
-                                                    {/* Tier 1: Availability indicator */}
-                                                    {!isInactive && (
-                                                        <div
-                                                            style={{
-                                                                fontSize: 15,
-                                                                fontWeight: 700,
-                                                                color: isAvailable ? tableColors.available.primary : '#EF4444',
-                                                                textTransform: 'uppercase',
-                                                                letterSpacing: '0.5px',
-                                                            }}
-                                                        >
-                                                            {isAvailable ? "● ว่าง" : "● ไม่ว่าง"}
-                                                        </div>
-                                                    )}
-
-                                                    {/* Tier 2: Specific order status badge */}
-                                                    <div
-                                                        style={{
-                                                            ...channelPageStyles.channelPageCardStatusBadge,
-                                                            background: isInactive
-                                                                ? "#94A3B8"
+                                            return (
+                                                <Col xs={24} sm={12} xl={8} key={table.id}>
+                                                    <DashboardTile
+                                                        title={table.table_name}
+                                                        description={
+                                                            table.active_order_status
+                                                                ? `สถานะล่าสุด: ${table.active_order_status}`
                                                                 : isAvailable
-                                                                    ? "rgba(16, 185, 129, 0.1)"
-                                                                    : colors.primary,
-                                                            color: isInactive
-                                                                ? "#fff"
+                                                                    ? "พร้อมรับออเดอร์ใหม่"
+                                                                    : "มีออเดอร์กำลังดำเนินการ"
+                                                        }
+                                                        icon={<TableOutlined style={{ fontSize: 20 }} />}
+                                                        accent={
+                                                            isInactive
+                                                                ? {
+                                                                    primary: "#64748B",
+                                                                    soft: "#F8FAFC",
+                                                                    border: "#E2E8F0",
+                                                                    gradient: dineInAccent.gradient,
+                                                                }
                                                                 : isAvailable
-                                                                    ? tableColors.available.primary
-                                                                    : "#fff",
-                                                            border: isAvailable ? `1px solid ${tableColors.available.border}` : "none",
-                                                            fontSize: 14,
-                                                            padding: '8px 16px',
-                                                        }}
-                                                    >
-                                                        {isInactive
-                                                            ? "ปิดใช้งาน"
-                                                            : isAvailable
-                                                                ? "รอรับออเดอร์"
-                                                                : table.active_order_status
-                                                                    ? formatOrderStatus(table.active_order_status)
-                                                                    : "กำลังใช้งาน"}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </article>
-                                    </Col>
-                                );
-                            })}
-                        </Row>
-                    ) : (
-                        <UIEmptyState
-                            title="ยังไม่มีข้อมูลโต๊ะ"
-                            description="กรุณาเพิ่มข้อมูลโต๊ะก่อนเริ่มการขาย"
-                            action={canSeeManageTablesAction ? (
-                                <Button
-                                    type="primary"
-                                    size="large"
-                                    icon={<ShopOutlined />}
-                                    onClick={() => router.push("/pos/tables")}
-                                >
-                                    ไปหน้าจัดการโต๊ะ
-                                </Button>
-                            ) : undefined}
-                        />
-                    )}
-                    </PageSection>
-                </PageContainer>
-            </div>
-        </>
+                                                                    ? dineInAccent
+                                                                    : {
+                                                                        primary: "#DC2626",
+                                                                        soft: "#FEF2F2",
+                                                                        border: "#FECACA",
+                                                                        gradient: dineInAccent.gradient,
+                                                                    }
+                                                        }
+                                                        meta={
+                                                            <Tag
+                                                                color={isInactive ? "default" : isAvailable ? "success" : "error"}
+                                                                style={{ margin: 0, borderRadius: 999, paddingInline: 10, fontWeight: 700 }}
+                                                            >
+                                                                {statusLabel}
+                                                            </Tag>
+                                                        }
+                                                        onClick={isInactive ? undefined : () => router.push(getTableNavigationPath(table))}
+                                                        actionLabel={isInactive ? "ไม่พร้อมใช้งาน" : "เปิดโต๊ะ"}
+                                                    />
+                                                </Col>
+                                            );
+                                        })}
+                                    </Row>
+                                )}
+                            </PageStack>
+                        </PageSection>
+                    </Col>
+
+                    <Col xs={24} lg={7}>
+                        <PageSection title="สรุปสถานะโต๊ะ">
+                            <PageStack gap={12}>
+                                <SummaryPanel title="โต๊ะว่าง" value={stats.available} hint="พร้อมเริ่มออเดอร์ใหม่" accent={dineInAccent} />
+                                <SummaryPanel
+                                    title="โต๊ะกำลังใช้งาน"
+                                    value={stats.occupied}
+                                    hint="มีออเดอร์หรือมีลูกค้านั่งอยู่"
+                                    accent={{
+                                        primary: "#DC2626",
+                                        soft: "#FEF2F2",
+                                        border: "#FECACA",
+                                        gradient: dineInAccent.gradient,
+                                    }}
+                                />
+                                <SummaryPanel
+                                    title="โต๊ะปิดใช้งาน"
+                                    value={stats.inactive}
+                                    hint="ยังไม่เปิดให้รับลูกค้า"
+                                    accent={{
+                                        primary: "#64748B",
+                                        soft: "#F8FAFC",
+                                        border: "#E2E8F0",
+                                        gradient: dineInAccent.gradient,
+                                    }}
+                                />
+
+                                <div style={{ display: "grid", gap: 8 }}>
+                                    <Legend icon={<CheckCircleOutlined />} label="โต๊ะพร้อมใช้งาน" color="#16A34A" />
+                                    <Legend icon={<CloseCircleOutlined />} label="มีออเดอร์กำลังดำเนินการ" color="#DC2626" />
+                                    <Legend icon={<StopOutlined />} label="โต๊ะถูกปิดใช้งาน" color="#64748B" />
+                                </div>
+                            </PageStack>
+                        </PageSection>
+                    </Col>
+                </Row>
+            </PageStack>
+        </PageContainer>
+    );
+}
+
+function Legend({
+    icon,
+    label,
+    color,
+}: {
+    icon: React.ReactNode;
+    label: string;
+    color: string;
+}) {
+    return (
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            <div style={{ color }}>{icon}</div>
+            <Text type="secondary">{label}</Text>
+        </div>
     );
 }

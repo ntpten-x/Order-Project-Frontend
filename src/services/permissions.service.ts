@@ -43,6 +43,8 @@ const roleEffectiveCache = new Map<string, CacheEntry<EffectiveRolePermissionsRe
 const userEffectiveCache = new Map<string, CacheEntry<EffectiveUserPermissionsResponse>>();
 const auditsCache = new Map<string, CacheEntry<Paginated<PermissionAuditItem>>>();
 const approvalsCache = new Map<string, CacheEntry<Paginated<PermissionOverrideApprovalItem>>>();
+const roleEffectiveInFlight = new Map<string, Promise<EffectiveRolePermissionsResponse>>();
+const userEffectiveInFlight = new Map<string, Promise<EffectiveUserPermissionsResponse>>();
 
 function readCache<T>(cache: Map<string, CacheEntry<T>>, key: string): T | null {
     const hit = cache.get(key);
@@ -58,6 +60,18 @@ function writeCache<T>(cache: Map<string, CacheEntry<T>>, key: string, value: T,
     cache.set(key, { value, expiresAt: Date.now() + ttlMs });
 }
 
+function getOrCreateInFlight<T>(map: Map<string, Promise<T>>, key: string, factory: () => Promise<T>): Promise<T> {
+    const existing = map.get(key);
+    if (existing) return existing;
+
+    const request = factory().finally(() => {
+        map.delete(key);
+    });
+
+    map.set(key, request);
+    return request;
+}
+
 function invalidatePermissionCache(opts?: { userId?: string; roleId?: string }) {
     if (opts?.userId) userEffectiveCache.delete(`user:${opts.userId}`);
     if (opts?.roleId) roleEffectiveCache.delete(`role:${opts.roleId}`);
@@ -65,6 +79,14 @@ function invalidatePermissionCache(opts?: { userId?: string; roleId?: string }) 
     if (!opts?.userId && !opts?.roleId) {
         userEffectiveCache.clear();
         roleEffectiveCache.clear();
+    }
+
+    if (opts?.userId) userEffectiveInFlight.delete(`user:${opts.userId}`);
+    if (opts?.roleId) roleEffectiveInFlight.delete(`role:${opts.roleId}`);
+
+    if (!opts?.userId && !opts?.roleId) {
+        userEffectiveInFlight.clear();
+        roleEffectiveInFlight.clear();
     }
 
     auditsCache.clear();
@@ -101,30 +123,33 @@ export const permissionsService = {
             const cached = readCache(roleEffectiveCache, cacheKey);
             if (cached) return cached;
         }
+        const fetcher = async () => {
+            const url = getProxyUrl("GET", `${BASE_PATH}/roles/${roleId}/effective`);
+            const headers: Record<string, string> = {
+                "Content-Type": "application/json",
+            };
+            if (cookie) headers["Cookie"] = cookie;
 
-        const url = getProxyUrl("GET", `${BASE_PATH}/roles/${roleId}/effective`);
-        const headers: Record<string, string> = {
-            "Content-Type": "application/json",
+            const response = await fetch(url!, {
+                method: "GET",
+                headers,
+                credentials: "include",
+                cache: "no-store",
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throwBackendHttpError(response, errorData, "Failed to fetch role permissions");
+            }
+
+            const data = unwrapBackendData(await response.json()) as EffectiveRolePermissionsResponse;
+            if (!cookie) {
+                writeCache(roleEffectiveCache, cacheKey, data, EFFECTIVE_CACHE_TTL_MS);
+            }
+            return data;
         };
-        if (cookie) headers["Cookie"] = cookie;
 
-        const response = await fetch(url!, {
-            method: "GET",
-            headers,
-            credentials: "include",
-            cache: "no-store",
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "Failed to fetch role permissions");
-        }
-
-        const data = unwrapBackendData(await response.json()) as EffectiveRolePermissionsResponse;
-        if (!cookie) {
-            writeCache(roleEffectiveCache, cacheKey, data, EFFECTIVE_CACHE_TTL_MS);
-        }
-        return data;
+        return cookie ? fetcher() : getOrCreateInFlight(roleEffectiveInFlight, cacheKey, fetcher);
     },
 
     getUserEffectivePermissions: async (userId: string, cookie?: string): Promise<EffectiveUserPermissionsResponse> => {
@@ -133,30 +158,33 @@ export const permissionsService = {
             const cached = readCache(userEffectiveCache, cacheKey);
             if (cached) return cached;
         }
+        const fetcher = async () => {
+            const url = getProxyUrl("GET", `${BASE_PATH}/users/${userId}/effective`);
+            const headers: Record<string, string> = {
+                "Content-Type": "application/json",
+            };
+            if (cookie) headers["Cookie"] = cookie;
 
-        const url = getProxyUrl("GET", `${BASE_PATH}/users/${userId}/effective`);
-        const headers: Record<string, string> = {
-            "Content-Type": "application/json",
+            const response = await fetch(url!, {
+                method: "GET",
+                headers,
+                credentials: "include",
+                cache: "no-store",
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throwBackendHttpError(response, errorData, "Failed to fetch user permissions");
+            }
+
+            const data = unwrapBackendData(await response.json()) as EffectiveUserPermissionsResponse;
+            if (!cookie) {
+                writeCache(userEffectiveCache, cacheKey, data, EFFECTIVE_CACHE_TTL_MS);
+            }
+            return data;
         };
-        if (cookie) headers["Cookie"] = cookie;
 
-        const response = await fetch(url!, {
-            method: "GET",
-            headers,
-            credentials: "include",
-            cache: "no-store",
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "Failed to fetch user permissions");
-        }
-
-        const data = unwrapBackendData(await response.json()) as EffectiveUserPermissionsResponse;
-        if (!cookie) {
-            writeCache(userEffectiveCache, cacheKey, data, EFFECTIVE_CACHE_TTL_MS);
-        }
-        return data;
+        return cookie ? fetcher() : getOrCreateInFlight(userEffectiveInFlight, cacheKey, fetcher);
     },
 
     updateUserPermissions: async (

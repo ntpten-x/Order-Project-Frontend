@@ -1,12 +1,12 @@
 'use client';
 
 import React from 'react';
-import { Pagination, Space, Typography } from 'antd';
+import { Grid, Pagination, Space, Typography } from 'antd';
 import { ModalSelector } from '../select/ModalSelector';
 
 const { Text } = Typography;
 
-export type CreatedSort = "old" | "new";
+export type CreatedSort = 'old' | 'new';
 
 type ListPaginationProps = {
     page: number;
@@ -29,30 +29,30 @@ export default function ListPagination({
     pageSizeOptions = [10, 20, 50, 100],
     onPageChange,
     onPageSizeChange,
-    sortCreated = "old",
+    sortCreated = 'old',
     onSortCreatedChange,
     activeColor,
 }: ListPaginationProps) {
+    const screens = Grid.useBreakpoint();
+    const isMobile = !screens.md;
     const start = total === 0 ? 0 : (page - 1) * pageSize + 1;
     const end = Math.min(page * pageSize, total);
-    const containerStyle: React.CSSProperties & Record<"--phone-layout", string> = {
-        display: 'grid',
-        gridTemplateColumns: 'minmax(250px, 1fr) auto minmax(250px, 1fr)',
-        alignItems: 'center',
-        gap: 16,
-        marginTop: 16,
-        paddingTop: 12,
-        borderTop: '1px solid #E2E8F0',
-        width: '100%',
-        '--phone-layout': '1fr',
-    };
 
     return (
         <div
-            style={containerStyle}
             className="pagination-grid"
+            style={{
+                display: 'grid',
+                gridTemplateColumns: isMobile ? '1fr' : 'minmax(240px, 1fr) auto minmax(240px, 1fr)',
+                alignItems: 'center',
+                gap: isMobile ? 14 : 16,
+                marginTop: 16,
+                paddingTop: 14,
+                borderTop: '1px solid #E2E8F0',
+                width: '100%',
+            }}
         >
-            <div style={{ justifySelf: 'start' }}>
+            <div style={{ justifySelf: isMobile ? 'stretch' : 'start' }}>
                 <Space size={12} wrap>
                     <Text type="secondary" style={{ whiteSpace: 'nowrap' }}>
                         แสดง {start}-{end} จาก {total} รายการ
@@ -60,12 +60,12 @@ export default function ListPagination({
                     <Space size={6}>
                         <Text type="secondary">ต่อหน้า</Text>
                         <ModalSelector<number>
-                            title="เลือกจำนวนต่อหน้า"
+                            title="เลือกจำนวนรายการต่อหน้า"
                             value={pageSize}
                             disabled={loading}
                             onChange={onPageSizeChange}
                             options={pageSizeOptions.map((size) => ({ value: size, label: `${size}` }))}
-                            style={{ minWidth: 80 }}
+                            style={{ minWidth: 88 }}
                         />
                     </Space>
                 </Space>
@@ -73,7 +73,7 @@ export default function ListPagination({
 
             <div style={{ justifySelf: 'center' }}>
                 <Pagination
-                    size="small"
+                    size={isMobile ? 'small' : undefined}
                     current={page}
                     pageSize={pageSize}
                     total={total}
@@ -83,22 +83,26 @@ export default function ListPagination({
                     itemRender={(current, type, originalElement) => {
                         if (type === 'page' && current === page) {
                             return (
-                                <div style={{
-                                    border: `1.5px solid ${activeColor || '#4F46E5'}`,
-                                    borderRadius: 10,
-                                    width: 32,
-                                    height: 32,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    background: 'white'
-                                }}>
-                                    <span style={{ 
-                                        color: activeColor || '#4F46E5', 
-                                        fontWeight: 800,
-                                        fontSize: 15,
-                                        fontFamily: 'inherit'
-                                    }}>
+                                <div
+                                    style={{
+                                        border: `1.5px solid ${activeColor || '#4F46E5'}`,
+                                        borderRadius: 10,
+                                        width: 32,
+                                        height: 32,
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        background: '#ffffff',
+                                    }}
+                                >
+                                    <span
+                                        style={{
+                                            color: activeColor || '#4F46E5',
+                                            fontWeight: 800,
+                                            fontSize: 15,
+                                            fontFamily: 'inherit',
+                                        }}
+                                    >
                                         {current}
                                     </span>
                                 </div>
@@ -109,12 +113,12 @@ export default function ListPagination({
                 />
             </div>
 
-            <div style={{ justifySelf: 'end' }}>
+            <div style={{ justifySelf: isMobile ? 'stretch' : 'end' }}>
                 {onSortCreatedChange ? (
                     <Space size={6}>
                         <Text type="secondary">เรียงตาม</Text>
                         <ModalSelector<CreatedSort>
-                            title="เลือกการเรียงลำดับ"
+                            title="เลือกรูปแบบการเรียงลำดับ"
                             value={sortCreated}
                             disabled={loading}
                             onChange={onSortCreatedChange}
@@ -126,25 +130,19 @@ export default function ListPagination({
                         />
                     </Space>
                 ) : (
-                    <div style={{ width: 40 }} /> // Spacer to keep center balanced
+                    <div style={{ width: 40 }} />
                 )}
             </div>
             <style jsx>{`
-                @media (max-width: 991px) {
-                    .pagination-grid {
-                        display: flex !important;
-                        flex-direction: column;
-                        align-items: center;
-                        gap: 20px;
-                    }
-                }
                 :global(.ant-pagination-item-active) {
                     border-color: transparent !important;
                     background: transparent !important;
                 }
+
                 :global(.ant-pagination-item-active a) {
                     color: inherit !important;
                 }
+
                 :global(.ant-pagination-item:focus-visible),
                 :global(.ant-pagination-item-active:focus-visible) {
                     outline: none !important;

@@ -56,6 +56,14 @@ export const MENU_VISIBILITY_RULES: Record<string, MenuVisibilityRule> = {
             { resourceKey: "stock.ingredients_unit.page", action: "view" },
         ],
     },
+    "menu.module.print-setting": {
+        explicitAnyOf: [{ resourceKey: "menu.module.print-setting", action: "view" }],
+        fallbackAnyOf: [{ resourceKey: "print_settings.page", action: "view" }],
+    },
+    "menu.module.print": {
+        explicitAnyOf: [{ resourceKey: "menu.module.print", action: "view" }],
+        fallbackAnyOf: [{ resourceKey: "print_settings.page", action: "view" }],
+    },
     "menu.module.users": {
         explicitAnyOf: [{ resourceKey: "menu.module.users", action: "view" }],
         fallbackAnyOf: [{ resourceKey: "users.page", action: "view" }],
@@ -80,10 +88,6 @@ export const MENU_VISIBILITY_RULES: Record<string, MenuVisibilityRule> = {
     },
     "menu.pos.orders": {
         explicitAnyOf: [{ resourceKey: "menu.pos.orders", action: "view" }],
-        fallbackAnyOf: [{ resourceKey: "orders.page", action: "view" }],
-    },
-    "menu.pos.kitchen": {
-        explicitAnyOf: [{ resourceKey: "menu.pos.kitchen", action: "view" }],
         fallbackAnyOf: [{ resourceKey: "orders.page", action: "view" }],
     },
     "menu.pos.list": {

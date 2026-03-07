@@ -209,7 +209,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
         if (!id) return;
         setLoading(true);
         try {
-            const response = await fetch(`/api/pos/tables/getById/${id}`);
+            const response = await fetch(`/api/pos/tables/getById/${id}`, { cache: 'no-store' });
             if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลโต๊ะได้');
             const data = await response.json();
             form.setFieldsValue({
@@ -232,10 +232,10 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
     }, [id, form, router]);
 
     useEffect(() => {
-        if (isEdit) {
-            fetchTable();
+        if (isEdit && isAuthorized && !permissionLoading) {
+            void fetchTable();
         }
-    }, [isEdit, fetchTable]);
+    }, [fetchTable, isAuthorized, isEdit, permissionLoading]);
 
     const buildCustomerUrl = useCallback((customerPath?: string | null) => {
         if (!customerPath) return '';
@@ -283,10 +283,10 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
     }, [id]);
 
     useEffect(() => {
-        if (isEdit) {
-            fetchQrInfo();
+        if (isEdit && isAuthorized && !permissionLoading) {
+            void fetchQrInfo();
         }
-    }, [isEdit, fetchQrInfo]);
+    }, [fetchQrInfo, isAuthorized, isEdit, permissionLoading]);
 
     useEffect(() => {
         primePrintResources();
@@ -447,7 +447,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
         }
 
         try {
-            const response = await fetch(`/api/pos/tables/getByName/${encodeURIComponent(value)}`);
+            const response = await fetch(`/api/pos/tables/getByName/${encodeURIComponent(value)}`, { cache: 'no-store' });
             if (!response.ok) return false;
             const found = await response.json();
             if (!found?.id) return false;
@@ -520,18 +520,21 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                             'X-CSRF-Token': csrfToken
                         }
                     });
-                    if (!response.ok) throw new Error('ไม่สามารถลบโต๊ะได้');
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error || errorData.message || 'ไม่สามารถลบโต๊ะได้');
+                    }
                     message.success('ลบโต๊ะสำเร็จ');
-                    router.push('/pos/tables');
+                    router.replace('/pos/tables');
                 } catch (error) {
                     console.error(error);
-                    message.error('ไม่สามารถลบโต๊ะได้');
+                    message.error(error instanceof Error ? error.message : 'ไม่สามารถลบโต๊ะได้');
                 }
             }
         });
     };
 
-    const handleBack = () => router.push('/pos/tables');
+    const handleBack = () => router.replace('/pos/tables');
 
     if (isChecking) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
@@ -556,6 +559,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
         <div className="manage-page" style={pageStyles.container as React.CSSProperties}>
             <UIPageHeader
                 title={modeTitle}
+                subtitle={isEdit ? 'ปรับข้อมูลโต๊ะ, สถานะใช้งาน และ QR สำหรับลูกค้า' : 'สร้างโต๊ะใหม่ให้พร้อมใช้งานใน POS'}
                 onBack={handleBack}
                 actions={
                     isEdit && canDeleteTables ? (
@@ -614,9 +618,9 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                                             }
                                             validateTrigger={['onBlur', 'onSubmit']}
                                             rules={[
-                                                { required: true, message: 'กรุณากรอกชื่อระบบ' },
+                                                { required: true, message: 'กรุณากรอกชื่อโต๊ะ' },
                                                 { max: 50, message: 'ความยาวต้องไม่เกิน 50 ตัวอักษร' },
-                                                { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'กรอกได้เฉพาะภาษาอังกฤษ ตัวเลข และ - _ ( ) .' },
+                                                { pattern: /^[a-zA-Z0-9\u0E00-\u0E7F\s\-_()./]*$/, message: 'กรอกได้เฉพาะภาษาไทย ภาษาอังกฤษ ตัวเลข และ - _ ( ) . /' },
                                                 {
                                                     validator: async (_, value: string) => {
                                                         if (!value?.trim()) return;

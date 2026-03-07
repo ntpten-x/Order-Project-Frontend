@@ -37,6 +37,9 @@ import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import "dayjs/locale/th";
 import RequireOpenShift from "../../../../components/pos/shared/RequireOpenShift";
+import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
+import { useAuth } from "../../../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
 import { useSocket } from "../../../../hooks/useSocket";
 import { useServingBoardSound, ServingBoardTone } from "../../../../hooks/pos/useServingBoardSound";
 import { servingBoardService } from "../../../../services/pos/servingBoard.service";
@@ -76,7 +79,7 @@ function matchesSearch(group: ServingBoardGroup, search: string): boolean {
         group.source_title,
         group.source_subtitle || "",
         group.order_no,
-        ...group.items.map((item) => item.product_name),
+        ...group.items.map((item) => item.display_name),
         ...group.items.map((item) => item.notes || ""),
     ];
 
@@ -247,6 +250,7 @@ function Column({
                 <div className="sb-card-grid">
                     {cards.map((card) => {
                         const urgency = getUrgencyConfig(card.batch_created_at);
+                        const orderTypeMeta = getOrderTypeMeta(card.order_type);
                         const themeClass = getCardThemeClass(card.order_type);
                         const displaySourceTitle = getDisplaySourceTitle(card);
                         const displaySubtitle = card.order_type === "Delivery" ? card.source_subtitle : null;
@@ -290,7 +294,9 @@ function Column({
                                     </div>
 
                                     <div className="sb-order-header-meta">
-                                        <span />
+                                        <Tag className={`sb-order-type-tag ${orderTypeMeta.className}`} icon={orderTypeMeta.icon}>
+                                            {orderTypeMeta.label}
+                                        </Tag>
                                         <div className="sb-order-meta-right">
                                             {isFresh(card.batch_created_at) ? <span className="sb-order-fresh">NEW</span> : null}
                                             <span className="sb-order-urgency" style={{ color: urgency.color }}>
@@ -320,20 +326,20 @@ function Column({
                                                     {item.product_image_url ? (
                                                         <SmartImage
                                                             src={item.product_image_url}
-                                                            alt={item.product_name}
+                                                            alt={item.display_name}
                                                             width={44}
                                                             height={44}
                                                             style={{ objectFit: "cover", borderRadius: "8px" }}
                                                         />
                                                     ) : (
                                                         <span className="sb-item-image-placeholder">
-                                                            {item.product_name.charAt(0)}
+                                                            {item.display_name.charAt(0)}
                                                         </span>
                                                     )}
                                                 </div>
 
                                                 <div className="sb-item-info">
-                                                    <div className="sb-item-name">{item.product_name}</div>
+                                                    <div className="sb-item-name">{item.display_name}</div>
                                                     <div className="sb-item-quantity-text">x{item.quantity}</div>
                                                     {item.details && item.details.length > 0 && (
                                                         <div className="sb-item-details" style={{ fontSize: '12px', color: '#10b981', marginTop: '2px' }}>
@@ -432,6 +438,7 @@ function ServingBoardPageContent() {
         staleTime: isConnected ? 45_000 : 7_500,
         refetchInterval: isConnected ? false : 15_000,
         refetchIntervalInBackground: false,
+        refetchOnWindowFocus: false,
     });
 
     useRealtimeRefresh({
@@ -441,6 +448,7 @@ function ServingBoardPageContent() {
             void refetch();
         },
         intervalMs: isConnected ? undefined : 15_000,
+        debounceMs: 500,
         enabled: true,
     });
 
@@ -792,6 +800,17 @@ function ServingBoardPageContent() {
 }
 
 export default function ServingBoardPage() {
+    const { user, loading: authLoading } = useAuth();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+
+    if (authLoading || permissionLoading) {
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
+    }
+
+    if (!can("orders.page", "view")) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    }
+
     return (
         <RequireOpenShift>
             <ServingBoardPageContent />

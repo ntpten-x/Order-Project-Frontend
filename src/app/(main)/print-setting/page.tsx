@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -222,9 +222,9 @@ const densityLabel: Record<PrintDocumentSetting['density'], string> = {
 };
 
 function formatTimestamp(value?: string) {
-    if (!value) return 'ยังไม่เคยบันทึก';
+    if (!value) return 'เธขเธฑเธเนเธกเนเน€เธเธขเธเธฑเธเธ—เธถเธ';
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return 'ยังไม่เคยบันทึก';
+    if (Number.isNaN(date.getTime())) return 'เธขเธฑเธเนเธกเนเน€เธเธขเธเธฑเธเธ—เธถเธ';
     return new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 }
 
@@ -242,7 +242,6 @@ function getDocumentRows(documentType: PrintDocumentType) {
     if (documentType === 'order_summary') return [['Orders', '126'], ['Revenue', '34,580'], ['Cash', '9,800'], ['PromptPay', '24,780']];
     if (documentType === 'purchase_order') return [['Milk 2L', '24'], ['Coffee beans', '8'], ['Cup lids', '120'], ['Delivery ETA', '09:00']];
     if (documentType === 'table_qr') return [['Table', 'A12'], ['Zone', 'Main hall'], ['Open menu', 'Scan QR below'], ['Expire', 'Rotate monthly']];
-    if (documentType === 'kitchen_ticket') return [['Latte', '2 cups'], ['No sugar', '1'], ['Burger', 'Add cheese'], ['Rush', 'Serve first']];
     return [['Template', 'Custom'], ['Branch', 'Own setup'], ['Paper', 'Manual sizing'], ['Status', 'Ready']];
 }
 
@@ -359,7 +358,7 @@ export default function PrintSettingPage() {
             setSavedSettings(merged);
         } catch (error) {
             console.error(error);
-            message.error(error instanceof Error ? error.message : 'ไม่สามารถโหลดการตั้งค่าการพิมพ์ได้');
+            message.error(error instanceof Error ? error.message : 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เนเธซเธฅเธ”เธเธฒเธฃเธ•เธฑเนเธเธเนเธฒเธเธฒเธฃเธเธดเธกเธเนเนเธ”เน');
         } finally {
             if (silent) setRefreshing(false);
             else setLoading(false);
@@ -408,7 +407,7 @@ export default function PrintSettingPage() {
 
     const handleSave = useCallback(async () => {
         if (!canUpdateSettings) {
-            message.error('คุณไม่มีสิทธิ์แก้ไขการตั้งค่าการพิมพ์');
+            message.error('เธเธธเธ“เนเธกเนเธกเธตเธชเธดเธ—เธเธดเนเนเธเนเนเธเธเธฒเธฃเธ•เธฑเนเธเธเนเธฒเธเธฒเธฃเธเธดเธกเธเน');
             return;
         }
 
@@ -420,10 +419,10 @@ export default function PrintSettingPage() {
             const merged = mergePrintSettings(createDefaultPrintSettings(), updated);
             setSettings(merged);
             setSavedSettings(merged);
-            message.success('บันทึกการตั้งค่าการพิมพ์เรียบร้อย');
+            message.success('เธเธฑเธเธ—เธถเธเธเธฒเธฃเธ•เธฑเนเธเธเนเธฒเธเธฒเธฃเธเธดเธกเธเนเน€เธฃเธตเธขเธเธฃเนเธญเธข');
         } catch (error) {
             console.error(error);
-            message.error(error instanceof Error ? error.message : 'ไม่สามารถบันทึกการตั้งค่าการพิมพ์ได้');
+            message.error(error instanceof Error ? error.message : 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธเธฑเธเธ—เธถเธเธเธฒเธฃเธ•เธฑเนเธเธเนเธฒเธเธฒเธฃเธเธดเธกเธเนเนเธ”เน');
         } finally {
             setSaving(false);
         }
@@ -432,10 +431,10 @@ export default function PrintSettingPage() {
     const handleResetAll = useCallback(() => {
         Modal.confirm({
             centered: true,
-            title: 'รีเซ็ตการตั้งค่าทั้งหมดหรือไม่',
-            content: 'การเปลี่ยนแปลงจะมีผลเมื่อกดบันทึกเท่านั้น',
-            okText: 'รีเซ็ต',
-            cancelText: 'ยกเลิก',
+            title: 'เธฃเธตเน€เธเนเธ•เธเธฒเธฃเธ•เธฑเนเธเธเนเธฒเธ—เธฑเนเธเธซเธกเธ”เธซเธฃเธทเธญเนเธกเน',
+            content: 'เธเธฒเธฃเน€เธเธฅเธตเนเธขเธเนเธเธฅเธเธเธฐเธกเธตเธเธฅเน€เธกเธทเนเธญเธเธ”เธเธฑเธเธ—เธถเธเน€เธ—เนเธฒเธเธฑเนเธ',
+            okText: 'เธฃเธตเน€เธเนเธ•',
+            cancelText: 'เธขเธเน€เธฅเธดเธ',
             okButtonProps: { danger: true },
             onOk: () => {
                 const defaults = createDefaultPrintSettings();
@@ -455,7 +454,7 @@ export default function PrintSettingPage() {
         try {
             const windowRef = window.open('', '_blank', 'width=960,height=720');
             if (!windowRef) {
-                message.error('เบราว์เซอร์บล็อก popup สำหรับ test print');
+                message.error('เน€เธเธฃเธฒเธงเนเน€เธเธญเธฃเนเธเธฅเนเธญเธ popup เธชเธณเธซเธฃเธฑเธ test print');
                 return;
             }
 
@@ -472,25 +471,25 @@ export default function PrintSettingPage() {
             windowRef.document.close();
         } catch (error) {
             console.error(error);
-            message.error(error instanceof Error ? error.message : 'ไม่สามารถเปิด test print ได้');
+            message.error(error instanceof Error ? error.message : 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เน€เธเธดเธ” test print เนเธ”เน');
         } finally {
             setPrinting(false);
         }
     }, [branchName, currentDocument, selectedDocument, selectedMeta.label]);
 
     if (isChecking || permissionLoading) {
-        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์และโหลดการตั้งค่าการพิมพ์..." />;
+        return <AccessGuardFallback message="เธเธณเธฅเธฑเธเธ•เธฃเธงเธเธชเธญเธเธชเธดเธ—เธเธดเนเนเธฅเธฐเนเธซเธฅเธ”เธเธฒเธฃเธ•เธฑเนเธเธเนเธฒเธเธฒเธฃเธเธดเธกเธเน..." />;
     }
 
     if (!isAuthorized) {
-        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้าตั้งค่าการพิมพ์" tone="danger" />;
+        return <AccessGuardFallback message="เธเธธเธ“เนเธกเนเธกเธตเธชเธดเธ—เธเธดเนเน€เธเนเธฒเธ–เธถเธเธซเธเนเธฒเธ•เธฑเนเธเธเนเธฒเธเธฒเธฃเธเธดเธกเธเน" tone="danger" />;
     }
 
     if (loading) {
         return (
             <div className="print-settings-page">
                 <style>{pageStyles}</style>
-                <UIPageHeader title="Print Setting" subtitle="กำลังโหลดข้อมูล..." icon={<PrinterOutlined />} onBack={() => router.back()} />
+                <UIPageHeader title="Print Setting" subtitle="เธเธณเธฅเธฑเธเนเธซเธฅเธ”เธเนเธญเธกเธนเธฅ..." icon={<PrinterOutlined />} onBack={() => router.back()} />
                 <PageContainer>
                     <div style={{ minHeight: 380, display: 'grid', placeItems: 'center' }}><Spin size="large" /></div>
                 </PageContainer>
@@ -504,16 +503,16 @@ export default function PrintSettingPage() {
 
             <UIPageHeader
                 title="Print Setting"
-                subtitle="ตั้งค่าเอกสารพิมพ์แยกตามสาขา พร้อมขนาดกระดาษ, density, และ preview ก่อนใช้งานจริง"
+                subtitle="เธ•เธฑเนเธเธเนเธฒเน€เธญเธเธชเธฒเธฃเธเธดเธกเธเนเนเธขเธเธ•เธฒเธกเธชเธฒเธเธฒ เธเธฃเนเธญเธกเธเธเธฒเธ”เธเธฃเธฐเธ”เธฒเธฉ, density, เนเธฅเธฐ preview เธเนเธญเธเนเธเนเธเธฒเธเธเธฃเธดเธ"
                 icon={<PrinterOutlined />}
                 onBack={() => router.back()}
                 actions={(
                     <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} onClick={() => fetchSettings(false)} loading={refreshing || loading} />
-                        <Button onClick={handleResetAll} disabled={!canUpdateSettings}>รีเซ็ตทั้งหมด</Button>
+                        <Button onClick={handleResetAll} disabled={!canUpdateSettings}>เธฃเธตเน€เธเนเธ•เธ—เธฑเนเธเธซเธกเธ”</Button>
                         <Button icon={<SyncOutlined />} onClick={handlePrintTest} loading={printing}>Test Print</Button>
                         <Button type="primary" icon={<SaveOutlined />} onClick={handleSave} loading={saving} disabled={!canUpdateSettings || !isDirty}>
-                            บันทึก
+                            เธเธฑเธเธ—เธถเธ
                         </Button>
                     </Space>
                 )}
@@ -525,39 +524,39 @@ export default function PrintSettingPage() {
                         <Alert
                             showIcon
                             type="info"
-                            message={`การตั้งค่านี้ผูกกับสาขา ${branchName}`}
-                            description="แต่ละสาขามีขนาดใบเสร็จ, ใบสรุป, ใบสั่งซื้อ และ QR โต๊ะของตัวเอง ไม่ปนกับสาขาอื่น"
+                            message={`เธเธฒเธฃเธ•เธฑเนเธเธเนเธฒเธเธตเนเธเธนเธเธเธฑเธเธชเธฒเธเธฒ ${branchName}`}
+                            description="เนเธ•เนเธฅเธฐเธชเธฒเธเธฒเธกเธตเธเธเธฒเธ”เนเธเน€เธชเธฃเนเธ, เนเธเธชเธฃเธธเธ, เนเธเธชเธฑเนเธเธเธทเนเธญ เนเธฅเธฐ QR เนเธ•เนเธฐเธเธญเธเธ•เธฑเธงเน€เธญเธ เนเธกเนเธเธเธเธฑเธเธชเธฒเธเธฒเธญเธทเนเธ"
                         />
                     </PageSection>
 
                     <PageSection>
                         <div className="print-settings-stats">
                             <div className="print-settings-stat">
-                                <Text type="secondary">เอกสารที่เปิดใช้งาน</Text>
+                                <Text type="secondary">เน€เธญเธเธชเธฒเธฃเธ—เธตเนเน€เธเธดเธ”เนเธเนเธเธฒเธ</Text>
                                 <Title level={3} style={{ margin: '8px 0 0', color: '#0f172a' }}>{enabledDocumentCount}</Title>
-                                <Text type="secondary">จาก {documentOrder.length} รูปแบบ</Text>
+                                <Text type="secondary">เธเธฒเธ {documentOrder.length} เธฃเธนเธเนเธเธ</Text>
                             </div>
                             <div className="print-settings-stat">
-                                <Text type="secondary">Automation ที่เปิดอยู่</Text>
+                                <Text type="secondary">Automation เธ—เธตเนเน€เธเธดเธ”เธญเธขเธนเน</Text>
                                 <Title level={3} style={{ margin: '8px 0 0', color: '#0f766e' }}>{automationCount}</Title>
-                                <Text type="secondary">พร้อมสั่งพิมพ์ตาม workflow</Text>
+                                <Text type="secondary">เธเธฃเนเธญเธกเธชเธฑเนเธเธเธดเธกเธเนเธ•เธฒเธก workflow</Text>
                             </div>
                             <div className="print-settings-stat">
-                                <Text type="secondary">Preset ปัจจุบัน</Text>
+                                <Text type="secondary">Preset เธเธฑเธเธเธธเธเธฑเธ</Text>
                                 <Title level={4} style={{ margin: '8px 0 0', color: '#0f172a' }}>{currentPresetMeta.label}</Title>
                                 <Text type="secondary">{formatPaperSize(currentDocument)}</Text>
                             </div>
                             <div className="print-settings-stat">
-                                <Text type="secondary">อัปเดตล่าสุด</Text>
+                                <Text type="secondary">เธญเธฑเธเน€เธ”เธ•เธฅเนเธฒเธชเธธเธ”</Text>
                                 <Title level={4} style={{ margin: '8px 0 0', color: '#0f172a' }}>{formatTimestamp(savedSettings.updated_at)}</Title>
-                                <Text type="secondary">{isDirty ? 'มีการเปลี่ยนแปลงที่ยังไม่บันทึก' : 'ค่าในหน้าจอตรงกับระบบ'}</Text>
+                                <Text type="secondary">{isDirty ? 'เธกเธตเธเธฒเธฃเน€เธเธฅเธตเนเธขเธเนเธเธฅเธเธ—เธตเนเธขเธฑเธเนเธกเนเธเธฑเธเธ—เธถเธ' : 'เธเนเธฒเนเธเธซเธเนเธฒเธเธญเธ•เธฃเธเธเธฑเธเธฃเธฐเธเธ'}</Text>
                             </div>
                         </div>
                     </PageSection>
 
                     <Row gutter={[16, 16]} align="top">
                         <Col xs={24} xl={8}>
-                            <Card title="ชนิดเอกสาร" extra={<Tag color="cyan">Branch scoped</Tag>} styles={{ body: { paddingTop: 8 } }}>
+                            <Card title="เธเธเธดเธ”เน€เธญเธเธชเธฒเธฃ" extra={<Tag color="cyan">Branch scoped</Tag>} styles={{ body: { paddingTop: 8 } }}>
                                 <div className="print-settings-nav">
                                     {documentOrder.map((documentType) => {
                                         const item = settings.documents[documentType];
@@ -594,7 +593,7 @@ export default function PrintSettingPage() {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
                                         <div>
                                             <div style={{ fontWeight: 700 }}>Auto receipt after payment</div>
-                                            <Text type="secondary">พิมพ์ใบเสร็จทันทีเมื่อชำระเสร็จ</Text>
+                                            <Text type="secondary">เธเธดเธกเธเนเนเธเน€เธชเธฃเนเธเธ—เธฑเธเธ—เธตเน€เธกเธทเนเธญเธเธณเธฃเธฐเน€เธชเธฃเนเธ</Text>
                                         </div>
                                         <Switch
                                             checked={settings.automation.auto_print_receipt_after_payment}
@@ -606,21 +605,8 @@ export default function PrintSettingPage() {
                                 <div className="print-settings-toggle">
                                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
                                         <div>
-                                            <div style={{ fontWeight: 700 }}>Auto kitchen ticket</div>
-                                            <Text type="secondary">พิมพ์ ticket ส่งครัวเมื่อออเดอร์พร้อมผลิต</Text>
-                                        </div>
-                                        <Switch
-                                            checked={settings.automation.auto_print_kitchen_ticket_after_submit}
-                                            disabled={!canUpdateSettings}
-                                            onChange={(checked) => setSettings((prev) => ({ ...prev, automation: { ...prev.automation, auto_print_kitchen_ticket_after_submit: checked } }))}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="print-settings-toggle">
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                                        <div>
                                             <div style={{ fontWeight: 700 }}>Auto summary after shift</div>
-                                            <Text type="secondary">เตรียมเอกสารสรุปทันทีหลังปิดกะ</Text>
+                                            <Text type="secondary">เน€เธ•เธฃเธตเธขเธกเน€เธญเธเธชเธฒเธฃเธชเธฃเธธเธเธ—เธฑเธเธ—เธตเธซเธฅเธฑเธเธเธดเธ”เธเธฐ</Text>
                                         </div>
                                         <Switch
                                             checked={settings.automation.auto_print_order_summary_after_close_shift}
@@ -633,7 +619,7 @@ export default function PrintSettingPage() {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
                                         <div>
                                             <div style={{ fontWeight: 700 }}>Auto QR after rotate</div>
-                                            <Text type="secondary">รองรับ workflow reprint QR โต๊ะหลัง rotate token</Text>
+                                            <Text type="secondary">เธฃเธญเธเธฃเธฑเธ workflow reprint QR เนเธ•เนเธฐเธซเธฅเธฑเธ rotate token</Text>
                                         </div>
                                         <Switch
                                             checked={settings.automation.auto_print_table_qr_after_rotation}
@@ -646,7 +632,7 @@ export default function PrintSettingPage() {
                                     <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
                                         <div>
                                             <div style={{ fontWeight: 700 }}>Allow manual override</div>
-                                            <Text type="secondary">เปิดให้สาขาใช้ค่าปรับเฉพาะเอกสารหน้างานได้</Text>
+                                            <Text type="secondary">เน€เธเธดเธ”เนเธซเนเธชเธฒเธเธฒเนเธเนเธเนเธฒเธเธฃเธฑเธเน€เธเธเธฒเธฐเน€เธญเธเธชเธฒเธฃเธซเธเนเธฒเธเธฒเธเนเธ”เน</Text>
                                         </div>
                                         <Switch
                                             checked={settings.allow_manual_override}
@@ -701,8 +687,8 @@ export default function PrintSettingPage() {
                                         style={{ marginBottom: 16 }}
                                         type="warning"
                                         showIcon
-                                        message="เปิดในโหมดดูอย่างเดียว"
-                                        description="บัญชีนี้มีสิทธิ์ดู แต่ไม่มีสิทธิ์บันทึกการตั้งค่าการพิมพ์"
+                                        message="เน€เธเธดเธ”เนเธเนเธซเธกเธ”เธ”เธนเธญเธขเนเธฒเธเน€เธ”เธตเธขเธง"
+                                        description="เธเธฑเธเธเธตเธเธตเนเธกเธตเธชเธดเธ—เธเธดเนเธ”เธน เนเธ•เนเนเธกเนเธกเธตเธชเธดเธ—เธเธดเนเธเธฑเธเธ—เธถเธเธเธฒเธฃเธ•เธฑเนเธเธเนเธฒเธเธฒเธฃเธเธดเธกเธเน"
                                     />
                                 ) : null}
 
@@ -724,21 +710,21 @@ export default function PrintSettingPage() {
 
                                 <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
                                     <Space wrap size={8}>
-                                        <Tooltip title="จำนวนอักษรโดยประมาณต่อบรรทัดจากหน้ากระดาษและขนาดฟอนต์">
+                                        <Tooltip title="เธเธณเธเธงเธเธญเธฑเธเธฉเธฃเนเธ”เธขเธเธฃเธฐเธกเธฒเธ“เธ•เนเธญเธเธฃเธฃเธ—เธฑเธ”เธเธฒเธเธซเธเนเธฒเธเธฃเธฐเธ”เธฒเธฉเนเธฅเธฐเธเธเธฒเธ”เธเธญเธเธ•เน">
                                             <Tag icon={<DeploymentUnitOutlined />} color="blue">{charsPerLine} chars / line</Tag>
                                         </Tooltip>
                                         <Tag icon={<CopyOutlined />} color="gold">{currentDocument.copies} copies</Tag>
                                         <Tag icon={<BgColorsOutlined />} color="green">{densityLabel[currentDocument.density]}</Tag>
                                     </Space>
                                     <Space wrap size={8}>
-                                        <Button onClick={handleResetDocument} disabled={!canUpdateSettings}>รีเซ็ตเอกสารนี้</Button>
-                                        <Button icon={<SyncOutlined />} onClick={handlePrintTest} loading={printing}>ทดสอบพิมพ์</Button>
+                                        <Button onClick={handleResetDocument} disabled={!canUpdateSettings}>เธฃเธตเน€เธเนเธ•เน€เธญเธเธชเธฒเธฃเธเธตเน</Button>
+                                        <Button icon={<SyncOutlined />} onClick={handlePrintTest} loading={printing}>เธ—เธ”เธชเธญเธเธเธดเธกเธเน</Button>
                                     </Space>
                                 </div>
 
                                 <Divider style={{ marginBlock: 14 }} />
 
-                                <Title level={5}>Preset มาตรฐาน</Title>
+                                <Title level={5}>Preset เธกเธฒเธ•เธฃเธเธฒเธ</Title>
                                 <div className="print-settings-presets">
                                     {PRINT_PRESET_OPTIONS.map((preset) => {
                                         const recommended = selectedMeta.recommendedPresets.includes(preset.value);
@@ -931,13 +917,13 @@ export default function PrintSettingPage() {
                                 <Title level={5}>Content options</Title>
                                 <div className="print-settings-toggle-grid">
                                     {[
-                                        { key: 'enabled', label: 'เปิดใช้งานเอกสารนี้', value: currentDocument.enabled },
-                                        { key: 'show_logo', label: 'แสดงโลโก้/ชื่อสาขา', value: currentDocument.show_logo },
-                                        { key: 'show_branch_address', label: 'แสดงที่อยู่สาขา', value: currentDocument.show_branch_address },
-                                        { key: 'show_order_meta', label: 'แสดง meta ของงานพิมพ์', value: currentDocument.show_order_meta },
-                                        { key: 'show_qr', label: 'แสดง QR ในเอกสาร', value: currentDocument.show_qr },
-                                        { key: 'show_footer', label: 'แสดง footer ท้ายกระดาษ', value: currentDocument.show_footer },
-                                        { key: 'cut_paper', label: 'สั่งตัดกระดาษหลังพิมพ์', value: currentDocument.cut_paper },
+                                        { key: 'enabled', label: 'เน€เธเธดเธ”เนเธเนเธเธฒเธเน€เธญเธเธชเธฒเธฃเธเธตเน', value: currentDocument.enabled },
+                                        { key: 'show_logo', label: 'เนเธชเธ”เธเนเธฅเนเธเน/เธเธทเนเธญเธชเธฒเธเธฒ', value: currentDocument.show_logo },
+                                        { key: 'show_branch_address', label: 'เนเธชเธ”เธเธ—เธตเนเธญเธขเธนเนเธชเธฒเธเธฒ', value: currentDocument.show_branch_address },
+                                        { key: 'show_order_meta', label: 'เนเธชเธ”เธ meta เธเธญเธเธเธฒเธเธเธดเธกเธเน', value: currentDocument.show_order_meta },
+                                        { key: 'show_qr', label: 'เนเธชเธ”เธ QR เนเธเน€เธญเธเธชเธฒเธฃ', value: currentDocument.show_qr },
+                                        { key: 'show_footer', label: 'เนเธชเธ”เธ footer เธ—เนเธฒเธขเธเธฃเธฐเธ”เธฒเธฉ', value: currentDocument.show_footer },
+                                        { key: 'cut_paper', label: 'เธชเธฑเนเธเธ•เธฑเธ”เธเธฃเธฐเธ”เธฒเธฉเธซเธฅเธฑเธเธเธดเธกเธเน', value: currentDocument.cut_paper },
                                     ].map((item) => (
                                         <div key={item.key} className="print-settings-toggle">
                                             <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
@@ -961,7 +947,7 @@ export default function PrintSettingPage() {
                                     value={currentDocument.note || ''}
                                     disabled={!canUpdateSettings}
                                     onChange={(event) => updateDocument({ note: event.target.value || null })}
-                                    placeholder="เช่น ใช้กับ printer หน้าแคชเชียร์ 80mm หรือใช้เฉพาะป้ายโต๊ะฝั่งโซนสวน"
+                                    placeholder="เน€เธเนเธ เนเธเนเธเธฑเธ printer เธซเธเนเธฒเนเธเธเน€เธเธตเธขเธฃเน 80mm เธซเธฃเธทเธญเนเธเนเน€เธเธเธฒเธฐเธเนเธฒเธขเนเธ•เนเธฐเธเธฑเนเธเนเธเธเธชเธงเธ"
                                 />
                             </Card>
 
@@ -988,8 +974,8 @@ export default function PrintSettingPage() {
                                                         <FileDoneOutlined style={{ color: '#c2410c' }} />
                                                         <Text strong>Recommended usage</Text>
                                                     </div>
-                                                    <Text type="secondary">ใช้ preset ที่ระบบแนะนำก่อน แล้วค่อย fine tune ขนาดกับ margin ตาม printer จริงของสาขา</Text>
-                                                    <Text type="secondary">หากเปลี่ยนจาก thermal เป็น A4 หรือ label ให้ test print ทุกครั้งก่อนนำไปใช้หน้างาน</Text>
+                                                    <Text type="secondary">เนเธเน preset เธ—เธตเนเธฃเธฐเธเธเนเธเธฐเธเธณเธเนเธญเธ เนเธฅเนเธงเธเนเธญเธข fine tune เธเธเธฒเธ”เธเธฑเธ margin เธ•เธฒเธก printer เธเธฃเธดเธเธเธญเธเธชเธฒเธเธฒ</Text>
+                                                    <Text type="secondary">เธซเธฒเธเน€เธเธฅเธตเนเธขเธเธเธฒเธ thermal เน€เธเนเธ A4 เธซเธฃเธทเธญ label เนเธซเน test print เธ—เธธเธเธเธฃเธฑเนเธเธเนเธญเธเธเธณเนเธเนเธเนเธซเธเนเธฒเธเธฒเธ</Text>
                                                 </Space>
                                             </Card>
                                         </Space>
@@ -1003,3 +989,4 @@ export default function PrintSettingPage() {
         </div>
     );
 }
+

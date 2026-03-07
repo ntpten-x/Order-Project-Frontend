@@ -639,7 +639,7 @@ function buildReceiptMarkup(options: {
                     <div class="row">
                       <div style="flex: 1; min-width: 0;">
                         <div class="item-name">${escapeHtml(
-                            item.product?.display_name || item.product?.product_name || "สินค้า"
+                            item.product?.display_name || "สินค้า"
                         )}</div>
                         <div class="item-meta">${escapeHtml(
                             `${toNumber(item.quantity).toLocaleString(locale)} x ${formatMoney(item.price, locale)}`
@@ -721,7 +721,7 @@ function buildReceiptMarkup(options: {
                 ${
                     toNumber(order.discount_amount) > 0
                         ? `<div class="row"><div class="label">ส่วนลด ${
-                              escapeHtml(order.discount?.display_name || order.discount?.discount_name || "")
+                              escapeHtml(order.discount?.display_name || "")
                           }</div><div class="value">-${escapeHtml(
                               formatMoney(order.discount_amount, locale)
                           )}</div></div>`

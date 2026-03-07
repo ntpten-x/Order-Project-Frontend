@@ -101,6 +101,8 @@ export const ordersService = {
         takeaway_waiting_payment: number,
         delivery: number,
         delivery_waiting_payment: number,
+        pending: number,
+        waiting_payment: number,
         total: number
     }> => {
         const url = getProxyUrl("GET", API_ROUTES.POS.CHANNELS.STATS);
@@ -129,6 +131,8 @@ export const ordersService = {
             takeaway_waiting_payment: number;
             delivery: number;
             delivery_waiting_payment: number;
+            pending: number;
+            waiting_payment: number;
             total: number;
         };
     },
@@ -312,13 +316,9 @@ export const ordersService = {
         return unwrapBackendData(await response.json()) as SalesOrder;
     },
 
-    updateStatus: async (orderId: string, status: string, csrfToken?: string): Promise<void> => {
+    updateStatus: async (orderId: string, status: string, csrfToken?: string): Promise<SalesOrder> => {
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
-
-        // Use existing update method or create specific endpoint if backend supports patch status
-        // Checking backend controller... usually generic update works if fields allowed
-        // But let's assume update(id, { status }) works
 
         const url = getProxyUrl("PUT", `${BASE_PATH}/${orderId}`);
         const response = await fetch(url!, {
@@ -329,7 +329,10 @@ export const ordersService = {
         });
 
         if (!response.ok) {
-            throw new Error("Failed to update status");
+            const errorData = await response.json().catch(() => ({}));
+            throwBackendHttpError(response, errorData, "ไม่สามารถอัปเดตสถานะออเดอร์ได้");
         }
+
+        return unwrapBackendData(await response.json()) as SalesOrder;
     }
 };

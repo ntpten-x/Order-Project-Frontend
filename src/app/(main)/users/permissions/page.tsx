@@ -97,6 +97,8 @@ const SYSTEM_FILTER_OPTIONS: Array<{ label: string; value: SystemGroup | "all" }
 const MAIN_PAGE_LABEL_BY_RESOURCE_KEY: Record<string, string> = {
     "menu.module.pos": "ระบบขาย (POS)",
     "menu.module.stock": "จัดการสต๊อก",
+    "menu.module.print": "ตั้งค่าการพิมพ์",
+    "menu.module.print-setting": "ตั้งค่าการพิมพ์",
     "menu.module.users": "ตั้งค่าและสิทธิ์ผู้ใช้",
     "menu.module.branch": "จัดการสาขา",
     "menu.module.audit": "Audit Logs",
@@ -106,7 +108,6 @@ const MENU_NAV_LABEL_BY_RESOURCE_KEY: Record<string, string> = {
     "menu.pos.home": "หน้าแรก",
     "menu.pos.sell": "ขาย",
     "menu.pos.orders": "ออเดอร์",
-    "menu.pos.kitchen": "ครัว",
     "menu.pos.shift": "กะการทำงาน",
     "menu.pos.shiftHistory": "ประวัติกะ",
     "menu.pos.dashboard": "สรุป",

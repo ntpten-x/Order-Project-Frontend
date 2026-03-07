@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Image from '../../../../../components/ui/image/SmartImage';
 import { Modal, Input, Button, Typography, Empty, Divider, InputNumber, App, Tag, Space } from 'antd';
 import { 
@@ -40,10 +40,19 @@ interface AddItemsModalProps {
     orderType?: OrderType;
 }
 
+const MODAL_CATALOG_CACHE_TTL_MS = 60_000;
+
+let addItemsModalCatalogCache:
+    | {
+          fetchedAt: number;
+          products: Products[];
+          categories: Category[];
+      }
+    | null = null;
+
 export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, onAddItem, orderType }) => {
     const { message } = App.useApp();
     const [products, setProducts] = useState<Products[]>([]);
-    const [filteredProducts, setFilteredProducts] = useState<Products[]>([]);
     const [categories, setCategories] = useState<Category[]>([]);
     const [selectedCategoryId, setSelectedCategoryId] = useState<string | null>(null);
     const [searchText, setSearchText] = useState('');
@@ -56,15 +65,28 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
     const [details, setDetails] = useState<DetailFormItem[]>([]);
 
     const fetchInitialData = useCallback(async () => {
+        const cachedCatalog = addItemsModalCatalogCache;
+        if (cachedCatalog && Date.now() - cachedCatalog.fetchedAt < MODAL_CATALOG_CACHE_TTL_MS) {
+            setProducts(cachedCatalog.products);
+            setCategories(cachedCatalog.categories);
+            return;
+        }
+
         try {
             showLoading("กำลังโหลดข้อมูลสินค้า...");
             const [productsRes, categoriesRes] = await Promise.all([
                 productsService.findAll(1, 100),
                 categoryService.findAll()
             ]);
-            setProducts(productsRes.data);
-            setFilteredProducts(productsRes.data);
-            setCategories(Array.isArray(categoriesRes) ? categoriesRes : []);
+            const nextProducts = productsRes.data;
+            const nextCategories = Array.isArray(categoriesRes) ? categoriesRes : [];
+            addItemsModalCatalogCache = {
+                fetchedAt: Date.now(),
+                products: nextProducts,
+                categories: nextCategories,
+            };
+            setProducts(nextProducts);
+            setCategories(nextCategories);
         } catch {
             message.error("ไม่สามารถโหลดข้อมูลได้");
         } finally {
@@ -78,6 +100,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
         setDetails([]);
         setSelectedProduct(null);
         setSearchText('');
+        setSelectedCategoryId(null);
     }, []);
 
     useEffect(() => {
@@ -87,32 +110,21 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
         }
     }, [fetchInitialData, isOpen, resetForm]);
 
-    const handleSearch = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const value = e.target.value;
-        setSearchText(value);
-        applyFilters(value, selectedCategoryId);
-    };
+    const filteredProducts = useMemo(() => {
+        const normalizedSearch = searchText.trim().toLowerCase();
 
-    const handleCategoryClick = (categoryId: string | null) => {
-        setSelectedCategoryId(categoryId);
-        applyFilters(searchText, categoryId);
-    };
+        return products.filter((product) => {
+            if (selectedCategoryId && product.category_id !== selectedCategoryId) {
+                return false;
+            }
 
-    const applyFilters = (search: string, categoryId: string | null) => {
-        let filtered = products;
+            if (!normalizedSearch) {
+                return true;
+            }
 
-        if (categoryId) {
-            filtered = filtered.filter(p => p.category_id === categoryId);
-        }
-
-        if (search) {
-            filtered = filtered.filter(p => 
-                p.display_name.toLowerCase().includes(search.toLowerCase())
-            );
-        }
-
-        setFilteredProducts(filtered);
-    };
+            return product.display_name.toLowerCase().includes(normalizedSearch);
+        });
+    }, [products, searchText, selectedCategoryId]);
 
     const handleSelectProduct = (product: Products) => {
         setSelectedProduct(product);
@@ -234,7 +246,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                             placeholder="ค้นหา" 
                             prefix={<SearchOutlined style={{ color: orderDetailColors.textSecondary }} />} 
                             value={searchText}
-                            onChange={handleSearch} 
+                            onChange={(event) => setSearchText(event.target.value)} 
                             allowClear
                             style={{...addItemsModalStyles.searchInput, marginBottom: 12}}
                         />
@@ -252,7 +264,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                             <Button 
                                 size="middle"
                                 type={selectedCategoryId === null ? 'primary' : 'default'}
-                                onClick={() => handleCategoryClick(null)}
+                                onClick={() => setSelectedCategoryId(null)}
                                 style={{ 
                                     borderRadius: 20, 
                                     minWidth: 'max-content',
@@ -270,7 +282,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                     key={cat.id}
                                     size="middle"
                                     type={selectedCategoryId === cat.id ? 'primary' : 'default'}
-                                    onClick={() => handleCategoryClick(cat.id)}
+                                    onClick={() => setSelectedCategoryId(cat.id)}
                                     style={{ 
                                         borderRadius: 20,
                                         minWidth: 'max-content',
@@ -281,7 +293,7 @@ export const AddItemsModal: React.FC<AddItemsModalProps> = ({ isOpen, onClose, o
                                         border: selectedCategoryId === cat.id ? 'none' : `1px solid ${orderDetailColors.border}`
                                     }}
                                 >
-                                    {cat.display_name || cat.category_name}
+                                    {cat.display_name}
                                 </Button>
                             ))}
                         </div>

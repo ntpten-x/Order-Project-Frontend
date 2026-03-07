@@ -3,7 +3,6 @@ import { ProductsUnit } from "./productsUnit";
 
 export interface Products {
     id: string;
-    product_name: string;
     display_name: string;
     description: string;
     price: number;

@@ -1,15 +1,14 @@
 export enum DiscountType {
-    Fixed = "Fixed",        // ลดเป็นจำนวนเงินคงที่ (บาท)
-    Percentage = "Percentage" // ลดเป็นเปอร์เซ็นต์ (%)
+    Fixed = "Fixed",
+    Percentage = "Percentage",
 }
 
 export interface Discounts {
-    id: string; // รหัสส่วนลด
-    discount_name: string; // ชื่อส่วนลด (สำหรับระบบ)
-    display_name: string; // ชื่อส่วนลดที่แสดงให้ลูกค้าเห็น
-    description?: string; // รายละเอียดเงื่อนไข
-    discount_amount: number; // มูลค่าส่วนลด (บาท หรือ %)
-    discount_type: DiscountType; // ประเภทส่วนลด
-    is_active: boolean; // สถานะการใช้งาน
-    create_date: string; // วันที่สร้าง
+    id: string;
+    display_name: string;
+    description?: string;
+    discount_amount: number;
+    discount_type: DiscountType;
+    is_active: boolean;
+    create_date: string;
 }

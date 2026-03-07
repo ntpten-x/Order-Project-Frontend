@@ -2,6 +2,12 @@
 import { proxyToBackend } from "../../../../_utils/proxy-to-backend";
 import { getProxyUrl } from "../../../../../../lib/proxy-utils";
 
+export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+    const id = encodeURIComponent(params.id);
+    const url = getProxyUrl("GET", `/pos/payment-accounts/accounts/${id}`);
+    return proxyToBackend(request, { url: url!, method: "GET" });
+}
+
 export async function PUT(request: NextRequest, { params }: { params: { id: string } }) {
     const id = encodeURIComponent(params.id);
     const url = getProxyUrl("PUT", `/pos/payment-accounts/accounts/${id}`);

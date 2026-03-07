@@ -1,4 +1,4 @@
-import {
+﻿import {
     BranchPrintSettings,
     PrintDocumentSetting,
     PrintDocumentType,
@@ -97,44 +97,37 @@ const PRESET_BY_VALUE = Object.fromEntries(
 export const PRINT_DOCUMENT_META: Record<PrintDocumentType, DocumentMeta> = {
     receipt: {
         key: "receipt",
-        label: "ใบเสร็จ",
+        label: "เนเธเน€เธชเธฃเนเธ",
         shortLabel: "Receipt",
-        description: "ลูกค้ารับหลังชำระเงิน ต้องอ่านง่ายและพิมพ์ไว",
+        description: "เธฅเธนเธเธเนเธฒเธฃเธฑเธเธซเธฅเธฑเธเธเธณเธฃเธฐเน€เธเธดเธ เธ•เนเธญเธเธญเนเธฒเธเธเนเธฒเธขเนเธฅเธฐเธเธดเธกเธเนเนเธง",
         recommendedPresets: ["thermal_80mm", "thermal_58mm"],
     },
     order_summary: {
         key: "order_summary",
-        label: "ใบสรุป",
+        label: "เนเธเธชเธฃเธธเธ",
         shortLabel: "Summary",
-        description: "เอกสารสรุปยอดหรือปิดกะสำหรับงานหลังบ้าน",
+        description: "เน€เธญเธเธชเธฒเธฃเธชเธฃเธธเธเธขเธญเธ”เธซเธฃเธทเธญเธเธดเธ”เธเธฐเธชเธณเธซเธฃเธฑเธเธเธฒเธเธซเธฅเธฑเธเธเนเธฒเธ",
         recommendedPresets: ["a4_portrait", "a5_portrait"],
     },
     purchase_order: {
         key: "purchase_order",
-        label: "ใบสั่งซื้อ",
+        label: "เนเธเธชเธฑเนเธเธเธทเนเธญ",
         shortLabel: "Purchase",
-        description: "เอกสารสั่งซื้อสำหรับ supplier หรือ stock workflow",
+        description: "เน€เธญเธเธชเธฒเธฃเธชเธฑเนเธเธเธทเนเธญเธชเธณเธซเธฃเธฑเธ supplier เธซเธฃเธทเธญ stock workflow",
         recommendedPresets: ["a4_portrait", "a5_portrait"],
     },
     table_qr: {
         key: "table_qr",
-        label: "QR Code โต๊ะ",
+        label: "QR Code เนเธ•เนเธฐ",
         shortLabel: "Table QR",
-        description: "ป้าย QR สำหรับหน้าร้าน ต้องสแกนง่ายและคมชัด",
+        description: "เธเนเธฒเธข QR เธชเธณเธซเธฃเธฑเธเธซเธเนเธฒเธฃเนเธฒเธ เธ•เนเธญเธเธชเนเธเธเธเนเธฒเธขเนเธฅเธฐเธเธกเธเธฑเธ”",
         recommendedPresets: ["label_4x6", "a5_portrait"],
-    },
-    kitchen_ticket: {
-        key: "kitchen_ticket",
-        label: "ใบส่งครัว",
-        shortLabel: "Kitchen",
-        description: "ใบสั่งผลิต/ส่งครัว เน้นความกระชับและอ่านเร็ว",
-        recommendedPresets: ["thermal_80mm", "thermal_58mm"],
     },
     custom: {
         key: "custom",
-        label: "เอกสารอื่น ๆ",
+        label: "เน€เธญเธเธชเธฒเธฃเธญเธทเนเธ เน",
         shortLabel: "Custom",
-        description: "พื้นที่เผื่อสำหรับ template พิเศษของแต่ละสาขา",
+        description: "เธเธทเนเธเธ—เธตเนเน€เธเธทเนเธญเธชเธณเธซเธฃเธฑเธ template เธเธดเน€เธจเธฉเธเธญเธเนเธ•เนเธฅเธฐเธชเธฒเธเธฒ",
         recommendedPresets: ["custom", "a4_portrait"],
     },
 };
@@ -202,20 +195,6 @@ const DOCUMENT_OVERRIDES: Record<
         show_qr: true,
         show_footer: false,
         show_order_meta: false,
-    },
-    kitchen_ticket: {
-        preset: "thermal_80mm",
-        density: "compact",
-        margin_top: 2,
-        margin_right: 2,
-        margin_bottom: 2,
-        margin_left: 2,
-        font_scale: 96,
-        line_spacing: 1.08,
-        show_logo: false,
-        show_footer: false,
-        show_branch_address: false,
-        cut_paper: true,
     },
     custom: {
         preset: "custom",
@@ -285,14 +264,12 @@ export function createDefaultPrintSettings(): BranchPrintSettings {
             auto_print_order_summary_after_close_shift: false,
             auto_print_purchase_order_after_submit: false,
             auto_print_table_qr_after_rotation: false,
-            auto_print_kitchen_ticket_after_submit: true,
         },
         documents: {
             receipt: createDefaultDocumentSetting("receipt"),
             order_summary: createDefaultDocumentSetting("order_summary"),
             purchase_order: createDefaultDocumentSetting("purchase_order"),
             table_qr: createDefaultDocumentSetting("table_qr"),
-            kitchen_ticket: createDefaultDocumentSetting("kitchen_ticket"),
             custom: createDefaultDocumentSetting("custom"),
         },
     };
@@ -335,7 +312,6 @@ export function mergePrintSettings(
             order_summary: mergeDocument("order_summary"),
             purchase_order: mergeDocument("purchase_order"),
             table_qr: mergeDocument("table_qr"),
-            kitchen_ticket: mergeDocument("kitchen_ticket"),
             custom: mergeDocument("custom"),
         },
     };
@@ -389,3 +365,4 @@ export function countEnabledDocuments(settings: PrintSettingsPayload): number {
 export function countAutomationJobs(settings: PrintSettingsPayload): number {
     return Object.values(settings.automation).filter(Boolean).length;
 }
+

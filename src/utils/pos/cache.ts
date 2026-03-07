@@ -28,3 +28,12 @@ export const writeCache = <T>(key: string, data: T) => {
         // ignore write failures
     }
 };
+
+export const removeCache = (key: string) => {
+    if (!isBrowser()) return;
+    try {
+        window.localStorage.removeItem(key);
+    } catch {
+        // ignore remove failures
+    }
+};

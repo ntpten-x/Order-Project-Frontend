@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { message, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
 import {
     UnorderedListOutlined,
@@ -12,11 +12,9 @@ import {
 import { ProductsUnit } from '../../../../types/api/pos/productsUnit';
 import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
-import { useAsyncAction } from '../../../../hooks/useAsyncAction';
 import { useSocket } from '../../../../hooks/useSocket';
 import { getCsrfTokenCached } from '../../../../utils/pos/csrf';
 import { useRoleGuard } from '../../../../utils/pos/accessControl';
-import { useRealtimeList } from '../../../../utils/pos/realtime';
 import { readCache, writeCache } from '../../../../utils/pos/cache';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import { pageStyles, globalStyles } from '../../../../theme/pos/productsUnit/style';
@@ -26,17 +24,27 @@ import PageSection from '../../../../components/ui/page/PageSection';
 import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
+import PageState from '../../../../components/ui/states/PageState';
 import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
-import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
-import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
-import { SearchInput } from "../../../../components/ui/input/SearchInput";
-import { SearchBar } from "../../../../components/ui/page/SearchBar";
-import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
+import { ModalSelector } from '../../../../components/ui/select/ModalSelector';
+import { StatsGroup } from '../../../../components/ui/card/StatsGroup';
+import { SearchInput } from '../../../../components/ui/input/SearchInput';
+import { SearchBar } from '../../../../components/ui/page/SearchBar';
+import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissions';
 import { useListState } from '../../../../hooks/pos/useListState';
+import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
+import { DEFAULT_CREATED_SORT } from '../../../../lib/list-sort';
 
 const { Text } = Typography;
 
 type StatusFilter = 'all' | 'active' | 'inactive';
+type ProductsUnitCachePayload = {
+    items: ProductsUnit[];
+    total: number;
+};
+
+const PRODUCTS_UNIT_CACHE_KEY = 'pos:products-unit:list:default-v1';
+const PRODUCTS_UNIT_CACHE_TTL_MS = 60 * 1000;
 
 interface UnitCardProps {
     unit: ProductsUnit;
@@ -46,6 +54,7 @@ interface UnitCardProps {
     onDelete: (unit: ProductsUnit) => void;
     onToggleActive: (unit: ProductsUnit, next: boolean) => void;
     updatingStatusId: string | null;
+    deletingId: string | null;
 }
 
 const formatDate = (raw: string | Date) => {
@@ -53,17 +62,27 @@ const formatDate = (raw: string | Date) => {
     if (Number.isNaN(date.getTime())) return '-';
     return new Intl.DateTimeFormat('th-TH', {
         dateStyle: 'medium',
-        timeStyle: 'short'
+        timeStyle: 'short',
     }).format(date);
 };
 
-const UnitCard = ({ unit, canUpdate, canDelete, onEdit, onDelete, onToggleActive, updatingStatusId }: UnitCardProps) => {
+const UnitCard = ({
+    unit,
+    canUpdate,
+    canDelete,
+    onEdit,
+    onDelete,
+    onToggleActive,
+    updatingStatusId,
+    deletingId,
+}: UnitCardProps) => {
     return (
         <div
             className="unit-card"
             style={{
                 ...pageStyles.unitCard(unit.is_active),
                 borderRadius: 16,
+                cursor: canUpdate ? 'pointer' : 'default',
             }}
             onClick={() => {
                 if (!canUpdate) return;
@@ -71,47 +90,40 @@ const UnitCard = ({ unit, canUpdate, canDelete, onEdit, onDelete, onToggleActive
             }}
         >
             <div style={pageStyles.unitCardInner}>
-                <div style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: 14,
-                    background: unit.is_active
-                        ? 'linear-gradient(135deg, #cffafe 0%, #a5f3fc 100%)'
-                        : '#f1f5f9',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                    boxShadow: unit.is_active ? '0 4px 10px rgba(14, 116, 144, 0.18)' : 'none'
-                }}>
-                    <UnorderedListOutlined style={{
-                        fontSize: 22,
-                        color: unit.is_active ? '#0e7490' : '#94a3b8'
-                    }} />
+                <div
+                    style={{
+                        width: 52,
+                        height: 52,
+                        borderRadius: 14,
+                        background: unit.is_active
+                            ? 'linear-gradient(135deg, #cffafe 0%, #a5f3fc 100%)'
+                            : '#f1f5f9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        boxShadow: unit.is_active ? '0 4px 10px rgba(14, 116, 144, 0.18)' : 'none',
+                    }}
+                >
+                    <UnorderedListOutlined
+                        style={{
+                            fontSize: 22,
+                            color: unit.is_active ? '#0e7490' : '#94a3b8',
+                        }}
+                    />
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                        <Text
-                            strong
-                            style={{
-                                fontSize: 16,
-                                color: '#0f172a'
-                            }}
-                            ellipsis={{ tooltip: unit.display_name }}
-                        >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                        <Text strong style={{ fontSize: 16, color: '#0f172a' }} ellipsis={{ tooltip: unit.display_name }}>
                             {unit.display_name}
                         </Text>
-                        <Tag color={unit.is_active ? 'green' : 'default'}>
+                        <Tag color={unit.is_active ? 'green' : 'default'} style={{ borderRadius: 999 }}>
                             {unit.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}
                         </Tag>
                     </div>
-                    <Text
-                        type="secondary"
-                        style={{ fontSize: 13, display: 'block', color: '#334155' }}
-                        ellipsis={{ tooltip: unit.unit_name }}
-                    >
-                        {unit.unit_name}
+                    <Text type="secondary" style={{ fontSize: 13, display: 'block', color: '#334155' }} ellipsis={{ tooltip: unit.display_name }}>
+                        {unit.display_name}
                     </Text>
                     <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
                         อัปเดตล่าสุด {formatDate(unit.update_date)}
@@ -123,9 +135,10 @@ const UnitCard = ({ unit, canUpdate, canDelete, onEdit, onDelete, onToggleActive
                         size="small"
                         checked={unit.is_active}
                         loading={updatingStatusId === unit.id}
-                        disabled={!canUpdate}
+                        disabled={!canUpdate || deletingId === unit.id}
                         onClick={(checked, event) => {
                             event?.stopPropagation();
+                            if (!canUpdate) return;
                             onToggleActive(unit, checked);
                         }}
                     />
@@ -142,7 +155,7 @@ const UnitCard = ({ unit, canUpdate, canDelete, onEdit, onDelete, onToggleActive
                                 color: '#0e7490',
                                 background: '#ecfeff',
                                 width: 36,
-                                height: 36
+                                height: 36,
                             }}
                         />
                     ) : null}
@@ -150,7 +163,8 @@ const UnitCard = ({ unit, canUpdate, canDelete, onEdit, onDelete, onToggleActive
                         <Button
                             type="text"
                             danger
-                            icon={<DeleteOutlined />}
+                            loading={deletingId === unit.id}
+                            icon={deletingId === unit.id ? undefined : <DeleteOutlined />}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onDelete(unit);
@@ -159,7 +173,7 @@ const UnitCard = ({ unit, canUpdate, canDelete, onEdit, onDelete, onToggleActive
                                 borderRadius: 10,
                                 background: '#fef2f2',
                                 width: 36,
-                                height: 36
+                                height: 36,
                             }}
                         />
                     ) : null}
@@ -171,6 +185,16 @@ const UnitCard = ({ unit, canUpdate, canDelete, onEdit, onDelete, onToggleActive
 
 export default function ProductsUnitPage() {
     const router = useRouter();
+    const [units, setUnits] = useState<ProductsUnit[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState<Error | null>(null);
+    const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [hasCachedSnapshot, setHasCachedSnapshot] = useState(false);
+    const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+    const requestRef = useRef<AbortController | null>(null);
+    const cacheHydratedRef = useRef(false);
     const {
         searchText,
         setSearchText,
@@ -185,69 +209,131 @@ export default function ProductsUnitPage() {
         updateFilter,
         total,
         setTotal,
+        getQueryParams,
+        isUrlReady,
     } = useListState<{ status: StatusFilter }>({
         defaultPageSize: 10,
-        defaultFilters: { status: 'all' }
+        defaultFilters: { status: 'all' },
     });
 
-    const [units, setUnits] = useState<ProductsUnit[]>([]);
-    const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
-    const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
     const { isAuthorized, isChecking, user } = useRoleGuard();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canCreateUnits = can("products_unit.page", "create");
-    const canUpdateUnits = can("products_unit.page", "update");
-    const canDeleteUnits = can("products_unit.page", "delete");
+    const canCreateUnits = can('products_unit.page', 'create');
+    const canUpdateUnits = can('products_unit.page', 'update');
+    const canDeleteUnits = can('products_unit.page', 'delete');
+    const isDefaultListView = useMemo(
+        () =>
+            page === 1 &&
+            pageSize === 10 &&
+            createdSort === DEFAULT_CREATED_SORT &&
+            !debouncedSearch.trim() &&
+            filters.status === 'all',
+        [createdSort, debouncedSearch, filters.status, page, pageSize]
+    );
 
     useEffect(() => {
         getCsrfTokenCached();
-        const cached = readCache<ProductsUnit[]>('pos:products-units', 10 * 60 * 1000);
-        if (cached && cached.length > 0) {
-            setUnits(cached);
-        }
     }, []);
 
-    const fetchUnits = useCallback(async () => {
-        execute(async () => {
-            const params = new URLSearchParams();
-            params.set('page', String(page));
-            params.set('limit', String(pageSize));
-            if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
-            if (filters.status !== 'all') params.set('status', filters.status);
-            params.set('sort_created', createdSort);
-            const response = await fetch(`/api/pos/productsUnit?${params.toString()}`);
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลหน่วยสินค้าได้');
-            }
-            const payload = await response.json();
-            const data = Array.isArray(payload?.data) ? payload.data : [];
-            setUnits(data);
-            setTotal(payload?.total || 0);
-        }, 'กำลังโหลดข้อมูลหน่วยสินค้า...');
-    }, [execute, page, pageSize, debouncedSearch, filters.status, createdSort, setTotal]);
+    useEffect(() => {
+        return () => {
+            requestRef.current?.abort();
+        };
+    }, []);
 
     useEffect(() => {
-        if (isAuthorized) {
-            fetchUnits();
+        if (!isUrlReady || !isAuthorized || !isDefaultListView || cacheHydratedRef.current) {
+            return;
         }
-    }, [isAuthorized, fetchUnits]);
 
-    useRealtimeList(
-        socket,
-        { create: RealtimeEvents.productsUnit.create, update: RealtimeEvents.productsUnit.update, delete: RealtimeEvents.productsUnit.delete },
-        setUnits
+        cacheHydratedRef.current = true;
+        const cached = readCache<ProductsUnitCachePayload>(PRODUCTS_UNIT_CACHE_KEY, PRODUCTS_UNIT_CACHE_TTL_MS);
+        if (!cached) return;
+
+        setUnits(cached.items || []);
+        setTotal(cached.total || 0);
+        setHasCachedSnapshot(true);
+        setLoading(false);
+    }, [isAuthorized, isDefaultListView, isUrlReady, setTotal]);
+
+    useEffect(() => {
+        if (!isDefaultListView || loading) return;
+        writeCache<ProductsUnitCachePayload>(PRODUCTS_UNIT_CACHE_KEY, {
+            items: units,
+            total,
+        });
+    }, [isDefaultListView, loading, total, units]);
+
+    const fetchUnits = useCallback(
+        async (options?: { background?: boolean }) => {
+            if (!isAuthorized) return;
+
+            requestRef.current?.abort();
+            const controller = new AbortController();
+            requestRef.current = controller;
+            const background = options?.background === true;
+
+            if (background) {
+                setRefreshing(true);
+            } else {
+                setLoading(true);
+            }
+            setError(null);
+
+            try {
+                const params = getQueryParams();
+                const response = await fetch(`/api/pos/productsUnit?${params.toString()}`, {
+                    cache: 'no-store',
+                    signal: controller.signal,
+                });
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลหน่วยสินค้าได้');
+                }
+
+                const payload = await response.json();
+                if (controller.signal.aborted) return;
+
+                setUnits(payload.data || []);
+                setTotal(payload.total || 0);
+                setLastSyncedAt(new Date().toISOString());
+            } catch (fetchError) {
+                if (controller.signal.aborted) return;
+                setError(fetchError instanceof Error ? fetchError : new Error('ไม่สามารถดึงข้อมูลหน่วยสินค้าได้'));
+            } finally {
+                if (requestRef.current === controller) {
+                    requestRef.current = null;
+                }
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                    setRefreshing(false);
+                }
+            }
+        },
+        [getQueryParams, isAuthorized, setTotal]
     );
 
-    const filteredUnits = useMemo(() => units, [units]);
-
     useEffect(() => {
-        if (units.length > 0) {
-            writeCache('pos:products-units', units);
+        if (isUrlReady && isAuthorized) {
+            void fetchUnits({ background: hasCachedSnapshot });
         }
-    }, [units]);
+    }, [fetchUnits, hasCachedSnapshot, isAuthorized, isUrlReady]);
+
+    useRealtimeRefresh({
+        socket,
+        events: [
+            RealtimeEvents.productsUnit.create,
+            RealtimeEvents.productsUnit.update,
+            RealtimeEvents.productsUnit.delete,
+        ],
+        enabled: isAuthorized && isUrlReady,
+        debounceMs: 250,
+        onRefresh: () => {
+            void fetchUnits({ background: true });
+        },
+    });
 
     const handleAdd = () => {
         if (!canCreateUnits) {
@@ -281,25 +367,43 @@ export default function ProductsUnitPage() {
             centered: true,
             icon: <DeleteOutlined style={{ color: '#EF4444' }} />,
             onOk: async () => {
-                await execute(async () => {
+                setDeletingId(unit.id);
+                try {
                     const csrfToken = await getCsrfTokenCached();
                     const response = await fetch(`/api/pos/productsUnit/delete/${unit.id}`, {
                         method: 'DELETE',
                         headers: {
-                            'X-CSRF-Token': csrfToken
-                        }
+                            'X-CSRF-Token': csrfToken,
+                        },
                     });
                     if (!response.ok) {
-                        throw new Error('ไม่สามารถลบหน่วยสินค้าได้');
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error || errorData.message || 'ไม่สามารถลบหน่วยสินค้าได้');
                     }
-                    await fetchUnits();
+
+                    const shouldMoveToPreviousPage = page > 1 && units.length === 1;
+                    setUnits((prev) => prev.filter((item) => item.id !== unit.id));
+                    setTotal((prev) => Math.max(prev - 1, 0));
+                    if (shouldMoveToPreviousPage) {
+                        setPage(page - 1);
+                    } else {
+                        void fetchUnits({ background: true });
+                    }
                     message.success(`ลบหน่วย "${unit.display_name}" สำเร็จ`);
-                }, 'กำลังลบหน่วยสินค้า...');
+                } catch (deleteError) {
+                    message.error(deleteError instanceof Error ? deleteError.message : 'ไม่สามารถลบหน่วยสินค้าได้');
+                } finally {
+                    setDeletingId(null);
+                }
             },
         });
     };
 
     const handleToggleActive = async (unit: ProductsUnit, next: boolean) => {
+        if (!canUpdateUnits) {
+            message.error('คุณไม่มีสิทธิ์เปลี่ยนสถานะหน่วยสินค้า');
+            return;
+        }
         setUpdatingStatusId(unit.id);
         try {
             const csrfToken = await getCsrfTokenCached();
@@ -307,9 +411,9 @@ export default function ProductsUnitPage() {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken
+                    'X-CSRF-Token': csrfToken,
                 },
-                body: JSON.stringify({ is_active: next })
+                body: JSON.stringify({ is_active: next }),
             });
 
             if (!response.ok) {
@@ -317,17 +421,17 @@ export default function ProductsUnitPage() {
                 throw new Error(errorData.error || errorData.message || 'ไม่สามารถเปลี่ยนสถานะหน่วยสินค้าได้');
             }
 
-            await fetchUnits();
+            const updated = await response.json();
+            setUnits((prev) => prev.map((item) => (item.id === unit.id ? updated : item)));
             message.success(next ? 'เปิดใช้งานหน่วยสินค้าแล้ว' : 'ปิดใช้งานหน่วยสินค้าแล้ว');
-        } catch (error) {
-            console.error(error);
-            message.error(error instanceof Error ? error.message : 'ไม่สามารถเปลี่ยนสถานะหน่วยสินค้าได้');
+        } catch (toggleError) {
+            message.error(toggleError instanceof Error ? toggleError.message : 'ไม่สามารถเปลี่ยนสถานะหน่วยสินค้าได้');
         } finally {
             setUpdatingStatusId(null);
         }
     };
 
-    if (isChecking || permissionLoading) {
+    if (isChecking) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
     }
 
@@ -335,8 +439,12 @@ export default function ProductsUnitPage() {
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
     }
 
-    const activeUnits = units.filter(u => u.is_active);
-    const inactiveUnits = units.filter(u => !u.is_active);
+    if (permissionLoading) {
+        return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
+    }
+
+    const activeUnits = units.filter((unit) => unit.is_active).length;
+    const inactiveUnits = units.filter((unit) => !unit.is_active).length;
 
     return (
         <div className="unit-page" style={pageStyles.container}>
@@ -344,13 +452,18 @@ export default function ProductsUnitPage() {
 
             <UIPageHeader
                 title="หน่วยสินค้า"
+                subtitle="จัดการหน่วยนับของสินค้าให้ใช้งานง่ายและสอดคล้องกับหน้าขายสินค้า"
                 icon={<UnorderedListOutlined />}
                 actions={
                     <Space size={10} wrap>
-                        <Button icon={<ReloadOutlined />} onClick={() => { void fetchUnits(); }} />
-                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} disabled={!canCreateUnits}>
-                            เพิ่มหน่วยสินค้า
+                        <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchUnits({ background: units.length > 0 })}>
+                            รีเฟรช
                         </Button>
+                        {canCreateUnits ? (
+                            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                                เพิ่มหน่วยสินค้า
+                            </Button>
+                        ) : null}
                     </Space>
                 }
             />
@@ -359,90 +472,114 @@ export default function ProductsUnitPage() {
                 <PageStack>
                     <StatsGroup
                         stats={[
-                            { label: 'ทั้งหมด', value: total, color: '#0f172a' },
-                            { label: 'ใช้งาน', value: activeUnits.length, color: '#0e7490' },
-                            { label: 'ปิดใช้งาน', value: inactiveUnits.length, color: '#b91c1c' },
+                            { label: 'ผลลัพธ์ทั้งหมด', value: total, color: '#0f172a', subLabel: 'ตามตัวกรองปัจจุบัน' },
+                            { label: 'ใช้งานในหน้านี้', value: activeUnits, color: '#0e7490', subLabel: 'พร้อมใช้งานใน POS' },
+                            { label: 'ปิดใช้งานในหน้านี้', value: inactiveUnits, color: '#b91c1c', subLabel: 'ซ่อนจากหน้าเลือกสินค้า' },
                         ]}
                     />
 
                     <SearchBar>
                         <SearchInput
-                            placeholder="ค้นหา"
+                            placeholder="ค้นหาชื่อหน่วยหรือชื่อระบบ"
                             value={searchText}
-                            onChange={(val) => {
-                                setSearchText(val);
-                            }}
+                            onChange={setSearchText}
                         />
-                        <Space wrap size={10}>
-                            <ModalSelector<StatusFilter>
-                                title="เลือกสถานะ"
-                                options={[
-                                    { label: `ทั้งหมด`, value: 'all' },
-                                    { label: `ใช้งาน`, value: 'active' },
-                                    { label: `ปิดใช้งาน`, value: 'inactive' }
-                                ]}
-                                value={filters.status}
-                                onChange={(value) => updateFilter('status', value)}
-                                style={{ minWidth: 120 }}
-                            />
-                            <ModalSelector<CreatedSort>
-                                title="เรียงลำดับ"
-                                options={[
-                                    { label: 'เรียงจากเก่าก่อน', value: 'old' },
-                                    { label: 'เรียงจากใหม่ก่อน', value: 'new' },
-                                ]}
-                                value={createdSort}
-                                onChange={(value) => setCreatedSort(value)}
-                                style={{ minWidth: 120 }}
-                            />
+                        <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
+                            <Space wrap size={10}>
+                                <ModalSelector<StatusFilter>
+                                    title="เลือกสถานะ"
+                                    options={[
+                                        { label: 'ทั้งหมด', value: 'all' },
+                                        { label: 'ใช้งาน', value: 'active' },
+                                        { label: 'ปิดใช้งาน', value: 'inactive' },
+                                    ]}
+                                    value={filters.status}
+                                    onChange={(value) => updateFilter('status', value)}
+                                    style={{ minWidth: 120 }}
+                                />
+                                <ModalSelector<CreatedSort>
+                                    title="เรียงลำดับ"
+                                    options={[
+                                        { label: 'เก่าก่อน', value: 'old' },
+                                        { label: 'ใหม่ก่อน', value: 'new' },
+                                    ]}
+                                    value={createdSort}
+                                    onChange={setCreatedSort}
+                                    style={{ minWidth: 120 }}
+                                />
+                            </Space>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                {lastSyncedAt ? `อัปเดตล่าสุด ${formatDate(lastSyncedAt)}` : 'ยังไม่มีข้อมูลล่าสุด'}
+                            </Text>
                         </Space>
                     </SearchBar>
 
                     <PageSection
                         title="รายการหน่วยสินค้า"
-                        extra={<span style={{ fontWeight: 600 }}>{filteredUnits.length} รายการ</span>}
+                        extra={
+                            <Space size={8} wrap>
+                                {refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}
+                                <span style={{ fontWeight: 600 }}>{total} รายการ</span>
+                            </Space>
+                        }
                     >
-                        {filteredUnits.length > 0 ? (
-                            filteredUnits.map((unit) => (
-                                <UnitCard
-                                    key={unit.id}
-                                    unit={unit}
-                                    canUpdate={canUpdateUnits}
-                                    canDelete={canDeleteUnits}
-                                    onEdit={handleEdit}
-                                    onDelete={handleDelete}
-                                    onToggleActive={handleToggleActive}
-                                    updatingStatusId={updatingStatusId}
-                                />
-                            ))
+                        {loading && units.length === 0 ? (
+                            <PageState status="loading" title="กำลังโหลดข้อมูลหน่วยสินค้า..." />
+                        ) : error && units.length === 0 ? (
+                            <PageState
+                                status="error"
+                                title="โหลดข้อมูลหน่วยสินค้าไม่สำเร็จ"
+                                error={error}
+                                onRetry={() => void fetchUnits()}
+                            />
+                        ) : units.length > 0 ? (
+                            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                                {units.map((unit) => (
+                                    <UnitCard
+                                        key={unit.id}
+                                        unit={unit}
+                                        canUpdate={canUpdateUnits}
+                                        canDelete={canDeleteUnits}
+                                        onEdit={handleEdit}
+                                        onDelete={handleDelete}
+                                        onToggleActive={handleToggleActive}
+                                        updatingStatusId={updatingStatusId}
+                                        deletingId={deletingId}
+                                    />
+                                ))}
+
+                                <div style={{ marginTop: 12 }}>
+                                    <ListPagination
+                                        page={page}
+                                        pageSize={pageSize}
+                                        total={total}
+                                        loading={loading || refreshing}
+                                        onPageChange={setPage}
+                                        onPageSizeChange={setPageSize}
+                                        activeColor="#0e7490"
+                                    />
+                                </div>
+                            </Space>
                         ) : (
                             <UIEmptyState
-                                title={
-                                    searchText.trim()
-                                        ? 'ไม่พบหน่วยสินค้าตามคำค้น'
-                                        : 'ยังไม่มีหน่วยสินค้า'
-                                }
+                                title={debouncedSearch.trim() ? 'ไม่พบหน่วยสินค้าตามคำค้น' : 'ยังไม่มีหน่วยสินค้า'}
                                 description={
-                                    searchText.trim()
-                                        ? 'ลองเปลี่ยนคำค้น หรือตัวกรองสถานะ'
-                                        : 'เพิ่มหน่วยสินค้าแรกเพื่อเริ่มใช้งาน'
+                                    debouncedSearch.trim()
+                                        ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ'
+                                        : 'เพิ่มหน่วยสินค้าแรกเพื่อให้ทีมงานเลือกใช้งานได้ถูกต้อง'
+                                }
+                                action={
+                                    canCreateUnits ? (
+                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                                            เพิ่มหน่วยสินค้าแรก
+                                        </Button>
+                                    ) : null
                                 }
                             />
                         )}
-                        <div style={{ marginTop: 12 }}>
-                            <ListPagination
-                                page={page}
-                                pageSize={pageSize}
-                                total={total}
-                                onPageChange={setPage}
-                                onPageSizeChange={setPageSize}
-                                activeColor="#d97706"
-                            />
-                        </div>
                     </PageSection>
                 </PageStack>
             </PageContainer>
-
         </div>
     );
 }

@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { message, Modal, Typography, Tag, Button, Alert, Space, Switch } from 'antd';
 import Image from '../../../../components/ui/image/SmartImage';
 import {
@@ -11,14 +11,11 @@ import {
     DeleteOutlined,
 } from '@ant-design/icons';
 import { Products } from '../../../../types/api/pos/products';
-
 import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
-import { useAsyncAction } from '../../../../hooks/useAsyncAction';
 import { useSocket } from '../../../../hooks/useSocket';
 import { getCsrfTokenCached } from '../../../../utils/pos/csrf';
 import { useRoleGuard } from '../../../../utils/pos/accessControl';
-import { useRealtimeList, useRealtimeRefresh } from '../../../../utils/pos/realtime';
 import { readCache, writeCache } from '../../../../utils/pos/cache';
 import { useListState } from '../../../../hooks/pos/useListState';
 import { pageStyles, globalStyles } from '../../../../theme/pos/products/style';
@@ -33,25 +30,36 @@ import PageSection from '../../../../components/ui/page/PageSection';
 import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
+import PageState from '../../../../components/ui/states/PageState';
 import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
-import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
-import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
-import { SearchInput } from "../../../../components/ui/input/SearchInput";
-import { SearchBar } from "../../../../components/ui/page/SearchBar";
-import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
-import { resolveImageSource } from "../../../../utils/image/source";
+import { ModalSelector } from '../../../../components/ui/select/ModalSelector';
+import { StatsGroup } from '../../../../components/ui/card/StatsGroup';
+import { SearchInput } from '../../../../components/ui/input/SearchInput';
+import { SearchBar } from '../../../../components/ui/page/SearchBar';
+import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissions';
+import { resolveImageSource } from '../../../../utils/image/source';
+import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
+import { DEFAULT_CREATED_SORT } from '../../../../lib/list-sort';
 
 const { Text } = Typography;
 
-
 type StatusFilter = 'all' | 'active' | 'inactive';
-
 type CachedProducts = {
     items: Products[];
     total: number;
-    page: number;
-    last_page: number;
-    active_total?: number;
+    active_total: number | null;
+};
+
+const PRODUCTS_CACHE_KEY = 'pos:products:list:default-v5';
+const PRODUCTS_CACHE_TTL_MS = 60 * 1000;
+
+const formatDate = (raw: string | Date) => {
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return '-';
+    return new Intl.DateTimeFormat('th-TH', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+    }).format(date);
 };
 
 interface ProductCardProps {
@@ -62,23 +70,34 @@ interface ProductCardProps {
     onDelete: (product: Products) => void;
     onToggleActive: (product: Products, next: boolean) => void;
     updatingStatusId: string | null;
+    deletingId: string | null;
 }
 
-const ProductCard = ({ product, canUpdate, canDelete, onEdit, onDelete, onToggleActive, updatingStatusId }: ProductCardProps) => {
-    return (
-        <div
-            className="product-card"
-            style={{
-                ...pageStyles.productCard(product.is_active),
-                borderRadius: 16,
-            }}
-            onClick={() => {
-                if (!canUpdate) return;
-                onEdit(product);
-            }}
-        >
-            <div className="product-card-inner" style={pageStyles.productCardInner}>
-                <div style={{
+const ProductCard = ({
+    product,
+    canUpdate,
+    canDelete,
+    onEdit,
+    onDelete,
+    onToggleActive,
+    updatingStatusId,
+    deletingId,
+}: ProductCardProps) => (
+    <div
+        className="product-card"
+        style={{
+            ...pageStyles.productCard(product.is_active),
+            borderRadius: 16,
+            cursor: canUpdate ? 'pointer' : 'default',
+        }}
+        onClick={() => {
+            if (!canUpdate) return;
+            onEdit(product);
+        }}
+    >
+        <div className="product-card-inner" style={pageStyles.productCardInner}>
+            <div
+                style={{
                     width: 64,
                     height: 64,
                     borderRadius: 14,
@@ -87,111 +106,134 @@ const ProductCard = ({ product, canUpdate, canDelete, onEdit, onDelete, onToggle
                     position: 'relative',
                     background: '#F8FAFC',
                     flexShrink: 0,
-                }}>
-                    {product.img_url ? (
-                        <Image
-                            src={resolveImageSource(product.img_url) || undefined}
-                            alt={product.display_name || product.product_name}
-                            fill
-                            style={{ objectFit: 'cover' }}
-                            sizes="64px"
-                        />
-                    ) : (
-                        <div style={{
+                }}
+            >
+                {product.img_url ? (
+                    <Image
+                        src={resolveImageSource(product.img_url) || undefined}
+                        alt={product.display_name}
+                        fill
+                        style={{ objectFit: 'cover' }}
+                        sizes="64px"
+                    />
+                ) : (
+                    <div
+                        style={{
                             width: '100%',
                             height: '100%',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            background: 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)'
-                        }}>
-                            <ShopOutlined style={{ fontSize: 20, color: '#4F46E5' }} />
-                        </div>
-                    )}
-                </div>
-
-                <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                        <Text strong style={{ fontSize: 16, color: '#0f172a' }} ellipsis={{ tooltip: product.display_name }}>
-                            {product.display_name}
-                        </Text>
-                        <Tag color={product.is_active ? 'green' : 'default'}>
-                            {product.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}
-                        </Tag>
+                            background: 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)',
+                        }}
+                    >
+                        <ShopOutlined style={{ fontSize: 20, color: '#4F46E5' }} />
                     </div>
-                    <Text type="secondary" style={{ display: 'block', marginBottom: 6 }} ellipsis={{ tooltip: product.product_name }}>
-                        {product.product_name}
-                    </Text>
-                    <Space size={6} wrap>
-                        <Tag style={{ margin: 0, border: 'none', background: '#ecfdf5', color: '#047857' }}>
-                            {formatPrice(Number(product.price || 0))}
-                        </Tag>
-                        {Number(product.price_delivery ?? product.price ?? 0) !== Number(product.price ?? 0) ? (
-                            <Tag style={{ margin: 0, border: 'none', background: '#fdf2f8', color: '#be185d' }}>
-                                Delivery {formatPrice(Number(product.price_delivery ?? 0))}
-                            </Tag>
-                        ) : null}
-                        {product.category?.display_name ? (
-                            <Tag style={{ margin: 0, border: 'none', background: '#eff6ff', color: '#1d4ed8' }}>
-                                {product.category.display_name}
-                            </Tag>
-                        ) : null}
-                    </Space>
-                </div>
+                )}
+            </div>
 
-                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <Switch
-                        size="small"
-                        checked={product.is_active}
-                        loading={updatingStatusId === product.id}
-                        disabled={!canUpdate}
-                        onClick={(checked, event) => {
-                            event?.stopPropagation();
-                            onToggleActive(product, checked);
+            <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                    <Text strong style={{ fontSize: 16, color: '#0f172a' }} ellipsis={{ tooltip: product.display_name }}>
+                        {product.display_name}
+                    </Text>
+                    <Tag color={product.is_active ? 'green' : 'default'} style={{ borderRadius: 999 }}>
+                        {product.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}
+                    </Tag>
+                </div>
+                <Text type="secondary" style={{ display: 'block', marginBottom: 6 }} ellipsis={{ tooltip: product.display_name }}>
+                    {product.display_name}
+                </Text>
+                <Space size={6} wrap>
+                    <Tag style={{ margin: 0, border: 'none', background: '#ecfdf5', color: '#047857' }}>
+                        {formatPrice(Number(product.price || 0))}
+                    </Tag>
+                    {Number(product.price_delivery ?? product.price ?? 0) !== Number(product.price ?? 0) ? (
+                        <Tag style={{ margin: 0, border: 'none', background: '#fdf2f8', color: '#be185d' }}>
+                            Delivery {formatPrice(Number(product.price_delivery ?? 0))}
+                        </Tag>
+                    ) : null}
+                    {product.category?.display_name ? (
+                        <Tag style={{ margin: 0, border: 'none', background: '#eff6ff', color: '#1d4ed8' }}>
+                            {product.category.display_name}
+                        </Tag>
+                    ) : null}
+                    {product.unit?.display_name ? (
+                        <Tag style={{ margin: 0, border: 'none', background: '#ecfeff', color: '#0f766e' }}>
+                            {product.unit.display_name}
+                        </Tag>
+                    ) : null}
+                </Space>
+                <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
+                    อัปเดตล่าสุด {formatDate(product.update_date)}
+                </Text>
+            </div>
+
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <Switch
+                    size="small"
+                    checked={product.is_active}
+                    loading={updatingStatusId === product.id}
+                    disabled={!canUpdate || deletingId === product.id}
+                    onClick={(checked, event) => {
+                        event?.stopPropagation();
+                        if (!canUpdate) return;
+                        onToggleActive(product, checked);
+                    }}
+                />
+                {canUpdate ? (
+                    <Button
+                        type="text"
+                        icon={<EditOutlined />}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onEdit(product);
+                        }}
+                        style={{
+                            borderRadius: 10,
+                            color: '#4F46E5',
+                            background: '#EEF2FF',
+                            width: 36,
+                            height: 36,
                         }}
                     />
-                    {canUpdate ? (
-                        <Button
-                            type="text"
-                            icon={<EditOutlined />}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onEdit(product);
-                            }}
-                            style={{
-                                borderRadius: 10,
-                                color: '#4F46E5',
-                                background: '#EEF2FF',
-                                width: 36,
-                                height: 36
-                            }}
-                        />
-                    ) : null}
-                    {canDelete ? (
-                        <Button
-                            type="text"
-                            danger
-                            icon={<DeleteOutlined />}
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                onDelete(product);
-                            }}
-                            style={{
-                                borderRadius: 10,
-                                background: '#fef2f2',
-                                width: 36,
-                                height: 36
-                            }}
-                        />
-                    ) : null}
-                </div>
+                ) : null}
+                {canDelete ? (
+                    <Button
+                        type="text"
+                        danger
+                        loading={deletingId === product.id}
+                        icon={deletingId === product.id ? undefined : <DeleteOutlined />}
+                        onClick={(event) => {
+                            event.stopPropagation();
+                            onDelete(product);
+                        }}
+                        style={{
+                            borderRadius: 10,
+                            background: '#fef2f2',
+                            width: 36,
+                            height: 36,
+                        }}
+                    />
+                ) : null}
             </div>
         </div>
-    );
-};
+    </div>
+);
 
 export default function ProductsPage() {
     const router = useRouter();
+    const [products, setProducts] = useState<Products[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState<Error | null>(null);
+    const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [hasCachedSnapshot, setHasCachedSnapshot] = useState(false);
+    const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
+    const [activeProductsTotal, setActiveProductsTotal] = useState<number | null>(null);
+    const requestRef = useRef<AbortController | null>(null);
+    const cacheHydratedRef = useRef(false);
     const {
         searchText,
         setSearchText,
@@ -206,25 +248,18 @@ export default function ProductsPage() {
         updateFilter,
         total,
         setTotal,
+        isUrlReady,
     } = useListState<{ status: StatusFilter; category_id: string }>({
         defaultPageSize: 10,
-        defaultFilters: { status: 'all', category_id: 'all' }
+        defaultFilters: { status: 'all', category_id: 'all' },
     });
-
-    const [products, setProducts] = useState<Products[]>([]);
-    const [activeProductsTotal, setActiveProductsTotal] = useState<number | null>(null);
-    const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
-
-    const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
     const { isAuthorized, isChecking, user } = useRoleGuard();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-
-    const canCreateProducts = can("products.page", "create");
-    const canUpdateProducts = can("products.page", "update");
-    const canDeleteProducts = can("products.page", "delete");
-
+    const canCreateProducts = can('products.page', 'create');
+    const canUpdateProducts = can('products.page', 'update');
+    const canDeleteProducts = can('products.page', 'delete');
     const {
         data: categories = [],
         isLoading: isLoadingCategories,
@@ -235,6 +270,16 @@ export default function ProductsPage() {
         isLoading: isLoadingUnits,
         refetch: refetchUnits,
     } = useProductsUnit();
+    const isDefaultListView = useMemo(
+        () =>
+            page === 1 &&
+            pageSize === 10 &&
+            createdSort === DEFAULT_CREATED_SORT &&
+            !debouncedSearch.trim() &&
+            filters.status === 'all' &&
+            filters.category_id === 'all',
+        [createdSort, debouncedSearch, filters.category_id, filters.status, page, pageSize]
+    );
 
     const refreshSetupMetadata = useCallback(() => {
         void refetchCategories();
@@ -243,88 +288,152 @@ export default function ProductsPage() {
 
     const setupState = useMemo(() => {
         const baseState = checkProductSetupState(categories, units);
-        if (baseState.isReady) return baseState;
+        if (baseState.isReady) {
+            return baseState;
+        }
 
-        // Fallback: if products already reference category/unit, setup should be treated as ready immediately.
         const hasCategoriesFromProducts = products.some((item) => Boolean(item.category_id));
         const hasUnitsFromProducts = products.some((item) => Boolean(item.unit_id));
-
-        const hasCategories = baseState.hasCategories || hasCategoriesFromProducts;
-        const hasUnits = baseState.hasUnits || hasUnitsFromProducts;
-        const isReady = hasCategories && hasUnits;
-
         return {
-            ...baseState,
-            hasCategories,
-            hasUnits,
-            isReady,
+            hasCategories: baseState.hasCategories || hasCategoriesFromProducts,
+            hasUnits: baseState.hasUnits || hasUnitsFromProducts,
+            isReady: (baseState.hasCategories || hasCategoriesFromProducts) && (baseState.hasUnits || hasUnitsFromProducts),
             missingFields: [
-                !hasCategories && "หมวดหมู่สินค้า",
-                !hasUnits && "หน่วยสินค้า",
+                !(baseState.hasCategories || hasCategoriesFromProducts) && 'หมวดหมู่สินค้า',
+                !(baseState.hasUnits || hasUnitsFromProducts) && 'หน่วยสินค้า',
             ].filter(Boolean) as string[],
         };
-    }, [categories, units, products]);
+    }, [categories, products, units]);
 
     useEffect(() => {
-        getCsrfTokenCached();
+        void getCsrfTokenCached();
     }, []);
 
     useEffect(() => {
-        const cached = readCache<CachedProducts>('pos:products:v4', 10 * 60 * 1000);
-        if (cached?.items && !debouncedSearch && filters.status === 'all' && filters.category_id === 'all' && page === 1) {
-            setProducts(cached.items);
-            setTotal(cached.total || 0);
+        return () => {
+            requestRef.current?.abort();
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!isUrlReady || !isAuthorized || !isDefaultListView || cacheHydratedRef.current) {
+            return;
         }
-    }, [debouncedSearch, filters, page, setTotal]);
 
-    const fetchProducts = useCallback(async () => {
-        execute(async () => {
-            const params = new URLSearchParams();
-            params.set('page', String(page));
-            params.set('limit', String(pageSize));
-            if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
-            if (filters.status === 'active') params.set('is_active', 'true');
-            if (filters.status === 'inactive') params.set('is_active', 'false');
-            if (filters.category_id !== 'all') params.set('category_id', filters.category_id);
-            params.set('sort_created', createdSort);
+        cacheHydratedRef.current = true;
+        const cached = readCache<CachedProducts>(PRODUCTS_CACHE_KEY, PRODUCTS_CACHE_TTL_MS);
+        if (!cached) return;
 
-            const activeCountParams = new URLSearchParams();
-            if (filters.category_id !== 'all') activeCountParams.set('category_id', filters.category_id);
-            const activeCountQuery = activeCountParams.toString();
-            const activeCountUrl = activeCountQuery
-                ? `/api/pos/products/active-count?${activeCountQuery}`
-                : `/api/pos/products/active-count`;
+        setProducts(cached.items || []);
+        setTotal(cached.total || 0);
+        setActiveProductsTotal(cached.active_total ?? null);
+        setHasCachedSnapshot(true);
+        setLoading(false);
+    }, [isAuthorized, isDefaultListView, isUrlReady, setTotal]);
 
-            const [listResponse, activeResponse] = await Promise.all([
-                fetch(`/api/pos/products?${params.toString()}`),
-                fetch(activeCountUrl),
-            ]);
+    useEffect(() => {
+        if (!isDefaultListView || loading) return;
+        writeCache<CachedProducts>(PRODUCTS_CACHE_KEY, {
+            items: products,
+            total,
+            active_total: activeProductsTotal,
+        });
+    }, [activeProductsTotal, isDefaultListView, loading, products, total]);
 
-            if (!listResponse.ok) throw new Error('ไม่สามารถดึงข้อมูลสินค้าได้');
-            if (!activeResponse.ok) throw new Error('ไม่สามารถดึงจำนวนสินค้าได้');
+    const buildListParams = useCallback(() => {
+        const params = new URLSearchParams();
+        params.set('page', String(page));
+        params.set('limit', String(pageSize));
+        params.set('sort_created', createdSort);
+        if (debouncedSearch.trim()) {
+            params.set('q', debouncedSearch.trim());
+        }
+        if (filters.status === 'active') {
+            params.set('is_active', 'true');
+        } else if (filters.status === 'inactive') {
+            params.set('is_active', 'false');
+        }
+        if (filters.category_id !== 'all') {
+            params.set('category_id', filters.category_id);
+        }
+        return params;
+    }, [createdSort, debouncedSearch, filters.category_id, filters.status, page, pageSize]);
 
-            const listData = await listResponse.json();
-            const activeData = await activeResponse.json();
+    const buildActiveCountParams = useCallback(() => {
+        const params = new URLSearchParams();
+        if (filters.category_id !== 'all') {
+            params.set('category_id', filters.category_id);
+        }
+        return params;
+    }, [filters.category_id]);
 
-            const list: Products[] = Array.isArray(listData.data) ? listData.data : [];
-            const newTotal = typeof listData.total === 'number' ? listData.total : 0;
-            const activeTotal = typeof activeData.total === 'number' ? activeData.total : null;
+    const fetchProducts = useCallback(
+        async (options?: { background?: boolean }) => {
+            if (!isAuthorized) return;
 
-            setProducts(list);
-            setTotal(newTotal);
-            setActiveProductsTotal(activeTotal);
+            requestRef.current?.abort();
+            const controller = new AbortController();
+            requestRef.current = controller;
+            const background = options?.background === true;
 
-            if (!debouncedSearch.trim() && filters.status === 'all' && filters.category_id === 'all' && createdSort === 'old' && page === 1) {
-                writeCache('pos:products:v4', {
-                    items: list,
-                    total: newTotal,
-                    page: 1,
-                    last_page: listData.last_page || 1,
-                    active_total: activeTotal ?? undefined,
-                });
+            if (background) {
+                setRefreshing(true);
+            } else {
+                setLoading(true);
             }
-        }, 'กำลังโหลดข้อมูลสินค้า...');
-    }, [execute, page, pageSize, debouncedSearch, filters.status, filters.category_id, createdSort, setTotal]);
+            setError(null);
+
+            try {
+                const listParams = buildListParams();
+                const activeCountParams = buildActiveCountParams();
+                const activeCountQuery = activeCountParams.toString();
+                const activeCountUrl = activeCountQuery
+                    ? `/api/pos/products/active-count?${activeCountQuery}`
+                    : '/api/pos/products/active-count';
+
+                const [listResponse, activeCountResponse] = await Promise.all([
+                    fetch(`/api/pos/products?${listParams.toString()}`, {
+                        cache: 'no-store',
+                        signal: controller.signal,
+                    }),
+                    fetch(activeCountUrl, {
+                        cache: 'no-store',
+                        signal: controller.signal,
+                    }),
+                ]);
+
+                if (!listResponse.ok) {
+                    const errorData = await listResponse.json().catch(() => ({}));
+                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลสินค้าได้');
+                }
+                if (!activeCountResponse.ok) {
+                    const errorData = await activeCountResponse.json().catch(() => ({}));
+                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงจำนวนสินค้าที่ใช้งานอยู่ได้');
+                }
+
+                const listPayload = await listResponse.json();
+                const activePayload = await activeCountResponse.json();
+                if (controller.signal.aborted) return;
+
+                setProducts(listPayload.data || []);
+                setTotal(listPayload.total || 0);
+                setActiveProductsTotal(typeof activePayload.total === 'number' ? activePayload.total : null);
+                setLastSyncedAt(new Date().toISOString());
+            } catch (fetchError) {
+                if (controller.signal.aborted) return;
+                setError(fetchError instanceof Error ? fetchError : new Error('ไม่สามารถดึงข้อมูลสินค้าได้'));
+            } finally {
+                if (requestRef.current === controller) {
+                    requestRef.current = null;
+                }
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                    setRefreshing(false);
+                }
+            }
+        },
+        [buildActiveCountParams, buildListParams, isAuthorized, setTotal]
+    );
 
     useEffect(() => {
         if (!isAuthorized) return;
@@ -332,16 +441,23 @@ export default function ProductsPage() {
     }, [isAuthorized, refreshSetupMetadata]);
 
     useEffect(() => {
-        if (!isAuthorized) return;
-        fetchProducts();
-    }, [isAuthorized, fetchProducts]);
+        if (isUrlReady && isAuthorized) {
+            void fetchProducts({ background: hasCachedSnapshot });
+        }
+    }, [fetchProducts, hasCachedSnapshot, isAuthorized, isUrlReady]);
 
     useRealtimeRefresh({
         socket,
-        events: [RealtimeEvents.products.create, RealtimeEvents.products.update, RealtimeEvents.products.delete],
-        onRefresh: fetchProducts,
-        enabled: isAuthorized,
-        debounceMs: 400,
+        events: [
+            RealtimeEvents.products.create,
+            RealtimeEvents.products.update,
+            RealtimeEvents.products.delete,
+        ],
+        enabled: isAuthorized && isUrlReady,
+        debounceMs: 250,
+        onRefresh: () => {
+            void fetchProducts({ background: true });
+        },
     });
 
     useRealtimeRefresh({
@@ -354,21 +470,21 @@ export default function ProductsPage() {
             RealtimeEvents.productsUnit.update,
             RealtimeEvents.productsUnit.delete,
         ],
-        onRefresh: refreshSetupMetadata,
-        enabled: isAuthorized,
-        debounceMs: 200,
+        enabled: isAuthorized && isUrlReady,
+        debounceMs: 250,
+        onRefresh: () => {
+            refreshSetupMetadata();
+            void fetchProducts({ background: true });
+        },
     });
-
-    useRealtimeList(
-        socket,
-        { create: RealtimeEvents.categories.create, update: RealtimeEvents.categories.update, delete: RealtimeEvents.categories.delete },
-        () => fetchProducts()
-    );
-
 
     const handleAdd = () => {
         if (!canCreateProducts) {
-            message.error('คุณไม่มีสิทธิ์เพิ่มสินค้า');
+            message.warning('คุณไม่มีสิทธิ์เพิ่มสินค้า');
+            return;
+        }
+        if (!setupState.isReady) {
+            message.warning(getSetupMissingMessage(categories, units));
             return;
         }
         showLoading('กำลังเปิดหน้าจัดการสินค้า...');
@@ -377,7 +493,7 @@ export default function ProductsPage() {
 
     const handleEdit = (product: Products) => {
         if (!canUpdateProducts) {
-            message.error('คุณไม่มีสิทธิ์แก้ไขสินค้า');
+            message.warning('คุณไม่มีสิทธิ์แก้ไขสินค้า');
             return;
         }
         showLoading('กำลังเปิดหน้าแก้ไขสินค้า...');
@@ -386,9 +502,10 @@ export default function ProductsPage() {
 
     const handleDelete = (product: Products) => {
         if (!canDeleteProducts) {
-            message.error('คุณไม่มีสิทธิ์ลบสินค้า');
+            message.warning('คุณไม่มีสิทธิ์ลบสินค้า');
             return;
         }
+
         Modal.confirm({
             title: 'ยืนยันการลบสินค้า',
             content: `คุณต้องการลบสินค้า "${product.display_name}" หรือไม่?`,
@@ -398,24 +515,44 @@ export default function ProductsPage() {
             centered: true,
             icon: <DeleteOutlined style={{ color: '#EF4444' }} />,
             onOk: async () => {
-                await execute(async () => {
+                setDeletingId(product.id);
+                try {
                     const csrfToken = await getCsrfTokenCached();
                     const response = await fetch(`/api/pos/products/delete/${product.id}`, {
                         method: 'DELETE',
                         headers: {
-                            'X-CSRF-Token': csrfToken
-                        }
+                            'X-CSRF-Token': csrfToken,
+                        },
                     });
-                    if (!response.ok) throw new Error('ไม่สามารถลบสินค้าได้');
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error || errorData.message || 'ไม่สามารถลบสินค้าได้');
+                    }
+
+                    const shouldMoveToPreviousPage = page > 1 && products.length === 1;
                     setProducts((prev) => prev.filter((item) => item.id !== product.id));
                     setTotal((prev) => Math.max(prev - 1, 0));
+                    if (shouldMoveToPreviousPage) {
+                        setPage(page - 1);
+                    } else {
+                        void fetchProducts({ background: true });
+                    }
                     message.success(`ลบสินค้า "${product.display_name}" สำเร็จ`);
-                }, 'กำลังลบสินค้า...');
+                } catch (deleteError) {
+                    message.error(deleteError instanceof Error ? deleteError.message : 'ไม่สามารถลบสินค้าได้');
+                } finally {
+                    setDeletingId(null);
+                }
             },
         });
     };
 
     const handleToggleActive = async (product: Products, next: boolean) => {
+        if (!canUpdateProducts) {
+            message.warning('คุณไม่มีสิทธิ์เปลี่ยนสถานะสินค้า');
+            return;
+        }
+
         setUpdatingStatusId(product.id);
         try {
             const csrfToken = await getCsrfTokenCached();
@@ -434,11 +571,11 @@ export default function ProductsPage() {
             }
 
             const updated = await response.json();
-            setProducts((prev) => prev.map((item) => item.id === product.id ? updated : item));
+            setProducts((prev) => prev.map((item) => (item.id === product.id ? updated : item)));
+            void fetchProducts({ background: true });
             message.success(next ? 'เปิดใช้งานสินค้าแล้ว' : 'ปิดใช้งานสินค้าแล้ว');
-        } catch (error) {
-            console.error(error);
-            message.error(error instanceof Error ? error.message : 'ไม่สามารถเปลี่ยนสถานะสินค้าได้');
+        } catch (toggleError) {
+            message.error(toggleError instanceof Error ? toggleError.message : 'ไม่สามารถเปลี่ยนสถานะสินค้าได้');
         } finally {
             setUpdatingStatusId(null);
         }
@@ -449,12 +586,12 @@ export default function ProductsPage() {
     }
 
     if (!isAuthorized) {
-        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
     }
 
+    const isMetadataLoading = isLoadingCategories || isLoadingUnits;
     const activeCount = activeProductsTotal ?? products.filter((item) => item.is_active).length;
     const inactiveCount = Math.max((total || products.length) - activeCount, 0);
-    const isMetadataLoading = isLoadingCategories || isLoadingUnits;
 
     if (!isMetadataLoading && !setupState.isReady && products.length === 0) {
         return (
@@ -467,7 +604,9 @@ export default function ProductsPage() {
                     icon={<ShopOutlined />}
                     actions={
                         <Space size={10} wrap>
-                            <Button icon={<ReloadOutlined />} onClick={fetchProducts} />
+                            <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchProducts({ background: false })}>
+                                รีเฟรช
+                            </Button>
                             <Button type="primary" icon={<PlusOutlined />} disabled>
                                 เพิ่มสินค้า
                             </Button>
@@ -483,10 +622,14 @@ export default function ProductsPage() {
                             action={
                                 <Space size={10} wrap>
                                     {!setupState.hasCategories ? (
-                                        <Button type="primary" onClick={() => router.push('/pos/category')}>เพิ่มหมวดหมู่</Button>
+                                        <Button type="primary" onClick={() => router.push('/pos/category')}>
+                                            เพิ่มหมวดหมู่
+                                        </Button>
                                     ) : null}
                                     {!setupState.hasUnits ? (
-                                        <Button type="primary" onClick={() => router.push('/pos/productsUnit')}>เพิ่มหน่วยสินค้า</Button>
+                                        <Button type="primary" onClick={() => router.push('/pos/productsUnit')}>
+                                            เพิ่มหน่วยสินค้า
+                                        </Button>
                                     ) : null}
                                 </Space>
                             }
@@ -503,85 +646,123 @@ export default function ProductsPage() {
 
             <UIPageHeader
                 title="สินค้า"
+                subtitle="จัดการสินค้า ราคา และสถานะการขายให้ทีมงานค้นหาและใช้งานได้ง่ายบนทุกขนาดหน้าจอ"
                 icon={<ShopOutlined />}
                 actions={
-                    <Space size={8} wrap>
-                        <Button icon={<ReloadOutlined />} onClick={fetchProducts} />
-                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} disabled={!setupState.isReady || !canCreateProducts}>
-                            เพิ่มสินค้า
+                    <Space size={10} wrap>
+                        <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchProducts({ background: products.length > 0 })}>
+                            รีเฟรช
                         </Button>
+                        {canCreateProducts ? (
+                            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} disabled={!setupState.isReady}>
+                                เพิ่มสินค้า
+                            </Button>
+                        ) : null}
                     </Space>
                 }
             />
 
             <PageContainer>
                 <PageStack>
-                    {!isMetadataLoading && !setupState.isReady && products.length > 0 ? (
-                        <PageSection title="ต้องตั้งค่าก่อนเพิ่มสินค้า">
+                    {!isMetadataLoading && !setupState.isReady ? (
+                        <PageSection title="ข้อมูลอ้างอิงยังไม่ครบ">
                             <Alert
-                                message="ข้อมูลอ้างอิงยังไม่ครบ"
-                                description={getSetupMissingMessage(categories, units)}
                                 type="warning"
                                 showIcon
+                                message="ยังเพิ่มสินค้าใหม่ไม่ได้"
+                                description={getSetupMissingMessage(categories, units)}
+                                action={
+                                    <Space wrap size={8}>
+                                        {!setupState.hasCategories ? (
+                                            <Button size="small" onClick={() => router.push('/pos/category')}>
+                                                จัดการหมวดหมู่
+                                            </Button>
+                                        ) : null}
+                                        {!setupState.hasUnits ? (
+                                            <Button size="small" onClick={() => router.push('/pos/productsUnit')}>
+                                                จัดการหน่วยสินค้า
+                                            </Button>
+                                        ) : null}
+                                    </Space>
+                                }
                             />
                         </PageSection>
                     ) : null}
 
                     <StatsGroup
                         stats={[
-                            { label: 'ทั้งหมด', value: total || products.length, color: '#0f172a' },
-                            { label: 'ใช้งาน', value: activeCount, color: '#0f766e' },
-                            { label: 'ปิดใช้งาน', value: inactiveCount, color: '#b91c1c' },
+                            { label: 'ผลลัพธ์ทั้งหมด', value: total, color: '#0f172a', subLabel: 'ตามตัวกรองปัจจุบัน' },
+                            { label: 'พร้อมขาย', value: activeCount, color: '#047857', subLabel: 'สินค้าที่เปิดใช้งานอยู่' },
+                            { label: 'ปิดใช้งาน', value: inactiveCount, color: '#b91c1c', subLabel: 'สินค้าที่ซ่อนจากหน้า POS' },
                         ]}
                     />
 
                     <SearchBar>
                         <SearchInput
-                            placeholder="ค้นหา"
+                            placeholder="ค้นหาชื่อสินค้า ชื่อในระบบ หรือรายละเอียด"
                             value={searchText}
-                            onChange={(val) => setSearchText(val)}
+                            onChange={setSearchText}
                         />
-                        <Space wrap size={10}>
-                            <ModalSelector<StatusFilter>
-                                title="เลือกสถานะ"
-                                options={[
-                                    { label: 'ทุกสถานะ', value: 'all' },
-                                    { label: 'ใช้งาน', value: 'active' },
-                                    { label: 'ปิดใช้งาน', value: 'inactive' },
-                                ]}
-                                value={filters.status}
-                                onChange={(value) => updateFilter('status', value)}
-                                style={{ minWidth: 120 }}
-                            />
-                            <ModalSelector<string>
-                                title="เลือกหมวดหมู่"
-                                options={[
-                                    { label: 'ทุกหมวดหมู่', value: 'all' },
-                                    ...categories.map(c => ({ label: c.display_name, value: c.id }))
-                                ]}
-                                value={filters.category_id}
-                                onChange={(value) => updateFilter('category_id', value)}
-                                style={{ minWidth: 120 }}
-                            />
-                            <ModalSelector<CreatedSort>
-                                title="เรียงลำดับ"
-                                options={[
-                                    { label: 'เก่าก่อน', value: 'old' },
-                                    { label: 'ใหม่ก่อน', value: 'new' },
-                                ]}
-                                value={createdSort}
-                                onChange={(value) => setCreatedSort(value)}
-                                style={{ minWidth: 120 }}
-                            />
+                        <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
+                            <Space wrap size={10}>
+                                <ModalSelector<StatusFilter>
+                                    title="เลือกสถานะ"
+                                    options={[
+                                        { label: 'ทั้งหมด', value: 'all' },
+                                        { label: 'ใช้งาน', value: 'active' },
+                                        { label: 'ปิดใช้งาน', value: 'inactive' },
+                                    ]}
+                                    value={filters.status}
+                                    onChange={(value) => updateFilter('status', value)}
+                                    style={{ minWidth: 120 }}
+                                />
+                                <ModalSelector<string>
+                                    title="เลือกหมวดหมู่"
+                                    options={[
+                                        { label: 'ทุกหมวดหมู่', value: 'all' },
+                                        ...categories.map((category) => ({ label: category.display_name, value: category.id })),
+                                    ]}
+                                    value={filters.category_id}
+                                    onChange={(value) => updateFilter('category_id', value)}
+                                    style={{ minWidth: 140 }}
+                                />
+                                <ModalSelector<CreatedSort>
+                                    title="เรียงลำดับ"
+                                    options={[
+                                        { label: 'เก่าก่อน', value: 'old' },
+                                        { label: 'ใหม่ก่อน', value: 'new' },
+                                    ]}
+                                    value={createdSort}
+                                    onChange={setCreatedSort}
+                                    style={{ minWidth: 120 }}
+                                />
+                            </Space>
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                {lastSyncedAt ? `อัปเดตล่าสุด ${formatDate(lastSyncedAt)}` : 'ยังไม่มีข้อมูลล่าสุด'}
+                            </Text>
                         </Space>
                     </SearchBar>
 
                     <PageSection
                         title="รายการสินค้า"
-                        extra={<span style={{ fontWeight: 600 }}>{total} รายการ</span>}
+                        extra={
+                            <Space size={8} wrap>
+                                {refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}
+                                <span style={{ fontWeight: 600 }}>{total} รายการ</span>
+                            </Space>
+                        }
                     >
-                        {products.length > 0 ? (
-                            <>
+                        {loading && products.length === 0 ? (
+                            <PageState status="loading" title="กำลังโหลดข้อมูลสินค้า..." />
+                        ) : error && products.length === 0 ? (
+                            <PageState
+                                status="error"
+                                title="โหลดข้อมูลสินค้าไม่สำเร็จ"
+                                error={error}
+                                onRetry={() => void fetchProducts()}
+                            />
+                        ) : products.length > 0 ? (
+                            <Space direction="vertical" size={16} style={{ width: '100%' }}>
                                 {products.map((product) => (
                                     <ProductCard
                                         key={product.id}
@@ -592,6 +773,7 @@ export default function ProductsPage() {
                                         onDelete={handleDelete}
                                         onToggleActive={handleToggleActive}
                                         updatingStatusId={updatingStatusId}
+                                        deletingId={deletingId}
                                     />
                                 ))}
 
@@ -600,16 +782,28 @@ export default function ProductsPage() {
                                         page={page}
                                         pageSize={pageSize}
                                         total={total}
+                                        loading={loading || refreshing}
                                         onPageChange={setPage}
                                         onPageSizeChange={setPageSize}
-                                        activeColor="#d97706"
+                                        activeColor="#4F46E5"
                                     />
                                 </div>
-                            </>
+                            </Space>
                         ) : (
                             <UIEmptyState
                                 title={debouncedSearch.trim() ? 'ไม่พบสินค้าตามคำค้น' : 'ยังไม่มีสินค้า'}
-                                description={debouncedSearch.trim() ? 'ลองเปลี่ยนคำค้น หรือตัวกรอง' : 'เพิ่มสินค้าแรกเพื่อเริ่มใช้งาน'}
+                                description={
+                                    debouncedSearch.trim()
+                                        ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรอง แล้วค้นหาอีกครั้ง'
+                                        : 'เพิ่มสินค้าแรกเพื่อเริ่มใช้งานการขายในหน้า POS'
+                                }
+                                action={
+                                    canCreateProducts && setupState.isReady ? (
+                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                                            เพิ่มสินค้าแรก
+                                        </Button>
+                                    ) : null
+                                }
                             />
                         )}
                     </PageSection>

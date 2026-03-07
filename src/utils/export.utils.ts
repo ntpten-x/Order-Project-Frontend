@@ -43,7 +43,7 @@ export interface SalesSummaryExport {
 }
 
 export interface TopItemExport {
-  product_name: string;
+  display_name: string;
   total_quantity: number;
   total_revenue: number;
 }
@@ -252,7 +252,7 @@ export const exportSalesReportPDF = async (
       (item, index) => `
         <tr>
           <td class="text-center">${index + 1}</td>
-          <td>${escapeHtml(item.product_name || "-")}</td>
+          <td>${escapeHtml(item.display_name || "-")}</td>
           <td class="text-right">${Number(item.total_quantity || 0).toLocaleString()}</td>
           <td class="text-right">${escapeHtml(formatMoney(Number(item.total_revenue || 0)))}</td>
         </tr>
@@ -584,7 +584,7 @@ export const exportSalesReportExcel = (
   const topItemHeader = ["อันดับ", "สินค้า", "จำนวนขาย", "ยอดขายรวม"];
   const topItemRows = payload.top_items.map((item, index) => [
     index + 1,
-    item.product_name,
+    item.display_name,
     Number(item.total_quantity || 0),
     Number(item.total_revenue || 0),
   ]);

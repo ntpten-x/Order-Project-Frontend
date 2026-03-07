@@ -6,7 +6,6 @@ import { useNetwork } from '../../hooks/useNetwork';
 import { offlineQueueService, offlineQueuePolicy } from '../../services/pos/offline.queue.service';
 import { ordersService } from '../../services/pos/orders.service';
 import { paymentsService } from '../../services/pos/payments.service';
-import { orderQueueService } from '../../services/pos/orderQueue.service';
 import { authService } from '../../services/auth.service';
 import { SalesOrder } from '../../types/api/pos/salesOrder';
 import { DisconnectOutlined } from '@ant-design/icons';
@@ -56,9 +55,6 @@ export const SyncManager: React.FC = () => {
                     } else if (action.type === 'PAYMENT') {
                         const { orderId, paymentData } = action.payload;
                         await paymentsService.create({ ...paymentData, order_id: orderId }, undefined, csrfToken);
-                    } else if (action.type === 'UPDATE_QUEUE_STATUS') {
-                        const { queueId, status } = action.payload;
-                        await orderQueueService.updateStatus(queueId, { status }, undefined);
                     }
 
                     offlineQueueService.removeFromQueue(action.id);

@@ -160,7 +160,7 @@ export default function POSPageLayout({
 
   const handleAddToCart = useCallback((product: Products) => {
     const cartItemId = addToCart(product);
-    const productName = product.display_name || product.product_name || "สินค้า";
+    const productName = product.display_name || "สินค้า";
     message.open({
       type: "success",
       content: (
@@ -424,7 +424,6 @@ export default function POSPageLayout({
     </>
   );
 }
-
 
 
 

@@ -30,7 +30,7 @@ import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingCo
 import { useAuth } from "../../../../../../contexts/AuthContext";
 import { useSocket } from "../../../../../../hooks/useSocket";
 import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
-import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
+import { matchesRealtimeEntityPayload, useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
 import { ORDER_REALTIME_EVENTS } from "../../../../../../utils/pos/orderRealtimeEvents";
 import { resolveImageSource } from "../../../../../../utils/image/source";
 import SmartAvatar from "../../../../../../components/ui/image/SmartAvatar";
@@ -122,11 +122,14 @@ export default function POSDeliverySummaryPage() {
         events: ORDER_REALTIME_EVENTS,
         onRefresh: () => {
             if (deliveryId) {
-                fetchInitialData();
+                void fetchInitialData();
             }
         },
         intervalMs: isConnected ? undefined : 15000,
         enabled: Boolean(deliveryId),
+        debounceMs: 250,
+        shouldRefresh: (payload) =>
+            matchesRealtimeEntityPayload(payload as Parameters<typeof matchesRealtimeEntityPayload>[0], deliveryId as string | undefined),
     });
 
     const { subtotal, discount, vat, total } = calculatePaymentTotals(order, Number(order?.total_amount || 0));
@@ -211,14 +214,6 @@ export default function POSDeliverySummaryPage() {
                     showLoading("กำลังดำเนินการ...");
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
-                    
-                    const activeItems = order.items?.filter(item => !isCancelledStatus(item.status)) || [];
-                    await Promise.all(
-                        activeItems.map(item => 
-                            ordersService.updateItemStatus(item.id, OrderStatus.Pending, undefined, csrfToken)
-                        )
-                    );
-
                     await ordersService.updateStatus(order.id, OrderStatus.Pending, csrfToken);
 
                     messageApi.success("ย้อนกลับไปแก้ไขออเดอร์เรียบร้อย");
@@ -252,13 +247,6 @@ export default function POSDeliverySummaryPage() {
                     showLoading("กำลังดำเนินการยกเลิก...");
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
-
-                    const activeItems = order.items?.filter(item => !isCancelledStatus(item.status)) || [];
-                    await Promise.all(
-                        activeItems.map(item => 
-                            ordersService.updateItemStatus(item.id, OrderStatus.Cancelled, undefined, csrfToken)
-                        )
-                    );
 
                     await ordersService.updateStatus(order.id, OrderStatus.Cancelled, csrfToken);
 
