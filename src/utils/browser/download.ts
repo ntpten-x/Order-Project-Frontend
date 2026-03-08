@@ -18,3 +18,13 @@ export function downloadBlob(blob: Blob, filename: string, revokeDelayMs = 1000)
     triggerDownloadFromUrl(objectUrl, filename);
     window.setTimeout(() => URL.revokeObjectURL(objectUrl), revokeDelayMs);
 }
+
+export function openBlobInWindow(targetWindow: Window, blob: Blob, revokeDelayMs = 60_000): void {
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+        targetWindow.location.replace(objectUrl);
+    } catch {
+        targetWindow.location.href = objectUrl;
+    }
+    window.setTimeout(() => URL.revokeObjectURL(objectUrl), revokeDelayMs);
+}

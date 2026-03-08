@@ -1,7 +1,7 @@
 import { zipSync } from "fflate";
 import { loadPdfExport } from "../../lib/dynamic-imports";
 import { PrintDocumentSetting, PrintUnit } from "../../types/api/pos/printSettings";
-import { downloadBlob } from "../browser/download";
+import { downloadBlob, openBlobInWindow } from "../browser/download";
 
 function convertToMm(value: number, unit: PrintUnit): number {
     return unit === "mm" ? value : value * 25.4;
@@ -43,7 +43,9 @@ async function canvasToBlob(canvas: HTMLCanvasElement, type: string): Promise<Bl
 
 export async function createBulkTableQrPdfExporter(setting: PrintDocumentSetting): Promise<{
     addCanvas: (canvas: HTMLCanvasElement) => void;
+    toBlob: () => Blob;
     download: (filename: string) => void;
+    openInWindow: (targetWindow: Window) => void;
 }> {
     const { default: JsPdfCtor } = await loadPdfExport();
     const pageSize = getEffectiveDocumentSize(setting);
@@ -64,9 +66,14 @@ export async function createBulkTableQrPdfExporter(setting: PrintDocumentSetting
             doc.addImage(imageDataUrl, "PNG", 0, 0, pageSize.width, pageSize.height, undefined, "FAST");
             isFirstPage = false;
         },
+        toBlob() {
+            return doc.output("blob");
+        },
         download(filename) {
-            const blob = doc.output("blob");
-            downloadBlob(blob, filename);
+            downloadBlob(doc.output("blob"), filename);
+        },
+        openInWindow(targetWindow) {
+            openBlobInWindow(targetWindow, doc.output("blob"));
         },
     };
 }

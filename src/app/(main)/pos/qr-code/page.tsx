@@ -115,6 +115,7 @@ export default function TableQrCodePage() {
     const [hasCachedSnapshot, setHasCachedSnapshot] = useState(false);
     const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
     const autoPrintWindowRef = useRef<Window | null>(null);
+    const bulkExportWindowRef = useRef<Window | null>(null);
     const requestRef = useRef<AbortController | null>(null);
     const cacheHydratedRef = useRef(false);
     const bulkRenderRequestIdRef = useRef(0);
@@ -208,6 +209,8 @@ export default function TableQrCodePage() {
         requestRef.current?.abort();
         closePrintWindow(autoPrintWindowRef.current);
         autoPrintWindowRef.current = null;
+        closePrintWindow(bulkExportWindowRef.current);
+        bulkExportWindowRef.current = null;
         bulkRenderResolverRef.current?.reject(new Error('Bulk QR export was cancelled'));
         bulkRenderResolverRef.current = null;
     }, []);
@@ -403,6 +406,8 @@ export default function TableQrCodePage() {
 
         setBulkExporting(true);
         setBulkExportProgress({ stage: 'กำลังเตรียมรายการ QR ทั้งหมด', current: 0, total: 0, skipped: 0 });
+        closePrintWindow(bulkExportWindowRef.current);
+        bulkExportWindowRef.current = bulkExportFormat === 'pdf' ? reservePrintWindow('Table QR Export All') : null;
 
         try {
             const [sourceTables, printSettings] = await Promise.all([
@@ -468,7 +473,12 @@ export default function TableQrCodePage() {
                     total: exportEntries.length,
                     skipped: skippedCount,
                 });
-                pdfExporter.download(`${filenameBase}.pdf`);
+                if (bulkExportWindowRef.current) {
+                    pdfExporter.openInWindow(bulkExportWindowRef.current);
+                    bulkExportWindowRef.current = null;
+                } else {
+                    pdfExporter.download(`${filenameBase}.pdf`);
+                }
             } else {
                 setBulkExportProgress({
                     stage: 'กำลังบีบอัด ZIP',
@@ -486,6 +496,8 @@ export default function TableQrCodePage() {
             );
             setIsBulkExportModalOpen(false);
         } catch (bulkExportError) {
+            closePrintWindow(bulkExportWindowRef.current);
+            bulkExportWindowRef.current = null;
             message.error(bulkExportError instanceof Error ? bulkExportError.message : 'ส่งออก QR ทั้งหมดไม่สำเร็จ');
         } finally {
             setBulkExporting(false);
