@@ -1,24 +1,43 @@
-﻿"use client";
+"use client";
 
 import React, { useEffect, useState } from "react";
-import { App, Button, Card, Col, List, Row, Space, Tag, Typography, theme } from "antd";
-import { CheckCircleOutlined, CloudSyncOutlined, DeleteOutlined, DisconnectOutlined, HomeOutlined, ReloadOutlined, WifiOutlined } from "@ant-design/icons";
+import {
+    App,
+    Button,
+    Card,
+    Col,
+    List,
+    Row,
+    Space,
+    Tag,
+    Typography,
+    theme,
+} from "antd";
+import {
+    CheckCircleOutlined,
+    CloudSyncOutlined,
+    DeleteOutlined,
+    DisconnectOutlined,
+    HomeOutlined,
+    ReloadOutlined,
+    WifiOutlined,
+} from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 
 import PageContainer from "../../components/ui/page/PageContainer";
 import UIPageHeader from "../../components/ui/page/PageHeader";
-import { offlineQueueService, type OfflineAction } from "../../services/pos/offline.queue.service";
 import { useNetwork } from "../../hooks/useNetwork";
+import { offlineQueueService, type OfflineAction } from "../../services/pos/offline.queue.service";
 
 const { Title, Text } = Typography;
 
 const ACTION_LABELS: Record<OfflineAction["type"], string> = {
-    CREATE_ORDER: "เธชเธฃเนเธฒเธเธญเธญเน€เธ”เธญเธฃเน",
-    UPDATE_ORDER: "เนเธเนเนเธเธญเธญเน€เธ”เธญเธฃเน",
-    ADD_ITEM: "เน€เธเธดเนเธกเธชเธดเธเธเนเธฒ",
-    UPDATE_ITEM: "เนเธเนเนเธเธชเธดเธเธเนเธฒ",
-    DELETE_ITEM: "เธฅเธเธชเธดเธเธเนเธฒ",
-    PAYMENT: "เธเธฑเธเธ—เธถเธเธเธฒเธฃเธเธณเธฃเธฐเน€เธเธดเธ",
+    CREATE_ORDER: "สร้างออเดอร์",
+    UPDATE_ORDER: "แก้ไขออเดอร์",
+    ADD_ITEM: "เพิ่มสินค้า",
+    UPDATE_ITEM: "แก้ไขสินค้า",
+    DELETE_ITEM: "ลบสินค้า",
+    PAYMENT: "บันทึกการชำระเงิน",
 };
 
 function formatTimestamp(value: number) {
@@ -50,7 +69,7 @@ export default function OfflinePage() {
 
     const handleRefresh = () => {
         if (!isOnline) {
-            message.warning("เธขเธฑเธเนเธกเนเธกเธตเธชเธฑเธเธเธฒเธ“เธญเธดเธเน€เธ—เธญเธฃเนเน€เธเนเธ•");
+            message.warning("ยังไม่มีสัญญาณอินเทอร์เน็ต");
             return;
         }
         router.push("/pos");
@@ -58,14 +77,14 @@ export default function OfflinePage() {
 
     const handleClearQueue = () => {
         offlineQueueService.clearQueue();
-        message.success("เธฅเนเธฒเธเธฃเธฒเธขเธเธฒเธฃเธ—เธตเนเธเนเธฒเธเนเธเน€เธเธฃเธทเนเธญเธเนเธฅเนเธง");
+        message.success("ล้างรายการที่ค้างในเครื่องแล้ว");
     };
 
     return (
         <>
             <UIPageHeader
-                title="เธเธณเธฅเธฑเธเธญเธญเธเนเธฅเธเน"
-                subtitle="เธ•เธฃเธงเธเธชเธญเธเธชเธ–เธฒเธเธฐเน€เธเธฃเธทเธญเธเนเธฒเธขเนเธฅเธฐเธฃเธฒเธขเธเธฒเธฃเธ—เธตเนเธฃเธญเธเธดเธเธเน"
+                title="กำลังออฟไลน์"
+                subtitle="ตรวจสอบสถานะเครือข่ายและรายการที่รอซิงก์"
             />
 
             <PageContainer
@@ -118,21 +137,21 @@ export default function OfflinePage() {
                             <div>
                                 <Space wrap size={8}>
                                     <Tag color={isOnline ? "success" : "warning"}>
-                                        {isOnline ? "เธญเธญเธเนเธฅเธเนเนเธฅเนเธง" : "เธเธณเธฅเธฑเธเธญเธญเธเนเธฅเธเน"}
+                                        {isOnline ? "ออนไลน์แล้ว" : "กำลังออฟไลน์"}
                                     </Tag>
                                     <Tag bordered={false}>
-                                        เธฃเธฒเธขเธเธฒเธฃเธฃเธญเธเธดเธเธเน {stats.total.toLocaleString()} เธฃเธฒเธขเธเธฒเธฃ
+                                        รายการรอซิงก์ {stats.total.toLocaleString()} รายการ
                                     </Tag>
                                 </Space>
                                 <Title level={2} style={{ margin: "10px 0 6px" }}>
                                     {isOnline
-                                        ? "เน€เธเธทเนเธญเธกเธ•เนเธญเธเธฅเธฑเธเธกเธฒเนเธฅเนเธง"
-                                        : "เธฃเธฐเธเธเธเธฐเน€เธเนเธเธฃเธฒเธขเธเธฒเธฃเนเธงเนเนเธเน€เธเธฃเธทเนเธญเธเธเธฑเนเธงเธเธฃเธฒเธง"}
+                                        ? "เชื่อมต่อกลับมาแล้ว"
+                                        : "ระบบจะเก็บรายการไว้ในเครื่องชั่วคราว"}
                                 </Title>
                                 <Text type="secondary">
                                     {isOnline
-                                        ? "เธเธฅเธฑเธเนเธเธซเธเนเธฒ POS เน€เธเธทเนเธญเนเธซเนเธฃเธฐเธเธเธเธดเธเธเนเธฃเธฒเธขเธเธฒเธฃเธ—เธตเนเธเนเธฒเธเธญเธฑเธ•เนเธเธกเธฑเธ•เธด"
-                                        : "เธเธธเธ“เธขเธฑเธเธ”เธนเธชเธ–เธฒเธเธฐเธฃเธฒเธขเธเธฒเธฃเธ—เธตเนเธเนเธฒเธเธญเธขเธนเนเนเธ”เน เนเธฅเธฐเน€เธกเธทเนเธญเน€เธเธทเนเธญเธกเธ•เนเธญเธเธฅเธฑเธเธกเธฒ เธฃเธฐเธเธเธเธฐเธเธดเธเธเนเนเธซเนเธญเธฑเธ•เนเธเธกเธฑเธ•เธด"}
+                                        ? "กลับไปหน้า POS เพื่อให้ระบบซิงก์รายการที่ค้างอัตโนมัติ"
+                                        : "คุณยังดูสถานะรายการที่ค้างอยู่ได้ และเมื่อเชื่อมต่อกลับมา ระบบจะซิงก์ให้อัตโนมัติ"}
                                 </Text>
                             </div>
                         </div>
@@ -145,7 +164,7 @@ export default function OfflinePage() {
                                 onClick={handleRefresh}
                                 style={{ borderRadius: 16, height: 48, paddingInline: 24 }}
                             >
-                                {isOnline ? "เธเธฅเธฑเธเนเธเธซเธเนเธฒ POS" : "เธฅเธญเธเน€เธเธทเนเธญเธกเธ•เนเธญเธญเธตเธเธเธฃเธฑเนเธ"}
+                                {isOnline ? "กลับไปหน้า POS" : "ลองเชื่อมต่ออีกครั้ง"}
                             </Button>
                             <Button
                                 icon={<HomeOutlined />}
@@ -153,7 +172,7 @@ export default function OfflinePage() {
                                 onClick={() => router.push("/")}
                                 style={{ borderRadius: 16, height: 48, paddingInline: 24 }}
                             >
-                                เธเธฅเธฑเธเธซเธเนเธฒเนเธฃเธ
+                                กลับหน้าแรก
                             </Button>
                             {queue.length > 0 ? (
                                 <Button
@@ -163,7 +182,7 @@ export default function OfflinePage() {
                                     onClick={handleClearQueue}
                                     style={{ borderRadius: 16, height: 48, paddingInline: 24 }}
                                 >
-                                    เธฅเนเธฒเธเธเธดเธงเนเธเน€เธเธฃเธทเนเธญเธ
+                                    ล้างคิวในเครื่อง
                                 </Button>
                             ) : null}
                         </Space>
@@ -172,34 +191,34 @@ export default function OfflinePage() {
                     <Row gutter={[16, 16]}>
                         <Col xs={24} md={8}>
                             <InfoCard
-                                title="เธฃเธฒเธขเธเธฒเธฃเธ—เธฑเนเธเธซเธกเธ”"
+                                title="รายการทั้งหมด"
                                 value={stats.total.toLocaleString()}
-                                caption="เน€เธเนเธเธญเธขเธนเนเนเธเน€เธเธฃเธทเนเธญเธ"
+                                caption="เก็บอยู่ในเครื่อง"
                                 icon={<CloudSyncOutlined />}
                                 color="#1d4ed8"
                             />
                         </Col>
                         <Col xs={24} md={8}>
                             <InfoCard
-                                title="เธเธฃเนเธญเธกเธเธดเธเธเน"
+                                title="พร้อมซิงก์"
                                 value={stats.retriable.toLocaleString()}
-                                caption="เธเธฐเธชเนเธเธเธถเนเธเธฃเธฐเธเธเน€เธกเธทเนเธญเธญเธญเธเนเธฅเธเน"
+                                caption="จะส่งขึ้นระบบเมื่อออนไลน์"
                                 icon={<CheckCircleOutlined />}
                                 color="#059669"
                             />
                         </Col>
                         <Col xs={24} md={8}>
                             <InfoCard
-                                title="เธฃเธฒเธขเธเธฒเธฃเธฅเนเธฒเธชเธธเธ”"
+                                title="รายการล่าสุด"
                                 value={stats.latestTimestamp ? formatTimestamp(stats.latestTimestamp) : "-"}
-                                caption="เน€เธงเธฅเธฒเธ—เธตเนเธเธฑเธเธ—เธถเธเธฅเนเธฒเธชเธธเธ”"
+                                caption="เวลาที่บันทึกล่าสุด"
                                 icon={<ReloadOutlined />}
                                 color="#7c3aed"
                             />
                         </Col>
                     </Row>
 
-                    <Card title="เธเธฃเธฐเน€เธ เธ—เธเธญเธเธฃเธฒเธขเธเธฒเธฃเธ—เธตเนเธเนเธฒเธเธญเธขเธนเน" style={{ borderRadius: 24 }}>
+                    <Card title="ประเภทของรายการที่ค้างอยู่" style={{ borderRadius: 24 }}>
                         <Space wrap size={[10, 10]}>
                             {Object.entries(stats.byType)
                                 .filter(([, count]) => count > 0)
@@ -208,11 +227,11 @@ export default function OfflinePage() {
                                         {ACTION_LABELS[type as OfflineAction["type"]]} {count}
                                     </Tag>
                                 ))}
-                            {stats.total === 0 ? <Text type="secondary">เนเธกเนเธกเธตเธฃเธฒเธขเธเธฒเธฃเธเนเธฒเธเนเธเน€เธเธฃเธทเนเธญเธ</Text> : null}
+                            {stats.total === 0 ? <Text type="secondary">ไม่มีรายการค้างในเครื่อง</Text> : null}
                         </Space>
                     </Card>
 
-                    <Card title="เธ•เธฑเธงเธญเธขเนเธฒเธเธฃเธฒเธขเธเธฒเธฃเธ—เธตเนเธฃเธญเธเธดเธเธเน" style={{ borderRadius: 24 }}>
+                    <Card title="ตัวอย่างรายการที่รอซิงก์" style={{ borderRadius: 24 }}>
                         {queuePreview.length > 0 ? (
                             <List
                                 dataSource={queuePreview}
@@ -230,11 +249,11 @@ export default function OfflinePage() {
                                             </div>
                                             {item.lastError ? (
                                                 <Text type="danger" style={{ fontSize: 12 }}>
-                                                    เธฅเนเธฒเธชเธธเธ”: {item.lastError}
+                                                    ล่าสุด: {item.lastError}
                                                 </Text>
                                             ) : (
                                                 <Text type="secondary" style={{ fontSize: 12 }}>
-                                                    เธฃเธญเธเธดเธเธเนเน€เธกเธทเนเธญเน€เธเธฃเธทเธญเธเนเธฒเธขเธเธฅเธฑเธเธกเธฒ
+                                                    รอซิงก์เมื่อเครือข่ายกลับมา
                                                 </Text>
                                             )}
                                         </div>
@@ -242,7 +261,7 @@ export default function OfflinePage() {
                                 )}
                             />
                         ) : (
-                            <Text type="secondary">เธขเธฑเธเนเธกเนเธกเธตเธฃเธฒเธขเธเธฒเธฃเธเนเธฒเธเนเธเน€เธเธฃเธทเนเธญเธ</Text>
+                            <Text type="secondary">ยังไม่มีรายการค้างในเครื่อง</Text>
                         )}
                     </Card>
                 </div>
@@ -289,4 +308,3 @@ function InfoCard({
         </Card>
     );
 }
-

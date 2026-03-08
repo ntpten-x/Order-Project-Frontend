@@ -1020,18 +1020,24 @@ function buildTableQrMarkup(options: {
     qrCodeExpiresAt?: string | null;
     shopProfile?: PrintShopProfile | null;
     settings: BranchPrintSettings;
+    heading?: string;
+    subtitle?: string;
+    qrAltText?: string;
 }): string {
     const { tableName, customerUrl, qrImageDataUrl, settings } = options;
     const setting = settings.documents.table_qr;
     const urlLines = customerUrl.match(/.{1,44}/g) || [customerUrl];
+    const heading = options.heading || `โต๊ะ ${tableName}`;
+    const subtitle = options.subtitle || "สแกนเพื่อเปิดเมนูและสั่งอาหาร";
+    const qrAltText = options.qrAltText || `QR code for table ${tableName}`;
 
     return renderDocumentPages(
         `<div class="stack">
             <section class="qr-shell">
-                <div class="section-title">โต๊ะ ${escapeHtml(tableName)}</div>
-                <div class="muted qr-subtitle">สแกนเพื่อเปิดเมนูและสั่งสั่งอาหาร</div>
+                <div class="section-title">${escapeHtml(heading)}</div>
+                <div class="muted qr-subtitle">${escapeHtml(subtitle)}</div>
                 <div class="qr-frame">
-                    <img src="${escapeHtml(qrImageDataUrl)}" alt="QR code for table ${escapeHtml(tableName)}" />
+                    <img src="${escapeHtml(qrImageDataUrl)}" alt="${escapeHtml(qrAltText)}" />
                 </div>
                 <div class="url-block">
                     ${urlLines.map((line) => `<div class="url-line">${escapeHtml(line)}</div>`).join("")}
@@ -1124,6 +1130,10 @@ export async function printTableQrDocument(options: {
     settings?: BranchPrintSettings | null;
     shopProfile?: PrintShopProfile | null;
     targetWindow?: Window | null;
+    documentTitle?: string;
+    heading?: string;
+    subtitle?: string;
+    qrAltText?: string;
 }): Promise<boolean> {
     const { settings, shopProfile } = await resolvePrintContext({
         settings: options.settings,
@@ -1136,7 +1146,7 @@ export async function printTableQrDocument(options: {
     }
 
     writeAndPrintDocument({
-        title: `Table QR ${options.tableName}`.trim(),
+        title: (options.documentTitle || `Table QR ${options.tableName}`).trim(),
         setting: documentSetting,
         bodyMarkup: buildTableQrMarkup({
             tableName: options.tableName,
@@ -1145,6 +1155,9 @@ export async function printTableQrDocument(options: {
             qrCodeExpiresAt: options.qrCodeExpiresAt,
             settings,
             shopProfile,
+            heading: options.heading,
+            subtitle: options.subtitle,
+            qrAltText: options.qrAltText,
         }),
         targetWindow: options.targetWindow,
     });

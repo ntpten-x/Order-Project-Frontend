@@ -1,16 +1,17 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
     ClockCircleOutlined,
     CopyOutlined,
+    DownloadOutlined,
     LinkOutlined,
     PlusOutlined,
     QrcodeOutlined,
     ReloadOutlined,
     ShoppingOutlined,
 } from "@ant-design/icons";
-import { App, Button, Grid, Modal, Skeleton, Space, Tag, theme, Typography } from "antd";
+import { App, Button, Grid, Modal, Radio, Skeleton, Space, Tag, theme, Typography } from "antd";
 import { useRouter } from "next/navigation";
 
 import { AccessGuardFallback } from "../../../../../components/pos/AccessGuard";
@@ -33,11 +34,27 @@ import { SearchBar } from "../../../../../components/ui/page/SearchBar";
 import { SearchInput } from "../../../../../components/ui/input/SearchInput";
 import { ModalSelector } from "../../../../../components/ui/select/ModalSelector";
 import type { CreatedSort } from "../../../../../components/ui/pagination/ListPagination";
-import { DynamicQRCode } from "../../../../../lib/dynamic-imports";
+import { DynamicQRCode, DynamicQRCodeCanvas } from "../../../../../lib/dynamic-imports";
 import { takeawayQrService, type TakeawayQrInfo } from "../../../../../services/pos/takeawayQr.service";
+import { buildTableQrExportCanvas, downloadCanvasAsPng, saveCanvasAsPdf } from "../../../../../utils/print-settings/tableQrExport";
+import { closePrintWindow, getPrintSettings, printTableQrDocument, reservePrintWindow } from "../../../../../utils/print-settings/runtime";
 import { getTakeawayCustomerLabel } from "../../../../../utils/orders";
 
 const { Text } = Typography;
+const EXPORT_QR_CANVAS_SIZE = 2048;
+const TAKEAWAY_EXPORT_CANVAS_ID = "takeaway-qr-export-canvas";
+const TAKEAWAY_QR_UI = {
+    label: "Takeaway QR",
+    exportLabel: "Export Takeaway QR",
+    copyLinkLabel: "Copy QR Link",
+    openPageLabel: "Open Takeaway Page",
+    missingLinkWarning: "ยังไม่มีลิงก์ลูกค้า",
+    loadError: "ไม่สามารถโหลด Takeaway QR ได้",
+    exportError: "ส่งออก Takeaway QR ไม่สำเร็จ",
+    openPdfSuccess: "เปิดหน้า Takeaway QR PDF แล้ว",
+};
+
+type ExportFormat = "png" | "pdf";
 
 /* ── Theme helpers ── */
 
@@ -120,6 +137,10 @@ function buildCustomerUrl(customerPath?: string | null): string {
     }
 
     return "";
+}
+
+function toSafeFilename(value: string): string {
+    return value.replace(/[^\w\u0E00-\u0E7F-]+/g, "_").replace(/_+/g, "_").replace(/^_+|_+$/g, "").slice(0, 60) || "takeaway";
 }
 
 const STYLES = `
@@ -268,6 +289,9 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
     const { token } = theme.useToken();
     const [isQrModalOpen, setIsQrModalOpen] = useState(false);
     const [isQrLoading, setIsQrLoading] = useState(false);
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [exportFormat, setExportFormat] = useState<ExportFormat>("pdf");
+    const [isExportingQr, setIsExportingQr] = useState(false);
     const [takeawayQr, setTakeawayQr] = useState<TakeawayQrInfo | null>(null);
 
     const {
@@ -295,6 +319,11 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
 
     const handleOpenCreate = () => router.push("/pos/channels/takeaway/buying");
     const customerUrl = buildCustomerUrl(takeawayQr?.customer_path);
+    const takeawayLabel = useMemo(() => takeawayQr?.shop_name?.trim() || "Takeaway", [takeawayQr?.shop_name]);
+    const takeawayQrHeading = useMemo(() => `${takeawayLabel} QR`, [takeawayLabel]);
+    const takeawayQrSubtitle = "Scan to open takeaway order";
+    const takeawayQrAltText = `QR code for takeaway ordering at ${takeawayLabel}`;
+    const takeawayQrDocumentTitle = useMemo(() => `${TAKEAWAY_QR_UI.label} ${takeawayLabel}`, [takeawayLabel]);
 
     const handleOpenQrModal = async () => {
         setIsQrModalOpen(true);
@@ -305,7 +334,7 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
             const info = await takeawayQrService.getInfo();
             setTakeawayQr(info);
         } catch (error) {
-            message.error(error instanceof Error ? error.message : "ไม่สามารถโหลด QR code ได้");
+            message.error(error instanceof Error ? error.message : TAKEAWAY_QR_UI.loadError);
         } finally {
             setIsQrLoading(false);
         }
@@ -333,6 +362,99 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
 
         window.open(customerUrl, "_blank", "noopener,noreferrer");
     };
+
+    const captureCanvasImage = useCallback(async (canvasId: string) => {
+        for (let attempt = 0; attempt < 40; attempt += 1) {
+            const canvas = document.getElementById(canvasId) as HTMLCanvasElement | null;
+            if (canvas) {
+                try {
+                    const dataUrl = canvas.toDataURL("image/png");
+                    if (dataUrl && dataUrl !== "data:,") return dataUrl;
+                } catch {}
+            }
+            await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+        }
+
+        throw new Error("QR image is not ready for export");
+    }, []);
+
+    const buildExportBundle = useCallback(async () => {
+        if (!customerUrl) throw new Error("No takeaway QR link available");
+
+        const printSettings = await getPrintSettings();
+        const setting = printSettings.documents.table_qr;
+        const qrImageDataUrl = await captureCanvasImage(TAKEAWAY_EXPORT_CANVAS_ID);
+        const exportCanvas = await buildTableQrExportCanvas({
+            tableName: takeawayLabel,
+            customerUrl,
+            qrImageDataUrl,
+            qrCodeExpiresAt: takeawayQr?.qr_code_expires_at,
+            setting,
+            heading: takeawayQrHeading,
+            subtitle: takeawayQrSubtitle,
+        });
+
+        return { exportCanvas, printSettings, qrImageDataUrl, setting };
+    }, [captureCanvasImage, customerUrl, takeawayLabel, takeawayQr?.qr_code_expires_at, takeawayQrHeading, takeawayQrSubtitle]);
+
+    const handleOpenExportModal = useCallback(() => {
+        if (!customerUrl) {
+            message.warning(TAKEAWAY_QR_UI.missingLinkWarning);
+            return;
+        }
+
+        setExportFormat("pdf");
+        setIsExportModalOpen(true);
+    }, [customerUrl, message]);
+
+    const handleConfirmExport = useCallback(async () => {
+        if (!customerUrl) {
+            message.warning(TAKEAWAY_QR_UI.missingLinkWarning);
+            return;
+        }
+
+        setIsExportingQr(true);
+        try {
+            const { exportCanvas, printSettings, qrImageDataUrl, setting } = await buildExportBundle();
+            const filenameBase = `takeaway-qr-${toSafeFilename(takeawayLabel)}`;
+
+            if (exportFormat === "png") {
+                downloadCanvasAsPng(exportCanvas, `${filenameBase}.png`);
+                message.success("ดาวน์โหลด PNG สำเร็จ");
+            } else {
+                const targetWindow = reservePrintWindow(takeawayQrDocumentTitle);
+                if (!targetWindow) {
+                    await saveCanvasAsPdf({ canvas: exportCanvas, filename: `${filenameBase}.pdf`, setting });
+                    message.success("ดาวน์โหลด PDF สำเร็จ");
+                } else {
+                    try {
+                        await printTableQrDocument({
+                            tableName: takeawayLabel,
+                            customerUrl,
+                            qrImageDataUrl,
+                            qrCodeExpiresAt: takeawayQr?.qr_code_expires_at,
+                            settings: printSettings,
+                            targetWindow,
+                            documentTitle: takeawayQrDocumentTitle,
+                            heading: takeawayQrHeading,
+                            subtitle: takeawayQrSubtitle,
+                            qrAltText: takeawayQrAltText,
+                        });
+                        message.success(TAKEAWAY_QR_UI.openPdfSuccess);
+                    } catch (error) {
+                        closePrintWindow(targetWindow);
+                        throw error;
+                    }
+                }
+            }
+
+            setIsExportModalOpen(false);
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : TAKEAWAY_QR_UI.exportError);
+        } finally {
+            setIsExportingQr(false);
+        }
+    }, [buildExportBundle, customerUrl, exportFormat, message, takeawayLabel, takeawayQr?.qr_code_expires_at, takeawayQrAltText, takeawayQrDocumentTitle, takeawayQrHeading, takeawayQrSubtitle]);
 
     // Responsive grid columns with minmax(0, 1fr) to prevent overflow
     const gridColumns = isMobile
@@ -381,7 +503,7 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                                         onClick={() => void handleOpenQrModal()}
                                         style={{ borderRadius: 12, fontWeight: 700 }}
                                     >
-                                        Qr code
+                                        {TAKEAWAY_QR_UI.label}
                                     </Button>
                                 <Button
                                     type="primary"
@@ -512,16 +634,19 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                 </PageContainer>
 
                 <Modal
-                    title="Takeaway QR code"
+                    title={TAKEAWAY_QR_UI.label}
                     open={isQrModalOpen}
                     onCancel={() => setIsQrModalOpen(false)}
                     footer={
                         <Space wrap>
+                            <Button icon={<DownloadOutlined />} onClick={() => void handleOpenExportModal()} disabled={!customerUrl}>
+                                {TAKEAWAY_QR_UI.exportLabel}
+                            </Button>
                             <Button icon={<CopyOutlined />} onClick={() => void handleCopyQrLink()} disabled={!customerUrl}>
-                                Copy link
+                                {TAKEAWAY_QR_UI.copyLinkLabel}
                             </Button>
                             <Button icon={<LinkOutlined />} onClick={handleOpenCustomerPage} disabled={!customerUrl}>
-                                Open page
+                                {TAKEAWAY_QR_UI.openPageLabel}
                             </Button>
                         </Space>
                     }
@@ -559,6 +684,42 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                         ) : null}
                     </div>
                 </Modal>
+                <Modal
+                    title={TAKEAWAY_QR_UI.exportLabel}
+                    open={isExportModalOpen}
+                    onCancel={() => setIsExportModalOpen(false)}
+                    onOk={() => {
+                        void handleConfirmExport();
+                    }}
+                    okText="ตกลง"
+                    cancelText="ยกเลิก"
+                    confirmLoading={isExportingQr}
+                    destroyOnClose
+                >
+                    <Space direction="vertical" size={14} style={{ width: "100%" }}>
+                        <Text type="secondary">{takeawayLabel}</Text>
+                        <Radio.Group
+                            value={exportFormat}
+                            onChange={(event) => setExportFormat(event.target.value as ExportFormat)}
+                            style={{ width: "100%" }}
+                        >
+                            <Space direction="vertical" size={10} style={{ width: "100%" }}>
+                                <Radio value="pdf">PDF</Radio>
+                                <Radio value="png">PNG</Radio>
+                            </Space>
+                        </Radio.Group>
+                    </Space>
+                </Modal>
+                {customerUrl ? (
+                    <div style={{ display: "none" }}>
+                        <DynamicQRCodeCanvas
+                            id={TAKEAWAY_EXPORT_CANVAS_ID}
+                            value={customerUrl}
+                            size={EXPORT_QR_CANVAS_SIZE}
+                            marginSize={2}
+                        />
+                    </div>
+                ) : null}
             </div>
         </React.Fragment>
     );

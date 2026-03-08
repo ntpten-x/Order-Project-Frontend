@@ -2,10 +2,9 @@ import { loadPdfExport } from "../../lib/dynamic-imports";
 import { PrintDocumentSetting, PrintUnit } from "../../types/api/pos/printSettings";
 import { downloadBlob, triggerDownloadFromUrl } from "../browser/download";
 
-// High-resolution export density (~609.6 DPI)
 const DEFAULT_PX_PER_MM = 24;
 const QR_FRAME_PADDING_PX = 18;
-const QR_EXPORT_SUBTITLE = "สแกนเพื่อเปิดเมนูและสั่งสั่งอาหาร";
+const QR_EXPORT_SUBTITLE = "Scan to open the menu and place an order";
 
 function convertToMm(value: number, unit: PrintUnit): number {
     return unit === "mm" ? value : value * 25.4;
@@ -24,7 +23,7 @@ function loadImage(src: string): Promise<HTMLImageElement> {
         const image = new Image();
         image.decoding = "async";
         image.onload = () => resolve(image);
-        image.onerror = () => reject(new Error("โหลดภาพ QR ไม่สำเร็จ"));
+        image.onerror = () => reject(new Error("Unable to load QR image"));
         image.src = src;
     });
 }
@@ -58,8 +57,12 @@ export async function buildTableQrExportCanvas(options: {
     qrCodeExpiresAt?: string | null;
     setting: PrintDocumentSetting;
     locale?: string;
+    heading?: string;
+    subtitle?: string;
 }): Promise<HTMLCanvasElement> {
     const { tableName, customerUrl, qrImageDataUrl, setting } = options;
+    const heading = options.heading || `Table ${tableName}`;
+    const subtitle = options.subtitle || QR_EXPORT_SUBTITLE;
     const pageSize = getEffectiveDocumentSize(setting);
     const canvas = document.createElement("canvas");
     canvas.width = toPixels(pageSize.width, setting.unit);
@@ -67,7 +70,7 @@ export async function buildTableQrExportCanvas(options: {
 
     const ctx = canvas.getContext("2d");
     if (!ctx) {
-        throw new Error("ไม่สามารถสร้างเอกสาร QR ได้");
+        throw new Error("Unable to build QR export canvas");
     }
 
     const qrImage = await loadImage(qrImageDataUrl);
@@ -128,15 +131,14 @@ export async function buildTableQrExportCanvas(options: {
 
     ctx.fillStyle = "#0f172a";
     ctx.font = titleFont;
-    ctx.fillText(`โต๊ะ ${tableName}`, centerX, currentY);
+    ctx.fillText(heading, centerX, currentY);
     currentY += titleLineHeight + titleToSubtitleGap;
 
     ctx.fillStyle = "#475569";
     ctx.font = subtitleFont;
-    ctx.fillText(QR_EXPORT_SUBTITLE, centerX, currentY);
+    ctx.fillText(subtitle, centerX, currentY);
     currentY += subtitleLineHeight + subtitleToQrGap;
 
-    // Snap the QR block to whole pixels and disable smoothing for sharp edges.
     const qrX = Math.round(centerX - qrSize / 2);
     const qrY = Math.round(currentY + QR_FRAME_PADDING_PX);
     const qrFrameX = qrX - QR_FRAME_PADDING_PX;
