@@ -85,6 +85,23 @@ const STATUS_THEMES = {
     },
 };
 
+const TAKEAWAY_OPEN_STATUSES = [
+    OrderStatus.Pending,
+    OrderStatus.Cooking,
+    OrderStatus.Served,
+    OrderStatus.WaitingForPayment,
+] as const;
+
+const TAKEAWAY_ACTIVE_STATUSES = [
+    OrderStatus.Pending,
+    OrderStatus.Cooking,
+    OrderStatus.Served,
+] as const;
+
+const TAKEAWAY_VISIBLE_STATUS_SET = new Set<OrderStatus>(TAKEAWAY_OPEN_STATUSES);
+
+type TakeawayListStatusFilter = "active" | "waiting_payment" | "all";
+
 function getOrderTheme(status: OrderStatus) {
     if (status === OrderStatus.WaitingForPayment) return STATUS_THEMES.waitingPayment;
     if (status === OrderStatus.Paid || status === OrderStatus.Completed) return STATUS_THEMES.done;
@@ -300,13 +317,13 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
         createdSort, setCreatedSort, filters, updateFilter, isUrlReady,
     } = useListState({
         defaultPageSize: 10,
-        defaultFilters: { status: "all" as "active" | "waiting_payment" | "all" },
+        defaultFilters: { status: "all" as TakeawayListStatusFilter },
     });
 
     const statusFilter = useMemo(() => {
-        if (filters.status === "active") return [OrderStatus.Pending, OrderStatus.Cooking, OrderStatus.Served].join(",");
+        if (filters.status === "active") return TAKEAWAY_ACTIVE_STATUSES.join(",");
         if (filters.status === "waiting_payment") return OrderStatus.WaitingForPayment;
-        return "";
+        return TAKEAWAY_OPEN_STATUSES.join(",");
     }, [filters.status]);
 
     const { orders, total: apiTotal, isLoading, isFetching, error, refresh } = useChannelOrders({
@@ -316,6 +333,15 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
     });
 
     useEffect(() => { setTotal(apiTotal); }, [apiTotal, setTotal]);
+
+    const visibleOrders = useMemo(
+        () => orders.filter((order) => TAKEAWAY_VISIBLE_STATUS_SET.has(order.status)),
+        [orders]
+    );
+
+    const handleManualRefresh = useCallback(() => {
+        void refresh(false);
+    }, [refresh]);
 
     const handleOpenCreate = () => router.push("/pos/channels/takeaway/buying");
     const customerUrl = buildCustomerUrl(takeawayQr?.customer_path);
@@ -492,7 +518,7 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                             ) : null}
                             <Button
                                 icon={<ReloadOutlined />}
-                                onClick={() => void refresh(false)}
+                                onClick={handleManualRefresh}
                                 loading={isLoading || isFetching}
                                 style={{ borderRadius: 10 }}
                             />
@@ -536,14 +562,14 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                                 />
                                 <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
                                     <Space wrap size={10}>
-                                        <ModalSelector<"active" | "waiting_payment" | "all">
+                                        <ModalSelector<TakeawayListStatusFilter>
                                             title="เลือกสถานะออเดอร์"
                                             options={[
-                                                { label: "ทุกสถานะ", value: "all" },
+                                                { label: "รายการที่ยังเปิดอยู่", value: "all" },
                                                 { label: "กำลังดำเนินการ", value: "active" },
                                                 { label: "รอชำระเงิน", value: "waiting_payment" },
                                             ]}
-                                            value={filters.status as "active" | "waiting_payment" | "all"}
+                                            value={filters.status as TakeawayListStatusFilter}
                                             onChange={(v) => updateFilter("status", v)}
                                             style={{ minWidth: 140 }}
                                         />
@@ -588,14 +614,14 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                                                     </div>
                                                 ))}
                                             </div>
-                                        ) : orders.length === 0 ? (
+                                        ) : visibleOrders.length === 0 ? (
                                             <UIEmptyState
                                                 title={debouncedSearch.trim() ? "ไม่พบออเดอร์ที่ค้นหา" : "ยังไม่มีออเดอร์สั่งกลับบ้าน"}
                                                 description={debouncedSearch.trim() ? "ลองใช้คำค้นหาอื่น หรือเปลี่ยนตัวกรอง" : "เริ่มสร้างออเดอร์ใหม่โดยกดปุ่ม \"เพิ่มออเดอร์\" ด้านบน"}
                                             />
                                         ) : (
                                             <div style={{ display: "grid", gridTemplateColumns: gridColumns, gap: isMobile ? 12 : 16, width: '100%' }}>
-                                                {orders.map((order, i) => (
+                                                {visibleOrders.map((order, i) => (
                                                     <div key={order.id} className="takeaway-card-animate" style={{ animationDelay: `${Math.min(i * 0.04, 0.4)}s`, minWidth: 0 }}>
                                                         <OrderCard
                                                             order={order as SalesOrderSummary}
