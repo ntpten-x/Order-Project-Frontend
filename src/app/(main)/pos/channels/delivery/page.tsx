@@ -7,7 +7,7 @@ import {
     ReloadOutlined,
     RocketOutlined,
 } from "@ant-design/icons";
-import { Button, Flex, Grid, Input, Modal, Select, Skeleton, Space, Tag, message, theme, Typography } from "antd";
+import { Button, Flex, Grid, Input, Modal, Skeleton, Space, Tag, message, theme, Typography } from "antd";
 import { useRouter } from "next/navigation";
 
 import { AccessGuardFallback } from "../../../../../components/pos/AccessGuard";

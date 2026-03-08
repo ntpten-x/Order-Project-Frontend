@@ -45,7 +45,6 @@ import { POSProductCard } from "../../../../components/pos/shared/POSProductCard
 import { POSProductDetailModal } from "../../../../components/pos/shared/POSProductDetailModal";
 import SmartImage from "../../../../components/ui/image/SmartImage";
 import {
-    POSHeaderBadge,
     POSSharedStyles,
     posColors,
     posComponentStyles,

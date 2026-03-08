@@ -32,7 +32,6 @@ import {
   getOrderChannelText,
   groupItemsByCategory,
   getOrderNavigationPath,
-  getTakeawayCustomerLabel,
   isCancelledStatus,
   isPaidOrCompletedStatus,
   isWaitingForPaymentStatus,
