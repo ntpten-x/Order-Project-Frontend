@@ -655,6 +655,7 @@ export default function CustomerTakeawayOrderPage() {
         () => cartItems.reduce((sum, item) => sum + Number(item.product.price || 0) * item.quantity, 0),
         [cartItems],
     );
+    const shouldShowUnavailableState = !isLoading && (accessDenied || !bootstrap);
     const groupedCartItems = React.useMemo(() => groupOrderItems(cartItems), [cartItems]);
     const categorySummary = React.useMemo(() => {
         const categoriesMap: Record<string, number> = {};
@@ -999,7 +1000,7 @@ export default function CustomerTakeawayOrderPage() {
             <style jsx global>{pageStyles}</style>
 
             <div style={posLayoutStyles.container} className="qr-order-page">
-                {!accessDenied ? (
+                {!shouldShowUnavailableState ? (
                     <>
                         <POSHeaderBar
                             title="สั่งกลับบ้าน"
@@ -1037,7 +1038,7 @@ export default function CustomerTakeawayOrderPage() {
                                 กำลังโหลดเมนู...
                             </Text>
                         </div>
-                    ) : accessDenied ? (
+                    ) : shouldShowUnavailableState ? (
                         <div
                             style={{
                                 minHeight: "calc(100vh - 180px)",
@@ -1082,10 +1083,6 @@ export default function CustomerTakeawayOrderPage() {
                                     กรุณาสอบถามพนักงาน
                                 </Text>
                             </Card>
-                        </div>
-                    ) : !bootstrap ? (
-                        <div style={posLayoutStyles.emptyContainer}>
-                            <Empty description="ไม่พบข้อมูล takeaway หรือ QR code หมดอายุแล้ว" />
                         </div>
                     ) : (
                         <div style={{ display: "flex", flexDirection: "column", gap: 20 }} className="qr-main-stack">
@@ -1374,7 +1371,7 @@ export default function CustomerTakeawayOrderPage() {
                     )}
                 </main>
 
-                {!accessDenied ? (
+                {!shouldShowUnavailableState ? (
                     <div className="pos-floating-btn-container">
                         <Badge count={totalItems} size="default" offset={[-5, 5]}>
                             <Button
@@ -1397,7 +1394,7 @@ export default function CustomerTakeawayOrderPage() {
                     </div>
                 ) : null}
 
-                {!accessDenied ? (
+                {!shouldShowUnavailableState ? (
                     <POSCartDrawer
                         rootClassName="qr-mobile-cart-drawer"
                         open={cartVisible}
@@ -1416,7 +1413,7 @@ export default function CustomerTakeawayOrderPage() {
                     />
                 ) : null}
 
-                {!accessDenied && cartVisible ? (
+                {!shouldShowUnavailableState && cartVisible ? (
                     <POSCheckoutDrawer
                         rootClassName="qr-mobile-checkout-drawer"
                         open={checkoutVisible}
