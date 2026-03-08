@@ -23,7 +23,6 @@ export const RECEIPT_TEXT = {
     orderTypeLabel: "ประเภทออเดอร์",
     tableLabel: "โต๊ะ",
     customerLabel: "ลูกค้า",
-    customerPhoneLabel: "เบอร์โทร",
     deliveryCodeLabel: "รหัสเดลิเวอรี่",
     employeeLabel: "พนักงาน",
     itemsLabel: "รายการสินค้า",

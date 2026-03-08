@@ -20,11 +20,10 @@ import {
 import {
     DeleteOutlined,
     EditOutlined,
+    LockOutlined,
     MinusOutlined,
-    PhoneOutlined,
     PlusOutlined,
     QrcodeOutlined,
-    ReloadOutlined,
     ShoppingCartOutlined,
     ShopOutlined,
     UserOutlined,
@@ -52,7 +51,6 @@ import {
     posComponentStyles,
     posLayoutStyles,
 } from "../../../../components/pos/shared/style";
-import { getTakeawayCustomerLabel } from "../../../../utils/orders";
 
 const { Text, Title } = Typography;
 
@@ -92,7 +90,6 @@ type CustomerOrder = {
     status: string;
     order_type: string;
     customer_name?: string | null;
-    customer_phone?: string | null;
     total_amount: number;
     sub_total: number;
     discount_amount: number;
@@ -142,7 +139,6 @@ type NoteEditorState = {
 
 type CustomerIdentity = {
     customer_name: string;
-    customer_phone: string;
 };
 
 function mapMenuToProduct(item: MenuItem, category: MenuCategory): Products {
@@ -191,12 +187,7 @@ function createCartItem(product: Products): CartItem {
 function createEmptyIdentity(): CustomerIdentity {
     return {
         customer_name: "",
-        customer_phone: "",
     };
-}
-
-function normalizePhoneInput(value: string): string {
-    return value.replace(/[^\d+]/g, "").slice(0, 20);
 }
 
 class FetchJsonError extends Error {
@@ -386,7 +377,6 @@ export default function CustomerTakeawayOrderPage() {
 
     const [isLoading, setIsLoading] = React.useState(true);
     const [isSubmitting, setIsSubmitting] = React.useState(false);
-    const [isRefreshingOrder, setIsRefreshingOrder] = React.useState(false);
     const [bootstrap, setBootstrap] = React.useState<BootstrapData | null>(null);
     const [accessDenied, setAccessDenied] = React.useState(false);
 
@@ -434,8 +424,8 @@ export default function CustomerTakeawayOrderPage() {
         [cartItems],
     );
     const hasIdentity = React.useMemo(
-        () => Boolean(identity.customer_name.trim() || identity.customer_phone.trim()),
-        [identity.customer_name, identity.customer_phone],
+        () => Boolean(identity.customer_name.trim()),
+        [identity.customer_name],
     );
 
     const getOrCreateSubmitIdempotencyKey = React.useCallback(() => {
@@ -470,7 +460,6 @@ export default function CustomerTakeawayOrderPage() {
             const parsedIdentity = rawIdentity ? JSON.parse(rawIdentity) : createEmptyIdentity();
             const nextIdentity: CustomerIdentity = {
                 customer_name: String(parsedIdentity?.customer_name || ""),
-                customer_phone: String(parsedIdentity?.customer_phone || ""),
             };
             setIdentity(nextIdentity);
             setIdentityDraft(nextIdentity);
@@ -495,7 +484,7 @@ export default function CustomerTakeawayOrderPage() {
 
     React.useEffect(() => {
         if (!identityStorageKey || typeof window === "undefined") return;
-        if (!identity.customer_name.trim() && !identity.customer_phone.trim()) {
+        if (!identity.customer_name.trim()) {
             window.sessionStorage.removeItem(identityStorageKey);
             return;
         }
@@ -541,13 +530,10 @@ export default function CustomerTakeawayOrderPage() {
     }, [message, token]);
 
     const refreshLastOrder = React.useCallback(
-        async (options?: { silent?: boolean; showError?: boolean }) => {
+        async (options?: { showError?: boolean }) => {
             if (!token || !lastOrderId) return;
 
-            const silent = options?.silent ?? false;
             const showError = options?.showError ?? false;
-
-            if (!silent) setIsRefreshingOrder(true);
 
             try {
                 const data = await fetchJson<LastOrderData>(
@@ -566,8 +552,6 @@ export default function CustomerTakeawayOrderPage() {
                 if (showError) {
                     message.error(error instanceof Error ? error.message : "ไม่สามารถอัปเดตออเดอร์ล่าสุดได้");
                 }
-            } finally {
-                if (!silent) setIsRefreshingOrder(false);
             }
         },
         [lastOrderId, message, token],
@@ -582,7 +566,7 @@ export default function CustomerTakeawayOrderPage() {
             setLastOrder(null);
             return;
         }
-        void refreshLastOrder({ silent: false });
+        void refreshLastOrder();
     }, [accessDenied, lastOrderId, refreshLastOrder]);
 
     React.useEffect(() => {
@@ -590,13 +574,13 @@ export default function CustomerTakeawayOrderPage() {
 
         const interval = window.setInterval(() => {
             if (document.visibilityState === "visible") {
-                void refreshLastOrder({ silent: true });
+                void refreshLastOrder();
             }
         }, 15000);
 
         const handleVisibilityChange = () => {
             if (document.visibilityState === "visible") {
-                void refreshLastOrder({ silent: true });
+                void refreshLastOrder();
             }
         };
 
@@ -701,7 +685,7 @@ export default function CustomerTakeawayOrderPage() {
 
     const ensureIdentity = React.useCallback(() => {
         if (hasIdentity) return true;
-        message.warning("กรุณากรอกชื่อหรือเบอร์โทรก่อนสั่งอาหาร");
+        message.warning("กรุณากรอกชื่อก่อนสั่งอาหาร");
         openIdentityModal();
         return false;
     }, [hasIdentity, message, openIdentityModal]);
@@ -709,11 +693,10 @@ export default function CustomerTakeawayOrderPage() {
     const saveIdentity = React.useCallback(() => {
         const nextIdentity = {
             customer_name: identityDraft.customer_name.trim(),
-            customer_phone: identityDraft.customer_phone.trim(),
         };
 
-        if (!nextIdentity.customer_name && !nextIdentity.customer_phone) {
-            message.error("กรุณากรอกชื่อหรือเบอร์โทรอย่างน้อย 1 อย่าง");
+        if (!nextIdentity.customer_name) {
+            message.error("กรุณากรอกชื่อก่อนเริ่มสั่ง");
             return;
         }
 
@@ -838,7 +821,6 @@ export default function CustomerTakeawayOrderPage() {
         try {
             const payload = {
                 customer_name: identity.customer_name.trim() || undefined,
-                customer_phone: identity.customer_phone.trim() || undefined,
                 items: cartItems.map((entry) => ({
                     product_id: entry.product.id,
                     quantity: entry.quantity,
@@ -1009,11 +991,7 @@ export default function CustomerTakeawayOrderPage() {
     );
 
     const headerSubtitle = <POSHeaderBadge>*{bootstrap?.channel.shop_name || "Takeaway"}</POSHeaderBadge>;
-    const identityLabel = getTakeawayCustomerLabel({
-        customer_name: identity.customer_name,
-        customer_phone: identity.customer_phone,
-        order_no: "",
-    });
+    const identityLabel = identity.customer_name.trim();
 
     return (
         <>
@@ -1060,7 +1038,15 @@ export default function CustomerTakeawayOrderPage() {
                             </Text>
                         </div>
                     ) : accessDenied ? (
-                        <div style={posLayoutStyles.emptyContainer}>
+                        <div
+                            style={{
+                                minHeight: "calc(100vh - 180px)",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                padding: "24px 16px",
+                            }}
+                        >
                             <Card
                                 bordered={false}
                                 style={{
@@ -1073,11 +1059,27 @@ export default function CustomerTakeawayOrderPage() {
                                     boxShadow: "0 24px 80px rgba(15, 23, 42, 0.10)",
                                 }}
                             >
+                                <div
+                                    style={{
+                                        width: 88,
+                                        height: 88,
+                                        margin: "0 auto 20px",
+                                        borderRadius: 28,
+                                        display: "flex",
+                                        alignItems: "center",
+                                        justifyContent: "center",
+                                        background: "linear-gradient(135deg, #fff1f2 0%, #ffedd5 100%)",
+                                        color: "#dc2626",
+                                        boxShadow: "inset 0 0 0 1px rgba(220, 38, 38, 0.08)",
+                                    }}
+                                >
+                                    <LockOutlined style={{ fontSize: 34 }} />
+                                </div>
                                 <Title level={2} style={{ marginBottom: 8, fontSize: 30 }}>
-                                    ไม่สามารถใช้งาน QR นี้ได้
+                                    ไม่อนุญาตให้ใช้งาน
                                 </Title>
                                 <Text style={{ display: "block", fontSize: 16, color: "#64748b", lineHeight: 1.7 }}>
-                                    QR takeaway อาจหมดอายุหรือถูกปิดใช้งานแล้ว
+                                    กรุณาสอบถามพนักงาน
                                 </Text>
                             </Card>
                         </div>
@@ -1086,20 +1088,7 @@ export default function CustomerTakeawayOrderPage() {
                             <Empty description="ไม่พบข้อมูล takeaway หรือ QR code หมดอายุแล้ว" />
                         </div>
                     ) : (
-                        <div style={{ display: "flex", flexDirection: "column", gap: 16 }} className="qr-main-stack">
-                            <Alert
-                                className="qr-alert"
-                                type="info"
-                                showIcon
-                                message="เริ่มสั่งโดยระบุชื่อหรือเบอร์โทร"
-                                description="ทุกครั้งที่ส่งออเดอร์ ระบบจะสร้างออเดอร์ใหม่เหมือนกระดาษสั่งใบใหม่ และล้างชื่อผู้สั่งให้กรอกใหม่รอบถัดไป"
-                                style={{
-                                    borderRadius: 18,
-                                    border: "1px solid #BFDBFE",
-                                    background: "linear-gradient(135deg, #EFF6FF 0%, #F8FAFC 100%)",
-                                }}
-                            />
-
+                        <div style={{ display: "flex", flexDirection: "column", gap: 20 }} className="qr-main-stack">
                             <Card
                                 bordered={false}
                                 style={{
@@ -1128,18 +1117,9 @@ export default function CustomerTakeawayOrderPage() {
                                                 <UserOutlined style={{ fontSize: 18 }} />
                                             </div>
                                             <div>
-                                                <Text style={{ display: "block", fontSize: 12, color: "#64748b", marginBottom: 2 }}>
-                                                    ผู้สั่งปัจจุบัน
-                                                </Text>
                                                 <Title level={4} style={{ margin: 0, color: "#0f172a" }}>
-                                                    {hasIdentity ? identityLabel : "ยังไม่ได้ระบุชื่อหรือเบอร์"}
+                                                    {hasIdentity ? identityLabel : "ยังไม่ได้ระบุชื่อผู้สั่ง"}
                                                 </Title>
-                                                {identity.customer_phone.trim() ? (
-                                                    <Text style={{ display: "block", marginTop: 6, color: "#475569" }}>
-                                                        <PhoneOutlined style={{ marginRight: 6 }} />
-                                                        {identity.customer_phone}
-                                                    </Text>
-                                                ) : null}
                                             </div>
                                         </Space>
                                     </div>
@@ -1224,16 +1204,6 @@ export default function CustomerTakeawayOrderPage() {
                                         top: "auto",
                                         marginTop: 4,
                                     }}
-                                    extra={
-                                        <Button
-                                            icon={<ReloadOutlined />}
-                                            loading={isRefreshingOrder}
-                                            onClick={() => void refreshLastOrder({ showError: true })}
-                                            className="qr-summary-refresh-btn"
-                                        >
-                                            อัปเดต
-                                        </Button>
-                                    }
                                 >
                                     <div
                                         style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 12 }}
@@ -1241,20 +1211,9 @@ export default function CustomerTakeawayOrderPage() {
                                     >
                                         <div>
                                             <Title level={5} style={{ margin: 0, fontSize: 18, fontWeight: 600 }} className="qr-summary-title">
-                                                ออเดอร์ล่าสุด
+                                                สรุปการสั่งซื้อ
                                             </Title>
-                                            <Text type="secondary" className="qr-summary-subtitle">
-                                                #{lastOrder.order_no}
-                                            </Text>
                                         </div>
-                                        <Space wrap size={8}>
-                                            <Tag color="processing" style={{ borderRadius: 999 }}>
-                                                {getTakeawayCustomerLabel(lastOrder)}
-                                            </Tag>
-                                            <Tag color="blue" style={{ borderRadius: 999 }}>
-                                                {lastOrder.status}
-                                            </Tag>
-                                        </Space>
                                     </div>
 
                                     <div style={orderDetailStyles.summaryList} className="summary-list">
@@ -1267,7 +1226,7 @@ export default function CustomerTakeawayOrderPage() {
                                                 color: orderDetailColors.textSecondary,
                                             }}
                                         >
-                                            รายการที่ส่งล่าสุด
+                                            รายการที่สั่งแล้ว
                                         </Text>
 
                                         {purchasedItems.length > 0 ? (
@@ -1336,6 +1295,16 @@ export default function CustomerTakeawayOrderPage() {
                                                                 </Text>
                                                             </div>
 
+                                                            {item.details && item.details.length > 0 && (
+                                                                <div style={{ marginTop: 2, display: "flex", flexDirection: "column", gap: 0 }}>
+                                                                    {item.details.map((d, idx) => (
+                                                                        <Text key={idx} style={{ fontSize: 13, color: "#10B981", lineHeight: 1.4 }}>
+                                                                            + {d.detail_name} (+{formatPrice(Number(d.extra_price))})
+                                                                        </Text>
+                                                                    ))}
+                                                                </div>
+                                                            )}
+
                                                             {item.notes ? (
                                                                 <div
                                                                     style={{
@@ -1352,7 +1321,7 @@ export default function CustomerTakeawayOrderPage() {
                                                 );
                                             })
                                         ) : (
-                                            <Text type="secondary">ยังไม่มีรายการในออเดอร์ล่าสุด</Text>
+                                            <Text type="secondary">ยังไม่มีรายการที่สั่งแล้ว</Text>
                                         )}
                                     </div>
 
@@ -1492,39 +1461,26 @@ export default function CustomerTakeawayOrderPage() {
                     okText="เริ่มสั่ง"
                     cancelText="ยกเลิก"
                     centered
-                    title="ระบุชื่อหรือเบอร์โทรก่อนสั่ง"
+                    title="ระบุชื่อก่อนสั่ง"
                 >
                     <Space direction="vertical" size={14} style={{ width: "100%" }}>
                         <Text type="secondary">
-                            ใช้ชื่อหรือเบอร์โทรเป็นตัวระบุออเดอร์ของคุณก่อนส่งคำสั่งซื้อ
+                            ใช้ช่องนี้กรอกชื่อ เบอร์ หรือข้อความอะไรก็ได้ เพื่อเป็นชื่อกระดาษสั่งของออเดอร์นี้
                         </Text>
                         <Input
                             prefix={<UserOutlined />}
-                            placeholder="ชื่อลูกค้า"
+                            placeholder="ระบุชื่อ เบอร์โทร อื่นๆ"
                             value={identityDraft.customer_name}
                             onChange={(event) =>
                                 setIdentityDraft((prev) => ({ ...prev, customer_name: event.target.value }))
                             }
                             maxLength={120}
                         />
-                        <Input
-                            prefix={<PhoneOutlined />}
-                            placeholder="เบอร์โทรศัพท์"
-                            value={identityDraft.customer_phone}
-                            onChange={(event) =>
-                                setIdentityDraft((prev) => ({
-                                    ...prev,
-                                    customer_phone: normalizePhoneInput(event.target.value),
-                                }))
-                            }
-                            maxLength={20}
-                            inputMode="tel"
-                        />
                         <Alert
                             type="warning"
                             showIcon
-                            message="กรอกอย่างน้อย 1 อย่าง"
-                            description="คุณสามารถกรอกเฉพาะชื่อ หรือเฉพาะเบอร์โทรก็ได้"
+                            message="กรอกอย่างน้อย 1 ค่า"
+                            description="จะกรอกชื่อ เบอร์ หรือข้อความอะไรก็ได้ในช่องนี้"
                         />
                     </Space>
                 </Modal>

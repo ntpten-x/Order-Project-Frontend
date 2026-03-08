@@ -98,7 +98,7 @@ describe("public takeaway-order proxy routes", () => {
                 "x-idempotency-key": "idem-456",
             },
             body: JSON.stringify({
-                customer_phone: "0891234567",
+                customer_name: "0891234567",
                 items: [{ product_id: "p2", quantity: 1 }],
             }),
         });
@@ -121,7 +121,7 @@ describe("public takeaway-order proxy routes", () => {
             method: "POST",
             backendPath: "/public/takeaway-order/t%202/order",
             body: {
-                customer_phone: "0891234567",
+                customer_name: "0891234567",
                 items: [{ product_id: "p2", quantity: 1 }],
             },
             headers: {

@@ -23,7 +23,6 @@ export enum OrderStatus {
 
 export interface SalesOrder {
     customer_name?: string | null;
-    customer_phone?: string | null;
     id: string; // รหัสอ้างอิงหลักของออเดอร์
     order_no: string; // เลขที่ออเดอร์
     order_type: OrderType; // ประเภทของออเดอร์
@@ -51,7 +50,6 @@ export interface SalesOrder {
 
 export interface SalesOrderSummary {
     customer_name?: string | null;
-    customer_phone?: string | null;
     id: string;
     order_no: string;
     order_type: OrderType;

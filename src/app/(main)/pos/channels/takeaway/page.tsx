@@ -655,7 +655,7 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                 >
                     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
                         <Text type="secondary">
-                            ลูกค้าสแกน QR นี้เพื่อเปิดหน้า takeaway order และต้องกรอกชื่อหรือเบอร์โทรก่อนส่งออเดอร์
+                            ลูกค้าสแกน QR นี้เพื่อเปิดหน้า takeaway order และกรอกชื่อ เบอร์ หรือข้อความอะไรก็ได้ในช่องเดียวก่อนส่งออเดอร์
                         </Text>
                         <div
                             style={{

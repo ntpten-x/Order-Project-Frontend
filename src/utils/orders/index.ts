@@ -93,7 +93,6 @@ type OrderLike = {
     delivery?: { delivery_name?: string | null } | null;
     order_no?: string;
     customer_name?: string | null;
-    customer_phone?: string | null;
     items?: OrderItemLike[];
     create_date?: string;
 };
@@ -182,22 +181,10 @@ export const formatCurrency = (amount: number | string): string => {
     return `฿${Number(numAmount).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 };
 
-export const getTakeawayCustomerLabel = (order: Pick<OrderLike, "customer_name" | "customer_phone" | "order_no">): string => {
+export const getTakeawayCustomerLabel = (order: Pick<OrderLike, "customer_name" | "order_no">): string => {
     const customerName = String(order.customer_name ?? "").trim();
-    const customerPhone = String(order.customer_phone ?? "").trim();
-    if (customerName && customerPhone) return `${customerName} (${customerPhone})`;
     if (customerName) return customerName;
-    if (customerPhone) return customerPhone;
     return order.order_no || "ไม่ระบุลูกค้า";
-};
-
-export const getTakeawayCustomerSecondaryLabel = (
-    order: Pick<OrderLike, "customer_name" | "customer_phone">,
-): string | null => {
-    const customerName = String(order.customer_name ?? "").trim();
-    const customerPhone = String(order.customer_phone ?? "").trim();
-    if (customerName && customerPhone) return customerPhone;
-    return null;
 };
 
 export const getOrderReference = (order: OrderLike): string => {
