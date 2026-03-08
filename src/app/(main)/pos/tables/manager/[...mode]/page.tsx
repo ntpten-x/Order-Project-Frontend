@@ -781,7 +781,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                                                             id={qrExportCanvasId}
                                                             value={customerOrderUrl}
                                                             size={EXPORT_QR_CANVAS_SIZE}
-                                                            marginSize={2}
+                                                            marginSize={0}
                                                         />
                                                     </div>
                                                 </Space>

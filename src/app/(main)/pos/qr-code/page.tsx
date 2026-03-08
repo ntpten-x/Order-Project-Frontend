@@ -77,11 +77,11 @@ function TableQrCard({ table, customerUrl, canRotate, rotating, exporting, onOpe
             </Tooltip>
             <Text type="secondary" style={{ fontSize: 12 }}>หมดอายุ: {formatDate(table.qr_code_expires_at)}</Text>
             <Space size={8} wrap>
-                <Button icon={<LinkOutlined />} onClick={() => onOpen(table)} disabled={!hasQrUrl}>เปิดลิงก์</Button>
+                <Button icon={<LinkOutlined />} onClick={() => onOpen(table)} disabled={!hasQrUrl}>ไปที่หน้า</Button>
                 <Button icon={<SyncOutlined spin={rotating} />} loading={rotating} disabled={!canRotate} onClick={() => onRotate(table)}>รีเฟรช QR</Button>
-                <Button icon={<DownloadOutlined />} loading={exporting} disabled={!hasQrUrl} onClick={() => onExport(table)}>ส่งออก</Button>
+                <Button icon={<DownloadOutlined />} loading={exporting} disabled={!hasQrUrl} onClick={() => onExport(table)}>Export</Button>
             </Space>
-            {hasQrUrl ? <div style={{ display: 'none' }}><DynamicQRCodeCanvas id={getCanvasId(table.id)} value={customerUrl} size={EXPORT_QR_CANVAS_SIZE} marginSize={2} /></div> : null} {/* Changed: larger source canvas for higher-resolution export */}
+            {hasQrUrl ? <div style={{ display: 'none' }}><DynamicQRCodeCanvas id={getCanvasId(table.id)} value={customerUrl} size={EXPORT_QR_CANVAS_SIZE} marginSize={0} /></div> : null}
         </article>
     );
 }
@@ -604,7 +604,7 @@ export default function TableQrCodePage() {
             </Modal>
             {bulkRenderTarget ? (
                 <div style={{ display: 'none' }}>
-                    <DynamicQRCodeCanvas id={BULK_EXPORT_CANVAS_ID} value={bulkRenderTarget.customerUrl} size={EXPORT_QR_CANVAS_SIZE} marginSize={2} />
+                    <DynamicQRCodeCanvas id={BULK_EXPORT_CANVAS_ID} value={bulkRenderTarget.customerUrl} size={EXPORT_QR_CANVAS_SIZE} marginSize={0} />
                 </div>
             ) : null}
         </div>

@@ -96,29 +96,32 @@ export async function buildTableQrExportCanvas(options: {
     const qrToUrlGap = Math.round(baseFont * 0.8);
     const urlLines = customerUrl.match(/.{1,44}/g) || [customerUrl];
     const urlBlockHeight = urlLines.length * urlLineHeight;
+
     const qrMaxSize = Math.max(
         1,
         Math.min(
             contentWidth - QR_FRAME_PADDING_PX * 2,
             contentHeight -
-                titleLineHeight -
-                titleToSubtitleGap -
-                subtitleLineHeight -
-                subtitleToQrGap -
-                qrToUrlGap -
-                urlBlockHeight -
-                QR_FRAME_PADDING_PX * 2
+            titleLineHeight -
+            titleToSubtitleGap -
+            subtitleLineHeight -
+            subtitleToQrGap -
+            qrToUrlGap -
+            urlBlockHeight -
+            QR_FRAME_PADDING_PX * 2
         )
     );
     const qrPreferredSize = Math.round(contentWidth * 0.62);
     const qrSize = Math.max(1, Math.min(qrMaxSize, qrPreferredSize));
-    const qrFrameSize = qrSize + QR_FRAME_PADDING_PX * 2;
+
+    const exportPadding = Math.round(qrSize * 0.08); // 8% of QR size for a spacious, modern look
+    const qrFrameSizeEffective = qrSize + exportPadding * 2;
     const contentBlockHeight =
         titleLineHeight +
         titleToSubtitleGap +
         subtitleLineHeight +
         subtitleToQrGap +
-        qrFrameSize +
+        qrFrameSizeEffective +
         qrToUrlGap +
         urlBlockHeight;
 
@@ -139,21 +142,48 @@ export async function buildTableQrExportCanvas(options: {
     ctx.fillText(subtitle, centerX, currentY);
     currentY += subtitleLineHeight + subtitleToQrGap;
 
-    const qrX = Math.round(centerX - qrSize / 2);
-    const qrY = Math.round(currentY + QR_FRAME_PADDING_PX);
-    const qrFrameX = qrX - QR_FRAME_PADDING_PX;
-    const qrFrameY = qrY - QR_FRAME_PADDING_PX;
+    // Calculate centered positions for the frame
+    const qrFrameX = Math.round(centerX - qrFrameSizeEffective / 2);
+    const qrFrameY = Math.round(currentY);
 
+    // Calculate centered positions for the QR image within the frame
+    const qrX = Math.round(qrFrameX + exportPadding);
+    const qrY = Math.round(qrFrameY + exportPadding);
+
+    // Draw Rounded QR Frame (The white box)
+    const borderRadius = Math.round(qrFrameSizeEffective * 0.12);
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(qrFrameX, qrFrameY, qrFrameSize, qrFrameSize);
-    ctx.strokeStyle = "#d1d5db";
-    ctx.lineWidth = 3;
-    ctx.strokeRect(qrFrameX, qrFrameY, qrFrameSize, qrFrameSize);
+    ctx.strokeStyle = "#e2e8f0";
+    ctx.lineWidth = Math.max(2, Math.round(qrFrameSizeEffective * 0.006));
+
+    const x = qrFrameX;
+    const y = qrFrameY;
+    const w = qrFrameSizeEffective;
+    const h = qrFrameSizeEffective;
+    const r = borderRadius;
+
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw the full square QR canvas so the visual quiet zone stays balanced on both sides.
     ctx.save();
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize);
     ctx.restore();
-    currentY += qrFrameSize + qrToUrlGap;
+
+    currentY += qrFrameSizeEffective + qrToUrlGap;
 
     ctx.fillStyle = "#64748b";
     ctx.font = urlFont;

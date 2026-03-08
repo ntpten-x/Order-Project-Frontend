@@ -9,7 +9,7 @@ const { Title, Text } = Typography;
 
 type POSHeaderBarProps = {
   title: React.ReactNode;
-  subtitle: React.ReactNode;
+  subtitle?: React.ReactNode;
   icon: React.ReactNode;
   onBack?: () => void;
   subtitlePosition?: 'below' | 'aside';

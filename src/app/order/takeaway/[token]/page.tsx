@@ -991,7 +991,7 @@ export default function CustomerTakeawayOrderPage() {
         [openNoteModal, removeFromCart, updateQuantity],
     );
 
-    const headerSubtitle = <POSHeaderBadge>*{bootstrap?.channel.shop_name || "Takeaway"}</POSHeaderBadge>;
+
     const identityLabel = identity.customer_name.trim();
 
     return (
@@ -1004,9 +1004,7 @@ export default function CustomerTakeawayOrderPage() {
                     <>
                         <POSHeaderBar
                             title="สั่งกลับบ้าน"
-                            subtitle={headerSubtitle}
                             icon={<QrcodeOutlined style={{ fontSize: 26 }} />}
-                            subtitlePosition="aside"
                         />
 
                         <POSCategoryFilterBar
@@ -1089,44 +1087,72 @@ export default function CustomerTakeawayOrderPage() {
                             <Card
                                 bordered={false}
                                 style={{
-                                    borderRadius: 22,
-                                    boxShadow: "0 16px 40px rgba(15, 23, 42, 0.08)",
+                                    borderRadius: 28,
+                                    boxShadow: "0 20px 50px rgba(15, 23, 42, 0.08)",
                                     background: hasIdentity
-                                        ? "linear-gradient(135deg, #ECFDF5 0%, #F8FAFC 100%)"
-                                        : "linear-gradient(135deg, #FFF7ED 0%, #F8FAFC 100%)",
+                                        ? "linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%)"
+                                        : "linear-gradient(135deg, #fffaf5 0%, #ffffff 100%)",
+                                    border: `1px solid ${hasIdentity ? "#dcfce7" : "#ffedd5"}`,
                                 }}
                             >
-                                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+                                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16, flexWrap: "wrap" }}>
                                     <div style={{ flex: 1, minWidth: 220 }}>
-                                        <Space size={10} align="start">
+                                        <Space size={16} align="center">
                                             <div
                                                 style={{
-                                                    width: 46,
-                                                    height: 46,
-                                                    borderRadius: 16,
+                                                    width: 58,
+                                                    height: 58,
+                                                    borderRadius: 20,
                                                     display: "grid",
                                                     placeItems: "center",
-                                                    background: hasIdentity ? "#D1FAE5" : "#FED7AA",
-                                                    color: hasIdentity ? "#047857" : "#C2410C",
+                                                    background: hasIdentity 
+                                                        ? "linear-gradient(135deg, #d1fae5 0%, #86efac 100%)" 
+                                                        : "linear-gradient(135deg, #ffe7cc 0%, #ffc085 100%)",
+                                                    color: hasIdentity ? "#065f46" : "#9a3412",
                                                     flexShrink: 0,
+                                                    boxShadow: `0 8px 20px ${hasIdentity ? "rgba(16, 185, 129, 0.15)" : "rgba(249, 115, 22, 0.15)"}`,
                                                 }}
                                             >
-                                                <UserOutlined style={{ fontSize: 18 }} />
+                                                <UserOutlined style={{ fontSize: 26 }} />
                                             </div>
-                                            <div>
-                                                <Title level={4} style={{ margin: 0, color: "#0f172a" }}>
-                                                    {hasIdentity ? identityLabel : "ยังไม่ได้ระบุชื่อผู้สั่ง"}
+                                            <div style={{ display: "flex", flexDirection: "column" }}>
+                                                <Title level={4} style={{ margin: 0, color: "#1e293b", fontSize: 20, fontWeight: 700 }}>
+                                                    {hasIdentity ? identityLabel : "ระบุชื่อก่อนสั่งอาหาร"}
                                                 </Title>
                                             </div>
                                         </Space>
                                     </div>
 
-                                    <Space wrap>
-                                        <Button icon={<EditOutlined />} onClick={openIdentityModal} style={{ borderRadius: 12 }}>
-                                            {hasIdentity ? "แก้ไขชื่อผู้สั่ง" : "ระบุชื่อก่อนสั่ง"}
+                                    <Space wrap size={12}>
+                                        <Button 
+                                            icon={<EditOutlined />} 
+                                            onClick={openIdentityModal} 
+                                            style={{ 
+                                                borderRadius: 14,
+                                                height: 44,
+                                                padding: "0 20px",
+                                                fontWeight: 600,
+                                                display: "flex",
+                                                alignItems: "center",
+                                                gap: 8,
+                                                border: "1px solid #e2e8f0",
+                                                boxShadow: "0 2px 4px rgba(0,0,0,0.02)"
+                                            }}
+                                        >
+                                            {hasIdentity ? "แก้ไขชื่อ" : "ระบุชื่อ"}
                                         </Button>
                                         {hasIdentity ? (
-                                            <Button danger ghost onClick={clearIdentity} style={{ borderRadius: 12 }}>
+                                            <Button 
+                                                danger 
+                                                ghost 
+                                                onClick={clearIdentity} 
+                                                style={{ 
+                                                    borderRadius: 14,
+                                                    height: 44,
+                                                    fontWeight: 600,
+                                                    padding: "0 16px"
+                                                }}
+                                            >
                                                 ล้างชื่อ
                                             </Button>
                                         ) : null}
@@ -1461,9 +1487,6 @@ export default function CustomerTakeawayOrderPage() {
                     title="ระบุชื่อก่อนสั่ง"
                 >
                     <Space direction="vertical" size={14} style={{ width: "100%" }}>
-                        <Text type="secondary">
-                            ใช้ช่องนี้กรอกชื่อ เบอร์ หรือข้อความอะไรก็ได้ เพื่อเป็นชื่อกระดาษสั่งของออเดอร์นี้
-                        </Text>
                         <Input
                             prefix={<UserOutlined />}
                             placeholder="ระบุชื่อ เบอร์โทร อื่นๆ"

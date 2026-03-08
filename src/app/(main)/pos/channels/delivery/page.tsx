@@ -333,6 +333,32 @@ function DeliveryContent({ canCreateOrder }: { canCreateOrder: boolean }) {
         [deliveryProviders]
     );
 
+    const modalProviderOptions = useMemo(() =>
+        providerOptions.map(provider => ({
+            label: (
+                <Flex align="center" gap={10}>
+                    <SmartAvatar
+                        src={provider?.logo}
+                        alt={provider.delivery_name}
+                        size={28}
+                        shape="square"
+                        icon={<RocketOutlined style={{ fontSize: 14 }} />}
+                        imageStyle={{ objectFit: 'contain' }}
+                        style={{
+                            borderRadius: 8, flexShrink: 0,
+                            background: resolveImageSource(provider?.logo) ? '#fff' : '#F5F3FF',
+                            border: '1px solid #E5E7EB',
+                        }}
+                    />
+                    <span style={{ fontWeight: 600, fontSize: 14 }}>{provider.delivery_name}</span>
+                </Flex>
+            ),
+            value: provider.id,
+            searchLabel: provider.delivery_name
+        })),
+        [providerOptions]
+    );
+
     const visibleOrders = useMemo(
         () => orders.filter((order) => DELIVERY_VISIBLE_STATUS_SET.has(order.status)),
         [orders]
@@ -566,52 +592,21 @@ function DeliveryContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                         <Typography.Text strong style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>
                             เลือกผู้ให้บริการ
                         </Typography.Text>
-                        <Select
-                            placeholder="เลือกผู้ให้บริการ"
-                            value={selectedProviderId}
+                        <ModalSelector<string>
+                            title="เลือกผู้ให้บริการ"
+                            options={modalProviderOptions}
+                            value={selectedProviderId || undefined}
                             onChange={(val) => setSelectedProviderId(val)}
-                            style={{ width: '100%', height: 44 }}
-                            size="large"
-                            optionLabelProp="label"
-                        >
-                            {providerOptions.map((provider) => (
-                                <Select.Option key={provider.id} value={provider.id} label={
-                                    <Flex align="center" gap={8}>
-                                        <SmartAvatar
-                                            src={provider?.logo}
-                                            alt={provider.delivery_name}
-                                            size={22}
-                                            shape="square"
-                                            icon={<RocketOutlined style={{ fontSize: 12 }} />}
-                                            imageStyle={{ objectFit: 'contain' }}
-                                            style={{
-                                                borderRadius: 6, flexShrink: 0,
-                                                background: resolveImageSource(provider?.logo) ? '#fff' : '#F5F3FF',
-                                                border: '1px solid #E5E7EB',
-                                            }}
-                                        />
-                                        <span style={{ fontWeight: 600 }}>{provider.delivery_name}</span>
-                                    </Flex>
-                                }>
-                                    <Flex align="center" gap={10}>
-                                        <SmartAvatar
-                                            src={provider?.logo}
-                                            alt={provider.delivery_name}
-                                            size={28}
-                                            shape="square"
-                                            icon={<RocketOutlined style={{ fontSize: 14 }} />}
-                                            imageStyle={{ objectFit: 'contain' }}
-                                            style={{
-                                                borderRadius: 8, flexShrink: 0,
-                                                background: resolveImageSource(provider?.logo) ? '#fff' : '#F5F3FF',
-                                                border: '1px solid #E5E7EB',
-                                            }}
-                                        />
-                                        <span style={{ fontWeight: 600, fontSize: 14 }}>{provider.delivery_name}</span>
-                                    </Flex>
-                                </Select.Option>
-                            ))}
-                        </Select>
+                            placeholder="เลือกผู้ให้บริการ"
+                            style={{ 
+                                width: '100%', 
+                                height: 44, 
+                                borderRadius: 10,
+                                padding: '0 12px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                        />
                     </div>
 
                     {/* Delivery code input */}

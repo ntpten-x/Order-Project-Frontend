@@ -749,12 +749,16 @@ export default function POSOrderDetailsPage() {
                                     )
                                     : (
                                         <>
-                                            {getTakeawayCustomerLabel(order)}
-                                            {order.order_no && getTakeawayCustomerLabel(order) !== order.order_no ? (
-                                                <span style={{ fontSize: 18, color: '#64748B', fontWeight: 500 }}>
-                                                    ({order.order_no})
-                                                </span>
-                                            ) : null}
+                                            {order.customer_name && order.customer_name.trim() !== order.order_no ? (
+                                                <>
+                                                    {order.customer_name}
+                                                    <span style={{ fontSize: 18, color: '#64748B', fontWeight: 500, marginLeft: 8 }}>
+                                                        ({order.order_no ? `#${order.order_no.split("-")[1]?.slice(0, 3)}` : ""})
+                                                    </span>
+                                                </>
+                                            ) : (
+                                                order.order_no ? `#${order.order_no.split("-")[1]?.slice(0, 3)}` : "ไม่ระบุลูกค้า"
+                                            )}
                                         </>
                                     )
                             : "รายละเอียดออเดอร์"

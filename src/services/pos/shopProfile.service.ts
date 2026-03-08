@@ -9,6 +9,8 @@ export interface ShopProfile {
     phone?: string;
     promptpay_number?: string;
     promptpay_name?: string;
+    takeaway_qr_token?: string | null;
+    takeaway_qr_expires_at?: string | null;
 }
 
 const BASE_PATH = "/pos/shopProfile";

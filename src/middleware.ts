@@ -29,6 +29,7 @@ const KNOWN_API_PREFIXES = [
     "/api/health",
     "/api/permissions",
     "/api/pos",
+    "/api/pos/takeaway-qr",
     "/api/roles",
     "/api/stock",
     "/api/users",
