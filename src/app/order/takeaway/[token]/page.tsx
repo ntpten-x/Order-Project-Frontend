@@ -1157,20 +1157,46 @@ export default function CustomerTakeawayOrderPage() {
                                 </div>
                             </Card>
 
-                            <div className="qr-products-grid" style={posLayoutStyles.productGrid}>
-                                {paginatedProducts.map((product, index) => (
-                                    <POSProductCard
-                                        key={product.id}
-                                        index={index}
-                                        product={product}
-                                        onOpenProductModal={openProductModal}
-                                        onAddToCart={addToCart}
-                                        getProductUnitPrice={getProductUnitPrice}
-                                    />
-                                ))}
-                            </div>
+                            {filteredProducts.length > 0 ? (
+                                <>
+                                    <div
+                                        style={posLayoutStyles.productGrid}
+                                        className="pos-product-grid pos-product-grid-mobile qr-products-grid"
+                                    >
+                                        {paginatedProducts.map((product, index) => (
+                                            <POSProductCard
+                                                key={product.id}
+                                                index={index}
+                                                product={product}
+                                                onOpenProductModal={openProductModal}
+                                                onAddToCart={addToCart}
+                                                getProductUnitPrice={getProductUnitPrice}
+                                            />
+                                        ))}
+                                    </div>
 
-                            {filteredProducts.length === 0 ? (
+                                    <div
+                                        className="pos-pagination-container"
+                                        style={{ ...posLayoutStyles.paginationContainer, position: "relative" }}
+                                    >
+                                        <div
+                                            className="pos-pagination-total"
+                                            style={{ position: "absolute", left: 0, top: "50%", transform: "translateY(-50%)" }}
+                                        >
+                                            <Text type="secondary" style={{ fontSize: 13 }}>
+                                                ทั้งหมด {filteredProducts.length} รายการ
+                                            </Text>
+                                        </div>
+                                        <Pagination
+                                            current={page}
+                                            pageSize={MENU_PAGE_SIZE}
+                                            total={filteredProducts.length}
+                                            onChange={(nextPage) => setPage(nextPage)}
+                                            showSizeChanger={false}
+                                        />
+                                    </div>
+                                </>
+                            ) : (
                                 <Card style={posLayoutStyles.emptyContainer}>
                                     <Empty description="ไม่พบเมนูตามที่ค้นหา" />
                                     <div style={{ marginTop: 12, textAlign: "center" }}>
@@ -1187,19 +1213,7 @@ export default function CustomerTakeawayOrderPage() {
                                         </Button>
                                     </div>
                                 </Card>
-                            ) : null}
-
-                            {filteredProducts.length > MENU_PAGE_SIZE ? (
-                                <div style={{ display: "flex", justifyContent: "center" }}>
-                                    <Pagination
-                                        current={page}
-                                        pageSize={MENU_PAGE_SIZE}
-                                        total={filteredProducts.length}
-                                        onChange={(nextPage) => setPage(nextPage)}
-                                        showSizeChanger={false}
-                                    />
-                                </div>
-                            ) : null}
+                            )}
 
                             {lastOrder ? (
                                 <Card
