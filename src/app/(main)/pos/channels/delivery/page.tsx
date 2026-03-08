@@ -224,13 +224,13 @@ function DeliveryOrderCard({ order, provider, onClick, isMobile }: DeliveryOrder
             {/* Middle: items count + total */}
             <div style={{ display: "flex", gap: 12 }}>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 2 }}>รายการสินค้า</div>
+                    <div style={{ fontSize: 14, color: "#94A3B8", marginBottom: 2 }}>รายการสินค้า</div>
                     <div style={{ fontSize: 15, fontWeight: 700, color: "#1E293B", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                         {order.items_count || 0} รายการ
                     </div>
                 </div>
                 <div style={{ flex: 1, textAlign: "right", minWidth: 0 }}>
-                    <div style={{ fontSize: 11, color: "#94A3B8", marginBottom: 2 }}>ยอดรวม</div>
+                    <div style={{ fontSize: 14, color: "#94A3B8", marginBottom: 2 }}>ยอดรวม</div>
                     <div style={{ fontSize: 17, fontWeight: 800, color: statusTheme.badgeText, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                         {formatMoney(Number(order.total_amount || 0))}
                     </div>
@@ -243,15 +243,6 @@ function DeliveryOrderCard({ order, provider, onClick, isMobile }: DeliveryOrder
                     <ClockCircleOutlined style={{ fontSize: 12, color: age.color }} />
                     <span style={{ fontSize: 12, fontWeight: 600, color: age.color }}>{age.label}</span>
                 </div>
-                <Tag
-                    style={{
-                        margin: 0, borderRadius: 999, padding: "0 10px",
-                        fontSize: 11, fontWeight: 600, lineHeight: "20px",
-                        background: "#F5F3FF", borderColor: "#DDD6FE", color: "#7C3AED",
-                    }}
-                >
-                    Delivery
-                </Tag>
             </div>
         </div>
     );
@@ -298,6 +289,7 @@ function DeliveryContent({ canCreateOrder }: { canCreateOrder: boolean }) {
     });
 
     const [isModalOpen, setIsModalOpen] = useState(false);
+    const [isCreating, setIsCreating] = useState(false);
     const [deliveryCode, setDeliveryCode] = useState("");
     const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
 
@@ -372,6 +364,7 @@ function DeliveryContent({ canCreateOrder }: { canCreateOrder: boolean }) {
         if (!canCreateOrder) return;
         setDeliveryCode("");
         setSelectedProviderId(null);
+        setIsCreating(false);
         setIsModalOpen(true);
     };
 
@@ -384,6 +377,9 @@ function DeliveryContent({ canCreateOrder }: { canCreateOrder: boolean }) {
             message.error("กรุณากรอกรหัสออเดอร์");
             return;
         }
+
+        setIsCreating(true);
+
         const baseCode = deliveryCode.trim();
         const finalCode = selectedProvider.delivery_prefix
             ? `${selectedProvider.delivery_prefix}-${baseCode}`
@@ -560,7 +556,10 @@ function DeliveryContent({ canCreateOrder }: { canCreateOrder: boolean }) {
             {/* ── Create Delivery Order Modal ── */}
             <Modal
                 open={isModalOpen}
-                onCancel={() => setIsModalOpen(false)}
+                onCancel={() => {
+                    setIsModalOpen(false);
+                    setIsCreating(false);
+                }}
                 footer={null}
                 closable={true}
                 centered
@@ -644,12 +643,13 @@ function DeliveryContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                     <Button
                         size="large"
                         type="primary"
-                        disabled={!selectedProvider || !deliveryCode.trim()}
+                        loading={isCreating}
+                        disabled={!selectedProvider || !deliveryCode.trim() || isCreating}
                         onClick={handleConfirmCreate}
                         style={{
                             borderRadius: 12, minWidth: 110, height: 44,
                             fontWeight: 700, fontSize: 15,
-                            background: (!selectedProvider || !deliveryCode.trim())
+                            background: (!selectedProvider || !deliveryCode.trim() || isCreating)
                                 ? undefined
                                 : 'linear-gradient(135deg, #34D399 0%, #10B981 100%)',
                             border: 'none',
