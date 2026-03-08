@@ -1,13 +1,16 @@
 "use client";
 
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     ClockCircleOutlined,
+    CopyOutlined,
+    LinkOutlined,
     PlusOutlined,
+    QrcodeOutlined,
     ReloadOutlined,
     ShoppingOutlined,
 } from "@ant-design/icons";
-import { Button, Flex, Grid, Skeleton, Space, Tag, theme, Typography } from "antd";
+import { App, Button, Grid, Modal, Skeleton, Space, Tag, theme, Typography } from "antd";
 import { useRouter } from "next/navigation";
 
 import { AccessGuardFallback } from "../../../../../components/pos/AccessGuard";
@@ -30,6 +33,11 @@ import { SearchBar } from "../../../../../components/ui/page/SearchBar";
 import { SearchInput } from "../../../../../components/ui/input/SearchInput";
 import { ModalSelector } from "../../../../../components/ui/select/ModalSelector";
 import type { CreatedSort } from "../../../../../components/ui/pagination/ListPagination";
+import { DynamicQRCode } from "../../../../../lib/dynamic-imports";
+import { takeawayQrService, type TakeawayQrInfo } from "../../../../../services/pos/takeawayQr.service";
+import { getTakeawayCustomerLabel } from "../../../../../utils/orders";
+
+const { Text } = Typography;
 
 /* ── Theme helpers ── */
 
@@ -100,6 +108,20 @@ function formatMoney(amount: number): string {
     return `฿${Number(amount || 0).toLocaleString()}`;
 }
 
+function buildCustomerUrl(customerPath?: string | null): string {
+    if (!customerPath) return "";
+    const envBaseUrl = process.env.NEXT_PUBLIC_CUSTOMER_ORDER_BASE_URL?.trim();
+    const fallbackBaseUrl = typeof window !== "undefined" ? window.location.origin : "";
+
+    for (const baseUrl of [envBaseUrl, fallbackBaseUrl].filter(Boolean) as string[]) {
+        try {
+            return new URL(customerPath, baseUrl).toString();
+        } catch {}
+    }
+
+    return "";
+}
+
 const STYLES = `
 .takeaway-order-card:hover {
     transform: translateY(-3px);
@@ -141,7 +163,7 @@ function OrderCard({
 }) {
     const statusTheme = getOrderTheme(order.status);
     const age = getRelativeAge(order.create_date);
-    const orderSuffix = order.order_no.split("-").pop() || order.order_no;
+    const customerLabel = getTakeawayCustomerLabel(order);
 
     return (
         <div
@@ -177,7 +199,7 @@ function OrderCard({
                     </div>
                     <div style={{ minWidth: 0, flex: 1 }}>
                         <div style={{ fontSize: 15, fontWeight: 700, color: "#0F172A", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                            #{orderSuffix}
+                            {customerLabel}
                         </div>
                         <div style={{ fontSize: 12, color: "#94A3B8", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
                             {order.order_no}
@@ -239,10 +261,14 @@ export default function TakeawayPage() {
 
 function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
     const router = useRouter();
+    const { message } = App.useApp();
     const { stats } = useChannelStats();
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.md;
     const { token } = theme.useToken();
+    const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+    const [isQrLoading, setIsQrLoading] = useState(false);
+    const [takeawayQr, setTakeawayQr] = useState<TakeawayQrInfo | null>(null);
 
     const {
         page, setPage, pageSize, setPageSize, total, setTotal,
@@ -268,6 +294,45 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
     useEffect(() => { setTotal(apiTotal); }, [apiTotal, setTotal]);
 
     const handleOpenCreate = () => router.push("/pos/channels/takeaway/buying");
+    const customerUrl = buildCustomerUrl(takeawayQr?.customer_path);
+
+    const handleOpenQrModal = async () => {
+        setIsQrModalOpen(true);
+        if (takeawayQr) return;
+
+        setIsQrLoading(true);
+        try {
+            const info = await takeawayQrService.getInfo();
+            setTakeawayQr(info);
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : "ไม่สามารถโหลด QR code ได้");
+        } finally {
+            setIsQrLoading(false);
+        }
+    };
+
+    const handleCopyQrLink = async () => {
+        if (!customerUrl) {
+            message.warning("ยังไม่มีลิงก์ลูกค้า");
+            return;
+        }
+
+        try {
+            await navigator.clipboard.writeText(customerUrl);
+            message.success("คัดลอกลิงก์ลูกค้าแล้ว");
+        } catch {
+            message.error("คัดลอกลิงก์ไม่สำเร็จ");
+        }
+    };
+
+    const handleOpenCustomerPage = () => {
+        if (!customerUrl) {
+            message.warning("ยังไม่มีลิงก์ลูกค้า");
+            return;
+        }
+
+        window.open(customerUrl, "_blank", "noopener,noreferrer");
+    };
 
     // Responsive grid columns with minmax(0, 1fr) to prevent overflow
     const gridColumns = isMobile
@@ -310,6 +375,14 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                                 style={{ borderRadius: 10 }}
                             />
                             {canCreateOrder && (
+                                <Space size={8} wrap>
+                                    <Button
+                                        icon={<QrcodeOutlined />}
+                                        onClick={() => void handleOpenQrModal()}
+                                        style={{ borderRadius: 12, fontWeight: 700 }}
+                                    >
+                                        Qr code
+                                    </Button>
                                 <Button
                                     type="primary"
                                     icon={<PlusOutlined />}
@@ -323,6 +396,7 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                                 >
                                     เพิ่มออเดอร์
                                 </Button>
+                                </Space>
                             )}
                         </Space>
                     }
@@ -436,6 +510,55 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                         </div>
                     </PageStack>
                 </PageContainer>
+
+                <Modal
+                    title="Takeaway QR code"
+                    open={isQrModalOpen}
+                    onCancel={() => setIsQrModalOpen(false)}
+                    footer={
+                        <Space wrap>
+                            <Button icon={<CopyOutlined />} onClick={() => void handleCopyQrLink()} disabled={!customerUrl}>
+                                Copy link
+                            </Button>
+                            <Button icon={<LinkOutlined />} onClick={handleOpenCustomerPage} disabled={!customerUrl}>
+                                Open page
+                            </Button>
+                        </Space>
+                    }
+                    centered
+                    destroyOnClose={false}
+                >
+                    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                        <Text type="secondary">
+                            ลูกค้าสแกน QR นี้เพื่อเปิดหน้า takeaway order และต้องกรอกชื่อหรือเบอร์โทรก่อนส่งออเดอร์
+                        </Text>
+                        <div
+                            style={{
+                                background: "#fff",
+                                padding: 20,
+                                borderRadius: 18,
+                                border: "1px solid #E2E8F0",
+                                minHeight: 300,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                            }}
+                        >
+                            {isQrLoading ? (
+                                <Skeleton active paragraph={{ rows: 6 }} style={{ width: "100%" }} />
+                            ) : customerUrl ? (
+                                <DynamicQRCode value={customerUrl} size={260} />
+                            ) : (
+                                <Text type="secondary">ยังไม่สามารถสร้าง QR ได้</Text>
+                            )}
+                        </div>
+                        {customerUrl ? (
+                            <Text copyable={{ text: customerUrl }} style={{ wordBreak: "break-all" }}>
+                                {customerUrl}
+                            </Text>
+                        ) : null}
+                    </div>
+                </Modal>
             </div>
         </React.Fragment>
     );

@@ -29,7 +29,6 @@ import type { CreatedSort } from '../../../../components/ui/pagination/ListPagin
 import ListPagination from '../../../../components/ui/pagination/ListPagination';
 import { DEFAULT_CREATED_SORT } from '../../../../lib/list-sort';
 import { ModalSelector } from '../../../../components/ui/select/ModalSelector';
-import { StatsGroup } from '../../../../components/ui/card/StatsGroup';
 import { SearchInput } from '../../../../components/ui/input/SearchInput';
 import { SearchBar } from '../../../../components/ui/page/SearchBar';
 import { resolveImageSource } from '../../../../utils/image/source';
@@ -201,7 +200,6 @@ export default function DeliveryPage() {
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [hasCachedSnapshot, setHasCachedSnapshot] = useState(false);
-    const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
     const requestRef = useRef<AbortController | null>(null);
     const cacheHydratedRef = useRef(false);
     const {
@@ -311,7 +309,6 @@ export default function DeliveryPage() {
 
                 setDeliveries(payload.data || []);
                 setTotal(payload.total || 0);
-                setLastSyncedAt(new Date().toISOString());
             } catch (fetchError) {
                 if (controller.signal.aborted) return;
                 setError(fetchError instanceof Error ? fetchError : new Error('ไม่สามารถดึงข้อมูลช่องทางจัดส่งได้'));
@@ -460,10 +457,6 @@ export default function DeliveryPage() {
     if (permissionLoading) {
         return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
     }
-
-    const activeDeliveries = deliveries.filter((delivery) => delivery.is_active).length;
-    const inactiveDeliveries = deliveries.filter((delivery) => !delivery.is_active).length;
-    const withPrefixCount = deliveries.filter((delivery) => Boolean(delivery.delivery_prefix)).length;
 
     return (
         <div className="delivery-page" style={pageStyles.container}>

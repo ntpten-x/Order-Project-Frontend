@@ -6,6 +6,9 @@ node_modules/
 
 # Build outputs
 .next/
+.next/**
+.next-build/
+.next-build/**
 .next-buildcheck-*/
 .next-guard/
 out/

@@ -111,6 +111,15 @@ const ReceiptTemplate = forwardRef<HTMLDivElement, ReceiptProps>(
                 {order.order_type === OrderType.DineIn && order.table?.table_name ? (
                     <ReceiptRow label={RECEIPT_TEXT.tableLabel} value={order.table.table_name} />
                 ) : null}
+                {order.order_type === OrderType.TakeAway && (order.customer_name || order.customer_phone) ? (
+                    <ReceiptRow
+                        label={RECEIPT_TEXT.customerLabel}
+                        value={order.customer_name || order.customer_phone || "-"}
+                    />
+                ) : null}
+                {order.order_type === OrderType.TakeAway && order.customer_name && order.customer_phone ? (
+                    <ReceiptRow label={RECEIPT_TEXT.customerPhoneLabel} value={order.customer_phone} />
+                ) : null}
                 {order.order_type === OrderType.Delivery && order.delivery_code ? (
                     <ReceiptRow label={RECEIPT_TEXT.deliveryCodeLabel} value={order.delivery_code} />
                 ) : null}

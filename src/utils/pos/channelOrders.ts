@@ -30,6 +30,8 @@ type ChannelOrdersResponse = {
         create_date: string;
         total_amount: number;
         delivery_code?: string | null;
+        customer_name?: string | null;
+        customer_phone?: string | null;
         table_id?: string | null;
         delivery_id?: string | null;
         table?: { table_name?: string | null } | null;

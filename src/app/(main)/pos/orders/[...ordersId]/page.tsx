@@ -32,6 +32,7 @@ import {
   getOrderChannelText,
   groupItemsByCategory,
   getOrderNavigationPath,
+  getTakeawayCustomerLabel,
   isCancelledStatus,
   isPaidOrCompletedStatus,
   isWaitingForPaymentStatus,
@@ -746,7 +747,16 @@ export default function POSOrderDetailsPage() {
                                             )}
                                         </>
                                     )
-                                    : `${order.order_no}`
+                                    : (
+                                        <>
+                                            {getTakeawayCustomerLabel(order)}
+                                            {order.order_no && getTakeawayCustomerLabel(order) !== order.order_no ? (
+                                                <span style={{ fontSize: 18, color: '#64748B', fontWeight: 500 }}>
+                                                    ({order.order_no})
+                                                </span>
+                                            ) : null}
+                                        </>
+                                    )
                             : "รายละเอียดออเดอร์"
                         }
                     </span>

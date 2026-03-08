@@ -24,6 +24,7 @@ import 'dayjs/locale/th';
 import {
     getCancelOrderNavigationPath,
     getOrderChannelText,
+    getTakeawayCustomerLabel,
     ConfirmationConfig,
     formatCurrency,
     isCancelledStatus,
@@ -662,7 +663,7 @@ export default function POSPaymentPage() {
                                     }}
                                 >
                                     {order.order_type === OrderType.DineIn && `*โต๊ะ ${order.table?.table_name || 'ไม่ระบุ'}`}
-                                    {order.order_type === OrderType.TakeAway && `*${order.order_no?.substring(5, 10) || order.order_no}`}
+                                    {order.order_type === OrderType.TakeAway && `*${getTakeawayCustomerLabel(order)}`}
                                 </Tag>
                             </div>
                         </div>

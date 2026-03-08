@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Alert, Button, Card, Col, Grid, Row, Space, Spin, Tag, Typography } from 'antd';
+import { Alert, Button, Card, Col, Grid, Row, Space, Spin, Typography } from 'antd';
 import {
     ClockCircleOutlined,
     PlayCircleOutlined,

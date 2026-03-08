@@ -14,7 +14,6 @@ import { SearchInput } from '../../../../components/ui/input/SearchInput';
 import { ModalSelector } from '../../../../components/ui/select/ModalSelector';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import PageState from '../../../../components/ui/states/PageState';
-import { StatsGroup } from '../../../../components/ui/card/StatsGroup';
 import { DynamicQRCode, DynamicQRCodeCanvas } from '../../../../lib/dynamic-imports';
 import { TableQrCodeListItem, TableQrInfo, TableStatus } from '../../../../types/api/pos/tables';
 import { useListState } from '../../../../hooks/pos/useListState';
@@ -113,7 +112,6 @@ export default function TableQrCodePage() {
     const [csrfToken, setCsrfToken] = useState('');
     const [pendingAutoPrint, setPendingAutoPrint] = useState<PendingQrAutoPrint | null>(null);
     const [hasCachedSnapshot, setHasCachedSnapshot] = useState(false);
-    const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
     const autoPrintWindowRef = useRef<Window | null>(null);
     const bulkExportWindowRef = useRef<Window | null>(null);
     const requestRef = useRef<AbortController | null>(null);
@@ -285,7 +283,6 @@ export default function TableQrCodePage() {
             if (controller.signal.aborted) return;
             setTables(payload.data || []);
             setTotal(payload.total || 0);
-            setLastSyncedAt(new Date().toISOString());
         } catch (fetchError) {
             if (controller.signal.aborted) return;
             closePrintWindow(autoPrintWindowRef.current);
@@ -346,7 +343,6 @@ export default function TableQrCodePage() {
             }
             const payload = await response.json() as TableQrInfo;
             setTables((prev) => prev.map((row) => row.id === table.id ? { ...row, qr_code_token: payload.qr_code_token, qr_code_expires_at: payload.qr_code_expires_at, customer_path: payload.customer_path, update_date: new Date().toISOString() } : row));
-            setLastSyncedAt(new Date().toISOString());
             if (shouldPrepareAutoPrint && payload.customer_path) setPendingAutoPrint({ tableId: table.id, customerPath: payload.customer_path }); else { closePrintWindow(autoPrintWindowRef.current); autoPrintWindowRef.current = null; }
             message.success(`รีเฟรช QR ของโต๊ะ ${table.table_name} สำเร็จ`);
         } catch (rotateError) {
@@ -509,10 +505,6 @@ export default function TableQrCodePage() {
     if (isChecking) return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
     if (!isAuthorized) return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
     if (permissionLoading) return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
-
-    const activeCount = tables.filter((table) => table.is_active).length;
-    const availableCount = tables.filter((table) => table.status === TableStatus.Available).length;
-    const unavailableCount = tables.filter((table) => table.status === TableStatus.Unavailable).length;
 
     return (
         <div className="qr-code-page">

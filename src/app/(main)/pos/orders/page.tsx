@@ -26,7 +26,8 @@ import {
   getOrderStatusText, 
   getOrderChannelText,
   formatCurrency,
-  getOrderNavigationPath
+  getOrderNavigationPath,
+  getTakeawayCustomerLabel
 } from "../../../../utils/orders";
 import { orderColors } from "../../../../theme/pos/orders/style";
 import { useDebouncedValue } from "../../../../utils/useDebouncedValue";
@@ -201,7 +202,7 @@ function OrderCard({
             role="button"
             tabIndex={0}
             onKeyDown={(e) => e.key === 'Enter' && onNavigate(order)}
-            aria-label={`ออเดอร์ ${order.order_no}`}
+            aria-label={`ออเดอร์ ${order.order_type === OrderType.TakeAway ? getTakeawayCustomerLabel(order) : order.order_no}`}
         >
             <div
                 style={{
@@ -217,7 +218,7 @@ function OrderCard({
                             <span>🪑 โต๊ะ {order.table?.table_name || '-'}</span>
                         )}
                         {order.order_type === OrderType.TakeAway && (
-                            <span>🛍️ #{order.order_no?.substring(0, 11)}</span>
+                            <span>🛍️ {getTakeawayCustomerLabel(order)}</span>
                         )}
                         {order.order_type === OrderType.Delivery && (
                             <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>

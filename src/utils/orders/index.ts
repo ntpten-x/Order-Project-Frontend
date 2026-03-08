@@ -92,6 +92,8 @@ type OrderLike = {
     delivery_code?: string | null;
     delivery?: { delivery_name?: string | null } | null;
     order_no?: string;
+    customer_name?: string | null;
+    customer_phone?: string | null;
     items?: OrderItemLike[];
     create_date?: string;
 };
@@ -180,6 +182,24 @@ export const formatCurrency = (amount: number | string): string => {
     return `฿${Number(numAmount).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 };
 
+export const getTakeawayCustomerLabel = (order: Pick<OrderLike, "customer_name" | "customer_phone" | "order_no">): string => {
+    const customerName = String(order.customer_name ?? "").trim();
+    const customerPhone = String(order.customer_phone ?? "").trim();
+    if (customerName && customerPhone) return `${customerName} (${customerPhone})`;
+    if (customerName) return customerName;
+    if (customerPhone) return customerPhone;
+    return order.order_no || "ไม่ระบุลูกค้า";
+};
+
+export const getTakeawayCustomerSecondaryLabel = (
+    order: Pick<OrderLike, "customer_name" | "customer_phone">,
+): string | null => {
+    const customerName = String(order.customer_name ?? "").trim();
+    const customerPhone = String(order.customer_phone ?? "").trim();
+    if (customerName && customerPhone) return customerPhone;
+    return null;
+};
+
 export const getOrderReference = (order: OrderLike): string => {
     if (order.order_type === 'DineIn') {
         return order.table?.table_name || 'ไม่ระบุโต๊ะ';
@@ -188,7 +208,7 @@ export const getOrderReference = (order: OrderLike): string => {
         return order.delivery_code || order.delivery?.delivery_name || 'ไม่ระบุข้อมูล';
     }
     if (order.order_type === 'TakeAway') {
-        return order.order_no || 'ไม่ระบุเลขที่';
+        return getTakeawayCustomerLabel(order);
     }
     return order.order_no || 'N/A';
 };
@@ -364,5 +384,3 @@ export const createOrderPayload = (
         })
     };
 };
-
-

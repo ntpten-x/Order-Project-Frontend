@@ -22,6 +22,8 @@ export const RECEIPT_TEXT = {
     createdAtLabel: "วันที่ทำรายการ",
     orderTypeLabel: "ประเภทออเดอร์",
     tableLabel: "โต๊ะ",
+    customerLabel: "ลูกค้า",
+    customerPhoneLabel: "เบอร์โทร",
     deliveryCodeLabel: "รหัสเดลิเวอรี่",
     employeeLabel: "พนักงาน",
     itemsLabel: "รายการสินค้า",

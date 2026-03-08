@@ -33,7 +33,6 @@ import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import PageState from '../../../../components/ui/states/PageState';
 import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
 import { ModalSelector } from '../../../../components/ui/select/ModalSelector';
-import { StatsGroup } from '../../../../components/ui/card/StatsGroup';
 import { SearchInput } from '../../../../components/ui/input/SearchInput';
 import { SearchBar } from '../../../../components/ui/page/SearchBar';
 import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissions';
@@ -227,7 +226,6 @@ export default function ProductsPage() {
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [hasCachedSnapshot, setHasCachedSnapshot] = useState(false);
-    const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
     const [activeProductsTotal, setActiveProductsTotal] = useState<number | null>(null);
     const requestRef = useRef<AbortController | null>(null);
     const cacheHydratedRef = useRef(false);
@@ -415,7 +413,6 @@ export default function ProductsPage() {
                 setProducts(listPayload.data || []);
                 setTotal(listPayload.total || 0);
                 setActiveProductsTotal(typeof activePayload.total === 'number' ? activePayload.total : null);
-                setLastSyncedAt(new Date().toISOString());
             } catch (fetchError) {
                 if (controller.signal.aborted) return;
                 setError(fetchError instanceof Error ? fetchError : new Error('ไม่สามารถดึงข้อมูลสินค้าได้'));
@@ -587,8 +584,6 @@ export default function ProductsPage() {
     }
 
     const isMetadataLoading = isLoadingCategories || isLoadingUnits;
-    const activeCount = activeProductsTotal ?? products.filter((item) => item.is_active).length;
-    const inactiveCount = Math.max((total || products.length) - activeCount, 0);
 
     if (!isMetadataLoading && !setupState.isReady && products.length === 0) {
         return (

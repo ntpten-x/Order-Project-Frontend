@@ -8,7 +8,7 @@ import {
     ReloadOutlined,
     ShopOutlined,
 } from "@ant-design/icons";
-import { Grid, Skeleton, Typography } from "antd";
+import { Grid, Skeleton } from "antd";
 import { useRouter } from "next/navigation";
 
 import { AccessGuardFallback } from "../../../../../components/pos/AccessGuard";
@@ -20,7 +20,6 @@ import { useEffectivePermissions } from "../../../../../hooks/useEffectivePermis
 import { Tables, TableStatus } from "../../../../../types/api/pos/tables";
 import { getTableNavigationPath, getOrderStatusText, isWaitingForPaymentStatus } from "../../../../../utils/orders";
 
-const { Text } = Typography;
 
 /* ────────────────────────────────────────────
    Theme helpers

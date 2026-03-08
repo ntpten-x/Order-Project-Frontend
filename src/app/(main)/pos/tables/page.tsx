@@ -10,7 +10,6 @@ import {
     EditOutlined,
     DeleteOutlined,
     CheckCircleFilled,
-    ClockCircleOutlined,
 } from '@ant-design/icons';
 import { Tables, TableStatus } from '../../../../types/api/pos/tables';
 import { useRouter } from 'next/navigation';
@@ -31,7 +30,6 @@ import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import type { CreatedSort } from '../../../../components/ui/pagination/ListPagination';
 import { DEFAULT_CREATED_SORT } from '../../../../lib/list-sort';
 import { ModalSelector } from '../../../../components/ui/select/ModalSelector';
-import { StatsGroup } from '../../../../components/ui/card/StatsGroup';
 import { SearchInput } from '../../../../components/ui/input/SearchInput';
 import { SearchBar } from '../../../../components/ui/page/SearchBar';
 import ListPagination from '../../../../components/ui/pagination/ListPagination';
@@ -86,7 +84,6 @@ const TableCard = ({
     deletingId,
 }: TableCardProps) => {
     const isAvailable = table.status === TableStatus.Available;
-    const hasActiveOrder = Boolean(table.active_order_id);
 
     return (
         <div
@@ -214,7 +211,6 @@ export default function TablesPage() {
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [hasCachedSnapshot, setHasCachedSnapshot] = useState(false);
-    const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
     const requestRef = useRef<AbortController | null>(null);
     const cacheHydratedRef = useRef(false);
     const {
@@ -326,7 +322,6 @@ export default function TablesPage() {
 
                 setTables(payload.data || []);
                 setTotal(payload.total || 0);
-                setLastSyncedAt(new Date().toISOString());
             } catch (fetchError) {
                 if (controller.signal.aborted) return;
                 setError(fetchError instanceof Error ? fetchError : new Error('ไม่สามารถดึงข้อมูลโต๊ะได้'));
@@ -480,11 +475,6 @@ export default function TablesPage() {
     if (permissionLoading) {
         return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
     }
-
-    const activeCount = tables.filter((table) => table.is_active).length;
-    const inactiveCount = tables.filter((table) => !table.is_active).length;
-    const availableCount = tables.filter((table) => table.status === TableStatus.Available).length;
-    const unavailableCount = tables.filter((table) => table.status === TableStatus.Unavailable).length;
 
     return (
         <div className="tables-page" style={pageStyles.container}>

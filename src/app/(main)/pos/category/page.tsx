@@ -28,7 +28,6 @@ import ListPagination, { type CreatedSort } from '../../../../components/ui/pagi
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import { DEFAULT_CREATED_SORT } from '../../../../lib/list-sort';
 import { ModalSelector } from '../../../../components/ui/select/ModalSelector';
-import { StatsGroup } from '../../../../components/ui/card/StatsGroup';
 import { SearchBar } from '../../../../components/ui/page/SearchBar';
 import { SearchInput } from '@/components/ui/input/SearchInput';
 import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissions';
@@ -189,7 +188,6 @@ export default function CategoryPage() {
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [hasCachedSnapshot, setHasCachedSnapshot] = useState(false);
-    const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
     const requestRef = useRef<AbortController | null>(null);
     const cacheHydratedRef = useRef(false);
     const {
@@ -297,7 +295,6 @@ export default function CategoryPage() {
 
                 setCategories(payload.data || []);
                 setTotal(payload.total || 0);
-                setLastSyncedAt(new Date().toISOString());
             } catch (fetchError) {
                 if (controller.signal.aborted) return;
                 setError(fetchError instanceof Error ? fetchError : new Error('ไม่สามารถดึงข้อมูลหมวดหมู่ได้'));
@@ -441,9 +438,6 @@ export default function CategoryPage() {
     if (permissionLoading) {
         return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
     }
-
-    const activeCategories = categories.filter((category) => category.is_active).length;
-    const inactiveCategories = categories.filter((category) => !category.is_active).length;
 
     return (
         <div className="category-page" style={pageStyles.container}>

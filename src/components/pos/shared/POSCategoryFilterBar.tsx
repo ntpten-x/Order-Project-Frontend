@@ -15,7 +15,7 @@ type POSCategoryFilterBarProps = {
   selectedCategory?: string;
   categories: CategoryOption[];
   isPending?: boolean;
-  searchInputRef?: React.RefObject<InputRef | null>;
+  searchInputRef?: React.Ref<InputRef>;
   onSearchChange: (value: string) => void;
   onSelectCategory: (categoryId?: string) => void;
 };
