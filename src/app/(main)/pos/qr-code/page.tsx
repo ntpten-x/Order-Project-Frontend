@@ -97,7 +97,7 @@ export default function TableQrCodePage() {
     const [rotatingId, setRotatingId] = useState<string | null>(null);
     const [exportingId, setExportingId] = useState<string | null>(null);
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-    const [exportFormat, setExportFormat] = useState<ExportFormat>('png');
+    const [exportFormat, setExportFormat] = useState<ExportFormat>('pdf');
     const [exportTargetTable, setExportTargetTable] = useState<TableQrCodeListItem | null>(null);
     const [previewTable, setPreviewTable] = useState<TableQrCodeListItem | null>(null);
     const [csrfToken, setCsrfToken] = useState('');
@@ -313,7 +313,7 @@ export default function TableQrCodePage() {
                         </Space>
                     </SearchBar>
                     <PageSection title="รายการ QR โต๊ะ" extra={<Space size={8} wrap>{refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}<Text strong>{total} รายการ</Text></Space>}>
-                        {loading && tables.length === 0 ? <PageState status="loading" title="กำลังโหลดรายการ QR โต๊ะ..." /> : error && tables.length === 0 ? <PageState status="error" title="โหลดรายการ QR โต๊ะไม่สำเร็จ" error={error} onRetry={() => void fetchQrCodes()} /> : tables.length === 0 ? <UIEmptyState title={debouncedSearch.trim() ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีรายการโต๊ะ'} description={debouncedSearch.trim() ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรอง' : 'เพิ่มโต๊ะในหน้าจัดการโต๊ะก่อน แล้วระบบจะสร้าง QR ให้โดยอัตโนมัติ'} /> : <Space direction="vertical" size={14} style={{ width: '100%' }}><div className="qr-cards-grid">{tables.map((table) => <TableQrCard key={table.id} table={table} customerUrl={buildCustomerUrl(table.customer_path)} canRotate={canRotateQr} rotating={rotatingId === table.id} exporting={exportingId === table.id} onOpen={handleOpenCustomerPage} onRotate={handleRotateQr} onExport={(target) => { const customerUrl = buildCustomerUrl(target.customer_path); if (!customerUrl) return void message.warning('ยังไม่มีลิงก์ลูกค้าสำหรับโต๊ะนี้'); setExportTargetTable(target); setExportFormat('png'); setIsExportModalOpen(true); }} onPreviewQr={setPreviewTable} />)}</div><div style={{ marginTop: 12 }}><ListPagination page={page} total={total} pageSize={pageSize} loading={loading || refreshing} onPageChange={setPage} onPageSizeChange={setPageSize} activeColor="#2563eb" /></div></Space>}
+                        {loading && tables.length === 0 ? <PageState status="loading" title="กำลังโหลดรายการ QR โต๊ะ..." /> : error && tables.length === 0 ? <PageState status="error" title="โหลดรายการ QR โต๊ะไม่สำเร็จ" error={error} onRetry={() => void fetchQrCodes()} /> : tables.length === 0 ? <UIEmptyState title={debouncedSearch.trim() ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีรายการโต๊ะ'} description={debouncedSearch.trim() ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรอง' : 'เพิ่มโต๊ะในหน้าจัดการโต๊ะก่อน แล้วระบบจะสร้าง QR ให้โดยอัตโนมัติ'} /> : <Space direction="vertical" size={14} style={{ width: '100%' }}><div className="qr-cards-grid">{tables.map((table) => <TableQrCard key={table.id} table={table} customerUrl={buildCustomerUrl(table.customer_path)} canRotate={canRotateQr} rotating={rotatingId === table.id} exporting={exportingId === table.id} onOpen={handleOpenCustomerPage} onRotate={handleRotateQr} onExport={(target) => { const customerUrl = buildCustomerUrl(target.customer_path); if (!customerUrl) return void message.warning('ยังไม่มีลิงก์ลูกค้าสำหรับโต๊ะนี้'); setExportTargetTable(target); setExportFormat('pdf'); setIsExportModalOpen(true); }} onPreviewQr={setPreviewTable} />)}</div><div style={{ marginTop: 12 }}><ListPagination page={page} total={total} pageSize={pageSize} loading={loading || refreshing} onPageChange={setPage} onPageSizeChange={setPageSize} activeColor="#2563eb" /></div></Space>}
                     </PageSection>
                 </PageStack>
             </PageContainer>
@@ -322,8 +322,8 @@ export default function TableQrCodePage() {
                     <Text type="secondary">{exportTargetTable ? `โต๊ะ: ${exportTargetTable.table_name}` : 'เลือกรูปแบบไฟล์ที่ต้องการส่งออก'}</Text>
                     <Radio.Group value={exportFormat} onChange={(event) => setExportFormat(event.target.value as ExportFormat)} style={{ width: '100%' }}>
                         <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                            <Radio value="png">PNG (ดาวน์โหลดรูป QR)</Radio>
                             <Radio value="pdf">PDF (เปิดหน้าพิมพ์หรือบันทึกเป็น PDF)</Radio>
+                            <Radio value="png">PNG (ดาวน์โหลดรูป QR)</Radio>
                         </Space>
                     </Radio.Group>
                 </Space>
