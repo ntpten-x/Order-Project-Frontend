@@ -2,7 +2,10 @@ import { loadPdfExport } from "../../lib/dynamic-imports";
 import { PrintDocumentSetting, PrintUnit } from "../../types/api/pos/printSettings";
 import { downloadBlob, triggerDownloadFromUrl } from "../browser/download";
 
-const DEFAULT_PX_PER_MM = 12;
+// High-resolution export density (~609.6 DPI)
+const DEFAULT_PX_PER_MM = 24;
+const QR_FRAME_PADDING_PX = 18;
+const QR_EXPORT_SUBTITLE = "สแกนเพื่อเปิดเมนูและสั่งสั่งอาหาร";
 
 function convertToMm(value: number, unit: PrintUnit): number {
     return unit === "mm" ? value : value * 25.4;
@@ -26,7 +29,9 @@ function loadImage(src: string): Promise<HTMLImageElement> {
     });
 }
 
-function getEffectiveDocumentSize(setting: Pick<PrintDocumentSetting, "width" | "height" | "height_mode" | "orientation" | "unit">) {
+function getEffectiveDocumentSize(
+    setting: Pick<PrintDocumentSetting, "width" | "height" | "height_mode" | "orientation" | "unit">
+) {
     const width = setting.width;
     const rawHeight =
         setting.height_mode === "fixed" && setting.height != null
@@ -54,7 +59,7 @@ export async function buildTableQrExportCanvas(options: {
     setting: PrintDocumentSetting;
     locale?: string;
 }): Promise<HTMLCanvasElement> {
-    const { tableName, customerUrl, qrImageDataUrl, qrCodeExpiresAt, setting, locale = "th-TH" } = options;
+    const { tableName, customerUrl, qrImageDataUrl, setting } = options;
     const pageSize = getEffectiveDocumentSize(setting);
     const canvas = document.createElement("canvas");
     canvas.width = toPixels(pageSize.width, setting.unit);
@@ -72,61 +77,86 @@ export async function buildTableQrExportCanvas(options: {
     const marginBottom = toPixels(setting.margin_bottom, setting.unit);
     const contentWidth = Math.max(1, canvas.width - marginLeft - marginRight);
     const contentHeight = Math.max(1, canvas.height - marginTop - marginBottom);
+    const centerX = Math.round(canvas.width / 2);
     const baseFont = Math.max(22, Math.round(contentWidth * 0.055 * (Math.max(setting.font_scale, 70) / 100)));
-    const titleFont = `700 ${baseFont}px "Noto Sans Thai", "Segoe UI", sans-serif`;
-    const subtitleFont = `500 ${Math.max(18, Math.round(baseFont * 0.55))}px "Noto Sans Thai", "Segoe UI", sans-serif`;
-    const metaFont = `400 ${Math.max(16, Math.round(baseFont * 0.42))}px "Noto Sans Thai", "Segoe UI", sans-serif`;
+    const titleFontSize = baseFont;
+    const subtitleFontSize = Math.max(18, Math.round(baseFont * 0.55));
+    const urlFontSize = Math.max(16, Math.round(baseFont * 0.42));
+    const titleFont = `700 ${titleFontSize}px "Noto Sans Thai", "Segoe UI", sans-serif`;
+    const subtitleFont = `500 ${subtitleFontSize}px "Noto Sans Thai", "Segoe UI", sans-serif`;
+    const urlFont = `400 ${urlFontSize}px "Noto Sans Thai", "Segoe UI", sans-serif`;
+    const titleLineHeight = Math.round(titleFontSize * 1.2);
+    const subtitleLineHeight = Math.round(subtitleFontSize * 1.3);
+    const urlLineHeight = Math.round(urlFontSize * 1.45);
+    const titleToSubtitleGap = Math.round(baseFont * 0.35);
+    const subtitleToQrGap = Math.round(baseFont * 0.8);
+    const qrToUrlGap = Math.round(baseFont * 0.8);
+    const urlLines = customerUrl.match(/.{1,44}/g) || [customerUrl];
+    const urlBlockHeight = urlLines.length * urlLineHeight;
+    const qrMaxSize = Math.max(
+        1,
+        Math.min(
+            contentWidth - QR_FRAME_PADDING_PX * 2,
+            contentHeight -
+                titleLineHeight -
+                titleToSubtitleGap -
+                subtitleLineHeight -
+                subtitleToQrGap -
+                qrToUrlGap -
+                urlBlockHeight -
+                QR_FRAME_PADDING_PX * 2
+        )
+    );
+    const qrPreferredSize = Math.round(contentWidth * 0.62);
+    const qrSize = Math.max(1, Math.min(qrMaxSize, qrPreferredSize));
+    const qrFrameSize = qrSize + QR_FRAME_PADDING_PX * 2;
+    const contentBlockHeight =
+        titleLineHeight +
+        titleToSubtitleGap +
+        subtitleLineHeight +
+        subtitleToQrGap +
+        qrFrameSize +
+        qrToUrlGap +
+        urlBlockHeight;
 
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
     ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+
+    let currentY = marginTop + Math.max(0, Math.round((contentHeight - contentBlockHeight) / 2));
+
     ctx.fillStyle = "#0f172a";
     ctx.font = titleFont;
-    const titleY = marginTop + Math.round(baseFont * 1.1);
-    ctx.fillText(`โต๊ะ ${tableName}`, canvas.width / 2, titleY);
+    ctx.fillText(`โต๊ะ ${tableName}`, centerX, currentY);
+    currentY += titleLineHeight + titleToSubtitleGap;
 
-    const subtitleY = titleY + Math.round(baseFont * 0.92);
     ctx.fillStyle = "#475569";
     ctx.font = subtitleFont;
-    ctx.fillText("สแกนเพื่อเปิดเมนู", canvas.width / 2, subtitleY);
+    ctx.fillText(QR_EXPORT_SUBTITLE, centerX, currentY);
+    currentY += subtitleLineHeight + subtitleToQrGap;
 
-    const availableHeight = contentHeight - Math.round(baseFont * 2.6) - Math.round(baseFont * 3.4);
-    const qrSize = Math.max(
-        Math.min(contentWidth, availableHeight) - Math.round(baseFont * 0.4),
-        Math.round(contentWidth * 0.5)
-    );
-    const qrX = (canvas.width - qrSize) / 2;
-    const qrY = subtitleY + Math.round(baseFont * 0.8);
+    // Snap the QR block to whole pixels and disable smoothing for sharp edges.
+    const qrX = Math.round(centerX - qrSize / 2);
+    const qrY = Math.round(currentY + QR_FRAME_PADDING_PX);
+    const qrFrameX = qrX - QR_FRAME_PADDING_PX;
+    const qrFrameY = qrY - QR_FRAME_PADDING_PX;
 
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(qrX - 18, qrY - 18, qrSize + 36, qrSize + 36);
+    ctx.fillRect(qrFrameX, qrFrameY, qrFrameSize, qrFrameSize);
     ctx.strokeStyle = "#d1d5db";
     ctx.lineWidth = 3;
-    ctx.strokeRect(qrX - 18, qrY - 18, qrSize + 36, qrSize + 36);
+    ctx.strokeRect(qrFrameX, qrFrameY, qrFrameSize, qrFrameSize);
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
     ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize);
+    ctx.restore();
+    currentY += qrFrameSize + qrToUrlGap;
 
-    const urlLines = customerUrl.match(/.{1,44}/g) || [customerUrl];
     ctx.fillStyle = "#64748b";
-    ctx.font = metaFont;
-    const urlStartY = qrY + qrSize + Math.round(baseFont * 0.9);
+    ctx.font = urlFont;
     urlLines.forEach((line, index) => {
-        ctx.fillText(line, canvas.width / 2, urlStartY + index * Math.round(baseFont * 0.55));
-    });
-
-    const footerLines = [];
-    if (qrCodeExpiresAt) {
-        footerLines.push(
-            `หมดอายุ ${new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(qrCodeExpiresAt))}`
-        );
-    }
-    footerLines.push(
-        `สร้างเมื่อ ${new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date())}`
-    );
-
-    const footerBaseY = canvas.height - marginBottom - Math.round(baseFont * 0.2) - (footerLines.length - 1) * Math.round(baseFont * 0.48);
-    footerLines.forEach((line, index) => {
-        ctx.fillText(line, canvas.width / 2, footerBaseY + index * Math.round(baseFont * 0.48));
+        ctx.fillText(line, centerX, currentY + index * urlLineHeight);
     });
 
     return canvas;

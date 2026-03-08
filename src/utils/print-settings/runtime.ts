@@ -540,6 +540,10 @@ function buildPrintShellHtml(options: {
       text-align: center;
     }
 
+    .qr-subtitle {
+      max-width: 100%;
+    }
+
     .qr-frame {
       padding: 10px;
       border-radius: 18px;
@@ -551,6 +555,20 @@ function buildPrintShellHtml(options: {
       width: min(100%, 72mm);
       height: auto;
       display: block;
+    }
+
+    .url-block {
+      display: grid;
+      gap: 6px;
+      justify-items: center;
+      width: 100%;
+    }
+
+    .url-line {
+      text-align: center;
+      word-break: break-all;
+      overflow-wrap: anywhere;
+      max-width: 100%;
     }
 
     .list {
@@ -950,7 +968,8 @@ function buildShiftSummaryMarkup(options: {
     );
 }
 
-function buildTableQrMarkup(options: {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function buildLegacyTableQrMarkup(options: {
     tableName: string;
     customerUrl: string;
     qrImageDataUrl: string;
@@ -988,6 +1007,35 @@ function buildTableQrMarkup(options: {
                         : ""
                 }
                 ${setting.note ? `<div class="footer-note">${escapeHtml(setting.note)}</div>` : ""}
+            </section>
+        </div>`,
+        setting.copies
+    );
+}
+
+function buildTableQrMarkup(options: {
+    tableName: string;
+    customerUrl: string;
+    qrImageDataUrl: string;
+    qrCodeExpiresAt?: string | null;
+    shopProfile?: PrintShopProfile | null;
+    settings: BranchPrintSettings;
+}): string {
+    const { tableName, customerUrl, qrImageDataUrl, settings } = options;
+    const setting = settings.documents.table_qr;
+    const urlLines = customerUrl.match(/.{1,44}/g) || [customerUrl];
+
+    return renderDocumentPages(
+        `<div class="stack">
+            <section class="qr-shell">
+                <div class="section-title">โต๊ะ ${escapeHtml(tableName)}</div>
+                <div class="muted qr-subtitle">สแกนเพื่อเปิดเมนูและสั่งสั่งอาหาร</div>
+                <div class="qr-frame">
+                    <img src="${escapeHtml(qrImageDataUrl)}" alt="QR code for table ${escapeHtml(tableName)}" />
+                </div>
+                <div class="url-block">
+                    ${urlLines.map((line) => `<div class="url-line">${escapeHtml(line)}</div>`).join("")}
+                </div>
             </section>
         </div>`,
         setting.copies

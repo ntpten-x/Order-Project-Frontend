@@ -57,6 +57,7 @@ type PendingQrAutoPrint = {
 };
 
 const { Title, Text } = Typography;
+const EXPORT_QR_CANVAS_SIZE = 2048;
 
 const formatDate = (raw?: string | Date) => {
     if (!raw) return '-';
@@ -779,7 +780,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                                                         <DynamicQRCodeCanvas
                                                             id={qrExportCanvasId}
                                                             value={customerOrderUrl}
-                                                            size={1024}
+                                                            size={EXPORT_QR_CANVAS_SIZE}
                                                             marginSize={2}
                                                         />
                                                     </div>
