@@ -50,11 +50,13 @@ import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { ORDER_REALTIME_EVENTS } from "../../../../utils/pos/orderRealtimeEvents";
 import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
 import {
+    areNotificationKeysCoolingDown,
     dedupeStrings,
     ENTITY_NOTICE_COOLDOWN_MS,
     FALLBACK_NOTICE_COOLDOWN_MS,
     getGroupNotificationKeys,
     getPayloadNotificationKeys,
+    markNotificationKeys as markNotificationCooldownKeys,
 } from "../../../../utils/pos/servingBoardNotifications";
 import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { servingBoardStyles } from "./style";
@@ -613,26 +615,16 @@ function ServingBoardPageContent() {
         };
     }, []);
 
-    const pruneNotificationCooldowns = useCallback((now: number) => {
-        const cooldowns = notificationCooldownRef.current;
-        cooldowns.forEach((timestamp, key) => {
-            if (now - timestamp >= ENTITY_NOTICE_COOLDOWN_MS) {
-                cooldowns.delete(key);
-            }
-        });
-    }, []);
-
     const areKeysCoolingDown = useCallback((keys: string[], now: number) => {
-        if (!keys.length) {
-            return now - lastNoticeAtRef.current < FALLBACK_NOTICE_COOLDOWN_MS;
-        }
-
-        pruneNotificationCooldowns(now);
-        return keys.some((key) => {
-            const lastTimestamp = notificationCooldownRef.current.get(key);
-            return typeof lastTimestamp === "number" && now - lastTimestamp < ENTITY_NOTICE_COOLDOWN_MS;
-        });
-    }, [pruneNotificationCooldowns]);
+        return areNotificationKeysCoolingDown(
+            notificationCooldownRef.current,
+            keys,
+            now,
+            lastNoticeAtRef.current,
+            FALLBACK_NOTICE_COOLDOWN_MS,
+            ENTITY_NOTICE_COOLDOWN_MS,
+        );
+    }, []);
 
     const markNotificationKeys = useCallback((keys: string[], now: number) => {
         if (!keys.length) {
@@ -640,9 +632,7 @@ function ServingBoardPageContent() {
             return;
         }
 
-        keys.forEach((key) => {
-            notificationCooldownRef.current.set(key, now);
-        });
+        markNotificationCooldownKeys(notificationCooldownRef.current, keys, now);
     }, []);
 
     const buildNotificationContent = useCallback((groups: ServingBoardGroup[], hidden: boolean) => {

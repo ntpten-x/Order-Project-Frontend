@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Spin, Typography, ConfigProvider, Button, Space, message as antdMessage } from "antd";
-import { LockFilled, LoadingOutlined } from "@ant-design/icons";
+import { LockFilled } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 
 const { Text, Title } = Typography;

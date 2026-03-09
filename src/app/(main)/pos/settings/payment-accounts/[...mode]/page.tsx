@@ -292,7 +292,9 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
         onRefresh: () => {
             void accountsListQuery.refetch();
             void accountsCatalogQuery.refetch();
-            void editAccountQuery.refetch();
+            if (isEdit && editId) {
+                void editAccountQuery.refetch();
+            }
         },
         intervalMs: 45000,
         debounceMs: 500,
@@ -389,11 +391,14 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
             const csrfToken = await getCsrfTokenCached();
             await paymentAccountService.activate(account.id, undefined, undefined, csrfToken);
             message.success(`ตั้ง "${account.account_name}" เป็นบัญชีหลักแล้ว`);
-            await Promise.all([
+            const refetches = [
                 accountsListQuery.refetch(),
                 accountsCatalogQuery.refetch(),
-                editAccountQuery.refetch(),
-            ]);
+            ];
+            if (isEdit && editId) {
+                refetches.push(editAccountQuery.refetch());
+            }
+            await Promise.all(refetches);
         } catch (error) {
             console.error(error);
             message.error(getFriendlyErrorMessage(error, 'ไม่สามารถตั้งบัญชีหลักได้'));
@@ -496,11 +501,14 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                 message.success(`เพิ่มบัญชี "${payload.account_name}" สำเร็จ`);
             }
 
-            await Promise.all([
+            const refetches = [
                 accountsListQuery.refetch(),
                 accountsCatalogQuery.refetch(),
-                editAccountQuery.refetch(),
-            ]);
+            ];
+            if (isEdit && editId) {
+                refetches.push(editAccountQuery.refetch());
+            }
+            await Promise.all(refetches);
             router.replace('/pos/settings/payment-accounts/manage');
         } catch (error) {
             console.error(error);

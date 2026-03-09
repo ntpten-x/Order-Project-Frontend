@@ -8,9 +8,9 @@ import type { Role } from "../../lib/rbac/policy";
 import { asRole } from "../../lib/rbac/policy";
 import { inferPermissionFromPath, type PermissionRequirement } from "../../lib/rbac/page-permissions";
 
-export type AccessStatus = "checking" | "authorized" | "unauthenticated" | "unauthorized";
+type AccessStatus = "checking" | "authorized" | "unauthenticated" | "unauthorized";
 
-export function getAccessStatus(
+function getAccessStatus(
     user: User | null,
     authLoading: boolean,
     allowedRoles?: Role[],
