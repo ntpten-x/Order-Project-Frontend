@@ -5,8 +5,7 @@ node_modules/
 .yarn/install-state.gz
 
 # Build outputs
-.next/
-.next-guard/
+.next*/
 out/
 build/
 coverage/
