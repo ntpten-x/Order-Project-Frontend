@@ -18,6 +18,7 @@ export function useDelivery() {
         refetchInterval: isConnected ? false : 20_000,
         refetchIntervalInBackground: false,
         refetchOnReconnect: true,
+        refetchOnWindowFocus: false,
     });
 
     useEffect(() => {

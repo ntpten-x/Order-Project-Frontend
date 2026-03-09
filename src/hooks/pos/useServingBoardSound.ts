@@ -9,7 +9,8 @@ export type ServingBoardTone = "chime" | "service-bell" | "alert";
 export type ServingBoardNotifyMode = "new-batches" | "event-stream";
 
 type SoundSettings = {
-    enabled: boolean;
+    soundEnabled: boolean;
+    toastEnabled: boolean;
     notifyMode: ServingBoardNotifyMode;
     tone: ServingBoardTone;
     volume: number;
@@ -20,7 +21,8 @@ type WebAudioWindow = Window & typeof globalThis & {
 };
 
 const DEFAULT_SETTINGS: SoundSettings = {
-    enabled: true,
+    soundEnabled: true,
+    toastEnabled: true,
     notifyMode: "new-batches",
     tone: "chime",
     volume: 68,
@@ -94,8 +96,12 @@ function readStoredSettings(): SoundSettings {
 
     try {
         const parsed = JSON.parse(rawValue) as Partial<SoundSettings>;
+        const legacyEnabled = typeof (parsed as { enabled?: boolean }).enabled === "boolean"
+            ? (parsed as { enabled?: boolean }).enabled
+            : undefined;
         return {
-            enabled: parsed.enabled ?? DEFAULT_SETTINGS.enabled,
+            soundEnabled: parsed.soundEnabled ?? legacyEnabled ?? DEFAULT_SETTINGS.soundEnabled,
+            toastEnabled: parsed.toastEnabled ?? DEFAULT_SETTINGS.toastEnabled,
             notifyMode: parsed.notifyMode === "event-stream" ? "event-stream" : DEFAULT_SETTINGS.notifyMode,
             tone:
                 parsed.tone === "service-bell" || parsed.tone === "alert" || parsed.tone === "chime"
@@ -152,7 +158,7 @@ export function useServingBoardSound() {
     }, []);
 
     const playNotificationSound = useCallback(async (): Promise<ToneResult> => {
-        if (!settings.enabled || settings.volume <= 0) {
+        if (!settings.soundEnabled || settings.volume <= 0) {
             return "disabled";
         }
 
@@ -183,11 +189,11 @@ export function useServingBoardSound() {
             setSoundBlocked(true);
             return "blocked";
         }
-    }, [ensureAudioContext, settings.enabled, settings.tone, settings.volume]);
+    }, [ensureAudioContext, settings.soundEnabled, settings.tone, settings.volume]);
 
     const toggleSound = useCallback(async (): Promise<ToneResult> => {
-        const nextEnabled = !settings.enabled;
-        persistSettings((current) => ({ ...current, enabled: nextEnabled }));
+        const nextEnabled = !settings.soundEnabled;
+        persistSettings((current) => ({ ...current, soundEnabled: nextEnabled }));
 
         if (!nextEnabled) {
             setSoundBlocked(false);
@@ -209,7 +215,11 @@ export function useServingBoardSound() {
             setSoundBlocked(true);
             return "blocked";
         }
-    }, [ensureAudioContext, persistSettings, settings.enabled]);
+    }, [ensureAudioContext, persistSettings, settings.soundEnabled]);
+
+    const toggleToast = useCallback(() => {
+        persistSettings((current) => ({ ...current, toastEnabled: !current.toastEnabled }));
+    }, [persistSettings]);
 
     const setTone = useCallback((tone: ServingBoardTone) => {
         persistSettings((current) => ({ ...current, tone }));
@@ -229,10 +239,13 @@ export function useServingBoardSound() {
         setTone,
         setVolume,
         soundBlocked,
-        soundEnabled: settings.enabled,
+        soundEnabled: settings.soundEnabled,
         soundTone: settings.tone,
         soundVolume: settings.volume,
+        toastEnabled: settings.toastEnabled,
         playNotificationSound,
+        playTestSound: playNotificationSound,
         toggleSound,
+        toggleToast,
     };
 }

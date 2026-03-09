@@ -12,7 +12,7 @@ export interface SalesSummary {
 
 export interface TopItem {
     product_id: string;
-    product_name: string;
+    display_name: string;
     img_url: string;
     category_id?: string;
     total_quantity: number;

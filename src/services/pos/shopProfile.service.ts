@@ -1,5 +1,6 @@
 import { getProxyUrl } from "../../lib/proxy-utils";
 import { throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
+import { withInflightDedup } from "../../utils/api/inflight";
 
 export interface ShopProfile {
     id: string;
@@ -8,9 +9,19 @@ export interface ShopProfile {
     phone?: string;
     promptpay_number?: string;
     promptpay_name?: string;
+    takeaway_qr_token?: string | null;
+    takeaway_qr_expires_at?: string | null;
 }
 
 const BASE_PATH = "/pos/shopProfile";
+const SHOP_PROFILE_CACHE_TTL_MS = 60_000;
+
+type ShopProfileCacheEntry = {
+    ts: number;
+    data: ShopProfile;
+};
+
+const profileCache = new Map<string, ShopProfileCacheEntry>();
 
 const getHeaders = (cookie?: string, contentType: string = "application/json"): HeadersInit => {
     const headers: Record<string, string> = {};
@@ -21,19 +32,29 @@ const getHeaders = (cookie?: string, contentType: string = "application/json"): 
 
 export const shopProfileService = {
     getProfile: async (cookie?: string): Promise<ShopProfile> => {
-        const url = getProxyUrl("GET", BASE_PATH);
-        const headers = getHeaders(cookie, "");
-
-        const response = await fetch(url!, {
-            cache: "no-store",
-            headers,
-            credentials: "include"
-        });
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถดึงข้อมูลร้านค้าได้");
+        const cacheKey = cookie ?? "client";
+        const cached = profileCache.get(cacheKey);
+        if (cached && Date.now() - cached.ts < SHOP_PROFILE_CACHE_TTL_MS) {
+            return cached.data;
         }
-        return unwrapBackendData(await response.json()) as ShopProfile;
+
+        return withInflightDedup(`shopProfile:get:${cacheKey}`, async () => {
+            const url = getProxyUrl("GET", BASE_PATH);
+            const headers = getHeaders(cookie, "");
+
+            const response = await fetch(url!, {
+                cache: "no-store",
+                headers,
+                credentials: "include",
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throwBackendHttpError(response, errorData, "Unable to load shop profile");
+            }
+            const payload = unwrapBackendData(await response.json()) as ShopProfile;
+            profileCache.set(cacheKey, { ts: Date.now(), data: payload });
+            return payload;
+        });
     },
 
     updateProfile: async (data: Partial<ShopProfile>, cookie?: string, csrfToken?: string): Promise<ShopProfile> => {
@@ -42,15 +63,17 @@ export const shopProfileService = {
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
         const response = await fetch(url!, {
-            method: "PUT", // Matches route definition
+            method: "PUT",
             headers,
             credentials: "include",
             body: JSON.stringify(data),
         });
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ไม่สามารถอัปเดตข้อมูลร้านค้าได้");
+            throwBackendHttpError(response, errorData, "Unable to update shop profile");
         }
-        return unwrapBackendData(await response.json()) as ShopProfile;
-    }
+        const payload = unwrapBackendData(await response.json()) as ShopProfile;
+        profileCache.clear();
+        return payload;
+    },
 };

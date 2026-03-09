@@ -1,30 +1,32 @@
 ﻿import { Shift, ShiftClosePreview, ShiftHistoryQuery, ShiftHistoryResponse } from "../../types/api/pos/shifts";
 import { getCsrfTokenCached } from "../../utils/pos/csrf";
 import { throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
+import { withInflightDedup } from "../../utils/api/inflight";
 
 const parsePayload = async (response: Response): Promise<unknown> => {
     return response.json().catch(() => ({}));
 };
 
 export const shiftsService = {
-    getCurrentShift: async (): Promise<Shift | null> => {
-        const response = await fetch("/api/pos/shifts/current", {
-            method: "GET",
-            headers: { "Content-Type": "application/json" },
-            credentials: "include",
-        });
+    getCurrentShift: async (): Promise<Shift | null> =>
+        withInflightDedup("shifts:getCurrent", async () => {
+            const response = await fetch("/api/pos/shifts/current", {
+                method: "GET",
+                headers: { "Content-Type": "application/json" },
+                credentials: "include",
+            });
 
-        if (response.status === 404) {
-            return null;
-        }
+            if (response.status === 404) {
+                return null;
+            }
 
-        if (!response.ok) {
-            const errorData = await parsePayload(response);
-            throwBackendHttpError(response, errorData, "Failed to fetch current shift");
-        }
+            if (!response.ok) {
+                const errorData = await parsePayload(response);
+                throwBackendHttpError(response, errorData, "Failed to fetch current shift");
+            }
 
-        return unwrapBackendData(await parsePayload(response)) as Shift;
-    },
+            return unwrapBackendData(await parsePayload(response)) as Shift;
+        }),
 
     openShift: async (startAmount: number): Promise<Shift> => {
         const csrfToken = await getCsrfTokenCached();

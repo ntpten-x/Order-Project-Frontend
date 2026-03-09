@@ -2,12 +2,12 @@
 
 import React from "react";
 import Image from "../../../../../../components/ui/image/SmartImage";
-import { Typography } from "antd";
-import { ShopOutlined } from "@ant-design/icons";
+import { Tag, Typography } from "antd";
+import { CheckCircleFilled, ShopOutlined } from "@ant-design/icons";
 import {
     createManagePageStyles,
-    ManagePageHeader,
     ManageActionButtons,
+    ManagePageHeader,
 } from "../../../../../../theme/pos/manage.shared";
 import { isSupportedImageSource } from "../../../../../../utils/image/source";
 
@@ -20,8 +20,6 @@ const { pageStyles, ManagePageStyles } = createManagePageStyles({
 });
 
 export { pageStyles, ManagePageStyles };
-
-// ============ HEADER COMPONENT ============
 
 interface HeaderProps {
     isEdit: boolean;
@@ -40,12 +38,9 @@ export const PageHeader = ({ isEdit, onBack, onDelete }: HeaderProps) => (
     />
 );
 
-// ============ PRODUCT PREVIEW COMPONENT ============
-
 interface ProductPreviewProps {
     name?: string;
     productName?: string;
-    description?: string;
     imageUrl?: string;
     price?: number;
     priceDelivery?: number;
@@ -53,51 +48,53 @@ interface ProductPreviewProps {
     unit?: string;
 }
 
-import { Tag } from "antd";
-import { CheckCircleFilled } from "@ant-design/icons";
-
 export const ProductPreview = ({ name, productName, imageUrl, price, priceDelivery, category, unit }: ProductPreviewProps) => (
-    <div style={{
-        marginTop: 24,
-        marginBottom: 24,
-        padding: 20,
-        background: "#F8FAFC", // Soft neutral background
-        borderRadius: 20,
-        border: "1px dashed #E2E8F0"
-    }}>
-         <Text type="secondary" style={{ display: 'block', marginBottom: 12, fontSize: 13, textAlign: 'center' }}>
-            ตัวอย่างการแสดงผล (Live Preview)
-        </Text>
-        
-        <div style={{
-            width: "100%",
-            maxWidth: 280,
-            margin: "0 auto",
-            background: "white",
+    <div
+        style={{
+            marginTop: 24,
+            marginBottom: 24,
+            padding: 20,
+            background: "#F8FAFC",
             borderRadius: 20,
-            overflow: "hidden",
-            boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
-            border: "1px solid #F1F5F9",
-            transition: "all 0.3s ease"
-        }}>
-             {/* Card Inner */}
-            <div style={{
-                 padding: 12,
-                 display: 'flex',
-                 gap: 12,
-                 alignItems: 'center' // List view style like in main page but simplified
-            }}>
-                 {/* Image */}
-                <div style={{
-                    width: 72,
-                    height: 72,
-                    borderRadius: 16,
-                    border: '1px solid #F1F5F9',
-                    overflow: 'hidden',
-                    position: 'relative',
-                    background: '#F8FAFC',
-                    flexShrink: 0
-                }}>
+            border: "1px dashed #E2E8F0",
+        }}
+    >
+        <Text type="secondary" style={{ display: "block", marginBottom: 12, fontSize: 13, textAlign: "center" }}>
+            ตัวอย่างการแสดงผล
+        </Text>
+
+        <div
+            style={{
+                width: "100%",
+                maxWidth: 280,
+                margin: "0 auto",
+                background: "white",
+                borderRadius: 20,
+                overflow: "hidden",
+                boxShadow: "0 10px 30px rgba(0,0,0,0.06)",
+                border: "1px solid #F1F5F9",
+            }}
+        >
+            <div
+                style={{
+                    padding: 12,
+                    display: "flex",
+                    gap: 12,
+                    alignItems: "center",
+                }}
+            >
+                <div
+                    style={{
+                        width: 72,
+                        height: 72,
+                        borderRadius: 16,
+                        border: "1px solid #F1F5F9",
+                        overflow: "hidden",
+                        position: "relative",
+                        background: "#F8FAFC",
+                        flexShrink: 0,
+                    }}
+                >
                     {isSupportedImageSource(imageUrl) ? (
                         <Image
                             src={imageUrl}
@@ -105,53 +102,52 @@ export const ProductPreview = ({ name, productName, imageUrl, price, priceDelive
                             fill
                             style={{ objectFit: "cover" }}
                             sizes="72px"
-                            onError={(e) => {
-                                // Fallback logic is tricky in SSR/Icon, mostly just show icon if fail
-                                (e.target as HTMLImageElement).style.display = 'none';
+                            onError={(event) => {
+                                (event.target as HTMLImageElement).style.display = "none";
                             }}
                         />
                     ) : (
-                         <div style={{
-                            width: "100%",
-                            height: "100%",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            background: "linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)"
-                        }}>
-                             <ShopOutlined style={{ fontSize: 24, color: "#6366F1", opacity: 0.8 }} />
+                        <div
+                            style={{
+                                width: "100%",
+                                height: "100%",
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                                background: "linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)",
+                            }}
+                        >
+                            <ShopOutlined style={{ fontSize: 24, color: "#6366F1", opacity: 0.8 }} />
                         </div>
                     )}
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                         <Text strong style={{ fontSize: 16, color: '#1E293B', flex: 1 }} ellipsis>
-                            {name || "ชื่อสินค้า (ไทย)"}
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <Text strong style={{ fontSize: 16, color: "#1E293B", flex: 1 }} ellipsis>
+                            {name || "ชื่อสินค้า"}
                         </Text>
-                         <CheckCircleFilled style={{ color: '#10B981', fontSize: 14 }} />
+                        <CheckCircleFilled style={{ color: "#10B981", fontSize: 14 }} />
                     </div>
-                     <Text type="secondary" style={{ fontSize: 13, display: 'block', marginBottom: 6, color: '#64748B' }} ellipsis>
-                        {productName || "Product Name (EN)"}
+                    <Text type="secondary" style={{ fontSize: 13, display: "block", marginBottom: 6, color: "#64748B" }} ellipsis>
+                        {productName || "Product Name"}
                     </Text>
-                    
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
-                         <Tag style={{ borderRadius: 6, margin: 0, fontSize: 11, fontWeight: 700, color: '#059669', background: '#ECFDF5', border: 'none', padding: '0 8px' }}>
+
+                    <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <Tag style={{ borderRadius: 6, margin: 0, fontSize: 11, fontWeight: 700, color: "#059669", background: "#ECFDF5", border: "none", padding: "0 8px" }}>
                             ฿{(price || 0).toLocaleString()}
                         </Tag>
-                        <Tag style={{ borderRadius: 6, margin: 0, fontSize: 11, fontWeight: 700, color: '#db2777', background: '#fdf2f8', border: 'none', padding: '0 8px' }}>
+                        <Tag style={{ borderRadius: 6, margin: 0, fontSize: 11, fontWeight: 700, color: "#db2777", background: "#fdf2f8", border: "none", padding: "0 8px" }}>
                             Delivery ฿{Number(priceDelivery ?? price ?? 0).toLocaleString()}
                         </Tag>
-                        {category && <Tag style={{ borderRadius: 6, margin: 0, fontSize: 10, color: '#4F46E5', background: '#EEF2FF', border: 'none' }}>{category}</Tag>}
-                        {unit && <Tag style={{ borderRadius: 6, margin: 0, fontSize: 10, color: '#0891B2', background: '#CFFAFE', border: 'none' }}>{unit}</Tag>}
+                        {category ? <Tag style={{ borderRadius: 6, margin: 0, fontSize: 10, color: "#4F46E5", background: "#EEF2FF", border: "none" }}>{category}</Tag> : null}
+                        {unit ? <Tag style={{ borderRadius: 6, margin: 0, fontSize: 10, color: "#0891B2", background: "#CFFAFE", border: "none" }}>{unit}</Tag> : null}
                     </div>
                 </div>
             </div>
         </div>
     </div>
 );
-
-// ============ ACTION BUTTONS COMPONENT ============
 
 interface ActionButtonsProps {
     isEdit: boolean;

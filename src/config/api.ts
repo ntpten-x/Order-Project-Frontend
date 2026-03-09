@@ -34,6 +34,7 @@ export const API_ROUTES = {
             SALES: '/pos/dashboard/sales',
             TOP_ITEMS: '/pos/dashboard/top-items',
             OVERVIEW: '/pos/dashboard/overview',
+            ORDERS: '/pos/dashboard/orders',
         },
         CHANNELS: {
             STATS: '/pos/orders/stats',
@@ -44,6 +45,5 @@ export const API_ROUTES = {
         PRODUCTS_UNIT: '/pos/productsUnit',
         PAYMENT_DETAILS: '/pos/paymentDetails',
         BRANCH: '/branches',
-        ORDER_QUEUE: '/pos/queue',
     },
 };

@@ -44,8 +44,10 @@ import PageState from "../../../../components/ui/states/PageState";
 import {
   buildPageMarginCss,
   buildPageSizeCss,
+  closePrintWindow,
   getPrintSettings,
   primePrintResources,
+  reservePrintWindow,
 } from "../../../../utils/print-settings/runtime";
 import { toCssLength } from "../../../../utils/print-settings/defaults";
 import { PrintDocumentSetting } from "../../../../types/api/pos/printSettings";
@@ -206,56 +208,57 @@ export default function StockOrdersQueuePage() {
   };
 
   const printOrderToPdf = useCallback(async (order: Order) => {
-    const popup = window.open("", "_blank", "width=960,height=720");
+    const orderCode = `#${order.id.slice(0, 8).toUpperCase()}`;
+    const popup = reservePrintWindow(`ใบสั่งซื้อ ${orderCode}`);
     if (!popup) {
       messageApi.error("เบราว์เซอร์บล็อกหน้าต่างพิมพ์ กรุณาอนุญาตป๊อปอัป");
       return;
     }
 
-    const printSettings = await getPrintSettings();
-    const documentSetting = printSettings.documents.purchase_order;
-    const pageSizeCss = buildPageSizeCss(documentSetting);
-    const pagePaddingCss = buildPageMarginCss(documentSetting);
-    const effectiveSize = getEffectiveDocumentSize(documentSetting);
-    const sheetWidthCss = toCssLength(effectiveSize.width, documentSetting.unit);
-    const sheetHeightCss = effectiveSize.height == null ? "auto" : toCssLength(effectiveSize.height, documentSetting.unit);
+    try {
+      const printSettings = await getPrintSettings();
+      const documentSetting = printSettings.documents.purchase_order;
+      const pageSizeCss = buildPageSizeCss(documentSetting);
+      const pagePaddingCss = buildPageMarginCss(documentSetting);
+      const effectiveSize = getEffectiveDocumentSize(documentSetting);
+      const sheetWidthCss = toCssLength(effectiveSize.width, documentSetting.unit);
+      const sheetHeightCss = effectiveSize.height == null ? "auto" : toCssLength(effectiveSize.height, documentSetting.unit);
 
-    const createdAt = formatDateTime(order.create_date);
-    const orderedBy = order.ordered_by?.name || order.ordered_by?.username || "-";
-    const printAt = new Date().toLocaleString("th-TH", {
-      day: "2-digit",
-      month: "short",
-      year: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-    });
+      const createdAt = formatDateTime(order.create_date);
+      const orderedBy = order.ordered_by?.name || order.ordered_by?.username || "-";
+      const printAt = new Date().toLocaleString("th-TH", {
+        day: "2-digit",
+        month: "short",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+      });
 
-    const safeRemark = escapeHtml(order.remark?.trim() || "-");
-    const orderCode = `#${order.id.slice(0, 8).toUpperCase()}`;
-    const rows = (order.ordersItems || [])
-      .map((item, index) => {
-        const name = escapeHtml(item.ingredient?.display_name || item.ingredient?.ingredient_name || "-");
-        const unit = escapeHtml(item.ingredient?.unit?.display_name || item.ingredient?.unit?.unit_name || "หน่วย");
-        const quantity = Number(item.quantity_ordered || 0);
-        return `
-          <tr>
-            <td class="center">${index + 1}</td>
-            <td>${name}</td>
-            <td class="center">${quantity.toLocaleString()}</td>
-            <td class="center">${unit}</td>
-          </tr>
-        `;
-      })
-      .join("");
+      const safeRemark = escapeHtml(order.remark?.trim() || "-");
+      const rows = (order.ordersItems || [])
+        .map((item, index) => {
+          const name = escapeHtml(item.ingredient?.display_name || item.ingredient?.ingredient_name || "-");
+          const unit = escapeHtml(item.ingredient?.unit?.display_name || item.ingredient?.unit?.unit_name || "หน่วย");
+          const quantity = Number(item.quantity_ordered || 0);
+          return `
+            <tr>
+              <td class="center">${index + 1}</td>
+              <td>${name}</td>
+              <td class="center">${quantity.toLocaleString()}</td>
+              <td class="center">${unit}</td>
+            </tr>
+          `;
+        })
+        .join("");
 
-    const totalItems = (order.ordersItems || []).length;
-    const totalQty = (order.ordersItems || []).reduce(
-      (acc, item) => acc + Number(item.quantity_ordered || 0),
-      0
-    );
+      const totalItems = (order.ordersItems || []).length;
+      const totalQty = (order.ordersItems || []).reduce(
+        (acc, item) => acc + Number(item.quantity_ordered || 0),
+        0
+      );
 
-    const html = `
+      const html = `
       <!DOCTYPE html>
       <html lang="th">
         <head>
@@ -485,9 +488,14 @@ export default function StockOrdersQueuePage() {
       </html>
     `;
 
-    popup.document.open();
-    popup.document.write(html);
-    popup.document.close();
+      popup.document.open();
+      popup.document.write(html);
+      popup.document.close();
+    } catch (error) {
+      closePrintWindow(popup);
+      console.error("Print purchase order failed", error);
+      messageApi.error(error instanceof Error ? error.message : "เปิดหน้าพิมพ์ใบสั่งซื้อไม่สำเร็จ");
+    }
   }, [messageApi]);
 
   const metrics = useMemo(() => {

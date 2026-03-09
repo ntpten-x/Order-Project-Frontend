@@ -151,6 +151,27 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
     }, [isValidMode, mode, id, router]);
 
     useEffect(() => {
+        if (isChecking || permissionLoading || !isAuthorized) return;
+        if (mode === 'add' && !canCreatePaymentMethods) {
+            message.warning('คุณไม่มีสิทธิ์เพิ่มวิธีการชำระเงิน');
+            router.replace('/pos/paymentMethod');
+            return;
+        }
+        if (mode === 'edit' && !canUpdatePaymentMethods) {
+            message.warning('คุณไม่มีสิทธิ์แก้ไขวิธีการชำระเงิน');
+            router.replace('/pos/paymentMethod');
+        }
+    }, [
+        canCreatePaymentMethods,
+        canUpdatePaymentMethods,
+        isAuthorized,
+        isChecking,
+        mode,
+        permissionLoading,
+        router,
+    ]);
+
+    useEffect(() => {
         const fetchCsrf = async () => {
             const token = await getCsrfTokenCached();
             setCsrfToken(token);
@@ -158,7 +179,7 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
 
         const fetchExistingMethods = async () => {
             try {
-                const response = await fetch('/api/pos/paymentMethod?limit=100');
+                const response = await fetch('/api/pos/paymentMethod?limit=100', { cache: 'no-store' });
                 if (response.ok) {
                     const data = await response.json();
                     if (data?.data) {
@@ -171,14 +192,16 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
         };
 
         fetchCsrf();
-        fetchExistingMethods();
-    }, []);
+        if (isAuthorized && !permissionLoading) {
+            void fetchExistingMethods();
+        }
+    }, [isAuthorized, permissionLoading]);
 
     const fetchPaymentMethod = useCallback(async () => {
         if (!id) return;
         setLoading(true);
         try {
-            const response = await fetch(`/api/pos/paymentMethod/getById/${id}`);
+            const response = await fetch(`/api/pos/paymentMethod/getById/${id}`, { cache: 'no-store' });
             if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลวิธีการชำระเงินได้');
             const data = await response.json();
             form.setFieldsValue({
@@ -201,10 +224,10 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
     }, [id, form, router]);
 
     useEffect(() => {
-        if (isEdit) {
-            fetchPaymentMethod();
+        if (isEdit && isAuthorized && !permissionLoading) {
+            void fetchPaymentMethod();
         }
-    }, [isEdit, fetchPaymentMethod]);
+    }, [fetchPaymentMethod, isAuthorized, isEdit, permissionLoading]);
 
     const checkNameConflict = useCallback(async (rawValue: string) => {
         const value = rawValue.trim();
@@ -215,7 +238,7 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
         }
 
         try {
-            const response = await fetch(`/api/pos/paymentMethod/getByName/${encodeURIComponent(value)}`);
+            const response = await fetch(`/api/pos/paymentMethod/getByName/${encodeURIComponent(value)}`, { cache: 'no-store' });
             if (!response.ok) return false;
             const found = await response.json();
             if (!found?.id) return false;
@@ -260,7 +283,7 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
             }
 
             message.success(isEdit ? 'อัปเดตวิธีการชำระเงินสำเร็จ' : 'สร้างวิธีการชำระเงินสำเร็จ');
-            router.push('/pos/paymentMethod');
+            router.replace('/pos/paymentMethod');
         } catch (error) {
             console.error(error);
             message.error(error instanceof Error ? error.message : 'ไม่สามารถบันทึกข้อมูลได้');
@@ -287,18 +310,21 @@ export default function PaymentMethodManagePage({ params }: { params: { mode: st
                             'X-CSRF-Token': csrfToken
                         }
                     });
-                    if (!response.ok) throw new Error('ไม่สามารถลบวิธีการชำระเงินได้');
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error || errorData.message || 'ไม่สามารถลบวิธีการชำระเงินได้');
+                    }
                     message.success('ลบวิธีการชำระเงินสำเร็จ');
-                    router.push('/pos/paymentMethod');
+                    router.replace('/pos/paymentMethod');
                 } catch (error) {
                     console.error(error);
-                    message.error('ไม่สามารถลบวิธีการชำระเงินได้');
+                    message.error(error instanceof Error ? error.message : 'ไม่สามารถลบวิธีการชำระเงินได้');
                 }
             }
         });
     };
 
-    const handleBack = () => router.push('/pos/paymentMethod');
+    const handleBack = () => router.replace('/pos/paymentMethod');
 
     if (isChecking || permissionLoading) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;

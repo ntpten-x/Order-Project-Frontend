@@ -1,71 +1,149 @@
 "use client";
 
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { message } from "antd";
 
 import { useAuth } from "../AuthContext";
+import { useSocket } from "../../hooks/useSocket";
 import { shiftsService } from "../../services/pos/shifts.service";
 import { Shift } from "../../types/api/pos/shifts";
+import { removeCache, writeCache, readCache } from "../../utils/pos/cache";
+import { useRealtimeRefresh } from "../../utils/pos/realtime";
+import { RealtimeEvents } from "../../utils/realtimeEvents";
+
+type RefreshShiftOptions = {
+    silent?: boolean;
+};
 
 interface ShiftContextType {
     currentShift: Shift | null;
     loading: boolean;
-    openShift: (startAmount: number) => Promise<void>;
+    openShift: (startAmount: number) => Promise<Shift>;
     closeShift: (endAmount: number) => Promise<Shift>;
-    refreshShift: () => Promise<void>;
+    refreshShift: (options?: RefreshShiftOptions) => Promise<Shift | null>;
 }
 
 const ShiftContext = createContext<ShiftContextType | undefined>(undefined);
+const SHIFT_CACHE_TTL_MS = 60_000;
+
+function getShiftCacheKey(branchId?: string) {
+    return `pos:shift:current:${branchId || "default"}`;
+}
 
 export const ShiftProvider = ({ children }: { children: React.ReactNode }) => {
     const { user } = useAuth();
+    const { socket } = useSocket();
+    const branchId = user?.branch_id || user?.branch?.id;
+    const cacheKey = useMemo(() => getShiftCacheKey(branchId), [branchId]);
     const [currentShift, setCurrentShift] = useState<Shift | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
 
-    const refreshShift = useCallback(async () => {
-        if (!user) return;
-        try {
-            const shift = await shiftsService.getCurrentShift();
-            setCurrentShift(shift);
-        } catch (error) {
-            console.error("Error fetching shift:", error);
-            // Avoid noisy toast after login if branch/session is still initializing.
-        } finally {
-            setLoading(false);
-        }
-    }, [user]);
+    const persistShift = useCallback(
+        (shift: Shift | null) => {
+            if (shift) {
+                writeCache(cacheKey, shift);
+                return;
+            }
+            removeCache(cacheKey);
+        },
+        [cacheKey],
+    );
+
+    const refreshShift = useCallback(
+        async (options?: RefreshShiftOptions) => {
+            const silent = options?.silent ?? false;
+
+            if (!user || !branchId) {
+                setCurrentShift(null);
+                setLoading(false);
+                persistShift(null);
+                return null;
+            }
+
+            if (!silent) {
+                setLoading(true);
+            }
+
+            try {
+                const shift = await shiftsService.getCurrentShift();
+                setCurrentShift(shift);
+                persistShift(shift);
+                return shift;
+            } catch (error) {
+                console.error("Error fetching current shift:", error);
+                setCurrentShift(null);
+                persistShift(null);
+                return null;
+            } finally {
+                setLoading(false);
+            }
+        },
+        [branchId, persistShift, user],
+    );
 
     useEffect(() => {
-        refreshShift();
-    }, [refreshShift]);
-
-    const openShift = async (startAmount: number) => {
-        if (!user) return;
-        try {
-            const newShift = await shiftsService.openShift(startAmount);
-            setCurrentShift(newShift);
-            message.success("เปิดกะเรียบร้อยแล้ว");
-        } catch (error) {
-            message.error(error instanceof Error ? error.message : "เปิดกะไม่สำเร็จ");
-            throw error;
-        }
-    };
-
-    const closeShift = async (endAmount: number): Promise<Shift> => {
-        if (!user) {
-            throw new Error("User not authenticated");
+        if (!user || !branchId) {
+            setCurrentShift(null);
+            setLoading(false);
+            persistShift(null);
+            return;
         }
 
-        try {
+        const cachedShift = readCache<Shift>(cacheKey, SHIFT_CACHE_TTL_MS);
+        if (cachedShift) {
+            setCurrentShift(cachedShift);
+            setLoading(false);
+            void refreshShift({ silent: true });
+            return;
+        }
+
+        void refreshShift();
+    }, [branchId, cacheKey, persistShift, refreshShift, user]);
+
+    useRealtimeRefresh({
+        socket,
+        events: [RealtimeEvents.shifts.update],
+        enabled: Boolean(user && branchId),
+        debounceMs: 500,
+        onRefresh: () => {
+            void refreshShift({ silent: true });
+        },
+    });
+
+    const openShift = useCallback(
+        async (startAmount: number) => {
+            if (!user) {
+                throw new Error("User not authenticated");
+            }
+
+            try {
+                const newShift = await shiftsService.openShift(startAmount);
+                setCurrentShift(newShift);
+                persistShift(newShift);
+                message.success("เปิดกะเรียบร้อยแล้ว");
+                return newShift;
+            } catch (error) {
+                message.error(error instanceof Error ? error.message : "เปิดกะไม่สำเร็จ");
+                throw error;
+            }
+        },
+        [persistShift, user],
+    );
+
+    const closeShift = useCallback(
+        async (endAmount: number): Promise<Shift> => {
+            if (!user) {
+                throw new Error("User not authenticated");
+            }
+
             const closedShift = await shiftsService.closeShift(endAmount);
             setCurrentShift(null);
+            persistShift(null);
             message.success("ปิดกะเรียบร้อยแล้ว");
             return closedShift;
-        } catch (error) {
-            // Let caller decide how to present rich errors (e.g. pending orders by channel).
-            throw error;
-        }
-    };
+        },
+        [persistShift, user],
+    );
 
     return (
         <ShiftContext.Provider value={{ currentShift, loading, openShift, closeShift, refreshShift }}>

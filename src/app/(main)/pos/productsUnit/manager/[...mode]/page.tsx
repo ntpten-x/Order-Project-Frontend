@@ -1,160 +1,92 @@
-﻿'use client';
+'use client';
 
-import React, { useEffect, useMemo, useState, useCallback } from 'react';
-import { Form, Input, message, Spin, Switch, Modal, Button, Card, Row, Col, Typography, Alert } from 'antd';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import { Alert, Button, Card, Col, Form, Input, Modal, Row, Spin, Switch, Typography, message } from 'antd';
+import { AppstoreOutlined, DeleteOutlined, ExclamationCircleOutlined, SaveOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import PageContainer from '../../../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../../../components/ui/page/PageSection';
 import UIPageHeader from '../../../../../../components/ui/page/PageHeader';
-import {
-    DeleteOutlined,
-    SaveOutlined,
-    UnorderedListOutlined,
-    CheckCircleFilled,
-    AppstoreOutlined,
-    ExclamationCircleOutlined
-} from '@ant-design/icons';
-import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
-import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
 import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuard';
-import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
+import { useEffectivePermissions } from '../../../../../../hooks/useEffectivePermissions';
+import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
+import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
 import { pageStyles } from '../../../../../../theme/pos/productsUnit/style';
 import { ProductsUnit } from '../../../../../../types/api/pos/productsUnit';
 
-type ProductsUnitMode = 'add' | 'edit';
-
-type ProductsUnitFormValues = {
-    unit_name: string;
-    display_name: string;
-    is_active?: boolean;
-};
-
 const { Title, Text } = Typography;
+
+type ManageMode = 'add' | 'edit';
+type UnitFormValues = { display_name: string; is_active?: boolean };
 
 const formatDate = (raw?: string | Date) => {
     if (!raw) return '-';
     const date = new Date(raw);
-    if (Number.isNaN(date.getTime())) return '-';
-    return new Intl.DateTimeFormat('th-TH', {
-        dateStyle: 'medium',
-        timeStyle: 'short'
-    }).format(date);
+    return Number.isNaN(date.getTime())
+        ? '-'
+        : new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 };
-
-const UnitPreviewCard = ({ displayName, unitName, isActive }: { displayName: string, unitName: string, isActive: boolean }) => (
-    <div style={{
-        background: 'white',
-        borderRadius: 20,
-        padding: 20,
-        boxShadow: '0 10px 30px rgba(0,0,0,0.05)',
-        border: '1px solid #F1F5F9',
-    }}>
-        <Title level={5} style={{ color: '#0e7490', marginBottom: 16, fontWeight: 700 }}>ตัวอย่างการแสดงผล</Title>
-
-        <div style={{
-            borderRadius: 16,
-            border: `1px solid ${isActive ? '#bae6fd' : '#e2e8f0'}`,
-            padding: 14,
-            background: isActive ? '#f0f9ff' : '#f8fafc',
-            display: 'flex',
-            alignItems: 'center',
-            gap: 12,
-            marginBottom: 16,
-        }}>
-            <div style={{
-                width: 48,
-                height: 48,
-                borderRadius: 12,
-                background: isActive
-                    ? 'linear-gradient(135deg, #cffafe 0%, #a5f3fc 100%)'
-                    : '#e2e8f0',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                flexShrink: 0,
-            }}>
-                <UnorderedListOutlined style={{
-                    fontSize: 20,
-                    color: isActive ? '#0e7490' : '#64748b'
-                }} />
-            </div>
-            <div style={{ textAlign: 'left', flex: 1 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                    <Text strong style={{ fontSize: 16, color: '#0f172a' }}>
-                        {displayName || 'ชื่อหน่วยสินค้า'}
-                    </Text>
-                    {isActive && <CheckCircleFilled style={{ color: '#10B981', fontSize: 14 }} />}
-                </div>
-                <Text type="secondary" style={{ fontSize: 13, display: 'block' }}>
-                    {unitName || 'Unit name'}
-                </Text>
-            </div>
-        </div>
-
-        <Alert
-            type={isActive ? 'success' : 'warning'}
-            showIcon
-            message={isActive ? 'หน่วยสินค้านี้พร้อมใช้งานในหน้า POS' : 'หน่วยสินค้านี้จะไม่แสดงในหน้า POS'}
-        />
-    </div>
-);
 
 export default function ProductsUnitManagePage({ params }: { params: { mode: string[] } }) {
     const router = useRouter();
-    const [form] = Form.useForm<ProductsUnitFormValues>();
+    const [form] = Form.useForm<UnitFormValues>();
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
-    const [displayName, setDisplayName] = useState<string>('');
-    const [unitName, setUnitName] = useState<string>('');
-    const [isActive, setIsActive] = useState<boolean>(true);
-    const [csrfToken, setCsrfToken] = useState<string>('');
+    const [csrfToken, setCsrfToken] = useState('');
+    const [displayName, setDisplayName] = useState('');
+    const [isActive, setIsActive] = useState(true);
     const [originalUnit, setOriginalUnit] = useState<ProductsUnit | null>(null);
 
-    const mode = params.mode?.[0] as ProductsUnitMode | undefined;
+    const mode = params.mode?.[0] as ManageMode | undefined;
     const id = params.mode?.[1] || null;
-    const isValidMode = mode === 'add' || mode === 'edit';
     const isEdit = mode === 'edit' && Boolean(id);
+    const isValidMode = mode === 'add' || mode === 'edit';
+
     const { isAuthorized, isChecking, user } = useRoleGuard();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canCreateUnits = can("products_unit.page", "create");
-    const canUpdateUnits = can("products_unit.page", "update");
-    const canDeleteUnits = can("products_unit.page", "delete");
+    const canCreate = can('products_unit.page', 'create');
+    const canUpdate = can('products_unit.page', 'update');
+    const canDelete = can('products_unit.page', 'delete');
 
-    const modeTitle = useMemo(() => {
-        if (isEdit) return 'แก้ไขหน่วยสินค้า';
-        return 'เพิ่มหน่วยสินค้า';
-    }, [isEdit]);
+    const title = useMemo(() => (isEdit ? 'แก้ไขหน่วยสินค้า' : 'เพิ่มหน่วยสินค้า'), [isEdit]);
 
     useEffect(() => {
         if (!isValidMode || (mode === 'edit' && !id)) {
             message.warning('รูปแบบ URL ไม่ถูกต้อง');
             router.replace('/pos/productsUnit');
         }
-    }, [isValidMode, mode, id, router]);
+    }, [id, isValidMode, mode, router]);
 
     useEffect(() => {
-        const fetchCsrf = async () => {
-            const token = await getCsrfTokenCached();
-            setCsrfToken(token);
-        };
-        fetchCsrf();
+        void getCsrfTokenCached().then(setCsrfToken);
     }, []);
+
+    useEffect(() => {
+        if (isChecking || permissionLoading || !isAuthorized) return;
+        if (mode === 'add' && !canCreate) {
+            message.warning('คุณไม่มีสิทธิ์เพิ่มหน่วยสินค้า');
+            router.replace('/pos/productsUnit');
+            return;
+        }
+        if (mode === 'edit' && !canUpdate) {
+            message.warning('คุณไม่มีสิทธิ์แก้ไขหน่วยสินค้า');
+            router.replace('/pos/productsUnit');
+        }
+    }, [canCreate, canUpdate, isAuthorized, isChecking, mode, permissionLoading, router]);
 
     const fetchUnit = useCallback(async () => {
         if (!id) return;
         setLoading(true);
         try {
-            const response = await fetch(`/api/pos/productsUnit/getById/${id}`);
+            const response = await fetch(`/api/pos/productsUnit/getById/${id}`, { cache: 'no-store' });
             if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลหน่วยสินค้าได้');
             const data = await response.json();
             form.setFieldsValue({
-                unit_name: data.unit_name,
                 display_name: data.display_name,
                 is_active: data.is_active,
             });
             setDisplayName(data.display_name || '');
-            setUnitName(data.unit_name || '');
-            setIsActive(data.is_active);
+            setIsActive(Boolean(data.is_active));
             setOriginalUnit(data);
         } catch (error) {
             console.error(error);
@@ -163,235 +95,164 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
         } finally {
             setLoading(false);
         }
-    }, [id, form, router]);
+    }, [form, id, router]);
 
     useEffect(() => {
-        if (isEdit) {
-            fetchUnit();
+        if (isEdit && isAuthorized && !permissionLoading) {
+            void fetchUnit();
         }
-    }, [isEdit, fetchUnit]);
+    }, [fetchUnit, isAuthorized, isEdit, permissionLoading]);
 
     const checkNameConflict = useCallback(async (rawValue: string) => {
         const value = rawValue.trim();
         if (!value) return false;
-
-        if (isEdit && originalUnit?.unit_name?.toLowerCase() === value.toLowerCase()) {
+        if (isEdit && originalUnit?.display_name?.toLowerCase() === value.toLowerCase()) {
             return false;
         }
-
         try {
-            const response = await fetch(`/api/pos/productsUnit/getByName/${encodeURIComponent(value)}`);
+            const response = await fetch(`/api/pos/productsUnit/getByName/${encodeURIComponent(value)}`, { cache: 'no-store' });
             if (!response.ok) return false;
             const found = await response.json();
-            if (!found?.id) return false;
-            if (isEdit && found.id === id) return false;
-            return true;
+            return Boolean(found?.id && (!isEdit || found.id !== id));
         } catch {
             return false;
         }
     }, [id, isEdit, originalUnit]);
 
-    const onFinish = async (values: ProductsUnitFormValues) => {
+    const handleSubmit = async (values: UnitFormValues) => {
+        if (isEdit ? !canUpdate : !canCreate) {
+            message.warning(isEdit ? 'คุณไม่มีสิทธิ์แก้ไขหน่วยสินค้า' : 'คุณไม่มีสิทธิ์เพิ่มหน่วยสินค้า');
+            return;
+        }
         setSubmitting(true);
         try {
-            if (isEdit ? !canUpdateUnits : !canCreateUnits) {
-                throw new Error('คุณไม่มีสิทธิ์บันทึกข้อมูลหน่วยสินค้า');
-            }
-            const payload: ProductsUnitFormValues = {
-                unit_name: values.unit_name.trim(),
+            const token = csrfToken || await getCsrfTokenCached();
+            const payload = {
                 display_name: values.display_name.trim(),
                 is_active: values.is_active,
             };
-
-            const endpoint = isEdit ? `/api/pos/productsUnit/update/${id}` : '/api/pos/productsUnit/create';
-            const method = isEdit ? 'PUT' : 'POST';
-
-            const response = await fetch(endpoint, {
-                method,
+            const response = await fetch(isEdit ? `/api/pos/productsUnit/update/${id}` : '/api/pos/productsUnit/create', {
+                method: isEdit ? 'PUT' : 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken
+                    'X-CSRF-Token': token,
                 },
                 body: JSON.stringify(payload),
             });
-
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || (isEdit ? 'ไม่สามารถอัปเดตหน่วยสินค้าได้' : 'ไม่สามารถสร้างหน่วยสินค้าได้'));
+                throw new Error(errorData.error || errorData.message || 'ไม่สามารถบันทึกหน่วยสินค้าได้');
             }
-
             message.success(isEdit ? 'อัปเดตหน่วยสินค้าสำเร็จ' : 'สร้างหน่วยสินค้าสำเร็จ');
-            router.push('/pos/productsUnit');
+            router.replace('/pos/productsUnit');
         } catch (error) {
             console.error(error);
-            message.error(error instanceof Error ? error.message : 'ไม่สามารถสร้าง/แก้ไขหน่วยสินค้าได้');
+            message.error(error instanceof Error ? error.message : 'ไม่สามารถบันทึกหน่วยสินค้าได้');
         } finally {
             setSubmitting(false);
         }
     };
 
     const handleDelete = () => {
-        if (!id) return;
+        if (!id || !canDelete) return;
         Modal.confirm({
             title: 'ยืนยันการลบหน่วยสินค้า',
-            content: `คุณต้องการลบหน่วยสินค้า ${displayName || originalUnit?.display_name || '-'} หรือไม่?`,
+            content: `คุณต้องการลบหน่วยสินค้า ${displayName || '-'} หรือไม่?`,
             okText: 'ลบ',
-            okType: 'danger',
             cancelText: 'ยกเลิก',
+            okType: 'danger',
             centered: true,
-            icon: <DeleteOutlined style={{ color: '#EF4444' }} />,
+            icon: <DeleteOutlined style={{ color: '#ef4444' }} />,
             onOk: async () => {
                 try {
+                    const token = csrfToken || await getCsrfTokenCached();
                     const response = await fetch(`/api/pos/productsUnit/delete/${id}`, {
                         method: 'DELETE',
-                        headers: {
-                            'X-CSRF-Token': csrfToken
-                        }
+                        headers: { 'X-CSRF-Token': token },
                     });
-                    if (!response.ok) throw new Error('ไม่สามารถลบหน่วยสินค้าได้');
+                    if (!response.ok) {
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error || errorData.message || 'ไม่สามารถลบหน่วยสินค้าได้');
+                    }
                     message.success('ลบหน่วยสินค้าสำเร็จ');
-                    router.push('/pos/productsUnit');
+                    router.replace('/pos/productsUnit');
                 } catch (error) {
                     console.error(error);
-                    message.error('ไม่สามารถลบหน่วยสินค้าได้');
+                    message.error(error instanceof Error ? error.message : 'ไม่สามารถลบหน่วยสินค้าได้');
                 }
-            }
+            },
         });
     };
 
-    const handleBack = () => router.push('/pos/productsUnit');
-
-    if (isChecking || permissionLoading) {
-        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
-    }
-    if (!isAuthorized) {
-        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
-    }
+    if (isChecking || permissionLoading) return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
+    if (!isAuthorized) return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
 
     return (
-        <div className="manage-page" style={pageStyles.container}>
+        <div style={pageStyles.container}>
             <UIPageHeader
-                title={modeTitle}
-                onBack={handleBack}
-                actions={
-                    isEdit && canDeleteUnits ? (
-                        <Button danger onClick={handleDelete} icon={<DeleteOutlined />}>
-                            ลบ
-                        </Button>
-                    ) : null
-                }
+                title={title}
+                onBack={() => router.replace('/pos/productsUnit')}
+                actions={isEdit && canDelete ? <Button danger icon={<DeleteOutlined />} onClick={handleDelete}>ลบ</Button> : null}
             />
 
             <PageContainer maxWidth={1040}>
                 <PageSection style={{ background: 'transparent', border: 'none' }}>
                     {loading ? (
-                        <div style={{ display: 'flex', justifyContent: 'center', padding: '90px 0' }}>
-                            <Spin size="large" tip="กำลังโหลดข้อมูล..." />
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
+                            <Spin size="large" />
                         </div>
                     ) : (
                         <Row gutter={[20, 20]}>
                             <Col xs={24} lg={15}>
-                                <Card
-                                    bordered={false}
-                                    style={{
-                                        borderRadius: 20,
-                                        boxShadow: '0 4px 20px rgba(0,0,0,0.04)',
-                                        overflow: 'hidden'
-                                    }}
-                                    styles={{ body: { padding: 24 } }}
-                                >
+                                <Card bordered={false} style={{ borderRadius: 20 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
                                         <AppstoreOutlined style={{ fontSize: 20, color: '#0e7490' }} />
                                         <Title level={5} style={{ margin: 0 }}>ข้อมูลหน่วยสินค้า</Title>
                                     </div>
 
-                                    <Form
+                                    <Form<UnitFormValues>
                                         form={form}
                                         layout="vertical"
-                                        onFinish={onFinish}
-                                        requiredMark={false}
-                                        autoComplete="off"
+                                        onFinish={handleSubmit}
                                         initialValues={{ is_active: true }}
-                                        onValuesChange={(changedValues) => {
-                                            if (changedValues.display_name !== undefined) setDisplayName(changedValues.display_name);
-                                            if (changedValues.unit_name !== undefined) setUnitName(changedValues.unit_name);
-                                            if (changedValues.is_active !== undefined) setIsActive(changedValues.is_active);
+                                        onValuesChange={(changed) => {
+                                            if (changed.display_name !== undefined) setDisplayName(changed.display_name);
+                                            if (changed.is_active !== undefined) setIsActive(Boolean(changed.is_active));
                                         }}
                                     >
                                         <Form.Item
-                                            name="unit_name"
-                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อหน่วยสินค้าภาษาอังกฤษ <span style={{ color: '#ff4d4f' }}>*</span></span>}
+                                            name="display_name"
+                                            label={<span style={{ fontWeight: 600 }}>ชื่อหน่วยสินค้า</span>}
                                             validateTrigger={['onBlur', 'onSubmit']}
                                             rules={[
                                                 { required: true, message: 'กรุณากรอกชื่อหน่วยสินค้า' },
-                                                { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'กรอกได้เฉพาะภาษาอังกฤษ ตัวเลข และ - _ ( ) .' },
                                                 { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' },
                                                 {
                                                     validator: async (_, value: string) => {
                                                         if (!value?.trim()) return;
-                                                        const duplicated = await checkNameConflict(value);
-                                                        if (duplicated) throw new Error('ชื่อระบบนี้ถูกใช้งานแล้ว');
-                                                    }
-                                                }
+                                                        if (await checkNameConflict(value)) throw new Error('ชื่อนี้ถูกใช้งานแล้ว');
+                                                    },
+                                                },
                                             ]}
                                         >
-                                            <Input
-                                                size="large"
-                                                placeholder="Plate, Bottle, ..."
-                                                style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
-                                                maxLength={100}
-                                            />
+                                            <Input size="large" maxLength={100} placeholder="จาน, กล่อง, ขวด..." />
                                         </Form.Item>
 
-                                        <Form.Item
-                                            name="display_name"
-                                            label={<span style={{ fontWeight: 600, color: '#334155' }}>ชื่อหน่วยสินค้าภาษาไทย <span style={{ color: '#ff4d4f' }}>*</span></span>}
-                                            rules={[
-                                                { required: true, message: 'กรุณากรอกชื่อหน่วยสินค้า' },
-                                                { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
-                                            ]}
-                                        >
-                                            <Input
-                                                size="large"
-                                                placeholder="จาน, ขวด, ..."
-                                                style={{ borderRadius: 12, height: 46, backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0' }}
-                                                maxLength={100}
-                                            />
-                                        </Form.Item>
-
-                                        <div style={{ padding: '16px', background: '#F8FAFC', borderRadius: 14, marginTop: 16, marginBottom: 18 }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+                                        <div style={{ padding: 16, background: '#f8fafc', borderRadius: 14, marginBottom: 18 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <div>
-                                                    <Text strong style={{ fontSize: 15, display: 'block' }}>สถานะการใช้งาน</Text>
-                                                    <Text type="secondary" style={{ fontSize: 13 }}>เปิดเพื่อให้แสดงในหน้าขายสินค้า POS</Text>
+                                                    <Text strong>สถานะการใช้งาน</Text>
+                                                    <Text type="secondary" style={{ display: 'block', fontSize: 13 }}>เปิดเพื่อให้เลือกใช้บนสินค้า</Text>
                                                 </div>
                                                 <Form.Item name="is_active" valuePropName="checked" noStyle>
-                                                    <Switch style={{ background: isActive ? '#10B981' : undefined }} />
+                                                    <Switch checked={isActive} />
                                                 </Form.Item>
                                             </div>
                                         </div>
-                                        <div style={{ marginTop: 12, display: 'flex', gap: 12 }}>
-                                            <Button
-                                                size="large"
-                                                onClick={handleBack}
-                                                style={{ flex: 1, borderRadius: 12, height: 46, fontWeight: 600 }}
-                                            >
-                                                ยกเลิก
-                                            </Button>
-                                            <Button
-                                                type="primary"
-                                                htmlType="submit"
-                                                loading={submitting}
-                                                icon={<SaveOutlined />}
-                                                style={{
-                                                    flex: 2,
-                                                    borderRadius: 12,
-                                                    height: 46,
-                                                    fontWeight: 600,
-                                                    background: '#0e7490',
-                                                    boxShadow: '0 4px 12px rgba(14, 116, 144, 0.25)'
-                                                }}
-                                            >
+
+                                        <div style={{ display: 'flex', gap: 12 }}>
+                                            <Button size="large" onClick={() => router.replace('/pos/productsUnit')} style={{ flex: 1 }}>ยกเลิก</Button>
+                                            <Button type="primary" htmlType="submit" size="large" icon={<SaveOutlined />} loading={submitting} style={{ flex: 2 }}>
                                                 บันทึกข้อมูล
                                             </Button>
                                         </div>
@@ -401,11 +262,14 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
 
                             <Col xs={24} lg={9}>
                                 <div style={{ display: 'grid', gap: 14 }}>
-                                    <UnitPreviewCard
-                                        displayName={displayName}
-                                        unitName={unitName}
-                                        isActive={isActive}
-                                    />
+                                    <Card style={{ borderRadius: 20 }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 14 }}>
+                                            <UnorderedListOutlined style={{ color: '#0e7490' }} />
+                                            <Text strong>ตัวอย่างการแสดงผล</Text>
+                                        </div>
+                                        <Title level={4} style={{ marginBottom: 8 }}>{displayName || 'ชื่อหน่วยสินค้า'}</Title>
+                                        <Alert type={isActive ? 'success' : 'warning'} showIcon message={isActive ? 'หน่วยสินค้านี้พร้อมใช้งาน' : 'หน่วยสินค้านี้ถูกปิดใช้งาน'} />
+                                    </Card>
 
                                     {isEdit ? (
                                         <Card style={{ borderRadius: 16 }}>
@@ -413,10 +277,8 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
                                                 <ExclamationCircleOutlined style={{ color: '#0369a1' }} />
                                                 <Text strong>รายละเอียดรายการ</Text>
                                             </div>
-                                            <div style={{ display: 'grid', gap: 8 }}>
-                                                <Text type="secondary">สร้างเมื่อ: {formatDate(originalUnit?.create_date)}</Text>
-                                                <Text type="secondary">อัปเดตเมื่อ: {formatDate(originalUnit?.update_date)}</Text>
-                                            </div>
+                                            <Text type="secondary" style={{ display: 'block' }}>สร้างเมื่อ: {formatDate(originalUnit?.create_date)}</Text>
+                                            <Text type="secondary" style={{ display: 'block' }}>อัปเดตเมื่อ: {formatDate(originalUnit?.update_date)}</Text>
                                         </Card>
                                     ) : null}
                                 </div>

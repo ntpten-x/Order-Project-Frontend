@@ -45,6 +45,7 @@ import { User } from "../../../../types/api/users";
 import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
 import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
+import { downloadBlob } from "../../../../utils/browser/download";
 import {
     EffectiveRolePermissionRow,
     PermissionAuditItem,
@@ -97,6 +98,8 @@ const SYSTEM_FILTER_OPTIONS: Array<{ label: string; value: SystemGroup | "all" }
 const MAIN_PAGE_LABEL_BY_RESOURCE_KEY: Record<string, string> = {
     "menu.module.pos": "ระบบขาย (POS)",
     "menu.module.stock": "จัดการสต๊อก",
+    "menu.module.print": "ตั้งค่าการพิมพ์",
+    "menu.module.print-setting": "ตั้งค่าการพิมพ์",
     "menu.module.users": "ตั้งค่าและสิทธิ์ผู้ใช้",
     "menu.module.branch": "จัดการสาขา",
     "menu.module.audit": "Audit Logs",
@@ -106,7 +109,6 @@ const MENU_NAV_LABEL_BY_RESOURCE_KEY: Record<string, string> = {
     "menu.pos.home": "หน้าแรก",
     "menu.pos.sell": "ขาย",
     "menu.pos.orders": "ออเดอร์",
-    "menu.pos.kitchen": "ครัว",
     "menu.pos.shift": "กะการทำงาน",
     "menu.pos.shiftHistory": "ประวัติกะ",
     "menu.pos.dashboard": "สรุป",
@@ -1140,12 +1142,7 @@ export default function PermissionsPage() {
         );
         const csv = [headers.join(","), ...rowsCsv].join("\n");
         const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement("a");
-        link.href = url;
-        link.download = `permission-audits-${new Date().toISOString()}.csv`;
-        link.click();
-        URL.revokeObjectURL(url);
+        downloadBlob(blob, `permission-audits-${new Date().toISOString()}.csv`);
     };
 
     if (permissionLoading) {

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, usePathname, useSearchParams } from 'next/navigation';
 import { useDebouncedValue } from '../../utils/useDebouncedValue';
 import { type CreatedSort } from '../../components/ui/pagination/ListPagination';
@@ -28,6 +28,7 @@ export function useListState<F extends ListFilters>(options: ListStateOptions<F>
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const [isUrlReady, setIsUrlReady] = useState(false);
+    const hasInitializedResetRef = useRef(false);
 
     // Basic States
     const [page, setPage] = useState(1);
@@ -38,6 +39,16 @@ export function useListState<F extends ListFilters>(options: ListStateOptions<F>
     const [filters, setFilters] = useState<F>(defaultFilters);
 
     const debouncedSearch = useDebouncedValue(searchText, debounceMs);
+    const resetSignature = useMemo(
+        () =>
+            JSON.stringify({
+                q: debouncedSearch.trim(),
+                sortCreated: createdSort,
+                filters,
+                pageSize,
+            }),
+        [createdSort, debouncedSearch, filters, pageSize]
+    );
 
     // Sync from URL on mount
     useEffect(() => {
@@ -92,11 +103,15 @@ export function useListState<F extends ListFilters>(options: ListStateOptions<F>
         }
     }, [router, pathname, searchParams, page, pageSize, debouncedSearch, createdSort, filters, defaultPageSize, isUrlReady, defaultSort]);
 
-    // Reset page on filter/search change
+    // Reset page after the initial URL sync only when the query shape really changes.
     useEffect(() => {
         if (!isUrlReady) return;
+        if (!hasInitializedResetRef.current) {
+            hasInitializedResetRef.current = true;
+            return;
+        }
         setPage(1);
-    }, [debouncedSearch, filters, createdSort, isUrlReady]);
+    }, [isUrlReady, resetSignature]);
 
     const updateFilter = useCallback((key: keyof F, value: F[keyof F]) => {
         setFilters((prev) => ({ ...prev, [key]: value }));

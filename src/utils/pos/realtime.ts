@@ -18,6 +18,39 @@ const resolveDeleteId = (payload: DeletePayload): string | undefined => {
     return undefined;
 };
 
+type RealtimeEntityPayload =
+    | {
+          id?: string;
+          order_id?: string;
+          data?: {
+              id?: string;
+              order_id?: string;
+          };
+      }
+    | string
+    | null
+    | undefined;
+
+export const matchesRealtimeEntityPayload = (
+    payload: RealtimeEntityPayload,
+    targetId?: string,
+): boolean => {
+    if (!targetId) return false;
+    if (typeof payload === "string") {
+        return payload === targetId;
+    }
+    if (!payload || typeof payload !== "object") {
+        return false;
+    }
+
+    return (
+        payload.id === targetId ||
+        payload.order_id === targetId ||
+        payload.data?.id === targetId ||
+        payload.data?.order_id === targetId
+    );
+};
+
 export function useRealtimeList<T>(
     socket: Socket | null,
     events: ListEvents,
@@ -71,6 +104,7 @@ type RefreshOptions = {
     intervalMs?: number;
     enabled?: boolean;
     debounceMs?: number;
+    shouldRefresh?: (payload: unknown) => boolean;
 };
 
 export function useRealtimeRefresh({
@@ -80,12 +114,16 @@ export function useRealtimeRefresh({
     intervalMs,
     enabled = true,
     debounceMs,
+    shouldRefresh,
 }: RefreshOptions) {
     useEffect(() => {
         if (!enabled || !socket || events.length === 0) return;
 
         let debounceTimer: ReturnType<typeof setTimeout> | null = null;
-        const handler = () => {
+        const handler = (payload: unknown) => {
+            if (shouldRefresh && !shouldRefresh(payload)) {
+                return;
+            }
             if (!debounceMs || debounceMs <= 0) {
                 onRefresh();
                 return;
@@ -102,7 +140,7 @@ export function useRealtimeRefresh({
             if (debounceTimer) clearTimeout(debounceTimer);
             events.forEach((event) => socket.off(event, handler));
         };
-    }, [enabled, socket, events, onRefresh, debounceMs]);
+    }, [enabled, socket, events, onRefresh, debounceMs, shouldRefresh]);
 
     useEffect(() => {
         if (!enabled || !intervalMs) return;

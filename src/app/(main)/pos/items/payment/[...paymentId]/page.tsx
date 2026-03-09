@@ -1,23 +1,20 @@
 ﻿"use client";
 
 import React, { useCallback, useEffect, useState, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useParams } from "next/navigation";
-import { Typography, Row, Col, Card, Button, Empty, Divider, message, InputNumber, Tag, Alert, Modal, Result, Spin } from "antd";
+import { Typography, Row, Col, Card, Button, Empty, Divider, message, InputNumber, Tag, Alert, Result, Spin } from "antd";
 import { ArrowLeftOutlined, ShopOutlined, DollarOutlined, CreditCardOutlined, QrcodeOutlined, UndoOutlined, EditOutlined, SettingOutlined, DownOutlined, UpOutlined, CheckCircleOutlined } from "@ant-design/icons";
-import { QRCodeSVG } from 'qrcode.react';
-import generatePayload from 'promptpay-qr';
 import { ordersService } from "../../../../../../services/pos/orders.service";
 import { paymentMethodService } from "../../../../../../services/pos/paymentMethod.service";
 import { discountsService } from "../../../../../../services/pos/discounts.service";
 import { paymentsService } from "../../../../../../services/pos/payments.service";
-import { tablesService } from "../../../../../../services/pos/tables.service";
 import { shopProfileService, ShopProfile } from "../../../../../../services/pos/shopProfile.service";
 import { getCsrfTokenCached } from "../../../../../../utils/pos/csrf";
 import { groupOrderItems } from "../../../../../../utils/orderGrouping";
 
 import { SalesOrder, OrderStatus, OrderType } from "../../../../../../types/api/pos/salesOrder";
 import { PaymentMethod } from "../../../../../../types/api/pos/paymentMethod";
-import { TableStatus } from "../../../../../../types/api/pos/tables";
 import { Discounts, DiscountType } from "../../../../../../types/api/pos/discounts";
 import { PaymentStatus } from "../../../../../../types/api/pos/payments";
 import { itemsResponsiveStyles, itemsColors } from "../../../../../../theme/pos/items/style";
@@ -27,35 +24,74 @@ import 'dayjs/locale/th';
 import {
     getCancelOrderNavigationPath,
     getOrderChannelText,
+    getTakeawayCustomerLabel,
     ConfirmationConfig,
     formatCurrency,
     isCancelledStatus,
     isPaidOrCompletedStatus,
     isWaitingForPaymentStatus,
 } from "../../../../../../utils/orders";
-import ConfirmationDialog from "../../../../../../components/dialog/ConfirmationDialog";
 import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingContext";
 import { useAuth } from "../../../../../../contexts/AuthContext";
 import { useSocket } from "../../../../../../hooks/useSocket";
 import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
-import { useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
+import { consumeOrderTransitionCache } from "../../../../../../utils/pos/orderTransitionCache";
+import { withInflightDedup } from "../../../../../../utils/api/inflight";
+import { matchesRealtimeEntityPayload, useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
 import { RealtimeEvents } from "../../../../../../utils/realtimeEvents";
 import { ORDER_REALTIME_EVENTS } from "../../../../../../utils/pos/orderRealtimeEvents";
 import { resolveImageSource } from "../../../../../../utils/image/source";
-import {
-    closePrintWindow,
-    getPrintSettings,
-    peekPrintSettings,
-    primePrintResources,
-    PrintShopProfile,
-    printReceiptDocument,
-    reservePrintWindow,
-} from "../../../../../../utils/print-settings/runtime";
 import SmartAvatar from "../../../../../../components/ui/image/SmartAvatar";
 
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
+
+const PromptPayQr = dynamic(() => import("./PromptPayQr"), {
+    ssr: false,
+    loading: () => <Spin size="large" />,
+});
+
+const DiscountSelectionModal = dynamic(() => import("./DiscountSelectionModal"), {
+    ssr: false,
+    loading: () => null,
+});
+
+const ConfirmationDialog = dynamic(() => import("../../../../../../components/dialog/ConfirmationDialog"), {
+    ssr: false,
+    loading: () => null,
+});
+
+const loadPrintRuntime = () => import("../../../../../../utils/print-settings/runtime");
+
+const normalizeDiscountsResponse = (discountsRes: unknown): Discounts[] => {
+    if (Array.isArray(discountsRes)) {
+        return discountsRes;
+    }
+
+    if (discountsRes && typeof discountsRes === "object") {
+        const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object";
+        const record = discountsRes as Record<string, unknown>;
+
+        if ("id" in record && typeof record.display_name === "string") {
+            return [record as unknown as Discounts];
+        }
+        if (Array.isArray(record.data)) {
+            return record.data as Discounts[];
+        }
+        if (record.success === true && Array.isArray(record.data)) {
+            return record.data as Discounts[];
+        }
+        if (record.success === true && isRecord(record.data)) {
+            const data = record.data as Record<string, unknown>;
+            if ("id" in data && typeof data.display_name === "string") {
+                return [data as unknown as Discounts];
+            }
+        }
+    }
+
+    return [];
+};
 
 
 export default function POSPaymentPage() {
@@ -73,6 +109,7 @@ export default function POSPaymentPage() {
 
     const [order, setOrder] = useState<SalesOrder | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isMetadataLoading, setIsMetadataLoading] = useState(true);
     const [paymentMethods, setPaymentMethods] = useState<PaymentMethod[]>([]);
     const [discounts, setDiscounts] = useState<Discounts[]>([]);
     const [shopProfile, setShopProfile] = useState<ShopProfile | null>(null);
@@ -97,100 +134,120 @@ export default function POSPaymentPage() {
 
     const closeConfirm = () => setConfirmConfig(prev => ({ ...prev, open: false }));
 
-    const fetchInitialData = useCallback(async (silent = false): Promise<void> => {
-        if (!paymentId) return;
-        try {
-            if (!silent) {
-                setIsLoading(true);
-                showLoading("กำลังโหลดข้อมูลการชำระเงิน...");
-            }
+    const applyOrderData = useCallback((orderData: SalesOrder, options?: { syncReceivedAmount?: boolean }) => {
+        if (isPaidOrCompletedStatus(orderData.status)) {
+            router.push(`/pos/dashboard/${orderData.id}?from=payment`);
+            return false;
+        }
 
-            // Fetch shop profile separately
-            const shopRes = await shopProfileService.getProfile().catch(() => null);
+        if (isCancelledStatus(orderData.status)) {
+            router.push(getCancelOrderNavigationPath(orderData.order_type));
+            return false;
+        }
 
-            const [orderData, methodsRes, discountsRes] = await Promise.all([
-                ordersService.getById(paymentId),
-                paymentMethodService.getAll(),
-                discountsService.getAll()
-            ]);
-            
-            if (isPaidOrCompletedStatus(orderData.status)) {
-                router.push(`/pos/dashboard/${orderData.id}?from=payment`);
-                return;
-            }
+        if (!isWaitingForPaymentStatus(orderData.status)) {
+            router.push(`/pos/orders/${orderData.id}`);
+            return false;
+        }
 
-            if (isCancelledStatus(orderData.status)) {
-                router.push(getCancelOrderNavigationPath(orderData.order_type));
-                return;
-            }
+        setOrder(orderData);
+        setAppliedDiscount(orderData.discount ?? null);
 
-            if (!isWaitingForPaymentStatus(orderData.status)) {
-                router.push(`/pos/orders/${orderData.id}`);
-                return;
-            }
+        if (options?.syncReceivedAmount ?? true) {
+            setReceivedAmount(Number(orderData.total_amount));
+        }
 
-            setOrder(orderData);
-            
-            // Filter Payment Methods
-            const filteredMethods = (methodsRes.data || []).filter(m => {
-                // If not delivery order, hide 'Delivery' method
-                if (orderData.order_type !== OrderType.Delivery && m.payment_method_name === 'Delivery') {
+        return true;
+    }, [router]);
+
+    const loadPaymentMetadata = useCallback(async (orderData: SalesOrder, options?: { showLoadingState?: boolean }) => {
+        if (options?.showLoadingState) {
+            setIsMetadataLoading(true);
+        }
+
+        const [shopResult, methodsResult, discountsResult] = await Promise.allSettled([
+            shopProfileService.getProfile(),
+            paymentMethodService.getAll(),
+            discountsService.getAll(),
+        ]);
+
+        if (shopResult.status === "fulfilled") {
+            setShopProfile(shopResult.value);
+        } else if (options?.showLoadingState) {
+            setShopProfile(null);
+        }
+
+        if (methodsResult.status === "fulfilled") {
+            const filteredMethods = (methodsResult.value.data || []).filter((method) => {
+                if (orderData.order_type !== OrderType.Delivery && method.payment_method_name === "Delivery") {
                     return false;
                 }
                 return true;
             });
-
             setPaymentMethods(filteredMethods);
-            
-            // Ensure discounts is always an array
-            let discountsArray: Discounts[] = [];
-            if (Array.isArray(discountsRes)) {
-                discountsArray = discountsRes;
-            } else if (discountsRes && typeof discountsRes === 'object') {
-                const isRecord = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object";
-                const record = discountsRes as Record<string, unknown>;
+        } else if (options?.showLoadingState) {
+            setPaymentMethods([]);
+        }
 
-                if (
-                    "id" in record &&
-                    (typeof record.discount_name === "string" || typeof record.display_name === "string")
-                ) {
-                    discountsArray = [record as unknown as Discounts];
-                } else if (Array.isArray(record.data)) {
-                    discountsArray = record.data as Discounts[];
-                } else if (record.success === true && Array.isArray(record.data)) {
-                    discountsArray = record.data as Discounts[];
-                } else if (record.success === true && isRecord(record.data)) {
-                    const data = record.data as Record<string, unknown>;
-                    if (
-                        "id" in data &&
-                        (typeof data.discount_name === "string" || typeof data.display_name === "string")
-                    ) {
-                        discountsArray = [data as unknown as Discounts];
-                    }
-                }
-            }
-            setDiscounts(discountsArray);
-            setShopProfile(shopRes);
-            
-            // Sync initial discount
-            if (orderData.discount) {
-                setAppliedDiscount(orderData.discount);
+        if (discountsResult.status === "fulfilled") {
+            setDiscounts(normalizeDiscountsResponse(discountsResult.value));
+        } else if (options?.showLoadingState) {
+            setDiscounts([]);
+        }
+
+        setIsMetadataLoading(false);
+    }, []);
+
+    const fetchInitialData = useCallback(async (silent = false): Promise<void> => {
+        if (!paymentId) return;
+
+        const warmedOrder = consumeOrderTransitionCache(paymentId);
+        let shouldHideBlockingLoader = false;
+
+        try {
+            if (warmedOrder) {
+                applyOrderData(warmedOrder, { syncReceivedAmount: true });
+                setIsLoading(false);
             }
 
-            // Default received amount to total if exists
-            if (orderData) {
-                setReceivedAmount(Number(orderData.total_amount));
+            if (!silent && !warmedOrder) {
+                setIsLoading(true);
+                showLoading("กำลังโหลดข้อมูลการชำระเงิน...");
+                shouldHideBlockingLoader = true;
+            }
+            const orderData = await withInflightDedup(`paymentPage:order:${paymentId}`, () => ordersService.getById(paymentId));
+            const canRenderPayment = applyOrderData(orderData, { syncReceivedAmount: !silent });
+            if (!canRenderPayment) {
+                return;
             }
 
+            setIsLoading(false);
+            if (shouldHideBlockingLoader) {
+                hideLoading();
+                shouldHideBlockingLoader = false;
+            }
+
+            void loadPaymentMetadata(orderData, {
+                showLoadingState: !silent,
+            });
         } catch {
             if (!silent) messageApi.error("ไม่สามารถโหลดข้อมูลการชำระเงินได้");
         } finally {
-            if (!silent) {
+            if (!silent && !warmedOrder) {
                 setIsLoading(false);
+            }
+            if (shouldHideBlockingLoader) {
                 hideLoading();
             }
         }
-    }, [messageApi, paymentId, router, showLoading, hideLoading]);
+    }, [
+        applyOrderData,
+        hideLoading,
+        loadPaymentMetadata,
+        messageApi,
+        paymentId,
+        showLoading,
+    ]);
 
 
     // Memoize discount options for Select component
@@ -209,7 +266,7 @@ export default function POSPaymentPage() {
         }
         
         const options = activeDiscounts.map(d => {
-            const displayName = d.display_name || d.discount_name;
+            const displayName = d.display_name;
             if (!displayName || !d.id) {
                 return null;
             }
@@ -226,35 +283,38 @@ export default function POSPaymentPage() {
         }
     }, [fetchInitialData, paymentId]);
 
-    useEffect(() => {
-        primePrintResources();
-    }, []);
-
     const realtimeEnabled = !discountModalVisible && !confirmConfig.open;
 
     useRealtimeRefresh({
         socket,
-        events: [
-            ...ORDER_REALTIME_EVENTS,
-            RealtimeEvents.paymentMethods.create,
-            RealtimeEvents.paymentMethods.update,
-            RealtimeEvents.discounts.create,
-            RealtimeEvents.discounts.update,
-            RealtimeEvents.discounts.delete,
-            RealtimeEvents.shopProfile.update,
-            RealtimeEvents.salesOrderItem.create,
-            RealtimeEvents.salesOrderItem.update,
-            RealtimeEvents.salesOrderItem.delete,
-            RealtimeEvents.salesOrderDetail.create,
-            RealtimeEvents.salesOrderDetail.update,
-            RealtimeEvents.salesOrderDetail.delete,
-        ],
+        events: ORDER_REALTIME_EVENTS,
         onRefresh: async () => {
             if (paymentId) {
                 await fetchInitialData(true);
             }
         },
         enabled: Boolean(paymentId) && realtimeEnabled,
+        debounceMs: 800,
+        shouldRefresh: (payload) =>
+            matchesRealtimeEntityPayload(payload as Parameters<typeof matchesRealtimeEntityPayload>[0], paymentId as string | undefined),
+    });
+
+    useRealtimeRefresh({
+        socket,
+        events: [
+            RealtimeEvents.paymentMethods.create,
+            RealtimeEvents.paymentMethods.update,
+            RealtimeEvents.discounts.create,
+            RealtimeEvents.discounts.update,
+            RealtimeEvents.discounts.delete,
+            RealtimeEvents.shopProfile.update,
+        ],
+        onRefresh: async () => {
+            if (order) {
+                await loadPaymentMetadata(order, { showLoadingState: false });
+            }
+        },
+        enabled: Boolean(order) && realtimeEnabled,
         debounceMs: 800,
     });
     
@@ -348,10 +408,11 @@ export default function POSPaymentPage() {
             okText: 'ยืนยัน',
             cancelText: 'ยกเลิก',
             onOk: async () => {
-                const cachedPrintSettings = peekPrintSettings();
+                const runtime = await loadPrintRuntime();
+                const cachedPrintSettings = runtime.peekPrintSettings();
                 const reservedPrintWindow =
                     !cachedPrintSettings || cachedPrintSettings.automation.auto_print_receipt_after_payment
-                        ? reservePrintWindow(`Receipt #${order?.order_no || ""}`.trim())
+                        ? runtime.reservePrintWindow(`Receipt #${order?.order_no || ""}`.trim())
                         : null;
                 try {
                     showLoading("กำลังดำเนินการชำระเงิน...");
@@ -369,7 +430,7 @@ export default function POSPaymentPage() {
 
                     const createdPayment = await paymentsService.create(paymentData, undefined, csrfToken);
 
-                    const printSettings = await getPrintSettings();
+                    const printSettings = await runtime.getPrintSettings();
                     if (printSettings.automation.auto_print_receipt_after_payment && order) {
                         const printableOrder: SalesOrder = {
                             ...order,
@@ -388,26 +449,26 @@ export default function POSPaymentPage() {
                         };
 
                         try {
-                            await printReceiptDocument({
+                            await runtime.printReceiptDocument({
                                 order: printableOrder,
                                 settings: printSettings,
-                                shopProfile: (shopProfile as PrintShopProfile | null) ?? undefined,
+                                shopProfile: shopProfile ?? undefined,
                                 targetWindow: reservedPrintWindow,
                             });
                         } catch (printError) {
-                            closePrintWindow(reservedPrintWindow);
+                            runtime.closePrintWindow(reservedPrintWindow);
                             console.error("Receipt auto print failed", printError);
                             messageApi.warning("ชำระเงินสำเร็จ แต่เปิดหน้าพิมพ์ใบเสร็จไม่สำเร็จ");
                         }
                     } else {
-                        closePrintWindow(reservedPrintWindow);
+                        runtime.closePrintWindow(reservedPrintWindow);
                     }
 
                     messageApi.success("ชำระเงินเรียบร้อย");
                     router.push(`/pos/dashboard/${order!.id}?from=payment`);
 
                 } catch (error) {
-                    closePrintWindow(reservedPrintWindow);
+                    runtime.closePrintWindow(reservedPrintWindow);
                     const errorMessage = error instanceof Error && error.message
                         ? error.message
                         : "การชำระเงินล้มเหลว";
@@ -430,7 +491,7 @@ export default function POSPaymentPage() {
             open: true,
             type: 'warning',
             title: 'ย้อนกลับไปแก้ไขออเดอร์?',
-            content: 'สถานะออเดอร์จะถูกเปลี่ยนกลับเป็น "กำลังดำเนินการ" เพื่อให้คุณสามารถแก้ไขรายการอาหารได้ คุณแน่ใจหรือไม่?',
+            content: 'สถานะออเดอร์จะถูกเปลี่ยนเป็นกำลังดำเนินการคุณแน่ใจหรือไม่?',
             okText: 'ตกลง',
             cancelText: 'ยกเลิก',
             onOk: async () => {
@@ -438,14 +499,6 @@ export default function POSPaymentPage() {
                     showLoading("กำลังดำเนินการ...");
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
-                    
-                    const activeItems = order.items?.filter(item => !isCancelledStatus(item.status)) || [];
-                    await Promise.all(
-                        activeItems.map(item => 
-                            ordersService.updateItemStatus(item.id, OrderStatus.Pending, undefined, csrfToken)
-                        )
-                    );
-
                     await ordersService.updateStatus(order.id, OrderStatus.Pending, csrfToken);
 
                     messageApi.success("ย้อนกลับไปแก้ไขออเดอร์เรียบร้อย");
@@ -480,18 +533,7 @@ export default function POSPaymentPage() {
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
 
-                    const activeItems = order.items?.filter(item => !isCancelledStatus(item.status)) || [];
-                    await Promise.all(
-                        activeItems.map(item => 
-                            ordersService.updateItemStatus(item.id, OrderStatus.Cancelled, undefined, csrfToken)
-                        )
-                    );
-
                     await ordersService.updateStatus(order.id, OrderStatus.Cancelled, csrfToken);
-
-                    if (order.table_id) {
-                        await tablesService.update(order.table_id, { status: TableStatus.Available }, undefined, csrfToken);
-                    }
 
                     messageApi.success("ยกเลิกออเดอร์เรียบร้อย");
                     router.push(getPostCancelPaymentRedirect());
@@ -621,7 +663,7 @@ export default function POSPaymentPage() {
                                     }}
                                 >
                                     {order.order_type === OrderType.DineIn && `*โต๊ะ ${order.table?.table_name || 'ไม่ระบุ'}`}
-                                    {order.order_type === OrderType.TakeAway && `*${order.order_no?.substring(5, 10) || order.order_no}`}
+                                    {order.order_type === OrderType.TakeAway && `*${getTakeawayCustomerLabel(order)}`}
                                 </Tag>
                             </div>
                         </div>
@@ -748,11 +790,13 @@ export default function POSPaymentPage() {
                         {/* Discount Selector */}
                         <div 
                             className={`discount-selector ${appliedDiscount ? 'has-discount' : ''}`}
-                            onClick={() => !isLoading && setDiscountModalVisible(true)}
+                            onClick={() => !isLoading && !isMetadataLoading && setDiscountModalVisible(true)}
                         >
                             <span style={{ color: appliedDiscount ? '#1f2937' : '#9ca3af' }}>
-                                {appliedDiscount 
-                                    ? `🎁 ${appliedDiscount.display_name || appliedDiscount.discount_name} (${appliedDiscount.discount_type === 'Percentage' ? `${appliedDiscount.discount_amount}%` : `-${appliedDiscount.discount_amount}฿`})`
+                                {isMetadataLoading
+                                    ? "กำลังโหลดส่วนลด..."
+                                    : appliedDiscount 
+                                    ? `🎁 ${appliedDiscount.display_name} (${appliedDiscount.discount_type === 'Percentage' ? `${appliedDiscount.discount_amount}%` : `-${appliedDiscount.discount_amount}฿`})`
                                     : "เลือกส่วนลด (ถ้ามี)"}
                             </span>
                             {appliedDiscount ? (
@@ -778,7 +822,11 @@ export default function POSPaymentPage() {
                                 เลือกวิธีการชำระเงิน
                             </Text>
                             
-                            {paymentMethods.length === 0 ? (
+                            {isMetadataLoading && paymentMethods.length === 0 ? (
+                                <div style={{ padding: "24px 0", textAlign: "center" }}>
+                                    <Spin size="large" />
+                                </div>
+                            ) : paymentMethods.length === 0 ? (
                                 <Alert
                                     message="ยังไม่มีวิธีการชำระเงิน"
                                     description="กรุณาเพิ่มวิธีการชำระเงินในเมนูตั้งค่าก่อนทำรายการ"
@@ -847,11 +895,9 @@ export default function POSPaymentPage() {
                                                     <Text style={{ display: 'block', marginBottom: 16, fontSize: 14, color: '#6b7280' }}>
                                                         สแกน QR Code เพื่อชำระเงิน
                                                     </Text>
-                                                    <QRCodeSVG 
-                                                        value={generatePayload(shopProfile.promptpay_number, { amount: total })} 
-                                                        size={200} 
-                                                        level="L" 
-                                                        includeMargin 
+                                                    <PromptPayQr
+                                                        promptpayNumber={shopProfile.promptpay_number}
+                                                        amount={total}
                                                     />
                                                     <div className="qr-amount">{formatCurrency(total)}</div>
                                                     <div className="qr-account-info">
@@ -1003,85 +1049,31 @@ export default function POSPaymentPage() {
                 </div>
             </div>
             
-            {/* Discount Selection Modal */}
-            <Modal
-                title="เลือกส่วนลด"
-                open={discountModalVisible}
-                onCancel={() => setDiscountModalVisible(false)}
-                footer={null}
-                centered
-                width={400}
-                zIndex={10001}
-            >
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
-                    {discountOptions.length === 0 ? (
-                        <div style={{ textAlign: 'center', padding: 24, color: '#9ca3af' }}>
-                            ไม่มีส่วนลดที่ใช้งานได้
-                        </div>
-                    ) : (
-                        discountOptions.map(opt => (
-                            <div
-                                key={opt.value}
-                                onClick={() => {
-                                    handleDiscountChange(opt.value);
-                                    setDiscountModalVisible(false);
-                                }}
-                                style={{
-                                    padding: '14px 18px',
-                                    border: '2px solid',
-                                    borderRadius: 12,
-                                    cursor: 'pointer',
-                                    background: appliedDiscount?.id === opt.value ? '#eff6ff' : '#fff',
-                                    borderColor: appliedDiscount?.id === opt.value ? '#3b82f6' : '#e5e7eb',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    minHeight: 54
-                                }}
-                            >
-                                <span style={{ fontWeight: appliedDiscount?.id === opt.value ? 600 : 400 }}>
-                                    {opt.label}
-                                </span>
-                                {appliedDiscount?.id === opt.value && (
-                                    <CheckCircleOutlined style={{ color: '#3b82f6', fontSize: 18 }} />
-                                )}
-                            </div>
-                        ))
-                    )}
-                    <div
-                        onClick={() => {
-                            handleDiscountChange(undefined);
-                            setDiscountModalVisible(false);
-                        }}
-                        style={{
-                            padding: '14px 18px',
-                            marginTop: 8,
-                            textAlign: 'center',
-                            color: '#ef4444',
-                            cursor: 'pointer',
-                            border: '2px dashed #ef4444',
-                            borderRadius: 12,
-                            minHeight: 54,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center'
-                        }}
-                    >
-                        ไม่ใช้ส่วนลด
-                    </div>
-                </div>
-            </Modal>
+            {discountModalVisible && (
+                <DiscountSelectionModal
+                    open={discountModalVisible}
+                    options={discountOptions}
+                    appliedDiscountId={appliedDiscount?.id}
+                    onCancel={() => setDiscountModalVisible(false)}
+                    onSelect={(value) => {
+                        void handleDiscountChange(value);
+                        setDiscountModalVisible(false);
+                    }}
+                />
+            )}
             
-            <ConfirmationDialog
-                open={confirmConfig.open}
-                type={confirmConfig.type}
-                title={confirmConfig.title}
-                content={confirmConfig.content}
-                okText={confirmConfig.okText}
-                cancelText={confirmConfig.cancelText}
-                onOk={confirmConfig.onOk}
-                onCancel={closeConfirm}
-            />
+            {confirmConfig.open && (
+                <ConfirmationDialog
+                    open={confirmConfig.open}
+                    type={confirmConfig.type}
+                    title={confirmConfig.title}
+                    content={confirmConfig.content}
+                    okText={confirmConfig.okText}
+                    cancelText={confirmConfig.cancelText}
+                    onOk={confirmConfig.onOk}
+                    onCancel={closeConfirm}
+                />
+            )}
         </div>
     );
 }

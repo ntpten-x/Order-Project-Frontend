@@ -13,7 +13,9 @@ export async function GET(request: NextRequest) {
         const sortCreated = searchParams.get("sort_created") || undefined;
         const cookie = request.headers.get("cookie") || "";
 
-        const data = await ordersService.getAllSummary(cookie, page, limit, status, type, query, sortCreated);
+        const data = sortCreated
+            ? await ordersService.getAllSummary(cookie, page, limit, status, type, query, sortCreated)
+            : await ordersService.getAllSummary(cookie, page, limit, status, type, query);
         return NextResponse.json(data);
     } catch (error) {
         return handleApiRouteError(error);

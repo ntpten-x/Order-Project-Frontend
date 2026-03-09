@@ -7,7 +7,7 @@ const UserSchema = z.object({
     name: z.string().nullable().optional(),
     roles_id: z.string().optional(),
     branch_id: z.string().nullable().optional(),
-}).partial().nullable(); // Allow partial/null for relations
+}).partial().nullable();
 
 const CategorySchema = z.object({
     id: z.string(),
@@ -32,15 +32,12 @@ const SalesOrderItemSchema = z.object({
     id: z.string(),
     order_id: z.string(),
     product_id: z.string(),
-    product_name: z.string().optional(),
     quantity: z.coerce.number(),
     price: z.coerce.number(),
     total_price: z.coerce.number(),
     discount_amount: z.coerce.number().optional().default(0),
     notes: z.string().nullable().optional(),
     status: z.nativeEnum(OrderStatus).optional(),
-
-    // Relations
     product: ProductSchema.optional(),
     details: z.array(SalesOrderDetailSchema).optional(),
 });
@@ -66,7 +63,7 @@ const DeliveryRelationSchema = z
 const DiscountRelationSchema = z
     .object({
         id: z.string().optional(),
-        discount_name: z.string().optional().nullable(),
+        display_name: z.string().optional().nullable(),
         discount_type: z.string().optional().nullable(),
         discount_amount: z.coerce.number().optional(),
     })
@@ -96,10 +93,11 @@ const PaymentRelationSchema = z
 export const SalesOrderSchema = z.object({
     id: z.string(),
     order_no: z.string(),
-    order_type: z.nativeEnum(OrderType), // Use string to be safe
+    order_type: z.nativeEnum(OrderType),
     table_id: z.string().nullable().optional(),
     delivery_id: z.string().nullable().optional(),
     delivery_code: z.string().nullable().optional(),
+    customer_name: z.string().nullable().optional(),
     sub_total: z.coerce.number(),
     discount_id: z.string().nullable().optional(),
     discount_amount: z.coerce.number(),
@@ -107,12 +105,10 @@ export const SalesOrderSchema = z.object({
     total_amount: z.coerce.number(),
     received_amount: z.coerce.number(),
     change_amount: z.coerce.number(),
-    status: z.nativeEnum(OrderStatus), // Use string to be safe
+    status: z.nativeEnum(OrderStatus),
     created_by_id: z.string().nullable().optional(),
     create_date: z.string(),
     update_date: z.string(),
-
-    // Relations
     items: z.array(SalesOrderItemSchema).optional(),
     created_by: UserSchema.optional(),
     table: TableRelationSchema.optional(),
@@ -125,7 +121,7 @@ export const OrdersResponseSchema = z.object({
     data: z.array(SalesOrderSchema),
     total: z.coerce.number(),
     page: z.coerce.number(),
-    last_page: z.coerce.number().optional(), // Make optional just in case
+    last_page: z.coerce.number().optional(),
 });
 
 const OrderSummaryRelationSchema = z
@@ -145,6 +141,7 @@ const SalesOrderSummarySchema = z.object({
     create_date: z.string(),
     total_amount: z.coerce.number(),
     delivery_code: z.string().nullable().optional(),
+    customer_name: z.string().nullable().optional(),
     table_id: z.string().nullable().optional(),
     delivery_id: z.string().nullable().optional(),
     table: OrderSummaryRelationSchema.optional(),

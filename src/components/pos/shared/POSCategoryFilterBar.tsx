@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Button, Input } from "antd";
+import { Button, Input, InputRef, Spin } from "antd";
 import { SearchOutlined } from "@ant-design/icons";
 import { posColors, posLayoutStyles } from "./style";
 
@@ -14,6 +14,8 @@ type POSCategoryFilterBarProps = {
   searchQuery: string;
   selectedCategory?: string;
   categories: CategoryOption[];
+  isPending?: boolean;
+  searchInputRef?: React.Ref<InputRef>;
   onSearchChange: (value: string) => void;
   onSelectCategory: (categoryId?: string) => void;
 };
@@ -22,6 +24,8 @@ export function POSCategoryFilterBar({
   searchQuery,
   selectedCategory,
   categories,
+  isPending = false,
+  searchInputRef,
   onSearchChange,
   onSelectCategory,
 }: POSCategoryFilterBarProps) {
@@ -30,10 +34,13 @@ export function POSCategoryFilterBar({
       style={posLayoutStyles.categoryBar}
       className="pos-category-bar pos-category-bar-mobile"
       role="navigation"
+      aria-busy={isPending}
       aria-label="ตัวกรองหมวดหมู่"
     >
       <div style={{ maxWidth: 1400, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12 }}>
+        {/* Controlled by the parent so the input always reflects the URL-backed search state. */}
         <Input
+          ref={searchInputRef}
           value={searchQuery}
           allowClear
           prefix={<SearchOutlined style={{ color: "#94a3b8" }} />}
@@ -44,7 +51,33 @@ export function POSCategoryFilterBar({
           style={{ borderRadius: 16, height: 44 }}
         />
 
-        <div style={posLayoutStyles.categoryScroll} className="pos-category-scroll-row">
+        <div
+          style={{
+            minHeight: 20,
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "flex-end",
+            color: "#64748B",
+            fontSize: 12,
+          }}
+        >
+          {isPending ? (
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+              <Spin size="small" />
+              Updating products...
+            </span>
+          ) : null}
+        </div>
+
+        <div
+          style={{
+            ...posLayoutStyles.categoryScroll,
+            opacity: isPending ? 0.72 : 1,
+            transition: "opacity 0.18s ease",
+          }}
+          className="pos-category-scroll-row"
+        >
+          {/* The active category comes from props so refresh/back restores the same selected chip. */}
           <Button
             type={!selectedCategory ? "primary" : "text"}
             onClick={() => onSelectCategory(undefined)}

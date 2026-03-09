@@ -1,6 +1,7 @@
 ﻿'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { Button, Space, Tag, message, Grid, Skeleton } from 'antd';
 import {
     SettingOutlined,
@@ -87,31 +88,19 @@ export default function POSSettingsPage() {
     const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     const canUpdateAccounts = can('payment_accounts.page', 'update');
     const canViewPrintSettings = can('print_settings.page', 'view');
-
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [accounts, setAccounts] = useState<ShopPaymentAccount[]>([]);
-
-
-    const fetchAccounts = useCallback(async (silent = false) => {
-        try {
-            if (silent) setRefreshing(true);
-            else setLoading(true);
-
-            const response = await paymentAccountService.getByShopId();
-            setAccounts(response.data);
-        } catch (error) {
-            console.error(error);
-            message.error(getFriendlyErrorMessage(error, 'ไม่สามารถดึงข้อมูลบัญชีพร้อมเพย์ได้'));
-        } finally {
-            if (silent) setRefreshing(false);
-            else setLoading(false);
-        }
-    }, []);
+    const accountsQuery = useQuery<{ data: ShopPaymentAccount[]; total: number; page: number; last_page: number }>({
+        queryKey: ['paymentAccounts', 'settings'],
+        queryFn: () => paymentAccountService.getByShopId(),
+        enabled: isAuthorized,
+        staleTime: 20_000,
+        refetchOnWindowFocus: false,
+    });
 
     useEffect(() => {
-        fetchAccounts();
-    }, [fetchAccounts]);
+        if (!accountsQuery.error) return;
+        console.error(accountsQuery.error);
+        message.error(getFriendlyErrorMessage(accountsQuery.error, 'ไม่สามารถดึงข้อมูลบัญชีพร้อมเพย์ได้'));
+    }, [accountsQuery.error, accountsQuery.errorUpdatedAt]);
 
     useRealtimeRefresh({
         socket,
@@ -120,13 +109,17 @@ export default function POSSettingsPage() {
             RealtimeEvents.paymentAccounts.update,
             RealtimeEvents.paymentAccounts.delete,
         ],
-        onRefresh: () => fetchAccounts(true),
+        onRefresh: () => {
+            void accountsQuery.refetch();
+        },
         intervalMs: isConnected ? undefined : 30000,
+        debounceMs: 500,
+        enabled: isAuthorized,
     });
 
     const promptPayAccounts = useMemo(
-        () => accounts.filter((item) => item.account_type === 'PromptPay'),
-        [accounts]
+        () => (accountsQuery.data?.data || []).filter((item) => item.account_type === 'PromptPay'),
+        [accountsQuery.data]
     );
 
     const activeAccount = useMemo(
@@ -152,7 +145,13 @@ export default function POSSettingsPage() {
                 onBack={() => router.back()}
                 actions={
                     <Space size={10} wrap>
-                        <Button icon={<ReloadOutlined />} onClick={() => fetchAccounts(false)} loading={refreshing || loading} />
+                        <Button
+                            icon={<ReloadOutlined />}
+                            onClick={() => {
+                                void accountsQuery.refetch();
+                            }}
+                            loading={accountsQuery.isFetching}
+                        />
                         <Button
                             icon={<EditOutlined />}
                             disabled={!canUpdateAccounts}
@@ -168,8 +167,13 @@ export default function POSSettingsPage() {
                 <PageStack>
 
                     <PageSection title="บัญชีหลักปัจจุบัน">
-                        {loading ? (
+                        {accountsQuery.isLoading ? (
                             <SectionLoadingSkeleton compact={isMobile} />
+                        ) : accountsQuery.isError ? (
+                            <UIEmptyState
+                                title="โหลดข้อมูลบัญชีพร้อมเพย์ไม่สำเร็จ"
+                                description="กดรีเฟรชเพื่อโหลดข้อมูลอีกครั้ง"
+                            />
                         ) : activeAccount ? (
                             <div style={{
                                 position: 'relative',

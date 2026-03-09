@@ -1,12 +1,10 @@
-'use client';
+﻿'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
     Alert,
     Button,
-    Card,
     Col,
-    Divider,
     Grid,
     Input,
     InputNumber,
@@ -23,20 +21,22 @@ import {
     message,
 } from 'antd';
 import {
-    BgColorsOutlined,
+    CheckCircleOutlined,
     CopyOutlined,
-    DeploymentUnitOutlined,
-    FileDoneOutlined,
+    ExclamationCircleOutlined,
+    FileTextOutlined,
     PrinterOutlined,
     QrcodeOutlined,
     ReloadOutlined,
     SaveOutlined,
+    SettingOutlined,
     ShopOutlined,
     SyncOutlined,
+    ThunderboltOutlined,
+    UndoOutlined,
 } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import PageContainer from '../../../components/ui/page/PageContainer';
-import PageSection from '../../../components/ui/page/PageSection';
 import PageStack from '../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../components/ui/page/PageHeader';
 import { AccessGuardFallback } from '../../../components/pos/AccessGuard';
@@ -70,181 +70,66 @@ import {
     mergePrintSettings,
     toCssLength,
 } from '../../../utils/print-settings/defaults';
+import {
+    closePrintWindow,
+    getPrintSettings,
+    hydratePrintSettingsCache,
+    peekPrintSettings,
+    reservePrintWindow,
+} from '../../../utils/print-settings/runtime';
+import { PrintSettingStyles } from './style';
 
-const { Text, Title, Paragraph } = Typography;
+const { Text } = Typography;
 
-const pageStyles = `
-  .print-settings-page {
-    min-height: 100vh;
-    background:
-      radial-gradient(circle at top left, rgba(245, 158, 11, 0.12), transparent 28%),
-      radial-gradient(circle at top right, rgba(15, 118, 110, 0.16), transparent 32%),
-      linear-gradient(180deg, #f8fafc 0%, #fffdf7 100%);
-    padding-bottom: 48px;
-  }
-
-  .print-settings-stats {
-    display: grid;
-    gap: 12px;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  }
-
-  .print-settings-stat {
-    border-radius: 20px;
-    border: 1px solid #e5e7eb;
-    background: rgba(255,255,255,0.86);
-    box-shadow: 0 18px 32px rgba(15, 23, 42, 0.06);
-    padding: 18px;
-  }
-
-  .print-settings-nav {
-    display: grid;
-    gap: 10px;
-  }
-
-  .print-settings-nav-btn {
-    width: 100%;
-    text-align: left;
-    border: 1px solid #e2e8f0;
-    background: #ffffff;
-    border-radius: 18px;
-    padding: 14px 16px;
-    cursor: pointer;
-    transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
-  }
-
-  .print-settings-nav-btn:hover {
-    transform: translateY(-1px);
-    border-color: #0f766e;
-    box-shadow: 0 12px 24px rgba(15, 118, 110, 0.12);
-  }
-
-  .print-settings-nav-btn.active {
-    border-color: #0f766e;
-    background: linear-gradient(135deg, rgba(15, 118, 110, 0.1), rgba(15, 23, 42, 0.03));
-    box-shadow: inset 0 0 0 1px rgba(15, 118, 110, 0.18);
-  }
-
-  .print-settings-presets {
-    display: grid;
-    gap: 12px;
-    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
-  }
-
-  .print-settings-preset {
-    border: 1px solid #dbe3ea;
-    border-radius: 18px;
-    background: #fff;
-    padding: 14px;
-    text-align: left;
-    cursor: pointer;
-    transition: border-color 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
-  }
-
-  .print-settings-preset:hover {
-    transform: translateY(-1px);
-    border-color: #0f766e;
-    box-shadow: 0 14px 24px rgba(15, 118, 110, 0.1);
-  }
-
-  .print-settings-preset.active {
-    border-color: #0f766e;
-    background: linear-gradient(180deg, #ecfeff 0%, #ffffff 100%);
-    box-shadow: inset 0 0 0 1px rgba(15, 118, 110, 0.18);
-  }
-
-  .print-settings-paper-shell {
-    border-radius: 28px;
-    background: linear-gradient(180deg, #12222b 0%, #0f172a 100%);
-    padding: 18px;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 28px 40px rgba(15, 23, 42, 0.16);
-  }
-
-  .print-settings-paper-frame {
-    border-radius: 22px;
-    background: linear-gradient(180deg, rgba(255,255,255,0.12), rgba(255,255,255,0.04));
-    padding: 18px;
-    display: flex;
-    justify-content: center;
-    align-items: flex-start;
-  }
-
-  .print-settings-paper {
-    background: #fffef9;
-    border-radius: 14px;
-    color: #0f172a;
-    padding: 16px;
-    border: 1px solid rgba(15, 23, 42, 0.08);
-    box-shadow: 0 14px 30px rgba(15, 23, 42, 0.16);
-    position: relative;
-    overflow: hidden;
-  }
-
-  .print-settings-paper::after {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(180deg, rgba(245, 158, 11, 0.04), transparent 24%);
-    pointer-events: none;
-  }
-
-  .print-settings-toggle-grid {
-    display: grid;
-    gap: 12px;
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  }
-
-  .print-settings-toggle {
-    border: 1px solid #e2e8f0;
-    border-radius: 16px;
-    padding: 12px 14px;
-    background: #fff;
-  }
-
-  @media (max-width: 992px) {
-    .print-settings-paper-shell { padding: 14px; }
-    .print-settings-paper-frame { padding: 12px; }
-  }
-`;
+/* ─── Static data ────────────────────────────────────────────────────────── */
 
 const documentOrder = Object.keys(PRINT_DOCUMENT_META) as PrintDocumentType[];
 
-const presetCategoryLabel: Record<string, string> = {
-    thermal: 'Thermal',
-    laser: 'Office',
-    label: 'Label',
+const printerProfileLabel: Record<PrintPrinterProfile, string> = {
+    thermal: 'เครื่องความร้อน',
+    laser: 'กระดาษสำนักงาน',
+    label: 'ฉลาก/สติ๊กเกอร์',
 };
 
 const densityLabel: Record<PrintDocumentSetting['density'], string> = {
-    compact: 'Compact',
-    comfortable: 'Balanced',
-    spacious: 'Spacious',
+    compact: 'กะทัดรัด',
+    comfortable: 'สมดุล',
+    spacious: 'โปร่ง',
 };
 
+const automationItems: Array<{
+    key: keyof BranchPrintSettings['automation'];
+    title: string;
+    desc: string;
+}> = [
+    { key: 'auto_print_receipt_after_payment', title: 'พิมพ์ใบเสร็จหลังชำระเงิน', desc: 'จบการขายได้ไวขึ้น ไม่ต้องกดพิมพ์เอง' },
+    { key: 'auto_print_order_summary_after_close_shift', title: 'สรุปยอดหลังปิดกะ', desc: 'ได้เอกสารสรุปทันทีเมื่อปิดกะ' },
+    { key: 'auto_print_purchase_order_after_submit', title: 'ใบสั่งซื้อหลังยืนยัน', desc: 'ส่งต่อเอกสารให้ฝ่ายจัดซื้อทันที' },
+    { key: 'auto_print_table_qr_after_rotation', title: 'QR โต๊ะหลังหมุนรหัส', desc: 'ป้าย QR ใหม่พร้อมใช้ทันที' },
+];
+
+/* ─── Helpers ─────────────────────────────────────────────────────────────── */
+
 function formatTimestamp(value?: string) {
-    if (!value) return 'ยังไม่เคยบันทึก';
+    if (!value) return '—';
     const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return 'ยังไม่เคยบันทึก';
+    if (Number.isNaN(date.getTime())) return '—';
     return new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 }
 
 function escapeHtml(value: string) {
-    return value
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
+    return value.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 }
 
 function getDocumentRows(documentType: PrintDocumentType) {
-    if (documentType === 'receipt') return [['Espresso x2', '160.00'], ['Croissant x1', '85.00'], ['Discount', '-20.00'], ['Total', '225.00']];
-    if (documentType === 'order_summary') return [['Orders', '126'], ['Revenue', '34,580'], ['Cash', '9,800'], ['PromptPay', '24,780']];
-    if (documentType === 'purchase_order') return [['Milk 2L', '24'], ['Coffee beans', '8'], ['Cup lids', '120'], ['Delivery ETA', '09:00']];
-    if (documentType === 'table_qr') return [['Table', 'A12'], ['Zone', 'Main hall'], ['Open menu', 'Scan QR below'], ['Expire', 'Rotate monthly']];
-    if (documentType === 'kitchen_ticket') return [['Latte', '2 cups'], ['No sugar', '1'], ['Burger', 'Add cheese'], ['Rush', 'Serve first']];
-    return [['Template', 'Custom'], ['Branch', 'Own setup'], ['Paper', 'Manual sizing'], ['Status', 'Ready']];
+    if (documentType === 'receipt') return [['เอสเปรสโซ x2', '160.00'], ['ครัวซองต์ x1', '85.00'], ['ส่วนลด', '-20.00'], ['ยอดสุทธิ', '225.00']];
+    if (documentType === 'order_summary') return [['จำนวนออเดอร์', '126'], ['ยอดขาย', '34,580'], ['เงินสด', '9,800'], ['พร้อมเพย์', '24,780']];
+    if (documentType === 'purchase_order') return [['นมสด 2 ลิตร', '24'], ['เมล็ดกาแฟ', '8'], ['ฝาแก้ว', '120'], ['เวลารับของ', '09:00']];
+    if (documentType === 'table_qr') return [['โต๊ะ', 'A12'], ['โซน', 'ห้องหลัก'], ['วิธีใช้', 'สแกนเปิดเมนู'], ['อายุรหัส', 'รายเดือน']];
+    return [['เทมเพลต', 'กำหนดเอง'], ['สาขา', 'ใช้ภายใน'], ['กระดาษ', 'ตั้งเอง'], ['สถานะ', 'พร้อม']];
 }
+
+/* ─── Preview component ──────────────────────────────────────────────────── */
 
 function DocumentPreview({
     documentType,
@@ -258,80 +143,81 @@ function DocumentPreview({
     const meta = PRINT_DOCUMENT_META[documentType];
     const hasFixedHeight = setting.height_mode === 'fixed' && setting.height != null;
     const canvasHeight = hasFixedHeight ? setting.height ?? 220 : 180;
-    const scale = Math.min(2.15, 290 / Math.max(setting.width, 1), 360 / Math.max(canvasHeight, 1));
-    const paperWidth = Math.max(140, Math.round(setting.width * scale));
-    const paperHeight = Math.max(210, Math.round(canvasHeight * scale));
+    const scale = Math.min(2.15, 260 / Math.max(setting.width, 1), 340 / Math.max(canvasHeight, 1));
+    const paperWidth = Math.max(130, Math.round(setting.width * scale));
+    const paperHeight = Math.max(190, Math.round(canvasHeight * scale));
     const rows = getDocumentRows(documentType);
 
     return (
-        <div className="print-settings-paper-shell">
-            <div className="print-settings-paper-frame">
-                <div
-                    className="print-settings-paper"
-                    style={{
-                        width: paperWidth,
-                        minHeight: paperHeight,
-                        padding: `${Math.max(12, setting.margin_top * scale)}px ${Math.max(12, setting.margin_right * scale)}px ${Math.max(12, setting.margin_bottom * scale)}px ${Math.max(12, setting.margin_left * scale)}px`,
-                    }}
-                >
-                    <div style={{ position: 'relative', zIndex: 1 }}>
-                        <div style={{ textAlign: 'center', marginBottom: 10 }}>
-                            {setting.show_logo ? (
-                                <div style={{ display: 'inline-flex', alignItems: 'center', gap: 6, padding: '4px 10px', borderRadius: 999, background: '#fef3c7', fontSize: 11, fontWeight: 700 }}>
-                                    <ShopOutlined />
-                                    {branchName}
-                                </div>
-                            ) : null}
-                            <div style={{ marginTop: 8, fontSize: Math.max(12, 14 * (setting.font_scale / 100)), fontWeight: 800, letterSpacing: 0.2 }}>
-                                {meta.label}
-                            </div>
-                            {setting.show_branch_address ? (
-                                <div style={{ fontSize: 10, color: '#475569', marginTop: 4 }}>128 Branch Road, Service Lane</div>
-                            ) : null}
-                        </div>
-
-                        {setting.show_order_meta ? (
-                            <div style={{ display: 'grid', gap: 4, padding: '8px 0 10px', borderTop: '1px dashed #cbd5e1', borderBottom: '1px dashed #cbd5e1', fontSize: 10.5, color: '#334155' }}>
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Print profile</span><strong>{setting.printer_profile}</strong></div>
-                                <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>Paper</span><strong>{formatPaperSize(setting)}</strong></div>
+        <div className="ps-preview-shell">
+            <div
+                className="ps-preview-paper"
+                style={{
+                    width: paperWidth,
+                    minHeight: paperHeight,
+                    padding: `${Math.max(10, setting.margin_top * scale)}px ${Math.max(10, setting.margin_right * scale)}px ${Math.max(10, setting.margin_bottom * scale)}px ${Math.max(10, setting.margin_left * scale)}px`,
+                }}
+            >
+                <div style={{ position: 'relative', zIndex: 1 }}>
+                    <div style={{ textAlign: 'center', marginBottom: 8 }}>
+                        {setting.show_logo ? (
+                            <div style={{ display: 'inline-flex', alignItems: 'center', gap: 5, padding: '3px 10px', borderRadius: 999, background: '#fef3c7', fontSize: 10, fontWeight: 700 }}>
+                                <ShopOutlined />
+                                {branchName}
                             </div>
                         ) : null}
-
-                        <div style={{ display: 'grid', gap: Math.max(4, 6 * setting.line_spacing), marginTop: 12, fontSize: Math.max(11, 12 * (setting.font_scale / 100)) }}>
-                            {rows.map(([label, value]) => (
-                                <div key={`${label}-${value}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, fontWeight: label === 'Total' ? 700 : 500 }}>
-                                    <span>{label}</span>
-                                    <span>{value}</span>
-                                </div>
-                            ))}
+                        <div style={{ marginTop: 6, fontSize: Math.max(11, 13 * (setting.font_scale / 100)), fontWeight: 800 }}>
+                            {meta.label}
                         </div>
-
-                        {setting.show_qr ? (
-                            <div style={{ marginTop: 16, display: 'flex', justifyContent: 'center' }}>
-                                <div style={{ width: 76, height: 76, borderRadius: 12, border: '2px dashed #0f766e', display: 'grid', placeItems: 'center', color: '#0f766e', background: '#ecfeff' }}>
-                                    <QrcodeOutlined style={{ fontSize: 28 }} />
-                                </div>
-                            </div>
-                        ) : null}
-
-                        {setting.show_footer ? (
-                            <div style={{ marginTop: 14, paddingTop: 10, borderTop: '1px dashed #cbd5e1', textAlign: 'center', fontSize: 10, color: '#475569' }}>
-                                Thank you for visiting. Copies: {setting.copies}
-                            </div>
+                        {setting.show_branch_address ? (
+                            <div style={{ fontSize: 9, color: '#475569', marginTop: 3 }}>128 ถ.สุขุมวิท เขตธุรกิจ</div>
                         ) : null}
                     </div>
+
+                    {setting.show_order_meta ? (
+                        <div style={{ display: 'grid', gap: 3, padding: '6px 0 8px', borderTop: '1px dashed #cbd5e1', borderBottom: '1px dashed #cbd5e1', fontSize: 9.5, color: '#334155' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>โปรไฟล์</span><strong>{printerProfileLabel[setting.printer_profile]}</strong></div>
+                            <div style={{ display: 'flex', justifyContent: 'space-between' }}><span>ขนาดกระดาษ</span><strong>{formatPaperSize(setting)}</strong></div>
+                        </div>
+                    ) : null}
+
+                    <div style={{ display: 'grid', gap: Math.max(3, 5 * setting.line_spacing), marginTop: 10, fontSize: Math.max(10, 11 * (setting.font_scale / 100)) }}>
+                        {rows.map(([label, value]) => (
+                            <div key={`${label}-${value}`} style={{ display: 'flex', justifyContent: 'space-between', gap: 8, fontWeight: label === 'ยอดสุทธิ' ? 700 : 500 }}>
+                                <span>{label}</span>
+                                <span>{value}</span>
+                            </div>
+                        ))}
+                    </div>
+
+                    {setting.show_qr ? (
+                        <div style={{ marginTop: 12, display: 'flex', justifyContent: 'center' }}>
+                            <div style={{ width: 60, height: 60, borderRadius: 10, border: '2px dashed #0f766e', display: 'grid', placeItems: 'center', color: '#0f766e', background: '#ecfeff' }}>
+                                <QrcodeOutlined style={{ fontSize: 22 }} />
+                            </div>
+                        </div>
+                    ) : null}
+
+                    {setting.show_footer ? (
+                        <div style={{ marginTop: 10, paddingTop: 8, borderTop: '1px dashed #cbd5e1', textAlign: 'center', fontSize: 9, color: '#475569' }}>
+                            จำนวนสำเนา {setting.copies} ชุด
+                        </div>
+                    ) : null}
                 </div>
             </div>
         </div>
     );
 }
 
+/* ─── Main page ──────────────────────────────────────────────────────────── */
+
 export default function PrintSettingPage() {
     const router = useRouter();
     const { user } = useAuth();
     const { socket, isConnected } = useSocket();
     const screens = Grid.useBreakpoint();
-    const isMobile = !screens.lg;
+    const isMobile = !screens.md;
+    const initialCachedSettingsRef = useRef<BranchPrintSettings | null>(peekPrintSettings());
     const { isAuthorized, isChecking } = useRoleGuard({
         requiredPermission: { resourceKey: 'print_settings.page', action: 'view' },
     });
@@ -339,57 +225,74 @@ export default function PrintSettingPage() {
     const canUpdateSettings = can('print_settings.page', 'update');
 
     const [selectedDocument, setSelectedDocument] = useState<PrintDocumentType>('receipt');
-    const [settings, setSettings] = useState<BranchPrintSettings>(createDefaultPrintSettings());
-    const [savedSettings, setSavedSettings] = useState<BranchPrintSettings>(createDefaultPrintSettings());
-    const [loading, setLoading] = useState(true);
+    const [settings, setSettings] = useState<BranchPrintSettings>(() => initialCachedSettingsRef.current ?? createDefaultPrintSettings());
+    const [savedSettings, setSavedSettings] = useState<BranchPrintSettings>(() => initialCachedSettingsRef.current ?? createDefaultPrintSettings());
+    const [loading, setLoading] = useState(!initialCachedSettingsRef.current);
     const [refreshing, setRefreshing] = useState(false);
     const [saving, setSaving] = useState(false);
     const [printing, setPrinting] = useState(false);
+    const [hasIncomingUpdate, setHasIncomingUpdate] = useState(false);
 
-    const branchName = user?.branch?.branch_name || 'Current branch';
+    const branchName = user?.branch?.branch_name || 'สาขาปัจจุบัน';
 
-    const fetchSettings = useCallback(async (silent = false) => {
+    /* ─── Data logic (same as original) ────────────────────────────────── */
+
+    const applyLoadedSettings = useCallback((payload: BranchPrintSettings) => {
+        const merged = mergePrintSettings(createDefaultPrintSettings(), payload);
+        setSettings(merged);
+        setSavedSettings(merged);
+        hydratePrintSettingsCache(merged);
+        setHasIncomingUpdate(false);
+    }, []);
+
+    const fetchSettings = useCallback(async (options?: { silent?: boolean; forceRefresh?: boolean }) => {
+        if (!isAuthorized) return;
+        const silent = Boolean(options?.silent);
         try {
-            if (silent) setRefreshing(true);
-            else setLoading(true);
-
-            const response = await printSettingsService.getSettings();
-            const merged = mergePrintSettings(createDefaultPrintSettings(), response);
-            setSettings(merged);
-            setSavedSettings(merged);
+            if (silent) setRefreshing(true); else setLoading(true);
+            const response = await getPrintSettings({ forceRefresh: Boolean(options?.forceRefresh), allowFallback: false });
+            applyLoadedSettings(response);
         } catch (error) {
             console.error(error);
             message.error(error instanceof Error ? error.message : 'ไม่สามารถโหลดการตั้งค่าการพิมพ์ได้');
         } finally {
-            if (silent) setRefreshing(false);
-            else setLoading(false);
+            if (silent) setRefreshing(false); else setLoading(false);
         }
-    }, []);
+    }, [applyLoadedSettings, isAuthorized]);
 
     useEffect(() => {
-        void fetchSettings();
-    }, [fetchSettings]);
+        if (isChecking || permissionLoading || !isAuthorized) return;
+        void fetchSettings({
+            silent: Boolean(initialCachedSettingsRef.current),
+            forceRefresh: Boolean(initialCachedSettingsRef.current),
+        });
+    }, [fetchSettings, isAuthorized, isChecking, permissionLoading]);
+
+    const isDirty = useMemo(() => JSON.stringify(settings) !== JSON.stringify(savedSettings), [settings, savedSettings]);
+    const isDirtyRef = useRef(isDirty);
+
+    useEffect(() => { isDirtyRef.current = isDirty; }, [isDirty]);
 
     useRealtimeRefresh({
         socket,
         events: [RealtimeEvents.printSettings.update],
-        onRefresh: () => fetchSettings(true),
+        onRefresh: () => {
+            if (isDirtyRef.current) { setHasIncomingUpdate(true); return; }
+            void fetchSettings({ silent: true, forceRefresh: true });
+        },
         intervalMs: isConnected ? undefined : 45000,
         enabled: isAuthorized,
         debounceMs: 400,
     });
 
-    const isDirty = useMemo(() => JSON.stringify(settings) !== JSON.stringify(savedSettings), [settings, savedSettings]);
-
     useEffect(() => {
         if (!isDirty) return undefined;
-        const onBeforeUnload = (event: BeforeUnloadEvent) => {
-            event.preventDefault();
-            event.returnValue = '';
-        };
+        const onBeforeUnload = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
         window.addEventListener('beforeunload', onBeforeUnload);
         return () => window.removeEventListener('beforeunload', onBeforeUnload);
     }, [isDirty]);
+
+    /* ─── Derived values ───────────────────────────────────────────────── */
 
     const currentDocument = settings.documents[selectedDocument];
     const selectedMeta = PRINT_DOCUMENT_META[selectedDocument];
@@ -397,6 +300,8 @@ export default function PrintSettingPage() {
     const enabledDocumentCount = countEnabledDocuments(settings);
     const automationCount = countAutomationJobs(settings);
     const charsPerLine = estimateCharsPerLine(currentDocument);
+
+    /* ─── Mutations ────────────────────────────────────────────────────── */
 
     const updateDocument = useCallback((patch: Partial<PrintDocumentSetting> | ((current: PrintDocumentSetting) => PrintDocumentSetting)) => {
         setSettings((prev) => {
@@ -406,35 +311,52 @@ export default function PrintSettingPage() {
         });
     }, [selectedDocument]);
 
-    const handleSave = useCallback(async () => {
-        if (!canUpdateSettings) {
-            message.error('คุณไม่มีสิทธิ์แก้ไขการตั้งค่าการพิมพ์');
-            return;
-        }
+    const runWithDiscardGuard = useCallback((action: () => void, title: string, content: string, okText = 'ยืนยัน') => {
+        if (!isDirty) { action(); return; }
+        Modal.confirm({ centered: true, title, content, okText, cancelText: 'ยกเลิก', okButtonProps: { danger: true }, onOk: action });
+    }, [isDirty]);
 
+    const handleRefresh = useCallback(() => {
+        runWithDiscardGuard(
+            () => { void fetchSettings({ silent: true, forceRefresh: true }); },
+            'โหลดค่าล่าสุดจากระบบ?',
+            'การแก้ไขที่ยังไม่ได้บันทึกจะหายไป',
+            'โหลดค่าล่าสุด'
+        );
+    }, [fetchSettings, runWithDiscardGuard]);
+
+    const handleLoadLatest = useCallback(() => {
+        runWithDiscardGuard(
+            () => { void fetchSettings({ silent: true, forceRefresh: true }); },
+            'ใช้ค่าล่าสุดจากระบบ?',
+            'การแก้ไขที่ยังไม่ได้บันทึกจะถูกแทนที่',
+            'ใช้ค่าล่าสุด'
+        );
+    }, [fetchSettings, runWithDiscardGuard]);
+
+    const handleSave = useCallback(async () => {
+        if (!canUpdateSettings) { message.error('คุณไม่มีสิทธิ์แก้ไขการตั้งค่าการพิมพ์'); return; }
         setSaving(true);
         try {
             const csrfToken = await getCsrfTokenCached();
-            const payload = mergePrintSettings(createDefaultPrintSettings(), settings);
+            const payload = mergePrintSettings(createDefaultPrintSettings(), { ...settings, locale: settings.locale.trim() || 'th-TH' });
             const updated = await printSettingsService.updateSettings(payload, undefined, csrfToken);
-            const merged = mergePrintSettings(createDefaultPrintSettings(), updated);
-            setSettings(merged);
-            setSavedSettings(merged);
-            message.success('บันทึกการตั้งค่าการพิมพ์เรียบร้อย');
+            applyLoadedSettings(updated);
+            message.success('บันทึกเรียบร้อย');
         } catch (error) {
             console.error(error);
-            message.error(error instanceof Error ? error.message : 'ไม่สามารถบันทึกการตั้งค่าการพิมพ์ได้');
+            message.error(error instanceof Error ? error.message : 'ไม่สามารถบันทึกได้');
         } finally {
             setSaving(false);
         }
-    }, [canUpdateSettings, settings]);
+    }, [applyLoadedSettings, canUpdateSettings, settings]);
 
     const handleResetAll = useCallback(() => {
         Modal.confirm({
             centered: true,
-            title: 'รีเซ็ตการตั้งค่าทั้งหมดหรือไม่',
-            content: 'การเปลี่ยนแปลงจะมีผลเมื่อกดบันทึกเท่านั้น',
-            okText: 'รีเซ็ต',
+            title: 'คืนค่าเริ่มต้นทั้งหมด?',
+            content: 'จะเปลี่ยนค่าบนหน้าจอเป็นค่าเริ่มต้น ต้องกดบันทึกอีกครั้งเพื่อให้มีผลจริง',
+            okText: 'คืนค่าเริ่มต้น',
             cancelText: 'ยกเลิก',
             okButtonProps: { danger: true },
             onOk: () => {
@@ -452,45 +374,42 @@ export default function PrintSettingPage() {
 
     const handlePrintTest = useCallback(() => {
         setPrinting(true);
-        try {
-            const windowRef = window.open('', '_blank', 'width=960,height=720');
-            if (!windowRef) {
-                message.error('เบราว์เซอร์บล็อก popup สำหรับ test print');
-                return;
-            }
+        const windowRef = reservePrintWindow(`ทดสอบ - ${selectedMeta.label}`);
+        if (!windowRef) { message.error('เบราว์เซอร์บล็อก popup'); setPrinting(false); return; }
 
+        try {
             const rows = getDocumentRows(selectedDocument).map(([label, value]) => `<div class="row"><span>${escapeHtml(label)}</span><strong>${escapeHtml(value)}</strong></div>`).join('');
             const marginCss = [toCssLength(currentDocument.margin_top, currentDocument.unit), toCssLength(currentDocument.margin_right, currentDocument.unit), toCssLength(currentDocument.margin_bottom, currentDocument.unit), toCssLength(currentDocument.margin_left, currentDocument.unit)].join(' ');
-            const pageSizeCss = currentDocument.height_mode === 'fixed' && currentDocument.height != null
-                ? `size: ${toCssLength(currentDocument.width, currentDocument.unit)} ${toCssLength(currentDocument.height, currentDocument.unit)};`
-                : '';
-            const sheetHeightCss = currentDocument.height_mode === 'fixed' && currentDocument.height != null
-                ? `min-height: ${toCssLength(currentDocument.height, currentDocument.unit)};`
-                : '';
+            const pageSizeCss = currentDocument.height_mode === 'fixed' && currentDocument.height != null ? `size: ${toCssLength(currentDocument.width, currentDocument.unit)} ${toCssLength(currentDocument.height, currentDocument.unit)};` : '';
+            const sheetHeightCss = currentDocument.height_mode === 'fixed' && currentDocument.height != null ? `min-height: ${toCssLength(currentDocument.height, currentDocument.unit)};` : '';
 
-            windowRef.document.write(`<!doctype html><html><head><meta charset="utf-8" /><title>Print Test - ${escapeHtml(selectedMeta.label)}</title><style>@page { ${pageSizeCss} margin: ${marginCss}; } body { margin: 0; background: #eef2f7; font-family: "Segoe UI", "Sarabun", sans-serif; color: #0f172a; } .stage { min-height: 100vh; display: grid; place-items: center; padding: 16px; } .sheet { width: ${toCssLength(currentDocument.width, currentDocument.unit)}; ${sheetHeightCss} box-sizing: border-box; background: #fffef9; border: 1px solid rgba(15, 23, 42, 0.1); box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16); } .content { padding: ${marginCss}; font-size: ${formatNumber(12 * (currentDocument.font_scale / 100))}px; line-height: ${formatNumber(currentDocument.line_spacing)}; } .pill { display: inline-flex; gap: 6px; padding: 4px 10px; border-radius: 999px; background: #fef3c7; font-size: 12px; font-weight: 700; } .header { text-align: center; padding-bottom: 10px; border-bottom: 1px dashed #cbd5e1; } .meta { padding: 10px 0; font-size: 12px; border-bottom: 1px dashed #cbd5e1; } .meta-row, .row { display: flex; justify-content: space-between; gap: 10px; } .rows { padding-top: 14px; display: grid; gap: 8px; } .footer { margin-top: 14px; padding-top: 10px; border-top: 1px dashed #cbd5e1; text-align: center; font-size: 11px; color: #475569; } .qr { margin: 16px auto 0; width: 82px; height: 82px; border-radius: 12px; border: 2px dashed #0f766e; display: grid; place-items: center; color: #0f766e; background: #ecfeff; } @media print { body { background: #fff; } .stage { padding: 0; } .sheet { box-shadow: none; border: none; } }</style></head><body><div class="stage"><div class="sheet"><div class="content"><div class="header">${currentDocument.show_logo ? `<div class="pill">${escapeHtml(branchName)}</div>` : ''}<div style="margin-top: 8px; font-size: ${formatNumber(14 * (currentDocument.font_scale / 100))}px; font-weight: 800;">${escapeHtml(selectedMeta.label)}</div>${currentDocument.show_branch_address ? `<div style="margin-top: 4px; font-size: 11px; color: #475569;">128 Branch Road, Service Lane</div>` : ''}</div>${currentDocument.show_order_meta ? `<div class="meta"><div class="meta-row"><span>Printer profile</span><strong>${escapeHtml(currentDocument.printer_profile)}</strong></div><div class="meta-row"><span>Paper</span><strong>${escapeHtml(formatPaperSize(currentDocument))}</strong></div></div>` : ''}<div class="rows">${rows}</div>${currentDocument.show_qr ? `<div class="qr">QR</div>` : ''}${currentDocument.show_footer ? `<div class="footer">Branch isolated setting. Copies: ${currentDocument.copies}</div>` : ''}</div></div></div><script>window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 250); }); window.addEventListener('afterprint', function () { window.close(); });</script></body></html>`);
+            windowRef.document.open();
+            windowRef.document.write(`<!doctype html><html><head><meta charset="utf-8" /><title>ทดสอบ - ${escapeHtml(selectedMeta.label)}</title><style>@page { ${pageSizeCss} margin: ${marginCss}; } body { margin: 0; background: #eef2f7; font-family: "Segoe UI", "Sarabun", sans-serif; color: #0f172a; } .stage { min-height: 100vh; display: grid; place-items: center; padding: 16px; } .sheet { width: ${toCssLength(currentDocument.width, currentDocument.unit)}; ${sheetHeightCss} box-sizing: border-box; background: #fffef9; border: 1px solid rgba(15, 23, 42, 0.1); box-shadow: 0 18px 40px rgba(15, 23, 42, 0.16); } .content { padding: ${marginCss}; font-size: ${formatNumber(12 * (currentDocument.font_scale / 100))}px; line-height: ${formatNumber(currentDocument.line_spacing)}; } .pill { display: inline-flex; gap: 6px; padding: 4px 10px; border-radius: 999px; background: #fef3c7; font-size: 12px; font-weight: 700; } .header { text-align: center; padding-bottom: 10px; border-bottom: 1px dashed #cbd5e1; } .meta { padding: 10px 0; font-size: 12px; border-bottom: 1px dashed #cbd5e1; } .meta-row, .row { display: flex; justify-content: space-between; gap: 10px; } .rows { padding-top: 14px; display: grid; gap: 8px; } .footer { margin-top: 14px; padding-top: 10px; border-top: 1px dashed #cbd5e1; text-align: center; font-size: 11px; color: #475569; } .qr { margin: 16px auto 0; width: 82px; height: 82px; border-radius: 12px; border: 2px dashed #0f766e; display: grid; place-items: center; color: #0f766e; background: #ecfeff; } @media print { body { background: #fff; } .stage { padding: 0; } .sheet { box-shadow: none; border: none; } }</style></head><body><div class="stage"><div class="sheet"><div class="content"><div class="header">${currentDocument.show_logo ? `<div class="pill">${escapeHtml(branchName)}</div>` : ''}<div style="margin-top: 8px; font-size: ${formatNumber(14 * (currentDocument.font_scale / 100))}px; font-weight: 800;">${escapeHtml(selectedMeta.label)}</div>${currentDocument.show_branch_address ? `<div style="margin-top: 4px; font-size: 11px; color: #475569;">128 ถนนสุขุมวิท แขวงบริการ เขตธุรกิจ</div>` : ''}</div>${currentDocument.show_order_meta ? `<div class="meta"><div class="meta-row"><span>โปรไฟล์พิมพ์</span><strong>${escapeHtml(printerProfileLabel[currentDocument.printer_profile])}</strong></div><div class="meta-row"><span>ขนาดกระดาษ</span><strong>${escapeHtml(formatPaperSize(currentDocument))}</strong></div></div>` : ''}<div class="rows">${rows}</div>${currentDocument.show_qr ? `<div class="qr">QR</div>` : ''}${currentDocument.show_footer ? `<div class="footer">จำนวนสำเนา ${currentDocument.copies} ชุด</div>` : ''}</div></div></div><script>window.addEventListener('load', function () { setTimeout(function () { window.print(); }, 250); }); window.addEventListener('afterprint', function () { window.close(); });</script></body></html>`);
             windowRef.document.close();
         } catch (error) {
+            closePrintWindow(windowRef);
             console.error(error);
-            message.error(error instanceof Error ? error.message : 'ไม่สามารถเปิด test print ได้');
+            message.error(error instanceof Error ? error.message : 'ไม่สามารถเปิดหน้าทดสอบพิมพ์ได้');
         } finally {
             setPrinting(false);
         }
     }, [branchName, currentDocument, selectedDocument, selectedMeta.label]);
 
+    /* ─── Guards ────────────────────────────────────────────────────────── */
+
     if (isChecking || permissionLoading) {
-        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์และโหลดการตั้งค่าการพิมพ์..." />;
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
     }
 
     if (!isAuthorized) {
-        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้าตั้งค่าการพิมพ์" tone="danger" />;
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
     }
 
     if (loading) {
         return (
-            <div className="print-settings-page">
-                <style>{pageStyles}</style>
-                <UIPageHeader title="Print Setting" subtitle="กำลังโหลดข้อมูล..." icon={<PrinterOutlined />} onBack={() => router.back()} />
+            <div className="ps-page">
+                <PrintSettingStyles />
+                <UIPageHeader title="ตั้งค่าการพิมพ์" subtitle="กำลังโหลด..." icon={<PrinterOutlined />} onBack={() => router.back()} />
                 <PageContainer>
                     <div style={{ minHeight: 380, display: 'grid', placeItems: 'center' }}><Spin size="large" /></div>
                 </PageContainer>
@@ -498,21 +417,39 @@ export default function PrintSettingPage() {
         );
     }
 
-    return (
-        <div className="print-settings-page">
-            <style>{pageStyles}</style>
+    /* ─── Status bar helper ─────────────────────────────────────────────── */
+    const statusVariant = hasIncomingUpdate ? 'update' : isDirty ? 'dirty' : 'synced';
+    const statusText = hasIncomingUpdate
+        ? 'มีอัปเดตจากอุปกรณ์อื่น'
+        : isDirty ? 'มีการแก้ไขที่ยังไม่ได้บันทึก' : 'ข้อมูลเป็นปัจจุบัน';
 
+    /* ─── Render ────────────────────────────────────────────────────────── */
+
+    return (
+        <div className="ps-page">
+            <PrintSettingStyles />
+
+            {/* Header */}
             <UIPageHeader
-                title="Print Setting"
-                subtitle="ตั้งค่าเอกสารพิมพ์แยกตามสาขา พร้อมขนาดกระดาษ, density, และ preview ก่อนใช้งานจริง"
+                title="ตั้งค่าการพิมพ์"
+                subtitle={branchName}
                 icon={<PrinterOutlined />}
                 onBack={() => router.back()}
                 actions={(
-                    <Space size={10} wrap>
-                        <Button icon={<ReloadOutlined />} onClick={() => fetchSettings(false)} loading={refreshing || loading} />
-                        <Button onClick={handleResetAll} disabled={!canUpdateSettings}>รีเซ็ตทั้งหมด</Button>
-                        <Button icon={<SyncOutlined />} onClick={handlePrintTest} loading={printing}>Test Print</Button>
-                        <Button type="primary" icon={<SaveOutlined />} onClick={handleSave} loading={saving} disabled={!canUpdateSettings || !isDirty}>
+                    <Space size={8} wrap>
+                        <Tooltip title="โหลดค่าล่าสุดจากระบบ">
+                            <Button icon={<ReloadOutlined />} onClick={handleRefresh} loading={refreshing} />
+                        </Tooltip>
+                        <Button icon={<SyncOutlined />} onClick={handlePrintTest} loading={printing}>
+                            {!isMobile && 'ทดสอบพิมพ์'}
+                        </Button>
+                        <Button
+                            type="primary"
+                            icon={<SaveOutlined />}
+                            onClick={handleSave}
+                            loading={saving}
+                            disabled={!canUpdateSettings || !isDirty}
+                        >
                             บันทึก
                         </Button>
                     </Space>
@@ -520,486 +457,458 @@ export default function PrintSettingPage() {
             />
 
             <PageContainer maxWidth={1360}>
-                <PageStack>
-                    <PageSection>
+                <PageStack gap={16}>
+                    {/* Status bar */}
+                    <div className={`ps-status-bar ps-status-bar--${statusVariant}`}>
+                        <span className="ps-status-bar__dot" />
+                        <span>{statusText}</span>
+                        {hasIncomingUpdate && (
+                            <Button size="small" type="link" onClick={handleLoadLatest} style={{ padding: 0, height: 'auto' }}>
+                                โหลดค่าล่าสุด
+                            </Button>
+                        )}
+                        <span style={{ marginLeft: 'auto', fontSize: 12, opacity: 0.7 }}>
+                            {isConnected ? 'เรียลไทม์' : 'ออฟไลน์'}
+                        </span>
+                    </div>
+
+                    {/* Read-only alert */}
+                    {!canUpdateSettings && (
                         <Alert
                             showIcon
-                            type="info"
-                            message={`การตั้งค่านี้ผูกกับสาขา ${branchName}`}
-                            description="แต่ละสาขามีขนาดใบเสร็จ, ใบสรุป, ใบสั่งซื้อ และ QR โต๊ะของตัวเอง ไม่ปนกับสาขาอื่น"
+                            type="warning"
+                            message="โหมดดูอย่างเดียว"
+                            description="บัญชีนี้ไม่มีสิทธิ์แก้ไขการตั้งค่าการพิมพ์"
                         />
-                    </PageSection>
+                    )}
 
-                    <PageSection>
-                        <div className="print-settings-stats">
-                            <div className="print-settings-stat">
-                                <Text type="secondary">เอกสารที่เปิดใช้งาน</Text>
-                                <Title level={3} style={{ margin: '8px 0 0', color: '#0f172a' }}>{enabledDocumentCount}</Title>
-                                <Text type="secondary">จาก {documentOrder.length} รูปแบบ</Text>
-                            </div>
-                            <div className="print-settings-stat">
-                                <Text type="secondary">Automation ที่เปิดอยู่</Text>
-                                <Title level={3} style={{ margin: '8px 0 0', color: '#0f766e' }}>{automationCount}</Title>
-                                <Text type="secondary">พร้อมสั่งพิมพ์ตาม workflow</Text>
-                            </div>
-                            <div className="print-settings-stat">
-                                <Text type="secondary">Preset ปัจจุบัน</Text>
-                                <Title level={4} style={{ margin: '8px 0 0', color: '#0f172a' }}>{currentPresetMeta.label}</Title>
-                                <Text type="secondary">{formatPaperSize(currentDocument)}</Text>
-                            </div>
-                            <div className="print-settings-stat">
-                                <Text type="secondary">อัปเดตล่าสุด</Text>
-                                <Title level={4} style={{ margin: '8px 0 0', color: '#0f172a' }}>{formatTimestamp(savedSettings.updated_at)}</Title>
-                                <Text type="secondary">{isDirty ? 'มีการเปลี่ยนแปลงที่ยังไม่บันทึก' : 'ค่าในหน้าจอตรงกับระบบ'}</Text>
+                    {/* Summary chips */}
+                    <div className="ps-chips">
+                        <div className="ps-chip">
+                            <FileTextOutlined className="ps-chip__icon" />
+                            <span>เอกสาร</span>
+                            <span className="ps-chip__value">{enabledDocumentCount}/{documentOrder.length}</span>
+                        </div>
+                        <div className="ps-chip">
+                            <ThunderboltOutlined className="ps-chip__icon" />
+                            <span>อัตโนมัติ</span>
+                            <span className="ps-chip__value">{automationCount}</span>
+                        </div>
+                        <div className="ps-chip">
+                            <PrinterOutlined className="ps-chip__icon" />
+                            <span>พิมพ์ด้วย</span>
+                            <span className="ps-chip__value">{printerProfileLabel[currentDocument.printer_profile]}</span>
+                        </div>
+                        <div className="ps-chip">
+                            <CopyOutlined className="ps-chip__icon" />
+                            <span>สำเนา</span>
+                            <span className="ps-chip__value">{currentDocument.copies}</span>
+                        </div>
+                    </div>
+
+                    {/* Document tabs */}
+                    <div className="ps-doc-tabs">
+                        {documentOrder.map((docType) => {
+                            const meta = PRINT_DOCUMENT_META[docType];
+                            const isEnabled = settings.documents[docType].enabled;
+                            const isActive = selectedDocument === docType;
+                            return (
+                                <button
+                                    key={docType}
+                                    type="button"
+                                    className={`ps-doc-tab ${isActive ? 'ps-doc-tab--active' : ''}`}
+                                    onClick={() => setSelectedDocument(docType)}
+                                >
+                                    {meta.shortLabel}
+                                    <span className={`ps-doc-tab__badge ${isEnabled ? 'ps-doc-tab__badge--on' : 'ps-doc-tab__badge--off'}`}>
+                                        {isEnabled ? 'เปิด' : 'ปิด'}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
+
+                    {/* Main 2-col layout */}
+                    <div className="ps-layout">
+                        {/* ── Left: settings ── */}
+                        <div style={{ display: 'grid', gap: 16 }}>
+                            {/* Presets */}
+                            <div className="ps-card">
+                                <div className="ps-card__header">
+                                    <h3 className="ps-card__title">
+                                        {selectedMeta.label}
+                                    </h3>
+                                    <Space size={6}>
+                                        <Tag color={currentDocument.enabled ? 'green' : 'default'}>
+                                            {currentDocument.enabled ? 'เปิดใช้งาน' : 'ปิดอยู่'}
+                                        </Tag>
+                                        <Tag color="blue">{currentPresetMeta.label}</Tag>
+                                    </Space>
+                                </div>
+                                <div className="ps-card__body">
+                                    <Text type="secondary" style={{ display: 'block', marginBottom: 16, fontSize: 13 }}>
+                                        {selectedMeta.description}
+                                    </Text>
+
+                                    {/* Preset selection */}
+                                    <div className="ps-section">
+                                        <div className="ps-section__label">เลือกรูปแบบกระดาษ</div>
+                                        <div className="ps-presets">
+                                            {PRINT_PRESET_OPTIONS.map((preset) => {
+                                                const recommended = selectedMeta.recommendedPresets.includes(preset.value);
+                                                const active = currentDocument.preset === preset.value;
+                                                return (
+                                                    <button
+                                                        key={preset.value}
+                                                        type="button"
+                                                        className={`ps-preset ${active ? 'ps-preset--active' : ''}`}
+                                                        disabled={!canUpdateSettings}
+                                                        onClick={() => updateDocument((current) => applyPresetToDocument(current, preset.value))}
+                                                    >
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                            <span className="ps-preset__name">{preset.label}</span>
+                                                            {recommended && <CheckCircleOutlined style={{ color: '#22c55e', fontSize: 12 }} />}
+                                                        </div>
+                                                        <div className="ps-preset__size">
+                                                            {preset.height == null ? `${formatNumber(preset.width)} มม. × auto` : `${formatNumber(preset.width)} × ${formatNumber(preset.height)} มม.`}
+                                                        </div>
+                                                    </button>
+                                                );
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    {/* Paper & printer */}
+                                    <div className="ps-section">
+                                        <div className="ps-section__label">เครื่องพิมพ์ & กระดาษ</div>
+                                        <Row gutter={[12, 14]}>
+                                            <Col xs={24} sm={8}>
+                                                <div className="ps-field">
+                                                    <span className="ps-field__label">ประเภทเครื่อง</span>
+                                                    <Segmented<PrintPrinterProfile>
+                                                        block
+                                                        value={currentDocument.printer_profile}
+                                                        disabled={!canUpdateSettings}
+                                                        onChange={(value) => updateDocument({ printer_profile: value })}
+                                                        options={[
+                                                            { label: 'ความร้อน', value: 'thermal' },
+                                                            { label: 'สำนักงาน', value: 'laser' },
+                                                            { label: 'สติ๊กเกอร์', value: 'label' },
+                                                        ]}
+                                                    />
+                                                </div>
+                                            </Col>
+                                            <Col xs={12} sm={8}>
+                                                <div className="ps-field">
+                                                    <span className="ps-field__label">หน่วยวัด</span>
+                                                    <Segmented<PrintUnit>
+                                                        block
+                                                        value={currentDocument.unit}
+                                                        disabled={!canUpdateSettings}
+                                                        options={[{ label: 'มม.', value: 'mm' }, { label: 'นิ้ว', value: 'in' }]}
+                                                        onChange={(value) => updateDocument((current) => convertDocumentUnit(current, value))}
+                                                    />
+                                                </div>
+                                            </Col>
+                                            <Col xs={12} sm={8}>
+                                                <div className="ps-field">
+                                                    <span className="ps-field__label">แนวกระดาษ</span>
+                                                    <Segmented<'portrait' | 'landscape'>
+                                                        block
+                                                        value={currentDocument.orientation}
+                                                        disabled={!canUpdateSettings}
+                                                        options={[{ label: 'แนวตั้ง', value: 'portrait' }, { label: 'แนวนอน', value: 'landscape' }]}
+                                                        onChange={(value) => updateDocument({ orientation: value })}
+                                                    />
+                                                </div>
+                                            </Col>
+                                            <Col xs={12} sm={6}>
+                                                <div className="ps-field">
+                                                    <span className="ps-field__label">ความกว้าง</span>
+                                                    <InputNumber
+                                                        min={1} max={500} precision={2}
+                                                        value={currentDocument.width}
+                                                        disabled={!canUpdateSettings}
+                                                        onChange={(value) => updateDocument({ width: Number(value || 0) })}
+                                                        addonAfter={currentDocument.unit}
+                                                        style={{ width: '100%' }}
+                                                    />
+                                                </div>
+                                            </Col>
+                                            <Col xs={12} sm={6}>
+                                                <div className="ps-field">
+                                                    <span className="ps-field__label">ความสูง</span>
+                                                    <Segmented<'auto' | 'fixed'>
+                                                        block
+                                                        value={currentDocument.height_mode}
+                                                        disabled={!canUpdateSettings}
+                                                        options={[{ label: 'อัตโนมัติ', value: 'auto' }, { label: 'กำหนด', value: 'fixed' }]}
+                                                        onChange={(value) =>
+                                                            updateDocument((current) => ({
+                                                                ...current,
+                                                                height_mode: value,
+                                                                height: value === 'auto' ? null : current.height ?? Number(current.width.toFixed(2)),
+                                                            }))
+                                                        }
+                                                    />
+                                                </div>
+                                            </Col>
+                                            <Col xs={12} sm={6}>
+                                                <div className="ps-field">
+                                                    <span className="ps-field__label">ค่าความสูง</span>
+                                                    <InputNumber
+                                                        min={1} max={500} precision={2}
+                                                        value={currentDocument.height ?? undefined}
+                                                        disabled={!canUpdateSettings || currentDocument.height_mode === 'auto'}
+                                                        onChange={(value) => updateDocument({ height: value == null ? null : Number(value) })}
+                                                        addonAfter={currentDocument.unit}
+                                                        style={{ width: '100%' }}
+                                                    />
+                                                </div>
+                                            </Col>
+                                            <Col xs={12} sm={6}>
+                                                <div className="ps-field">
+                                                    <span className="ps-field__label">จำนวนสำเนา</span>
+                                                    <InputNumber
+                                                        min={1} max={5} precision={0}
+                                                        value={currentDocument.copies}
+                                                        disabled={!canUpdateSettings}
+                                                        onChange={(value) => updateDocument({ copies: Number(value || 1) })}
+                                                        style={{ width: '100%' }}
+                                                    />
+                                                </div>
+                                            </Col>
+                                        </Row>
+                                    </div>
+
+                                    {/* Typography & density */}
+                                    <div className="ps-section">
+                                        <div className="ps-section__label">ความหนาแน่น & ตัวอักษร</div>
+                                        <Row gutter={[12, 14]}>
+                                            <Col xs={24} sm={12}>
+                                                <div className="ps-field">
+                                                    <span className="ps-field__label">ความหนาแน่น</span>
+                                                    <Segmented<PrintDocumentSetting['density']>
+                                                        block
+                                                        value={currentDocument.density}
+                                                        disabled={!canUpdateSettings}
+                                                        options={[
+                                                            { label: 'กะทัดรัด', value: 'compact' },
+                                                            { label: 'สมดุล', value: 'comfortable' },
+                                                            { label: 'โปร่ง', value: 'spacious' },
+                                                        ]}
+                                                        onChange={(value) => updateDocument({ density: value })}
+                                                    />
+                                                </div>
+                                            </Col>
+                                            <Col xs={24} sm={12}>
+                                                <div className="ps-field">
+                                                    <span className="ps-field__label">ขนาดตัวอักษร ({currentDocument.font_scale}%)</span>
+                                                    <Slider
+                                                        min={70} max={180}
+                                                        value={currentDocument.font_scale}
+                                                        disabled={!canUpdateSettings}
+                                                        onChange={(value) => updateDocument({ font_scale: Number(value) })}
+                                                        tooltip={{ formatter: (value) => `${value}%` }}
+                                                    />
+                                                </div>
+                                            </Col>
+                                            <Col xs={24} sm={12}>
+                                                <div className="ps-field">
+                                                    <span className="ps-field__label">ระยะห่างบรรทัด ({formatNumber(currentDocument.line_spacing)}x)</span>
+                                                    <Slider
+                                                        min={0.8} max={2} step={0.05}
+                                                        value={currentDocument.line_spacing}
+                                                        disabled={!canUpdateSettings}
+                                                        onChange={(value) => updateDocument({ line_spacing: Number(value) })}
+                                                        tooltip={{ formatter: (value) => `${value}x` }}
+                                                    />
+                                                </div>
+                                            </Col>
+                                            <Col xs={24} sm={12}>
+                                                <div className="ps-field">
+                                                    <span className="ps-field__label">ระยะขอบกระดาษ</span>
+                                                    <div className="ps-margin-grid">
+                                                        <InputNumber min={0} max={60} precision={2} value={currentDocument.margin_top} disabled={!canUpdateSettings} addonBefore="บน" addonAfter={currentDocument.unit} onChange={(value) => updateDocument({ margin_top: Number(value || 0) })} style={{ width: '100%' }} />
+                                                        <InputNumber min={0} max={60} precision={2} value={currentDocument.margin_right} disabled={!canUpdateSettings} addonBefore="ขวา" addonAfter={currentDocument.unit} onChange={(value) => updateDocument({ margin_right: Number(value || 0) })} style={{ width: '100%' }} />
+                                                        <InputNumber min={0} max={60} precision={2} value={currentDocument.margin_bottom} disabled={!canUpdateSettings} addonBefore="ล่าง" addonAfter={currentDocument.unit} onChange={(value) => updateDocument({ margin_bottom: Number(value || 0) })} style={{ width: '100%' }} />
+                                                        <InputNumber min={0} max={60} precision={2} value={currentDocument.margin_left} disabled={!canUpdateSettings} addonBefore="ซ้าย" addonAfter={currentDocument.unit} onChange={(value) => updateDocument({ margin_left: Number(value || 0) })} style={{ width: '100%' }} />
+                                                    </div>
+                                                </div>
+                                            </Col>
+                                        </Row>
+                                    </div>
+
+                                    {/* Visibility toggles */}
+                                    <div className="ps-section">
+                                        <div className="ps-section__label">แสดงข้อมูลบนเอกสาร</div>
+                                        <div className="ps-toggle-grid">
+                                            {[
+                                                { key: 'enabled', label: 'เปิดใช้เอกสาร', value: currentDocument.enabled },
+                                                { key: 'show_logo', label: 'โลโก้/ชื่อสาขา', value: currentDocument.show_logo },
+                                                { key: 'show_branch_address', label: 'ที่อยู่สาขา', value: currentDocument.show_branch_address },
+                                                { key: 'show_order_meta', label: 'ข้อมูลอ้างอิง', value: currentDocument.show_order_meta },
+                                                { key: 'show_qr', label: 'QR Code', value: currentDocument.show_qr },
+                                                { key: 'show_footer', label: 'ท้ายเอกสาร', value: currentDocument.show_footer },
+                                                { key: 'cut_paper', label: 'ตัดกระดาษอัตโนมัติ', value: currentDocument.cut_paper },
+                                            ].map((item) => (
+                                                <div key={item.key} className="ps-toggle">
+                                                    <span className="ps-toggle__label">{item.label}</span>
+                                                    <Switch
+                                                        size="small"
+                                                        checked={item.value}
+                                                        disabled={!canUpdateSettings}
+                                                        onChange={(checked) => updateDocument({ [item.key]: checked } as Partial<PrintDocumentSetting>)}
+                                                    />
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Note */}
+                                    <div className="ps-section">
+                                        <div className="ps-section__label">หมายเหตุ</div>
+                                        <Input.TextArea
+                                            rows={2}
+                                            maxLength={140}
+                                            value={currentDocument.note || ''}
+                                            disabled={!canUpdateSettings}
+                                            onChange={(event) => updateDocument({ note: event.target.value || null })}
+                                            placeholder="เช่น ใช้กับเครื่องพิมพ์ 80 มม. หน้าเคาน์เตอร์"
+                                            style={{ borderRadius: 10 }}
+                                        />
+                                    </div>
+
+                                    {/* Actions */}
+                                    <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                                        <Button icon={<UndoOutlined />} onClick={handleResetDocument} disabled={!canUpdateSettings}>
+                                            คืนค่าเอกสารนี้
+                                        </Button>
+                                        <Button onClick={handleResetAll} disabled={!canUpdateSettings}>
+                                            คืนค่าทั้งหมด
+                                        </Button>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                    </PageSection>
 
-                    <Row gutter={[16, 16]} align="top">
-                        <Col xs={24} xl={8}>
-                            <Card title="ชนิดเอกสาร" extra={<Tag color="cyan">Branch scoped</Tag>} styles={{ body: { paddingTop: 8 } }}>
-                                <div className="print-settings-nav">
-                                    {documentOrder.map((documentType) => {
-                                        const item = settings.documents[documentType];
-                                        const meta = PRINT_DOCUMENT_META[documentType];
-                                        const active = selectedDocument === documentType;
-                                        return (
-                                            <button
-                                                key={documentType}
-                                                type="button"
-                                                className={`print-settings-nav-btn ${active ? 'active' : ''}`}
-                                                onClick={() => setSelectedDocument(documentType)}
-                                            >
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                                                    <div style={{ minWidth: 0 }}>
-                                                        <div style={{ fontWeight: 700, color: '#0f172a' }}>{meta.label}</div>
-                                                        <div style={{ marginTop: 4, fontSize: 12, color: '#64748b' }}>{meta.description}</div>
-                                                    </div>
-                                                    <Tag color={item.enabled ? 'green' : 'default'} style={{ margin: 0 }}>
-                                                        {item.enabled ? 'ON' : 'OFF'}
-                                                    </Tag>
-                                                </div>
-                                                <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                                    <Tag color="blue" style={{ margin: 0 }}>{formatPaperSize(item)}</Tag>
-                                                    <Tag style={{ margin: 0 }}>{densityLabel[item.density]}</Tag>
-                                                </div>
-                                            </button>
-                                        );
-                                    })}
+                        {/* ── Right sidebar ── */}
+                        <div style={{ display: 'grid', gap: 16 }}>
+                            {/* Preview */}
+                            <div className="ps-card">
+                                <div className="ps-card__header">
+                                    <h3 className="ps-card__title">ตัวอย่าง</h3>
+                                    <Tag color="geekblue">{formatPaperSize(currentDocument)}</Tag>
                                 </div>
-                            </Card>
+                                <div className="ps-card__body--compact">
+                                    <DocumentPreview documentType={selectedDocument} setting={currentDocument} branchName={branchName} />
 
-                            <Card title="Automation" style={{ marginTop: 16 }} styles={{ body: { display: 'grid', gap: 12 } }}>
-                                <div className="print-settings-toggle">
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                                        <div>
-                                            <div style={{ fontWeight: 700 }}>Auto receipt after payment</div>
-                                            <Text type="secondary">พิมพ์ใบเสร็จทันทีเมื่อชำระเสร็จ</Text>
-                                        </div>
-                                        <Switch
-                                            checked={settings.automation.auto_print_receipt_after_payment}
-                                            disabled={!canUpdateSettings}
-                                            onChange={(checked) => setSettings((prev) => ({ ...prev, automation: { ...prev.automation, auto_print_receipt_after_payment: checked } }))}
-                                        />
+                                    <div className="ps-preview-info" style={{ marginTop: 14 }}>
+                                        <div className="ps-preview-info__row"><span className="ps-preview-info__label">เครื่องพิมพ์</span><span className="ps-preview-info__value">{printerProfileLabel[currentDocument.printer_profile]}</span></div>
+                                        <div className="ps-preview-info__row"><span className="ps-preview-info__label">ตัวอักษร/บรรทัด</span><span className="ps-preview-info__value">~{charsPerLine}</span></div>
+                                        <div className="ps-preview-info__row"><span className="ps-preview-info__label">ความหนาแน่น</span><span className="ps-preview-info__value">{densityLabel[currentDocument.density]}</span></div>
+                                        <div className="ps-preview-info__row"><span className="ps-preview-info__label">ขอบ</span><span className="ps-preview-info__value">{formatNumber(currentDocument.margin_top)}/{formatNumber(currentDocument.margin_right)}/{formatNumber(currentDocument.margin_bottom)}/{formatNumber(currentDocument.margin_left)} {currentDocument.unit}</span></div>
+                                        <div className="ps-preview-info__row"><span className="ps-preview-info__label">อัปเดต</span><span className="ps-preview-info__value">{formatTimestamp(savedSettings.updated_at)}</span></div>
                                     </div>
                                 </div>
-                                <div className="print-settings-toggle">
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                                        <div>
-                                            <div style={{ fontWeight: 700 }}>Auto kitchen ticket</div>
-                                            <Text type="secondary">พิมพ์ ticket ส่งครัวเมื่อออเดอร์พร้อมผลิต</Text>
-                                        </div>
-                                        <Switch
-                                            checked={settings.automation.auto_print_kitchen_ticket_after_submit}
-                                            disabled={!canUpdateSettings}
-                                            onChange={(checked) => setSettings((prev) => ({ ...prev, automation: { ...prev.automation, auto_print_kitchen_ticket_after_submit: checked } }))}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="print-settings-toggle">
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                                        <div>
-                                            <div style={{ fontWeight: 700 }}>Auto summary after shift</div>
-                                            <Text type="secondary">เตรียมเอกสารสรุปทันทีหลังปิดกะ</Text>
-                                        </div>
-                                        <Switch
-                                            checked={settings.automation.auto_print_order_summary_after_close_shift}
-                                            disabled={!canUpdateSettings}
-                                            onChange={(checked) => setSettings((prev) => ({ ...prev, automation: { ...prev.automation, auto_print_order_summary_after_close_shift: checked } }))}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="print-settings-toggle">
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                                        <div>
-                                            <div style={{ fontWeight: 700 }}>Auto QR after rotate</div>
-                                            <Text type="secondary">รองรับ workflow reprint QR โต๊ะหลัง rotate token</Text>
-                                        </div>
-                                        <Switch
-                                            checked={settings.automation.auto_print_table_qr_after_rotation}
-                                            disabled={!canUpdateSettings}
-                                            onChange={(checked) => setSettings((prev) => ({ ...prev, automation: { ...prev.automation, auto_print_table_qr_after_rotation: checked } }))}
-                                        />
-                                    </div>
-                                </div>
-                                <div className="print-settings-toggle">
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                                        <div>
-                                            <div style={{ fontWeight: 700 }}>Allow manual override</div>
-                                            <Text type="secondary">เปิดให้สาขาใช้ค่าปรับเฉพาะเอกสารหน้างานได้</Text>
-                                        </div>
-                                        <Switch
-                                            checked={settings.allow_manual_override}
-                                            disabled={!canUpdateSettings}
-                                            onChange={(checked) => setSettings((prev) => ({ ...prev, allow_manual_override: checked }))}
-                                        />
-                                    </div>
-                                </div>
-                            </Card>
+                            </div>
 
-                            <Card title="Global profile" style={{ marginTop: 16 }}>
-                                <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                                    <div>
-                                        <Text type="secondary">Default unit</Text>
-                                        <div style={{ marginTop: 6 }}>
+                            {/* Automation */}
+                            <div className="ps-card">
+                                <div className="ps-card__header">
+                                    <h3 className="ps-card__title">
+                                        <ThunderboltOutlined style={{ marginRight: 6, color: '#f59e0b' }} />
+                                        พิมพ์อัตโนมัติ
+                                    </h3>
+                                    <Tag>{automationCount} เปิดอยู่</Tag>
+                                </div>
+                                <div className="ps-card__body--compact">
+                                    {automationItems.map((item) => (
+                                        <div key={item.key} className="ps-auto-item">
+                                            <div>
+                                                <div className="ps-auto-item__title">{item.title}</div>
+                                                <div className="ps-auto-item__desc">{item.desc}</div>
+                                            </div>
+                                            <Switch
+                                                size="small"
+                                                checked={settings.automation[item.key]}
+                                                disabled={!canUpdateSettings}
+                                                onChange={(checked) => setSettings((prev) => ({
+                                                    ...prev,
+                                                    automation: { ...prev.automation, [item.key]: checked },
+                                                }))}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+
+                            {/* Branch settings */}
+                            <div className="ps-card">
+                                <div className="ps-card__header">
+                                    <h3 className="ps-card__title">
+                                        <SettingOutlined style={{ marginRight: 6, color: '#64748b' }} />
+                                        ค่ากลางสาขา
+                                    </h3>
+                                </div>
+                                <div className="ps-card__body--compact">
+                                    <div className="ps-branch-grid">
+                                        <div className="ps-branch-item">
+                                            <span className="ps-branch-item__label">หน่วยหลัก</span>
                                             <Segmented<PrintUnit>
                                                 block
-                                                options={[{ label: 'Millimeter', value: 'mm' }, { label: 'Inch', value: 'in' }]}
+                                                options={[{ label: 'มม.', value: 'mm' }, { label: 'นิ้ว', value: 'in' }]}
                                                 value={settings.default_unit}
                                                 onChange={(value) => setSettings((prev) => ({ ...prev, default_unit: value }))}
                                                 disabled={!canUpdateSettings}
                                             />
                                         </div>
-                                    </div>
-                                    <div>
-                                        <Text type="secondary">Locale</Text>
-                                        <Input
-                                            value={settings.locale}
-                                            disabled={!canUpdateSettings}
-                                            onChange={(event) => setSettings((prev) => ({ ...prev, locale: event.target.value }))}
-                                            placeholder="th-TH"
-                                            maxLength={20}
-                                        />
-                                    </div>
-                                </Space>
-                            </Card>
-                        </Col>
-
-                        <Col xs={24} xl={16}>
-                            <Card
-                                title={selectedMeta.label}
-                                extra={(
-                                    <Space size={8} wrap>
-                                        <Tag color="geekblue">{selectedMeta.shortLabel}</Tag>
-                                        <Tag>{presetCategoryLabel[currentDocument.printer_profile]}</Tag>
-                                        {isDirty ? <Tag color="orange">Unsaved</Tag> : <Tag color="green">Saved</Tag>}
-                                    </Space>
-                                )}
-                            >
-                                {!canUpdateSettings ? (
-                                    <Alert
-                                        style={{ marginBottom: 16 }}
-                                        type="warning"
-                                        showIcon
-                                        message="เปิดในโหมดดูอย่างเดียว"
-                                        description="บัญชีนี้มีสิทธิ์ดู แต่ไม่มีสิทธิ์บันทึกการตั้งค่าการพิมพ์"
-                                    />
-                                ) : null}
-
-                                {isMobile ? (
-                                    <div style={{ marginBottom: 16 }}>
-                                        <Segmented<PrintDocumentType>
-                                            block
-                                            options={documentOrder.map((documentType) => ({
-                                                label: PRINT_DOCUMENT_META[documentType].shortLabel,
-                                                value: documentType,
-                                            }))}
-                                            value={selectedDocument}
-                                            onChange={setSelectedDocument}
-                                        />
-                                    </div>
-                                ) : null}
-
-                                <Paragraph type="secondary" style={{ marginBottom: 18 }}>{selectedMeta.description}</Paragraph>
-
-                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap', marginBottom: 14 }}>
-                                    <Space wrap size={8}>
-                                        <Tooltip title="จำนวนอักษรโดยประมาณต่อบรรทัดจากหน้ากระดาษและขนาดฟอนต์">
-                                            <Tag icon={<DeploymentUnitOutlined />} color="blue">{charsPerLine} chars / line</Tag>
-                                        </Tooltip>
-                                        <Tag icon={<CopyOutlined />} color="gold">{currentDocument.copies} copies</Tag>
-                                        <Tag icon={<BgColorsOutlined />} color="green">{densityLabel[currentDocument.density]}</Tag>
-                                    </Space>
-                                    <Space wrap size={8}>
-                                        <Button onClick={handleResetDocument} disabled={!canUpdateSettings}>รีเซ็ตเอกสารนี้</Button>
-                                        <Button icon={<SyncOutlined />} onClick={handlePrintTest} loading={printing}>ทดสอบพิมพ์</Button>
-                                    </Space>
-                                </div>
-
-                                <Divider style={{ marginBlock: 14 }} />
-
-                                <Title level={5}>Preset มาตรฐาน</Title>
-                                <div className="print-settings-presets">
-                                    {PRINT_PRESET_OPTIONS.map((preset) => {
-                                        const recommended = selectedMeta.recommendedPresets.includes(preset.value);
-                                        const active = currentDocument.preset === preset.value;
-                                        return (
-                                            <button
-                                                key={preset.value}
-                                                type="button"
-                                                className={`print-settings-preset ${active ? 'active' : ''}`}
+                                        <div className="ps-branch-item">
+                                            <span className="ps-branch-item__label">ภาษาและเวลา</span>
+                                            <Input
+                                                value={settings.locale}
                                                 disabled={!canUpdateSettings}
-                                                onClick={() => updateDocument((current) => applyPresetToDocument(current, preset.value))}
-                                            >
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 8 }}>
-                                                    <div style={{ fontWeight: 700 }}>{preset.label}</div>
-                                                    {recommended ? <Tag color="green" style={{ margin: 0 }}>Recommended</Tag> : null}
-                                                </div>
-                                                <div style={{ marginTop: 6, fontSize: 12, color: '#64748b' }}>{preset.description}</div>
-                                                <div style={{ marginTop: 10, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                                                    <Tag color="blue" style={{ margin: 0 }}>
-                                                        {preset.height == null ? `${formatNumber(preset.width)}mm x auto` : `${formatNumber(preset.width)} x ${formatNumber(preset.height)} mm`}
-                                                    </Tag>
-                                                    <Tag style={{ margin: 0 }}>{presetCategoryLabel[preset.printerProfile]}</Tag>
-                                                </div>
-                                            </button>
-                                        );
-                                    })}
-                                </div>
-
-                                <Divider style={{ marginBlock: 18 }} />
-
-                                <Title level={5}>Physical paper</Title>
-                                <Row gutter={[12, 12]}>
-                                    <Col xs={24} md={8}>
-                                        <Text type="secondary">Printer profile</Text>
-                                        <Segmented<PrintPrinterProfile>
-                                            block
-                                            style={{ width: '100%', marginTop: 6 }}
-                                            value={currentDocument.printer_profile}
-                                            disabled={!canUpdateSettings}
-                                            onChange={(value) => updateDocument({ printer_profile: value })}
-                                            options={[
-                                                { label: 'Thermal', value: 'thermal' },
-                                                { label: 'Laser', value: 'laser' },
-                                                { label: 'Label', value: 'label' },
-                                            ]}
-                                        />
-                                    </Col>
-                                    <Col xs={24} md={8}>
-                                        <Text type="secondary">Unit</Text>
-                                        <Segmented<PrintUnit>
-                                            block
-                                            style={{ marginTop: 6 }}
-                                            value={currentDocument.unit}
-                                            disabled={!canUpdateSettings}
-                                            options={[{ label: 'mm', value: 'mm' }, { label: 'in', value: 'in' }]}
-                                            onChange={(value) => updateDocument((current) => convertDocumentUnit(current, value))}
-                                        />
-                                    </Col>
-                                    <Col xs={24} md={8}>
-                                        <Text type="secondary">Orientation</Text>
-                                        <Segmented<'portrait' | 'landscape'>
-                                            block
-                                            style={{ marginTop: 6 }}
-                                            value={currentDocument.orientation}
-                                            disabled={!canUpdateSettings}
-                                            options={[{ label: 'Portrait', value: 'portrait' }, { label: 'Landscape', value: 'landscape' }]}
-                                            onChange={(value) => updateDocument({ orientation: value })}
-                                        />
-                                    </Col>
-                                    <Col xs={24} md={6}>
-                                        <Text type="secondary">Width</Text>
-                                        <InputNumber
-                                            min={1}
-                                            max={500}
-                                            precision={2}
-                                            value={currentDocument.width}
-                                            disabled={!canUpdateSettings}
-                                            onChange={(value) => updateDocument({ width: Number(value || 0) })}
-                                            addonAfter={currentDocument.unit}
-                                            style={{ width: '100%', marginTop: 6 }}
-                                        />
-                                    </Col>
-                                    <Col xs={24} md={6}>
-                                        <Text type="secondary">Height mode</Text>
-                                        <Segmented<'auto' | 'fixed'>
-                                            block
-                                            style={{ marginTop: 6 }}
-                                            value={currentDocument.height_mode}
-                                            disabled={!canUpdateSettings}
-                                            options={[{ label: 'Auto', value: 'auto' }, { label: 'Fixed', value: 'fixed' }]}
-                                            onChange={(value) =>
-                                                updateDocument((current) => ({
-                                                    ...current,
-                                                    height_mode: value,
-                                                    height: value === 'auto' ? null : current.height ?? Number(current.width.toFixed(2)),
-                                                }))
-                                            }
-                                        />
-                                    </Col>
-                                    <Col xs={24} md={6}>
-                                        <Text type="secondary">Height</Text>
-                                        <InputNumber
-                                            min={1}
-                                            max={500}
-                                            precision={2}
-                                            value={currentDocument.height ?? undefined}
-                                            disabled={!canUpdateSettings || currentDocument.height_mode === 'auto'}
-                                            onChange={(value) => updateDocument({ height: value == null ? null : Number(value) })}
-                                            addonAfter={currentDocument.unit}
-                                            style={{ width: '100%', marginTop: 6 }}
-                                        />
-                                    </Col>
-                                    <Col xs={24} md={6}>
-                                        <Text type="secondary">Copies</Text>
-                                        <InputNumber
-                                            min={1}
-                                            max={5}
-                                            precision={0}
-                                            value={currentDocument.copies}
-                                            disabled={!canUpdateSettings}
-                                            onChange={(value) => updateDocument({ copies: Number(value || 1) })}
-                                            style={{ width: '100%', marginTop: 6 }}
-                                        />
-                                    </Col>
-                                </Row>
-
-                                <Divider style={{ marginBlock: 18 }} />
-
-                                <Title level={5}>Spacing and legibility</Title>
-                                <Row gutter={[12, 12]}>
-                                    <Col xs={24} md={12}>
-                                        <Text type="secondary">Density</Text>
-                                        <Segmented<PrintDocumentSetting['density']>
-                                            block
-                                            style={{ marginTop: 6 }}
-                                            value={currentDocument.density}
-                                            disabled={!canUpdateSettings}
-                                            options={[{ label: 'Compact', value: 'compact' }, { label: 'Balanced', value: 'comfortable' }, { label: 'Spacious', value: 'spacious' }]}
-                                            onChange={(value) => updateDocument({ density: value })}
-                                        />
-                                    </Col>
-                                    <Col xs={24} md={12}>
-                                        <Text type="secondary">Font scale</Text>
-                                        <div style={{ paddingInline: 8, marginTop: 6 }}>
-                                            <Slider
-                                                min={70}
-                                                max={180}
-                                                value={currentDocument.font_scale}
-                                                disabled={!canUpdateSettings}
-                                                onChange={(value) => updateDocument({ font_scale: Number(value) })}
-                                                tooltip={{ formatter: (value) => `${value}%` }}
+                                                onChange={(event) => setSettings((prev) => ({ ...prev, locale: event.target.value }))}
+                                                placeholder="th-TH"
+                                                maxLength={20}
+                                                style={{ borderRadius: 8 }}
                                             />
                                         </div>
-                                    </Col>
-                                    <Col xs={24} md={12}>
-                                        <Text type="secondary">Line spacing</Text>
-                                        <div style={{ paddingInline: 8, marginTop: 6 }}>
-                                            <Slider
-                                                min={0.8}
-                                                max={2}
-                                                step={0.05}
-                                                value={currentDocument.line_spacing}
-                                                disabled={!canUpdateSettings}
-                                                onChange={(value) => updateDocument({ line_spacing: Number(value) })}
-                                                tooltip={{ formatter: (value) => `${value}x` }}
-                                            />
-                                        </div>
-                                    </Col>
-                                    <Col xs={24} md={12}>
-                                        <Text type="secondary">Margins</Text>
-                                        <Row gutter={[8, 8]} style={{ marginTop: 6 }}>
-                                            <Col span={12}>
-                                                <InputNumber min={0} max={60} precision={2} value={currentDocument.margin_top} disabled={!canUpdateSettings} addonBefore="Top" addonAfter={currentDocument.unit} onChange={(value) => updateDocument({ margin_top: Number(value || 0) })} style={{ width: '100%' }} />
-                                            </Col>
-                                            <Col span={12}>
-                                                <InputNumber min={0} max={60} precision={2} value={currentDocument.margin_right} disabled={!canUpdateSettings} addonBefore="Right" addonAfter={currentDocument.unit} onChange={(value) => updateDocument({ margin_right: Number(value || 0) })} style={{ width: '100%' }} />
-                                            </Col>
-                                            <Col span={12}>
-                                                <InputNumber min={0} max={60} precision={2} value={currentDocument.margin_bottom} disabled={!canUpdateSettings} addonBefore="Bottom" addonAfter={currentDocument.unit} onChange={(value) => updateDocument({ margin_bottom: Number(value || 0) })} style={{ width: '100%' }} />
-                                            </Col>
-                                            <Col span={12}>
-                                                <InputNumber min={0} max={60} precision={2} value={currentDocument.margin_left} disabled={!canUpdateSettings} addonBefore="Left" addonAfter={currentDocument.unit} onChange={(value) => updateDocument({ margin_left: Number(value || 0) })} style={{ width: '100%' }} />
-                                            </Col>
-                                        </Row>
-                                    </Col>
-                                </Row>
-
-                                <Divider style={{ marginBlock: 18 }} />
-
-                                <Title level={5}>Content options</Title>
-                                <div className="print-settings-toggle-grid">
-                                    {[
-                                        { key: 'enabled', label: 'เปิดใช้งานเอกสารนี้', value: currentDocument.enabled },
-                                        { key: 'show_logo', label: 'แสดงโลโก้/ชื่อสาขา', value: currentDocument.show_logo },
-                                        { key: 'show_branch_address', label: 'แสดงที่อยู่สาขา', value: currentDocument.show_branch_address },
-                                        { key: 'show_order_meta', label: 'แสดง meta ของงานพิมพ์', value: currentDocument.show_order_meta },
-                                        { key: 'show_qr', label: 'แสดง QR ในเอกสาร', value: currentDocument.show_qr },
-                                        { key: 'show_footer', label: 'แสดง footer ท้ายกระดาษ', value: currentDocument.show_footer },
-                                        { key: 'cut_paper', label: 'สั่งตัดกระดาษหลังพิมพ์', value: currentDocument.cut_paper },
-                                    ].map((item) => (
-                                        <div key={item.key} className="print-settings-toggle">
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}>
-                                                <Text strong>{item.label}</Text>
+                                        <div className="ps-branch-item">
+                                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10 }}>
+                                                <div>
+                                                    <div style={{ fontSize: 13, fontWeight: 600, color: '#334155' }}>ปรับจากหน้างาน</div>
+                                                    <div style={{ fontSize: 12, color: '#94a3b8' }}>ให้ทีมปรับค่าได้ขณะทำงาน</div>
+                                                </div>
                                                 <Switch
-                                                    checked={item.value}
+                                                    size="small"
+                                                    checked={settings.allow_manual_override}
                                                     disabled={!canUpdateSettings}
-                                                    onChange={(checked) => updateDocument({ [item.key]: checked } as Partial<PrintDocumentSetting>)}
+                                                    onChange={(checked) => setSettings((prev) => ({ ...prev, allow_manual_override: checked }))}
                                                 />
                                             </div>
                                         </div>
-                                    ))}
+                                    </div>
                                 </div>
-
-                                <Divider style={{ marginBlock: 18 }} />
-
-                                <Title level={5}>Operational note</Title>
-                                <Input.TextArea
-                                    rows={3}
-                                    maxLength={140}
-                                    value={currentDocument.note || ''}
-                                    disabled={!canUpdateSettings}
-                                    onChange={(event) => updateDocument({ note: event.target.value || null })}
-                                    placeholder="เช่น ใช้กับ printer หน้าแคชเชียร์ 80mm หรือใช้เฉพาะป้ายโต๊ะฝั่งโซนสวน"
-                                />
-                            </Card>
-
-                            <Card title="Preview" style={{ marginTop: 16 }}>
-                                <Row gutter={[16, 16]} align="middle">
-                                    <Col xs={24} lg={13}>
-                                        <DocumentPreview documentType={selectedDocument} setting={currentDocument} branchName={branchName} />
-                                    </Col>
-                                    <Col xs={24} lg={11}>
-                                        <Space direction="vertical" size={12} style={{ width: '100%' }}>
-                                            <Alert showIcon type="success" message={selectedMeta.label} description={`Preset: ${currentPresetMeta.label} | ${formatPaperSize(currentDocument)}`} />
-                                            <Card size="small" bordered={false} style={{ background: '#f8fafc' }}>
-                                                <Space direction="vertical" size={6} style={{ width: '100%' }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><Text type="secondary">Printer profile</Text><Text strong>{currentDocument.printer_profile}</Text></div>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><Text type="secondary">Estimated chars / line</Text><Text strong>{charsPerLine}</Text></div>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><Text type="secondary">Margins</Text><Text strong>{`${formatNumber(currentDocument.margin_top)}/${formatNumber(currentDocument.margin_right)}/${formatNumber(currentDocument.margin_bottom)}/${formatNumber(currentDocument.margin_left)} ${currentDocument.unit}`}</Text></div>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><Text type="secondary">Copies</Text><Text strong>{currentDocument.copies}</Text></div>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}><Text type="secondary">Updated</Text><Text strong>{formatTimestamp(savedSettings.updated_at)}</Text></div>
-                                                </Space>
-                                            </Card>
-                                            <Card size="small" bordered={false} style={{ background: '#fff7ed' }}>
-                                                <Space direction="vertical" size={6} style={{ width: '100%' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                        <FileDoneOutlined style={{ color: '#c2410c' }} />
-                                                        <Text strong>Recommended usage</Text>
-                                                    </div>
-                                                    <Text type="secondary">ใช้ preset ที่ระบบแนะนำก่อน แล้วค่อย fine tune ขนาดกับ margin ตาม printer จริงของสาขา</Text>
-                                                    <Text type="secondary">หากเปลี่ยนจาก thermal เป็น A4 หรือ label ให้ test print ทุกครั้งก่อนนำไปใช้หน้างาน</Text>
-                                                </Space>
-                                            </Card>
-                                        </Space>
-                                    </Col>
-                                </Row>
-                            </Card>
-                        </Col>
-                    </Row>
+                            </div>
+                        </div>
+                    </div>
                 </PageStack>
             </PageContainer>
+
+            {/* Sticky save bar */}
+            <div className={`ps-save-bar ${isDirty ? 'ps-save-bar--visible' : ''}`}>
+                <ExclamationCircleOutlined style={{ color: '#f59e0b', fontSize: 16 }} />
+                <Text style={{ fontSize: 13 }}>มีการแก้ไขที่ยังไม่ได้บันทึก</Text>
+                <Button size="small" onClick={() => {
+                    setSettings(savedSettings);
+                }}>
+                    ยกเลิกการแก้ไข
+                </Button>
+                <Button size="small" type="primary" icon={<SaveOutlined />} onClick={handleSave} loading={saving} disabled={!canUpdateSettings}>
+                    บันทึก
+                </Button>
+            </div>
         </div>
     );
 }

@@ -61,7 +61,7 @@ describe("dashboardService contract", () => {
             json: async () => [
                 {
                     product_id: "p1",
-                    product_name: "Coffee",
+                    display_name: "Coffee",
                     img_url: "",
                     total_quantity: 3,
                     total_revenue: 180,
@@ -115,5 +115,39 @@ describe("dashboardService contract", () => {
             })
         );
         expect(data.summary.total_sales).toBe(1200);
+    });
+
+    it("getOrderDetail unwraps standardized backend payload", async () => {
+        fetchMock.mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                success: true,
+                data: {
+                    id: "o1",
+                    order_no: "ORD-001",
+                    order_type: "DineIn",
+                    status: "Paid",
+                    sub_total: 100,
+                    discount_amount: 0,
+                    vat: 0,
+                    total_amount: 100,
+                    create_date: "2026-02-14T10:00:00.000Z",
+                    update_date: "2026-02-14T10:00:00.000Z",
+                    items: [],
+                    payments: [],
+                },
+            }),
+        });
+
+        const data = await dashboardService.getOrderDetail("o1");
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/pos/dashboard/orders/o1",
+            expect.objectContaining({
+                method: "GET",
+                headers: { "Content-Type": "application/json" },
+            }),
+        );
+        expect(data.id).toBe("o1");
+        expect(data.order_no).toBe("ORD-001");
     });
 });

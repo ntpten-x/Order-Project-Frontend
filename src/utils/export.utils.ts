@@ -1,13 +1,12 @@
 ﻿"use client";
 
-import * as XLSX from "xlsx";
 import dayjs from "dayjs";
 import "dayjs/locale/th";
 import { resolveImageSource } from "./image/source";
 import { PrintDocumentSetting } from "../types/api/pos/printSettings";
-import { buildPageMarginCss, buildPageSizeCss } from "./print-settings/runtime";
+import { buildPageMarginCss, buildPageSizeCss, reservePrintWindow } from "./print-settings/runtime";
 import { createDefaultDocumentSetting, toCssLength } from "./print-settings/defaults";
-import { applyWorkbookPageSetup, downloadWorkbookBytes } from "./print-settings/excelPageSetup";
+import { downloadWorkbookBytes } from "./print-settings/excelPageSetup";
 
 dayjs.locale("th");
 
@@ -43,7 +42,7 @@ export interface SalesSummaryExport {
 }
 
 export interface TopItemExport {
-  product_name: string;
+  display_name: string;
   total_quantity: number;
   total_revenue: number;
 }
@@ -152,6 +151,29 @@ export interface SalesReportExcelOptions {
   documentSetting?: PrintDocumentSetting | null;
 }
 
+interface SalesReportExcelWorkerRequest {
+  payload: SalesReportExportPayload;
+  dateRange: [string, string];
+  rangeLabel: string;
+  branding: SalesReportBranding;
+  documentSetting: PrintDocumentSetting;
+}
+
+interface SalesReportExcelWorkerSuccessResponse {
+  type: "success";
+  filename: string;
+  workbookBytes: ArrayBuffer;
+}
+
+interface SalesReportExcelWorkerErrorResponse {
+  type: "error";
+  error: string;
+}
+
+type SalesReportExcelWorkerResponse =
+  | SalesReportExcelWorkerSuccessResponse
+  | SalesReportExcelWorkerErrorResponse;
+
 function getEffectiveDocumentSize(setting: Pick<PrintDocumentSetting, "width" | "height" | "height_mode" | "orientation" | "unit">) {
   const baseWidth = setting.width;
   const baseHeight =
@@ -162,23 +184,6 @@ function getEffectiveDocumentSize(setting: Pick<PrintDocumentSetting, "width" | 
   }
 
   return { width: baseWidth, height: baseHeight };
-}
-
-function convertToInches(value: number, unit: PrintDocumentSetting["unit"]): number {
-  return unit === "in" ? value : value / 25.4;
-}
-
-function buildWorksheetMargins(
-  setting: Pick<PrintDocumentSetting, "margin_top" | "margin_right" | "margin_bottom" | "margin_left" | "unit">
-): XLSX.MarginInfo {
-  return {
-    top: convertToInches(setting.margin_top, setting.unit),
-    right: convertToInches(setting.margin_right, setting.unit),
-    bottom: convertToInches(setting.margin_bottom, setting.unit),
-    left: convertToInches(setting.margin_left, setting.unit),
-    header: 0.2,
-    footer: 0.2,
-  };
 }
 
 export const exportSalesReportPDF = async (
@@ -207,7 +212,7 @@ export const exportSalesReportPDF = async (
   const branchName = branding.branchName;
   const primaryColor = parseHexColor(branding.primaryColor, [15, 118, 110]);
   const secondaryColor = parseHexColor(branding.secondaryColor, [30, 64, 175]);
-  const printWindow = options.targetWindow ?? window.open("", "_blank", "width=1024,height=768");
+  const printWindow = options.targetWindow ?? reservePrintWindow(`รายงานสรุปผลการขาย ${rangeLabel}`);
   if (!printWindow) {
     throw new Error("เบราว์เซอร์บล็อกหน้าต่าง PDF");
   }
@@ -252,7 +257,7 @@ export const exportSalesReportPDF = async (
       (item, index) => `
         <tr>
           <td class="text-center">${index + 1}</td>
-          <td>${escapeHtml(item.product_name || "-")}</td>
+          <td>${escapeHtml(item.display_name || "-")}</td>
           <td class="text-right">${Number(item.total_quantity || 0).toLocaleString()}</td>
           <td class="text-right">${escapeHtml(formatMoney(Number(item.total_revenue || 0)))}</td>
         </tr>
@@ -499,120 +504,72 @@ export const exportSalesReportPDF = async (
   printWindow.document.close();
 };
 
-export const exportSalesReportExcel = (
+function createSalesReportExcelWorker(): Worker {
+  return new Worker(new URL("../workers/salesReportExcel.worker.ts", import.meta.url), {
+    type: "module",
+  });
+}
+
+function runSalesReportExcelWorker(
+  request: SalesReportExcelWorkerRequest
+): Promise<SalesReportExcelWorkerSuccessResponse> {
+  if (typeof Worker === "undefined") {
+    return Promise.reject(new Error("เบราว์เซอร์นี้ไม่รองรับ Web Worker"));
+  }
+
+  return new Promise((resolve, reject) => {
+    const worker = createSalesReportExcelWorker();
+
+    const cleanup = () => {
+      worker.removeEventListener("message", handleMessage);
+      worker.removeEventListener("error", handleError);
+      worker.removeEventListener("messageerror", handleMessageError);
+      worker.terminate();
+    };
+
+    const handleMessage = (event: MessageEvent<SalesReportExcelWorkerResponse>) => {
+      cleanup();
+      if (event.data.type === "error") {
+        reject(new Error(event.data.error));
+        return;
+      }
+
+      resolve(event.data);
+    };
+
+    const handleError = (event: ErrorEvent) => {
+      cleanup();
+      reject(new Error(event.message || "Web Worker ทำงานไม่สำเร็จ"));
+    };
+
+    const handleMessageError = () => {
+      cleanup();
+      reject(new Error("ไม่สามารถรับข้อมูลจาก Web Worker ได้"));
+    };
+
+    worker.addEventListener("message", handleMessage);
+    worker.addEventListener("error", handleError);
+    worker.addEventListener("messageerror", handleMessageError);
+    worker.postMessage(request);
+  });
+}
+
+export const exportSalesReportExcel = async (
   payload: SalesReportExportPayload,
   dateRange: [string, string],
   rangeLabel: string,
   branding: SalesReportBranding = {},
   options: SalesReportExcelOptions = {}
 ) => {
-  const workbook = XLSX.utils.book_new();
-  const summary = payload.summary || buildFallbackSummary(payload.daily_sales);
   const documentSetting = options.documentSetting ?? createDefaultDocumentSetting("order_summary");
-  const worksheetMargins = buildWorksheetMargins(documentSetting);
-
-  const summaryRows = [
-    ["รายงานสรุปผลการขาย"],
-    [branding.shopName || "ร้านค้า POS"],
-    [branding.branchName ? `สาขา: ${branding.branchName}` : ""],
-    [`ช่วงเวลา: ${dateRange[0]} ถึง ${dateRange[1]} (${rangeLabel})`],
-    [`พิมพ์เมื่อ: ${dayjs().format("DD/MM/YYYY HH:mm:ss")}`],
-    [],
-    ["หัวข้อ", "ค่า"],
-    ["ยอดขายรวม", Number(summary.total_sales || 0)],
-    ["จำนวนออเดอร์", Number(summary.total_orders || 0)],
-    ["ยอดเฉลี่ยต่อบิล", Number(summary.average_order_value || 0)],
-    ["ส่วนลดรวม", Number(summary.total_discount || 0)],
-    ["ยอดชำระเงินสด", Number(summary.cash_sales || 0)],
-    ["ยอดชำระ QR/พร้อมเพย์", Number(summary.qr_sales || 0)],
-    ["ยอดขายทานที่ร้าน", Number(summary.dine_in_sales || 0)],
-    ["ยอดขายกลับบ้าน", Number(summary.takeaway_sales || 0)],
-    ["ยอดขายเดลิเวอรี่", Number(summary.delivery_sales || 0)],
-  ];
-
-  const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
-  summarySheet["!cols"] = [{ wch: 32 }, { wch: 24 }];
-  summarySheet["!margins"] = worksheetMargins;
-  XLSX.utils.book_append_sheet(workbook, summarySheet, "สรุปภาพรวม");
-
-  const dailyHeader = [
-    "วันที่",
-    "จำนวนออเดอร์",
-    "ยอดขายรวม",
-    "ส่วนลด",
-    "เฉลี่ย/บิล",
-    "เงินสด",
-    "QR/พร้อมเพย์",
-    "ทานที่ร้าน",
-    "กลับบ้าน",
-    "เดลิเวอรี่",
-  ];
-
-  const dailyRows = payload.daily_sales.map((row) => {
-    const orders = Number(row.total_orders || 0);
-    const sales = Number(row.total_sales || 0);
-    return [
-      formatDate(row.date),
-      orders,
-      sales,
-      Number(row.total_discount || 0),
-      orders > 0 ? sales / orders : 0,
-      Number(row.cash_sales || 0),
-      Number(row.qr_sales || 0),
-      Number(row.dine_in_sales || 0),
-      Number(row.takeaway_sales || 0),
-      Number(row.delivery_sales || 0),
-    ];
+  const { filename, workbookBytes } = await runSalesReportExcelWorker({
+    payload,
+    dateRange,
+    rangeLabel,
+    branding,
+    documentSetting,
   });
 
-  const dailySheet = XLSX.utils.aoa_to_sheet([dailyHeader, ...dailyRows]);
-  dailySheet["!cols"] = [
-    { wch: 14 },
-    { wch: 14 },
-    { wch: 14 },
-    { wch: 12 },
-    { wch: 12 },
-    { wch: 12 },
-    { wch: 14 },
-    { wch: 12 },
-    { wch: 12 },
-    { wch: 12 },
-  ];
-  dailySheet["!margins"] = worksheetMargins;
-  XLSX.utils.book_append_sheet(workbook, dailySheet, "ยอดขายรายวัน");
-
-  const topItemHeader = ["อันดับ", "สินค้า", "จำนวนขาย", "ยอดขายรวม"];
-  const topItemRows = payload.top_items.map((item, index) => [
-    index + 1,
-    item.product_name,
-    Number(item.total_quantity || 0),
-    Number(item.total_revenue || 0),
-  ]);
-  const topSheet = XLSX.utils.aoa_to_sheet([topItemHeader, ...topItemRows]);
-  topSheet["!cols"] = [{ wch: 10 }, { wch: 34 }, { wch: 14 }, { wch: 16 }];
-  topSheet["!margins"] = worksheetMargins;
-  XLSX.utils.book_append_sheet(workbook, topSheet, "สินค้าขายดี");
-
-  const recentOrders = payload.recent_orders || [];
-  if (recentOrders.length > 0) {
-    const recentHeader = ["เลขออเดอร์", "ประเภท", "สถานะ", "วันเวลา", "จำนวนสินค้า", "ยอดรวม"];
-    const recentRows = recentOrders.map((order) => [
-      order.order_no,
-      orderTypeThai(order.order_type),
-      orderStatusThai(order.status),
-      dayjs(order.create_date).format("DD/MM/YYYY HH:mm"),
-      Number(order.items_count || 0),
-      Number(order.total_amount || 0),
-    ]);
-
-    const recentSheet = XLSX.utils.aoa_to_sheet([recentHeader, ...recentRows]);
-    recentSheet["!cols"] = [{ wch: 14 }, { wch: 12 }, { wch: 14 }, { wch: 18 }, { wch: 12 }, { wch: 14 }];
-    recentSheet["!margins"] = worksheetMargins;
-    XLSX.utils.book_append_sheet(workbook, recentSheet, "ออเดอร์ล่าสุด");
-  }
-
-  const filename = `รายงานสรุปผลการขาย_${rangeLabel.replace(/\s+/g, "_")}_${dateRange[0]}_${dateRange[1]}.xlsx`;
-  const workbookBytes = XLSX.write(workbook, { bookType: "xlsx", type: "array" });
-  const patchedWorkbookBytes = applyWorkbookPageSetup(workbookBytes, documentSetting);
-  downloadWorkbookBytes(patchedWorkbookBytes, filename);
+  // Keep the browser-only download step on the main thread; everything CPU-heavy stays inside the worker.
+  downloadWorkbookBytes(new Uint8Array(workbookBytes), filename);
 };

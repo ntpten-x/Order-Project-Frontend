@@ -12,14 +12,12 @@ import {
 const { Text } = Typography;
 
 const { pageStyles, ManagePageStyles } = createManagePageStyles({
-    focusColor: "#722ed1",
-    focusShadow: "rgba(114, 46, 209, 0.1)",
-    switchGradient: "linear-gradient(135deg, #52c41a 0%, #389e0d 100%)",
+    focusColor: "#0f766e",
+    focusShadow: "rgba(15, 118, 110, 0.12)",
+    switchGradient: "linear-gradient(135deg, #10b981 0%, #059669 100%)",
 });
 
 export { pageStyles, ManagePageStyles };
-
-// ============ HEADER COMPONENT ============
 
 interface HeaderProps {
     isEdit: boolean;
@@ -38,34 +36,36 @@ export const PageHeader = ({ isEdit, onBack, onDelete }: HeaderProps) => (
     />
 );
 
-// ============ CATEGORY PREVIEW COMPONENT ============
-
 interface CategoryPreviewProps {
     displayName?: string;
     categoryName?: string;
 }
 
 export const CategoryPreview = ({ displayName, categoryName }: CategoryPreviewProps) => (
-    <div style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 14,
-        padding: 16,
-        background: "#fafafa",
-        borderRadius: 16,
-        marginTop: 12,
-    }}>
-        <div style={{
-            width: 60,
-            height: 60,
-            borderRadius: 14,
-            background: "linear-gradient(135deg, #f9f0ff 0%, #efdbff 100%)",
+    <div
+        style={{
             display: "flex",
             alignItems: "center",
-            justifyContent: "center",
-            flexShrink: 0,
-        }}>
-            <TagsOutlined style={{ fontSize: 24, color: "#722ed1" }} />
+            gap: 14,
+            padding: 16,
+            background: "#f8fafc",
+            borderRadius: 16,
+            marginTop: 12,
+        }}
+    >
+        <div
+            style={{
+                width: 60,
+                height: 60,
+                borderRadius: 14,
+                background: "linear-gradient(135deg, #ccfbf1 0%, #99f6e4 100%)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                flexShrink: 0,
+            }}
+        >
+            <TagsOutlined style={{ fontSize: 24, color: "#0f766e" }} />
         </div>
         <div>
             <Text strong style={{ display: "block", marginBottom: 4 }}>
@@ -77,8 +77,6 @@ export const CategoryPreview = ({ displayName, categoryName }: CategoryPreviewPr
         </div>
     </div>
 );
-
-// ============ ACTION BUTTONS COMPONENT ============
 
 interface ActionButtonsProps {
     isEdit: boolean;

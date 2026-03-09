@@ -8,7 +8,7 @@ export enum ServingStatus {
 export interface ServingBoardItem {
     id: string;
     product_id: string;
-    product_name: string;
+    display_name: string;
     product_image_url: string | null;
     quantity: number;
     notes: string | null;
@@ -22,6 +22,7 @@ export interface ServingBoardGroup {
     order_no: string;
     order_type: OrderType;
     order_status: string;
+    customer_name?: string | null;
     source_title: string;
     source_subtitle: string | null;
     batch_created_at: string;

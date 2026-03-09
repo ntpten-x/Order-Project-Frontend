@@ -32,6 +32,8 @@ type ChannelOrdersKey = readonly [
         page?: number;
         limit?: number;
         statusFilter?: string;
+        query?: string;
+        createdSort?: string;
     }?
 ];
 
@@ -44,6 +46,8 @@ interface PaginatedCache<T> {
 
 const INVALIDATION_DEBOUNCE_MS = 200;
 const PATCH_FALLBACK_INVALIDATION_MS = 220;
+const RECONNECT_SYNC_DEBOUNCE_MS = 900;
+const RECONNECT_SYNC_COOLDOWN_MS = 2500;
 
 function trackSocketEventReceived(event: string) {
     if (typeof window === "undefined") return;
@@ -141,11 +145,19 @@ function canIncludeInOrdersSummaryKey(order: Partial<SalesOrder>, key: OrdersSum
     );
 }
 
-function isChannelOptions(value: unknown): value is { page?: number; limit?: number; statusFilter?: string } {
+function isChannelOptions(
+    value: unknown
+): value is { page?: number; limit?: number; statusFilter?: string; query?: string; createdSort?: string } {
     return typeof value === 'object' && value !== null;
 }
 
-function getChannelQueryOptions(key: ChannelOrdersKey): { page: number; limit: number; statusFilter: string } {
+function getChannelQueryOptions(key: ChannelOrdersKey): {
+    page: number;
+    limit: number;
+    statusFilter: string;
+    query: string;
+    createdSort: 'old' | 'new';
+} {
     const rawOptions = isChannelOptions(key[3]) ? key[3] : {};
 
     return {
@@ -156,6 +168,8 @@ function getChannelQueryOptions(key: ChannelOrdersKey): { page: number; limit: n
         statusFilter: typeof rawOptions.statusFilter === 'string'
             ? rawOptions.statusFilter
             : `${OrderStatus.Pending},${OrderStatus.WaitingForPayment}`,
+        query: typeof rawOptions.query === 'string' ? rawOptions.query : '',
+        createdSort: rawOptions.createdSort === 'new' ? 'new' : 'old',
     };
 }
 
@@ -165,6 +179,7 @@ function canIncludeInChannelKey(order: Partial<SalesOrder>, key: ChannelOrdersKe
 
     if (orderTypeFilter && order.order_type !== orderTypeFilter) return false;
     if (!matchesEnumFilter(options.statusFilter, order.status)) return false;
+    if (!matchesSearchPrefix(options.query, order)) return false;
     return true;
 }
 
@@ -252,6 +267,9 @@ export const useOrderSocketEvents = () => {
     const { socket } = useContext(SocketContext);
     const queryClient = useQueryClient();
     const invalidateTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+    const reconnectSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const lastReconnectSyncAtRef = useRef(0);
+    const wasDisconnectedRef = useRef(false);
     const realtimeEvents = useMemo(
         () =>
             Array.from(
@@ -349,6 +367,35 @@ export const useOrderSocketEvents = () => {
         [scheduleInvalidateFilteredActive]
     );
 
+    const scheduleReconnectSync = useCallback(
+        (source: 'connect' | 'reconnect') => {
+            const now = Date.now();
+            if (now - lastReconnectSyncAtRef.current < RECONNECT_SYNC_COOLDOWN_MS) {
+                return;
+            }
+
+            if (reconnectSyncTimerRef.current) {
+                clearTimeout(reconnectSyncTimerRef.current);
+            }
+
+            reconnectSyncTimerRef.current = setTimeout(() => {
+                reconnectSyncTimerRef.current = null;
+                lastReconnectSyncAtRef.current = Date.now();
+
+                // Re-sync only the POS views that can go stale while the socket was offline.
+                scheduleInvalidateActive(['orders'], RECONNECT_SYNC_DEBOUNCE_MS);
+                scheduleInvalidateActive(['ordersSummary'], RECONNECT_SYNC_DEBOUNCE_MS);
+                scheduleInvalidateActive(['orders', 'channel'], RECONNECT_SYNC_DEBOUNCE_MS);
+                scheduleInvalidateActive(['serving-board'], RECONNECT_SYNC_DEBOUNCE_MS);
+                scheduleInvalidateActive(['tables'], RECONNECT_SYNC_DEBOUNCE_MS);
+                scheduleInvalidateActive(['channelStats'], RECONNECT_SYNC_DEBOUNCE_MS);
+
+                console.info(`[Socket] Connection restored via ${source}, syncing latest POS data...`);
+            }, RECONNECT_SYNC_DEBOUNCE_MS);
+        },
+        [scheduleInvalidateActive]
+    );
+
     const patchOrderUpdateCaches = useCallback(
         (payload: SocketPayload): boolean => {
             const orderId = extractPayloadId(payload);
@@ -387,11 +434,11 @@ export const useOrderSocketEvents = () => {
                 return { ...oldData, data: nextItems };
             });
 
-            queryClient.setQueriesData<SalesOrderSummary[]>({ queryKey: ['orders', 'channel'] }, (oldData) => {
-                if (!Array.isArray(oldData)) return oldData;
+            queryClient.setQueriesData<PaginatedCache<SalesOrderSummary>>({ queryKey: ['orders', 'channel'] }, (oldData) => {
+                if (!oldData || !Array.isArray(oldData.data)) return oldData;
 
                 let changed = false;
-                const nextItems = oldData.map((order) => {
+                const nextItems = oldData.data.map((order) => {
                     if (order.id !== orderId) return order;
                     changed = true;
                     return { ...order, ...patch, id: order.id };
@@ -399,7 +446,7 @@ export const useOrderSocketEvents = () => {
 
                 if (!changed) return oldData;
                 updated = true;
-                return nextItems;
+                return { ...oldData, data: nextItems };
             });
 
             return updated;
@@ -447,24 +494,30 @@ export const useOrderSocketEvents = () => {
                 }
 
                 if (isTypedOrdersChannelKey(queryKey)) {
-                    queryClient.setQueryData<SalesOrderSummary[]>(queryKey, (oldData) => {
-                        if (!Array.isArray(oldData)) return oldData;
+                    queryClient.setQueryData<PaginatedCache<SalesOrderSummary>>(queryKey, (oldData) => {
+                        if (!oldData || !Array.isArray(oldData.data)) return oldData;
                         if (!canIncludeInChannelKey(order, queryKey)) return oldData;
 
-                        const exists = oldData.some((item) => item.id === order.id);
+                        const exists = oldData.data.some((item) => item.id === order.id);
                         if (exists) return oldData;
 
-                        const { page, limit } = getChannelQueryOptions(queryKey);
+                        const { page, limit, createdSort } = getChannelQueryOptions(queryKey);
                         if (page !== 1) return oldData;
 
-                        let nextData = oldData;
-                        if (oldData.length < limit) {
-                            nextData = [...oldData, summary];
+                        let nextData = oldData.data;
+                        if (createdSort === 'new') {
+                            nextData = [summary, ...oldData.data].slice(0, limit);
+                        } else if (oldData.data.length < limit) {
+                            nextData = [...oldData.data, summary];
                         }
 
-                        if (nextData === oldData) return oldData;
+                        if (nextData === oldData.data) return oldData;
                         updated = true;
-                        return nextData;
+                        return {
+                            ...oldData,
+                            data: nextData,
+                            total: oldData.total + 1,
+                        };
                     });
                 }
             });
@@ -532,12 +585,16 @@ export const useOrderSocketEvents = () => {
                 }
 
                 if (isTypedOrdersChannelKey(queryKey)) {
-                    queryClient.setQueryData<SalesOrderSummary[]>(queryKey, (oldData) => {
-                        if (!Array.isArray(oldData)) return oldData;
-                        const nextData = oldData.filter((item) => item.id !== orderId);
-                        if (nextData.length === oldData.length) return oldData;
+                    queryClient.setQueryData<PaginatedCache<SalesOrderSummary>>(queryKey, (oldData) => {
+                        if (!oldData || !Array.isArray(oldData.data)) return oldData;
+                        const nextData = oldData.data.filter((item) => item.id !== orderId);
+                        if (nextData.length === oldData.data.length) return oldData;
                         updated = true;
-                        return nextData;
+                        return {
+                            ...oldData,
+                            data: nextData,
+                            total: Math.max(0, oldData.total - 1),
+                        };
                     });
                 }
             });
@@ -571,8 +628,43 @@ export const useOrderSocketEvents = () => {
         return () => {
             timers.forEach((timer) => clearTimeout(timer));
             timers.clear();
+            if (reconnectSyncTimerRef.current) {
+                clearTimeout(reconnectSyncTimerRef.current);
+                reconnectSyncTimerRef.current = null;
+            }
         };
     }, []);
+
+    useEffect(() => {
+        if (!socket) return;
+
+        const handleDisconnect = () => {
+            wasDisconnectedRef.current = true;
+        };
+
+        const handleReconnect = (source: 'connect' | 'reconnect') => {
+            if (!wasDisconnectedRef.current) {
+                return;
+            }
+
+            // A reconnect can emit both manager and socket events; the debounced sync keeps that to one refetch burst.
+            wasDisconnectedRef.current = false;
+            scheduleReconnectSync(source);
+        };
+
+        const handleSocketConnect = () => handleReconnect('connect');
+        const handleSocketReconnect = () => handleReconnect('reconnect');
+
+        socket.on('disconnect', handleDisconnect);
+        socket.on('connect', handleSocketConnect);
+        socket.io.on('reconnect', handleSocketReconnect);
+
+        return () => {
+            socket.off('disconnect', handleDisconnect);
+            socket.off('connect', handleSocketConnect);
+            socket.io.off('reconnect', handleSocketReconnect);
+        };
+    }, [socket, scheduleReconnectSync]);
 
     useEffect(() => {
         if (!socket) return;
@@ -580,13 +672,10 @@ export const useOrderSocketEvents = () => {
         const handleSocketEvent = (event: string, data: SocketPayload) => {
             trackSocketEventReceived(event);
 
-            const isSalesOrderItemEvent = event.startsWith("salesOrderItem:");
             const isOrderEvent =
                 event.startsWith("orders:") ||
                 event.startsWith("payments:") ||
-                event.startsWith("salesOrderDetail:") ||
-                event.startsWith("order-queue:") ||
-                isSalesOrderItemEvent;
+                event.startsWith("salesOrderDetail:");
             const isOrdersUpdateEvent = event === RealtimeEvents.orders.update;
             const isOrdersCreateEvent = event === RealtimeEvents.orders.create;
             const isOrdersDeleteEvent = event === RealtimeEvents.orders.delete;
@@ -595,42 +684,6 @@ export const useOrderSocketEvents = () => {
             const didPatchOrderCreateCache = isOrdersCreateEvent ? patchOrderCreateCaches(data) : false;
             const didPatchOrderDeleteCache = isOrdersDeleteEvent ? patchOrderDeleteCaches(data) : false;
 
-            // 1. Handle Kitchen Display System (KDS) specific updates mostly without refetching
-            if (isSalesOrderItemEvent) {
-                // Type guard for SalesOrderItem
-                const isItem = (d: SocketPayload): d is SalesOrderItem => {
-                    return typeof d === 'object' && d !== null && 'order_id' in d;
-                };
-
-                if (isItem(data)) {
-                    queryClient.setQueryData<SalesOrderItem[]>(['orderItems', 'kitchen'], (oldData = []) => {
-                        if (!Array.isArray(oldData)) return oldData;
-
-                        switch (event) {
-                            case RealtimeEvents.salesOrderItem.create:
-                                // Check if item already exists to avoid duplication
-                                if (oldData.some(item => item.id === data.id)) return oldData;
-                                // Only add if it matches KDS criteria (Pending/Cooking) - logic duplicated from page slightly
-                                // safely we can append it, the page sort will handle it
-                                return [...oldData, data];
-
-                            case RealtimeEvents.salesOrderItem.update:
-                                return oldData.map(item => item.id === data.id ? { ...item, ...data } : item);
-
-                            case RealtimeEvents.salesOrderItem.delete:
-                                return oldData.filter(item => item.id !== data.id);
-
-                            default:
-                                return oldData;
-                        }
-                    });
-                }
-
-                // Channel stats are already updated via orders/payments listeners.
-                // Skip direct salesOrderItem-driven channelStats invalidation to avoid duplicates.
-            }
-
-            // 2. Global invalidation for key order views (batched to avoid refetch bursts)
             if (isOrderEvent) {
                 const didPatchOrderCache =
                     didPatchOrderUpdateCache || didPatchOrderCreateCache || didPatchOrderDeleteCache;
@@ -672,10 +725,6 @@ export const useOrderSocketEvents = () => {
                 scheduleInvalidateActive(['tables']);
             }
 
-            // Fallback for kitchen if we didn't handle it manually (e.g. bulk updates) or just to be safe eventual consistency
-            if (isOrderEvent && !isSalesOrderItemEvent) {
-                scheduleInvalidateActive(['orderItems', 'kitchen']);
-            }
         };
 
         const listeners: Array<{ event: string; handler: (data: SocketPayload) => void }> = [];

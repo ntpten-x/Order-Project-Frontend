@@ -2,8 +2,17 @@ import { PaymentMethod } from "../../types/api/pos/paymentMethod";
 import { getProxyUrl } from "../../lib/proxy-utils";
 import { API_ROUTES } from "../../config/api";
 import { normalizeBackendPaginated, throwBackendHttpError, unwrapBackendData } from "../../utils/api/backendResponse";
+import { withInflightDedup } from "../../utils/api/inflight";
 
 const BASE_PATH = API_ROUTES.POS.PAYMENT_METHODS;
+const PAYMENT_METHOD_CACHE_TTL_MS = 60_000;
+
+type PaymentMethodListCacheEntry = {
+    ts: number;
+    data: { data: PaymentMethod[]; total: number; page: number; last_page: number };
+};
+
+const paymentMethodListCache = new Map<string, PaymentMethodListCacheEntry>();
 
 const getHeaders = (cookie?: string, contentType: string = "application/json"): HeadersInit => {
     const headers: Record<string, string> = {};
@@ -14,26 +23,36 @@ const getHeaders = (cookie?: string, contentType: string = "application/json"): 
 
 export const paymentMethodService = {
     getAll: async (cookie?: string, searchParams?: URLSearchParams): Promise<{ data: PaymentMethod[], total: number, page: number, last_page: number }> => {
-        let url = getProxyUrl("GET", BASE_PATH);
         const params = new URLSearchParams(searchParams || "");
         if (!params.has("page")) params.set("page", "1");
         if (!params.has("limit")) params.set("limit", "200");
-        const query = params.toString();
-        if (query) {
-            url += `?${query}`;
+        const cacheKey = `${cookie ?? "client"}:${params.toString()}`;
+        const cached = paymentMethodListCache.get(cacheKey);
+        if (cached && Date.now() - cached.ts < PAYMENT_METHOD_CACHE_TTL_MS) {
+            return cached.data;
         }
-        const headers = getHeaders(cookie, "");
 
-        const response = await fetch(url!, {
-            cache: "no-store",
-            headers,
-            credentials: "include"
+        return withInflightDedup(`paymentMethods:getAll:${cacheKey}`, async () => {
+            let url = getProxyUrl("GET", BASE_PATH);
+            const query = params.toString();
+            if (query) {
+                url += `?${query}`;
+            }
+            const headers = getHeaders(cookie, "");
+
+            const response = await fetch(url!, {
+                cache: "no-store",
+                headers,
+                credentials: "include"
+            });
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({}));
+                throwBackendHttpError(response, errorData, "Failed to fetch payment methods");
+            }
+            const payload = normalizeBackendPaginated<PaymentMethod>(await response.json());
+            paymentMethodListCache.set(cacheKey, { ts: Date.now(), data: payload });
+            return payload;
         });
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "Failed to fetch payment methods");
-        }
-        return normalizeBackendPaginated<PaymentMethod>(await response.json());
     },
 
     getById: async (id: string, cookie?: string): Promise<PaymentMethod> => {
@@ -83,7 +102,9 @@ export const paymentMethodService = {
             const errorData = await response.json().catch(() => ({}));
             throwBackendHttpError(response, errorData, "Failed to create payment method");
         }
-        return unwrapBackendData(await response.json()) as PaymentMethod;
+        const payload = unwrapBackendData(await response.json()) as PaymentMethod;
+        paymentMethodListCache.clear();
+        return payload;
     },
 
     update: async (id: string, data: Partial<PaymentMethod>, cookie?: string, csrfToken?: string): Promise<PaymentMethod> => {
@@ -101,7 +122,9 @@ export const paymentMethodService = {
             const errorData = await response.json().catch(() => ({}));
             throwBackendHttpError(response, errorData, "Failed to update payment method");
         }
-        return unwrapBackendData(await response.json()) as PaymentMethod;
+        const payload = unwrapBackendData(await response.json()) as PaymentMethod;
+        paymentMethodListCache.clear();
+        return payload;
     },
 
     delete: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
@@ -118,5 +141,6 @@ export const paymentMethodService = {
             const errorData = await response.json().catch(() => ({}));
             throwBackendHttpError(response, errorData, "Failed to delete payment method");
         }
+        paymentMethodListCache.clear();
     }
 };

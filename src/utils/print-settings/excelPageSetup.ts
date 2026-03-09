@@ -1,5 +1,6 @@
 import { strFromU8, strToU8, unzipSync, zipSync } from "fflate";
 import { PrintDocumentSetting } from "../../types/api/pos/printSettings";
+import { downloadBlob } from "../browser/download";
 
 const A4_MM = { width: 210, height: 297, code: 9 };
 const A5_MM = { width: 148, height: 210, code: 11 };
@@ -143,10 +144,5 @@ export function downloadWorkbookBytes(workbookBytes: Uint8Array, filename: strin
             type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         }
     );
-    const objectUrl = URL.createObjectURL(blob);
-    const link = document.createElement("a");
-    link.href = objectUrl;
-    link.download = filename;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(objectUrl), 1_000);
+    downloadBlob(blob, filename);
 }

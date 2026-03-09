@@ -68,9 +68,12 @@ import { t } from "../../../../utils/i18n";
 import { resolveImageSource } from "../../../../utils/image/source";
 import SmartAvatar from "../../../../components/ui/image/SmartAvatar";
 import {
+  closePrintWindow,
   getPrintSettings,
   primePrintResources,
+  reservePrintWindow,
 } from "../../../../utils/print-settings/runtime";
+import { readCache, writeCache } from "../../../../utils/pos/cache";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -190,17 +193,17 @@ function TopItemsList({
               <SmartAvatar
                 shape="square"
                 src={resolveImageSource(item.img_url)}
-                alt={item.product_name || "product"}
+                alt={item.display_name || "product"}
                 icon={<ShoppingOutlined />}
                 imageStyle={{ objectFit: "cover" }}
               />
               <div style={{ flex: 1, minWidth: 0 }}>
                 <Text
                   strong
-                  ellipsis={{ tooltip: item.product_name }}
+                  ellipsis={{ tooltip: item.display_name }}
                   style={{ display: "block" }}
                 >
-                  {item.product_name}
+                  {item.display_name}
                 </Text>
                 <Progress
                   percent={Number(percent.toFixed(0))}
@@ -331,6 +334,15 @@ export default function DashboardPage() {
 
   const startDate = dateRange[0].format("YYYY-MM-DD");
   const endDate = dateRange[1].format("YYYY-MM-DD");
+  const branchId = user?.branch_id || user?.branch?.id || "default";
+  const overviewCacheKey = useMemo(
+    () => `pos:dashboard:overview:${branchId}:${startDate}:${endDate}`,
+    [branchId, endDate, startDate],
+  );
+  const shopProfileCacheKey = useMemo(
+    () => `pos:dashboard:shop-profile:${branchId}`,
+    [branchId],
+  );
 
   useEffect(() => {
     if (preset === "custom") return;
@@ -352,6 +364,7 @@ export default function DashboardPage() {
           8,
         );
         setOverview(data);
+        writeCache(overviewCacheKey, data);
       } catch (error) {
         console.error("Failed to fetch dashboard overview", error);
         if (!silent) {
@@ -365,22 +378,34 @@ export default function DashboardPage() {
         }
       }
     },
-    [startDate, endDate, messageApi],
+    [endDate, messageApi, overviewCacheKey, startDate],
   );
 
   useEffect(() => {
     if (!canViewDashboard) return;
+    const cachedOverview = readCache<DashboardOverview>(overviewCacheKey, 60_000);
+    if (cachedOverview) {
+      setOverview(cachedOverview);
+      setLoading(false);
+      void fetchOverview(true);
+      return;
+    }
     void fetchOverview(false);
-  }, [canViewDashboard, fetchOverview]);
+  }, [canViewDashboard, fetchOverview, overviewCacheKey]);
 
   const fetchShopProfile = useCallback(async () => {
     try {
+      const cachedProfile = readCache<ShopProfileExtended>(shopProfileCacheKey, 5 * 60_000);
+      if (cachedProfile) {
+        setShopProfile(cachedProfile);
+      }
       const data = await shopProfileService.getProfile();
       setShopProfile(data as ShopProfileExtended);
+      writeCache(shopProfileCacheKey, data);
     } catch (error) {
       console.warn("Failed to fetch shop profile for export branding", error);
     }
-  }, []);
+  }, [shopProfileCacheKey]);
 
   useEffect(() => {
     void fetchShopProfile();
@@ -408,35 +433,11 @@ export default function DashboardPage() {
     async (format: ExportFormat) => {
       let pdfPreviewWindow: Window | null = null;
       if (format === "pdf") {
-        pdfPreviewWindow = window.open("", "_blank", "width=1024,height=768");
+        pdfPreviewWindow = reservePrintWindow("รายงานสรุปผลการขาย");
         if (!pdfPreviewWindow) {
           messageApi.error("เบราว์เซอร์บล็อกหน้าต่าง PDF กรุณาอนุญาตป๊อปอัป");
           return;
         }
-        pdfPreviewWindow.document.open();
-        pdfPreviewWindow.document.write(`
-          <!DOCTYPE html>
-          <html lang="th">
-            <head>
-              <meta charset="UTF-8" />
-              <title>กำลังเตรียมรายงาน</title>
-              <style>
-                body {
-                  margin: 0;
-                  display: flex;
-                  align-items: center;
-                  justify-content: center;
-                  min-height: 100vh;
-                  background: #f8fafc;
-                  color: #0f172a;
-                  font-family: "Sarabun", "Tahoma", sans-serif;
-                }
-              </style>
-            </head>
-            <body>กำลังเตรียมไฟล์สรุปผลการขาย...</body>
-          </html>
-        `);
-        pdfPreviewWindow.document.close();
       }
 
       try {
@@ -489,7 +490,7 @@ export default function DashboardPage() {
             },
           );
         } else {
-          exportSalesReportExcel(
+          await exportSalesReportExcel(
             payload,
             [exportStart, exportEnd],
             exportLabel,
@@ -503,9 +504,7 @@ export default function DashboardPage() {
         );
         setExportDialogOpen(false);
       } catch (error) {
-        if (pdfPreviewWindow && !pdfPreviewWindow.closed) {
-          pdfPreviewWindow.close();
-        }
+        closePrintWindow(pdfPreviewWindow);
         console.error("Export sales summary failed", error);
         messageApi.error("ส่งออกไฟล์สรุปผลการขายไม่สำเร็จ");
       } finally {

@@ -29,6 +29,7 @@ const KNOWN_API_PREFIXES = [
     "/api/health",
     "/api/permissions",
     "/api/pos",
+    "/api/pos/takeaway-qr",
     "/api/roles",
     "/api/stock",
     "/api/users",
@@ -84,7 +85,6 @@ function isShiftProtectedPath(pathname: string): boolean {
         "/pos/channels/takeaway",
         "/pos/orders",
         "/pos/items",
-        "/pos/kitchen",
         "/pos/list",
     ];
 
@@ -268,7 +268,6 @@ export const config = {
         "/pos/channels/takeaway/:path*",
         "/pos/orders/:path*",
         "/pos/items/:path*",
-        "/pos/kitchen/:path*",
         "/pos/list",
         "/pos/list/:path*",
         "/stock/:path*",

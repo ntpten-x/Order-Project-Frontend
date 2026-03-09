@@ -1,192 +1,375 @@
-﻿"use client";
+"use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+    ClockCircleOutlined,
+    PlusOutlined,
+    ReloadOutlined,
+    RocketOutlined,
+} from "@ant-design/icons";
+import { Button, Flex, Grid, Input, Modal, Skeleton, Space, Tag, message, theme, Typography } from "antd";
 import { useRouter } from "next/navigation";
-import { Button, Col, Input, Modal, Row, Space, Tag, Typography, message } from "antd";
-import { RocketOutlined, PlusOutlined, ClockCircleOutlined, DownOutlined, CheckCircleOutlined, ReloadOutlined } from "@ant-design/icons";
+
+import { AccessGuardFallback } from "../../../../../components/pos/AccessGuard";
+import RequireOpenShift from "../../../../../components/pos/shared/RequireOpenShift";
 import PageContainer from "../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../components/ui/page/PageSection";
-import UIPageHeader from "../../../../../components/ui/page/PageHeader";
+import PageStack from "../../../../../components/ui/page/PageStack";
 import UIEmptyState from "../../../../../components/ui/states/EmptyState";
 import PageState from "../../../../../components/ui/states/PageState";
-import { t } from "../../../../../utils/i18n";
-import { useDelivery } from "../../../../../hooks/pos/useDelivery";
+import ListPagination from "../../../../../components/ui/pagination/ListPagination";
+import SmartAvatar from "../../../../../components/ui/image/SmartAvatar";
+import { useAuth } from "../../../../../contexts/AuthContext";
+import { useChannelStats } from "../../../../../utils/channels/channelStats.utils";
 import { OrderStatus, OrderType, SalesOrderSummary } from "../../../../../types/api/pos/salesOrder";
 import { Delivery } from "../../../../../types/api/pos/delivery";
-import { posPageStyles, channelColors, tableColors } from "../../../../../theme/pos";
-import { channelPageStyles, channelsResponsiveStyles } from "../../../../../theme/pos/channels/style";
-import { POSGlobalStyles } from "../../../../../theme/pos/GlobalStyles";
-import { getOrderColorScheme, formatOrderStatus } from "../../../../../utils/channels";
-import { getOrderNavigationPath } from "../../../../../utils/orders";
-import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
-import { useChannelStats } from "../../../../../utils/channels/channelStats.utils";
+import { useChannelOrders } from "../../../../../utils/pos/channelOrders";
 import { useListState } from "../../../../../hooks/pos/useListState";
+import { useEffectivePermissions } from "../../../../../hooks/useEffectivePermissions";
+import { useDelivery } from "../../../../../hooks/pos/useDelivery";
+import { getOrderNavigationPath } from "../../../../../utils/orders";
+import { resolveImageSource } from "../../../../../utils/image/source";
+import UIPageHeader from "../../../../../components/ui/page/PageHeader";
 import { SearchBar } from "../../../../../components/ui/page/SearchBar";
 import { SearchInput } from "../../../../../components/ui/input/SearchInput";
 import { ModalSelector } from "../../../../../components/ui/select/ModalSelector";
-import ListPagination from "../../../../../components/ui/pagination/ListPagination";
-import PageStack from "../../../../../components/ui/page/PageStack";
-import { useChannelOrders } from "../../../../../utils/pos/channelOrders";
-import RequireOpenShift from "../../../../../components/pos/shared/RequireOpenShift";
-import { useAuth } from "../../../../../contexts/AuthContext";
-import { useEffectivePermissions } from "../../../../../hooks/useEffectivePermissions";
-import { resolveImageSource } from "../../../../../utils/image/source";
-import SmartAvatar from "../../../../../components/ui/image/SmartAvatar";
-import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
-import 'dayjs/locale/th';
+import type { CreatedSort } from "../../../../../components/ui/pagination/ListPagination";
 
-const { Text } = Typography;
-dayjs.extend(relativeTime);
-dayjs.locale('th');
+/* ── Theme helpers ── */
 
-const pendingOrderColors = {
-    primary: "#EAB308",
-    light: "#FEFCE8",
-    border: "#FDE68A",
-    text: "#854D0E",
+const STATUS_THEMES = {
+    active: {
+        bg: "#FFFBEB",
+        border: "#FDE68A",
+        badgeBg: "#FDE68A",
+        badgeText: "#92400E",
+        label: "กำลังดำเนินการ",
+    },
+    waitingDelivery: {
+        bg: "#FDF2F8",
+        border: "#FBCFE8",
+        badgeBg: "#FCE7F3",
+        badgeText: "#BE185D",
+        label: "รอส่ง",
+    },
+    done: {
+        bg: "#ECFDF5",
+        border: "#A7F3D0",
+        badgeBg: "#D1FAE5",
+        badgeText: "#047857",
+        label: "เสร็จสิ้น",
+    },
 };
 
-const waitingToShipColors = {
-    primary: "#EC4899",
-    light: "#FDF2F8",
-    border: "#F9A8D4",
-    text: "#9D174D",
-};
+const DELIVERY_OPEN_STATUSES = [
+    OrderStatus.Pending,
+    OrderStatus.Cooking,
+    OrderStatus.Served,
+    OrderStatus.WaitingForPayment,
+] as const;
 
-const skyBlueColors = {
-    primary: "#0EA5E9",
-    light: "#F0F9FF",
-    border: "#BAE6FD",
-    text: "#0369A1",
-};
+const DELIVERY_ACTIVE_STATUSES = [
+    OrderStatus.Pending,
+    OrderStatus.Cooking,
+    OrderStatus.Served,
+] as const;
+
+const DELIVERY_VISIBLE_STATUS_SET = new Set<OrderStatus>(DELIVERY_OPEN_STATUSES);
+
+type DeliveryListStatusFilter = "active" | "waiting_payment" | "all";
+
+function getOrderTheme(status: OrderStatus) {
+    if (status === OrderStatus.WaitingForPayment) return STATUS_THEMES.waitingDelivery;
+    if (status === OrderStatus.Paid || status === OrderStatus.Completed) return STATUS_THEMES.done;
+    return STATUS_THEMES.active;
+}
+
+function getRelativeAge(raw?: string | null): { label: string; color: string } {
+    if (!raw) return { label: "ไม่ทราบเวลา", color: "#94A3B8" };
+    const created = new Date(raw);
+    if (Number.isNaN(created.getTime())) return { label: "ไม่ทราบเวลา", color: "#94A3B8" };
+
+    const diffMs = Math.max(0, Date.now() - created.getTime());
+    const diffMinutes = Math.floor(diffMs / 60_000);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMinutes < 1) return { label: "เมื่อสักครู่", color: "#16A34A" };
+
+    let label = "";
+    let color = "#16A34A";
+
+    if (diffDays > 0) {
+        label = `${diffDays} วันที่แล้ว`;
+        color = "#DC2626";
+    } else if (diffHours > 0) {
+        label = `${diffHours} ชั่วโมงที่แล้ว`;
+        color = "#DC2626";
+    } else {
+        label = `${diffMinutes} นาทีที่แล้ว`;
+        if (diffMinutes >= 30) color = "#DC2626";
+        else if (diffMinutes >= 10) color = "#D97706";
+    }
+
+    return { label, color };
+}
+
+function formatMoney(amount: number): string {
+    return `฿${Number(amount || 0).toLocaleString()}`;
+}
+
+const STYLES = `
+.delivery-order-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+}
+.delivery-order-card:active {
+    transform: translateY(-1px);
+}
+@media (max-width: 767px) {
+    .delivery-order-card:active {
+        transform: scale(0.98);
+    }
+}
+.delivery-order-card {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+@keyframes deliveryCardFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.delivery-card-animate {
+    animation: deliveryCardFadeIn 0.35s ease-out forwards;
+    opacity: 0;
+}
+`;
+
+/* ── Delivery Order Card ── */
+
+interface DeliveryOrderCardProps {
+    order: SalesOrderSummary;
+    provider?: Delivery | null;
+    onClick: () => void;
+    isMobile: boolean;
+}
+
+function DeliveryOrderCard({ order, provider, onClick, isMobile }: DeliveryOrderCardProps) {
+    const statusTheme = getOrderTheme(order.status);
+    const age = getRelativeAge(order.create_date);
+    const displayCode = order.delivery_code || order.order_no;
+    const providerName = provider?.delivery_name || order.delivery?.delivery_name || "Delivery";
+    const hasLogo = Boolean(resolveImageSource(provider?.logo));
+
+    return (
+        <div
+            onClick={onClick}
+            className="delivery-order-card"
+            style={{
+                background: "#ffffff",
+                borderRadius: 18,
+                border: `1.5px solid ${statusTheme.border}`,
+                padding: isMobile ? "16px 14px" : "18px 20px",
+                cursor: "pointer",
+                transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 14,
+                position: "relative",
+                width: "100%",
+                minWidth: 0,
+                overflow: "hidden",
+            }}
+        >
+            {/* Top: Provider logo + delivery code + status badge */}
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+                    <SmartAvatar
+                        src={provider?.logo}
+                        alt={providerName}
+                        size={38}
+                        shape="square"
+                        icon={<RocketOutlined />}
+                        imageStyle={{ objectFit: "contain" }}
+                        style={{
+                            borderRadius: 10,
+                            background: hasLogo ? "#ffffff" : statusTheme.bg,
+                            border: `1px solid ${statusTheme.border}`,
+                            flexShrink: 0,
+                        }}
+                    />
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: "#0F172A", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {displayCode}
+                        </div>
+                        <Tag
+                            style={{
+                                margin: 0, marginTop: 2, borderRadius: 6, padding: "0 6px",
+                                fontSize: 11, fontWeight: 600, lineHeight: "18px",
+                                background: hasLogo ? "#ECFDF5" : statusTheme.bg,
+                                borderColor: hasLogo ? "#A7F3D0" : statusTheme.border,
+                                color: hasLogo ? "#059669" : statusTheme.badgeText,
+                            }}
+                        >
+                            {providerName}
+                        </Tag>
+                    </div>
+                </div>
+                <div style={{ padding: "4px 10px", borderRadius: 999, background: statusTheme.badgeBg, fontSize: 12, fontWeight: 700, color: statusTheme.badgeText, whiteSpace: "nowrap", lineHeight: 1.3, flexShrink: 0 }}>
+                    {statusTheme.label}
+                </div>
+            </div>
+
+            {/* Middle: items count + total */}
+            <div style={{ display: "flex", gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, color: "#94A3B8", marginBottom: 2 }}>รายการสินค้า</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#1E293B", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {order.items_count || 0} รายการ
+                    </div>
+                </div>
+                <div style={{ flex: 1, textAlign: "right", minWidth: 0 }}>
+                    <div style={{ fontSize: 14, color: "#94A3B8", marginBottom: 2 }}>ยอดรวม</div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: statusTheme.badgeText, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {formatMoney(Number(order.total_amount || 0))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Bottom: time elapsed + Delivery tag */}
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                    <ClockCircleOutlined style={{ fontSize: 12, color: age.color }} />
+                    <span style={{ fontSize: 12, fontWeight: 600, color: age.color }}>{age.label}</span>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/* ── Auth guard ── */
 
 export default function DeliverySelectionPage() {
+    const { user, loading: authLoading } = useAuth();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canCreateOrder = can("orders.page", "create");
+
+    if (authLoading || permissionLoading) {
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
+    }
+    if (!can("orders.page", "view")) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    }
+
     return (
         <RequireOpenShift>
-            <DeliverySelectionPageContent />
+            <DeliveryContent canCreateOrder={canCreateOrder} />
         </RequireOpenShift>
     );
 }
 
-function DeliverySelectionPageContent() {
+/* ── Main content ── */
+
+function DeliveryContent({ canCreateOrder }: { canCreateOrder: boolean }) {
     const router = useRouter();
-    const { showLoading, hideLoading } = useGlobalLoading();
     const { deliveryProviders, isLoading: isLoadingProviders, isError: deliveryError, mutate: refetchProviders } = useDelivery();
-    
+    const { stats } = useChannelStats();
+    const screens = Grid.useBreakpoint();
+    const isMobile = !screens.md;
+    const { token } = theme.useToken();
+
     const {
-        page, setPage,
-        pageSize, setPageSize,
-        total, setTotal,
-        searchText, setSearchText,
-        debouncedSearch,
-        createdSort, setCreatedSort,
-        filters, updateFilter,
-        isUrlReady
+        page, setPage, pageSize, setPageSize, total, setTotal,
+        searchText, setSearchText, debouncedSearch,
+        createdSort, setCreatedSort, filters, updateFilter, isUrlReady,
     } = useListState({
         defaultPageSize: 10,
-        defaultFilters: {
-            status: 'all' as 'active' | 'waiting_payment' | 'all'
-        }
+        defaultFilters: { status: "all" as DeliveryListStatusFilter },
     });
 
-    const statusFilter = useMemo(() => {
-        if (filters.status === 'active') {
-            return [OrderStatus.Pending, OrderStatus.Cooking, OrderStatus.Served].join(",");
-        }
-        if (filters.status === 'waiting_payment') {
-            return OrderStatus.WaitingForPayment;
-        }
-        return ""; // all
-    }, [filters.status]);
-
-    const { orders, total: apiTotal, isLoading, refresh: refreshOrders } = useChannelOrders({ 
-        orderType: OrderType.Delivery,
-        page,
-        limit: pageSize,
-        statusFilter,
-        query: debouncedSearch,
-        createdSort,
-        enabled: isUrlReady
-    });
-
-    useEffect(() => {
-        setTotal(apiTotal);
-    }, [apiTotal, setTotal]);
-    const loadingKey = "pos:channels:delivery";
-    const navigateLoadingKey = "pos:channels:delivery:navigate";
     const [isModalOpen, setIsModalOpen] = useState(false);
-    const [isRefreshing, setIsRefreshing] = useState(false);
-    const { user } = useAuth();
-    const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canCreateOrder = can("orders.page", "create");
-
-    const { stats: globalStats } = useChannelStats();
-
-    const displayStats = useMemo(() => ({
-        inProgress: (globalStats?.delivery ?? 0) - (globalStats?.delivery_waiting_payment ?? 0),
-        waitingForPayment: globalStats?.delivery_waiting_payment ?? 0,
-        total: globalStats?.delivery ?? 0
-    }), [globalStats]);
-    // New Order Modal State
+    const [isCreating, setIsCreating] = useState(false);
     const [deliveryCode, setDeliveryCode] = useState("");
     const [selectedProviderId, setSelectedProviderId] = useState<string | null>(null);
-    const [isProviderSelectorOpen, setIsProviderSelectorOpen] = useState(false);
-    const selectedProvider = useMemo(() =>
-        (deliveryProviders as Delivery[]).find((p: Delivery) => p.id === selectedProviderId),
-        [deliveryProviders, selectedProviderId]);
-    const selectedProviderLogo = resolveImageSource(selectedProvider?.logo);
 
+    const statusFilter = useMemo(() => {
+        if (filters.status === "active") return DELIVERY_ACTIVE_STATUSES.join(",");
+        if (filters.status === "waiting_payment") return OrderStatus.WaitingForPayment;
+        return DELIVERY_OPEN_STATUSES.join(",");
+    }, [filters.status]);
 
-    useEffect(() => {
-        if (isLoading || isLoadingProviders) {
-            showLoading(t("delivery.loadingOrders"), loadingKey);
-        } else {
-            hideLoading(loadingKey);
-        }
-        return () => {
-            hideLoading(loadingKey);
-            hideLoading(navigateLoadingKey);
-        };
-    }, [isLoading, isLoadingProviders, showLoading, hideLoading, loadingKey, navigateLoadingKey]);
+    const { orders, total: apiTotal, isLoading, isFetching, error, refresh } = useChannelOrders({
+        orderType: OrderType.Delivery,
+        page, limit: pageSize, statusFilter,
+        query: debouncedSearch, createdSort, enabled: isUrlReady,
+    });
 
-    const handleBack = () => {
-        router.push('/pos/channels');
-    };
+    useEffect(() => { setTotal(apiTotal); }, [apiTotal, setTotal]);
 
-    const handleRefresh = async () => {
-        setIsRefreshing(true);
-        try {
-            await Promise.all([
-                Promise.resolve(refetchProviders()),
-                refreshOrders(false),
-            ]);
-        } finally {
-            setIsRefreshing(false);
-        }
-    };
+    const providerById = useMemo(
+        () =>
+            new Map(
+                ((deliveryProviders as Delivery[]) || []).map((provider) => [provider.id, provider] as const)
+            ),
+        [deliveryProviders]
+    );
 
-    const handleOrderClick = (order: (typeof orders)[number]) => {
-        const path = getOrderNavigationPath(order);
-        router.push(path);
-    };
+    const selectedProvider = useMemo(
+        () => (selectedProviderId ? providerById.get(selectedProviderId) ?? null : null),
+        [providerById, selectedProviderId]
+    );
+
+    const providerOptions = useMemo(
+        () => (deliveryProviders as Delivery[]).filter((p) => p.is_active !== false),
+        [deliveryProviders]
+    );
+
+    const modalProviderOptions = useMemo(() =>
+        providerOptions.map(provider => ({
+            label: (
+                <Flex align="center" gap={10}>
+                    <SmartAvatar
+                        src={provider?.logo}
+                        alt={provider.delivery_name}
+                        size={28}
+                        shape="square"
+                        icon={<RocketOutlined style={{ fontSize: 14 }} />}
+                        imageStyle={{ objectFit: 'contain' }}
+                        style={{
+                            borderRadius: 8, flexShrink: 0,
+                            background: resolveImageSource(provider?.logo) ? '#fff' : '#F5F3FF',
+                            border: '1px solid #E5E7EB',
+                        }}
+                    />
+                    <span style={{ fontWeight: 600, fontSize: 14 }}>{provider.delivery_name}</span>
+                </Flex>
+            ),
+            value: provider.id,
+            searchLabel: provider.delivery_name
+        })),
+        [providerOptions]
+    );
+
+    const visibleOrders = useMemo(
+        () => orders.filter((order) => DELIVERY_VISIBLE_STATUS_SET.has(order.status)),
+        [orders]
+    );
+
+    const handleManualRefresh = useCallback(() => {
+        void refresh(false);
+    }, [refresh]);
 
     const handleCreateOrderClick = () => {
-        if (!canCreateOrder) {
-            message.warning("คุณไม่มีสิทธิ์สร้างออเดอร์");
-            return;
-        }
+        if (!canCreateOrder) return;
         setDeliveryCode("");
         setSelectedProviderId(null);
+        setIsCreating(false);
         setIsModalOpen(true);
     };
 
     const handleConfirmCreate = () => {
-        if (!canCreateOrder) {
-            message.warning("คุณไม่มีสิทธิ์สร้างออเดอร์");
-            return;
-        }
-        if (!selectedProviderId) {
+        if (!selectedProvider) {
             message.error("กรุณาเลือกผู้ให้บริการ");
             return;
         }
@@ -195,551 +378,287 @@ function DeliverySelectionPageContent() {
             return;
         }
 
-        showLoading("กำลังเข้าสู่หน้าออเดอร์...", navigateLoadingKey);
+        setIsCreating(true);
 
-        let finalCode = deliveryCode.trim();
-        if (selectedProvider?.delivery_prefix) {
-            finalCode = `${selectedProvider.delivery_prefix}-${finalCode}`;
-        }
-
-        // Navigate to buying page with params
-        router.push(`/pos/channels/delivery/${selectedProviderId}?code=${encodeURIComponent(finalCode)}`);
+        const baseCode = deliveryCode.trim();
+        const finalCode = selectedProvider.delivery_prefix
+            ? `${selectedProvider.delivery_prefix}-${baseCode}`
+            : baseCode;
+        router.push(`/pos/channels/delivery/${selectedProvider.id}?code=${encodeURIComponent(finalCode)}`);
     };
 
-    const getStatusColor = (order: SalesOrderSummary, colorScheme: string) => {
-        if (order.status === OrderStatus.Pending) return "gold";
-        if (order.status === OrderStatus.WaitingForPayment) return "magenta";
+    const gridColumns = isMobile
+        ? "minmax(0, 1fr)"
+        : screens.xxl
+            ? "repeat(4, minmax(0, 1fr))"
+            : screens.lg
+                ? "repeat(3, minmax(0, 1fr))"
+                : "repeat(2, minmax(0, 1fr))";
 
-        switch (colorScheme) {
-            case "available": return "success";
-            case "occupied": return "orange";
-            case "waitingForPayment": return "blue";
-            default: return "default";
-        }
-    };
-
-    const getCardColors = (order: SalesOrderSummary, colorScheme: string) => {
-        if (order.status === OrderStatus.Pending) {
-            return pendingOrderColors;
-        }
-        if (order.status === OrderStatus.WaitingForPayment) {
-            return waitingToShipColors;
-        }
-        return tableColors[colorScheme as keyof typeof tableColors] || tableColors.inactive;
-    };
-
-    const getDeliveryStatusText = (status: OrderStatus) => {
-        if (status === OrderStatus.WaitingForPayment) {
-            return "รอส่ง";
-        }
-        if (status === OrderStatus.Served) {
-            return "กำลังดำเนินการ";
-        }
-        return formatOrderStatus(status);
-    };
+    const waitingCount = stats?.delivery_waiting_payment ?? 0;
 
     return (
-        <>
-            <POSGlobalStyles />
-            <style jsx global>{channelsResponsiveStyles}</style>
-            <style jsx global>{`
-                /* Order Card Hover Effects */
-                .order-card-hover {
-                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-                }
-                .order-card-hover:hover {
-                    transform: translateY(-4px) !important;
-                    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.1) !important;
-                }
-                .order-card-hover:active {
-                    transform: translateY(-2px) scale(0.99) !important;
-                }
-                @media (hover: none) {
-                    .order-card-hover:active {
-                        transform: scale(0.98) !important;
-                    }
-                    .order-card-hover:hover {
-                        transform: none !important;
-                    }
-                }
-                /* Back button hover */
-                .back-button-hover:hover {
-                    background: rgba(255, 255, 255, 0.28) !important;
-                    transform: translateX(-2px);
-                }
-                /* Add button hover */
-                .add-button-hover:hover {
-                    transform: translateY(-2px) !important;
-                    box-shadow: 0 12px 24px rgba(139, 92, 246, 0.35) !important;
-                }
-                .add-button-hover:active {
-                    transform: scale(0.98) !important;
-                }
-                /* Mobile-only styles */
-                .hide-on-mobile { display: inline !important; }
-                .show-on-mobile-inline { display: none !important; }
-                @media (max-width: 768px) {
-                    .hide-on-mobile { display: none !important; }
-                    .show-on-mobile-inline { display: inline !important; }
-                }
-                /* Modal styling */
-                .delivery-modal .ant-modal-content {
-                    border-radius: 20px !important;
-                    overflow: hidden;
-                }
-                .delivery-modal .ant-modal-header {
-                    padding: 20px 24px 16px !important;
-                    border-bottom: 1px solid #f0f0f0 !important;
-                }
-                .delivery-modal .ant-modal-body {
-                    padding: 24px !important;
-                }
-                .delivery-modal .ant-modal-footer {
-                    padding: 16px 24px 20px !important;
-                    border-top: 1px solid #f0f0f0 !important;
-                }
-            `}</style>
-            
-            <div style={posPageStyles.container}>
+        <React.Fragment>
+            <style dangerouslySetInnerHTML={{ __html: STYLES }} />
+            <div style={{ width: '100%', overflowX: 'hidden', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
                 <UIPageHeader
                     title="เดลิเวอรี่"
-                    onBack={handleBack}
-                    icon={<RocketOutlined style={{ fontSize: 20 }} />}
+                    icon={<RocketOutlined style={{ fontSize: 18, color: "#7C3AED" }} />}
+                    onBack={() => router.push("/pos")}
                     actions={
-                        <div style={{ 
-                            display: 'flex', 
-                            flexWrap: 'wrap', 
-                            justifyContent: 'center', 
-                            alignItems: 'center', 
-                            width: '100%', 
-                            gap: '12px 16px',
-                            margin: '8px 0'
-                        }}>
-
-                            {/* Stats Group */}
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-                                <Tag color="pink" style={{ fontSize: 13, padding: '4px 10px', fontWeight: 600, borderRadius: 6, margin: 0 }}>รอส่ง {displayStats.waitingForPayment} รายการ</Tag>
-                            </div>
-
-                            {/* Actions Group */}
-                            <Space size={10} wrap style={{ justifyContent: 'center' }}>
+                        <Space size={8} wrap>
+                            {waitingCount > 0 ? (
+                                <Tag
+                                    style={{
+                                        borderRadius: 10, padding: "2px 10px", fontWeight: 600,
+                                        background: "#FCE7F3", border: "1px solid #FBCFE8", color: "#BE185D",
+                                    }}
+                                >
+                                    รอส่ง {waitingCount} รายการ
+                                </Tag>
+                            ) : null}
+                            <Button
+                                icon={<ReloadOutlined />}
+                                onClick={handleManualRefresh}
+                                loading={isLoading || isFetching || isLoadingProviders}
+                                style={{ borderRadius: 10 }}
+                            />
+                            {canCreateOrder && (
                                 <Button
-                                    size="middle"
-                                    icon={<ReloadOutlined spin={isRefreshing} />}
-                                    onClick={handleRefresh}
-                                    loading={isRefreshing}
-                                    style={{ borderRadius: 8 }}
-                                />
-                                <Button 
-                                    type="primary" 
-                                    size="middle"
-                                    icon={<PlusOutlined />} 
-                                    onClick={handleCreateOrderClick} 
-                                    disabled={!canCreateOrder}
-                                    className="add-button-hover"
-                                    style={{ borderRadius: 8, fontWeight: 600 }}
+                                    type="primary"
+                                    icon={<PlusOutlined />}
+                                    onClick={handleCreateOrderClick}
+                                    style={{
+                                        borderRadius: 12, fontWeight: 700,
+                                        background: "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)",
+                                        border: "none",
+                                    }}
                                 >
                                     เพิ่มออเดอร์
                                 </Button>
-                            </Space>
-                        </div>
-                    }
-                />
-
-        <PageContainer>
-            <PageStack>
-                <SearchBar>
-                    <SearchInput
-                        placeholder="ค้นหา"
-                        value={searchText}
-                        onChange={setSearchText}
-                    />
-                    <Space wrap size={10}>
-                        <ModalSelector
-                            title="เลือกสถานะ"
-                            options={[
-                                { label: "กำลังดำเนินการ", value: "active" },
-                                { label: "รอส่ง", value: "waiting_payment" },
-                                { label: "ทั้งหมด", value: "all" },
-                            ]}
-                            value={filters.status}
-                            onChange={(val) => updateFilter('status', val)}
-                            style={{ minWidth: 150 }}
-                        />
-                        <ModalSelector
-                            title="การเรียงลำดับ"
-                            options={[
-                                { label: "สั่งก่อน", value: "old" },
-                                { label: "สั่งล่าสุด", value: "new" },
-                            ]}
-                            value={createdSort}
-                            onChange={setCreatedSort}
-                            style={{ minWidth: 150 }}
-                        />
-                    </Space>
-                </SearchBar>
-
-            {deliveryError ? (
-                <PageState
-                    status="error"
-                    title={t("page.error")}
-                    error={deliveryError}
-                    onRetry={() => refetchProviders()}
-                />
-            ) : !isLoadingProviders && deliveryProviders.length === 0 ? (
-                <PageState status="empty" title={t("delivery.noProviders")} action={
-                    <Button onClick={() => refetchProviders()}>{t("delivery.retry")}</Button>
-                } />
-            ) : (
-            <PageSection 
-                title="ออเดอร์"
-                extra={<span style={{ fontWeight: 600 }}>{total} รายการ</span>}
-            >
-                    {orders.length > 0 ? (
-                        <Space direction="vertical" size={24} style={{ width: '100%' }}>
-                        <Row gutter={[16, 16]}>
-                            {orders.map((order: SalesOrderSummary, index) => {
-                                const colorScheme = getOrderColorScheme(order);
-                                const colors = getCardColors(order, colorScheme);
-                                const provider = (deliveryProviders as Delivery[]).find((d: Delivery) => d.id === order.delivery_id);
-                                const providerLogo = resolveImageSource(provider?.logo);
-                                const orderNum = order.delivery_code || order.order_no.split('-').pop();
-
-                                return (
-                                    <Col xs={24} sm={12} md={8} lg={6} xl={6} key={order.id} className="delivery-order-col-mobile">
-                                        <article
-                                            className={`order-card-hover delivery-order-card table-card-animate table-card-delay-${(index % 6) + 1}`}
-                                            style={{
-                                                ...channelPageStyles.orderCard,
-                                                border: `1.5px solid ${colors.border}`,
-                                            }}
-                                            onClick={() => handleOrderClick(order)}
-                                            onKeyDown={(e) => {
-                                                if (e.key === 'Enter' || e.key === ' ') {
-                                                    e.preventDefault();
-                                                    handleOrderClick(order);
-                                                }
-                                            }}
-                                            role="button"
-                                            tabIndex={0}
-                                            aria-label={`ออเดอร์ ${orderNum} - ${getDeliveryStatusText(order.status)}`}
-                                        >
-                                            {/* Card Header */}
-                                            <div style={{
-                                                ...channelPageStyles.orderCardHeader,
-                                                background: colors.light,
-                                                flexWrap: "wrap",
-                                                rowGap: 8,
-                                            }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                    <SmartAvatar
-                                                        src={provider?.logo}
-                                                        alt={provider?.delivery_name || "Delivery"}
-                                                        shape="square"
-                                                        size={40}
-                                                        icon={<RocketOutlined />}
-                                                        imageStyle={{ objectFit: "contain" }}
-                                                        style={{
-                                                            borderRadius: 12,
-                                                            background: providerLogo ? "#ffffff" : `${colors.primary}20`,
-                                                            color: colors.primary,
-                                                            border: `1px solid ${colors.border}`,
-                                                            boxShadow: providerLogo ? "0 2px 8px rgba(15, 23, 42, 0.06)" : "none",
-                                                            flex: "0 0 auto",
-                                                        }}
-                                                    />
-                                                    <div>
-                                                        <Text strong style={{ fontSize: 16, color: '#1E293B', display: 'block', lineHeight: 1.2 }}>{orderNum}</Text>
-                                                        {/* <Text type="secondary" style={{ fontSize: 14 }}>{provider?.delivery_name || 'Delivery'}</Text> */}
-                                                                                                        <Tag
-                                                    style={{
-                                                        margin: 0,
-                                                        borderRadius: 6,
-                                                        background: skyBlueColors.light,
-                                                        color: skyBlueColors.primary,
-                                                        border: `1px solid ${skyBlueColors.border}`,
-                                                        fontSize: 11,
-                                                        fontWeight: 600,
-                                                    }}
-                                                >
-                                                    {provider?.delivery_name || 'Delivery'}
-                                                </Tag>
-                                                    </div>
-                                                </div>
-                                                <Tag
-                                                    color={getStatusColor(order, colorScheme)}
-                                                    style={{ borderRadius: 8, margin: 0, fontWeight: 600, border: 'none', padding: '4px 12px' }}
-                                                >
-                                                    {getDeliveryStatusText(order.status)}
-                                                </Tag>
-                                            </div>
-
-                                            {/* Card Content */}
-                                            <div style={channelPageStyles.orderCardContent}>
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
-                                                    <div>
-                                                        <Text type="secondary" style={{ fontSize: 16, display: 'block', marginBottom: 4 }}>รายการสินค้า</Text>
-                                                        <Text strong style={{ fontSize: 16 }}>{order.items_count || 0} รายการ</Text>
-                                                    </div>
-                                                    <div style={{ textAlign: 'right', marginLeft: 'auto' }}>
-                                                        <Text type="secondary" style={{ fontSize: 16, display: 'block', marginBottom: 4 }}>ยอดรวม</Text>
-                                                        <Text strong style={{ fontSize: 20, color: colors.primary }}>฿{order.total_amount?.toLocaleString()}</Text>
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* Card Footer */}
-                                            <div style={channelPageStyles.orderCardFooter}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                    {(() => {
-                                                        const createdDate = dayjs(order.create_date);
-                                                        const diffMinutes = dayjs().diff(createdDate, 'minute');
-                                                        
-                                                        let durationColor = '#94A3B8'; // Default grey
-                                                        if (diffMinutes <= 7) durationColor = '#22C55E';      // Green
-                                                        else if (diffMinutes <= 14) durationColor = '#F59E0B'; // Orange
-                                                        else durationColor = '#EF4444';                       // Red
-
-                                                        return (
-                                                            <>
-                                                                <ClockCircleOutlined style={{ fontSize: 14, color: durationColor }} />
-                                                                <Text style={{ fontSize: 14, color: durationColor, fontWeight: 500 }}>
-                                                                    {createdDate.fromNow()}
-                                                                </Text>
-                                                            </>
-                                                        );
-                                                    })()}
-                                                </div>
-                                                <Tag
-                                                    style={{
-                                                        margin: 0,
-                                                        borderRadius: 6,
-                                                        background: channelColors.delivery.light,
-                                                        color: channelColors.delivery.primary,
-                                                        border: `1px solid ${channelColors.delivery.border}`,
-                                                        fontSize: 11,
-                                                        fontWeight: 600,
-                                                    }}
-                                                >
-                                                    Delivery
-                                                </Tag>
-                                            </div>
-                                        </article>
-                                    </Col>
-                                );
-                            })}
-                        </Row>
-                        <div style={{ marginTop: 12 }}>
-                            <ListPagination
-                                page={page}
-                                total={total}
-                                pageSize={pageSize}
-                                onPageChange={setPage}
-                                onPageSizeChange={setPageSize}
-                                activeColor={channelColors.delivery.primary}
-                            />
-                        </div>
+                            )}
                         </Space>
-                    ) : (
-                        <UIEmptyState
-                            title={debouncedSearch.trim() ? "ไม่พบออเดอร์ตามคำค้น" : t("delivery.noOrders")}
-                            description={debouncedSearch.trim() ? "ลองเปลี่ยนคำค้น หรือตัวกรองสถานะ" : "เริ่มรับออเดอร์โดยกดปุ่ม “เพิ่มออเดอร์”"}
-                        />
-                    )}
-                    </PageSection>
-                )}
-                </PageStack>
-                </PageContainer>
-
-                {/* Create Order Modal */}
-                <Modal
-                    title={
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                            <div style={{
-                                width: 40,
-                                height: 40,
-                                borderRadius: 12,
-                                background: channelColors.delivery.light,
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                            }}>
-                                <RocketOutlined style={{ color: channelColors.delivery.primary, fontSize: 20 }} />
-                            </div>
-                            <div>
-                                <div style={{ fontSize: 18, fontWeight: 700, color: '#1E293B' }}>{t("delivery.createOrder")}</div>
-                            </div>
-                        </div>
                     }
-                    open={isModalOpen}
-                    onOk={handleConfirmCreate}
-                    onCancel={() => setIsModalOpen(false)}
-                    okText="ยืนยัน"
-                    cancelText="ยกเลิก"
-                    centered
-                    className="delivery-modal"
-                    okButtonProps={{
-                        style: {
-                            background: 'linear-gradient(135deg, #DCFCE7 0%, #BBF7D0 100%)',
-                            borderColor: '#BBF7D0',
-                            height: 44,
-                            borderRadius: 12,
-                            fontWeight: 700,
-                            padding: '0 24px',
-                            boxShadow: '0 4px 12px rgba(34, 197, 94, 0.15)',
-                            border: 'none',
-                            color: '#166534',
-                        },
-                        disabled: isLoadingProviders || !selectedProviderId || !deliveryCode.trim()
-                    }}
-                    cancelButtonProps={{
-                        style: {
-                            height: 44,
-                            borderRadius: 12,
-                            fontWeight: 600,
-                            padding: '0 24px',
-                        }
-                    }}
-                >
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-                        <div>
-                            <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 14, color: '#475569' }}>
-                                {t("delivery.selectProvider")}
-                            </Text>
-                            <div
-                                onClick={() => setIsProviderSelectorOpen(true)}
-                                style={{
-                                    padding: '10px 16px',
-                                    borderRadius: 12,
-                                    border: '2px solid',
-                                    cursor: 'pointer',
-                                    background: selectedProviderId ? 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)' : '#fff',
-                                    borderColor: selectedProviderId ? '#4F46E5' : '#e2e8f0',
-                                    display: 'flex',
-                                    justifyContent: 'space-between',
-                                    alignItems: 'center',
-                                    minHeight: 46
-                                }}
-                            >
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                    {selectedProvider ? (
-                                        <>
-                                            <SmartAvatar
-                                                src={selectedProvider.logo}
-                                                alt={selectedProvider.delivery_name}
-                                                shape="square"
-                                                size={24}
-                                                icon={<RocketOutlined />}
-                                                imageStyle={{ objectFit: "contain" }}
-                                                style={{
-                                                    borderRadius: 6,
-                                                    background: selectedProviderLogo ? "#ffffff" : channelColors.delivery.light,
-                                                    color: channelColors.delivery.primary,
-                                                    border: `1px solid ${channelColors.delivery.border}`,
-                                                }}
-                                            />
-                                            <span style={{ color: '#1e293b', fontWeight: 600 }}>
-                                                {selectedProvider.delivery_name}
-                                            </span>
-                                        </>
-                                    ) : (
-                                        <span style={{ color: '#94a3b8' }}>{t("delivery.selectProviderPlaceholder")}</span>
-                                    )}
-                                </div>
-                                <DownOutlined style={{ fontSize: 12, color: '#94a3b8' }} />
-                            </div>
-                        </div>
-                        <div>
-                            <Text strong style={{ display: 'block', marginBottom: 8, fontSize: 14, color: '#475569' }}>
-                                {t("delivery.orderCode")}
-                            </Text>
-                            <Input
-                                placeholder={t("delivery.enterOrderCode")}
-                                addonBefore={selectedProvider?.delivery_prefix ? `${selectedProvider.delivery_prefix}-` : undefined}
-                                value={deliveryCode}
-                                onChange={(e) => setDeliveryCode(e.target.value)}
-                                size="large"
-                                onPressEnter={handleConfirmCreate}
-                                style={{ borderRadius: 8 }}
-                            />
-                        </div>
-                    </div>
-                </Modal>
+                />
 
-                {/* Provider Selection Modal */}
-                <Modal
-                    title={t("delivery.selectProvider")}
-                    open={isProviderSelectorOpen}
-                    onCancel={() => setIsProviderSelectorOpen(false)}
-                    footer={null}
-                    centered
-                    width={400}
-                    styles={{ body: { padding: '12px 16px 24px' } }}
-                >
-                     <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
-                        {(deliveryProviders as Delivery[]).map(provider => {
-                            const logoSource = resolveImageSource(provider.logo);
-                            const isSelected = selectedProviderId === provider.id;
-                            return (
-                                <div
-                                    key={provider.id}
-                                    onClick={() => {
-                                        setSelectedProviderId(provider.id);
-                                        setIsProviderSelectorOpen(false);
-                                    }}
-                                    style={{
-                                        padding: '14px 18px',
-                                        border: '2px solid',
-                                        borderRadius: 12,
-                                        cursor: 'pointer',
-                                        background: isSelected ? '#eff6ff' : '#fff',
-                                        borderColor: isSelected ? '#3b82f6' : '#e5e7eb',
-                                        display: 'flex',
-                                        justifyContent: 'space-between',
-                                        alignItems: 'center',
-                                        minHeight: 54
-                                    }}
-                                >
-                                    <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                        <SmartAvatar
-                                            src={provider.logo}
-                                            alt={provider.delivery_name}
-                                            shape="square"
-                                            size={32}
-                                            icon={<RocketOutlined />}
-                                            imageStyle={{ objectFit: "contain" }}
-                                            style={{
-                                                borderRadius: 8,
-                                                background: logoSource ? "#ffffff" : channelColors.delivery.light,
-                                                color: channelColors.delivery.primary,
-                                                border: `1px solid ${channelColors.delivery.border}`,
-                                                flex: "0 0 auto",
-                                            }}
+                <PageContainer style={{ flex: 1, width: '100%', maxWidth: '100%' }}>
+                    <PageStack gap={20} style={{ width: '100%' }}>
+                        {/* ── Search + Filters ── */}
+                        <div style={{ width: '100%', maxWidth: 1200, margin: '0 auto' }}>
+                            <SearchBar>
+                                <SearchInput
+                                    placeholder="ค้นหา"
+                                    value={searchText}
+                                    onChange={(val) => setSearchText(val)}
+                                />
+                                <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
+                                    <Space wrap size={10}>
+                                        <ModalSelector<DeliveryListStatusFilter>
+                                            title="เลือกสถานะออเดอร์"
+                                            options={[
+                                                { label: "รายการที่ยังเปิดอยู่", value: "all" },
+                                                { label: "กำลังดำเนินการ", value: "active" },
+                                                { label: "รอส่ง", value: "waiting_payment" },
+                                            ]}
+                                            value={filters.status as DeliveryListStatusFilter}
+                                            onChange={(v) => updateFilter("status", v)}
+                                            style={{ minWidth: 140 }}
                                         />
-                                        <div style={{ minWidth: 0, display: "flex", flexDirection: "column", lineHeight: 1.2 }}>
-                                            <Text
-                                                style={{
-                                                    fontSize: 14,
-                                                    fontWeight: isSelected ? 600 : 500,
-                                                    color: "#1E293B",
-                                                }}
-                                            >
-                                                {provider.delivery_name}
-                                            </Text>
-                                            {provider.delivery_prefix ? (
-                                                <Text type="secondary" style={{ fontSize: 11 }}>
-                                                    Prefix: {provider.delivery_prefix}
-                                                </Text>
-                                            ) : null}
-                                        </div>
-                                    </div>
-                                    {isSelected && <CheckCircleOutlined style={{ color: '#3b82f6', fontSize: 18 }} />}
+                                        <ModalSelector<CreatedSort>
+                                            title="เรียงลำดับตาม"
+                                            options={[
+                                                { label: "สั่งก่อน", value: "old" },
+                                                { label: "สั่งล่าสุด", value: "new" },
+                                            ]}
+                                            value={createdSort}
+                                            onChange={(v) => setCreatedSort(v)}
+                                            style={{ minWidth: 140 }}
+                                        />
+                                    </Space>
+                                </Space>
+                            </SearchBar>
+                        </div>
+
+                        {/* ── Order List Section ── */}
+                        <div style={{ width: '100%', maxWidth: 1200, margin: '0 auto' }}>
+                            <PageSection
+                                title="ออเดอร์"
+                                style={{ width: '100%', overflow: 'hidden' }}
+                                extra={
+                                    <Space size={8} wrap>
+                                        {isFetching && !isLoading ? <Tag color="processing">กำลังอัปเดต...</Tag> : null}
+                                        <Typography.Text strong style={{ color: token.colorText }}>
+                                            {total} รายการ
+                                        </Typography.Text>
+                                    </Space>
+                                }
+                            >
+                                <div style={{ width: '100%', overflow: 'hidden' }}>
+                                    <Space direction="vertical" size={20} style={{ width: '100%' }}>
+                                        {deliveryError ? (
+                                            <PageState status="error" title="โหลดผู้ให้บริการไม่สำเร็จ" error={deliveryError} onRetry={() => void refetchProviders()} />
+                                        ) : error ? (
+                                            <PageState status="error" title="โหลดออเดอร์เดลิเวอรี่ไม่สำเร็จ" error={error} onRetry={() => void refresh(false)} />
+                                        ) : isLoading ? (
+                                            <div style={{ display: "grid", gridTemplateColumns: gridColumns, gap: isMobile ? 12 : 16, width: '100%' }}>
+                                                {[1, 2, 3, 4, 5, 6].map((i) => (
+                                                    <div key={i} style={{ background: "#fff", borderRadius: 18, padding: 24, border: `1px solid ${token.colorBorderSecondary}` }}>
+                                                        <Skeleton active paragraph={{ rows: 3 }} />
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : visibleOrders.length === 0 ? (
+                                            <UIEmptyState
+                                                title={debouncedSearch.trim() ? "ไม่พบออเดอร์ที่ค้นหา" : "ยังไม่มีออเดอร์เดลิเวอรี่"}
+                                                description={debouncedSearch.trim() ? "ลองใช้คำค้นหาอื่น หรือเปลี่ยนตัวกรอง" : "เริ่มสร้างออเดอร์ใหม่โดยกดปุ่ม \"เพิ่มออเดอร์\" ด้านบน"}
+                                            />
+                                        ) : (
+                                            <div style={{ display: "grid", gridTemplateColumns: gridColumns, gap: isMobile ? 12 : 16, width: '100%' }}>
+                                                {visibleOrders.map((order, i) => {
+                                                    const provider = order.delivery_id ? providerById.get(order.delivery_id) : null;
+                                                    return (
+                                                        <div key={order.id} className="delivery-card-animate" style={{ animationDelay: `${Math.min(i * 0.04, 0.4)}s`, minWidth: 0 }}>
+                                                            <DeliveryOrderCard
+                                                                order={order as SalesOrderSummary}
+                                                                provider={provider}
+                                                                onClick={() => router.push(getOrderNavigationPath(order as SalesOrderSummary))}
+                                                                isMobile={isMobile}
+                                                            />
+                                                        </div>
+                                                    );
+                                                })}
+                                            </div>
+                                        )}
+
+                                        {/* Pagination */}
+                                        {total > 0 && (
+                                            <div style={{
+                                                marginTop: 8, paddingTop: 16,
+                                                borderTop: `1px solid ${token.colorBorderSecondary}`,
+                                                width: '100%',
+                                            }}>
+                                                <ListPagination
+                                                    page={page} total={total} pageSize={pageSize}
+                                                    loading={isLoading || isFetching}
+                                                    onPageChange={setPage} onPageSizeChange={setPageSize}
+                                                    activeColor="#7C3AED"
+                                                />
+                                            </div>
+                                        )}
+                                    </Space>
                                 </div>
-                            );
-                        })}
-                    </div>
-                </Modal>
+                            </PageSection>
+                        </div>
+                    </PageStack>
+                </PageContainer>
             </div>
-        </>
+
+            {/* ── Create Delivery Order Modal ── */}
+            <Modal
+                open={isModalOpen}
+                onCancel={() => {
+                    setIsModalOpen(false);
+                    setIsCreating(false);
+                }}
+                footer={null}
+                closable={true}
+                centered
+                width={420}
+                styles={{
+                    body: { borderRadius: 20, padding: '28px 24px 24px' },
+                    mask: { backdropFilter: 'blur(4px)' },
+                }}
+            >
+                {/* Custom header */}
+                <Flex align="center" gap={12} style={{ marginBottom: 24 }}>
+                    <div
+                        style={{
+                            width: 44, height: 44, borderRadius: 14,
+                            background: '#F5F3FF', border: '1px solid #DDD6FE',
+                            display: 'grid', placeItems: 'center', flexShrink: 0,
+                        }}
+                    >
+                        <RocketOutlined style={{ fontSize: 20, color: '#7C3AED' }} />
+                    </div>
+                    <Typography.Title level={5} style={{ margin: 0 }}>
+                        เปิดออเดอร์เดลิเวอรี่
+                    </Typography.Title>
+                </Flex>
+
+                <Flex vertical gap={20}>
+                    {/* Provider select */}
+                    <div>
+                        <Typography.Text strong style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>
+                            เลือกผู้ให้บริการ
+                        </Typography.Text>
+                        <ModalSelector<string>
+                            title="เลือกผู้ให้บริการ"
+                            options={modalProviderOptions}
+                            value={selectedProviderId || undefined}
+                            onChange={(val) => setSelectedProviderId(val)}
+                            placeholder="เลือกผู้ให้บริการ"
+                            style={{ 
+                                width: '100%', 
+                                height: 44, 
+                                borderRadius: 10,
+                                padding: '0 12px',
+                                display: 'flex',
+                                alignItems: 'center'
+                            }}
+                        />
+                    </div>
+
+                    {/* Delivery code input */}
+                    <div>
+                        <Typography.Text strong style={{ display: 'block', marginBottom: 8, fontSize: 14 }}>
+                            รหัสเดลิเวอรี่
+                        </Typography.Text>
+                        <Input
+                            size="large"
+                            value={deliveryCode}
+                            onChange={(e) => setDeliveryCode(e.target.value)}
+                            disabled={!selectedProviderId}
+                            placeholder={selectedProviderId ? "ระบุรหัสออเดอร์" : "กรุณาเลือกผู้ให้บริการก่อน"}
+                            addonBefore={selectedProvider?.delivery_prefix ? `${selectedProvider.delivery_prefix}-` : undefined}
+                            style={{ borderRadius: 10 }}
+                            onPressEnter={() => {
+                                if (selectedProvider && deliveryCode.trim()) handleConfirmCreate();
+                            }}
+                        />
+                    </div>
+                </Flex>
+
+                {/* Footer buttons */}
+                <Flex justify="center" gap={12} style={{ marginTop: 28 }}>
+                    <Button
+                        size="large"
+                        onClick={() => setIsModalOpen(false)}
+                        style={{
+                            borderRadius: 12, minWidth: 110, height: 44,
+                            fontWeight: 700, fontSize: 15,
+                        }}
+                    >
+                        ยกเลิก
+                    </Button>
+                    <Button
+                        size="large"
+                        type="primary"
+                        loading={isCreating}
+                        disabled={!selectedProvider || !deliveryCode.trim() || isCreating}
+                        onClick={handleConfirmCreate}
+                        style={{
+                            borderRadius: 12, minWidth: 110, height: 44,
+                            fontWeight: 700, fontSize: 15,
+                            background: (!selectedProvider || !deliveryCode.trim() || isCreating)
+                                ? undefined
+                                : 'linear-gradient(135deg, #34D399 0%, #10B981 100%)',
+                            border: 'none',
+                        }}
+                    >
+                        ยืนยัน
+                    </Button>
+                </Flex>
+            </Modal>
+        </React.Fragment>
     );
 }

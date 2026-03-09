@@ -24,13 +24,6 @@ const ORDER_DETAIL_EVENTS = [
     RealtimeEvents.salesOrderDetail.delete,
 ];
 
-const ORDER_QUEUE_EVENTS = [
-    RealtimeEvents.orderQueue.added,
-    RealtimeEvents.orderQueue.updated,
-    RealtimeEvents.orderQueue.removed,
-    RealtimeEvents.orderQueue.reordered,
-];
-
 const dedupe = (events: string[]): string[] => Array.from(new Set(events));
 
 export const ORDER_REALTIME_EVENTS = dedupe([
@@ -38,5 +31,4 @@ export const ORDER_REALTIME_EVENTS = dedupe([
     ...PAYMENT_EVENTS,
     ...ORDER_ITEM_EVENTS,
     ...ORDER_DETAIL_EVENTS,
-    ...ORDER_QUEUE_EVENTS,
 ]);

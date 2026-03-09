@@ -46,7 +46,7 @@ export function POSProductCard({
       <div style={posLayoutStyles.productImage} className="pos-product-image-mobile">
         {hasProductImage(product) ? (
           <Image
-            alt={product.product_name}
+            alt={product.display_name}
             src={resolveImageSource(product.img_url) || undefined}
             fill
             style={{ objectFit: "cover" }}

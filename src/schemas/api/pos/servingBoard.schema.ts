@@ -5,7 +5,7 @@ import { ServingStatus } from "../../../types/api/pos/servingBoard";
 export const ServingBoardItemSchema = z.object({
     id: z.string(),
     product_id: z.string(),
-    product_name: z.string(),
+    display_name: z.string(),
     product_image_url: z.string().nullable(),
     quantity: z.coerce.number(),
     notes: z.string().nullable(),
@@ -22,6 +22,7 @@ export const ServingBoardGroupSchema = z.object({
     order_no: z.string(),
     order_type: z.nativeEnum(OrderType),
     order_status: z.string(),
+    customer_name: z.string().nullable().optional().default(null),
     source_title: z.string(),
     source_subtitle: z.string().nullable(),
     batch_created_at: z.string(),

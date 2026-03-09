@@ -1,339 +1,520 @@
-﻿"use client";
+"use client";
 
 import React, { useMemo } from "react";
-import { useRouter } from "next/navigation";
-import { Button, Col, Row, Tag } from "antd";
 import {
-    ShopOutlined,
-    CloseCircleOutlined,
-    StopOutlined,
+    ArrowLeftOutlined,
     CheckCircleOutlined,
+    CloseCircleOutlined,
     ReloadOutlined,
+    ShopOutlined,
 } from "@ant-design/icons";
-import PageContainer from "../../../../../components/ui/page/PageContainer";
-import PageSection from "../../../../../components/ui/page/PageSection";
-import UIPageHeader from "../../../../../components/ui/page/PageHeader";
-import UIEmptyState from "../../../../../components/ui/states/EmptyState";
-import { Tables } from "../../../../../types/api/pos/tables";
-import { useTables } from "../../../../../hooks/pos/useTables";
-import { posPageStyles, tableColors } from "../../../../../theme/pos";
-import { channelPageStyles, channelsResponsiveStyles } from "../../../../../theme/pos/channels/style";
-import { POSGlobalStyles } from "../../../../../theme/pos/GlobalStyles";
-import { getTableNavigationPath } from "../../../../../utils/orders";
-import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
+import { Grid, Skeleton } from "antd";
+import { useRouter } from "next/navigation";
+
+import { AccessGuardFallback } from "../../../../../components/pos/AccessGuard";
 import RequireOpenShift from "../../../../../components/pos/shared/RequireOpenShift";
+import PageContainer from "../../../../../components/ui/page/PageContainer";
 import { useAuth } from "../../../../../contexts/AuthContext";
-import {
-    getTableStats,
-    sortTables,
-    getActiveTables,
-    getTableColorScheme,
-    formatOrderStatus,
-} from "../../../../../utils/channels";
+import { useTables } from "../../../../../hooks/pos/useTables";
+import { useEffectivePermissions } from "../../../../../hooks/useEffectivePermissions";
+import { Tables, TableStatus } from "../../../../../types/api/pos/tables";
+import { getTableNavigationPath, getOrderStatusText, isWaitingForPaymentStatus } from "../../../../../utils/orders";
+
+
+/* ────────────────────────────────────────────
+   Theme helpers
+   ──────────────────────────────────────────── */
+
+/** Derive a visual theme for each table card based on status */
+function getTableTheme(table: Tables) {
+    if (!table.is_active) {
+        return {
+            key: "inactive" as const,
+            bg: "#F8FAFC",
+            border: "#E2E8F0",
+            iconBg: "#F1F5F9",
+            iconBorder: "#CBD5E1",
+            iconColor: "#94A3B8",
+            dotColor: "#94A3B8",
+            statusLabel: "ปิดใช้งาน",
+            statusColor: "#94A3B8",
+            actionLabel: "ปิดใช้งาน",
+            actionBg: "#E2E8F0",
+            actionText: "#64748B",
+            icon: <CloseCircleOutlined />,
+        };
+    }
+
+    if (table.status === TableStatus.Available) {
+        return {
+            key: "available" as const,
+            bg: "#ECFDF5",
+            border: "#A7F3D0",
+            iconBg: "#D1FAE5",
+            iconBorder: "#6EE7B7",
+            iconColor: "#059669",
+            dotColor: "#10B981",
+            statusLabel: "ว่าง",
+            statusColor: "#059669",
+            actionLabel: "รอรับออเดอร์",
+            actionBg: "#D1FAE5",
+            actionText: "#047857",
+            icon: <CheckCircleOutlined />,
+        };
+    }
+
+    // Occupied — differentiate by active_order_status
+    if (isWaitingForPaymentStatus(table.active_order_status)) {
+        return {
+            key: "waitingPayment" as const,
+            bg: "#EFF6FF",
+            border: "#BFDBFE",
+            iconBg: "#DBEAFE",
+            iconBorder: "#93C5FD",
+            iconColor: "#2563EB",
+            dotColor: "#3B82F6",
+            statusLabel: "ไม่ว่าง",
+            statusColor: "#2563EB",
+            actionLabel: "รอชำระเงิน",
+            actionBg: "#DBEAFE",
+            actionText: "#1D4ED8",
+            icon: <CloseCircleOutlined />,
+        };
+    }
+
+    // Default occupied (Pending / Cooking / Served)
+    return {
+        key: "inProgress" as const,
+        bg: "#FFFBEB",
+        border: "#FDE68A",
+        iconBg: "#FEF3C7",
+        iconBorder: "#FCD34D",
+        iconColor: "#D97706",
+        dotColor: "#F59E0B",
+        statusLabel: "ไม่ว่าง",
+        statusColor: "#D97706",
+        actionLabel: getOrderStatusText(table.active_order_status || "pending"),
+        actionBg: "#FDE68A",
+        actionText: "#92400E",
+        icon: <CloseCircleOutlined />,
+    };
+}
+
+/* ────────────────────────────────────────────
+   Table Card Component
+   ──────────────────────────────────────────── */
+
+function TableCard({
+    table,
+    onClick,
+    isMobile,
+}: {
+    table: Tables;
+    onClick: () => void;
+    isMobile: boolean;
+}) {
+    const t = getTableTheme(table);
+    const isClickable = table.is_active;
+
+    return (
+        <div
+            onClick={isClickable ? onClick : undefined}
+            className="dine-table-card"
+            style={{
+                background: t.bg,
+                borderRadius: 18,
+                border: `1.5px solid ${t.border}`,
+                padding: isMobile ? "22px 16px 18px" : "28px 20px 22px",
+                cursor: isClickable ? "pointer" : "default",
+                transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                display: "flex",
+                flexDirection: "column",
+                alignItems: "center",
+                textAlign: "center",
+                gap: isMobile ? 6 : 10,
+                opacity: table.is_active ? 1 : 0.5,
+                position: "relative",
+            }}
+        >
+            {/* Status icon */}
+            <div
+                style={{
+                    width: isMobile ? 44 : 50,
+                    height: isMobile ? 44 : 50,
+                    borderRadius: 14,
+                    background: t.iconBg,
+                    border: `1.5px solid ${t.iconBorder}`,
+                    display: "grid",
+                    placeItems: "center",
+                    fontSize: isMobile ? 20 : 24,
+                    color: t.iconColor,
+                    transition: "transform 0.2s ease",
+                }}
+                className="dine-table-icon"
+            >
+                {t.icon}
+            </div>
+
+            {/* Table number */}
+            <span
+                style={{
+                    fontSize: isMobile ? 28 : 36,
+                    fontWeight: 800,
+                    color: "#1E293B",
+                    lineHeight: 1.1,
+                    marginTop: 2,
+                }}
+            >
+                {table.table_name}
+            </span>
+
+            {/* Status dot + label */}
+            <div
+                style={{
+                    display: "flex",
+                    alignItems: "center",
+                    gap: 6,
+                    marginTop: 2,
+                }}
+            >
+                <span
+                    style={{
+                        width: 7,
+                        height: 7,
+                        borderRadius: "50%",
+                        background: t.dotColor,
+                        display: "inline-block",
+                        flexShrink: 0,
+                    }}
+                />
+                <span
+                    style={{
+                        fontSize: 13,
+                        fontWeight: 600,
+                        color: t.statusColor,
+                    }}
+                >
+                    {t.statusLabel}
+                </span>
+            </div>
+
+            {/* Action chip */}
+            <div
+                style={{
+                    marginTop: isMobile ? 6 : 8,
+                    padding: "6px 16px",
+                    borderRadius: 999,
+                    background: t.actionBg,
+                    fontSize: 13,
+                    fontWeight: 700,
+                    color: t.actionText,
+                    lineHeight: 1,
+                    whiteSpace: "nowrap",
+                }}
+            >
+                {t.actionLabel}
+            </div>
+        </div>
+    );
+}
+
+/* ────────────────────────────────────────────
+   Auth wrapper
+   ──────────────────────────────────────────── */
 
 export default function DineInTableSelectionPage() {
+    const { user, loading: authLoading } = useAuth();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+
+    if (authLoading || permissionLoading) {
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
+    }
+
+    if (!can("tables.page", "view")) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    }
+
     return (
         <RequireOpenShift>
-            <DineInTableSelectionPageContent />
+            <DineInContent />
         </RequireOpenShift>
     );
 }
 
-function DineInTableSelectionPageContent() {
+/* ────────────────────────────────────────────
+   Main content
+   ──────────────────────────────────────────── */
+
+function DineInContent() {
     const router = useRouter();
-    const { user } = useAuth();
-    const { showLoading, hideLoading } = useGlobalLoading();
-    const { tables, isLoading, mutate: refetchTables } = useTables();
-    const loadingKey = "pos:channels:dine-in";
-    const [isRefreshing, setIsRefreshing] = React.useState(false);
-    const normalizedRole = String(user?.role || "").trim().toLowerCase();
-    const canSeeManageTablesAction = normalizedRole === "admin" || normalizedRole === "manager";
+    const { tables, isLoading, mutate } = useTables();
+    const screens = Grid.useBreakpoint();
+    const isMobile = !screens.md;
 
-    // Use global loading for initial tables fetch
-    React.useEffect(() => {
-        if (isLoading) {
-            showLoading("กำลังโหลดข้อมูลโต๊ะ...", loadingKey);
-        } else {
-            hideLoading(loadingKey);
-        }
-        return () => hideLoading(loadingKey);
-    }, [isLoading, showLoading, hideLoading, loadingKey]);
+    const stats = useMemo(() => {
+        const all = tables as Tables[];
+        return {
+            available: all.filter((t) => t.is_active && t.status === TableStatus.Available).length,
+            occupied: all.filter((t) => t.is_active && t.status !== TableStatus.Available).length,
+        };
+    }, [tables]);
 
-    // Calculate statistics and sort tables
-    const stats = useMemo(() => getTableStats(tables as Tables[]), [tables]);
-    const activeTables = useMemo(() => getActiveTables(tables as Tables[]), [tables]);
-    const sortedTables = useMemo(() => sortTables(activeTables as Tables[]), [activeTables]);
-
-    const handleTableClick = (table: Tables, isInactive: boolean) => {
-        if (!isInactive) {
-            const link = getTableNavigationPath(table);
-            router.push(link);
-        }
-    };
-
-    const handleRefresh = async () => {
-        setIsRefreshing(true);
-        try {
-            await Promise.resolve(refetchTables());
-        } finally {
-            setIsRefreshing(false);
-        }
-    };
+    const sorted = useMemo(() => {
+        return [...(tables as Tables[])]
+            .filter((t) => t.is_active)
+            .sort((a, b) => a.table_name.localeCompare(b.table_name, "th"));
+    }, [tables]);
 
     return (
         <>
-            <POSGlobalStyles />
-            <style jsx global>{channelsResponsiveStyles}</style>
+            {/* Scoped styles */}
             <style jsx global>{`
-                /* Table Card Hover Effects */
-                .table-card-hover {
-                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                .dine-table-card:hover {
+                    transform: translateY(-3px);
+                    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
                 }
-                .table-card-hover:hover {
-                    transform: translateY(-6px) !important;
-                    box-shadow: 0 16px 32px rgba(0, 0, 0, 0.08) !important;
+                .dine-table-card:active {
+                    transform: translateY(-1px);
                 }
-                .table-card-hover:hover .table-icon {
-                    transform: scale(1.1) !important;
+                .dine-table-card:hover .dine-table-icon {
+                    transform: scale(1.06);
                 }
-                .table-card-hover:active {
-                    transform: translateY(-2px) scale(0.98) !important;
-                }
-                @media (hover: none) {
-                    .table-card-hover:active {
-                        transform: scale(0.97) !important;
-                    }
-                    .table-card-hover:hover {
-                        transform: none !important;
+                @media (max-width: 767px) {
+                    .dine-table-card:active {
+                        transform: scale(0.97);
                     }
                 }
-                /* Table Icon Container */
-                .table-icon-wrapper {
-                    width: 64px;
-                    height: 64px;
-                    border-radius: 20px;
-                    display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    margin-bottom: 12px;
-                    position: relative;
-                    transition: all 0.3s ease;
+                .dine-table-card {
+                    -webkit-user-select: none;
+                    user-select: none;
+                    -webkit-tap-highlight-color: transparent;
                 }
-                /* Pulse animation for occupied tables */
-                .pulse-soft {
-                    animation: pulseSoft 2s ease-in-out infinite;
+                @keyframes dineCardFadeIn {
+                    from { opacity: 0; transform: translateY(10px); }
+                    to { opacity: 1; transform: translateY(0); }
                 }
-                @keyframes pulseSoft {
-                    0%, 100% { transform: scale(1); opacity: 1; }
-                    50% { transform: scale(1.05); opacity: 0.9; }
+                .dine-card-animate {
+                    animation: dineCardFadeIn 0.35s ease-out forwards;
+                    opacity: 0;
                 }
-                /* Back button hover */
-                .back-button-hover:hover {
-                    background: rgba(255, 255, 255, 0.28) !important;
-                    transform: translateX(-2px);
+
+                .dine-header-back:hover {
+                    background: #F1F5F9;
                 }
-                /* Show on mobile */
-                .show-on-mobile { display: none !important; }
-                @media (max-width: 768px) {
-                    .show-on-mobile { display: inline !important; }
+                .dine-refresh-btn:hover {
+                    background: #F1F5F9 !important;
+                    border-color: #CBD5E1 !important;
                 }
             `}</style>
-            
-            <div style={posPageStyles.container}>
-                <UIPageHeader
-                    title="หน้าร้าน"
-                    subtitle="เลือกโต๊ะ"
-                    onBack={() => router.push("/pos/channels")}
-                    icon={<ShopOutlined style={{ fontSize: 20 }} />}
-                    actions={
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', width: '100%', gap: 12 }}>
-                            <Tag color="success" style={{ fontSize: 18, padding: '6px 16px', fontWeight: 600, borderRadius: 8 }}>ว่าง {stats.available}</Tag>
-                            <Tag color="error" style={{ fontSize: 18, padding: '6px 16px', fontWeight: 600, borderRadius: 8 }}>ไม่ว่าง {stats.occupied}</Tag>
-                            <Button
-                                size="large"
-                                icon={<ReloadOutlined spin={isRefreshing} style={{ fontSize: 18 }} />}
-                                onClick={handleRefresh}
-                                loading={isRefreshing}
-                                style={{ 
-                                    borderRadius: 12, 
-                                    fontSize: 18, 
-                                    height: 48,
-                                    padding: '0 24px',
-                                    fontWeight: 600,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    marginLeft: 20
+
+            <PageContainer>
+                <div style={{ paddingTop: isMobile ? 4 : 8 }}>
+                    {/* ── Header row ── */}
+                    <div
+                        style={{
+                            display: "flex",
+                            alignItems: isMobile ? "flex-start" : "center",
+                            flexDirection: isMobile ? "column" : "row",
+                            gap: isMobile ? 14 : 0,
+                            marginBottom: isMobile ? 20 : 28,
+                        }}
+                    >
+                        {/* Left: Back + Title */}
+                        <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
+                            <div
+                                onClick={() => router.push("/pos")}
+                                className="dine-header-back"
+                                style={{
+                                    width: 36,
+                                    height: 36,
+                                    borderRadius: 10,
+                                    display: "grid",
+                                    placeItems: "center",
+                                    cursor: "pointer",
+                                    transition: "background 0.15s ease",
+                                    flexShrink: 0,
                                 }}
                             >
-                                รีเฟรช
-                            </Button>
-                        </div>
-                    }
-                />
+                                <ArrowLeftOutlined style={{ fontSize: 16, color: "#475569" }} />
+                            </div>
 
-                <PageContainer>
-                    <PageSection title="โต๊ะ">
-                    {(tables as Tables[]).length > 0 ? (
-                        <Row gutter={[16, 16]}>
-                            {(sortedTables as Tables[]).map((table: Tables, index: number) => {
-                                const colorScheme = getTableColorScheme(table);
-                                const colors = tableColors[colorScheme];
-                                const isAvailable = table.status === "Available";
-                                const isInactive = !table.is_active;
+                            <div
+                                style={{
+                                    width: 38,
+                                    height: 38,
+                                    borderRadius: 12,
+                                    background: "#EFF6FF",
+                                    border: "1px solid #BFDBFE",
+                                    display: "grid",
+                                    placeItems: "center",
+                                    flexShrink: 0,
+                                }}
+                            >
+                                <ShopOutlined style={{ fontSize: 18, color: "#2563EB" }} />
+                            </div>
 
-                                return (
-                                    <Col xs={12} sm={8} md={6} lg={6} xl={4} key={table.id}>
-                                        <article
-                                            className={`table-card-hover dine-in-table-card dine-in-table-card-mobile table-card-animate table-card-delay-${(index % 6) + 1}`}
-                                            style={{
-                                                ...channelPageStyles.channelPageCard,
-                                                background: isInactive ? '#F8FAFC' : colors.light,
-                                                border: `2px solid ${colors.border}`,
-                                                opacity: isInactive ? 0.5 : 1,
-                                                cursor: isInactive ? 'not-allowed' : 'pointer',
-                                            }}
-                                            onClick={() => handleTableClick(table, isInactive)}
-                                            onKeyDown={(e) => {
-                                                if (!isInactive && (e.key === 'Enter' || e.key === ' ')) {
-                                                    e.preventDefault();
-                                                    handleTableClick(table, isInactive);
-                                                }
-                                            }}
-                                            role="button"
-                                            tabIndex={isInactive ? -1 : 0}
-                                            aria-label={`โต๊ะ ${table.table_name} - ${isInactive ? 'ปิดใช้งาน' : isAvailable ? 'ว่าง' : 'ไม่ว่าง'}`}
-                                            aria-disabled={isInactive}
-                                        >
-                                            {/* Gradient Overlay */}
-                                            <div
-                                                style={{
-                                                    ...channelPageStyles.channelPageCardGradientOverlay,
-                                                    background: colors.gradient,
-                                                }}
-                                            />
-
-                                            {/* Card Content */}
-                                            <div style={channelPageStyles.channelPageCardInner}>
-                                                {/* Icon with background wrapper */}
-                                                <div
-                                                    className="table-icon-wrapper"
-                                                    style={{
-                                                        background: `${colors.primary}15`,
-                                                        border: `2px solid ${colors.primary}30`,
-                                                    }}
-                                                >
-                                                    {isInactive ? (
-                                                        <StopOutlined
-                                                            className="table-icon dine-in-table-icon-mobile"
-                                                            style={{
-                                                                fontSize: 32,
-                                                                color: colors.primary,
-                                                                transition: 'transform 0.3s ease',
-                                                            }}
-                                                        />
-                                                    ) : isAvailable ? (
-                                                        <CheckCircleOutlined
-                                                            className="table-icon dine-in-table-icon-mobile"
-                                                            style={{
-                                                                fontSize: 32,
-                                                                color: colors.primary,
-                                                                transition: 'transform 0.3s ease',
-                                                            }}
-                                                        />
-                                                    ) : (
-                                                        <CloseCircleOutlined
-                                                            className="table-icon pulse-soft dine-in-table-icon-mobile"
-                                                            style={{
-                                                                fontSize: 32,
-                                                                color: colors.primary,
-                                                                transition: 'transform 0.3s ease',
-                                                            }}
-                                                        />
-                                                    )}
-                                                </div>
-
-                                                {/* Table Name */}
-                                                <div
-                                                    style={{
-                                                        ...channelPageStyles.channelPageCardMainText,
-                                                        fontSize: 24,
-                                                        color: colors.text || colors.primary,
-                                                    }}
-                                                    className="dine-in-table-name-mobile"
-                                                >
-                                                    {table.table_name}
-                                                </div>
-
-                                                {/* Two-Tier Status Display */}
-                                                <div style={{ marginTop: 12, display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'center' }}>
-                                                    {/* Tier 1: Availability indicator */}
-                                                    {!isInactive && (
-                                                        <div
-                                                            style={{
-                                                                fontSize: 15,
-                                                                fontWeight: 700,
-                                                                color: isAvailable ? tableColors.available.primary : '#EF4444',
-                                                                textTransform: 'uppercase',
-                                                                letterSpacing: '0.5px',
-                                                            }}
-                                                        >
-                                                            {isAvailable ? "● ว่าง" : "● ไม่ว่าง"}
-                                                        </div>
-                                                    )}
-
-                                                    {/* Tier 2: Specific order status badge */}
-                                                    <div
-                                                        style={{
-                                                            ...channelPageStyles.channelPageCardStatusBadge,
-                                                            background: isInactive
-                                                                ? "#94A3B8"
-                                                                : isAvailable
-                                                                    ? "rgba(16, 185, 129, 0.1)"
-                                                                    : colors.primary,
-                                                            color: isInactive
-                                                                ? "#fff"
-                                                                : isAvailable
-                                                                    ? tableColors.available.primary
-                                                                    : "#fff",
-                                                            border: isAvailable ? `1px solid ${tableColors.available.border}` : "none",
-                                                            fontSize: 14,
-                                                            padding: '8px 16px',
-                                                        }}
-                                                    >
-                                                        {isInactive
-                                                            ? "ปิดใช้งาน"
-                                                            : isAvailable
-                                                                ? "รอรับออเดอร์"
-                                                                : table.active_order_status
-                                                                    ? formatOrderStatus(table.active_order_status)
-                                                                    : "กำลังใช้งาน"}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </article>
-                                    </Col>
-                                );
-                            })}
-                        </Row>
-                    ) : (
-                        <UIEmptyState
-                            title="ยังไม่มีข้อมูลโต๊ะ"
-                            description="กรุณาเพิ่มข้อมูลโต๊ะก่อนเริ่มการขาย"
-                            action={canSeeManageTablesAction ? (
-                                <Button
-                                    type="primary"
-                                    size="large"
-                                    icon={<ShopOutlined />}
-                                    onClick={() => router.push("/pos/tables")}
+                            <div>
+                                <div
+                                    style={{
+                                        fontSize: isMobile ? 20 : 24,
+                                        fontWeight: 700,
+                                        color: "#0F172A",
+                                        lineHeight: 1.2,
+                                    }}
                                 >
-                                    ไปหน้าจัดการโต๊ะ
-                                </Button>
-                            ) : undefined}
-                        />
+                                    หน้าร้าน
+                                </div>
+                                <div style={{ fontSize: 13, color: "#94A3B8", marginTop: 2 }}>
+                                    เลือกโต๊ะ
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Right: Status badges + Refresh */}
+                        <div
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                                flexWrap: "wrap",
+                            }}
+                        >
+                            {/* Available badge */}
+                            <div
+                                style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    padding: "5px 14px",
+                                    borderRadius: 999,
+                                    background: "#ECFDF5",
+                                    border: "1px solid #A7F3D0",
+                                    fontSize: 13,
+                                    fontWeight: 700,
+                                    color: "#059669",
+                                }}
+                            >
+                                ว่าง {stats.available}
+                            </div>
+
+                            {/* Occupied badge */}
+                            <div
+                                style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 4,
+                                    padding: "5px 14px",
+                                    borderRadius: 999,
+                                    background: "#FEF3C7",
+                                    border: "1px solid #FDE68A",
+                                    fontSize: 13,
+                                    fontWeight: 700,
+                                    color: "#D97706",
+                                }}
+                            >
+                                ไม่ว่าง {stats.occupied}
+                            </div>
+
+                            {/* Refresh button */}
+                            <div
+                                onClick={() => mutate()}
+                                className="dine-refresh-btn"
+                                style={{
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    gap: 6,
+                                    padding: "5px 14px",
+                                    borderRadius: 999,
+                                    background: "#fff",
+                                    border: "1px solid #E2E8F0",
+                                    cursor: "pointer",
+                                    fontSize: 13,
+                                    fontWeight: 600,
+                                    color: "#475569",
+                                    transition: "all 0.15s ease",
+                                    userSelect: "none",
+                                }}
+                            >
+                                <ReloadOutlined style={{ fontSize: 13 }} />
+                                รีเฟรช
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* ── Section label ── */}
+                    <div
+                        style={{
+                            fontSize: 14,
+                            fontWeight: 600,
+                            color: "#64748B",
+                            marginBottom: 14,
+                        }}
+                    >
+                        โต๊ะ
+                    </div>
+
+                    {/* ── Table grid ── */}
+                    {isLoading ? (
+                        <div
+                            style={{
+                                display: "grid",
+                                gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
+                                gap: isMobile ? 12 : 16,
+                            }}
+                        >
+                            {[1, 2, 3, 4].map((i) => (
+                                <div
+                                    key={i}
+                                    style={{
+                                        background: "#fff",
+                                        borderRadius: 18,
+                                        padding: 28,
+                                        border: "1px solid #F1F5F9",
+                                    }}
+                                >
+                                    <Skeleton active paragraph={{ rows: 3 }} />
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div
+                            style={{
+                                display: "grid",
+                                gridTemplateColumns: isMobile ? "repeat(2, 1fr)" : "repeat(4, 1fr)",
+                                gap: isMobile ? 12 : 16,
+                            }}
+                        >
+                            {sorted.map((table, i) => (
+                                <div
+                                    key={table.id}
+                                    className="dine-card-animate"
+                                    style={{ animationDelay: `${Math.min(i * 0.04, 0.4)}s` }}
+                                >
+                                    <TableCard
+                                        table={table}
+                                        onClick={() => router.push(getTableNavigationPath(table))}
+                                        isMobile={isMobile}
+                                    />
+                                </div>
+                            ))}
+                        </div>
                     )}
-                    </PageSection>
-                </PageContainer>
-            </div>
+
+                    {/* Empty state */}
+                    {!isLoading && sorted.length === 0 && (
+                        <div
+                            style={{
+                                textAlign: "center",
+                                padding: "48px 20px",
+                                color: "#94A3B8",
+                            }}
+                        >
+                            <ShopOutlined style={{ fontSize: 40, marginBottom: 12, opacity: 0.4 }} />
+                            <div style={{ fontSize: 15 }}>ยังไม่มีโต๊ะในระบบ</div>
+                        </div>
+                    )}
+                </div>
+            </PageContainer>
         </>
     );
 }

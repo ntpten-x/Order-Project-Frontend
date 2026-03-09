@@ -65,7 +65,7 @@ describe("Orders flow utilities", () => {
     });
 
     test("getOrderStatusText returns completed label", () => {
-        expect(getOrderStatusText(OrderStatus.Completed)).toBe("สำเร็จ");
+        expect(getOrderStatusText(OrderStatus.Completed)).toBe("เสร็จสิ้น");
     });
 
     test("createOrderPayload keeps VAT at 0", () => {

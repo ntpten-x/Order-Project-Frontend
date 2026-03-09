@@ -1,12 +1,13 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Modal, InputNumber, Button, Typography, Form } from "antd";
-import { DollarOutlined } from "@ant-design/icons";
+import React, { useEffect, useMemo, useState } from "react";
+import { Button, Form, InputNumber, Modal, Space, Typography } from "antd";
+import { DollarOutlined, SafetyCertificateOutlined } from "@ant-design/icons";
 import { usePathname } from "next/navigation";
 
 import { useShift } from "../../../contexts/pos/ShiftContext";
 import { useEffectivePermissions } from "../../../hooks/useEffectivePermissions";
+import { Shift } from "../../../types/api/pos/shifts";
 import {
     clearShiftPromptSuppressed,
     isShiftPromptSuppressed,
@@ -18,6 +19,7 @@ const { Title, Text } = Typography;
 interface OpenShiftModalProps {
     open?: boolean;
     onCancel?: () => void;
+    onSuccess?: (shift: Shift) => void;
 }
 
 function isGuardedShiftPath(pathname: string): boolean {
@@ -26,19 +28,23 @@ function isGuardedShiftPath(pathname: string): boolean {
         pathname === "/pos/channels/dine-in" ||
         pathname === "/pos/channels/takeaway" ||
         pathname === "/pos/orders" ||
-        pathname === "/pos/items" ||
-        pathname === "/pos/kitchen"
+        pathname === "/pos/items"
     );
 }
 
-export default function OpenShiftModal({ open, onCancel }: OpenShiftModalProps = {}) {
+function sanitizeNumericInput(raw?: string) {
+    return raw?.replace(/\$\s?|(,*)/g, "").replace(/[^0-9.]/g, "") as unknown as number;
+}
+
+export default function OpenShiftModal({ open, onCancel, onSuccess }: OpenShiftModalProps = {}) {
     const { currentShift, loading, openShift } = useShift();
     const { can, loading: permissionLoading } = useEffectivePermissions();
+    const pathname = usePathname();
     const [submitting, setSubmitting] = useState(false);
     const [dismissedGlobal, setDismissedGlobal] = useState(false);
     const [form] = Form.useForm();
-    const pathname = usePathname();
     const canCreateShift = can("shifts.page", "create");
+    const isControlled = open !== undefined;
 
     useEffect(() => {
         if (!currentShift) return;
@@ -46,45 +52,67 @@ export default function OpenShiftModal({ open, onCancel }: OpenShiftModalProps =
         clearShiftPromptSuppressed();
     }, [currentShift]);
 
-    const isControlled = open !== undefined;
-    const suppressed = isShiftPromptSuppressed();
-    const isVisible = isControlled
-        ? Boolean(open) && canCreateShift
-        : (!loading &&
+    const isVisible = useMemo(() => {
+        if (!canCreateShift) return false;
+        if (isControlled) {
+            return Boolean(open);
+        }
+
+        return (
+            !loading &&
             !permissionLoading &&
-            canCreateShift &&
             !dismissedGlobal &&
             !currentShift &&
-            !suppressed &&
+            !isShiftPromptSuppressed() &&
             pathname !== "/pos/shift" &&
-            !isGuardedShiftPath(pathname));
+            !isGuardedShiftPath(pathname)
+        );
+    }, [
+        canCreateShift,
+        currentShift,
+        dismissedGlobal,
+        isControlled,
+        loading,
+        open,
+        pathname,
+        permissionLoading,
+    ]);
+
+    const closeModal = () => {
+        form.resetFields();
+        onCancel?.();
+    };
 
     const handleCancel = () => {
         if (isControlled) {
-            onCancel?.();
+            closeModal();
             return;
         }
 
         setDismissedGlobal(true);
         setShiftPromptSuppressed();
+        closeModal();
     };
 
     const handleOpenShift = async (values: { startAmount: number }) => {
         setSubmitting(true);
         try {
-            await openShift(values.startAmount);
+            const shift = await openShift(Number(values.startAmount || 0));
             clearShiftPromptSuppressed();
             setDismissedGlobal(false);
             form.resetFields();
-        } catch {
-            // Error handled in caller/context.
+            onSuccess?.(shift);
+            if (isControlled) {
+                onCancel?.();
+            }
         } finally {
             setSubmitting(false);
         }
     };
 
-    if (loading || permissionLoading) return null;
-    if (!canCreateShift) return null;
+    if (loading || permissionLoading || !canCreateShift) {
+        return null;
+    }
 
     return (
         <Modal
@@ -92,142 +120,171 @@ export default function OpenShiftModal({ open, onCancel }: OpenShiftModalProps =
             onCancel={handleCancel}
             title={null}
             centered
-            closable
-            maskClosable
+            closable={!submitting}
+            maskClosable={!submitting}
             footer={null}
-            width={400}
+            width={420}
+            destroyOnClose
             className="soft-modal"
             styles={{
-                body: { padding: 0, borderRadius: 24, overflow: "hidden", boxShadow: "0 20px 50px rgba(0,0,0,0.1)" },
+                body: {
+                    padding: 0,
+                    borderRadius: 28,
+                    overflow: "hidden",
+                },
+                mask: {
+                    backdropFilter: "blur(6px)",
+                },
             }}
         >
-            <div className="modal-header">
-                <div className="icon-wrapper">
-                    <DollarOutlined style={{ fontSize: 32, color: "#10b981" }} />
+            <div className="open-shift-hero">
+                <div className="open-shift-hero__icon">
+                    <DollarOutlined />
                 </div>
-                <Title level={3} style={{ margin: 0, color: "#1f1f1f", fontWeight: 700 }}>
-                    เปิดการขาย
+                <Title level={3} style={{ margin: 0 }}>
+                    เปิดกะการขาย
                 </Title>
-                <Text type="secondary" style={{ fontSize: 12 }}>
-                    เปิดกะเพื่อเริ่มรับออเดอร์
+                <Text type="secondary" style={{ textAlign: "center" }}>
+                    กำหนดเงินสดตั้งต้นของกะนี้ก่อนเริ่มรับออเดอร์
                 </Text>
             </div>
 
-            <div style={{ padding: "0 32px 32px 32px" }}>
-                <Form form={form} layout="vertical" onFinish={handleOpenShift} initialValues={{ startAmount: 0 }}>
+            <div style={{ padding: 24 }}>
+                <div className="open-shift-note">
+                    <SafetyCertificateOutlined style={{ color: "#0f766e" }} />
+                    <Text style={{ color: "#0f172a" }}>
+                        เงินสดตั้งต้นจะถูกใช้เป็นฐานสำหรับสรุปยอดเงินสดในลิ้นชักตอนปิดกะ
+                    </Text>
+                </div>
+
+                <Form
+                    form={form}
+                    layout="vertical"
+                    onFinish={handleOpenShift}
+                    initialValues={{ startAmount: 0 }}
+                    style={{ marginTop: 18 }}
+                >
                     <Form.Item
                         name="startAmount"
-                        label={<span style={{ fontSize: 16, fontWeight: 500, color: "#4b5563" }}>ระบุเงินทอนเริ่มต้น (บาท)</span>}
-                        rules={[{ required: true, message: "กรุณาระบุจำนวนเงิน" }]}
+                        label={
+                            <span style={{ fontSize: 15, fontWeight: 600, color: "#334155" }}>
+                                เงินสดตั้งต้น (บาท)
+                            </span>
+                        }
+                        rules={[{ required: true, message: "กรุณาระบุเงินสดตั้งต้น" }]}
                     >
                         <InputNumber<number>
-                            style={{ width: "100%", height: "80px", borderRadius: 16, border: "2px solid #e5e7eb" }}
-                            size="large"
+                            autoFocus
                             min={0}
                             precision={2}
-                            placeholder="0.00"
-                            autoFocus
                             controls={false}
+                            size="large"
                             inputMode="decimal"
-                            className="huge-input"
-                            formatter={(value) => `${value}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
-                            parser={(value) => value?.replace(/\$\s?|(,*)/g, "").replace(/[^0-9.]/g, "") as unknown as number}
-                            onKeyDown={(e) => {
-                                // Allow: backspace, delete, tab, escape, enter
-                                if (
-                                    [8, 46, 9, 27, 13, 110, 190].indexOf(e.keyCode) !== -1 ||
-                                    // Allow: Ctrl+A, Ctrl+C, Ctrl+V, Ctrl+X
-                                    (e.ctrlKey === true && [65, 67, 86, 88].indexOf(e.keyCode) !== -1) ||
-                                    // Allow: home, end, left, right
-                                    (e.keyCode >= 35 && e.keyCode <= 39)
-                                ) {
-                                    // Special handling for decimal point (prevent multiple dots)
-                                    if ((e.keyCode === 190 || e.keyCode === 110) && (e.target as HTMLInputElement).value?.includes(".")) {
-                                        e.preventDefault();
-                                    }
-                                    return;
-                                }
-                                // Ensure that it is a number and stop the keypress
-                                if (
-                                    (e.shiftKey || (e.keyCode < 48 || e.keyCode > 57)) &&
-                                    (e.keyCode < 96 || e.keyCode > 105)
-                                ) {
-                                    e.preventDefault();
-                                }
-                            }}
+                            placeholder="0.00"
+                            className="open-shift-input"
+                            style={{ width: "100%", height: 78 }}
+                            formatter={(value) =>
+                                `${value ?? ""}`.replace(/\B(?=(\d{3})+(?!\d))/g, ",")
+                            }
+                            parser={sanitizeNumericInput}
                         />
                     </Form.Item>
 
-                    <Button
-                        onClick={handleCancel}
-                        block
-                        size="large"
-                        disabled={submitting}
-                        style={{
-                            height: 48,
-                            borderRadius: 16,
-                            fontWeight: 600,
-                        }}
-                    >
-                        ปิด
-                    </Button>
-
-                    <Button
-                        type="primary"
-                        htmlType="submit"
-                        block
-                        size="large"
-                        loading={submitting}
-                        style={{
-                            height: 56,
-                            borderRadius: 16,
-                            fontSize: 18,
-                            fontWeight: 600,
-                            background: "#10b981",
-                            boxShadow: "0 4px 14px rgba(16, 185, 129, 0.4)",
-                            border: "none",
-                            marginTop: 12,
-                        }}
-                    >
-                        ยืนยันการเปิด
-                    </Button>
+                    <Space direction="vertical" size={10} style={{ width: "100%", marginTop: 8 }}>
+                        <Button
+                            type="primary"
+                            htmlType="submit"
+                            block
+                            size="large"
+                            loading={submitting}
+                            style={{
+                                height: 54,
+                                borderRadius: 16,
+                                fontWeight: 700,
+                                background:
+                                    "linear-gradient(135deg, #10b981 0%, #059669 100%)",
+                                border: "none",
+                                boxShadow: "0 14px 30px rgba(16, 185, 129, 0.22)",
+                            }}
+                        >
+                            ยืนยันเปิดกะ
+                        </Button>
+                        <Button
+                            block
+                            size="large"
+                            onClick={handleCancel}
+                            disabled={submitting}
+                            style={{
+                                height: 50,
+                                borderRadius: 16,
+                                fontWeight: 600,
+                                borderColor: "#dbe4ee",
+                            }}
+                        >
+                            ภายหลัง
+                        </Button>
+                    </Space>
                 </Form>
             </div>
 
             <style jsx global>{`
                 .soft-modal .ant-modal-content {
                     padding: 0 !important;
+                    overflow: hidden;
+                    border-radius: 28px;
                 }
-                .modal-header {
-                    background: linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
-                    padding: 40px 24px 24px 24px;
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    gap: 8px;
+
+                .open-shift-hero {
+                    display: grid;
+                    place-items: center;
+                    gap: 10px;
+                    padding: 28px 24px 22px;
+                    background:
+                        radial-gradient(circle at top, rgba(16, 185, 129, 0.18), transparent 55%),
+                        linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%);
                     text-align: center;
                 }
-                .icon-wrapper {
+
+                .open-shift-hero__icon {
                     width: 72px;
                     height: 72px;
-                    background: #d1fae5;
-                    border-radius: 50%;
+                    border-radius: 22px;
+                    display: grid;
+                    place-items: center;
+                    font-size: 30px;
+                    color: #059669;
+                    background: rgba(255, 255, 255, 0.92);
+                    box-shadow: 0 18px 40px rgba(16, 185, 129, 0.14);
+                }
+
+                .open-shift-note {
                     display: flex;
-                    align-items: center;
-                    justify-content: center;
-                    margin-bottom: 8px;
-                    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.15);
+                    align-items: flex-start;
+                    gap: 10px;
+                    border: 1px solid #d1fae5;
+                    border-radius: 16px;
+                    padding: 12px 14px;
+                    background: #f8fffb;
                 }
-                .huge-input input {
-                    font-size: 36px !important;
-                    font-weight: 700 !important;
-                    text-align: center !important;
-                    color: #10b981 !important;
+
+                .open-shift-input {
+                    border-radius: 18px !important;
+                    border: 2px solid #dbe4ee !important;
+                    box-shadow: none !important;
+                }
+
+                .open-shift-input input {
                     height: 100% !important;
+                    text-align: center !important;
+                    font-size: 32px !important;
+                    font-weight: 800 !important;
+                    color: #059669 !important;
                 }
-                .huge-input:focus-within {
+
+                .open-shift-input.ant-input-number-focused,
+                .open-shift-input:focus-within {
                     border-color: #10b981 !important;
-                    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.1) !important;
+                    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.12) !important;
                 }
             `}</style>
         </Modal>

@@ -1,5 +1,4 @@
 import { CreateOrderItemDTO, CreateSalesOrderDTO, UpdateSalesOrderDTO } from "../../types/api/pos/salesOrder";
-import { QueueStatus } from "../../types/api/pos/orderQueue";
 
 type OfflinePayloadMap = {
     CREATE_ORDER: CreateSalesOrderDTO;
@@ -8,7 +7,6 @@ type OfflinePayloadMap = {
     UPDATE_ITEM: { orderId: string; itemId: string; itemData: Partial<CreateOrderItemDTO> };
     DELETE_ITEM: { orderId: string; itemId: string };
     PAYMENT: { orderId: string; paymentData: { payment_method_id: string; amount: number; amount_received?: number } };
-    UPDATE_QUEUE_STATUS: { queueId: string; status: QueueStatus };
 };
 
 type OfflineActionType = keyof OfflinePayloadMap;
@@ -25,6 +23,7 @@ export type OfflineAction = {
 }[OfflineActionType];
 
 const QUEUE_KEY = 'pos_offline_queue';
+const QUEUE_EVENT = 'pos:offline-queue:changed';
 const MAX_RETRY = 5;
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -47,6 +46,56 @@ const pruneOld = (items: OfflineAction[]) => {
 const writeQueue = (data: OfflineAction[]) => {
     if (typeof window === 'undefined') return;
     localStorage.setItem(QUEUE_KEY, JSON.stringify(data));
+    window.dispatchEvent(new CustomEvent(QUEUE_EVENT));
+};
+
+const emitQueueEvent = () => {
+    if (typeof window === 'undefined') return;
+    window.dispatchEvent(new CustomEvent(QUEUE_EVENT));
+};
+
+export type OfflineQueueStats = {
+    total: number;
+    retriable: number;
+    failed: number;
+    oldestTimestamp: number | null;
+    latestTimestamp: number | null;
+    byType: Record<OfflineActionType, number>;
+};
+
+const buildStats = (items: OfflineAction[]): OfflineQueueStats => {
+    const byType = {
+        CREATE_ORDER: 0,
+        UPDATE_ORDER: 0,
+        ADD_ITEM: 0,
+        UPDATE_ITEM: 0,
+        DELETE_ITEM: 0,
+        PAYMENT: 0,
+    } satisfies Record<OfflineActionType, number>;
+
+    let oldestTimestamp: number | null = null;
+    let latestTimestamp: number | null = null;
+    let failed = 0;
+
+    for (const item of items) {
+        byType[item.type] += 1;
+        if (item.retryCount > MAX_RETRY) {
+            failed += 1;
+        }
+        oldestTimestamp =
+            oldestTimestamp === null ? item.timestamp : Math.min(oldestTimestamp, item.timestamp);
+        latestTimestamp =
+            latestTimestamp === null ? item.timestamp : Math.max(latestTimestamp, item.timestamp);
+    }
+
+    return {
+        total: items.length,
+        retriable: items.filter((item) => item.retryCount <= MAX_RETRY).length,
+        failed,
+        oldestTimestamp,
+        latestTimestamp,
+        byType,
+    };
 };
 
 export const offlineQueueService = {
@@ -66,6 +115,8 @@ export const offlineQueueService = {
 
     getQueue: (): OfflineAction[] => readQueue(),
 
+    getStats: (): OfflineQueueStats => buildStats(readQueue()),
+
     removeFromQueue: (id: string) => {
         const updatedQueue = readQueue().filter(action => action.id !== id);
         writeQueue(updatedQueue);
@@ -83,12 +134,33 @@ export const offlineQueueService = {
     clearQueue: () => {
         if (typeof window !== 'undefined') {
             localStorage.removeItem(QUEUE_KEY);
+            emitQueueEvent();
         }
     },
 
     pruneExceeded: () => {
         const remaining = pruneOld(readQueue()).filter(a => a.retryCount <= MAX_RETRY);
         writeQueue(remaining);
+    },
+
+    subscribe: (listener: () => void) => {
+        if (typeof window === 'undefined') {
+            return () => undefined;
+        }
+
+        const handleStorage = (event: StorageEvent) => {
+            if (!event.key || event.key === QUEUE_KEY) {
+                listener();
+            }
+        };
+
+        window.addEventListener(QUEUE_EVENT, listener);
+        window.addEventListener('storage', handleStorage);
+
+        return () => {
+            window.removeEventListener(QUEUE_EVENT, listener);
+            window.removeEventListener('storage', handleStorage);
+        };
     },
 };
 

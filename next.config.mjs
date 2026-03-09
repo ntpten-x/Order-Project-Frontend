@@ -1,5 +1,12 @@
+import bundleAnalyzer from "@next/bundle-analyzer";
+
+const withBundleAnalyzer = bundleAnalyzer({
+    enabled: process.env.ANALYZE === "true",
+});
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    distDir: process.env.NEXT_DIST_DIR || '.next',
     images: {
         remotePatterns: [
             {
@@ -28,13 +35,13 @@ const nextConfig = {
     // Production optimizations
     productionBrowserSourceMaps: false,
     // Webpack optimizations
-    webpack: (config, { isServer }) => {
+    webpack: (config) => {
         // Next.js default optimizations are usually sufficient.
         // Custom splitChunks can sometimes cause issues with CSS/JS injection.
         return config;
     },
 };
 
-export default nextConfig;
+export default withBundleAnalyzer(nextConfig);
 
 // Forced restart for config update

@@ -3,6 +3,7 @@
 import { useOrderListPrefetching } from "../../../../hooks/pos/usePrefetching";
 
 import React, { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useWindowVirtualizer } from "@tanstack/react-virtual";
 import { Typography, Button, Grid, Input, Skeleton, Segmented } from "antd";
 import { 
   ReloadOutlined, 
@@ -25,11 +26,16 @@ import {
   getOrderStatusText, 
   getOrderChannelText,
   formatCurrency,
-  getOrderNavigationPath
+  getOrderNavigationPath,
+  getTakeawayCustomerLabel
 } from "../../../../utils/orders";
 import { orderColors } from "../../../../theme/pos/orders/style";
 import { useDebouncedValue } from "../../../../utils/useDebouncedValue";
 import { useOrders } from "../../../../hooks/pos/useOrders";
+import { useAuth } from "../../../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
+import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
+import { useChannelStats } from "../../../../utils/channels/channelStats.utils";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import 'dayjs/locale/th';
@@ -46,6 +52,7 @@ const { Text } = Typography;
 const { useBreakpoint } = Grid;
 dayjs.locale('th');
 dayjs.extend(relativeTime);
+const ORDER_CARD_GAP = 12;
 
 // ── Status Tab Types ──
 type StatusTab = 'all' | 'in-progress' | 'waiting-payment';
@@ -153,7 +160,264 @@ const responsiveCSS = `
   }
 `;
 
+type OrderCardProps = {
+    order: SalesOrder;
+    index: number;
+    isMobile: boolean;
+    getEffectiveStatus: (order: SalesOrder) => OrderStatus;
+    getTimeSince: (date: string) => string;
+    onNavigate: (order: SalesOrder) => void;
+};
+
+function OrderCard({
+    order,
+    index,
+    isMobile,
+    getEffectiveStatus,
+    getTimeSince,
+    onNavigate,
+}: OrderCardProps) {
+    const effStatus = getEffectiveStatus(order);
+    const statusConf = STATUS_CONFIG[effStatus] || { color: '#64748B', bg: '#F1F5F9', glow: 'rgba(100,116,139,0.1)' };
+    const channelConf = CHANNEL_CONFIG[order.order_type] || { icon: <ContainerOutlined />, color: '#64748B', bg: '#F1F5F9' };
+    const activeItems = order.items?.filter((item) => item.status !== ItemStatus.Cancelled) || [];
+    const totalQty = activeItems.reduce((sum, item) => sum + Number(item.quantity), 0) || 0;
+    const inProgressQty = totalQty;
+    const isUrgent = effStatus === OrderStatus.Pending && dayjs().diff(dayjs(order.create_date), 'minute') > 15;
+
+    return (
+        <div
+            className="orders-page-card"
+            style={{
+                background: '#fff',
+                borderRadius: 18,
+                border: `1px solid ${isUrgent ? '#FCA5A5' : '#E2E8F0'}`,
+                boxShadow: isUrgent
+                    ? '0 4px 16px rgba(239,68,68,0.10)'
+                    : '0 2px 12px rgba(15,23,42,0.04)',
+                overflow: 'hidden',
+                animationDelay: `${index * 0.04}s`,
+            }}
+            onClick={() => onNavigate(order)}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(e) => e.key === 'Enter' && onNavigate(order)}
+            aria-label={`ออเดอร์ ${order.order_type === OrderType.TakeAway ? getTakeawayCustomerLabel(order) : order.order_no}`}
+        >
+            <div
+                style={{
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    padding: '14px 16px 10px',
+                }}
+            >
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
+                    <Text strong style={{ fontSize: 16, color: '#1E293B', whiteSpace: 'nowrap' }}>
+                        {order.order_type === OrderType.DineIn && (
+                            <span>🪑 โต๊ะ {order.table?.table_name || '-'}</span>
+                        )}
+                        {order.order_type === OrderType.TakeAway && (
+                            <span>🛍️ {getTakeawayCustomerLabel(order)}</span>
+                        )}
+                        {order.order_type === OrderType.Delivery && (
+                            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                {order.delivery?.logo ? (
+                                    <span
+                                        style={{
+                                            width: 20,
+                                            height: 20,
+                                            borderRadius: 4,
+                                            position: 'relative',
+                                            overflow: 'hidden',
+                                            display: 'inline-block',
+                                        }}
+                                    >
+                                        <SmartImage
+                                            src={order.delivery.logo}
+                                            alt={order.delivery.delivery_name || "Delivery Logo"}
+                                            fill
+                                            style={{ objectFit: 'contain' }}
+                                            sizes="20px"
+                                        />
+                                    </span>
+                                ) : <RocketOutlined />}
+                                {order.delivery_code || order.order_no?.substring(0, 10)}
+                                {order.delivery?.delivery_name && (
+                                    <span style={{ fontSize: 13, color: '#64748B', fontWeight: 500 }}>
+                                        ({order.delivery.delivery_name})
+                                    </span>
+                                )}
+                            </span>
+                        )}
+                    </Text>
+                    <span
+                        style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: 5,
+                            padding: '3px 10px',
+                            borderRadius: 20,
+                            background: statusConf.bg,
+                            color: statusConf.color,
+                            fontSize: 12,
+                            fontWeight: 700,
+                            whiteSpace: 'nowrap',
+                        }}
+                    >
+                        <span
+                            className="orders-status-dot"
+                            style={{
+                                width: 6,
+                                height: 6,
+                                borderRadius: '50%',
+                                background: statusConf.color,
+                                display: 'inline-block',
+                            }}
+                        />
+                        {getOrderStatusText(effStatus)}
+                    </span>
+                </div>
+
+                <span
+                    style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: 5,
+                        padding: '4px 10px',
+                        borderRadius: 10,
+                        background: channelConf.bg,
+                        color: channelConf.color,
+                        fontSize: 12,
+                        fontWeight: 600,
+                        flexShrink: 0,
+                    }}
+                >
+                    {channelConf.icon}
+                    {!isMobile && getOrderChannelText(order.order_type)}
+                </span>
+            </div>
+
+            <div
+                style={{
+                    padding: '0 16px 14px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: 12,
+                }}
+            >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    {inProgressQty > 0 && (
+                        <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
+                            <span
+                                style={{
+                                    display: 'inline-flex',
+                                    alignItems: 'center',
+                                    gap: 4,
+                                    padding: '3px 10px',
+                                    borderRadius: 10,
+                                    background: '#FFF7ED',
+                                    color: '#C2410C',
+                                    fontSize: 11,
+                                    fontWeight: 700,
+                                    border: '1px solid #FED7AA',
+                                }}
+                            >
+                                ⏳ {inProgressQty} กำลังดำเนินการ
+                            </span>
+                        </div>
+                    )}
+
+                    <div
+                        style={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            flexWrap: 'wrap',
+                            columnGap: 14,
+                            rowGap: 4,
+                            color: '#64748B',
+                            fontSize: 13,
+                        }}
+                    >
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+                            <ContainerOutlined style={{ fontSize: 13 }} />
+                            <span>{totalQty} รายการ</span>
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
+                            <ClockCircleOutlined style={{ fontSize: 13 }} />
+                            <span>{getTimeSince(order.create_date)}</span>
+                        </span>
+                        {isUrgent && (
+                            <span
+                                style={{
+                                    color: '#EF4444',
+                                    fontWeight: 700,
+                                    fontSize: 11,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: 3,
+                                    whiteSpace: 'nowrap',
+                                }}
+                            >
+                                ⚠️ รอนาน
+                            </span>
+                        )}
+                    </div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0 }}>
+                    <div style={{ textAlign: 'right' }}>
+                        <Text style={{ fontSize: 11, color: '#94A3B8', display: 'block', lineHeight: 1.3 }}>
+                            ยอดรวม
+                        </Text>
+                        <Text strong style={{ fontSize: 18, color: '#059669', lineHeight: 1.3 }}>
+                            {formatCurrency(Number(order.total_amount))}
+                        </Text>
+                    </div>
+                    <div
+                        style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 10,
+                            background: '#F1F5F9',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: '#94A3B8',
+                            flexShrink: 0,
+                        }}
+                    >
+                        <RightOutlined style={{ fontSize: 12 }} />
+                    </div>
+                </div>
+            </div>
+
+            {isUrgent && (
+                <div
+                    style={{
+                        height: 3,
+                        background: 'linear-gradient(90deg, #EF4444, #F59E0B)',
+                        borderRadius: '0 0 18px 18px',
+                    }}
+                />
+            )}
+        </div>
+    );
+}
+
 export default function POSOrdersPage() {
+    const { user, loading: authLoading } = useAuth();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+
+    if (authLoading || permissionLoading) {
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
+    }
+
+    if (!can("orders.page", "view")) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    }
+
     return (
         <RequireOpenShift>
             <POSOrdersPageContent />
@@ -168,6 +432,8 @@ function POSOrdersPageContent() {
     const screens = useBreakpoint();
     const isMobile = !screens.md;
     const isUrlReadyRef = useRef(false);
+    const listContainerRef = useRef<HTMLDivElement | null>(null);
+    const [scrollMargin, setScrollMargin] = useState(0);
     
     useOrderListPrefetching();
 
@@ -217,6 +483,7 @@ function POSOrdersPageContent() {
         query: debouncedSearch || undefined,
         sortCreated: createdSort,
     });
+    const { stats: ordersStats } = useChannelStats();
 
     const getEffectiveStatus = useCallback((order: SalesOrder): OrderStatus => {
         // Only override for In-Progress orders
@@ -237,7 +504,7 @@ function POSOrdersPageContent() {
     }, []);
 
     // ── Stats ──
-    const stats = useMemo(() => {
+    const pageStats = useMemo(() => {
         let pending = 0;
         let waitingPayment = 0;
 
@@ -250,6 +517,21 @@ function POSOrdersPageContent() {
         const inProgress = pending;
         return { pending, waitingPayment, inProgress, total };
     }, [orders, total, getEffectiveStatus]);
+
+    const tabCounts = useMemo(() => ({
+        all: ordersStats?.total ?? (activeTab === "all" ? total : pageStats.total),
+        inProgress: ordersStats?.pending ?? pageStats.inProgress,
+        waitingPayment: ordersStats?.waiting_payment ?? pageStats.waitingPayment,
+    }), [
+        activeTab,
+        ordersStats?.pending,
+        ordersStats?.total,
+        ordersStats?.waiting_payment,
+        pageStats.inProgress,
+        pageStats.total,
+        pageStats.waitingPayment,
+        total,
+    ]);
 
     const navigateToOrder = useCallback((order: SalesOrder) => {
         const path = getOrderNavigationPath(order);
@@ -264,6 +546,43 @@ function POSOrdersPageContent() {
         if (hours < 24) return `${hours} ชม.ที่แล้ว`;
         return dayjs(date).format('DD MMM HH:mm');
     };
+
+    const updateScrollMargin = useCallback(() => {
+        if (!listContainerRef.current) return;
+        const nextScrollMargin = listContainerRef.current.getBoundingClientRect().top + window.scrollY;
+        setScrollMargin(nextScrollMargin);
+    }, []);
+
+    useEffect(() => {
+        const syncScrollMargin = () => updateScrollMargin();
+        syncScrollMargin();
+        window.addEventListener("resize", syncScrollMargin);
+        return () => {
+            window.removeEventListener("resize", syncScrollMargin);
+        };
+    }, [updateScrollMargin]);
+
+    useEffect(() => {
+        const frameId = window.requestAnimationFrame(updateScrollMargin);
+        return () => {
+            window.cancelAnimationFrame(frameId);
+        };
+    }, [updateScrollMargin, showSearch, activeTab, createdSort, isMobile, orders.length]);
+
+    const rowVirtualizer = useWindowVirtualizer({
+        count: orders.length,
+        estimateSize: useCallback(() => (isMobile ? 140 : 116), [isMobile]),
+        overscan: 6,
+        scrollMargin,
+        // Measure the real card height so mixed order content does not drift out of alignment.
+        measureElement: useCallback((element: Element | null) => element?.getBoundingClientRect().height ?? 0, []),
+    });
+
+    const virtualRows = rowVirtualizer.getVirtualItems();
+
+    useEffect(() => {
+        rowVirtualizer.measure();
+    }, [rowVirtualizer, isMobile, orders.length]);
 
     // ── Error State ──
     if (isError) {
@@ -375,9 +694,9 @@ function POSOrdersPageContent() {
                     {STATUS_TABS.map(tab => {
                         const isActive = activeTab === tab.key;
                         let badgeCount = 0;
-                        if (tab.key === 'all') badgeCount = total;
-                        else if (tab.key === 'in-progress') badgeCount = stats.inProgress;
-                        else if (tab.key === 'waiting-payment') badgeCount = stats.waitingPayment;
+                        if (tab.key === 'all') badgeCount = tabCounts.all;
+                        else if (tab.key === 'in-progress') badgeCount = tabCounts.inProgress;
+                        else if (tab.key === 'waiting-payment') badgeCount = tabCounts.waitingPayment;
 
                         return (
                             <button
@@ -474,220 +793,45 @@ function POSOrdersPageContent() {
                     ) : (
                         <>
                             {/* Order Cards */}
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                {orders.map((order, index) => {
-                                    const effStatus = getEffectiveStatus(order);
-                                    const statusConf = STATUS_CONFIG[effStatus] || { color: '#64748B', bg: '#F1F5F9', glow: 'rgba(100,116,139,0.1)' };
-                                    const channelConf = CHANNEL_CONFIG[order.order_type] || { icon: <ContainerOutlined />, color: '#64748B', bg: '#F1F5F9' };
-
-                                    const activeItems = order.items?.filter(i => i.status !== ItemStatus.Cancelled) || [];
-                                    const totalQty = activeItems.reduce((sum, item) => sum + Number(item.quantity), 0) || 0;
-                                    const inProgressQty = totalQty;
-                                    const isUrgent = effStatus === OrderStatus.Pending && dayjs().diff(dayjs(order.create_date), 'minute') > 15;
+                            <div
+                                ref={listContainerRef}
+                                style={{
+                                    position: 'relative',
+                                    height: rowVirtualizer.getTotalSize(),
+                                }}
+                            >
+                                {/* Only visible rows are mounted; the spacer keeps scroll height unchanged. */}
+                                {virtualRows.map((virtualRow) => {
+                                    const order = orders[virtualRow.index];
+                                    if (!order) return null;
 
                                     return (
                                         <div
                                             key={order.id}
-                                            className="orders-page-card"
-                                            style={{
-                                                background: '#fff',
-                                                borderRadius: 18,
-                                                border: `1px solid ${isUrgent ? '#FCA5A5' : '#E2E8F0'}`,
-                                                boxShadow: isUrgent
-                                                    ? '0 4px 16px rgba(239,68,68,0.10)'
-                                                    : '0 2px 12px rgba(15,23,42,0.04)',
-                                                overflow: 'hidden',
-                                                animationDelay: `${index * 0.04}s`,
+                                            ref={(node) => {
+                                                if (node) {
+                                                    rowVirtualizer.measureElement(node);
+                                                }
                                             }}
-                                            onClick={() => navigateToOrder(order)}
-                                            role="button"
-                                            tabIndex={0}
-                                            onKeyDown={(e) => e.key === 'Enter' && navigateToOrder(order)}
-                                            aria-label={`ออเดอร์ ${order.order_no}`}
+                                            data-index={virtualRow.index}
+                                            style={{
+                                                position: 'absolute',
+                                                top: 0,
+                                                left: 0,
+                                                width: '100%',
+                                                transform: `translateY(${virtualRow.start - scrollMargin}px)`,
+                                                paddingBottom: virtualRow.index === orders.length - 1 ? 0 : ORDER_CARD_GAP,
+                                                boxSizing: 'border-box',
+                                            }}
                                         >
-                                            {/* ── Card Top ── */}
-                                            <div style={{
-                                                display: 'flex',
-                                                justifyContent: 'space-between',
-                                                alignItems: 'center',
-                                                padding: '14px 16px 10px',
-                                            }}>
-                                                {/* Left: Identifier + Status */}
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
-                                                    <Text strong style={{ 
-                                                        fontSize: 16, 
-                                                        color: '#1E293B',
-                                                        whiteSpace: 'nowrap',
-                                                    }}>
-                                                        {order.order_type === OrderType.DineIn && (
-                                                            <span>🪑 โต๊ะ {order.table?.table_name || '-'}</span>
-                                                        )}
-                                                        {order.order_type === OrderType.TakeAway && (
-                                                            <span>🛍️ #{order.order_no?.substring(0, 11)}</span>
-                                                        )}
-                                                        {order.order_type === OrderType.Delivery && (
-                                                            <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                                                        {order.delivery?.logo ? (
-                                                                    <span style={{ width: 20, height: 20, borderRadius: 4, position: 'relative', overflow: 'hidden', display: 'inline-block' }}>
-                                                                        <SmartImage 
-                                                                            src={order.delivery.logo} 
-                                                                            alt={order.delivery.delivery_name || "Delivery Logo"} 
-                                                                            fill
-                                                                            style={{ objectFit: 'contain' }}
-                                                                            sizes="20px"
-                                                                        />
-                                                                    </span>
-                                                                ) : <RocketOutlined />}
-                                                                {order.delivery_code || order.order_no?.substring(0, 10)}
-                                                                {order.delivery?.delivery_name && (
-                                                                    <span style={{ fontSize: 13, color: '#64748B', fontWeight: 500 }}>
-                                                                        ({order.delivery.delivery_name})
-                                                                    </span>
-                                                                )}
-                                                            </span>
-                                                        )}
-                                                    </Text>
-                                                    <span style={{
-                                                        display: 'inline-flex',
-                                                        alignItems: 'center',
-                                                        gap: 5,
-                                                        padding: '3px 10px',
-                                                        borderRadius: 20,
-                                                        background: statusConf.bg,
-                                                        color: statusConf.color,
-                                                        fontSize: 12,
-                                                        fontWeight: 700,
-                                                        whiteSpace: 'nowrap',
-                                                    }}>
-                                                        <span className="orders-status-dot" style={{
-                                                            width: 6, height: 6,
-                                                            borderRadius: '50%',
-                                                            background: statusConf.color,
-                                                            display: 'inline-block',
-                                                        }} />
-                                                        {getOrderStatusText(effStatus)}
-                                                    </span>
-                                                </div>
-
-                                                {/* Right: Channel */}
-                                                <span style={{
-                                                    display: 'inline-flex',
-                                                    alignItems: 'center',
-                                                    gap: 5,
-                                                    padding: '4px 10px',
-                                                    borderRadius: 10,
-                                                    background: channelConf.bg,
-                                                    color: channelConf.color,
-                                                    fontSize: 12,
-                                                    fontWeight: 600,
-                                                    flexShrink: 0,
-                                                }}>
-                                                    {channelConf.icon}
-                                                    {!isMobile && getOrderChannelText(order.order_type)}
-                                                </span>
-                                            </div>
-
-                                            {/* ── Card Body ── */}
-                                            <div style={{
-                                                padding: '0 16px 14px',
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                gap: 12,
-                                            }}>
-                                                {/* Left: Progress + Items + Time */}
-                                                <div style={{ flex: 1, minWidth: 0 }}>
-                                                    {/* Status Progress Badge */}
-                                                    {inProgressQty > 0 && (
-                                                        <div style={{ display: 'flex', gap: 8, marginBottom: 8, flexWrap: 'wrap' }}>
-                                                            <span style={{
-                                                                display: 'inline-flex', alignItems: 'center', gap: 4,
-                                                                padding: '3px 10px', borderRadius: 10,
-                                                                background: '#FFF7ED', color: '#C2410C',
-                                                                fontSize: 11, fontWeight: 700,
-                                                                border: '1px solid #FED7AA',
-                                                            }}>
-                                                                ⏳ {inProgressQty} กำลังดำเนินการ
-                                                            </span>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Meta Row: Items + Time */}
-                                                    <div style={{
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        flexWrap: 'wrap',
-                                                        columnGap: 14,
-                                                        rowGap: 4,
-                                                        color: '#64748B',
-                                                        fontSize: 13,
-                                                    }}>
-                                                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
-                                                            <ContainerOutlined style={{ fontSize: 13 }} />
-                                                            <span>{totalQty} รายการ</span>
-                                                        </span>
-                                                        <span style={{ display: 'flex', alignItems: 'center', gap: 4, whiteSpace: 'nowrap' }}>
-                                                            <ClockCircleOutlined style={{ fontSize: 13 }} />
-                                                            <span>{getTimeSince(order.create_date)}</span>
-                                                        </span>
-                                                        {isUrgent && (
-                                                            <span style={{
-                                                                color: '#EF4444',
-                                                                fontWeight: 700,
-                                                                fontSize: 11,
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                gap: 3,
-                                                                whiteSpace: 'nowrap',
-                                                            }}>
-                                                                ⚠️ รอนาน
-                                                            </span>
-                                                        )}
-                                                    </div>
-                                                </div>
-
-                                                {/* Right: Amount + Arrow */}
-                                                <div style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    gap: 10,
-                                                    flexShrink: 0,
-                                                }}>
-                                                    <div style={{ textAlign: 'right' }}>
-                                                        <Text style={{ fontSize: 11, color: '#94A3B8', display: 'block', lineHeight: 1.3 }}>
-                                                            ยอดรวม
-                                                        </Text>
-                                                        <Text strong style={{
-                                                            fontSize: 18,
-                                                            color: '#059669',
-                                                            lineHeight: 1.3,
-                                                        }}>
-                                                            {formatCurrency(Number(order.total_amount))}
-                                                        </Text>
-                                                    </div>
-                                                    <div style={{
-                                                        width: 32, height: 32,
-                                                        borderRadius: 10,
-                                                        background: '#F1F5F9',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        color: '#94A3B8',
-                                                        flexShrink: 0,
-                                                    }}>
-                                                        <RightOutlined style={{ fontSize: 12 }} />
-                                                    </div>
-                                                </div>
-                                            </div>
-
-                                            {/* ── Urgent Bar ── */}
-                                            {isUrgent && (
-                                                <div style={{
-                                                    height: 3,
-                                                    background: 'linear-gradient(90deg, #EF4444, #F59E0B)',
-                                                    borderRadius: '0 0 18px 18px',
-                                                }} />
-                                            )}
+                                            <OrderCard
+                                                order={order}
+                                                index={virtualRow.index}
+                                                isMobile={isMobile}
+                                                getEffectiveStatus={getEffectiveStatus}
+                                                getTimeSince={getTimeSince}
+                                                onNavigate={navigateToOrder}
+                                            />
                                         </div>
                                     );
                                 })}

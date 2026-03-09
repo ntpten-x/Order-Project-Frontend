@@ -162,7 +162,7 @@ function createQueryClient() {
     defaultOptions: {
       queries: {
         // Deduplication: same queries within staleTime won't refetch
-        staleTime: 60 * 1000, // 1 minute
+        staleTime: 5 * 60 * 1000, // 5 minutes
         // Garbage collection time - how long to keep unused data in cache
         gcTime: 5 * 60 * 1000, // 5 minutes
         // Retry configuration
@@ -242,4 +242,3 @@ declare module '@tanstack/react-query' {
     };
   }
 }
-

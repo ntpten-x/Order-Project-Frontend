@@ -1,424 +1,866 @@
-﻿"use client";
+"use client";
 
-import React, { useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import {
+    ClockCircleOutlined,
+    CopyOutlined,
+    DownloadOutlined,
+    LinkOutlined,
+    PlusOutlined,
+    QrcodeOutlined,
+    ReloadOutlined,
+    ShoppingOutlined,
+    SyncOutlined,
+} from "@ant-design/icons";
+import { App, Button, Grid, Modal, Radio, Skeleton, Space, Tag, theme, Typography } from "antd";
 import { useRouter } from "next/navigation";
-import { Button, Col, Row, Space, Tag, Typography, message } from "antd";
-import { ShoppingOutlined, PlusOutlined, ClockCircleOutlined, ReloadOutlined } from "@ant-design/icons";
+
+import { AccessGuardFallback } from "../../../../../components/pos/AccessGuard";
+import RequireOpenShift from "../../../../../components/pos/shared/RequireOpenShift";
 import PageContainer from "../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../components/ui/page/PageSection";
-import UIPageHeader from "../../../../../components/ui/page/PageHeader";
+import PageStack from "../../../../../components/ui/page/PageStack";
 import UIEmptyState from "../../../../../components/ui/states/EmptyState";
-import { OrderStatus, OrderType, SalesOrderSummary } from "../../../../../types/api/pos/salesOrder";
-import { posPageStyles, channelColors, tableColors } from "../../../../../theme/pos";
-import { channelPageStyles, channelsResponsiveStyles } from "../../../../../theme/pos/channels/style";
-import { POSGlobalStyles } from "../../../../../theme/pos/GlobalStyles";
-import { getOrderColorScheme, formatOrderStatus } from "../../../../../utils/channels";
-import { getOrderNavigationPath } from "../../../../../utils/orders";
-import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
-import { useChannelOrders } from "../../../../../utils/pos/channelOrders";
-import RequireOpenShift from "../../../../../components/pos/shared/RequireOpenShift";
+import PageState from "../../../../../components/ui/states/PageState";
+import ListPagination from "../../../../../components/ui/pagination/ListPagination";
 import { useAuth } from "../../../../../contexts/AuthContext";
-import { useEffectivePermissions } from "../../../../../hooks/useEffectivePermissions";
 import { useChannelStats } from "../../../../../utils/channels/channelStats.utils";
+import { OrderStatus, OrderType, SalesOrderSummary } from "../../../../../types/api/pos/salesOrder";
+import { useChannelOrders } from "../../../../../utils/pos/channelOrders";
 import { useListState } from "../../../../../hooks/pos/useListState";
+import { useEffectivePermissions } from "../../../../../hooks/useEffectivePermissions";
+import { getOrderNavigationPath } from "../../../../../utils/orders";
+import UIPageHeader from "../../../../../components/ui/page/PageHeader";
 import { SearchBar } from "../../../../../components/ui/page/SearchBar";
 import { SearchInput } from "../../../../../components/ui/input/SearchInput";
 import { ModalSelector } from "../../../../../components/ui/select/ModalSelector";
-import ListPagination from "../../../../../components/ui/pagination/ListPagination";
-import PageStack from "../../../../../components/ui/page/PageStack";
-import dayjs from "dayjs";
-import relativeTime from "dayjs/plugin/relativeTime";
-import 'dayjs/locale/th';
+import type { CreatedSort } from "../../../../../components/ui/pagination/ListPagination";
+import { DynamicQRCode, DynamicQRCodeCanvas } from "../../../../../lib/dynamic-imports";
+import { takeawayQrService, type TakeawayQrInfo } from "../../../../../services/pos/takeawayQr.service";
+import { getBackendErrorMessage, unwrapBackendData } from "../../../../../utils/api/backendResponse";
+import { getCsrfTokenCached } from "../../../../../utils/pos/csrf";
+import { buildTableQrExportCanvas, downloadCanvasAsPng } from "../../../../../utils/print-settings/tableQrExport";
+import { closePrintWindow, getPrintSettings, reservePrintWindow } from "../../../../../utils/print-settings/runtime";
+import { createTableQrPrintDocument } from "../../../../../utils/print-settings/tableQrPrintExport";
+import { getTakeawayCustomerLabel } from "../../../../../utils/orders";
 
 const { Text } = Typography;
-dayjs.extend(relativeTime);
-dayjs.locale('th');
-
-const pendingOrderColors = {
-    primary: "#EAB308",
-    light: "#FEFCE8",
-    border: "#FDE68A",
-    text: "#854D0E",
+const EXPORT_QR_CANVAS_SIZE = 2048;
+const TAKEAWAY_EXPORT_CANVAS_ID = "takeaway-qr-export-canvas";
+const TAKEAWAY_QR_UI = {
+    label: "QR Code สั่งกลับ",
+    exportLabel: "Export",
+    copyLinkLabel: "Copy Link",
+    openPageLabel: "ไปที่หน้า",
+    missingLinkWarning: "ยังไม่มีลิงก์ลูกค้า",
+    loadError: "ไม่สามารถโหลด Takeaway QR ได้",
+    exportError: "ส่งออก Takeaway QR ไม่สำเร็จ",
+    openPdfSuccess: "เปิดหน้า Takeaway QR PDF แล้ว",
+    refreshLabel: "รีเฟรช QR",
 };
 
+type ExportFormat = "a4" | "receipt" | "png";
+
+/* ── Theme helpers ── */
+
+const STATUS_THEMES = {
+    active: {
+        bg: "#FFFBEB",
+        border: "#FDE68A",
+        badgeBg: "#FDE68A",
+        badgeText: "#92400E",
+        dotColor: "#F59E0B",
+        label: "กำลังดำเนินการ",
+    },
+    waitingPayment: {
+        bg: "#EFF6FF",
+        border: "#BFDBFE",
+        badgeBg: "#DBEAFE",
+        badgeText: "#1D4ED8",
+        dotColor: "#3B82F6",
+        label: "รอชำระเงิน",
+    },
+    done: {
+        bg: "#ECFDF5",
+        border: "#A7F3D0",
+        badgeBg: "#D1FAE5",
+        badgeText: "#047857",
+        dotColor: "#10B981",
+        label: "เสร็จสิ้น",
+    },
+};
+
+const TAKEAWAY_OPEN_STATUSES = [
+    OrderStatus.Pending,
+    OrderStatus.Cooking,
+    OrderStatus.Served,
+    OrderStatus.WaitingForPayment,
+] as const;
+
+const TAKEAWAY_ACTIVE_STATUSES = [
+    OrderStatus.Pending,
+    OrderStatus.Cooking,
+    OrderStatus.Served,
+] as const;
+
+const TAKEAWAY_VISIBLE_STATUS_SET = new Set<OrderStatus>(TAKEAWAY_OPEN_STATUSES);
+
+type TakeawayListStatusFilter = "active" | "waiting_payment" | "all";
+
+function getOrderTheme(status: OrderStatus) {
+    if (status === OrderStatus.WaitingForPayment) return STATUS_THEMES.waitingPayment;
+    if (status === OrderStatus.Paid || status === OrderStatus.Completed) return STATUS_THEMES.done;
+    return STATUS_THEMES.active;
+}
+
+function getRelativeAge(raw?: string | null): { label: string; color: string } {
+    if (!raw) return { label: "ไม่ทราบเวลา", color: "#94A3B8" };
+    const created = new Date(raw);
+    if (Number.isNaN(created.getTime())) return { label: "ไม่ทราบเวลา", color: "#94A3B8" };
+    
+    const diffMs = Math.max(0, Date.now() - created.getTime());
+    const diffMinutes = Math.floor(diffMs / 60_000);
+    const diffHours = Math.floor(diffMinutes / 60);
+    const diffDays = Math.floor(diffHours / 24);
+
+    if (diffMinutes < 1) return { label: "เมื่อสักครู่", color: "#16A34A" };
+    
+    let label = "";
+    let color = "#16A34A"; // Green for < 10 mins
+
+    if (diffDays > 0) {
+        label = `${diffDays} วันที่แล้ว`;
+        color = "#DC2626"; // Red for > 1 day
+    } else if (diffHours > 0) {
+        label = `${diffHours} ชั่วโมงที่แล้ว`;
+        color = "#DC2626"; // Red for > 1 hour
+    } else {
+        label = `${diffMinutes} นาทีที่แล้ว`;
+        if (diffMinutes >= 30) color = "#DC2626";
+        else if (diffMinutes >= 10) color = "#D97706";
+    }
+
+    return { label, color };
+}
+
+function formatMoney(amount: number): string {
+    return `฿${Number(amount || 0).toLocaleString()}`;
+}
+
+function buildCustomerUrl(customerPath?: string | null): string {
+    if (!customerPath) return "";
+    const envBaseUrl = process.env.NEXT_PUBLIC_CUSTOMER_ORDER_BASE_URL?.trim();
+    const fallbackBaseUrl = typeof window !== "undefined" ? window.location.origin : "";
+
+    for (const baseUrl of [envBaseUrl, fallbackBaseUrl].filter(Boolean) as string[]) {
+        try {
+            return new URL(customerPath, baseUrl).toString();
+        } catch {}
+    }
+
+    return "";
+}
+
+function toSafeFilename(value: string): string {
+    return value.replace(/[^\w\u0E00-\u0E7F-]+/g, "_").replace(/_+/g, "_").replace(/^_+|_+$/g, "").slice(0, 60) || "takeaway";
+}
+
+const STYLES = `
+.takeaway-order-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(15, 23, 42, 0.08);
+}
+.takeaway-order-card:active {
+    transform: translateY(-1px);
+}
+@media (max-width: 767px) {
+    .takeaway-order-card:active {
+        transform: scale(0.98);
+    }
+}
+.takeaway-order-card {
+    -webkit-user-select: none;
+    user-select: none;
+    -webkit-tap-highlight-color: transparent;
+}
+@keyframes takeawayCardFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+.takeaway-card-animate {
+    animation: takeawayCardFadeIn 0.35s ease-out forwards;
+    opacity: 0;
+}
+`;
+
+/* ── Order Card ── */
+
+function OrderCard({
+    order,
+    onClick,
+    isMobile,
+}: {
+    order: SalesOrderSummary;
+    onClick: () => void;
+    isMobile: boolean;
+}) {
+    const statusTheme = getOrderTheme(order.status);
+    const age = getRelativeAge(order.create_date);
+    const customerLabel = getTakeawayCustomerLabel(order);
+
+    return (
+        <div
+            onClick={onClick}
+            className="takeaway-order-card"
+            style={{
+                background: "#ffffff",
+                borderRadius: 18,
+                border: `1.5px solid ${statusTheme.border}`,
+                padding: isMobile ? "16px 14px" : "18px 20px",
+                cursor: "pointer",
+                transition: "all 0.25s cubic-bezier(0.4, 0, 0.2, 1)",
+                display: "flex",
+                flexDirection: "column",
+                gap: 14,
+                position: "relative",
+                width: "100%",
+                minWidth: 0,
+                overflow: "hidden"
+            }}
+        >
+            {/* Top: Icon + order info + status badge */}
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0, flex: 1 }}>
+                    <div
+                        style={{
+                            width: 38, height: 38, borderRadius: 12,
+                            background: statusTheme.bg, border: `1px solid ${statusTheme.border}`,
+                            display: "grid", placeItems: "center", flexShrink: 0,
+                        }}
+                    >
+                        <ShoppingOutlined style={{ fontSize: 16, color: statusTheme.badgeText }} />
+                    </div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                        <div style={{ fontSize: 15, fontWeight: 700, color: "#0F172A", lineHeight: 1.3, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            {(!customerLabel || customerLabel === order.order_no)
+                                ? (order.order_no ? `#${order.order_no.split("-")[1]?.slice(0, 3)}` : "")
+                                : customerLabel}
+                        </div>
+                    </div>
+                </div>
+                <div style={{ padding: "4px 10px", borderRadius: 999, background: statusTheme.badgeBg, fontSize: 12, fontWeight: 700, color: statusTheme.badgeText, whiteSpace: "nowrap", lineHeight: 1.3, flexShrink: 0 }}>
+                    {statusTheme.label}
+                </div>
+            </div>
+
+            {/* Middle: items count + total */}
+            <div style={{ display: "flex", gap: 12 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontSize: 14, color: "#94A3B8", marginBottom: 2 }}>รายการสินค้า</div>
+                    <div style={{ fontSize: 15, fontWeight: 700, color: "#1E293B", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {order.items_count || 0} รายการ
+                    </div>
+                </div>
+                <div style={{ flex: 1, textAlign: "right", minWidth: 0 }}>
+                    <div style={{ fontSize: 14, color: "#94A3B8", marginBottom: 2 }}>ยอดรวม</div>
+                    <div style={{ fontSize: 17, fontWeight: 800, color: statusTheme.badgeText, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                        {formatMoney(Number(order.total_amount || 0))}
+                    </div>
+                </div>
+            </div>
+
+            {/* Bottom: time elapsed */}
+            <div style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                <ClockCircleOutlined style={{ fontSize: 12, color: age.color }} />
+                <span style={{ fontSize: 12, fontWeight: 600, color: age.color }}>{age.label}</span>
+            </div>
+        </div>
+    );
+}
+
+/* ── Auth guard ── */
+
 export default function TakeawayPage() {
+    const { user, loading: authLoading } = useAuth();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canCreateOrder = can("orders.page", "create");
+
+    if (authLoading || permissionLoading) {
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
+    }
+    if (!can("orders.page", "view")) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
+    }
+
     return (
         <RequireOpenShift>
-            <TakeawayPageContent />
+            <TakeawayContent canCreateOrder={canCreateOrder} />
         </RequireOpenShift>
     );
 }
 
-function TakeawayPageContent() {
+/* ── Main content ── */
+
+function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
     const router = useRouter();
-    const { showLoading, hideLoading } = useGlobalLoading();
-    
+    const { message } = App.useApp();
+    const { stats } = useChannelStats();
+    const screens = Grid.useBreakpoint();
+    const isMobile = !screens.md;
+    const { token } = theme.useToken();
+    const [isQrModalOpen, setIsQrModalOpen] = useState(false);
+    const [isQrLoading, setIsQrLoading] = useState(false);
+    const [isQrRefreshing, setIsQrRefreshing] = useState(false);
+    const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+    const [exportFormat, setExportFormat] = useState<ExportFormat>("receipt");
+    const [isExportingQr, setIsExportingQr] = useState(false);
+    const [takeawayQr, setTakeawayQr] = useState<TakeawayQrInfo | null>(null);
+    const [csrfToken, setCsrfToken] = useState("");
+
     const {
-        page, setPage,
-        pageSize, setPageSize,
-        total, setTotal,
-        searchText, setSearchText,
-        debouncedSearch,
-        createdSort, setCreatedSort,
-        filters, updateFilter,
-        isUrlReady
+        page, setPage, pageSize, setPageSize, total, setTotal,
+        searchText, setSearchText, debouncedSearch,
+        createdSort, setCreatedSort, filters, updateFilter, isUrlReady,
     } = useListState({
         defaultPageSize: 10,
-        defaultFilters: {
-            status: 'all' as 'active' | 'waiting_payment' | 'all'
-        }
+        defaultFilters: { status: "all" as TakeawayListStatusFilter },
     });
 
     const statusFilter = useMemo(() => {
-        if (filters.status === 'active') {
-            return [OrderStatus.Pending, OrderStatus.Cooking, OrderStatus.Served].join(",");
-        }
-        if (filters.status === 'waiting_payment') {
-            return OrderStatus.WaitingForPayment;
-        }
-        return ""; // all
+        if (filters.status === "active") return TAKEAWAY_ACTIVE_STATUSES.join(",");
+        if (filters.status === "waiting_payment") return OrderStatus.WaitingForPayment;
+        return TAKEAWAY_OPEN_STATUSES.join(",");
     }, [filters.status]);
 
-    const { orders, total: apiTotal, isLoading, refresh: refreshOrders } = useChannelOrders({ 
+    const { orders, total: apiTotal, isLoading, isFetching, error, refresh } = useChannelOrders({
         orderType: OrderType.TakeAway,
-        page,
-        limit: pageSize,
-        statusFilter,
-        query: debouncedSearch,
-        createdSort,
-        enabled: isUrlReady
+        page, limit: pageSize, statusFilter,
+        query: debouncedSearch, createdSort, enabled: isUrlReady,
     });
 
+    useEffect(() => { setTotal(apiTotal); }, [apiTotal, setTotal]);
     useEffect(() => {
-        setTotal(apiTotal);
-    }, [apiTotal, setTotal]);
+        getCsrfTokenCached()
+            .then((token) => setCsrfToken(token))
+            .catch(() => setCsrfToken(""));
+    }, []);
 
-    const loadingKey = "pos:channels:takeaway";
-    const [isRefreshing, setIsRefreshing] = React.useState(false);
-    const { user } = useAuth();
-    const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canCreateOrder = can("orders.page", "create");
+    const visibleOrders = useMemo(
+        () => orders.filter((order) => TAKEAWAY_VISIBLE_STATUS_SET.has(order.status)),
+        [orders]
+    );
 
-    const { stats: globalStats } = useChannelStats();
+    const handleManualRefresh = useCallback(() => {
+        void refresh(false);
+    }, [refresh]);
 
-    const displayStats = useMemo(() => ({
-        inProgress: (globalStats?.takeaway ?? 0) - (globalStats?.takeaway_waiting_payment ?? 0),
-        waitingForPayment: globalStats?.takeaway_waiting_payment ?? 0,
-        total: globalStats?.takeaway ?? 0
-    }), [globalStats]);
+    const handleOpenCreate = () => router.push("/pos/channels/takeaway/buying");
+    const customerUrl = buildCustomerUrl(takeawayQr?.customer_path);
+    const takeawayLabel = useMemo(() => takeawayQr?.shop_name?.trim() || "Takeaway", [takeawayQr?.shop_name]);
+    const takeawayQrHeading = useMemo(() => `${takeawayLabel} QR`, [takeawayLabel]);
+    const takeawayQrSubtitle = "Scan to open takeaway order";
+    const takeawayQrDocumentTitle = useMemo(() => `${TAKEAWAY_QR_UI.label} ${takeawayLabel}`, [takeawayLabel]);
+    const takeawayQrRenderKey = takeawayQr?.token || customerUrl || "takeaway-qr";
 
-    useEffect(() => {
-        if (isLoading) {
-            showLoading("กำลังโหลดออเดอร์...", loadingKey);
-        } else {
-            hideLoading(loadingKey);
+    const readTakeawayQrResponse = useCallback(async (response: Response, fallback: string) => {
+        const payload = await response.json().catch(() => null);
+        if (!response.ok) {
+            throw new Error(getBackendErrorMessage(payload, fallback));
         }
-        return () => hideLoading(loadingKey);
-    }, [isLoading, showLoading, hideLoading, loadingKey]);
+        return unwrapBackendData(payload) as TakeawayQrInfo;
+    }, []);
 
-    const handleCreateOrder = () => {
-        if (!canCreateOrder) {
-            message.warning("คุณไม่มีสิทธิ์สร้างออเดอร์");
+    const handleOpenQrModal = async () => {
+        setIsQrModalOpen(true);
+        if (takeawayQr) return;
+
+        setIsQrLoading(true);
+        try {
+            const info = await takeawayQrService.getInfo();
+            setTakeawayQr(info);
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : TAKEAWAY_QR_UI.loadError);
+        } finally {
+            setIsQrLoading(false);
+        }
+    };
+
+    const handleRefreshQr = async () => {
+        setIsQrRefreshing(true);
+        try {
+            const rotateTakeawayQr = async (forceRefreshCsrf = false): Promise<TakeawayQrInfo> => {
+                const nextCsrfToken = await getCsrfTokenCached(forceRefreshCsrf);
+                if (nextCsrfToken && nextCsrfToken !== csrfToken) {
+                    setCsrfToken(nextCsrfToken);
+                }
+
+                const response = await fetch("/api/pos/takeaway-qr/rotate", {
+                    method: "POST",
+                    cache: "no-store",
+                    credentials: "include",
+                    headers: nextCsrfToken ? { "X-CSRF-Token": nextCsrfToken } : undefined,
+                });
+
+                if (response.status === 403 && !forceRefreshCsrf) {
+                    return rotateTakeawayQr(true);
+                }
+
+                return readTakeawayQrResponse(response, "Refresh takeaway QR failed");
+            };
+
+            const info = await rotateTakeawayQr();
+            setTakeawayQr(info);
+            message.success("รีเฟรช QR สำเร็จ");
+        } catch (error) {
+            message.error(error instanceof Error ? error.message : "รีเฟรช QR ไม่สำเร็จ");
+        } finally {
+            setIsQrRefreshing(false);
+        }
+    };
+
+    const handleCopyQrLink = async () => {
+        if (!customerUrl) {
+            message.warning("ยังไม่มีลิงก์ลูกค้า");
             return;
         }
-        router.push('/pos/channels/takeaway/buying');
-    };
 
-    const handleBack = () => {
-        router.push('/pos/channels');
-    };
-
-    const handleRefresh = async () => {
-        setIsRefreshing(true);
         try {
-            await refreshOrders(false);
+            await navigator.clipboard.writeText(customerUrl);
+            message.success("คัดลอกลิงก์ลูกค้าแล้ว");
+        } catch {
+            message.error("คัดลอกลิงก์ไม่สำเร็จ");
+        }
+    };
+
+    const handleOpenCustomerPage = () => {
+        if (!customerUrl) {
+            message.warning("ยังไม่มีลิงก์ลูกค้า");
+            return;
+        }
+
+        window.open(customerUrl, "_blank", "noopener,noreferrer");
+    };
+
+    const captureCanvasImage = useCallback(async (canvasId: string) => {
+        for (let attempt = 0; attempt < 40; attempt += 1) {
+            const canvas = document.getElementById(canvasId) as HTMLCanvasElement | null;
+            if (canvas) {
+                try {
+                    const dataUrl = canvas.toDataURL("image/png");
+                    if (dataUrl && dataUrl !== "data:,") return dataUrl;
+                } catch {}
+            }
+            await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+        }
+
+        throw new Error("QR image is not ready for export");
+    }, []);
+
+    const buildExportSource = useCallback(async () => {
+        if (!customerUrl) throw new Error("No takeaway QR link available");
+
+        const printSettings = await getPrintSettings();
+        const qrImageDataUrl = await captureCanvasImage(TAKEAWAY_EXPORT_CANVAS_ID);
+
+        return { printSettings, qrImageDataUrl };
+    }, [captureCanvasImage, customerUrl]);
+
+    const openQrPrintExport = useCallback(async (
+        mode: Exclude<ExportFormat, "png">,
+        printSettings: Awaited<ReturnType<typeof getPrintSettings>>,
+        qrImageDataUrl: string,
+        filenameBase: string,
+        targetWindow?: Window | null
+    ) => {
+        const resolvedTargetWindow = targetWindow ?? reservePrintWindow(takeawayQrDocumentTitle);
+        const document = await createTableQrPrintDocument({
+            items: [{
+                tableName: takeawayLabel,
+                customerUrl,
+                qrImageDataUrl,
+                qrCodeExpiresAt: takeawayQr?.qr_code_expires_at,
+                heading: takeawayQrHeading,
+                subtitle: takeawayQrSubtitle,
+            }],
+            mode,
+            baseSetting: printSettings.documents.table_qr,
+            locale: printSettings.locale,
+            a4Layout: mode === "a4" ? "single" : undefined,
+        });
+
+        if (!resolvedTargetWindow) {
+            throw new Error("Popup blocked. Please allow popups to print.");
+        }
+
+        document.openInWindow(resolvedTargetWindow, {
+            filename: `${filenameBase}-${mode}.pdf`,
+            title: takeawayQrDocumentTitle,
+        });
+        return "window" as const;
+    }, [customerUrl, takeawayLabel, takeawayQr?.qr_code_expires_at, takeawayQrDocumentTitle, takeawayQrHeading, takeawayQrSubtitle]);
+
+    const handleOpenExportModal = useCallback(() => {
+        if (!customerUrl) {
+            message.warning(TAKEAWAY_QR_UI.missingLinkWarning);
+            return;
+        }
+
+        setExportFormat("receipt");
+        setIsExportModalOpen(true);
+    }, [customerUrl, message]);
+
+    const handleConfirmExport = useCallback(async () => {
+        if (!customerUrl) {
+            message.warning(TAKEAWAY_QR_UI.missingLinkWarning);
+            return;
+        }
+
+        setIsExportingQr(true);
+        let reservedPrintWindow: Window | null = null;
+        try {
+            if (exportFormat !== "png") {
+                reservedPrintWindow = reservePrintWindow(takeawayQrDocumentTitle);
+            }
+            const { printSettings, qrImageDataUrl } = await buildExportSource();
+            const filenameBase = `takeaway-qr-${toSafeFilename(takeawayLabel)}`;
+
+            if (exportFormat === "png") {
+                const exportCanvas = await buildTableQrExportCanvas({
+                    tableName: takeawayLabel,
+                    customerUrl,
+                    qrImageDataUrl,
+                    qrCodeExpiresAt: takeawayQr?.qr_code_expires_at,
+                    setting: printSettings.documents.table_qr,
+                    heading: takeawayQrHeading,
+                    subtitle: takeawayQrSubtitle,
+                });
+                downloadCanvasAsPng(exportCanvas, `${filenameBase}.png`);
+                message.success("ดาวน์โหลด PNG สำเร็จ");
+            } else {
+                const result = await openQrPrintExport(
+                    exportFormat,
+                    printSettings,
+                    qrImageDataUrl,
+                    filenameBase,
+                    reservedPrintWindow
+                );
+                reservedPrintWindow = null;
+                /* legacy takeaway export path replaced
+                    await saveCanvasAsPdf({ canvas: exportCanvas, filename: `${filenameBase}.pdf`, setting });
+                    message.success("ดาวน์โหลด PDF สำเร็จ");
+                } else {
+                    try {
+                        await printTableQrDocument({
+                            tableName: takeawayLabel,
+                            customerUrl,
+                            qrImageDataUrl,
+                            qrCodeExpiresAt: takeawayQr?.qr_code_expires_at,
+                            settings: printSettings,
+                            targetWindow,
+                            documentTitle: takeawayQrDocumentTitle,
+                            heading: takeawayQrHeading,
+                            subtitle: takeawayQrSubtitle,
+                            qrAltText: takeawayQrAltText,
+                        });
+                        message.success(TAKEAWAY_QR_UI.openPdfSuccess);
+                    } catch (error) {
+                        closePrintWindow(targetWindow);
+                        throw error;
+                    }
+                }
+            }
+
+            */
+            message.success(
+                result === "window"
+                    ? exportFormat === "a4"
+                        ? "เปิดหน้าพิมพ์ A4 แล้ว"
+                        : "เปิดหน้าพิมพ์สำหรับเครื่องพิมพ์ใบเสร็จแล้ว"
+                    : exportFormat === "a4"
+                        ? "ดาวน์โหลด PDF A4 สำเร็จ"
+                        : "ดาวน์โหลด PDF สำหรับเครื่องพิมพ์ใบเสร็จสำเร็จ"
+            );
+            }
+            setIsExportModalOpen(false);
+        } catch (error) {
+            closePrintWindow(reservedPrintWindow);
+            message.error(error instanceof Error ? error.message : TAKEAWAY_QR_UI.exportError);
         } finally {
-            setIsRefreshing(false);
+            setIsExportingQr(false);
         }
-    };
+    }, [buildExportSource, customerUrl, exportFormat, message, openQrPrintExport, takeawayLabel, takeawayQr?.qr_code_expires_at, takeawayQrDocumentTitle, takeawayQrHeading, takeawayQrSubtitle]);
 
-    const handleOrderClick = (order: SalesOrderSummary) => {
-        const path = getOrderNavigationPath(order);
-        router.push(path);
-    };
-
-    const getStatusColor = (order: SalesOrderSummary, colorScheme: string) => {
-        if (order.status === OrderStatus.Pending) return "gold";
-        if (order.status === OrderStatus.WaitingForPayment) return "blue";
-
-        switch (colorScheme) {
-            case "available": return "success";
-            case "occupied": return "orange";
-            case "waitingForPayment": return "blue";
-            default: return "default";
-        }
-    };
-
-    const getCardColors = (order: SalesOrderSummary, colorScheme: string) => {
-        if (order.status === OrderStatus.Pending) {
-            return pendingOrderColors;
-        }
-        if (order.status === OrderStatus.WaitingForPayment) {
-            return tableColors.waitingForPayment;
-        }
-        return tableColors[colorScheme as keyof typeof tableColors] || tableColors.inactive;
-    };
+    // Responsive grid columns with minmax(0, 1fr) to prevent overflow
+    const gridColumns = isMobile
+        ? "minmax(0, 1fr)"
+        : screens.xxl
+            ? "repeat(4, minmax(0, 1fr))"
+            : screens.lg
+                ? "repeat(3, minmax(0, 1fr))"
+                : "repeat(2, minmax(0, 1fr))";
 
     return (
-        <>
-            <POSGlobalStyles />
-            <style jsx global>{channelsResponsiveStyles}</style>
-            <style jsx global>{`
-                /* Order Card Hover Effects */
-                .order-card-hover {
-                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
-                }
-                .order-card-hover:hover {
-                    transform: translateY(-4px) !important;
-                    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.1) !important;
-                }
-                .order-card-hover:active {
-                    transform: translateY(-2px) scale(0.99) !important;
-                }
-                @media (hover: none) {
-                    .order-card-hover:active {
-                        transform: scale(0.98) !important;
-                    }
-                    .order-card-hover:hover {
-                        transform: none !important;
-                    }
-                }
-                /* Back button hover */
-                .back-button-hover:hover {
-                    background: rgba(255, 255, 255, 0.28) !important;
-                    transform: translateX(-2px);
-                }
-                /* Add button hover */
-                .add-button-hover:hover {
-                    transform: translateY(-2px) !important;
-                    box-shadow: 0 12px 24px rgba(82, 196, 26, 0.35) !important;
-                }
-                .add-button-hover:active {
-                    transform: scale(0.98) !important;
-                }
-                /* Mobile-only styles */
-                .hide-on-mobile { display: inline !important; }
-                .show-on-mobile-inline { display: none !important; }
-                @media (max-width: 768px) {
-                    .hide-on-mobile { display: none !important; }
-                    .show-on-mobile-inline { display: inline !important; }
-                }
-            `}</style>
-            
-            <div style={posPageStyles.container}>
+        <React.Fragment>
+            <style dangerouslySetInnerHTML={{ __html: STYLES }} />
+            <div style={{ width: '100%', overflowX: 'hidden', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
                 <UIPageHeader
                     title="สั่งกลับบ้าน"
-                    onBack={handleBack}
-                    icon={<ShoppingOutlined style={{ fontSize: 20 }} />}
+                    icon={<ShoppingOutlined style={{ fontSize: 18, color: "#059669" }} />}
+                    onBack={() => router.push("/pos")}
                     actions={
-                        <div style={{ 
-                            display: 'flex', 
-                            flexWrap: 'wrap', 
-                            justifyContent: 'center', 
-                            alignItems: 'center', 
-                            width: '100%', 
-                            gap: '12px 16px',
-                            margin: '8px 0'
-                        }}>
-
-                            {/* Stats Group - Already centered by parent flex, but explicitly set for clarity */}
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, justifyContent: 'center' }}>
-                                <Tag color="blue" style={{ fontSize: 13, padding: '4px 10px', fontWeight: 600, borderRadius: 6, margin: 0 }}>รอชำระเงิน {displayStats.waitingForPayment} รายการ</Tag>
-                            </div>
-
-                            {/* Actions Group */}
-                            <Space size={10} wrap style={{ justifyContent: 'center' }}>
+                        <Space size={8} wrap>
+                            {stats?.takeaway_waiting_payment && stats.takeaway_waiting_payment > 0 ? (
+                                <Tag 
+                                    color="processing" 
+                                    style={{ 
+                                        borderRadius: 10, 
+                                        padding: "2px 10px", 
+                                        fontWeight: 600,
+                                        background: "#DBEAFE",
+                                        border: "1px solid #93C5FD",
+                                        color: "#1D4ED8"
+                                    }}
+                                >
+                                    รอชำระเงิน: {stats.takeaway_waiting_payment}
+                                </Tag>
+                            ) : null}
+                            <Button
+                                icon={<ReloadOutlined />}
+                                onClick={handleManualRefresh}
+                                loading={isLoading || isFetching}
+                                style={{ borderRadius: 10 }}
+                            />
+                            {canCreateOrder && (
+                                <Space size={8} wrap>
+                                    <Button
+                                        icon={<QrcodeOutlined />}
+                                        onClick={() => void handleOpenQrModal()}
+                                        style={{ borderRadius: 12, fontWeight: 700 }}
+                                    >
+                                        {TAKEAWAY_QR_UI.label}
+                                    </Button>
                                 <Button
-                                    size="middle"
-                                    icon={<ReloadOutlined spin={isRefreshing} />}
-                                    onClick={handleRefresh}
-                                    loading={isRefreshing}
-                                    style={{ borderRadius: 8 }}
-                                />
-                                <Button 
-                                    type="primary" 
-                                    size="middle"
-                                    icon={<PlusOutlined />} 
-                                    onClick={handleCreateOrder} 
-                                    disabled={!canCreateOrder}
-                                    className="add-button-hover"
-                                    style={{ borderRadius: 8, fontWeight: 600 }}
+                                    type="primary"
+                                    icon={<PlusOutlined />}
+                                    onClick={handleOpenCreate}
+                                    style={{
+                                        borderRadius: 12,
+                                        fontWeight: 700,
+                                        background: "linear-gradient(135deg, #7C3AED 0%, #6D28D9 100%)",
+                                        border: "none"
+                                    }}
                                 >
                                     เพิ่มออเดอร์
                                 </Button>
-                            </Space>
-                        </div>
+                                </Space>
+                            )}
+                        </Space>
                     }
                 />
 
-                <PageContainer>
-                    <PageStack>
-                        <SearchBar>
-                            <SearchInput
-                                placeholder="ค้นหา"
-                                value={searchText}
-                                onChange={setSearchText}
-                            />
-                            <Space wrap size={10}>
-                                <ModalSelector
-                                    title="เลือกสถานะ"
-                                    options={[
-                                        { label: "กำลังดำเนินการ", value: "active" },
-                                        { label: "รอส่ง", value: "waiting_payment" },
-                                        { label: "ทั้งหมด", value: "all" },
-                                    ]}
-                                    value={filters.status}
-                                    onChange={(val) => updateFilter('status', val)}
-                                    style={{ minWidth: 150 }}
+                <PageContainer style={{ flex: 1, width: '100%', maxWidth: '100%' }}>
+                    <PageStack gap={20} style={{ width: '100%' }}>
+                        {/* ── Search + Filters ── */}
+                        <div style={{ width: '100%', maxWidth: 1200, margin: '0 auto' }}>
+                            <SearchBar>
+                                <SearchInput
+                                    placeholder="ค้นหา"
+                                    value={searchText}
+                                    onChange={(val) => setSearchText(val)}
                                 />
-                                <ModalSelector
-                                    title="การเรียงลำดับ"
-                                    options={[
-                                        { label: "สั่งก่อน", value: "old" },
-                                        { label: "สั่งล่าสุด", value: "new" },
-                                    ]}
-                                    value={createdSort}
-                                    onChange={setCreatedSort}
-                                    style={{ minWidth: 150 }}
-                                />
-                            </Space>
-                        </SearchBar>
+                                <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
+                                    <Space wrap size={10}>
+                                        <ModalSelector<TakeawayListStatusFilter>
+                                            title="เลือกสถานะออเดอร์"
+                                            options={[
+                                                { label: "รายการที่ยังเปิดอยู่", value: "all" },
+                                                { label: "กำลังดำเนินการ", value: "active" },
+                                                { label: "รอชำระเงิน", value: "waiting_payment" },
+                                            ]}
+                                            value={filters.status as TakeawayListStatusFilter}
+                                            onChange={(v) => updateFilter("status", v)}
+                                            style={{ minWidth: 140 }}
+                                        />
+                                        <ModalSelector<CreatedSort>
+                                            title="เรียงลำดับตาม"
+                                            options={[
+                                                { label: "สั่งก่อน", value: "old" },
+                                                { label: "สั่งล่าสุด", value: "new" },
+                                            ]}
+                                            value={createdSort}
+                                            onChange={(v) => setCreatedSort(v)}
+                                            style={{ minWidth: 140 }}
+                                        />
+                                    </Space>
+                                </Space>
+                            </SearchBar>
+                        </div>
 
-                        <PageSection 
-                            title="ออเดอร์" 
-                            extra={<span style={{ fontWeight: 600 }}>{total} รายการ</span>}
-                        >
-                        {orders.length > 0 ? (
-                            <Space direction="vertical" size={24} style={{ width: '100%' }}>
-                                <Row gutter={[16, 16]}>
-                                    {orders.map((order: SalesOrderSummary, index) => {
-                                        const colorScheme = getOrderColorScheme(order);
-                                        const colors = getCardColors(order, colorScheme);
-                                        const orderNum = order.order_no.split('-').pop();
-
-                                        return (
-                                            <Col xs={24} sm={12} md={8} lg={6} xl={6} key={order.id} className="takeaway-order-col-mobile">
-                                                <article
-                                                    className={`order-card-hover takeaway-order-card table-card-animate table-card-delay-${(index % 6) + 1}`}
-                                                    style={{
-                                                        ...channelPageStyles.orderCard,
-                                                        border: `1.5px solid ${colors.border}`,
-                                                    }}
-                                                    onClick={() => handleOrderClick(order)}
-                                                    onKeyDown={(e) => {
-                                                        if (e.key === 'Enter' || e.key === ' ') {
-                                                            e.preventDefault();
-                                                            handleOrderClick(order);
-                                                        }
-                                                    }}
-                                                    role="button"
-                                                    tabIndex={0}
-                                                    aria-label={`ออเดอร์ #${orderNum} - ${formatOrderStatus(order.status)}`}
-                                                >
-                                                    {/* Card Header */}
-                                                    <div style={{
-                                                        ...channelPageStyles.orderCardHeader,
-                                                        background: colors.light,
-                                                    }}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                            <div style={{
-                                                                width: 36,
-                                                                height: 36,
-                                                                borderRadius: 10,
-                                                                background: `${colors.primary}20`,
-                                                                display: 'flex',
-                                                                alignItems: 'center',
-                                                                justifyContent: 'center',
-                                                            }}>
-                                                                <ShoppingOutlined style={{ color: colors.primary, fontSize: 18 }} />
-                                                            </div>
-                                                            <Text strong style={{ fontSize: 17, color: '#1E293B' }}>#{orderNum}</Text>
-                                                        </div>
-                                                        <Tag
-                                                            color={getStatusColor(order, colorScheme)}
-                                                            style={{ 
-                                                                borderRadius: 8, 
-                                                                margin: 0, 
-                                                                fontWeight: 700, 
-                                                                border: 'none', 
-                                                                padding: '4px 12px', 
-                                                                fontSize: 13,
-                                                                whiteSpace: 'nowrap'
-                                                            }}
-                                                        >
-                                                            {formatOrderStatus(order.status)}
-                                                        </Tag>
+                        {/* ── Order List Section ── */}
+                        <div style={{ width: '100%', maxWidth: 1200, margin: '0 auto' }}>
+                            <PageSection
+                                title="รายการออเดอร์"
+                                style={{ width: '100%', overflow: 'hidden' }}
+                                extra={
+                                    <Space size={8} wrap>
+                                        {isFetching && !isLoading ? <Tag color="processing">กำลังอัปเดต...</Tag> : null}
+                                        <Typography.Text strong style={{ color: token.colorText }}>
+                                            {total} รายการ
+                                        </Typography.Text>
+                                    </Space>
+                                }
+                            >
+                                <div style={{ width: '100%', overflow: 'hidden' }}>
+                                    <Space direction="vertical" size={20} style={{ width: '100%' }}>
+                                        {error ? (
+                                            <PageState status="error" title="โหลดออเดอร์ไม่สำเร็จ" error={error} onRetry={() => void refresh(false)} />
+                                        ) : isLoading ? (
+                                            <div style={{ display: "grid", gridTemplateColumns: gridColumns, gap: isMobile ? 12 : 16, width: '100%' }}>
+                                                {[1, 2, 3, 4, 5, 6].map((i) => (
+                                                    <div key={i} style={{ background: "#fff", borderRadius: 18, padding: 24, border: `1px solid ${token.colorBorderSecondary}` }}>
+                                                        <Skeleton active paragraph={{ rows: 3 }} />
                                                     </div>
-
-                                                    {/* Card Content */}
-                                                    <div style={channelPageStyles.orderCardContent}>
-                                                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
-                                                            <div>
-                                                                <Text type="secondary" style={{ fontSize: 16, display: 'block', marginBottom: 4 }}>รายการสินค้า</Text>
-                                                                <Text strong style={{ fontSize: 16 }}>{order.items_count || 0} รายการ</Text>
-                                                            </div>
-                                                            <div style={{ textAlign: 'right', marginLeft: 'auto' }}>
-                                                                <Text type="secondary" style={{ fontSize: 16, display: 'block', marginBottom: 4 }}>ยอดรวม</Text>
-                                                                <Text strong style={{ fontSize: 20, color: colors.primary }}>฿{order.total_amount?.toLocaleString()}</Text>
-                                                            </div>
-                                                        </div>
+                                                ))}
+                                            </div>
+                                        ) : visibleOrders.length === 0 ? (
+                                            <UIEmptyState
+                                                title={debouncedSearch.trim() ? "ไม่พบออเดอร์ที่ค้นหา" : "ยังไม่มีออเดอร์สั่งกลับบ้าน"}
+                                                description={debouncedSearch.trim() ? "ลองใช้คำค้นหาอื่น หรือเปลี่ยนตัวกรอง" : "เริ่มสร้างออเดอร์ใหม่โดยกดปุ่ม \"เพิ่มออเดอร์\" ด้านบน"}
+                                            />
+                                        ) : (
+                                            <div style={{ display: "grid", gridTemplateColumns: gridColumns, gap: isMobile ? 12 : 16, width: '100%' }}>
+                                                {visibleOrders.map((order, i) => (
+                                                    <div key={order.id} className="takeaway-card-animate" style={{ animationDelay: `${Math.min(i * 0.04, 0.4)}s`, minWidth: 0 }}>
+                                                        <OrderCard
+                                                            order={order as SalesOrderSummary}
+                                                            onClick={() => router.push(getOrderNavigationPath(order as SalesOrderSummary))}
+                                                            isMobile={isMobile}
+                                                        />
                                                     </div>
+                                                ))}
+                                            </div>
+                                        )}
 
-                                                    {/* Card Footer */}
-                                                    <div style={channelPageStyles.orderCardFooter}>
-                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                                                            {(() => {
-                                                                const createdDate = dayjs(order.create_date);
-                                                                const diffMinutes = dayjs().diff(createdDate, 'minute');
-                                                                
-                                                                let durationColor = '#94A3B8'; // Default grey
-                                                                if (diffMinutes <= 7) durationColor = '#22C55E';      // Green
-                                                                else if (diffMinutes <= 14) durationColor = '#F59E0B'; // Orange
-                                                                else durationColor = '#EF4444';                       // Red
-
-                                                                return (
-                                                                    <>
-                                                                        <ClockCircleOutlined style={{ fontSize: 14, color: durationColor }} />
-                                                                        <Text style={{ fontSize: 14, color: durationColor, fontWeight: 500 }}>
-                                                                            {createdDate.fromNow()}
-                                                                        </Text>
-                                                                    </>
-                                                                );
-                                                            })()}
-                                                        </div>
-                                                    </div>
-                                                </article>
-                                            </Col>
-                                        );
-                                    })}
-                                </Row>
-
-                                <div style={{ marginTop: 12 }}>
-                                    <ListPagination
-                                        page={page}
-                                        total={total}
-                                        pageSize={pageSize}
-                                        onPageChange={setPage}
-                                        onPageSizeChange={setPageSize}
-                                        activeColor={channelColors.takeaway.primary}
-                                    />
+                                        {/* Pagination */}
+                                        {total > 0 && (
+                                            <div style={{
+                                                marginTop: 8,
+                                                paddingTop: 16,
+                                                borderTop: `1px solid ${token.colorBorderSecondary}`,
+                                                width: '100%'
+                                            }}>
+                                                <ListPagination
+                                                    page={page}
+                                                    total={total}
+                                                    pageSize={pageSize}
+                                                    loading={isLoading || isFetching}
+                                                    onPageChange={setPage}
+                                                    onPageSizeChange={setPageSize}
+                                                    activeColor="#7C3AED"
+                                                />
+                                            </div>
+                                        )}
+                                    </Space>
                                 </div>
-                            </Space>
-                        ) : (
-                            <UIEmptyState
-                                title={debouncedSearch.trim() ? "ไม่พบออเดอร์ตามคำค้น" : "ไม่มีออเดอร์ในขณะนี้"}
-                                description={debouncedSearch.trim() ? "ลองเปลี่ยนคำค้น หรือตัวกรองสถานะ" : "เริ่มรับออเดอร์สั่งกลับบ้านโดยกดปุ่ม “เพิ่มออเดอร์”"}
-                            />
-                        )}
-                        </PageSection>
+                            </PageSection>
+                        </div>
                     </PageStack>
                 </PageContainer>
+
+                <Modal
+                    title={<div style={{ textAlign: 'center', width: '100%', paddingRight: 32 }}>{TAKEAWAY_QR_UI.label}</div>}
+                    open={isQrModalOpen}
+                    onCancel={() => setIsQrModalOpen(false)}
+                    footer={
+                        <Space wrap style={{ width: '100%', justifyContent: 'center' }}>
+                            <Button icon={<SyncOutlined spin={isQrRefreshing} />} onClick={() => void handleRefreshQr()} loading={isQrRefreshing} disabled={isQrLoading}>
+                                {TAKEAWAY_QR_UI.refreshLabel}
+                            </Button>
+                            <Button icon={<DownloadOutlined />} onClick={() => void handleOpenExportModal()} disabled={!customerUrl}>
+                                {TAKEAWAY_QR_UI.exportLabel}
+                            </Button>
+                            <Button icon={<CopyOutlined />} onClick={() => void handleCopyQrLink()} disabled={!customerUrl}>
+                                {TAKEAWAY_QR_UI.copyLinkLabel}
+                            </Button>
+                            <Button icon={<LinkOutlined />} onClick={handleOpenCustomerPage} disabled={!customerUrl}>
+                                {TAKEAWAY_QR_UI.openPageLabel}
+                            </Button>
+                        </Space>
+                    }
+                    centered
+                    destroyOnClose={false}
+                >
+                    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                        <div
+                            style={{
+                                background: "#fff",
+                                padding: 20,
+                                borderRadius: 18,
+                                border: "1px solid #E2E8F0",
+                                minHeight: 300,
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "center",
+                            }}
+                        >
+                            {isQrLoading ? (
+                                <Skeleton active paragraph={{ rows: 6 }} style={{ width: "100%" }} />
+                            ) : customerUrl ? (
+                                <DynamicQRCode key={takeawayQrRenderKey} value={customerUrl} size={260} />
+                            ) : (
+                                <Text type="secondary">ยังไม่สามารถสร้าง QR ได้</Text>
+                            )}
+                        </div>
+                        {customerUrl ? (
+                            <Text style={{ wordBreak: "break-all" }}>
+                                {customerUrl}
+                            </Text>
+                        ) : null}
+                    </div>
+                </Modal>
+                <Modal
+                    title={TAKEAWAY_QR_UI.exportLabel}
+                    open={isExportModalOpen}
+                    onCancel={() => setIsExportModalOpen(false)}
+                    onOk={() => {
+                        void handleConfirmExport();
+                    }}
+                    okText="พิมพ์"
+                    cancelText="ยกเลิก"
+                    confirmLoading={isExportingQr}
+                    destroyOnClose
+                >
+                    <Space direction="vertical" size={14} style={{ width: "100%" }}>
+
+                        <Radio.Group
+                            value={exportFormat}
+                            onChange={(event) => setExportFormat(event.target.value as ExportFormat)}
+                            style={{ width: "100%" }}
+                        >
+                            {false && <Space direction="vertical" size={10} style={{ width: "100%" }}>
+                                <Radio value="pdf">PDF</Radio>
+                                <Radio value="png">PNG</Radio>
+                            </Space>}
+                            <Space direction="vertical" size={10} style={{ width: "100%" }}>
+                                <Radio value="receipt">สำหรับเครื่องพิมพ์ใบเสร็จ</Radio>
+                                <Radio value="a4">สำหรับเครื่องพิมพ์ปกติ</Radio>
+                                <Radio value="png">PNG</Radio>
+                            </Space>
+                        </Radio.Group>
+                    </Space>
+                </Modal>
+                {customerUrl ? (
+                    <div style={{ display: "none" }}>
+                        <DynamicQRCodeCanvas
+                            key={takeawayQrRenderKey}
+                            id={TAKEAWAY_EXPORT_CANVAS_ID}
+                            value={customerUrl}
+                            size={EXPORT_QR_CANVAS_SIZE}
+                            marginSize={0}
+                        />
+                    </div>
+                ) : null}
             </div>
-        </>
+        </React.Fragment>
     );
 }

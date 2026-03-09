@@ -13,6 +13,7 @@ const config: Config = {
     testPathIgnorePatterns: [
         '<rootDir>/tests/e2e/',
         '<rootDir>/tests/e2e-api/',
+        '<rootDir>/tests/uat/',
     ],
     // Add more setup options before each test is run
     setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],

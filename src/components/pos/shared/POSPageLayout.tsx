@@ -1,15 +1,16 @@
 "use client";
 
-import React, { useCallback, useMemo, useState } from "react";
-import { Typography, Button, Spin, Badge, message, Pagination } from "antd";
+import React, { useCallback, useMemo, useState, useTransition } from "react";
+import { Typography, Button, Spin, Badge, message, Pagination, InputRef } from "antd";
 import { 
   ShoppingCartOutlined
 } from "@ant-design/icons";
-import { useRouter } from "next/navigation";
-import { useCart, CartItem } from "../../../contexts/pos/CartContext";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useGlobalLoading } from "../../../contexts/pos/GlobalLoadingContext";
+import { usePOSHotkeys } from "../../../hooks/pos/usePOSHotkeys";
 import { useProducts } from "../../../hooks/pos/useProducts";
 import { useCategories } from "../../../hooks/pos/useCategories";
+import { CartItem, useCartStore } from "../../../store/useCartStore";
 import { Products } from "../../../types/api/pos/products";
 import { 
   posLayoutStyles, 
@@ -48,27 +49,71 @@ export default function POSPageLayout({
 }: POSPageLayoutProps) {
   const { isLoading: isGlobalLoading } = useGlobalLoading();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [page, setPage] = useState(1);
+  const [isFilterPending, startFilterTransition] = useTransition();
+  const searchInputRef = React.useRef<InputRef>(null);
   const LIMIT = 20;
   
-  // Category State
-  const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
+  // The URL is the durable source of truth so refresh/back keeps the current filters.
+  const selectedCategory = searchParams.get("category") || undefined;
+  const searchQueryFromUrl = searchParams.get("search") || "";
   const { data: categories = [] } = useCategories();
 
-  // Search State
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedQuery, setDebouncedQuery] = useState("");
+  // Keep a local draft for the input so typing stays responsive while URL updates are debounced.
+  const [searchQuery, setSearchQuery] = useState(searchQueryFromUrl);
   const deferredSearchQuery = React.useDeferredValue(searchQuery);
 
   React.useEffect(() => {
+    setSearchQuery(searchQueryFromUrl);
+  }, [searchQueryFromUrl]);
+
+  React.useEffect(() => {
+    setPage(1);
+  }, [searchQueryFromUrl, selectedCategory]);
+
+  const updateFilterParams = useCallback(
+    (mutateParams: (params: URLSearchParams) => void) => {
+      const nextParams = new URLSearchParams(searchParams.toString());
+      mutateParams(nextParams);
+
+      const nextQuery = nextParams.toString();
+      const nextUrl = nextQuery ? `${pathname}?${nextQuery}` : pathname;
+      const currentQuery = searchParams.toString();
+      const currentUrl = currentQuery ? `${pathname}?${currentQuery}` : pathname;
+
+      if (nextUrl !== currentUrl) {
+        router.replace(nextUrl, { scroll: false });
+      }
+    },
+    [pathname, router, searchParams]
+  );
+
+  React.useEffect(() => {
+    const trimmedSearch = deferredSearchQuery.trim();
+
+    if (trimmedSearch === searchQueryFromUrl) {
+      return;
+    }
+
     const handle = window.setTimeout(() => {
-      setDebouncedQuery(deferredSearchQuery.trim());
+      startFilterTransition(() => {
+        updateFilterParams((params) => {
+          if (trimmedSearch) {
+            params.set("search", trimmedSearch);
+          } else {
+            params.delete("search");
+          }
+        });
+        setPage(1);
+      });
     }, 250);
 
     return () => {
       window.clearTimeout(handle);
     };
-  }, [deferredSearchQuery]);
+  }, [deferredSearchQuery, searchQueryFromUrl, startFilterTransition, updateFilterParams]);
 
   const {
     products,
@@ -76,7 +121,7 @@ export default function POSPageLayout({
     isError: productsError,
     mutate: refetchProducts,
     total,
-  } = useProducts(page, LIMIT, selectedCategory, debouncedQuery);
+  } = useProducts(page, LIMIT, selectedCategory, searchQueryFromUrl);
 
   // UI State
   const [cartVisible, setCartVisible] = useState(false);
@@ -85,26 +130,17 @@ export default function POSPageLayout({
   const [isProductModalVisible, setIsProductModalVisible] = useState(false);
   const [selectedProduct, setSelectedProduct] = useState<Products | null>(null);
 
-  // Context State
-  const { 
-    cartItems, 
-    addToCart, 
-    removeFromCart, 
-    updateQuantity, 
-    updateItemNote,
-    clearCart,
-    updateItemDetails,
-    orderMode,
-    getTotalItems,
-    getSubtotal,
-    getDiscountAmount,
-    getFinalPrice,
-  } = useCart();
-
-  const totalItems = getTotalItems();
-  const subtotal = getSubtotal();
-  const discountAmount = getDiscountAmount();
-  const finalPrice = getFinalPrice();
+  const cartItems = useCartStore((state) => state.cartItems);
+  const orderMode = useCartStore((state) => state.orderMode);
+  const addToCart = useCartStore((state) => state.addToCart);
+  const removeFromCart = useCartStore((state) => state.removeFromCart);
+  const updateItemNote = useCartStore((state) => state.updateItemNote);
+  const clearCart = useCartStore((state) => state.clearCart);
+  const updateItemDetails = useCartStore((state) => state.updateItemDetails);
+  const totalItems = useCartStore((state) => state.getTotalItems());
+  const subtotal = useCartStore((state) => state.getSubtotal());
+  const discountAmount = useCartStore((state) => state.getDiscountAmount());
+  const finalPrice = useCartStore((state) => state.getFinalPrice());
 
   const getProductUnitPrice = useCallback(
     (product: Products): number => {
@@ -160,7 +196,7 @@ export default function POSPageLayout({
 
   const handleAddToCart = useCallback((product: Products) => {
     const cartItemId = addToCart(product);
-    const productName = product.display_name || product.product_name || "สินค้า";
+    const productName = product.display_name || "สินค้า";
     message.open({
       type: "success",
       content: (
@@ -205,6 +241,41 @@ export default function POSPageLayout({
     setCurrentDetailItem(null);
   }, []);
 
+  const handleCloseTopLayer = useCallback(() => {
+    // Close the top-most layer first so Esc feels predictable when several overlays can be open.
+    if (isNoteModalVisible) {
+      closeNoteModal();
+      return true;
+    }
+    if (isDetailModalVisible) {
+      closeDetailModal();
+      return true;
+    }
+    if (isProductModalVisible) {
+      closeProductModal();
+      return true;
+    }
+    if (checkoutVisible) {
+      setCheckoutVisible(false);
+      return true;
+    }
+    if (cartVisible) {
+      setCartVisible(false);
+      return true;
+    }
+
+    return false;
+  }, [
+    cartVisible,
+    checkoutVisible,
+    closeDetailModal,
+    closeNoteModal,
+    closeProductModal,
+    isDetailModalVisible,
+    isNoteModalVisible,
+    isProductModalVisible,
+  ]);
+
   const handleSaveDetails = useCallback(
     (details: { detail_name: string; extra_price: number }[]) => {
       if (currentDetailItem) {
@@ -219,6 +290,8 @@ export default function POSPageLayout({
       message.warning("กรุณาเพิ่มสินค้าลงตะกร้าก่อน");
       return;
     }
+    // Checkout is rendered from the cart area, so the shortcut opens both layers together.
+    setCartVisible(true);
     setCheckoutVisible(true);
   }, [cartItems.length]);
 
@@ -250,15 +323,12 @@ export default function POSPageLayout({
   const renderCartItem = useCallback(
     (item: CartItem) => (
       <CartItemRow
-        item={item}
-        getProductUnitPrice={getProductUnitPrice}
-        onUpdateQuantity={updateQuantity}
-        onRemove={removeFromCart}
+        cartItemId={item.cart_item_id}
         onOpenNote={openNoteModal}
         onOpenDetail={openDetailModal}
       />
     ),
-    [getProductUnitPrice, updateQuantity, removeFromCart, openNoteModal, openDetailModal]
+    [openNoteModal, openDetailModal]
   );
 
   const handleBack = useCallback(() => {
@@ -267,12 +337,32 @@ export default function POSPageLayout({
 
   const handleClearSearch = useCallback(() => {
     setSearchQuery("");
-    setPage(1);
-  }, []);
+    startFilterTransition(() => {
+      updateFilterParams((params) => {
+        params.delete("search");
+      });
+      setPage(1);
+    });
+  }, [startFilterTransition, updateFilterParams]);
 
   const handleGoManageProducts = useCallback(() => {
     router.push("/pos/products");
   }, [router]);
+
+  const handleFocusSearch = useCallback(() => {
+    searchInputRef.current?.focus({
+      cursor: "all",
+    });
+  }, []);
+
+  usePOSHotkeys({
+    onCheckout: handleCheckout,
+    onFocusSearch: handleFocusSearch,
+    onCloseTopLayer: handleCloseTopLayer,
+    onOpenCart: () => setCartVisible(true),
+    // Leave destructive shortcuts off by default. Flip this to true if the cashier team wants it.
+    allowClearCartShortcut: false,
+  });
 
   return (
     <>
@@ -290,18 +380,36 @@ export default function POSPageLayout({
           categories={categories}
           searchQuery={searchQuery}
           selectedCategory={selectedCategory}
+          isPending={isFilterPending}
+          searchInputRef={searchInputRef}
           onSearchChange={(value) => {
             setSearchQuery(value);
-            setPage(1);
           }}
           onSelectCategory={(categoryId) => {
-            setSelectedCategory(categoryId);
-            setPage(1);
+            startFilterTransition(() => {
+              updateFilterParams((params) => {
+                if (categoryId) {
+                  params.set("category", categoryId);
+                } else {
+                  params.delete("category");
+                }
+              });
+              setPage(1);
+            });
           }}
         />
 
         {/* Content */}
-        <main style={posLayoutStyles.content} className="pos-content-mobile" role="main">
+        <main
+          style={{
+            ...posLayoutStyles.content,
+            opacity: isFilterPending ? 0.78 : 1,
+            transition: "opacity 0.18s ease",
+          }}
+          className="pos-content-mobile"
+          role="main"
+          aria-busy={isFilterPending}
+        >
           {isLoading && !isGlobalLoading ? (
             <div style={posLayoutStyles.loadingContainer}>
               <Spin size="large" />
@@ -347,9 +455,9 @@ export default function POSPageLayout({
                 />
               </div>
             </>
-                    ) : (
+          ) : (
             <POSProductsEmptyState
-              query={debouncedQuery}
+              query={searchQueryFromUrl}
               onClearSearch={handleClearSearch}
               onGoManageProducts={handleGoManageProducts}
             />
@@ -424,10 +532,3 @@ export default function POSPageLayout({
     </>
   );
 }
-
-
-
-
-
-
-

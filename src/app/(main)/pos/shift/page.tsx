@@ -1,30 +1,33 @@
-﻿'use client';
+'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Typography, Card, Button, Tag, Spin, Space } from 'antd';
+import { useQuery } from '@tanstack/react-query';
+import { Alert, Button, Card, Col, Grid, Row, Space, Spin, Typography } from 'antd';
 import {
     ClockCircleOutlined,
     PlayCircleOutlined,
     StopOutlined,
     RiseOutlined,
-    SafetyCertificateOutlined,
     HistoryOutlined,
     ReloadOutlined,
     WalletOutlined,
-    ShoppingOutlined
+    ShoppingOutlined,
+    SafetyCertificateOutlined,
 } from '@ant-design/icons';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import 'dayjs/locale/th';
+
 import { useSocket } from '../../../../hooks/useSocket';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { useRoleGuard } from '../../../../utils/pos/accessControl';
 import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissions';
+import { useShift } from '../../../../contexts/pos/ShiftContext';
 import { shiftsService } from '../../../../services/pos/shifts.service';
-import { Shift, ShiftSummary } from '../../../../types/api/pos/shifts';
+import { ShiftSummary } from '../../../../types/api/pos/shifts';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
+import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 import OpenShiftModal from '../../../../components/pos/shifts/OpenShiftModal';
 import CloseShiftModal from '../../../../components/pos/shifts/CloseShiftModal';
@@ -32,63 +35,47 @@ import PageContainer from '../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../components/ui/page/PageSection';
 import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
-import UIEmptyState from '../../../../components/ui/states/EmptyState';
 import PageState from '../../../../components/ui/states/PageState';
 import { pageStyles, globalStyles } from '../../../../theme/pos/shift/style';
-import { useSearchParams } from 'next/navigation';
+
+const { Text, Title } = Typography;
 
 dayjs.extend(duration);
 dayjs.locale('th');
 
-const { Title, Text } = Typography;
-
 const toNumber = (value: number | string | undefined | null) => Number(value || 0);
+
+const formatMoney = (value: number | string | undefined | null) =>
+    `฿${toNumber(value).toLocaleString('th-TH')}`;
 
 export default function ShiftPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
-    const queryClient = useQueryClient();
     const { user } = useAuth();
-    const { socket } = useSocket();
+    const { socket, isConnected } = useSocket();
     const { isAuthorized, isChecking } = useRoleGuard();
-    const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const { can, loading: permissionLoading } = useEffectivePermissions({
+        enabled: Boolean(user?.id),
+    });
+    const { currentShift, loading: shiftLoading, refreshShift } = useShift();
+    const screens = Grid.useBreakpoint();
+    const isMobile = !screens.md;
+
     const canCreateShifts = can('shifts.page', 'create');
     const canUpdateShifts = can('shifts.page', 'update');
+    const redirectAfterOpen = searchParams.get('redirect') || '';
+    const openShiftRequested = searchParams.get('openShift') === '1';
 
     const [openShiftVisible, setOpenShiftVisible] = useState(false);
     const [closeShiftVisible, setCloseShiftVisible] = useState(false);
-    const redirectAfterOpen = searchParams.get("redirect") || "";
-    const openShiftRequested = searchParams.get("openShift") === "1";
 
-    const {
-        data: currentShift = null,
-        isLoading: isShiftLoading,
-        isError: isShiftError,
-        error: shiftError,
-        refetch: refetchCurrentShift,
-    } = useQuery<Shift | null>({
-        queryKey: ['shiftCurrent'],
-        queryFn: async () => shiftsService.getCurrentShift(),
-        staleTime: 2000,
-    });
-
-    const {
-        data: currentSummary,
-        isLoading: isSummaryLoading,
-        isError: isSummaryError,
-        error: summaryError,
-        refetch: refetchCurrentSummary,
-    } = useQuery<ShiftSummary | null>({
+    const summaryQuery = useQuery<ShiftSummary | null>({
         queryKey: ['shiftSummary', currentShift?.id || 'none'],
-        queryFn: async () => {
-            const result = await shiftsService.getCurrentSummary();
-            return result as ShiftSummary;
-        },
-        enabled: Boolean(currentShift),
-        staleTime: 2000,
+        queryFn: async () => (await shiftsService.getCurrentSummary()) as ShiftSummary,
+        enabled: Boolean(currentShift) && isAuthorized,
+        staleTime: 5_000,
+        refetchOnWindowFocus: false,
     });
-
-    const isLoading = isShiftLoading || (Boolean(currentShift) && isSummaryLoading);
 
     const canCloseShift = !!currentShift && !!user && (
         canUpdateShifts ||
@@ -102,40 +89,41 @@ export default function ShiftPage() {
         }
     }, [canCreateShifts, openShiftVisible]);
 
-    // If the user was redirected here by the middleware shift-guard, auto-open the shift modal.
     useEffect(() => {
-        if (!openShiftRequested) return;
-        if (isShiftLoading) return;
-        if (currentShift) return;
-        if (!canCreateShifts) return;
+        if (!isAuthorized || !openShiftRequested || shiftLoading) return;
+        if (currentShift || !canCreateShifts) return;
         setOpenShiftVisible(true);
-    }, [openShiftRequested, isShiftLoading, currentShift, canCreateShifts]);
+    }, [canCreateShifts, currentShift, isAuthorized, openShiftRequested, shiftLoading]);
 
-    // After opening shift, send user back to the originally requested page.
     useEffect(() => {
-        if (!redirectAfterOpen) return;
-        if (!currentShift) return;
-        if (!redirectAfterOpen.startsWith("/")) return;
+        if (!redirectAfterOpen || !currentShift) return;
+        if (!redirectAfterOpen.startsWith('/')) return;
         router.replace(redirectAfterOpen);
-    }, [redirectAfterOpen, currentShift, router]);
+    }, [currentShift, redirectAfterOpen, router]);
 
-    useEffect(() => {
-        if (!socket) return;
-        const handleShiftUpdate = () => {
-            queryClient.invalidateQueries({ queryKey: ['shiftCurrent'] });
-            queryClient.invalidateQueries({ queryKey: ['shiftSummary'] });
-        };
-
-        socket.on(RealtimeEvents.shifts.update, handleShiftUpdate);
-        return () => {
-            socket.off(RealtimeEvents.shifts.update, handleShiftUpdate);
-        };
-    }, [socket, queryClient]);
+    useRealtimeRefresh({
+        socket,
+        enabled: isAuthorized && Boolean(currentShift),
+        events: [
+            RealtimeEvents.shifts.update,
+            RealtimeEvents.orders.create,
+            RealtimeEvents.orders.update,
+            RealtimeEvents.payments.create,
+            RealtimeEvents.payments.update,
+            RealtimeEvents.payments.delete,
+        ],
+        debounceMs: 700,
+        intervalMs: isConnected ? undefined : 20000,
+        onRefresh: () => {
+            void refreshShift({ silent: true });
+            void summaryQuery.refetch();
+        },
+    });
 
     const handleRefresh = async () => {
-        await refetchCurrentShift();
+        await refreshShift();
         if (currentShift) {
-            await refetchCurrentSummary();
+            await summaryQuery.refetch();
         }
     };
 
@@ -147,15 +135,19 @@ export default function ShiftPage() {
         return `${hours} ชม. ${minutes} นาที`;
     }, [currentShift]);
 
-    const summary = currentShift ? currentSummary : null;
+    const summary = currentShift ? summaryQuery.data : null;
     const totalSales = toNumber(summary?.summary?.total_sales);
+    const totalCost = toNumber(summary?.summary?.total_cost);
     const netProfit = toNumber(summary?.summary?.net_profit);
     const startAmount = toNumber(summary?.shift_info?.start_amount ?? currentShift?.start_amount);
-    const endAmount = toNumber(summary?.shift_info?.end_amount ?? currentShift?.end_amount);
-    const expectedAmount = toNumber(summary?.shift_info?.expected_amount ?? currentShift?.expected_amount);
-    const diffAmount = toNumber(summary?.shift_info?.diff_amount ?? currentShift?.diff_amount);
-
+    const endAmount = summary?.shift_info?.end_amount ?? currentShift?.end_amount;
+    const expectedAmount = summary?.shift_info?.expected_amount ?? currentShift?.expected_amount;
+    const diffAmount = summary?.shift_info?.diff_amount ?? currentShift?.diff_amount;
+    const grossProfitMargin = toNumber(summary?.summary?.gross_profit_margin);
     const paymentMethods = summary?.summary?.payment_methods || {};
+    const topProducts = summary?.top_products || [];
+    const orderTypes = summary?.summary?.order_types || {};
+
     const cashSales = Object.entries(paymentMethods).reduce((total, [key, value]) => {
         const normalized = key.toLowerCase();
         if (normalized.includes('cash') || key.includes('เงินสด')) {
@@ -164,9 +156,66 @@ export default function ShiftPage() {
         return total;
     }, 0);
 
-    const cashInDrawer = toNumber(summary?.shift_info?.expected_amount ?? (startAmount + cashSales));
+    const drawerCash = toNumber(summary?.shift_info?.expected_amount ?? startAmount + cashSales);
 
-    if (isChecking) {
+    const metricCards = [
+        {
+            key: 'sales',
+            icon: <RiseOutlined />,
+            label: 'ยอดขายรวม',
+            value: formatMoney(totalSales),
+            hint: `${Object.keys(paymentMethods).length || 0} วิธีชำระเงิน`,
+            color: '#0f766e',
+            bg: '#ecfdf5',
+        },
+        {
+            key: 'cost',
+            icon: <ShoppingOutlined />,
+            label: 'ต้นทุนรวม',
+            value: formatMoney(totalCost),
+            hint: `กำไรขั้นต้น ${grossProfitMargin.toLocaleString('th-TH')}%`,
+            color: '#0369a1',
+            bg: '#eff6ff',
+        },
+        {
+            key: 'profit',
+            icon: <ShoppingOutlined />,
+            label: 'กำไรสุทธิ',
+            value: formatMoney(netProfit),
+            hint: topProducts[0] ? `ขายดี: ${topProducts[0].name}` : 'ยังไม่มีข้อมูลสินค้าเด่น',
+            color: '#7c3aed',
+            bg: '#f5f3ff',
+        },
+        {
+            key: 'start',
+            icon: <WalletOutlined />,
+            label: 'เงินสดตั้งต้น',
+            value: formatMoney(startAmount),
+            hint: 'เงินตั้งต้นของกะ',
+            color: '#b45309',
+            bg: '#fffbeb',
+        },
+        {
+            key: 'drawer',
+            icon: <SafetyCertificateOutlined />,
+            label: 'เงินสดในลิ้นชัก',
+            value: formatMoney(drawerCash),
+            hint: 'คำนวณจากเงินสดตั้งต้น + เงินสดรับ',
+            color: '#1d4ed8',
+            bg: '#eff6ff',
+        },
+        {
+            key: 'diff',
+            icon: <SafetyCertificateOutlined />,
+            label: 'ผลต่างล่าสุด',
+            value: endAmount ? formatMoney(diffAmount) : '-',
+            hint: endAmount ? `ยอดนับจริง ${formatMoney(endAmount)}` : 'ยังไม่ได้นับเงินจริง',
+            color: toNumber(diffAmount) >= 0 ? '#059669' : '#dc2626',
+            bg: toNumber(diffAmount) >= 0 ? '#ecfdf5' : '#fef2f2',
+        },
+    ];
+
+    if (isChecking || permissionLoading) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
     }
 
@@ -174,31 +223,7 @@ export default function ShiftPage() {
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
     }
 
-    if (isShiftError) {
-        return (
-            <div style={pageStyles.container}>
-                <style>{globalStyles}</style>
-                <UIPageHeader
-                    title="กะการทำงาน"
-                    subtitle="โหลดข้อมูลกะไม่สำเร็จ"
-                    icon={<ClockCircleOutlined />}
-                    onBack={() => router.back()}
-                />
-                <PageContainer>
-                    <PageSection>
-                        <PageState
-                            status="error"
-                            title="โหลดข้อมูลกะไม่สำเร็จ"
-                            error={shiftError}
-                            onRetry={handleRefresh}
-                        />
-                    </PageSection>
-                </PageContainer>
-            </div>
-        );
-    }
-
-    if (isLoading) {
+    if (shiftLoading && !currentShift) {
         return (
             <div style={pageStyles.container}>
                 <style>{globalStyles}</style>
@@ -228,158 +253,191 @@ export default function ShiftPage() {
                 icon={<ClockCircleOutlined />}
                 onBack={() => router.back()}
                 actions={
-                    <Space size={10}>
-                        <Button icon={<ReloadOutlined />} onClick={handleRefresh} />
+                    <Space size={10} wrap>
+                        <Button icon={<ReloadOutlined />} onClick={() => void handleRefresh()} loading={shiftLoading || summaryQuery.isFetching} />
                         <Button icon={<HistoryOutlined />} onClick={() => router.push('/pos/shiftHistory')}>
-                            ประวัติกะ
+                            {!isMobile ? 'ประวัติกะ' : ''}
                         </Button>
                         {!currentShift && canCreateShifts ? (
                             <Button type="primary" icon={<PlayCircleOutlined />} onClick={() => setOpenShiftVisible(true)}>
-                                เปิดกะ
+                                {!isMobile ? 'เปิดกะ' : ''}
                             </Button>
                         ) : canCloseShift ? (
                             <Button danger icon={<StopOutlined />} onClick={() => setCloseShiftVisible(true)}>
-                                ปิดการขาย
+                                {!isMobile ? 'ปิดกะ' : ''}
                             </Button>
                         ) : null}
                     </Space>
                 }
             />
 
-            <PageContainer>
-                <PageStack>
+            <PageContainer maxWidth={1280}>
+                <PageStack gap={14}>
                     {!currentShift ? (
                         <PageSection>
-                            <UIEmptyState
-                                title="ยังไม่มีกะที่เปิดใช้งาน"
-                                description="กรุณาเปิดกะเพื่อเริ่มต้นการขายและบันทึกสรุปรายวัน"
-                            />
-                            {!canCreateShifts ? (
-                                <AlertBox text="คุณไม่มีสิทธิ์เปิดกะ" />
-                            ) : null}
+                            <div className="shift-empty-box">
+                                <div className="shift-empty-icon">
+                                    <ClockCircleOutlined />
+                                </div>
+                                <div className="shift-empty-title">ยังไม่มีกะที่เปิดใช้งาน</div>
+                                <div className="shift-empty-desc">
+                                    เปิดกะก่อนเริ่มรับออเดอร์เพื่อให้ระบบคำนวณยอดขายและสรุปเงินสดได้ถูกต้อง
+                                </div>
+                                {!canCreateShifts ? (
+                                    <Alert
+                                        type="warning"
+                                        showIcon
+                                        message="คุณไม่มีสิทธิ์เปิดกะ"
+                                        style={{ marginTop: 20, textAlign: 'left' }}
+                                    />
+                                ) : (
+                                    <Button
+                                        type="primary"
+                                        icon={<PlayCircleOutlined />}
+                                        size="large"
+                                        style={{ marginTop: 20, borderRadius: 14 }}
+                                        onClick={() => setOpenShiftVisible(true)}
+                                    >
+                                        เปิดกะตอนนี้
+                                    </Button>
+                                )}
+                            </div>
                         </PageSection>
                     ) : (
                         <>
-                            <PageSection title="สถานะกะปัจจุบัน">
-                                <div style={{
-                                    display: 'grid',
-                                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                                    gap: 12
-                                }}>
-                                    <Card size="small" style={{ borderRadius: 14 }}>
-                                        <Text type="secondary">สถานะ</Text>
-                                        <div style={{ marginTop: 6 }}>
-                                            <Tag color="success" style={{ borderRadius: 6 }}>เปิดกะอยู่</Tag>
-                                        </div>
-                                    </Card>
-
-                                    <Card size="small" style={{ borderRadius: 14 }}>
-                                        <Text type="secondary">ระยะเวลากะ</Text>
-                                        <Title level={5} style={{ margin: '6px 0 0' }}>{shiftDuration}</Title>
-                                    </Card>
-
-                                    <Card size="small" style={{ borderRadius: 14 }}>
-                                        <Text type="secondary">ผู้เปิดกะ</Text>
-                                        <Title level={5} style={{ margin: '6px 0 0' }}>
+                            <PageSection>
+                                <div className="shift-info-grid" style={{ marginTop: 12 }}>
+                                    <div className="shift-info-item">
+                                        <div className="info-label">ผู้เปิดกะ</div>
+                                        <div className="info-value">
                                             {currentShift.user?.display_name || currentShift.user?.username || '-'}
-                                        </Title>
-                                    </Card>
-
-                                    <Card size="small" style={{ borderRadius: 14 }}>
-                                        <Text type="secondary">เวลาเปิดกะ</Text>
-                                        <Title level={5} style={{ margin: '6px 0 0' }}>
+                                        </div>
+                                    </div>
+                                    <div className="shift-info-item">
+                                        <div className="info-label">ระยะเวลากะ</div>
+                                        <div className="info-value">{shiftDuration}</div>
+                                    </div>
+                                    <div className="shift-info-item">
+                                        <div className="info-label">เวลาเปิดกะ</div>
+                                        <div className="info-value">
                                             {dayjs(currentShift.open_time).format('DD/MM/YYYY HH:mm')} น.
-                                        </Title>
-                                    </Card>
+                                        </div>
+                                    </div>
                                 </div>
 
                                 {!canCloseShift ? (
-                                    <AlertBox text="คุณไม่มีสิทธิ์ปิดกะนี้ (เฉพาะ  ผู้จัดการหรือผู้เปิดกะ)" />
+                                    <Alert
+                                        type="warning"
+                                        showIcon
+                                        style={{ marginTop: 12 }}
+                                        message="คุณไม่มีสิทธิ์ปิดกะนี้"
+                                        description="เฉพาะผู้จัดการหรือผู้ที่เปิดกะนี้เท่านั้นที่สามารถปิดกะได้"
+                                    />
                                 ) : null}
                             </PageSection>
 
-                            <PageSection title="สรุปยอดกะปัจจุบัน">
-                                {isSummaryLoading ? (
-                                    <div style={{ padding: '24px 0', textAlign: 'center' }}>
+                            <PageSection title="ภาพรวมกะปัจจุบัน">
+                                {summaryQuery.isLoading ? (
+                                    <div style={{ display: 'flex', justifyContent: 'center', padding: '40px 0' }}>
                                         <Spin />
                                     </div>
-                                ) : isSummaryError ? (
+                                ) : summaryQuery.isError ? (
                                     <PageState
                                         status="error"
                                         title="ไม่สามารถโหลดสรุปยอดกะได้"
-                                        error={summaryError}
-                                        onRetry={() => refetchCurrentSummary()}
+                                        error={summaryQuery.error}
+                                        onRetry={() => summaryQuery.refetch()}
                                     />
-                                ) : summary ? (
-                                    <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                        <MetricCard icon={<RiseOutlined />} label="ยอดขายรวม" value={`฿${totalSales.toLocaleString()}`} color="#10b981" />
-                                        <MetricCard icon={<ShoppingOutlined />} label="กำไรสุทธิ" value={`฿${netProfit.toLocaleString()}`} color="#0ea5e9" />
-                                        <MetricCard icon={<WalletOutlined />} label="เงินทอนเริ่มต้น" value={`฿${startAmount.toLocaleString()}`} color="#f59e0b" />
-                                        <MetricCard icon={<SafetyCertificateOutlined />} label="เงินสดในลิ้นชัก" value={`฿${cashInDrawer.toLocaleString()}`} color="#7c3aed" />
-                                        <MetricCard icon={<SafetyCertificateOutlined />} label="ยอดคาดหวัง" value={`฿${expectedAmount.toLocaleString()}`} color="#334155" />
-                                        <MetricCard icon={<SafetyCertificateOutlined />} label="ผลต่าง" value={`฿${diffAmount.toLocaleString()}`} color={diffAmount >= 0 ? '#059669' : '#dc2626'} />
-                                        <MetricCard icon={<WalletOutlined />} label="ยอดนับจริงล่าสุด" value={endAmount > 0 ? `฿${endAmount.toLocaleString()}` : '-'} color="#64748b" />
-                                    </div>
                                 ) : (
-                                    <Text type="secondary">ยังไม่มีข้อมูลสรุปยอดกะ</Text>
+                                    <Row gutter={[12, 12]}>
+                                        {metricCards.map((card) => (
+                                            <Col xs={24} sm={12} xl={8} key={card.key}>
+                                                <Card
+                                                    style={{
+                                                        borderRadius: 20,
+                                                        height: '100%',
+                                                        border: '1px solid #e2e8f0',
+                                                        background: 'linear-gradient(180deg, #ffffff 0%, #f8fafc 100%)',
+                                                    }}
+                                                    bodyStyle={{ padding: 18 }}
+                                                >
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+                                                        <div
+                                                            style={{
+                                                                width: 42,
+                                                                height: 42,
+                                                                display: 'grid',
+                                                                placeItems: 'center',
+                                                                borderRadius: 14,
+                                                                background: card.bg,
+                                                                color: card.color,
+                                                                fontSize: 18,
+                                                            }}
+                                                        >
+                                                            {card.icon}
+                                                        </div>
+                                                        <Text type="secondary">{card.label}</Text>
+                                                    </div>
+                                                    <Title level={4} style={{ margin: 0, color: card.color }}>
+                                                        {card.value}
+                                                    </Title>
+                                                    <Text type="secondary" style={{ fontSize: 12 }}>
+                                                        {card.hint}
+                                                    </Text>
+                                                </Card>
+                                            </Col>
+                                        ))}
+                                    </Row>
                                 )}
                             </PageSection>
 
-                            <PageSection title="รายละเอียดวิธีชำระเงิน">
-                                {Object.keys(paymentMethods).length > 0 ? (
-                                    <div style={{ display: 'grid', gap: 10, gridTemplateColumns: 'repeat(2, 1fr)' }}>
-                                        {Object.entries(paymentMethods).map(([method, amount]) => (
-                                            <Card key={method} size="small" style={{ borderRadius: 12 }}>
-                                                <Text type="secondary" style={{ fontSize: 13 }}>{method}</Text>
-                                                <Title level={5} style={{ margin: '4px 0 0', fontSize: 16 }}>
-                                                    ฿{toNumber(amount).toLocaleString()}
-                                                </Title>
-                                            </Card>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <Text type="secondary">ยังไม่มีข้อมูลวิธีชำระเงินในกะนี้</Text>
-                                )}
-                            </PageSection>
+                            <Row gutter={[14, 14]}>
+                                <Col xs={24} lg={12}>
+                                    <PageSection title="วิธีชำระเงิน">
+                                        {Object.keys(paymentMethods).length > 0 ? (
+                                            <div className="shift-payment-grid">
+                                                {Object.entries(paymentMethods).map(([method, amount]) => (
+                                                    <div key={method} className="shift-payment-card">
+                                                        <div className="payment-method">{method}</div>
+                                                        <div className="payment-value">{formatMoney(amount)}</div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <Text type="secondary">ยังไม่มีข้อมูลวิธีชำระเงินในกะนี้</Text>
+                                        )}
+                                    </PageSection>
+                                </Col>
+
+                                <Col xs={24} lg={12}>
+                                    <PageSection title="ยอดขายตามช่องทาง">
+                                        <div style={{ display: 'grid', gap: 10 }}>
+                                            <ChannelCard label="ทานที่ร้าน" value={orderTypes.DineIn} color="#2563eb" />
+                                            <ChannelCard label="สั่งกลับบ้าน" value={orderTypes.TakeAway} color="#059669" />
+                                            <ChannelCard label="เดลิเวอรี่" value={orderTypes.Delivery} color="#db2777" />
+                                            <ChannelCard label="ยอดคาดหวัง" value={expectedAmount} color="#334155" />
+                                        </div>
+                                    </PageSection>
+                                </Col>
+                            </Row>
 
                             <PageSection title="สินค้าขายดี">
-                                {summary?.top_products?.length ? (
-                                    <div style={{ display: 'grid', gap: 10 }}>
-                                        {summary.top_products.slice(0, 5).map((item, index) => (
-                                            <div
-                                                key={`${item.id}-${index}`}
-                                                style={{
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'space-between',
-                                                    border: '1px solid #e2e8f0',
-                                                    borderRadius: 12,
-                                                    padding: '10px 12px'
-                                                }}
-                                            >
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                                                    <div style={{
-                                                        width: 26,
-                                                        height: 26,
-                                                        borderRadius: '50%',
-                                                        background: '#f1f5f9',
-                                                        display: 'flex',
-                                                        alignItems: 'center',
-                                                        justifyContent: 'center',
-                                                        fontSize: 12,
-                                                        fontWeight: 700,
-                                                        color: '#475569'
-                                                    }}>
+                                {topProducts.length > 0 ? (
+                                    <div className="shift-top-products">
+                                        {topProducts.slice(0, 5).map((item, index) => (
+                                            <div key={`${item.id}-${index}`} className="shift-product-row">
+                                                <div className="shift-product-left">
+                                                    <div className={`shift-product-rank ${index < 3 ? `rank-${index + 1}` : 'rank-other'}`}>
                                                         {index + 1}
                                                     </div>
-                                                    <div>
-                                                        <Text strong>{item.name}</Text>
-                                                        <Text type="secondary" style={{ display: 'block', fontSize: 12 }}>
+                                                    <div className="shift-product-info">
+                                                        <div className="shift-product-name">{item.name}</div>
+                                                        <div className="shift-product-qty">
                                                             จำนวน {item.quantity} {item.unit || 'หน่วย'}
-                                                        </Text>
+                                                        </div>
                                                     </div>
                                                 </div>
-                                                <Text strong>฿{toNumber(item.revenue).toLocaleString()}</Text>
+                                                <div className="shift-product-revenue">{formatMoney(item.revenue)}</div>
                                             </div>
                                         ))}
                                     </div>
@@ -395,6 +453,9 @@ export default function ShiftPage() {
             <OpenShiftModal
                 open={openShiftVisible && canCreateShifts}
                 onCancel={() => setOpenShiftVisible(false)}
+                onSuccess={() => {
+                    setOpenShiftVisible(false);
+                }}
             />
 
             <CloseShiftModal
@@ -406,28 +467,32 @@ export default function ShiftPage() {
     );
 }
 
-function MetricCard({ icon, label, value, color }: { icon: React.ReactNode; label: string; value: string; color: string }) {
+function ChannelCard({
+    label,
+    value,
+    color,
+}: {
+    label: string;
+    value?: number | string;
+    color: string;
+}) {
     return (
-        <Card size="small" style={{ borderRadius: 14 }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, color }}>
-                {icon}
-                <Text type="secondary">{label}</Text>
-            </div>
-            <Title level={4} style={{ margin: 0, color }}>{value}</Title>
-        </Card>
-    );
-}
-
-function AlertBox({ text }: { text: string }) {
-    return (
-        <div style={{
-            marginTop: 12,
-            borderRadius: 10,
-            border: '1px solid #fecaca',
-            background: '#fef2f2',
-            padding: '10px 12px'
-        }}>
-            <Text style={{ color: '#b91c1c' }}>{text}</Text>
+        <div
+            style={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                gap: 12,
+                padding: '12px 14px',
+                borderRadius: 14,
+                border: '1px solid #e2e8f0',
+                background: '#fff',
+            }}
+        >
+            <Text>{label}</Text>
+            <Text strong style={{ color }}>
+                {formatMoney(value)}
+            </Text>
         </div>
     );
 }

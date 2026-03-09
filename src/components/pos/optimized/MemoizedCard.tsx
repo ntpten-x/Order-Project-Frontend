@@ -15,7 +15,6 @@ const { Text } = Typography;
 
 interface ProductCardData {
   id: string;
-  product_name: string;
   display_name: string;
   price: string | number;
   img_url?: string | null;
@@ -107,9 +106,9 @@ export const ProductCard = memo(function ProductCard({
           
           <Text
             className="product-subtitle"
-            ellipsis={{ tooltip: product.product_name }}
+            ellipsis={{ tooltip: product.display_name }}
           >
-            {product.product_name}
+            {product.display_name}
           </Text>
 
           <div className="product-tags">

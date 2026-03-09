@@ -1,6 +1,6 @@
-﻿'use client';
+'use client';
 
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { message, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
 import {
     CarOutlined,
@@ -12,11 +12,9 @@ import {
 import { Delivery } from '../../../../types/api/pos/delivery';
 import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
-import { useAsyncAction } from '../../../../hooks/useAsyncAction';
 import { useSocket } from '../../../../hooks/useSocket';
 import { getCsrfTokenCached } from '../../../../utils/pos/csrf';
 import { useRoleGuard } from '../../../../utils/pos/accessControl';
-import { useRealtimeList } from '../../../../utils/pos/realtime';
 import { readCache, writeCache } from '../../../../utils/pos/cache';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import { pageStyles, globalStyles } from '../../../../theme/pos/delivery/style';
@@ -26,21 +24,29 @@ import PageSection from '../../../../components/ui/page/PageSection';
 import PageStack from '../../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../../components/ui/page/PageHeader';
 import UIEmptyState from '../../../../components/ui/states/EmptyState';
+import PageState from '../../../../components/ui/states/PageState';
 import type { CreatedSort } from '../../../../components/ui/pagination/ListPagination';
 import ListPagination from '../../../../components/ui/pagination/ListPagination';
 import { DEFAULT_CREATED_SORT } from '../../../../lib/list-sort';
-import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
-import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
-import { SearchInput } from "../../../../components/ui/input/SearchInput";
-import { SearchBar } from "../../../../components/ui/page/SearchBar";
-import { resolveImageSource } from "../../../../utils/image/source";
-import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
-import SmartAvatar from "../../../../components/ui/image/SmartAvatar";
+import { ModalSelector } from '../../../../components/ui/select/ModalSelector';
+import { SearchInput } from '../../../../components/ui/input/SearchInput';
+import { SearchBar } from '../../../../components/ui/page/SearchBar';
+import { resolveImageSource } from '../../../../utils/image/source';
+import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissions';
+import SmartAvatar from '../../../../components/ui/image/SmartAvatar';
 import { useListState } from '../../../../hooks/pos/useListState';
+import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
 
 const { Text } = Typography;
 
 type StatusFilter = 'all' | 'active' | 'inactive';
+type DeliveryCachePayload = {
+    items: Delivery[];
+    total: number;
+};
+
+const DELIVERY_CACHE_KEY = 'pos:delivery:list:default-v2';
+const DELIVERY_CACHE_TTL_MS = 60 * 1000;
 
 interface DeliveryCardProps {
     delivery: Delivery;
@@ -50,6 +56,7 @@ interface DeliveryCardProps {
     onDelete: (delivery: Delivery) => void;
     onToggleActive: (delivery: Delivery, next: boolean) => void;
     updatingStatusId: string | null;
+    deletingId: string | null;
 }
 
 const formatDate = (raw: string | Date) => {
@@ -57,21 +64,29 @@ const formatDate = (raw: string | Date) => {
     if (Number.isNaN(date.getTime())) return '-';
     return new Intl.DateTimeFormat('th-TH', {
         dateStyle: 'medium',
-        timeStyle: 'short'
+        timeStyle: 'short',
     }).format(date);
 };
 
-
-
-const DeliveryCard = ({ delivery, canUpdate, canDelete, onEdit, onDelete, onToggleActive, updatingStatusId }: DeliveryCardProps) => {
+const DeliveryCard = ({
+    delivery,
+    canUpdate,
+    canDelete,
+    onEdit,
+    onDelete,
+    onToggleActive,
+    updatingStatusId,
+    deletingId,
+}: DeliveryCardProps) => {
     const logoSource = resolveImageSource(delivery.logo);
+
     return (
         <div
             className="delivery-card"
             style={{
                 ...pageStyles.deliveryCard(delivery.is_active),
-                borderRadius: 16,
-                cursor: canUpdate ? "pointer" : "default",
+                borderRadius: 18,
+                cursor: canUpdate ? 'pointer' : 'default',
             }}
             onClick={() => {
                 if (!canUpdate) return;
@@ -83,41 +98,42 @@ const DeliveryCard = ({ delivery, canUpdate, canDelete, onEdit, onDelete, onTogg
                     src={delivery.logo}
                     alt={delivery.delivery_name}
                     shape="square"
-                    size={52}
+                    size={56}
                     icon={<CarOutlined />}
-                    imageStyle={{ objectFit: "contain" }}
+                    imageStyle={{ objectFit: 'contain' }}
                     style={{
-                        borderRadius: 14,
+                        borderRadius: 16,
                         background: delivery.is_active
                             ? 'linear-gradient(135deg, #cffafe 0%, #a5f3fc 100%)'
                             : '#f1f5f9',
                         color: delivery.is_active ? '#0891B2' : '#94a3b8',
-                        boxShadow: delivery.is_active ? '0 4px 10px rgba(8, 145, 178, 0.18)' : 'none',
+                        boxShadow: delivery.is_active ? '0 6px 14px rgba(8, 145, 178, 0.16)' : 'none',
                         border: logoSource ? '1px solid #dbeafe' : undefined,
                     }}
                 />
 
                 <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
                         <Text
                             strong
                             style={{
                                 fontSize: 16,
-                                color: '#0f172a'
+                                color: '#0f172a',
                             }}
                             ellipsis={{ tooltip: delivery.delivery_name }}
                         >
                             {delivery.delivery_name}
                         </Text>
-                        <Tag color={delivery.is_active ? 'green' : 'default'}>
+                        <Tag color={delivery.is_active ? 'green' : 'default'} style={{ borderRadius: 999 }}>
                             {delivery.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}
                         </Tag>
+                        {delivery.delivery_prefix ? (
+                            <Tag color="cyan" style={{ margin: 0, borderRadius: 999 }}>
+                                {delivery.delivery_prefix}
+                            </Tag>
+                        ) : null}
                     </div>
-
-                    <Text type="secondary" style={{ fontSize: 13, display: 'block', color: '#334155' }}>
-                        รหัสย่อ : {delivery.delivery_prefix || '-'}
-                    </Text>
-                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 2 }}>
+                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 6 }}>
                         อัปเดตล่าสุด {formatDate(delivery.update_date)}
                     </Text>
                 </div>
@@ -127,7 +143,7 @@ const DeliveryCard = ({ delivery, canUpdate, canDelete, onEdit, onDelete, onTogg
                         size="small"
                         checked={delivery.is_active}
                         loading={updatingStatusId === delivery.id}
-                        disabled={!canUpdate}
+                        disabled={!canUpdate || deletingId === delivery.id}
                         onClick={(checked, event) => {
                             if (!canUpdate) return;
                             event?.stopPropagation();
@@ -147,7 +163,7 @@ const DeliveryCard = ({ delivery, canUpdate, canDelete, onEdit, onDelete, onTogg
                                 color: '#0891B2',
                                 background: '#ecfeff',
                                 width: 36,
-                                height: 36
+                                height: 36,
                             }}
                         />
                     ) : null}
@@ -155,7 +171,8 @@ const DeliveryCard = ({ delivery, canUpdate, canDelete, onEdit, onDelete, onTogg
                         <Button
                             type="text"
                             danger
-                            icon={<DeleteOutlined />}
+                            loading={deletingId === delivery.id}
+                            icon={deletingId === delivery.id ? undefined : <DeleteOutlined />}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onDelete(delivery);
@@ -164,7 +181,7 @@ const DeliveryCard = ({ delivery, canUpdate, canDelete, onEdit, onDelete, onTogg
                                 borderRadius: 10,
                                 background: '#fef2f2',
                                 width: 36,
-                                height: 36
+                                height: 36,
                             }}
                         />
                     ) : null}
@@ -177,85 +194,160 @@ const DeliveryCard = ({ delivery, canUpdate, canDelete, onEdit, onDelete, onTogg
 export default function DeliveryPage() {
     const router = useRouter();
     const [deliveries, setDeliveries] = useState<Delivery[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState<Error | null>(null);
+    const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [hasCachedSnapshot, setHasCachedSnapshot] = useState(false);
+    const requestRef = useRef<AbortController | null>(null);
+    const cacheHydratedRef = useRef(false);
     const {
-        page, setPage,
-        pageSize, setPageSize,
-        total, setTotal,
-        searchText, setSearchText,
+        page,
+        setPage,
+        pageSize,
+        setPageSize,
+        total,
+        setTotal,
+        searchText,
+        setSearchText,
         debouncedSearch,
-        createdSort, setCreatedSort,
-        filters, updateFilter,
+        createdSort,
+        setCreatedSort,
+        filters,
+        updateFilter,
         getQueryParams,
-        isUrlReady
+        isUrlReady,
     } = useListState({
         defaultPageSize: 10,
         defaultFilters: {
             status: 'all' as StatusFilter,
-        }
+        },
     });
 
-    const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
-    const { execute } = useAsyncAction();
     const { showLoading } = useGlobalLoading();
     const { socket } = useSocket();
     const { isAuthorized, isChecking, user } = useRoleGuard();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
 
-    const canCreateDelivery = can("delivery.page", "create");
-    const canUpdateDelivery = can("delivery.page", "update");
-    const canDeleteDelivery = can("delivery.page", "delete");
+    const canCreateDelivery = can('delivery.page', 'create');
+    const canUpdateDelivery = can('delivery.page', 'update');
+    const canDeleteDelivery = can('delivery.page', 'delete');
+    const isDefaultListView = useMemo(
+        () =>
+            page === 1 &&
+            pageSize === 10 &&
+            createdSort === DEFAULT_CREATED_SORT &&
+            !debouncedSearch.trim() &&
+            filters.status === 'all',
+        [createdSort, debouncedSearch, filters.status, page, pageSize]
+    );
 
     useEffect(() => {
         getCsrfTokenCached();
     }, []);
 
-    // URL sync managed by useListState hook
+    useEffect(() => {
+        return () => {
+            requestRef.current?.abort();
+        };
+    }, []);
 
     useEffect(() => {
-        if (createdSort !== DEFAULT_CREATED_SORT) return;
-        const cached = readCache<Delivery[]>('pos:delivery-providers', 5 * 60 * 1000);
-        if (cached && cached.length > 0) {
-            setDeliveries(cached);
+        if (!isUrlReady || !isAuthorized || !isDefaultListView || cacheHydratedRef.current) {
+            return;
         }
-    }, [createdSort]);
 
-    const fetchDeliveries = useCallback(async () => {
-        execute(async () => {
-            const params = getQueryParams();
-            const response = await fetch(`/api/pos/delivery?${params.toString()}`);
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลช่องทางจัดส่งได้');
+        cacheHydratedRef.current = true;
+        const cached = readCache<DeliveryCachePayload>(DELIVERY_CACHE_KEY, DELIVERY_CACHE_TTL_MS);
+        if (!cached) return;
+
+        setDeliveries(cached.items || []);
+        setTotal(cached.total || 0);
+        setHasCachedSnapshot(true);
+        setLoading(false);
+    }, [isAuthorized, isDefaultListView, isUrlReady, setTotal]);
+
+    useEffect(() => {
+        if (!isDefaultListView || loading) return;
+        writeCache<DeliveryCachePayload>(DELIVERY_CACHE_KEY, {
+            items: deliveries,
+            total,
+        });
+    }, [deliveries, isDefaultListView, loading, total]);
+
+    const fetchDeliveries = useCallback(
+        async (options?: { background?: boolean }) => {
+            if (!isAuthorized) return;
+
+            requestRef.current?.abort();
+            const controller = new AbortController();
+            requestRef.current = controller;
+            const background = options?.background === true;
+
+            if (background) {
+                setRefreshing(true);
+            } else {
+                setLoading(true);
             }
-            const payload = await response.json();
-            setDeliveries(payload.data || []);
-            setTotal(payload.total || 0);
-        }, 'กำลังโหลดข้อมูลช่องทางจัดส่ง...');
-    }, [execute, getQueryParams, setTotal]);
+            setError(null);
 
-    useEffect(() => {
-        if (isUrlReady && isAuthorized) {
-            fetchDeliveries();
-        }
-    }, [isUrlReady, isAuthorized, fetchDeliveries]);
+            try {
+                const params = getQueryParams();
+                const response = await fetch(`/api/pos/delivery?${params.toString()}`, {
+                    cache: 'no-store',
+                    signal: controller.signal,
+                });
 
-    useRealtimeList(
-        socket,
-        { create: RealtimeEvents.delivery.create, update: RealtimeEvents.delivery.update, delete: RealtimeEvents.delivery.delete },
-        setDeliveries
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลช่องทางจัดส่งได้');
+                }
+
+                const payload = await response.json();
+                if (controller.signal.aborted) return;
+
+                setDeliveries(payload.data || []);
+                setTotal(payload.total || 0);
+            } catch (fetchError) {
+                if (controller.signal.aborted) return;
+                setError(fetchError instanceof Error ? fetchError : new Error('ไม่สามารถดึงข้อมูลช่องทางจัดส่งได้'));
+            } finally {
+                if (requestRef.current === controller) {
+                    requestRef.current = null;
+                }
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                    setRefreshing(false);
+                }
+            }
+        },
+        [getQueryParams, isAuthorized, setTotal]
     );
 
     useEffect(() => {
-        if (createdSort === DEFAULT_CREATED_SORT && deliveries.length > 0) {
-            writeCache('pos:delivery-providers', deliveries);
+        if (isUrlReady && isAuthorized) {
+            void fetchDeliveries({ background: hasCachedSnapshot });
         }
-    }, [deliveries, createdSort]);
+    }, [fetchDeliveries, hasCachedSnapshot, isAuthorized, isUrlReady]);
 
-    const displayDeliveries = deliveries;
+    useRealtimeRefresh({
+        socket,
+        events: [
+            RealtimeEvents.delivery.create,
+            RealtimeEvents.delivery.update,
+            RealtimeEvents.delivery.delete,
+        ],
+        enabled: isAuthorized && isUrlReady,
+        debounceMs: 250,
+        onRefresh: () => {
+            void fetchDeliveries({ background: true });
+        },
+    });
 
     const handleAdd = () => {
         if (!canCreateDelivery) {
-            message.error("คุณไม่มีสิทธิ์เพิ่มช่องทางจัดส่ง");
+            message.error('คุณไม่มีสิทธิ์เพิ่มช่องทางจัดส่ง');
             return;
         }
         showLoading('กำลังเปิดหน้าจัดการช่องทางจัดส่ง...');
@@ -264,7 +356,7 @@ export default function DeliveryPage() {
 
     const handleEdit = (delivery: Delivery) => {
         if (!canUpdateDelivery) {
-            message.error("คุณไม่มีสิทธิ์แก้ไขช่องทางจัดส่ง");
+            message.error('คุณไม่มีสิทธิ์แก้ไขช่องทางจัดส่ง');
             return;
         }
         showLoading('กำลังเปิดหน้าแก้ไขช่องทางจัดส่ง...');
@@ -273,9 +365,10 @@ export default function DeliveryPage() {
 
     const handleDelete = (delivery: Delivery) => {
         if (!canDeleteDelivery) {
-            message.error("คุณไม่มีสิทธิ์ลบช่องทางจัดส่ง");
+            message.error('คุณไม่มีสิทธิ์ลบช่องทางจัดส่ง');
             return;
         }
+
         Modal.confirm({
             title: 'ยืนยันการลบช่องทางจัดส่ง',
             content: `คุณต้องการลบช่องทางจัดส่ง ${delivery.delivery_name} หรือไม่?`,
@@ -285,29 +378,47 @@ export default function DeliveryPage() {
             centered: true,
             icon: <DeleteOutlined style={{ color: '#EF4444' }} />,
             onOk: async () => {
-                await execute(async () => {
+                setDeletingId(delivery.id);
+                try {
                     const csrfToken = await getCsrfTokenCached();
                     const response = await fetch(`/api/pos/delivery/delete/${delivery.id}`, {
                         method: 'DELETE',
                         headers: {
-                            'X-CSRF-Token': csrfToken
-                        }
+                            'X-CSRF-Token': csrfToken,
+                        },
                     });
+
                     if (!response.ok) {
-                        throw new Error('ไม่สามารถลบช่องทางจัดส่งได้');
+                        const errorData = await response.json().catch(() => ({}));
+                        throw new Error(errorData.error || errorData.message || 'ไม่สามารถลบช่องทางจัดส่งได้');
                     }
-                    setDeliveries((prev: Delivery[]) => prev.filter((item: Delivery) => item.id !== delivery.id));
+
+                    const shouldMoveToPreviousPage = page > 1 && deliveries.length === 1;
+                    setDeliveries((prev) => prev.filter((item) => item.id !== delivery.id));
+                    setTotal((prev) => Math.max(prev - 1, 0));
+
+                    if (shouldMoveToPreviousPage) {
+                        setPage(page - 1);
+                    } else {
+                        void fetchDeliveries({ background: true });
+                    }
+
                     message.success(`ลบช่องทางจัดส่ง "${delivery.delivery_name}" สำเร็จ`);
-                }, 'กำลังลบช่องทางจัดส่ง...');
+                } catch (deleteError) {
+                    message.error(deleteError instanceof Error ? deleteError.message : 'ไม่สามารถลบช่องทางจัดส่งได้');
+                } finally {
+                    setDeletingId(null);
+                }
             },
         });
     };
 
     const handleToggleActive = async (delivery: Delivery, next: boolean) => {
         if (!canUpdateDelivery) {
-            message.error("คุณไม่มีสิทธิ์แก้ไขช่องทางจัดส่ง");
+            message.error('คุณไม่มีสิทธิ์แก้ไขช่องทางจัดส่ง');
             return;
         }
+
         setUpdatingStatusId(delivery.id);
         try {
             const csrfToken = await getCsrfTokenCached();
@@ -315,9 +426,9 @@ export default function DeliveryPage() {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'X-CSRF-Token': csrfToken
+                    'X-CSRF-Token': csrfToken,
                 },
-                body: JSON.stringify({ is_active: next })
+                body: JSON.stringify({ is_active: next }),
             });
 
             if (!response.ok) {
@@ -326,11 +437,10 @@ export default function DeliveryPage() {
             }
 
             const updated = await response.json();
-            setDeliveries((prev: Delivery[]) => prev.map((item: Delivery) => item.id === delivery.id ? updated : item));
+            setDeliveries((prev) => prev.map((item) => (item.id === delivery.id ? updated : item)));
             message.success(next ? 'เปิดใช้งานช่องทางจัดส่งแล้ว' : 'ปิดใช้งานช่องทางจัดส่งแล้ว');
-        } catch (error) {
-            console.error(error);
-            message.error(error instanceof Error ? error.message : 'ไม่สามารถเปลี่ยนสถานะช่องทางจัดส่งได้');
+        } catch (toggleError) {
+            message.error(toggleError instanceof Error ? toggleError.message : 'ไม่สามารถเปลี่ยนสถานะช่องทางจัดส่งได้');
         } finally {
             setUpdatingStatusId(null);
         }
@@ -348,9 +458,6 @@ export default function DeliveryPage() {
         return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
     }
 
-    const activeDeliveries = deliveries.filter((d) => d.is_active).length;
-    const inactiveDeliveries = deliveries.filter((d) => !d.is_active).length;
-
     return (
         <div className="delivery-page" style={pageStyles.container}>
             <style>{globalStyles}</style>
@@ -360,7 +467,8 @@ export default function DeliveryPage() {
                 icon={<CarOutlined />}
                 actions={
                     <Space size={10} wrap>
-                        <Button icon={<ReloadOutlined />} onClick={fetchDeliveries} />
+                        <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchDeliveries({ background: deliveries.length > 0 })}>
+                        </Button>
                         {canCreateDelivery ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                                 เพิ่มช่องทางจัดส่ง
@@ -372,54 +480,60 @@ export default function DeliveryPage() {
 
             <PageContainer>
                 <PageStack>
-                    <StatsGroup
-                        stats={[
-                            { label: 'ทั้งหมด', value: deliveries.length, color: '#0f172a' },
-                            { label: 'ใช้งาน', value: activeDeliveries, color: '#0891B2' },
-                            { label: 'ปิดใช้งาน', value: inactiveDeliveries, color: '#b91c1c' },
-                        ]}
-                    />
-
                     <SearchBar>
                         <SearchInput
                             placeholder="ค้นหา"
                             value={searchText}
-                            onChange={(val) => {
-                                setSearchText(val);
-                            }}
+                            onChange={setSearchText}
                         />
-                        <Space wrap size={10}>
-                            <ModalSelector<StatusFilter>
-                                title="เลือกสถานะ"
-                                options={[
-                                    { label: `ทั้งหมด`, value: 'all' },
-                                    { label: `ใช้งาน`, value: 'active' },
-                                    { label: `ปิดใช้งาน`, value: 'inactive' }
-                                ]}
-                                value={filters.status}
-                                onChange={(value) => updateFilter('status', value)}
-                                style={{ minWidth: 150 }}
-                            />
-                            <ModalSelector<CreatedSort>
-                                title="เรียงลำดับ"
-                                options={[
-                                    { label: 'เรียงจากเก่าก่อน', value: 'old' },
-                                    { label: 'เรียงจากใหม่ก่อน', value: 'new' },
-                                ]}
-                                value={createdSort}
-                                onChange={(value) => setCreatedSort(value)}
-                                style={{ minWidth: 150 }}
-                            />
+                        <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
+                            <Space wrap size={10}>
+                                <ModalSelector<StatusFilter>
+                                    title="เลือกสถานะการใช้งาน"
+                                    options={[
+                                        { label: 'ทั้งหมด', value: 'all' },
+                                        { label: 'ใช้งาน', value: 'active' },
+                                        { label: 'ปิดใช้งาน', value: 'inactive' },
+                                    ]}
+                                    value={filters.status}
+                                    onChange={(value) => updateFilter('status', value)}
+                                    style={{ minWidth: 150 }}
+                                />
+                                <ModalSelector<CreatedSort>
+                                    title="เลือกรูปแบบการเรียงลำดับ"
+                                    options={[
+                                        { label: 'เก่าก่อน', value: 'old' },
+                                        { label: 'ใหม่ก่อน', value: 'new' },
+                                    ]}
+                                    value={createdSort}
+                                    onChange={setCreatedSort}
+                                    style={{ minWidth: 150 }}
+                                />
+                            </Space>
                         </Space>
                     </SearchBar>
 
                     <PageSection
                         title="รายการช่องทางจัดส่ง"
-                        extra={<span style={{ fontWeight: 600 }}>{total} รายการ</span>}
+                        extra={
+                            <Space size={8} wrap>
+                                {refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}
+                                <span style={{ fontWeight: 600 }}>{total} รายการ</span>
+                            </Space>
+                        }
                     >
-                        {displayDeliveries.length > 0 ? (
+                        {loading && deliveries.length === 0 ? (
+                            <PageState status="loading" title="กำลังโหลดข้อมูลช่องทางจัดส่ง..." />
+                        ) : error && deliveries.length === 0 ? (
+                            <PageState
+                                status="error"
+                                title="โหลดข้อมูลช่องทางจัดส่งไม่สำเร็จ"
+                                error={error}
+                                onRetry={() => void fetchDeliveries()}
+                            />
+                        ) : deliveries.length > 0 ? (
                             <Space direction="vertical" size={16} style={{ width: '100%' }}>
-                                {displayDeliveries.map((delivery) => (
+                                {deliveries.map((delivery) => (
                                     <DeliveryCard
                                         key={delivery.id}
                                         delivery={delivery}
@@ -429,6 +543,7 @@ export default function DeliveryPage() {
                                         onDelete={handleDelete}
                                         onToggleActive={handleToggleActive}
                                         updatingStatusId={updatingStatusId}
+                                        deletingId={deletingId}
                                     />
                                 ))}
 
@@ -437,6 +552,7 @@ export default function DeliveryPage() {
                                         page={page}
                                         total={total}
                                         pageSize={pageSize}
+                                        loading={loading || refreshing}
                                         onPageChange={setPage}
                                         onPageSizeChange={setPageSize}
                                         activeColor="#059669"
@@ -445,15 +561,11 @@ export default function DeliveryPage() {
                             </Space>
                         ) : (
                             <UIEmptyState
-                                title={
-                                    debouncedSearch.trim()
-                                        ? 'ไม่พบช่องทางจัดส่งตามคำค้น'
-                                        : 'ยังไม่มีช่องทางจัดส่ง'
-                                }
+                                title={debouncedSearch.trim() ? 'ไม่พบช่องทางจัดส่งตามคำค้น' : 'ยังไม่มีช่องทางจัดส่ง'}
                                 description={
                                     debouncedSearch.trim()
-                                        ? 'ลองเปลี่ยนคำค้น หรือตัวกรองสถานะ'
-                                        : 'เพิ่มช่องทางจัดส่งแรกเพื่อเริ่มใช้งาน'
+                                        ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรองเพื่อค้นหารายการที่ต้องการ'
+                                        : 'เพิ่มผู้ให้บริการเดลิเวอรีเพื่อให้พนักงานเลือกใช้งานได้ทันที'
                                 }
                             />
                         )}

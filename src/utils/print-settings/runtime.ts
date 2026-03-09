@@ -31,7 +31,8 @@ const SHOP_PROFILE_CACHE_TTL_MS = 60_000;
 
 let printSettingsCache: BranchPrintSettings | null = null;
 let printSettingsCacheExpiresAt = 0;
-let printSettingsInflight: Promise<BranchPrintSettings> | null = null;
+let printSettingsLenientInflight: Promise<BranchPrintSettings> | null = null;
+let printSettingsStrictInflight: Promise<BranchPrintSettings> | null = null;
 
 let shopProfileCache: PrintShopProfile | null = null;
 let shopProfileCacheExpiresAt = 0;
@@ -136,37 +137,73 @@ export function peekPrintSettings(): BranchPrintSettings | null {
     return printSettingsCache;
 }
 
-export async function getPrintSettings(options?: { forceRefresh?: boolean }): Promise<BranchPrintSettings> {
+export function hydratePrintSettingsCache(
+    settings: BranchPrintSettings | null,
+    ttlMs: number = PRINT_SETTINGS_CACHE_TTL_MS
+): void {
+    if (!settings) {
+        printSettingsCache = null;
+        printSettingsCacheExpiresAt = 0;
+        printSettingsLenientInflight = null;
+        printSettingsStrictInflight = null;
+        return;
+    }
+
+    printSettingsCache = normalizeSettings(settings);
+    printSettingsCacheExpiresAt = Date.now() + ttlMs;
+}
+
+export function invalidatePrintSettingsCache(): void {
+    hydratePrintSettingsCache(null);
+}
+
+export async function getPrintSettings(options?: {
+    forceRefresh?: boolean;
+    allowFallback?: boolean;
+}): Promise<BranchPrintSettings> {
     const forceRefresh = Boolean(options?.forceRefresh);
+    const allowFallback = options?.allowFallback !== false;
     const now = Date.now();
 
     if (!forceRefresh && printSettingsCache && printSettingsCacheExpiresAt > now) {
         return printSettingsCache;
     }
 
-    if (!forceRefresh && printSettingsInflight) {
-        return printSettingsInflight;
+    const activeInflight = allowFallback ? printSettingsLenientInflight : printSettingsStrictInflight;
+    if (!forceRefresh && activeInflight) {
+        return activeInflight;
     }
 
-    printSettingsInflight = (async () => {
+    const inflightPromise = (async () => {
         try {
             const payload = await printSettingsService.getSettings();
             const normalized = normalizeSettings(payload);
-            printSettingsCache = normalized;
-            printSettingsCacheExpiresAt = Date.now() + PRINT_SETTINGS_CACHE_TTL_MS;
+            hydratePrintSettingsCache(normalized);
             return normalized;
         } catch (error) {
+            if (!allowFallback) {
+                throw error;
+            }
             console.warn("Unable to load print settings, fallback to defaults", error);
             const fallback = normalizeSettings(undefined);
-            printSettingsCache = fallback;
-            printSettingsCacheExpiresAt = Date.now() + 10_000;
+            hydratePrintSettingsCache(fallback, 10_000);
             return fallback;
         } finally {
-            printSettingsInflight = null;
+            if (allowFallback) {
+                printSettingsLenientInflight = null;
+            } else {
+                printSettingsStrictInflight = null;
+            }
         }
     })();
 
-    return printSettingsInflight;
+    if (allowFallback) {
+        printSettingsLenientInflight = inflightPromise;
+    } else {
+        printSettingsStrictInflight = inflightPromise;
+    }
+
+    return inflightPromise;
 }
 
 async function getPrintShopProfile(options?: {
@@ -503,6 +540,10 @@ function buildPrintShellHtml(options: {
       text-align: center;
     }
 
+    .qr-subtitle {
+      max-width: 100%;
+    }
+
     .qr-frame {
       padding: 10px;
       border-radius: 18px;
@@ -514,6 +555,20 @@ function buildPrintShellHtml(options: {
       width: min(100%, 72mm);
       height: auto;
       display: block;
+    }
+
+    .url-block {
+      display: grid;
+      gap: 6px;
+      justify-items: center;
+      width: 100%;
+    }
+
+    .url-line {
+      text-align: center;
+      word-break: break-all;
+      overflow-wrap: anywhere;
+      max-width: 100%;
     }
 
     .list {
@@ -639,7 +694,7 @@ function buildReceiptMarkup(options: {
                     <div class="row">
                       <div style="flex: 1; min-width: 0;">
                         <div class="item-name">${escapeHtml(
-                            item.product?.display_name || item.product?.product_name || "สินค้า"
+                            item.product?.display_name || "สินค้า"
                         )}</div>
                         <div class="item-meta">${escapeHtml(
                             `${toNumber(item.quantity).toLocaleString(locale)} x ${formatMoney(item.price, locale)}`
@@ -721,7 +776,7 @@ function buildReceiptMarkup(options: {
                 ${
                     toNumber(order.discount_amount) > 0
                         ? `<div class="row"><div class="label">ส่วนลด ${
-                              escapeHtml(order.discount?.display_name || order.discount?.discount_name || "")
+                              escapeHtml(order.discount?.display_name || "")
                           }</div><div class="value">-${escapeHtml(
                               formatMoney(order.discount_amount, locale)
                           )}</div></div>`
@@ -913,7 +968,8 @@ function buildShiftSummaryMarkup(options: {
     );
 }
 
-function buildTableQrMarkup(options: {
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function buildLegacyTableQrMarkup(options: {
     tableName: string;
     customerUrl: string;
     qrImageDataUrl: string;
@@ -951,6 +1007,41 @@ function buildTableQrMarkup(options: {
                         : ""
                 }
                 ${setting.note ? `<div class="footer-note">${escapeHtml(setting.note)}</div>` : ""}
+            </section>
+        </div>`,
+        setting.copies
+    );
+}
+
+function buildTableQrMarkup(options: {
+    tableName: string;
+    customerUrl: string;
+    qrImageDataUrl: string;
+    qrCodeExpiresAt?: string | null;
+    shopProfile?: PrintShopProfile | null;
+    settings: BranchPrintSettings;
+    heading?: string;
+    subtitle?: string;
+    qrAltText?: string;
+}): string {
+    const { tableName, customerUrl, qrImageDataUrl, settings } = options;
+    const setting = settings.documents.table_qr;
+    const urlLines = customerUrl.match(/.{1,44}/g) || [customerUrl];
+    const heading = options.heading || `โต๊ะ ${tableName}`;
+    const subtitle = options.subtitle || "สแกนเพื่อเปิดเมนูและสั่งอาหาร";
+    const qrAltText = options.qrAltText || `QR code for table ${tableName}`;
+
+    return renderDocumentPages(
+        `<div class="stack">
+            <section class="qr-shell">
+                <div class="section-title">${escapeHtml(heading)}</div>
+                <div class="muted qr-subtitle">${escapeHtml(subtitle)}</div>
+                <div class="qr-frame">
+                    <img src="${escapeHtml(qrImageDataUrl)}" alt="${escapeHtml(qrAltText)}" />
+                </div>
+                <div class="url-block">
+                    ${urlLines.map((line) => `<div class="url-line">${escapeHtml(line)}</div>`).join("")}
+                </div>
             </section>
         </div>`,
         setting.copies
@@ -1039,6 +1130,10 @@ export async function printTableQrDocument(options: {
     settings?: BranchPrintSettings | null;
     shopProfile?: PrintShopProfile | null;
     targetWindow?: Window | null;
+    documentTitle?: string;
+    heading?: string;
+    subtitle?: string;
+    qrAltText?: string;
 }): Promise<boolean> {
     const { settings, shopProfile } = await resolvePrintContext({
         settings: options.settings,
@@ -1051,7 +1146,7 @@ export async function printTableQrDocument(options: {
     }
 
     writeAndPrintDocument({
-        title: `Table QR ${options.tableName}`.trim(),
+        title: (options.documentTitle || `Table QR ${options.tableName}`).trim(),
         setting: documentSetting,
         bodyMarkup: buildTableQrMarkup({
             tableName: options.tableName,
@@ -1060,6 +1155,9 @@ export async function printTableQrDocument(options: {
             qrCodeExpiresAt: options.qrCodeExpiresAt,
             settings,
             shopProfile,
+            heading: options.heading,
+            subtitle: options.subtitle,
+            qrAltText: options.qrAltText,
         }),
         targetWindow: options.targetWindow,
     });

@@ -1,6 +1,7 @@
 ﻿"use client";
 
 import React, { useCallback, useEffect, useState, useMemo } from "react";
+import dynamic from "next/dynamic";
 import { useRouter, useParams } from "next/navigation";
 import { groupOrderItems } from "../../../../../utils/orderGrouping";
 import { Typography, Row, Col, Card, Tag, Button, Empty, Table, Checkbox, message, Tooltip, Space, Divider } from "antd";
@@ -13,15 +14,12 @@ import {
     ReloadOutlined,
     ShoppingOutlined,
     RocketOutlined,
-    CheckCircleOutlined,
-    UnorderedListOutlined
+    CheckCircleOutlined
 } from "@ant-design/icons";
 import { ordersService } from "../../../../../services/pos/orders.service";
 import { getCsrfTokenCached } from "../../../../../utils/pos/csrf";
-import { tablesService } from "../../../../../services/pos/tables.service";
 import { SalesOrder, OrderStatus, OrderType } from "../../../../../types/api/pos/salesOrder";
 import { ItemStatus, SalesOrderItem } from "../../../../../types/api/pos/salesOrderItem";
-import { TableStatus } from "../../../../../types/api/pos/tables";
 import { orderDetailStyles, orderDetailColors, ordersResponsiveStyles, orderDetailTypography } from "../../../../../theme/pos/orders/style"; 
 import {
   calculateOrderTotal,
@@ -41,9 +39,6 @@ import {
 import dayjs from "dayjs";
 import 'dayjs/locale/th';
 
-import { AddItemsModal } from "./AddItemsModal";
-import { EditItemModal } from "./EditItemModal";
-import ConfirmationDialog from "../../../../../components/dialog/ConfirmationDialog";
 import { useGlobalLoading } from "../../../../../contexts/pos/GlobalLoadingContext";
 import { useAuth } from "../../../../../contexts/AuthContext";
 import { Products } from "../../../../../types/api/pos/products";
@@ -51,10 +46,9 @@ import { useNetwork } from "../../../../../hooks/useNetwork";
 import { useEffectivePermissions } from "../../../../../hooks/useEffectivePermissions";
 import { offlineQueueService } from "../../../../../services/pos/offline.queue.service";
 import { useSocket } from "../../../../../hooks/useSocket";
-import { useRealtimeRefresh } from "../../../../../utils/pos/realtime";
+import { matchesRealtimeEntityPayload, useRealtimeRefresh } from "../../../../../utils/pos/realtime";
 import { ORDER_REALTIME_EVENTS } from "../../../../../utils/pos/orderRealtimeEvents";
-import { useOrderQueue } from "../../../../../hooks/pos/useOrderQueue";
-import { QueuePriority } from "../../../../../types/api/pos/orderQueue";
+import { primeOrderTransitionCache } from "../../../../../utils/pos/orderTransitionCache";
 import UIPageHeader from "../../../../../components/ui/page/PageHeader";
 import SmartImage from "../../../../../components/ui/image/SmartImage";
 import { resolveImageSource } from "../../../../../utils/image/source";
@@ -62,6 +56,21 @@ import { resolveImageSource } from "../../../../../utils/image/source";
 
 const { Title, Text } = Typography;
 dayjs.locale('th');
+
+const AddItemsModal = dynamic(() => import("./AddItemsModal").then((module) => module.AddItemsModal), {
+    ssr: false,
+    loading: () => null,
+});
+
+const EditItemModal = dynamic(() => import("./EditItemModal").then((module) => module.EditItemModal), {
+    ssr: false,
+    loading: () => null,
+});
+
+const ConfirmationDialog = dynamic(() => import("../../../../../components/dialog/ConfirmationDialog"), {
+    ssr: false,
+    loading: () => null,
+});
 
 type ItemDetailInput = {
     detail_name: string;
@@ -85,11 +94,7 @@ export default function POSOrderDetailsPage() {
     const { showLoading, hideLoading } = useGlobalLoading();
     const { socket, isConnected } = useSocket();
     const isOnline = useNetwork();
-    
-    // Queue management
-    const { queue, addToQueue, isLoading: isQueueLoading } = useOrderQueue();
-    const currentQueueItem = order ? queue.find(q => q.order_id === order.id) : null;
-    
+
     // Selection State
     const [selectedRowKeys, setSelectedRowKeys] = useState<React.Key[]>([]);
 
@@ -110,31 +115,43 @@ export default function POSOrderDetailsPage() {
 
     const closeConfirm = () => setConfirmConfig(prev => ({ ...prev, open: false }));
 
-    const fetchOrder = useCallback(async (id: string) => {
-        try {
-            setIsLoading(true);
-            showLoading("กำลังโหลดข้อมูลออเดอร์...");
-            const data = await ordersService.getById(id);
-            if (isPaidOrCompletedStatus(data.status)) {
-                router.push(`/pos/dashboard/${data.id}`);
-                return;
-            }
-            if (isCancelledStatus(data.status)) {
-                router.push(getCancelOrderNavigationPath(data.order_type));
-                return;
-            }
-            if (isWaitingForPaymentStatus(data.status)) {
-                router.push(getOrderNavigationPath(data));
-                return;
-            }
-            setOrder(data);
-        } catch {
-            message.error("ไม่สามารถโหลดข้อมูลออเดอร์ได้");
-        } finally {
-            setIsLoading(false);
-            hideLoading();
+    const applyOrderState = useCallback((data: SalesOrder) => {
+        if (isPaidOrCompletedStatus(data.status)) {
+            router.push(`/pos/dashboard/${data.id}`);
+            return;
         }
-    }, [router, showLoading, hideLoading]);
+        if (isCancelledStatus(data.status)) {
+            router.push(getCancelOrderNavigationPath(data.order_type));
+            return;
+        }
+        if (isWaitingForPaymentStatus(data.status)) {
+            router.push(getOrderNavigationPath(data));
+            return;
+        }
+        setOrder(data);
+    }, [router]);
+
+    const fetchOrder = useCallback(async (id: string, options?: { silent?: boolean; showError?: boolean }) => {
+        const silent = options?.silent ?? false;
+        const showError = options?.showError ?? true;
+        try {
+            if (!silent) {
+                setIsLoading(true);
+                showLoading("กำลังโหลดข้อมูลออเดอร์...");
+            }
+            const data = await ordersService.getById(id);
+            applyOrderState(data);
+        } catch {
+            if (showError) {
+                message.error("ไม่สามารถโหลดข้อมูลออเดอร์ได้");
+            }
+        } finally {
+            if (!silent) {
+                setIsLoading(false);
+                hideLoading();
+            }
+        }
+    }, [applyOrderState, showLoading, hideLoading]);
 
     useEffect(() => {
         if (orderId) {
@@ -147,11 +164,13 @@ export default function POSOrderDetailsPage() {
         events: ORDER_REALTIME_EVENTS,
         onRefresh: () => {
             if (orderId) {
-                fetchOrder(orderId as string);
+                void fetchOrder(orderId as string, { silent: true, showError: false });
             }
         },
         intervalMs: isConnected ? undefined : 15000,
         enabled: Boolean(orderId),
+        debounceMs: 250,
+        shouldRefresh: (payload) => matchesRealtimeEntityPayload(payload as Parameters<typeof matchesRealtimeEntityPayload>[0], orderId as string | undefined),
     });
 
     const activeItems = useMemo<SalesOrderItem[]>(
@@ -171,8 +190,20 @@ export default function POSOrderDetailsPage() {
     const groupedNonCancelledItems = useMemo(() => groupOrderItems(nonCancelledItems), [nonCancelledItems]);
     const calculatedTotal = calculateOrderTotal(order?.items);
     const canMoveToWaitingForPayment = nonCancelledItems.length > 0;
+    const waitingPaymentPath = useMemo(() => {
+        if (!order) return null;
+        return order.order_type === OrderType.Delivery
+            ? `/pos/items/delivery/${order.id}`
+            : `/pos/items/payment/${order.id}`;
+    }, [order]);
     const shouldVirtualizeActive = groupedActiveItems.length > 12;
     const shouldVirtualizeServed = groupedServedItems.length > 12;
+
+    useEffect(() => {
+        if (waitingPaymentPath) {
+            router.prefetch(waitingPaymentPath);
+        }
+    }, [router, waitingPaymentPath]);
 
     const handleCancelSelected = async () => {
         if (!canUpdateOrders) {
@@ -205,7 +236,7 @@ export default function POSOrderDetailsPage() {
                     ));
                     message.success("ยกเลิกรายการที่เลือกเรียบร้อย");
                     setSelectedRowKeys([]);
-                    fetchOrder(orderId as string);
+                    void fetchOrder(orderId as string, { silent: true });
                 } catch {
                     message.error("เกิดข้อผิดพลาดในการยกเลิก");
                 } finally {
@@ -236,22 +267,7 @@ export default function POSOrderDetailsPage() {
                     showLoading("กำลังดำเนินการยกเลิก...");
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
-
-                    // 1. Cancel all non-cancelled items
-                    const activeItems = order.items?.filter(item => item.status !== ItemStatus.Cancelled) || [];
-                    await Promise.all(
-                        activeItems.map(item => 
-                            ordersService.updateItemStatus(item.id, ItemStatus.Cancelled, undefined, csrfToken)
-                        )
-                    );
-
-                    // 2. Set Order status to Cancelled
                     await ordersService.updateStatus(order.id, OrderStatus.Cancelled, csrfToken);
-
-                    // 3. Set Table to Available if Dine-In
-                    if (order.table_id) {
-                        await tablesService.update(order.table_id, { status: TableStatus.Available }, undefined, csrfToken);
-                    }
 
                     message.success("ยกเลิกออเดอร์เรียบร้อย");
                     router.push(getCancelOrderNavigationPath(order.order_type));
@@ -296,7 +312,7 @@ export default function POSOrderDetailsPage() {
                         )
                     );
                     message.success(`ยกเลิกรายการเรียบร้อย (${idsToCancel.length} รายการ)`);
-                    fetchOrder(orderId as string);
+                    void fetchOrder(orderId as string, { silent: true });
                 } catch {
                     message.error("ไม่สามารถยกเลิกรายการได้");
                 } finally {
@@ -334,46 +350,17 @@ export default function POSOrderDetailsPage() {
             };
             
             // Send update request
-            await ordersService.updateItem(
+            const updatedOrder = await ordersService.updateItem(
                 itemId, 
                 updateData, 
                 undefined, 
                 csrfToken
             );
-            
+
+            setEditModalOpen(false);
+            setItemToEdit(null);
+            applyOrderState(updatedOrder);
             message.success("แก้ไขรายการเรียบร้อย");
-            
-            // Close modal first
-            setEditModalOpen(false);
-            setItemToEdit(null);
-            
-            // Close modal first
-            setEditModalOpen(false);
-            setItemToEdit(null);
-            
-            // Always fetch fresh data after update
-            // Note: Backend might have a bug where it uses old quantity value
-            // So we'll fetch multiple times to ensure we get the updated data
-            
-            // First fetch after short delay
-            await new Promise(resolve => setTimeout(resolve, 600));
-            await fetchOrder(orderId as string);
-            
-            // Second fetch to ensure we have the latest data
-            setTimeout(async () => {
-                const freshOrder = await ordersService.getById(orderId as string);
-                const freshItem = freshOrder?.items?.find((item: SalesOrderItem) => item.id === itemId);
-                if (freshItem) {
-                    if (freshItem.quantity === quantity) {
-                        setOrder(freshOrder);
-                    } else {
-                        // Try one more time after longer delay
-                        setTimeout(async () => {
-                            await fetchOrder(orderId as string);
-                        }, 1000);
-                    }
-                }
-            }, 500);
         } catch (error: unknown) {
             message.error("ไม่สามารถแก้ไขรายการได้");
             throw error;
@@ -409,7 +396,7 @@ export default function POSOrderDetailsPage() {
                 itemData: { product_id: product.id, quantity, price: unitPrice, notes, discount_amount: 0, total_price: totalPrice, details } 
             });
             message.warning("บันทึกข้อมูลแบบ Offline แล้ว");
-            fetchOrder(orderId as string); // Refresh from cache/local
+            void fetchOrder(orderId as string, { silent: true }); // Refresh from cache/local
             return;
         }
 
@@ -417,7 +404,7 @@ export default function POSOrderDetailsPage() {
             setIsUpdating(true);
             showLoading("กำลังเพิ่มสินค้า...");
             const csrfToken = await getCsrfTokenCached();
-            await ordersService.addItem(orderId as string, {
+            const updatedOrder = await ordersService.addItem(orderId as string, {
                 product_id: product.id,
                 quantity: quantity,
                 price: unitPrice,
@@ -428,7 +415,7 @@ export default function POSOrderDetailsPage() {
                 status: OrderStatus.Pending
             }, undefined, csrfToken);
             message.success("เพิ่มสินค้าเรียบร้อย");
-            fetchOrder(orderId as string);
+            applyOrderState(updatedOrder);
         } catch (error) {
             message.error("เพิ่มสินค้าไม่สำเร็จ");
             throw error;
@@ -450,9 +437,6 @@ export default function POSOrderDetailsPage() {
         }
 
         const isDelivery = order.order_type === OrderType.Delivery;
-        const nextPath = isDelivery
-            ? `/pos/items/delivery/${order.id}`
-            : `/pos/items/payment/${order.id}`;
 
         setConfirmConfig({
             open: true,
@@ -469,9 +453,10 @@ export default function POSOrderDetailsPage() {
                     showLoading("กำลังย้ายออเดอร์ไปขั้นตอนรอชำระเงิน...");
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
-                    await ordersService.updateStatus(orderId as string, OrderStatus.WaitingForPayment, csrfToken);
+                    const updatedOrder = await ordersService.updateStatus(orderId as string, OrderStatus.WaitingForPayment, csrfToken);
+                    primeOrderTransitionCache(updatedOrder);
                     message.success("เปลี่ยนสถานะเป็นรอชำระเงินเรียบร้อย");
-                    router.push(nextPath);
+                    router.push(getOrderNavigationPath(updatedOrder));
                 } catch {
                     message.error("เกิดข้อผิดพลาดในการย้ายออเดอร์");
                 } finally {
@@ -761,7 +746,20 @@ export default function POSOrderDetailsPage() {
                                             )}
                                         </>
                                     )
-                                    : `${order.order_no}`
+                                    : (
+                                        <>
+                                            {order.customer_name && order.customer_name.trim() !== order.order_no ? (
+                                                <>
+                                                    {order.customer_name}
+                                                    <span style={{ fontSize: 18, color: '#64748B', fontWeight: 500, marginLeft: 8 }}>
+                                                        ({order.order_no ? `#${order.order_no.split("-")[1]?.slice(0, 3)}` : ""})
+                                                    </span>
+                                                </>
+                                            ) : (
+                                                order.order_no ? `#${order.order_no.split("-")[1]?.slice(0, 3)}` : "ไม่ระบุลูกค้า"
+                                            )}
+                                        </>
+                                    )
                             : "รายละเอียดออเดอร์"
                         }
                     </span>
@@ -784,14 +782,6 @@ export default function POSOrderDetailsPage() {
                                 {getOrderStatusText(order.status, order.order_type)}
                             </Tag>
                         )}
-                        {currentQueueItem && (
-                            <Tag
-                                color="green"
-                                style={{ margin: 0, borderRadius: 6, fontWeight: 600, fontSize: 15, padding: '2px 10px', display: 'flex', alignItems: 'center', height: 'fit-content' }}
-                            >
-                                คิว #{currentQueueItem.queue_position}
-                            </Tag>
-                        )}
                     </Space>
                 }
                 subtitle={undefined}
@@ -803,50 +793,6 @@ export default function POSOrderDetailsPage() {
                     }
                 }}
             />
-
-            {/* Queue Management Actions */}
-            {order && order.status !== OrderStatus.Cancelled && order.status !== OrderStatus.Completed && (
-                <div style={{ 
-                    padding: '12px 16px', 
-                    display: 'flex', 
-                    justifyContent: 'flex-end', 
-                    gap: 8,
-                    background: orderDetailColors.backgroundSecondary,
-                    borderBottom: `1px solid ${orderDetailColors.border}`,
-                }}>
-                    {!currentQueueItem && (
-                        <Button
-                            type="primary"
-                            icon={<UnorderedListOutlined />}
-                            onClick={() => {
-                                if (!canUpdateOrders) {
-                                    message.warning("คุณไม่มีสิทธิ์แก้ไขออเดอร์");
-                                    return;
-                                }
-                                addToQueue({
-                                    orderId: order.id,
-                                    priority: QueuePriority.Normal
-                                });
-                            }}
-                            loading={isQueueLoading}
-                            disabled={!canUpdateOrders}
-                            size="middle"
-                            style={{ 
-                                borderRadius: 10, 
-                                height: 36, 
-                                fontWeight: 500,
-                                fontSize: 13,
-                                background: `linear-gradient(135deg, ${orderDetailColors.primary} 0%, ${orderDetailColors.primaryDark} 100%)`,
-                                border: 'none',
-                                boxShadow: `0 2px 8px ${orderDetailColors.primary}25`,
-                            }}
-                            className="scale-hover queue-action-button"
-                        >
-                            เพิ่มเข้าคิว
-                        </Button>
-                    )}
-                </div>
-            )}
 
             <main className="order-detail-content" style={orderDetailStyles.contentWrapper}>
                 <Row gutter={[20, 20]}>
@@ -1333,12 +1279,14 @@ export default function POSOrderDetailsPage() {
 
             {/* Floating Action Bar (Mobile Only) */}
             
-            <AddItemsModal 
-                isOpen={isAddModalOpen} 
-                onClose={() => setIsAddModalOpen(false)} 
-                onAddItem={handleAddItem} 
-                orderType={order?.order_type}
-            />
+            {isAddModalOpen && (
+                <AddItemsModal 
+                    isOpen={isAddModalOpen} 
+                    onClose={() => setIsAddModalOpen(false)} 
+                    onAddItem={handleAddItem} 
+                    orderType={order?.order_type}
+                />
+            )}
             
             {editModalOpen && itemToEdit && (
                 <EditItemModal
@@ -1353,17 +1301,19 @@ export default function POSOrderDetailsPage() {
                 />
             )}
 
-            <ConfirmationDialog
-                open={confirmConfig.open}
-                type={confirmConfig.type}
-                title={confirmConfig.title}
-                content={confirmConfig.content}
-                okText={confirmConfig.okText}
-                cancelText={confirmConfig.cancelText}
-                onOk={confirmConfig.onOk}
-                onCancel={closeConfirm}
-                loading={isUpdating}
-            />
+            {confirmConfig.open && (
+                <ConfirmationDialog
+                    open={confirmConfig.open}
+                    type={confirmConfig.type}
+                    title={confirmConfig.title}
+                    content={confirmConfig.content}
+                    okText={confirmConfig.okText}
+                    cancelText={confirmConfig.cancelText}
+                    onOk={confirmConfig.onOk}
+                    onCancel={closeConfirm}
+                    loading={isUpdating}
+                />
+            )}
         </div>
     );
 }

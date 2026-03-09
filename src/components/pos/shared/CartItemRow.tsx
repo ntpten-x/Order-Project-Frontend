@@ -10,8 +10,7 @@ import {
   ShopOutlined,
 } from "@ant-design/icons";
 import SmartImage from "../../ui/image/SmartImage";
-import { CartDetail, CartItem } from "../../../contexts/pos/CartContext";
-import { Products } from "../../../types/api/pos/products";
+import { CartDetail, makeSelectCartItem, useCartStore } from "../../../store/useCartStore";
 import { resolveImageSource } from "../../../utils/image/source";
 import { formatPrice } from "../../../utils/products/productDisplay.utils";
 import { posComponentStyles } from "./style";
@@ -19,10 +18,7 @@ import { posComponentStyles } from "./style";
 const { Text } = Typography;
 
 export type CartItemRowProps = {
-  item: CartItem;
-  getProductUnitPrice: (product: Products) => number;
-  onUpdateQuantity: (cartItemId: string, quantity: number) => void;
-  onRemove: (cartItemId: string) => void;
+  cartItemId: string;
   onOpenNote: (id: string, name: string, note: string) => void;
   onOpenDetail: (
     id: string,
@@ -32,21 +28,32 @@ export type CartItemRowProps = {
 };
 
 export const CartItemRow = React.memo(function CartItemRow({
-  item,
-  getProductUnitPrice,
-  onUpdateQuantity,
-  onRemove,
+  cartItemId,
   onOpenNote,
   onOpenDetail,
 }: CartItemRowProps) {
-  const unitPrice = getProductUnitPrice(item.product);
+  const itemSelector = React.useMemo(() => makeSelectCartItem(cartItemId), [cartItemId]);
+  const item = useCartStore(itemSelector);
+  const orderMode = useCartStore((state) => state.orderMode);
+  const updateQuantity = useCartStore((state) => state.updateQuantity);
+  const removeFromCart = useCartStore((state) => state.removeFromCart);
+
+  if (!item) {
+    return null;
+  }
+
+  // Subscribe to a single cart row so changes in one item do not rerender the full list.
+  const unitPrice =
+    orderMode === "DELIVERY"
+      ? Number(item.product.price_delivery ?? item.product.price)
+      : Number(item.product.price);
   const detailsTotal = (item.details || []).reduce(
-    (sum: number, d: CartDetail) => sum + Number(d.extra_price || 0),
+    (sum: number, detail: CartDetail) => sum + Number(detail.extra_price || 0),
     0
   );
   const itemDiscountAmount = Number(item.discount || 0);
   const lineTotal = Math.max(0, (unitPrice + detailsTotal) * item.quantity - itemDiscountAmount);
-  const productName = item.product.display_name || item.product.product_name || "สินค้า";
+  const productName = item.product.display_name || "สินค้า";
   const categoryName = item.product.category?.display_name || "ทั่วไป";
 
   return (
@@ -102,9 +109,9 @@ export const CartItemRow = React.memo(function CartItemRow({
 
           {item.details && item.details.length > 0 && (
             <div style={{ marginTop: 2, display: "flex", flexDirection: "column", gap: 0 }}>
-              {item.details.map((d: CartDetail, idx: number) => (
-                <Text key={idx} style={{ fontSize: 13, color: "#10B981", lineHeight: 1.4 }}>
-                  + {d.detail_name} (+{formatPrice(Number(d.extra_price || 0))})
+              {item.details.map((detail: CartDetail, index: number) => (
+                <Text key={index} style={{ fontSize: 13, color: "#10B981", lineHeight: 1.4 }}>
+                  + {detail.detail_name} (+{formatPrice(Number(detail.extra_price || 0))})
                 </Text>
               ))}
             </div>
@@ -127,7 +134,7 @@ export const CartItemRow = React.memo(function CartItemRow({
                 icon={<MinusOutlined style={{ fontSize: 10 }} />}
                 className="pos-cart-icon-btn pos-cart-qty-btn"
                 aria-label="ลดจำนวน"
-                onClick={() => onUpdateQuantity(item.cart_item_id, item.quantity - 1)}
+                onClick={() => updateQuantity(item.cart_item_id, item.quantity - 1)}
                 style={{ borderRadius: 10, background: "white", boxShadow: "0 1px 2px rgba(0,0,0,0.05)" }}
               />
               <Text style={{ margin: "0 8px", fontWeight: 600, minWidth: 16, textAlign: "center", fontSize: 13 }}>
@@ -139,7 +146,7 @@ export const CartItemRow = React.memo(function CartItemRow({
                 icon={<PlusOutlined style={{ fontSize: 10 }} />}
                 className="pos-cart-icon-btn pos-cart-qty-btn"
                 aria-label="เพิ่มจำนวน"
-                onClick={() => onUpdateQuantity(item.cart_item_id, item.quantity + 1)}
+                onClick={() => updateQuantity(item.cart_item_id, item.quantity + 1)}
                 style={{ borderRadius: 10, background: "#10b981", color: "white" }}
               />
             </div>
@@ -170,7 +177,7 @@ export const CartItemRow = React.memo(function CartItemRow({
                 size="small"
                 className="pos-cart-icon-btn pos-cart-action-btn"
                 aria-label="ลบออกจากตะกร้า"
-                onClick={() => onRemove(item.cart_item_id)}
+                onClick={() => removeFromCart(item.cart_item_id)}
                 style={{ background: "#fef2f2", borderRadius: 10 }}
               />
             </div>

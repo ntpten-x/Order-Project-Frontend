@@ -1,17 +1,17 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { message } from "antd";
 import { ShoppingOutlined } from "@ant-design/icons";
-import { useCart } from "../../contexts/pos/CartContext";
 import { ordersService } from "../../services/pos/orders.service";
 import { createOrderPayload } from "../../utils/orders";
 import { getPostCreateOrderNavigationPath } from "../../utils/channels";
-import { OrderType, CreateSalesOrderDTO } from "../../types/api/pos/salesOrder";
+import { CreateSalesOrderDTO, OrderType } from "../../types/api/pos/salesOrder";
 import { useGlobalLoading } from "../../contexts/pos/GlobalLoadingContext";
 import POSPageLayout from "./shared/POSPageLayout";
 import { POSHeaderBadge } from "./shared/style";
+import { useCartStore } from "../../store/useCartStore";
 import { getCsrfTokenCached } from "../../utils/pos/csrf";
 
 interface POSTakeAwayProps {
@@ -21,7 +21,11 @@ interface POSTakeAwayProps {
 export default function POSTakeAway({ queueNumber }: POSTakeAwayProps) {
     const { showLoading, hideLoading } = useGlobalLoading();
     const [csrfToken, setCsrfToken] = useState<string>("");
-    const router = useRouter(); 
+    const router = useRouter();
+    const clearCart = useCartStore((state) => state.clearCart);
+    const setOrderMode = useCartStore((state) => state.setOrderMode);
+    const setReferenceId = useCartStore((state) => state.setReferenceId);
+    const setReferenceCode = useCartStore((state) => state.setReferenceCode);
 
     useEffect(() => {
         const init = async () => {
@@ -35,23 +39,12 @@ export default function POSTakeAway({ queueNumber }: POSTakeAwayProps) {
                 hideLoading();
             }
         };
-        init();
+
+        void init();
     }, [showLoading, hideLoading]);
 
-    const { 
-        cartItems, 
-        clearCart, 
-        getSubtotal,
-        getDiscountAmount,
-        getFinalPrice,
-        selectedDiscount,
-        setOrderMode,
-        setReferenceId,
-        setReferenceCode
-    } = useCart();
-
     useEffect(() => {
-        setOrderMode('TAKEAWAY');
+        setOrderMode("TAKEAWAY");
         setReferenceId(null);
         setReferenceCode(queueNumber || null);
     }, [queueNumber, setOrderMode, setReferenceId, setReferenceCode]);
@@ -59,28 +52,25 @@ export default function POSTakeAway({ queueNumber }: POSTakeAwayProps) {
     const handleCreateOrder = async () => {
         showLoading();
         try {
+            const { cartItems, selectedDiscount, getSubtotal, getDiscountAmount, getFinalPrice } = useCartStore.getState();
             const orderPayload = createOrderPayload(
                 cartItems,
                 OrderType.TakeAway,
                 {
                     subTotal: getSubtotal(),
                     discountAmount: getDiscountAmount(),
-                    totalAmount: getFinalPrice()
+                    totalAmount: getFinalPrice(),
                 },
                 {
                     discountId: selectedDiscount?.id,
-                    queueNumber: queueNumber
+                    queueNumber,
                 }
             );
-            
-            
-            await ordersService.create(orderPayload as unknown as CreateSalesOrderDTO, undefined, csrfToken);
 
+            await ordersService.create(orderPayload as unknown as CreateSalesOrderDTO, undefined, csrfToken);
             message.success("สร้างออเดอร์เรียบร้อยแล้ว");
-            
             clearCart();
             router.push(getPostCreateOrderNavigationPath(OrderType.TakeAway));
-            
         } catch (error) {
             message.error(error instanceof Error ? error.message : "ไม่สามารถทำรายการได้");
         } finally {
@@ -89,11 +79,11 @@ export default function POSTakeAway({ queueNumber }: POSTakeAwayProps) {
     };
 
     return (
-        <POSPageLayout 
+        <POSPageLayout
             title="หน้าร้าน"
             subtitle={
                 <POSHeaderBadge>
-                    *สั่งกลับบ้าน {queueNumber ? `- คิว ${queueNumber}` : ''}
+                    *สั่งกลับบ้าน {queueNumber ? `- คิว ${queueNumber}` : ""}
                 </POSHeaderBadge>
             }
             icon={<ShoppingOutlined style={{ fontSize: 28 }} />}

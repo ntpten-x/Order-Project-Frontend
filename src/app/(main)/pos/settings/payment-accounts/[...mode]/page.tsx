@@ -1,7 +1,8 @@
 ﻿
 'use client';
 
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
     Typography,
     Button,
@@ -42,7 +43,7 @@ import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuar
 import { useAuth } from '../../../../../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../../../../../hooks/useEffectivePermissions';
 import { useSocket } from '../../../../../../hooks/useSocket';
-import { useRealtimeList, useRealtimeRefresh } from '../../../../../../utils/pos/realtime';
+import { useRealtimeRefresh } from '../../../../../../utils/pos/realtime';
 import { RealtimeEvents } from '../../../../../../utils/realtimeEvents';
 import PageContainer from '../../../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../../../components/ui/page/PageSection';
@@ -197,10 +198,6 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
     const canDeleteAccounts = can('payment_accounts.page', 'delete');
 
     const [form] = Form.useForm<PaymentAccountFormValues>();
-    const [accounts, setAccounts] = useState<ShopPaymentAccount[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [refreshing, setRefreshing] = useState(false);
-    const [fetchedOnce, setFetchedOnce] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [activatingId, setActivatingId] = useState<string | null>(null);
     const [initializedEditId, setInitializedEditId] = useState<string | null>(null);
@@ -239,46 +236,51 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
     const watchedIsActive = Form.useWatch('is_active', form) ?? false;
 
     // URL sync and state management are now handled by useListState
-
-    const fetchAccounts = useCallback(async (silent = false) => {
-        if (!isUrlReady) return;
-        try {
-            if (silent) setRefreshing(true);
-            else setLoading(true);
-
+    const accountsListQuery = useQuery<{ data: ShopPaymentAccount[]; total: number; page: number; last_page: number }>({
+        queryKey: ['paymentAccounts', 'manage', page, pageSize, debouncedSearch, statusFilter],
+        queryFn: async () => {
             const result = await paymentAccountService.getByShopId(undefined, undefined, getQueryParams());
-            
-            setAccounts(result.data.filter((item) => item.account_type === 'PromptPay'));
-            setTotal(result.total);
-        } catch (error) {
-            console.error(error);
-            message.error(getFriendlyErrorMessage(error, 'ไม่สามารถโหลดข้อมูลบัญชีพร้อมเพย์ได้'));
-        } finally {
-            if (silent) setRefreshing(false);
-            else setLoading(false);
-            setFetchedOnce(true);
-        }
-    }, [getQueryParams, isUrlReady, setTotal]);
+            return {
+                ...result,
+                data: result.data.filter((item) => item.account_type === 'PromptPay'),
+            };
+        },
+        enabled: isAuthorized && isUrlReady && isManage,
+        placeholderData: (previous) => previous,
+        staleTime: 20_000,
+        refetchOnWindowFocus: false,
+    });
 
-    useEffect(() => {
-        if (isAuthorized && isUrlReady) {
-            fetchAccounts();
-        }
-    }, [isAuthorized, isUrlReady, fetchAccounts]);
+    const accountsCatalogQuery = useQuery<{ data: ShopPaymentAccount[]; total: number; page: number; last_page: number }>({
+        queryKey: ['paymentAccounts', 'catalog'],
+        queryFn: () =>
+            paymentAccountService.getByShopId(
+                undefined,
+                undefined,
+                new URLSearchParams({
+                    page: '1',
+                    limit: '200',
+                    sort_created: 'new',
+                })
+            ),
+        enabled: isAuthorized && isUrlReady && (isAdd || isEdit),
+        staleTime: 20_000,
+        refetchOnWindowFocus: false,
+    });
+
+    const editAccountQuery = useQuery<ShopPaymentAccount>({
+        queryKey: ['paymentAccounts', 'single', editId],
+        queryFn: () => paymentAccountService.getOne(editId!),
+        enabled: isAuthorized && isUrlReady && isEdit,
+        staleTime: 20_000,
+        refetchOnWindowFocus: false,
+    });
 
     useEffect(() => {
         if (!isValidRoute) {
             router.replace('/pos/settings/payment-accounts/manage');
         }
     }, [isValidRoute, router]);
-
-    useRealtimeList(
-        socket,
-        { create: RealtimeEvents.paymentAccounts.create, update: RealtimeEvents.paymentAccounts.update, delete: RealtimeEvents.paymentAccounts.delete },
-        setAccounts,
-        (item) => item.id,
-        (item) => item.account_type === 'PromptPay'
-    );
 
     useRealtimeRefresh({
         socket,
@@ -287,17 +289,56 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
             RealtimeEvents.paymentAccounts.update,
             RealtimeEvents.paymentAccounts.delete,
         ],
-        onRefresh: () => fetchAccounts(true),
+        onRefresh: () => {
+            void accountsListQuery.refetch();
+            void accountsCatalogQuery.refetch();
+            void editAccountQuery.refetch();
+        },
         intervalMs: 45000,
-        enabled: isAuthorized,
+        debounceMs: 500,
+        enabled: isAuthorized && isUrlReady,
     });
 
     const editingAccount = useMemo(
-        () => (isEdit && editId ? accounts.find((item) => item.id === editId) ?? null : null),
-        [accounts, editId, isEdit]
+        () => (isEdit ? editAccountQuery.data ?? null : null),
+        [editAccountQuery.data, isEdit]
     );
 
     const isEditingPrimaryAccount = Boolean(isEdit && editingAccount?.is_active);
+
+    const manageAccounts = accountsListQuery.data?.data || [];
+    const catalogAccounts = accountsCatalogQuery.data?.data || [];
+    const isManageLoading = accountsListQuery.isLoading;
+    const isFormLoading = isEdit ? editAccountQuery.isLoading : accountsCatalogQuery.isLoading;
+
+    useEffect(() => {
+        if (accountsListQuery.data?.total !== undefined) {
+            setTotal(accountsListQuery.data.total);
+        }
+    }, [accountsListQuery.data, setTotal]);
+
+    useEffect(() => {
+        if (!isManage) return;
+        const lastPage = accountsListQuery.data?.last_page;
+        if (!lastPage) return;
+        if (page > 1 && manageAccounts.length === 0 && lastPage < page) {
+            setPage(lastPage);
+        }
+    }, [accountsListQuery.data?.last_page, isManage, manageAccounts.length, page, setPage]);
+
+    useEffect(() => {
+        const error = accountsListQuery.error || accountsCatalogQuery.error || editAccountQuery.error;
+        if (!error) return;
+        console.error(error);
+        message.error(getFriendlyErrorMessage(error, 'ไม่สามารถโหลดข้อมูลบัญชีพร้อมเพย์ได้'));
+    }, [
+        accountsCatalogQuery.error,
+        accountsCatalogQuery.errorUpdatedAt,
+        accountsListQuery.error,
+        accountsListQuery.errorUpdatedAt,
+        editAccountQuery.error,
+        editAccountQuery.errorUpdatedAt,
+    ]);
 
     useEffect(() => {
         if (!isAdd) return;
@@ -307,15 +348,16 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
             account_number: '',
             phone: '',
             address: '',
-            is_active: accounts.length === 0,
+            is_active: (accountsCatalogQuery.data?.total || 0) === 0,
         });
         setInitializedEditId(null);
-    }, [accounts.length, form, isAdd]);
+    }, [accountsCatalogQuery.data?.total, form, isAdd]);
 
     useEffect(() => {
-        if (!isEdit || !editId || !fetchedOnce) return;
+        if (!isEdit || !editId) return;
 
         if (!editingAccount) {
+            if (editAccountQuery.isLoading) return;
             message.error('ไม่พบบัญชีพร้อมเพย์ที่ต้องการแก้ไข');
             router.replace('/pos/settings/payment-accounts/manage');
             return;
@@ -332,7 +374,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
         });
 
         setInitializedEditId(editId);
-    }, [editId, editingAccount, fetchedOnce, form, initializedEditId, isEdit, router]);
+    }, [editAccountQuery.isLoading, editId, editingAccount, form, initializedEditId, isEdit, router]);
 
 
     const handleActivate = async (account: ShopPaymentAccount) => {
@@ -347,7 +389,11 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
             const csrfToken = await getCsrfTokenCached();
             await paymentAccountService.activate(account.id, undefined, undefined, csrfToken);
             message.success(`ตั้ง "${account.account_name}" เป็นบัญชีหลักแล้ว`);
-            await fetchAccounts(true);
+            await Promise.all([
+                accountsListQuery.refetch(),
+                accountsCatalogQuery.refetch(),
+                editAccountQuery.refetch(),
+            ]);
         } catch (error) {
             console.error(error);
             message.error(getFriendlyErrorMessage(error, 'ไม่สามารถตั้งบัญชีหลักได้'));
@@ -383,10 +429,13 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                     const csrfToken = await getCsrfTokenCached();
                     await paymentAccountService.delete(account.id, undefined, undefined, csrfToken);
                     message.success(`ลบบัญชี "${account.account_name}" สำเร็จ`);
-                    await fetchAccounts(true);
+                    await Promise.all([
+                        accountsListQuery.refetch(),
+                        accountsCatalogQuery.refetch(),
+                    ]);
 
                     if (isEdit) {
-                        router.push('/pos/settings/payment-accounts/manage');
+                        router.replace('/pos/settings/payment-accounts/manage');
                     }
                 } catch (error) {
                     console.error(error);
@@ -418,7 +467,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                 throw new Error('เบอร์โทรศัพท์ต้องเป็นตัวเลข 10 หลัก');
             }
 
-            const duplicatedAccount = accounts.find((item) =>
+            const duplicatedAccount = catalogAccounts.find((item) =>
                 normalizeDigits(item.account_number) === normalizedAccountNumber &&
                 (!isEdit || item.id !== editId)
             );
@@ -447,8 +496,12 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                 message.success(`เพิ่มบัญชี "${payload.account_name}" สำเร็จ`);
             }
 
-            router.push('/pos/settings/payment-accounts/manage');
-            await fetchAccounts(true);
+            await Promise.all([
+                accountsListQuery.refetch(),
+                accountsCatalogQuery.refetch(),
+                editAccountQuery.refetch(),
+            ]);
+            router.replace('/pos/settings/payment-accounts/manage');
         } catch (error) {
             console.error(error);
             message.error(getFriendlyErrorMessage(error, 'ไม่สามารถบันทึกข้อมูลได้'));
@@ -479,7 +532,13 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                 actions={
                     isManage ? (
                         <Space size={10} wrap>
-                            <Button icon={<ReloadOutlined />} onClick={() => fetchAccounts(false)} loading={loading || refreshing} />
+                            <Button
+                                icon={<ReloadOutlined />}
+                                onClick={() => {
+                                    void accountsListQuery.refetch();
+                                }}
+                                loading={accountsListQuery.isFetching}
+                            />
                             <Button
                                 type="primary"
                                 icon={<PlusOutlined />}
@@ -534,7 +593,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                         </SearchBar>
 
                         <PageSection title="รายการบัญชีพร้อมเพย์" extra={<span style={{ fontWeight: 600 }}>{total} รายการ</span>}>
-                            {loading ? (
+                            {isManageLoading ? (
                                 <div style={{ display: 'grid', gap: isMobile ? 8 : 10 }}>
                                     {Array.from({ length: 3 }).map((_, index) => (
                                         <Card key={index} size="small" style={{ borderRadius: 12 }}>
@@ -542,9 +601,14 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                         </Card>
                                     ))}
                                 </div>
-                            ) : accounts.length > 0 ? (
+                            ) : accountsListQuery.isError ? (
+                                <UIEmptyState
+                                    title="โหลดข้อมูลบัญชีพร้อมเพย์ไม่สำเร็จ"
+                                    description="กดรีเฟรชเพื่อโหลดข้อมูลอีกครั้ง"
+                                />
+                            ) : manageAccounts.length > 0 ? (
                                 <div style={{ display: 'grid', gap: isMobile ? 8 : 10 }}>
-                                    {accounts.map((account) => (
+                                    {manageAccounts.map((account) => (
                                         <div
                                             key={account.id}
                                             style={{
@@ -662,11 +726,16 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                     </PageStack>
                 ) : (
                     <PageSection style={{ background: 'transparent', border: 'none' }}>
-                        {loading && isEdit ? (
+                        {isFormLoading ? (
                             <Row gutter={[20, 20]}>
                                 <Col xs={24} lg={15}><SectionLoadingSkeleton compact={isMobile} rows={7} /></Col>
                                 <Col xs={24} lg={9}><SectionLoadingSkeleton compact={isMobile} rows={4} /></Col>
                             </Row>
+                        ) : isEdit && editAccountQuery.isError ? (
+                            <UIEmptyState
+                                title="โหลดข้อมูลบัญชีพร้อมเพย์ไม่สำเร็จ"
+                                description="กดรีเฟรชแล้วลองเปิดรายการอีกครั้ง"
+                            />
                         ) : (
                             <Row gutter={[20, 20]}>
                                 <Col xs={24} lg={15}>
@@ -731,7 +800,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                                                                 throw new Error('เลขพร้อมเพย์ต้องมีความยาว 10 หลัก');
                                                             }
 
-                                                            const duplicated = accounts.some((item) =>
+                                                            const duplicated = catalogAccounts.some((item) =>
                                                                 normalizeDigits(item.account_number) === normalized &&
                                                                 (!isEdit || item.id !== editId)
                                                             );

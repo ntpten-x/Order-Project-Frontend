@@ -33,6 +33,7 @@ describe("servingBoardService contract", () => {
                         order_no: "ORD-001",
                         order_type: "DineIn",
                         order_status: "Pending",
+                        customer_name: null,
                         source_title: "Dine in โต๊ะ 1",
                         source_subtitle: "ORD-001",
                         batch_created_at: "2026-03-04T10:00:00.000Z",
@@ -43,7 +44,7 @@ describe("servingBoardService contract", () => {
                             {
                                 id: "i-1",
                                 product_id: "p-1",
-                                product_name: "ไก่ทอด",
+                                display_name: "ไก่ทอด",
                                 product_image_url: null,
                                 quantity: "1",
                                 notes: null,

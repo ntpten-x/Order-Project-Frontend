@@ -5,14 +5,14 @@ import { isSupportedImageSource } from "../image/source";
  * Format price to Thai Baht.
  */
 export function formatPrice(price: number): string {
-    return `฿${price.toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
+    return `฿${price.toLocaleString("th-TH", { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
 }
 
 /**
  * Get product category name with fallback.
  */
 export function getProductCategoryName(product: Products): string {
-    return product.category?.display_name || "เนเธกเนเธกเธตเธซเธกเธงเธ”เธซเธกเธนเน";
+    return product.category?.display_name || "ไม่มีหมวดหมู่";
 }
 
 /**

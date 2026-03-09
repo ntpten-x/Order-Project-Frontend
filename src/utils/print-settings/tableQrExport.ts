@@ -1,7 +1,10 @@
 import { loadPdfExport } from "../../lib/dynamic-imports";
 import { PrintDocumentSetting, PrintUnit } from "../../types/api/pos/printSettings";
+import { downloadBlob, triggerDownloadFromUrl } from "../browser/download";
 
-const DEFAULT_PX_PER_MM = 12;
+const DEFAULT_PX_PER_MM = 24;
+const QR_FRAME_PADDING_PX = 18;
+const QR_EXPORT_SUBTITLE = "สแกนคิวอาร์โค้ดนี้เพื่อสั่งอาหาร";
 
 function convertToMm(value: number, unit: PrintUnit): number {
     return unit === "mm" ? value : value * 25.4;
@@ -20,12 +23,14 @@ function loadImage(src: string): Promise<HTMLImageElement> {
         const image = new Image();
         image.decoding = "async";
         image.onload = () => resolve(image);
-        image.onerror = () => reject(new Error("โหลดภาพ QR ไม่สำเร็จ"));
+        image.onerror = () => reject(new Error("Unable to load QR image"));
         image.src = src;
     });
 }
 
-function getEffectiveDocumentSize(setting: Pick<PrintDocumentSetting, "width" | "height" | "height_mode" | "orientation" | "unit">) {
+function getEffectiveDocumentSize(
+    setting: Pick<PrintDocumentSetting, "width" | "height" | "height_mode" | "orientation" | "unit">
+) {
     const width = setting.width;
     const rawHeight =
         setting.height_mode === "fixed" && setting.height != null
@@ -52,8 +57,12 @@ export async function buildTableQrExportCanvas(options: {
     qrCodeExpiresAt?: string | null;
     setting: PrintDocumentSetting;
     locale?: string;
+    heading?: string;
+    subtitle?: string;
 }): Promise<HTMLCanvasElement> {
-    const { tableName, customerUrl, qrImageDataUrl, qrCodeExpiresAt, setting, locale = "th-TH" } = options;
+    const { tableName, customerUrl, qrImageDataUrl, setting } = options;
+    const heading = options.heading || `โต๊ะ ${tableName}`;
+    const subtitle = options.subtitle || QR_EXPORT_SUBTITLE;
     const pageSize = getEffectiveDocumentSize(setting);
     const canvas = document.createElement("canvas");
     canvas.width = toPixels(pageSize.width, setting.unit);
@@ -61,7 +70,7 @@ export async function buildTableQrExportCanvas(options: {
 
     const ctx = canvas.getContext("2d");
     if (!ctx) {
-        throw new Error("ไม่สามารถสร้างเอกสาร QR ได้");
+        throw new Error("Unable to build QR export canvas");
     }
 
     const qrImage = await loadImage(qrImageDataUrl);
@@ -71,71 +80,136 @@ export async function buildTableQrExportCanvas(options: {
     const marginBottom = toPixels(setting.margin_bottom, setting.unit);
     const contentWidth = Math.max(1, canvas.width - marginLeft - marginRight);
     const contentHeight = Math.max(1, canvas.height - marginTop - marginBottom);
-    const baseFont = Math.max(22, Math.round(contentWidth * 0.055 * (Math.max(setting.font_scale, 70) / 100)));
-    const titleFont = `700 ${baseFont}px "Noto Sans Thai", "Segoe UI", sans-serif`;
-    const subtitleFont = `500 ${Math.max(18, Math.round(baseFont * 0.55))}px "Noto Sans Thai", "Segoe UI", sans-serif`;
-    const metaFont = `400 ${Math.max(16, Math.round(baseFont * 0.42))}px "Noto Sans Thai", "Segoe UI", sans-serif`;
+    const centerX = Math.round(canvas.width / 2);
+    const baseFont = Math.max(26, Math.round(contentWidth * 0.085 * (Math.max(setting.font_scale, 70) / 100)));
+    const titleFontSize = baseFont;
+    const subtitleFontSize = Math.max(20, Math.round(baseFont * 0.62));
+    const urlFontSize = Math.max(16, Math.round(baseFont * 0.4));
+    const titleFont = `700 ${titleFontSize}px "Noto Sans Thai", "Segoe UI", sans-serif`;
+    const subtitleFont = `500 ${subtitleFontSize}px "Noto Sans Thai", "Segoe UI", sans-serif`;
+    const urlFont = `400 ${urlFontSize}px "Noto Sans Thai", "Segoe UI", sans-serif`;
+    const titleLineHeight = Math.round(titleFontSize * 1.2);
+    const subtitleLineHeight = Math.round(subtitleFontSize * 1.3);
+    const urlLineHeight = Math.round(urlFontSize * 1.45);
+    const titleToSubtitleGap = Math.round(baseFont * 0.15);
+    const subtitleToQrGap = Math.round(baseFont * 0.35);
+    const qrToUrlGap = Math.round(baseFont * 0.8);
+    const urlLines = customerUrl.match(/.{1,44}/g) || [customerUrl];
+    const urlBlockHeight = urlLines.length * urlLineHeight;
+
+    const qrMaxSize = Math.max(
+        1,
+        Math.min(
+            contentWidth - QR_FRAME_PADDING_PX * 2,
+            contentHeight -
+            titleLineHeight -
+            titleToSubtitleGap -
+            subtitleLineHeight -
+            subtitleToQrGap -
+            qrToUrlGap -
+            urlBlockHeight -
+            QR_FRAME_PADDING_PX * 2
+        )
+    );
+    const qrPreferredSize = Math.round(contentWidth * 0.82);
+    const qrSize = Math.max(1, Math.min(qrMaxSize, qrPreferredSize));
+
+    const exportPadding = Math.round(qrSize * 0.08); // 8% of QR size for a spacious, modern look
+    const qrFrameSizeEffective = qrSize + exportPadding * 2;
+    const contentBlockHeight =
+        titleLineHeight +
+        titleToSubtitleGap +
+        subtitleLineHeight +
+        subtitleToQrGap +
+        qrFrameSizeEffective +
+        qrToUrlGap +
+        urlBlockHeight;
 
     ctx.fillStyle = "#ffffff";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-
     ctx.textAlign = "center";
+    ctx.textBaseline = "top";
+
+    let currentY = marginTop + Math.max(0, Math.round((contentHeight - contentBlockHeight) / 2));
+
     ctx.fillStyle = "#0f172a";
     ctx.font = titleFont;
-    const titleY = marginTop + Math.round(baseFont * 1.1);
-    ctx.fillText(`โต๊ะ ${tableName}`, canvas.width / 2, titleY);
+    ctx.fillText(heading, centerX, currentY);
+    currentY += titleLineHeight + titleToSubtitleGap;
 
-    const subtitleY = titleY + Math.round(baseFont * 0.92);
     ctx.fillStyle = "#475569";
     ctx.font = subtitleFont;
-    ctx.fillText("สแกนเพื่อเปิดเมนู", canvas.width / 2, subtitleY);
+    ctx.fillText(subtitle, centerX, currentY);
+    currentY += subtitleLineHeight + subtitleToQrGap;
 
-    const availableHeight = contentHeight - Math.round(baseFont * 2.6) - Math.round(baseFont * 3.4);
-    const qrSize = Math.max(
-        Math.min(contentWidth, availableHeight) - Math.round(baseFont * 0.4),
-        Math.round(contentWidth * 0.5)
-    );
-    const qrX = (canvas.width - qrSize) / 2;
-    const qrY = subtitleY + Math.round(baseFont * 0.8);
+    // Calculate centered positions for the frame
+    const qrFrameX = Math.round(centerX - qrFrameSizeEffective / 2);
+    const qrFrameY = Math.round(currentY);
 
+    // Calculate centered positions for the QR image within the frame
+    const qrX = Math.round(qrFrameX + exportPadding);
+    const qrY = Math.round(qrFrameY + exportPadding);
+
+    // Draw Rounded QR Frame (The white box)
+    const borderRadius = Math.round(qrFrameSizeEffective * 0.12);
     ctx.fillStyle = "#ffffff";
-    ctx.fillRect(qrX - 18, qrY - 18, qrSize + 36, qrSize + 36);
-    ctx.strokeStyle = "#d1d5db";
-    ctx.lineWidth = 3;
-    ctx.strokeRect(qrX - 18, qrY - 18, qrSize + 36, qrSize + 36);
+    ctx.strokeStyle = "#e2e8f0";
+    ctx.lineWidth = Math.max(2, Math.round(qrFrameSizeEffective * 0.006));
+
+    const x = qrFrameX;
+    const y = qrFrameY;
+    const w = qrFrameSizeEffective;
+    const h = qrFrameSizeEffective;
+    const r = borderRadius;
+
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.lineTo(x + w - r, y);
+    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
+    ctx.lineTo(x + w, y + h - r);
+    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    ctx.lineTo(x + r, y + h);
+    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
+    ctx.lineTo(x, y + r);
+    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.closePath();
+
+    ctx.fill();
+    ctx.stroke();
+
+    // Draw the full square QR canvas so the visual quiet zone stays balanced on both sides.
+    ctx.save();
+    ctx.imageSmoothingEnabled = false;
     ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize);
+    ctx.restore();
 
-    const urlLines = customerUrl.match(/.{1,44}/g) || [customerUrl];
+    // Draw Dashed Guide Border (Around the whole content card)
+    const cardPadding = Math.round(baseFont * 0.8);
+    const cardY = marginTop + Math.max(0, Math.round((contentHeight - contentBlockHeight) / 2)) - cardPadding;
+    const cardW = Math.round(qrFrameSizeEffective + cardPadding * 2);
+    const cardH = Math.round(contentBlockHeight + cardPadding * 2);
+    const cardX = Math.round(centerX - cardW / 2);
+
+    ctx.beginPath();
+    ctx.setLineDash([Math.round(baseFont * 0.2), Math.round(baseFont * 0.15)]);
+    ctx.strokeStyle = "#cbd5e1";
+    ctx.lineWidth = Math.max(1, Math.round(baseFont * 0.05));
+    ctx.strokeRect(cardX, cardY, cardW, cardH);
+    ctx.setLineDash([]); // Reset to solid line for other draws
+
+    currentY += qrFrameSizeEffective + qrToUrlGap;
+
     ctx.fillStyle = "#64748b";
-    ctx.font = metaFont;
-    const urlStartY = qrY + qrSize + Math.round(baseFont * 0.9);
+    ctx.font = urlFont;
     urlLines.forEach((line, index) => {
-        ctx.fillText(line, canvas.width / 2, urlStartY + index * Math.round(baseFont * 0.55));
-    });
-
-    const footerLines = [];
-    if (qrCodeExpiresAt) {
-        footerLines.push(
-            `หมดอายุ ${new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(qrCodeExpiresAt))}`
-        );
-    }
-    footerLines.push(
-        `สร้างเมื่อ ${new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date())}`
-    );
-
-    const footerBaseY = canvas.height - marginBottom - Math.round(baseFont * 0.2) - (footerLines.length - 1) * Math.round(baseFont * 0.48);
-    footerLines.forEach((line, index) => {
-        ctx.fillText(line, canvas.width / 2, footerBaseY + index * Math.round(baseFont * 0.48));
+        ctx.fillText(line, centerX, currentY + index * urlLineHeight);
     });
 
     return canvas;
 }
 
 export function downloadCanvasAsPng(canvas: HTMLCanvasElement, filename: string): void {
-    const link = document.createElement("a");
-    link.href = canvas.toDataURL("image/png");
-    link.download = filename;
-    link.click();
+    triggerDownloadFromUrl(canvas.toDataURL("image/png"), filename);
 }
 
 export async function saveCanvasAsPdf(options: {
@@ -154,5 +228,6 @@ export async function saveCanvasAsPdf(options: {
     });
 
     doc.addImage(imageDataUrl, "PNG", 0, 0, pageSize.width, pageSize.height, undefined, "FAST");
-    doc.save(filename);
+    const blob = doc.output("blob");
+    downloadBlob(blob, filename);
 }

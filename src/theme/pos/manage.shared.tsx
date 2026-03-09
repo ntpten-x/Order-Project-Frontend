@@ -30,7 +30,6 @@ export const createManagePageStyles = ({
             paddingBottom: 100,
             backgroundColor: "#f8f9fc",
             minHeight: "100vh",
-            // Use dvh for better mobile viewport handling
             height: "100dvh",
             overflowX: "hidden" as const,
             overflowY: "auto" as const,
@@ -183,7 +182,6 @@ export const createManagePageStyles = ({
             width: 100%;
         }
 
-        /* Fix dropdown z-index and overflow issues */
         .manage-page .ant-select-dropdown {
             z-index: 9999 !important;
         }
