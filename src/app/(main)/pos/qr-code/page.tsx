@@ -53,11 +53,11 @@ const TAKEAWAY_QR_UI = {
     refreshLabel: 'Refresh',
 };
 const TABLE_QR_EXPORT_UI = {
-    singleButtonLabel: 'Export โต๊ะนี้',
-    singleModalTitle: 'ส่งออก QR โต๊ะนี้',
+    singleButtonLabel: 'Export',
+    singleModalTitle: 'Export QR Code โต๊ะ',
     singleScopeDescription: 'จะส่งออกเฉพาะ QR Code ของโต๊ะที่เลือกเท่านั้น',
     bulkButtonLabel: 'Export ทั้งหมด (โต๊ะ)',
-    bulkModalTitle: 'ส่งออก QR ทุกโต๊ะ',
+    bulkModalTitle: 'Export ทั้งหมด (โต๊ะ)',
     bulkScopeDescription: 'ระบบจะส่งออก QR Code ของทุกโต๊ะตามผลการค้นหาและตัวกรองปัจจุบัน',
 };
 
@@ -125,10 +125,10 @@ export default function TableQrCodePage() {
     const [rotatingId, setRotatingId] = useState<string | null>(null);
     const [exportingId, setExportingId] = useState<string | null>(null);
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-    const [exportFormat, setExportFormat] = useState<ExportFormat>('a4');
+    const [exportFormat, setExportFormat] = useState<ExportFormat>('receipt');
     const [exportTargetTable, setExportTargetTable] = useState<TableQrCodeListItem | null>(null);
     const [isBulkExportModalOpen, setIsBulkExportModalOpen] = useState(false);
-    const [bulkExportFormat, setBulkExportFormat] = useState<ExportFormat>('a4');
+    const [bulkExportFormat, setBulkExportFormat] = useState<ExportFormat>('receipt');
     const [bulkExporting, setBulkExporting] = useState(false);
     const [bulkExportProgress, setBulkExportProgress] = useState<BulkExportProgress | null>(null);
     const [bulkRenderTarget, setBulkRenderTarget] = useState<BulkExportRenderTarget | null>(null);
@@ -137,7 +137,7 @@ export default function TableQrCodePage() {
     const [isTakeawayQrLoading, setIsTakeawayQrLoading] = useState(false);
     const [isTakeawayQrRefreshing, setIsTakeawayQrRefreshing] = useState(false);
     const [isTakeawayQrExportModalOpen, setIsTakeawayQrExportModalOpen] = useState(false);
-    const [takeawayQrExportFormat, setTakeawayQrExportFormat] = useState<ExportFormat>('a4');
+    const [takeawayQrExportFormat, setTakeawayQrExportFormat] = useState<ExportFormat>('receipt');
     const [isTakeawayQrExporting, setIsTakeawayQrExporting] = useState(false);
     const [takeawayQr, setTakeawayQr] = useState<TakeawayQrInfo | null>(null);
     const [csrfToken, setCsrfToken] = useState('');
@@ -166,8 +166,8 @@ export default function TableQrCodePage() {
     }, []);
     const takeawayCustomerUrl = useMemo(() => buildCustomerUrl(takeawayQr?.customer_path), [buildCustomerUrl, takeawayQr?.customer_path]);
     const takeawayLabel = useMemo(() => takeawayQr?.shop_name?.trim() || 'Takeaway', [takeawayQr?.shop_name]);
-    const takeawayQrHeading = useMemo(() => `${takeawayLabel} QR`, [takeawayLabel]);
-    const takeawayQrSubtitle = 'Scan to open takeaway order';
+    const takeawayQrHeading = TAKEAWAY_QR_UI.label;
+    const takeawayQrSubtitle = 'สแกนคิวอาร์โค้ดนี้เพื่อสั่งอาหาร';
     const takeawayQrDocumentTitle = useMemo(() => `${TAKEAWAY_QR_UI.label} ${takeawayLabel}`, [takeawayLabel]);
     const takeawayQrRenderKey = takeawayQr?.token || takeawayCustomerUrl || 'takeaway-qr';
 
@@ -617,7 +617,7 @@ export default function TableQrCodePage() {
             return;
         }
 
-        setTakeawayQrExportFormat('a4');
+        setTakeawayQrExportFormat('receipt');
         setIsTakeawayQrExportModalOpen(true);
     }, [takeawayCustomerUrl]);
 
@@ -716,12 +716,12 @@ export default function TableQrCodePage() {
         }
 
         setExportTargetTable(target);
-        setExportFormat('a4');
+        setExportFormat('receipt');
         setIsExportModalOpen(true);
     }, [buildCustomerUrl]);
 
     const handleOpenBulkExportModal = useCallback(() => {
-        setBulkExportFormat('a4');
+        setBulkExportFormat('receipt');
         setBulkExportProgress(null);
         setIsBulkExportModalOpen(true);
     }, []);
@@ -940,9 +940,8 @@ export default function TableQrCodePage() {
                     {takeawayCustomerUrl ? <Text style={{ wordBreak: 'break-all' }}>{takeawayCustomerUrl}</Text> : null}
                 </div>
             </Modal>
-            <Modal title={TABLE_QR_EXPORT_UI.singleModalTitle} open={isExportModalOpen} onCancel={() => { setIsExportModalOpen(false); setExportTargetTable(null); }} onOk={() => { void handleConfirmExport(); }} okText="ตกลง" cancelText="ยกเลิก" confirmLoading={Boolean(exportTargetTable && exportingId === exportTargetTable.id)} destroyOnClose>
+            <Modal title={TABLE_QR_EXPORT_UI.singleModalTitle} open={isExportModalOpen} onCancel={() => { setIsExportModalOpen(false); setExportTargetTable(null); }} onOk={() => { void handleConfirmExport(); }} okText="พิมพ์" cancelText="ยกเลิก" confirmLoading={Boolean(exportTargetTable && exportingId === exportTargetTable.id)} destroyOnClose>
                 <Space direction="vertical" size={14} style={{ width: '100%' }}>
-                    <Text type="secondary">{TABLE_QR_EXPORT_UI.singleScopeDescription}</Text>
                     <Text type="secondary">{exportTargetTable ? `โต๊ะ: ${exportTargetTable.table_name}` : 'เลือกรูปแบบไฟล์ที่ต้องการส่งออก'}</Text>
                     <Radio.Group value={exportFormat} onChange={(event) => setExportFormat(event.target.value as ExportFormat)} style={{ width: '100%' }}>
                         {false && <Space direction="vertical" size={10} style={{ width: '100%' }}>
@@ -950,9 +949,9 @@ export default function TableQrCodePage() {
                             <Radio value="png">PNG (ดาวน์โหลดรูป QR)</Radio>
                         </Space>}
                         <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                            <Radio value="a4">A4 สำหรับโต๊ะนี้ 1 QR ต่อไฟล์</Radio>
-                            <Radio value="receipt">เครื่องพิมพ์ใบเสร็จ สำหรับโต๊ะนี้</Radio>
-                            <Radio value="png">PNG ของโต๊ะนี้</Radio>
+                            <Radio value="receipt">สำหรับเครื่องพิมพ์ใบเสร็จ</Radio>
+                            <Radio value="a4">สำหรับเครื่องพิมพ์ปกติ</Radio>
+                            <Radio value="png">PNG</Radio>
                         </Space>
                     </Radio.Group>
                 </Space>
@@ -966,7 +965,7 @@ export default function TableQrCodePage() {
                     setBulkExportProgress(null);
                 }}
                 onOk={() => { void handleConfirmBulkExport(); }}
-                okText={bulkExportFormat === 'png' ? 'ดาวน์โหลด ZIP' : 'สร้างไฟล์สำหรับพิมพ์'}
+                okText={bulkExportFormat === 'png' ? 'ดาวน์โหลด ZIP' : 'พิมพ์'}
                 cancelText="ยกเลิก"
                 confirmLoading={bulkExporting}
                 okButtonProps={{ disabled: loading || total === 0 }}
@@ -975,19 +974,19 @@ export default function TableQrCodePage() {
                 destroyOnClose
             >
                 <Space direction="vertical" size={14} style={{ width: '100%' }}>
-                    <Text type="secondary">{TABLE_QR_EXPORT_UI.bulkScopeDescription}</Text>
+
                     <Radio.Group value={bulkExportFormat} onChange={(event) => setBulkExportFormat(event.target.value as ExportFormat)} style={{ width: '100%' }} disabled={bulkExporting}>
                         {false && <Space direction="vertical" size={10} style={{ width: '100%' }}>
                             <Radio value="pdf">PDF รวมทุกโต๊ะ (1 ไฟล์)</Radio>
                             <Radio value="png">ZIP ของ PNG (แยกไฟล์ต่อโต๊ะ)</Radio>
                         </Space>}
                         <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                            <Radio value="a4">A4 (4 QR ต่อหน้า)</Radio>
-                            <Radio value="receipt">เครื่องพิมพ์ใบเสร็จ (เรียงต่อเนื่องแบบม้วน)</Radio>
-                            <Radio value="png">ZIP ของ PNG (แยกไฟล์ต่อโต๊ะ)</Radio>
+                            <Radio value="receipt">สำหรับเครื่องพิมพ์ใบเสร็จ</Radio>
+                            <Radio value="a4">สำหรับเครื่องพิมพ์ปกติ</Radio>
+                            <Radio value="png">PNG (ZIP)</Radio>
                         </Space>
                     </Radio.Group>
-                    {bulkExportProgress ? (
+                    {bulkExportProgress && (
                         <div style={{ padding: '12px 14px', borderRadius: 12, background: '#f8fafc', border: '1px solid #e2e8f0' }}>
                             <Text strong style={{ display: 'block' }}>{bulkExportProgress.stage}</Text>
                             <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
@@ -997,31 +996,27 @@ export default function TableQrCodePage() {
                                 {bulkExportProgress.skipped > 0 ? `, ข้าม ${bulkExportProgress.skipped} รายการที่ไม่มีลิงก์ลูกค้า` : ''}
                             </Text>
                         </div>
-                    ) : (
-                        <Text type="secondary">พร้อมส่งออก {total.toLocaleString('th-TH')} รายการตามผลการค้นหาปัจจุบัน</Text>
-                    )}
-                </Space>
+                    )}                </Space>
             </Modal>
             <Modal
                 title={TAKEAWAY_QR_UI.exportLabel}
                 open={isTakeawayQrExportModalOpen}
                 onCancel={() => setIsTakeawayQrExportModalOpen(false)}
                 onOk={() => { void handleConfirmTakeawayExport(); }}
-                okText="ตกลง"
+                okText="พิมพ์"
                 cancelText="ยกเลิก"
                 confirmLoading={isTakeawayQrExporting}
                 destroyOnClose
             >
                 <Space direction="vertical" size={14} style={{ width: '100%' }}>
-                    <Text type="secondary">{takeawayLabel}</Text>
                     <Radio.Group value={takeawayQrExportFormat} onChange={(event) => setTakeawayQrExportFormat(event.target.value as ExportFormat)} style={{ width: '100%' }}>
                         {false && <Space direction="vertical" size={10} style={{ width: '100%' }}>
                             <Radio value="pdf">PDF</Radio>
                             <Radio value="png">PNG</Radio>
                         </Space>}
                         <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                            <Radio value="a4">A4</Radio>
-                            <Radio value="receipt">เครื่องพิมพ์ใบเสร็จ</Radio>
+                            <Radio value="receipt">สำหรับเครื่องพิมพ์ใบเสร็จ</Radio>
+                            <Radio value="a4">สำหรับเครื่องพิมพ์ปกติ</Radio>
                             <Radio value="png">PNG</Radio>
                         </Space>
                     </Radio.Group>

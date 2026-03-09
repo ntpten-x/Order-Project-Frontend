@@ -4,7 +4,7 @@ import { downloadBlob, triggerDownloadFromUrl } from "../browser/download";
 
 const DEFAULT_PX_PER_MM = 24;
 const QR_FRAME_PADDING_PX = 18;
-const QR_EXPORT_SUBTITLE = "Scan to open the menu and place an order";
+const QR_EXPORT_SUBTITLE = "สแกนคิวอาร์โค้ดนี้เพื่อสั่งอาหาร";
 
 function convertToMm(value: number, unit: PrintUnit): number {
     return unit === "mm" ? value : value * 25.4;
@@ -61,7 +61,7 @@ export async function buildTableQrExportCanvas(options: {
     subtitle?: string;
 }): Promise<HTMLCanvasElement> {
     const { tableName, customerUrl, qrImageDataUrl, setting } = options;
-    const heading = options.heading || `Table ${tableName}`;
+    const heading = options.heading || `โต๊ะ ${tableName}`;
     const subtitle = options.subtitle || QR_EXPORT_SUBTITLE;
     const pageSize = getEffectiveDocumentSize(setting);
     const canvas = document.createElement("canvas");
@@ -81,18 +81,18 @@ export async function buildTableQrExportCanvas(options: {
     const contentWidth = Math.max(1, canvas.width - marginLeft - marginRight);
     const contentHeight = Math.max(1, canvas.height - marginTop - marginBottom);
     const centerX = Math.round(canvas.width / 2);
-    const baseFont = Math.max(22, Math.round(contentWidth * 0.055 * (Math.max(setting.font_scale, 70) / 100)));
+    const baseFont = Math.max(26, Math.round(contentWidth * 0.085 * (Math.max(setting.font_scale, 70) / 100)));
     const titleFontSize = baseFont;
-    const subtitleFontSize = Math.max(18, Math.round(baseFont * 0.55));
-    const urlFontSize = Math.max(16, Math.round(baseFont * 0.42));
+    const subtitleFontSize = Math.max(20, Math.round(baseFont * 0.62));
+    const urlFontSize = Math.max(16, Math.round(baseFont * 0.4));
     const titleFont = `700 ${titleFontSize}px "Noto Sans Thai", "Segoe UI", sans-serif`;
     const subtitleFont = `500 ${subtitleFontSize}px "Noto Sans Thai", "Segoe UI", sans-serif`;
     const urlFont = `400 ${urlFontSize}px "Noto Sans Thai", "Segoe UI", sans-serif`;
     const titleLineHeight = Math.round(titleFontSize * 1.2);
     const subtitleLineHeight = Math.round(subtitleFontSize * 1.3);
     const urlLineHeight = Math.round(urlFontSize * 1.45);
-    const titleToSubtitleGap = Math.round(baseFont * 0.35);
-    const subtitleToQrGap = Math.round(baseFont * 0.8);
+    const titleToSubtitleGap = Math.round(baseFont * 0.15);
+    const subtitleToQrGap = Math.round(baseFont * 0.35);
     const qrToUrlGap = Math.round(baseFont * 0.8);
     const urlLines = customerUrl.match(/.{1,44}/g) || [customerUrl];
     const urlBlockHeight = urlLines.length * urlLineHeight;
@@ -111,7 +111,7 @@ export async function buildTableQrExportCanvas(options: {
             QR_FRAME_PADDING_PX * 2
         )
     );
-    const qrPreferredSize = Math.round(contentWidth * 0.62);
+    const qrPreferredSize = Math.round(contentWidth * 0.82);
     const qrSize = Math.max(1, Math.min(qrMaxSize, qrPreferredSize));
 
     const exportPadding = Math.round(qrSize * 0.08); // 8% of QR size for a spacious, modern look
@@ -182,6 +182,20 @@ export async function buildTableQrExportCanvas(options: {
     ctx.imageSmoothingEnabled = false;
     ctx.drawImage(qrImage, qrX, qrY, qrSize, qrSize);
     ctx.restore();
+
+    // Draw Dashed Guide Border (Around the whole content card)
+    const cardPadding = Math.round(baseFont * 0.8);
+    const cardY = marginTop + Math.max(0, Math.round((contentHeight - contentBlockHeight) / 2)) - cardPadding;
+    const cardW = Math.round(qrFrameSizeEffective + cardPadding * 2);
+    const cardH = Math.round(contentBlockHeight + cardPadding * 2);
+    const cardX = Math.round(centerX - cardW / 2);
+
+    ctx.beginPath();
+    ctx.setLineDash([Math.round(baseFont * 0.2), Math.round(baseFont * 0.15)]);
+    ctx.strokeStyle = "#cbd5e1";
+    ctx.lineWidth = Math.max(1, Math.round(baseFont * 0.05));
+    ctx.strokeRect(cardX, cardY, cardW, cardH);
+    ctx.setLineDash([]); // Reset to solid line for other draws
 
     currentY += qrFrameSizeEffective + qrToUrlGap;
 
