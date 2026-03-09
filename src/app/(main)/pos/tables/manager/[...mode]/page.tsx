@@ -1,6 +1,6 @@
 ﻿'use client';
 
-import React, { useEffect, useMemo, useState, useCallback, useRef } from 'react';
+import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { Form, Input, message, Spin, Switch, Modal, Button, Card, Row, Col, Typography, Alert, Tag, Space } from 'antd';
 import { useRouter } from 'next/navigation';
 import PageContainer from '../../../../../../components/ui/page/PageContainer';
@@ -10,10 +10,7 @@ import {
     DeleteOutlined,
     SaveOutlined,
     TableOutlined,
-    CopyOutlined,
-    DownloadOutlined,
     QrcodeOutlined,
-    SyncOutlined,
     CheckCircleFilled,
     AppstoreOutlined,
     ExclamationCircleOutlined,
@@ -27,19 +24,7 @@ import { pageStyles } from '../../../../../../theme/pos/tables/style';
 import { Tables, TableStatus } from '../../../../../../types/api/pos/tables';
 import type { TableQrInfo } from '../../../../../../types/api/pos/tables';
 import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
-import { DynamicQRCode, DynamicQRCodeCanvas } from "../../../../../../lib/dynamic-imports";
-import {
-    closePrintWindow,
-    getPrintSettings,
-    peekPrintSettings,
-    primePrintResources,
-    printTableQrDocument,
-    reservePrintWindow,
-} from '../../../../../../utils/print-settings/runtime';
-import {
-    buildTableQrExportCanvas,
-    saveCanvasAsPdf,
-} from '../../../../../../utils/print-settings/tableQrExport';
+import { DynamicQRCode } from "../../../../../../lib/dynamic-imports";
 
 type TablesManageMode = 'add' | 'edit';
 
@@ -49,15 +34,7 @@ type TableFormValues = {
     is_active?: boolean;
 };
 
-type PendingQrAutoPrint = {
-    tableId: string;
-    tableName: string;
-    customerPath: string;
-    qrCodeExpiresAt: string | null;
-};
-
 const { Title, Text } = Typography;
-const EXPORT_QR_CANVAS_SIZE = 2048;
 
 const formatDate = (raw?: string | Date) => {
     if (!raw) return '-';
@@ -68,17 +45,8 @@ const formatDate = (raw?: string | Date) => {
         timeStyle: 'short'
     }).format(date);
 };
-
 const getStatusLabel = (status: TableStatus) => {
     return status === TableStatus.Available ? 'ว่าง' : 'ไม่ว่าง';
-};
-
-const toSafeFilename = (value: string) => {
-    return value
-        .replace(/[^\w\u0E00-\u0E7F-]+/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_+|_+$/g, '')
-        .slice(0, 60) || 'table';
 };
 
 const TablePreviewCard = ({
@@ -165,10 +133,6 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
     const [isStatusModalVisible, setIsStatusModalVisible] = useState(false);
     const [qrInfo, setQrInfo] = useState<TableQrInfo | null>(null);
     const [qrLoading, setQrLoading] = useState(false);
-    const [qrRotating, setQrRotating] = useState(false);
-    const [qrPdfDownloading, setQrPdfDownloading] = useState(false);
-    const [pendingAutoPrint, setPendingAutoPrint] = useState<PendingQrAutoPrint | null>(null);
-    const autoPrintWindowRef = useRef<Window | null>(null);
 
     const mode = params.mode?.[0] as TablesManageMode | undefined;
     const id = params.mode?.[1] || null;
@@ -187,9 +151,6 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
         return 'เพิ่มโต๊ะ';
     }, [isEdit]);
 
-    const qrExportCanvasId = useMemo(() => {
-        return `table-qr-export-canvas-${id || 'new'}`;
-    }, [id]);
 
     useEffect(() => {
         if (!isValidMode || (mode === 'edit' && !id)) {
@@ -244,25 +205,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
         return new URL(customerPath, window.location.origin).toString();
     }, []);
 
-    const captureCanvasImage = useCallback(async (canvasId: string): Promise<string> => {
-        for (let attempt = 0; attempt < 40; attempt += 1) {
-            const canvas = document.getElementById(canvasId) as HTMLCanvasElement | null;
-            if (canvas) {
-                try {
-                    const dataUrl = canvas.toDataURL('image/png');
-                    if (dataUrl && dataUrl !== 'data:,') {
-                        return dataUrl;
-                    }
-                } catch {
-                    // Retry on the next frame while the canvas is still rendering.
-                }
-            }
 
-            await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
-        }
-
-        throw new Error('QR image is not ready for print');
-    }, []);
 
     const fetchQrInfo = useCallback(async () => {
         if (!id) return;
@@ -289,173 +232,9 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
         }
     }, [fetchQrInfo, isAuthorized, isEdit, permissionLoading]);
 
-    useEffect(() => {
-        primePrintResources();
-    }, []);
 
-    useEffect(() => {
-        if (!pendingAutoPrint || !qrInfo || qrInfo.customer_path !== pendingAutoPrint.customerPath) {
-            return;
-        }
 
-        let cancelled = false;
 
-        const runAutoPrint = async () => {
-            try {
-                const printSettings = await getPrintSettings();
-                if (!printSettings.automation.auto_print_table_qr_after_rotation) {
-                    closePrintWindow(autoPrintWindowRef.current);
-                    return;
-                }
-
-                const customerUrl = buildCustomerUrl(qrInfo.customer_path);
-                if (!customerUrl) {
-                    throw new Error('QR link is not available');
-                }
-
-                const qrImageDataUrl = await captureCanvasImage(qrExportCanvasId);
-                if (cancelled) return;
-
-                await printTableQrDocument({
-                    tableName: qrInfo.table_name || tableName,
-                    customerUrl,
-                    qrImageDataUrl,
-                    qrCodeExpiresAt: qrInfo.qr_code_expires_at,
-                    settings: printSettings,
-                    targetWindow: autoPrintWindowRef.current,
-                });
-            } catch (error) {
-                closePrintWindow(autoPrintWindowRef.current);
-                console.error('QR auto print failed', error);
-                message.error(error instanceof Error ? error.message : 'เปิดหน้าพิมพ์ QR ไม่สำเร็จ');
-            } finally {
-                if (!cancelled) {
-                    autoPrintWindowRef.current = null;
-                    setPendingAutoPrint(null);
-                }
-            }
-        };
-
-        void runAutoPrint();
-
-        return () => {
-            cancelled = true;
-        };
-    }, [buildCustomerUrl, captureCanvasImage, pendingAutoPrint, qrExportCanvasId, qrInfo, tableName]);
-
-    const handleCopyQrLink = useCallback(async () => {
-        const customerUrl = buildCustomerUrl(qrInfo?.customer_path || '');
-        if (!customerUrl) {
-            message.warning('QR link is not available');
-            return;
-        }
-        try {
-            await navigator.clipboard.writeText(customerUrl);
-            message.success('Copied customer ordering link');
-        } catch {
-            message.error('Failed to copy link');
-        }
-    }, [buildCustomerUrl, qrInfo?.customer_path]);
-
-    const handleRotateQr = useCallback(async () => {
-        if (!id) return;
-        const cachedPrintSettings = peekPrintSettings();
-        const shouldPrepareAutoPrint =
-            !cachedPrintSettings || cachedPrintSettings.automation.auto_print_table_qr_after_rotation;
-        closePrintWindow(autoPrintWindowRef.current);
-        autoPrintWindowRef.current = shouldPrepareAutoPrint ? reservePrintWindow(`Table QR ${tableName || id}`) : null;
-        setQrRotating(true);
-        try {
-            const response = await fetch(`/api/pos/tables/${id}/qr/rotate`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRF-Token': csrfToken,
-                },
-            });
-
-            if (!response.ok) {
-                const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || 'Failed to rotate QR');
-            }
-
-            const payload = await response.json();
-            setQrInfo(payload);
-            if (shouldPrepareAutoPrint && payload.customer_path) {
-                setPendingAutoPrint({
-                    tableId: payload.table_id || id,
-                    tableName: payload.table_name || tableName || 'Table',
-                    customerPath: payload.customer_path,
-                    qrCodeExpiresAt: payload.qr_code_expires_at,
-                });
-            } else {
-                closePrintWindow(autoPrintWindowRef.current);
-                autoPrintWindowRef.current = null;
-            }
-            message.success('Rotated table QR successfully');
-        } catch (error) {
-            closePrintWindow(autoPrintWindowRef.current);
-            autoPrintWindowRef.current = null;
-            console.error(error);
-            message.error(error instanceof Error ? error.message : 'Failed to rotate QR');
-        } finally {
-            setQrRotating(false);
-        }
-    }, [csrfToken, id, tableName]);
-
-    const handleDownloadQrPdf = useCallback(async () => {
-        const customerUrl = buildCustomerUrl(qrInfo?.customer_path || '');
-        if (!customerUrl) {
-            message.warning('ยังไม่มีลิงก์ QR สำหรับดาวน์โหลด');
-            return;
-        }
-
-        const tableDisplayName = String(qrInfo?.table_name || tableName || 'ไม่ระบุชื่อโต๊ะ').trim();
-        setQrPdfDownloading(true);
-
-        try {
-            const printSettings = await getPrintSettings();
-            const setting = printSettings.documents.table_qr;
-            const qrImageDataUrl = await captureCanvasImage(qrExportCanvasId);
-            const exportCanvas = await buildTableQrExportCanvas({
-                tableName: tableDisplayName,
-                customerUrl,
-                qrImageDataUrl,
-                qrCodeExpiresAt: qrInfo?.qr_code_expires_at,
-                setting,
-                locale: printSettings.locale,
-            });
-
-            const targetWindow = reservePrintWindow(`Table QR ${tableDisplayName}`);
-            if (!targetWindow) {
-                await saveCanvasAsPdf({
-                    canvas: exportCanvas,
-                    filename: `qr-table-${toSafeFilename(tableDisplayName)}.pdf`,
-                    setting,
-                });
-                message.success('ดาวน์โหลด PDF สำเร็จ');
-            } else {
-                try {
-                    await printTableQrDocument({
-                        tableName: tableDisplayName,
-                        customerUrl,
-                        qrImageDataUrl,
-                        qrCodeExpiresAt: qrInfo?.qr_code_expires_at,
-                        settings: printSettings,
-                        targetWindow,
-                    });
-                    message.success('เปิดหน้าพิมพ์ PDF แล้ว');
-                } catch (error) {
-                    closePrintWindow(targetWindow);
-                    throw error;
-                }
-            }
-        } catch (error) {
-            console.error(error);
-            message.error(error instanceof Error ? error.message : 'ดาวน์โหลด PDF ไม่สำเร็จ');
-        } finally {
-            setQrPdfDownloading(false);
-        }
-    }, [buildCustomerUrl, captureCanvasImage, qrExportCanvasId, qrInfo?.customer_path, qrInfo?.qr_code_expires_at, qrInfo?.table_name, tableName]);
 
     const checkNameConflict = useCallback(async (rawValue: string) => {
         const value = rawValue.trim();
@@ -756,34 +535,6 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                                                         {customerOrderUrl}
                                                     </Text>
                                                     <Text type="secondary">วันหมดอายุ : {qrExpireText}</Text>
-                                                    <Space wrap>
-                                                        <Button icon={<CopyOutlined />} onClick={handleCopyQrLink}>
-                                                            Copy link
-                                                        </Button>
-                                                        <Button
-                                                            icon={<SyncOutlined spin={qrRotating} />}
-                                                            loading={qrRotating}
-                                                            onClick={handleRotateQr}
-                                                        >
-                                                            Refresh
-                                                        </Button>
-                                                        <Button
-                                                            type="default"
-                                                            icon={<DownloadOutlined />}
-                                                            loading={qrPdfDownloading}
-                                                            onClick={handleDownloadQrPdf}
-                                                        >
-                                                            Export PDF
-                                                        </Button>
-                                                    </Space>
-                                                    <div style={{ display: 'none' }}>
-                                                        <DynamicQRCodeCanvas
-                                                            id={qrExportCanvasId}
-                                                            value={customerOrderUrl}
-                                                            size={EXPORT_QR_CANVAS_SIZE}
-                                                            marginSize={0}
-                                                        />
-                                                    </div>
                                                 </Space>
                                             ) : (
                                                 <Alert

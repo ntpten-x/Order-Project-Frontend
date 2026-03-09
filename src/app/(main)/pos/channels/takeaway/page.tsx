@@ -312,7 +312,7 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
     const [isQrLoading, setIsQrLoading] = useState(false);
     const [isQrRefreshing, setIsQrRefreshing] = useState(false);
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-    const [exportFormat, setExportFormat] = useState<ExportFormat>("a4");
+    const [exportFormat, setExportFormat] = useState<ExportFormat>("receipt");
     const [isExportingQr, setIsExportingQr] = useState(false);
     const [takeawayQr, setTakeawayQr] = useState<TakeawayQrInfo | null>(null);
     const [csrfToken, setCsrfToken] = useState("");
@@ -505,7 +505,7 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
             return;
         }
 
-        setExportFormat("a4");
+        setExportFormat("receipt");
         setIsExportModalOpen(true);
     }, [customerUrl, message]);
 
@@ -825,13 +825,13 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                     onOk={() => {
                         void handleConfirmExport();
                     }}
-                    okText="ตกลง"
+                    okText="พิมพ์"
                     cancelText="ยกเลิก"
                     confirmLoading={isExportingQr}
                     destroyOnClose
                 >
                     <Space direction="vertical" size={14} style={{ width: "100%" }}>
-                        <Text type="secondary">{takeawayLabel}</Text>
+
                         <Radio.Group
                             value={exportFormat}
                             onChange={(event) => setExportFormat(event.target.value as ExportFormat)}
@@ -842,8 +842,8 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                                 <Radio value="png">PNG</Radio>
                             </Space>}
                             <Space direction="vertical" size={10} style={{ width: "100%" }}>
-                                <Radio value="a4">A4</Radio>
-                                <Radio value="receipt">เครื่องพิมพ์ใบเสร็จ</Radio>
+                                <Radio value="receipt">สำหรับเครื่องพิมพ์ใบเสร็จ</Radio>
+                                <Radio value="a4">สำหรับเครื่องพิมพ์ปกติ</Radio>
                                 <Radio value="png">PNG</Radio>
                             </Space>
                         </Radio.Group>
