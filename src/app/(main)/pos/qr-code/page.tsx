@@ -27,8 +27,9 @@ import { readCache, writeCache } from '../../../../utils/pos/cache';
 import { useSocket } from '../../../../hooks/useSocket';
 import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
 import { closePrintWindow, getPrintSettings, peekPrintSettings, primePrintResources, printTableQrDocument, reservePrintWindow } from '../../../../utils/print-settings/runtime';
-import { buildBulkTableQrPngZipEntry, createBulkTableQrPdfExporter, downloadBulkTableQrZip } from '../../../../utils/print-settings/tableQrBulkExport';
-import { buildTableQrExportCanvas, downloadCanvasAsPng, saveCanvasAsPdf } from '../../../../utils/print-settings/tableQrExport';
+import { buildBulkTableQrPngZipEntry, downloadBulkTableQrZip } from '../../../../utils/print-settings/tableQrBulkExport';
+import { createTableQrPrintDocument, type TableQrPrintItem } from '../../../../utils/print-settings/tableQrPrintExport';
+import { buildTableQrExportCanvas, downloadCanvasAsPng } from '../../../../utils/print-settings/tableQrExport';
 import { takeawayQrService, type TakeawayQrInfo } from '../../../../services/pos/takeawayQr.service';
 import { getBackendErrorMessage, unwrapBackendData } from '../../../../utils/api/backendResponse';
 
@@ -54,7 +55,7 @@ const TAKEAWAY_QR_UI = {
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 type TableStateFilter = 'all' | TableStatus.Available | TableStatus.Unavailable;
-type ExportFormat = 'png' | 'pdf';
+type ExportFormat = 'a4' | 'receipt' | 'png';
 type BulkExportRenderTarget = { requestId: number; customerUrl: string };
 type BulkExportProgress = { stage: string; current: number; total: number; skipped: number };
 type PendingQrAutoPrint = { tableId: string; customerPath: string };
@@ -116,10 +117,10 @@ export default function TableQrCodePage() {
     const [rotatingId, setRotatingId] = useState<string | null>(null);
     const [exportingId, setExportingId] = useState<string | null>(null);
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-    const [exportFormat, setExportFormat] = useState<ExportFormat>('pdf');
+    const [exportFormat, setExportFormat] = useState<ExportFormat>('a4');
     const [exportTargetTable, setExportTargetTable] = useState<TableQrCodeListItem | null>(null);
     const [isBulkExportModalOpen, setIsBulkExportModalOpen] = useState(false);
-    const [bulkExportFormat, setBulkExportFormat] = useState<ExportFormat>('pdf');
+    const [bulkExportFormat, setBulkExportFormat] = useState<ExportFormat>('a4');
     const [bulkExporting, setBulkExporting] = useState(false);
     const [bulkExportProgress, setBulkExportProgress] = useState<BulkExportProgress | null>(null);
     const [bulkRenderTarget, setBulkRenderTarget] = useState<BulkExportRenderTarget | null>(null);
@@ -128,7 +129,7 @@ export default function TableQrCodePage() {
     const [isTakeawayQrLoading, setIsTakeawayQrLoading] = useState(false);
     const [isTakeawayQrRefreshing, setIsTakeawayQrRefreshing] = useState(false);
     const [isTakeawayQrExportModalOpen, setIsTakeawayQrExportModalOpen] = useState(false);
-    const [takeawayQrExportFormat, setTakeawayQrExportFormat] = useState<ExportFormat>('pdf');
+    const [takeawayQrExportFormat, setTakeawayQrExportFormat] = useState<ExportFormat>('a4');
     const [isTakeawayQrExporting, setIsTakeawayQrExporting] = useState(false);
     const [takeawayQr, setTakeawayQr] = useState<TakeawayQrInfo | null>(null);
     const [csrfToken, setCsrfToken] = useState('');
@@ -159,7 +160,6 @@ export default function TableQrCodePage() {
     const takeawayLabel = useMemo(() => takeawayQr?.shop_name?.trim() || 'Takeaway', [takeawayQr?.shop_name]);
     const takeawayQrHeading = useMemo(() => `${takeawayLabel} QR`, [takeawayLabel]);
     const takeawayQrSubtitle = 'Scan to open takeaway order';
-    const takeawayQrAltText = `QR code for takeaway ordering at ${takeawayLabel}`;
     const takeawayQrDocumentTitle = useMemo(() => `${TAKEAWAY_QR_UI.label} ${takeawayLabel}`, [takeawayLabel]);
     const takeawayQrRenderKey = takeawayQr?.token || takeawayCustomerUrl || 'takeaway-qr';
 
@@ -203,8 +203,15 @@ export default function TableQrCodePage() {
                         }
                         return;
                     }
-                }
-                throw new Error('QR image is not ready for bulk export');
+                } /*
+                message.success(result === 'window'
+                    ? exportFormat === 'a4'
+                        ? 'เน€เธเธดเธ”เธซเธเนเธฒเธเธดเธกเธเน A4 เนเธฅเนเธง'
+                        : 'เน€เธเธดเธ”เธซเธเนเธฒเธเธดเธกเธเนเธชเธณเธซเธฃเธฑเธเน€เธเธฃเธทเนเธญเธเธเธดเธกเธเนเธใเธเน€เธชเธฃเนเธเนเธฅเนเธง'
+                    : exportFormat === 'a4'
+                        ? 'เธ”เธฒเธงเธเนเนเธซเธฅเธ” PDF A4 เธชเธณเน€เธฃเนเธ'
+                        : 'เธ”เธฒเธงเธเนเนเธซเธฅเธ” PDF เธชเธณเธซเธฃเธฑเธเน€เธเธฃเธทเนเธญเธเธเธดเธกเธเนเธใเธเน€เธชเธฃเนเธเธชเธณเน€เธฃเนเธ');
+                */ throw new Error('QR image is not ready for bulk export');
             } catch (error) {
                 if (!cancelled && bulkRenderResolverRef.current?.requestId === bulkRenderTarget.requestId) {
                     bulkRenderResolverRef.current.reject(error instanceof Error ? error : new Error('Bulk QR export failed'));
@@ -383,29 +390,99 @@ export default function TableQrCodePage() {
         }
     }, [canRotateQr, csrfToken]);
 
-    const buildExportBundle = useCallback(async (table: TableQrCodeListItem, customerUrl: string) => {
-        const printSettings = await getPrintSettings();
-        const setting = printSettings.documents.table_qr;
-        const qrImageDataUrl = await captureCanvasImage(getCanvasId(table.id));
-        const exportCanvas = await buildTableQrExportCanvas({ tableName: table.table_name, customerUrl, qrImageDataUrl, qrCodeExpiresAt: table.qr_code_expires_at, setting, locale: printSettings.locale });
-        return { printSettings, setting, qrImageDataUrl, exportCanvas };
-    }, [captureCanvasImage]);
+    const buildStandardExportCanvas = useCallback(async (options: {
+        tableName: string;
+        customerUrl: string;
+        qrImageDataUrl: string;
+        qrCodeExpiresAt?: string | null;
+        printSettings: Awaited<ReturnType<typeof getPrintSettings>>;
+        heading?: string;
+        subtitle?: string;
+    }) => {
+        const setting = options.printSettings.documents.table_qr;
+        return buildTableQrExportCanvas({
+            tableName: options.tableName,
+            customerUrl: options.customerUrl,
+            qrImageDataUrl: options.qrImageDataUrl,
+            qrCodeExpiresAt: options.qrCodeExpiresAt,
+            setting,
+            locale: options.printSettings.locale,
+            heading: options.heading,
+            subtitle: options.subtitle,
+        });
+    }, []);
+
+    const openQrPrintExport = useCallback(async (options: {
+        items: TableQrPrintItem[];
+        mode: Exclude<ExportFormat, 'png'>;
+        printSettings: Awaited<ReturnType<typeof getPrintSettings>>;
+        filenameBase: string;
+        documentTitle: string;
+        targetWindow?: Window | null;
+    }) => {
+        const targetWindow = options.targetWindow ?? reservePrintWindow(options.documentTitle);
+        try {
+            const document = await createTableQrPrintDocument({
+                items: options.items,
+                mode: options.mode,
+                baseSetting: options.printSettings.documents.table_qr,
+                locale: options.printSettings.locale,
+            });
+
+            if (!targetWindow) {
+                throw new Error('Popup blocked. Please allow popups to print.');
+            }
+
+            document.openInWindow(targetWindow, {
+                filename: `${options.filenameBase}-${options.mode}.pdf`,
+                title: options.documentTitle,
+            });
+            return 'window' as const;
+        } catch (error) {
+            closePrintWindow(targetWindow);
+            throw error;
+        }
+    }, []);
 
     const handleConfirmExport = useCallback(async () => {
         if (!exportTargetTable) return;
         const customerUrl = buildCustomerUrl(exportTargetTable.customer_path);
         if (!customerUrl) return void message.warning('ยังไม่มีลิงก์ลูกค้าสำหรับโต๊ะนี้');
         setExportingId(exportTargetTable.id);
+        let reservedPrintWindow: Window | null = null;
         try {
+            if (exportFormat !== 'png') {
+                reservedPrintWindow = reservePrintWindow(`Table QR ${exportTargetTable.table_name}`);
+            }
+            const printSettings = await getPrintSettings();
+            const qrImageDataUrl = await captureCanvasImage(getCanvasId(exportTargetTable.id));
             if (exportFormat === 'png') {
-                const { exportCanvas } = await buildExportBundle(exportTargetTable, customerUrl);
+                const exportCanvas = await buildStandardExportCanvas({
+                    tableName: exportTargetTable.table_name,
+                    customerUrl,
+                    qrImageDataUrl,
+                    qrCodeExpiresAt: exportTargetTable.qr_code_expires_at,
+                    printSettings,
+                });
                 downloadCanvasAsPng(exportCanvas, `table-qr-${toSafeFilename(exportTargetTable.table_name)}.png`);
                 message.success('ดาวน์โหลด PNG สำเร็จ');
             } else {
-                const { printSettings, setting, qrImageDataUrl, exportCanvas } = await buildExportBundle(exportTargetTable, customerUrl);
-                const targetWindow = reservePrintWindow(`Table QR ${exportTargetTable.table_name}`);
-                if (!targetWindow) {
-                    await saveCanvasAsPdf({ canvas: exportCanvas, filename: `table-qr-${toSafeFilename(exportTargetTable.table_name)}.pdf`, setting });
+                const result = await openQrPrintExport({
+                    items: [{
+                        tableName: exportTargetTable.table_name,
+                        customerUrl,
+                        qrImageDataUrl,
+                        qrCodeExpiresAt: exportTargetTable.qr_code_expires_at,
+                    }],
+                    mode: exportFormat,
+                    printSettings,
+                    filenameBase: `table-qr-${toSafeFilename(exportTargetTable.table_name)}`,
+                    documentTitle: `Table QR ${exportTargetTable.table_name}`,
+                    targetWindow: reservedPrintWindow,
+                });
+                reservedPrintWindow = null;
+                /* legacy export path replaced
+                    ? exportFormat === 'a4'
                     message.success('ดาวน์โหลด PDF สำเร็จ');
                 } else {
                     try {
@@ -417,14 +494,24 @@ export default function TableQrCodePage() {
                     }
                 }
             }
+            */
+            message.success(result === 'window'
+                ? exportFormat === 'a4'
+                    ? 'เปิดหน้าพิมพ์ A4 แล้ว'
+                    : 'เปิดหน้าพิมพ์สำหรับเครื่องพิมพ์ใบเสร็จแล้ว'
+                : exportFormat === 'a4'
+                    ? 'ดาวน์โหลด PDF A4 สำเร็จ'
+                    : 'ดาวน์โหลด PDF สำหรับเครื่องพิมพ์ใบเสร็จสำเร็จ');
+            }
             setIsExportModalOpen(false);
             setExportTargetTable(null);
         } catch (exportError) {
+            closePrintWindow(reservedPrintWindow);
             message.error(exportError instanceof Error ? exportError.message : 'ส่งออกไฟล์ไม่สำเร็จ');
         } finally {
             setExportingId(null);
         }
-    }, [buildCustomerUrl, buildExportBundle, exportFormat, exportTargetTable]);
+    }, [buildCustomerUrl, buildStandardExportCanvas, captureCanvasImage, exportFormat, exportTargetTable, openQrPrintExport]);
 
     const readTakeawayQrResponse = useCallback(async (response: Response, fallback: string) => {
         const payload = await response.json().catch(() => null);
@@ -505,24 +592,14 @@ export default function TableQrCodePage() {
         window.open(takeawayCustomerUrl, '_blank', 'noopener,noreferrer');
     }, [takeawayCustomerUrl]);
 
-    const buildTakeawayExportBundle = useCallback(async () => {
+    const buildTakeawayExportSource = useCallback(async () => {
         if (!takeawayCustomerUrl) throw new Error('No takeaway QR link available');
 
         const printSettings = await getPrintSettings();
-        const setting = printSettings.documents.table_qr;
         const qrImageDataUrl = await captureCanvasImage(TAKEAWAY_EXPORT_CANVAS_ID);
-        const exportCanvas = await buildTableQrExportCanvas({
-            tableName: takeawayLabel,
-            customerUrl: takeawayCustomerUrl,
-            qrImageDataUrl,
-            qrCodeExpiresAt: takeawayQr?.qr_code_expires_at,
-            setting,
-            heading: takeawayQrHeading,
-            subtitle: takeawayQrSubtitle,
-        });
 
-        return { exportCanvas, printSettings, qrImageDataUrl, setting };
-    }, [captureCanvasImage, takeawayCustomerUrl, takeawayLabel, takeawayQr?.qr_code_expires_at, takeawayQrHeading, takeawayQrSubtitle]);
+        return { printSettings, qrImageDataUrl };
+    }, [captureCanvasImage, takeawayCustomerUrl]);
 
     const handleOpenTakeawayExportModal = useCallback(() => {
         if (!takeawayCustomerUrl) {
@@ -530,7 +607,7 @@ export default function TableQrCodePage() {
             return;
         }
 
-        setTakeawayQrExportFormat('pdf');
+        setTakeawayQrExportFormat('a4');
         setIsTakeawayQrExportModalOpen(true);
     }, [takeawayCustomerUrl]);
 
@@ -541,17 +618,44 @@ export default function TableQrCodePage() {
         }
 
         setIsTakeawayQrExporting(true);
+        let reservedPrintWindow: Window | null = null;
         try {
-            const { exportCanvas, printSettings, qrImageDataUrl, setting } = await buildTakeawayExportBundle();
+            if (takeawayQrExportFormat !== 'png') {
+                reservedPrintWindow = reservePrintWindow(takeawayQrDocumentTitle);
+            }
+            const { printSettings, qrImageDataUrl } = await buildTakeawayExportSource();
             const filenameBase = `takeaway-qr-${toSafeFilename(takeawayLabel)}`;
 
             if (takeawayQrExportFormat === 'png') {
+                const exportCanvas = await buildStandardExportCanvas({
+                    tableName: takeawayLabel,
+                    customerUrl: takeawayCustomerUrl,
+                    qrImageDataUrl,
+                    qrCodeExpiresAt: takeawayQr?.qr_code_expires_at,
+                    printSettings,
+                    heading: takeawayQrHeading,
+                    subtitle: takeawayQrSubtitle,
+                });
                 downloadCanvasAsPng(exportCanvas, `${filenameBase}.png`);
                 message.success('ดาวน์โหลด PNG สำเร็จ');
             } else {
-                const targetWindow = reservePrintWindow(takeawayQrDocumentTitle);
-                if (!targetWindow) {
-                    await saveCanvasAsPdf({ canvas: exportCanvas, filename: `${filenameBase}.pdf`, setting });
+                const result = await openQrPrintExport({
+                    items: [{
+                        tableName: takeawayLabel,
+                        customerUrl: takeawayCustomerUrl,
+                        qrImageDataUrl,
+                        qrCodeExpiresAt: takeawayQr?.qr_code_expires_at,
+                        heading: takeawayQrHeading,
+                        subtitle: takeawayQrSubtitle,
+                    }],
+                    mode: takeawayQrExportFormat,
+                    printSettings,
+                    filenameBase,
+                    documentTitle: takeawayQrDocumentTitle,
+                    targetWindow: reservedPrintWindow,
+                });
+                reservedPrintWindow = null;
+                /* legacy takeaway export path replaced
                     message.success('ดาวน์โหลด PDF สำเร็จ');
                 } else {
                     try {
@@ -575,13 +679,23 @@ export default function TableQrCodePage() {
                 }
             }
 
+            */
+            message.success(result === 'window'
+                ? takeawayQrExportFormat === 'a4'
+                    ? 'เปิดหน้าพิมพ์ A4 แล้ว'
+                    : 'เปิดหน้าพิมพ์สำหรับเครื่องพิมพ์ใบเสร็จแล้ว'
+                : takeawayQrExportFormat === 'a4'
+                    ? 'ดาวน์โหลด PDF A4 สำเร็จ'
+                    : 'ดาวน์โหลด PDF สำหรับเครื่องพิมพ์ใบเสร็จสำเร็จ');
+            }
             setIsTakeawayQrExportModalOpen(false);
         } catch (error) {
+            closePrintWindow(reservedPrintWindow);
             message.error(error instanceof Error ? error.message : TAKEAWAY_QR_UI.exportError);
         } finally {
             setIsTakeawayQrExporting(false);
         }
-    }, [buildTakeawayExportBundle, takeawayCustomerUrl, takeawayLabel, takeawayQr?.qr_code_expires_at, takeawayQrAltText, takeawayQrDocumentTitle, takeawayQrExportFormat, takeawayQrHeading, takeawayQrSubtitle]);
+    }, [buildStandardExportCanvas, buildTakeawayExportSource, openQrPrintExport, takeawayCustomerUrl, takeawayLabel, takeawayQr?.qr_code_expires_at, takeawayQrDocumentTitle, takeawayQrExportFormat, takeawayQrHeading, takeawayQrSubtitle]);
 
     const handleConfirmBulkExport = useCallback(async () => {
         if (bulkExporting) return;
@@ -589,7 +703,7 @@ export default function TableQrCodePage() {
         setBulkExporting(true);
         setBulkExportProgress({ stage: 'กำลังเตรียมรายการ QR ทั้งหมด', current: 0, total: 0, skipped: 0 });
         closePrintWindow(bulkExportWindowRef.current);
-        bulkExportWindowRef.current = bulkExportFormat === 'pdf' ? reservePrintWindow('Table QR Export All') : null;
+        bulkExportWindowRef.current = bulkExportFormat !== 'png' ? reservePrintWindow('Table QR Export All') : null;
 
         try {
             const [sourceTables, printSettings] = await Promise.all([
@@ -613,7 +727,7 @@ export default function TableQrCodePage() {
             const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
             const filenameBase = `table-qr-all-${timestamp}`;
             const fileNameCounts = new Map<string, number>();
-            const pdfExporter = bulkExportFormat === 'pdf' ? await createBulkTableQrPdfExporter(setting) : null;
+            const printItems: TableQrPrintItem[] = [];
             const zipFiles: Record<string, Uint8Array> = {};
 
             for (let index = 0; index < exportEntries.length; index += 1) {
@@ -626,41 +740,57 @@ export default function TableQrCodePage() {
                 });
 
                 const qrImageDataUrl = await captureBulkRenderedQr(entry.customerUrl);
-                const exportCanvas = await buildTableQrExportCanvas({
-                    tableName: entry.table.table_name,
-                    customerUrl: entry.customerUrl,
-                    qrImageDataUrl,
-                    qrCodeExpiresAt: entry.table.qr_code_expires_at,
-                    setting,
-                    locale: printSettings.locale,
-                });
-
-                if (pdfExporter) {
-                    pdfExporter.addCanvas(exportCanvas);
-                } else {
+                if (bulkExportFormat === 'png') {
+                    const exportCanvas = await buildTableQrExportCanvas({
+                        tableName: entry.table.table_name,
+                        customerUrl: entry.customerUrl,
+                        qrImageDataUrl,
+                        qrCodeExpiresAt: entry.table.qr_code_expires_at,
+                        setting,
+                        locale: printSettings.locale,
+                    });
                     const safeBaseName = `table-qr-${toSafeFilename(entry.table.table_name)}`;
                     const nextIndex = (fileNameCounts.get(safeBaseName) || 0) + 1;
                     fileNameCounts.set(safeBaseName, nextIndex);
                     const resolvedBaseName = nextIndex === 1 ? safeBaseName : `${safeBaseName}-${nextIndex}`;
                     zipFiles[`${resolvedBaseName}.png`] = await buildBulkTableQrPngZipEntry(exportCanvas);
+                } else {
+                    printItems.push({
+                        tableName: entry.table.table_name,
+                        customerUrl: entry.customerUrl,
+                        qrImageDataUrl,
+                        qrCodeExpiresAt: entry.table.qr_code_expires_at,
+                    });
                 }
 
                 await waitForNextFrame();
             }
 
-            if (pdfExporter) {
+            if (bulkExportFormat !== 'png') {
                 setBulkExportProgress({
                     stage: 'กำลังรวมไฟล์ PDF',
                     current: exportEntries.length,
                     total: exportEntries.length,
                     skipped: skippedCount,
                 });
-                if (bulkExportWindowRef.current) {
-                    pdfExporter.openInWindow(bulkExportWindowRef.current);
-                    bulkExportWindowRef.current = null;
-                } else {
-                    pdfExporter.download(`${filenameBase}.pdf`);
-                }
+                const result = await openQrPrintExport({
+                    items: printItems,
+                    mode: bulkExportFormat,
+                    printSettings,
+                    filenameBase,
+                    documentTitle: 'Table QR Export All',
+                    targetWindow: bulkExportWindowRef.current,
+                });
+                bulkExportWindowRef.current = null;
+                message.success(
+                    result === 'window'
+                        ? bulkExportFormat === 'a4'
+                            ? 'เปิดหน้าพิมพ์ A4 แล้ว'
+                            : 'เปิดหน้าพิมพ์สำหรับเครื่องพิมพ์ใบเสร็จแล้ว'
+                        : bulkExportFormat === 'a4'
+                            ? 'ดาวน์โหลด PDF A4 สำเร็จ'
+                            : 'ดาวน์โหลด PDF สำหรับเครื่องพิมพ์ใบเสร็จสำเร็จ'
+                );
             } else {
                 setBulkExportProgress({
                     stage: 'กำลังบีบอัด ZIP',
@@ -686,7 +816,7 @@ export default function TableQrCodePage() {
             setBulkExportProgress(null);
             setBulkRenderTarget(null);
         }
-    }, [bulkExportFormat, bulkExporting, buildCustomerUrl, captureBulkRenderedQr, fetchAllTablesForBulkExport, waitForNextFrame]);
+    }, [bulkExportFormat, bulkExporting, buildCustomerUrl, captureBulkRenderedQr, fetchAllTablesForBulkExport, openQrPrintExport, waitForNextFrame]);
 
     if (isChecking) return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
     if (!isAuthorized) return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
@@ -709,7 +839,7 @@ export default function TableQrCodePage() {
                         <Button
                             icon={<DownloadOutlined />}
                             onClick={() => {
-                                setBulkExportFormat('pdf');
+                                setBulkExportFormat('a4');
                                 setBulkExportProgress(null);
                                 setIsBulkExportModalOpen(true);
                             }}
@@ -734,7 +864,7 @@ export default function TableQrCodePage() {
                         </Space>
                     </SearchBar>
                     <PageSection title="รายการ QR โต๊ะ" extra={<Space size={8} wrap>{refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}<Text strong>{total} รายการ</Text></Space>}>
-                        {loading && tables.length === 0 ? <PageState status="loading" /> : error && tables.length === 0 ? <PageState status="error" title="โหลดรายการ QR โต๊ะไม่สำเร็จ" error={error} onRetry={() => void fetchQrCodes()} /> : tables.length === 0 ? <UIEmptyState title={debouncedSearch.trim() ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีรายการโต๊ะ'} description={debouncedSearch.trim() ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรอง' : 'เพิ่มโต๊ะในหน้าจัดการโต๊ะก่อน แล้วระบบจะสร้าง QR ให้โดยอัตโนมัติ'} /> : <Space direction="vertical" size={14} style={{ width: '100%' }}><div className="qr-cards-grid">{tables.map((table) => <TableQrCard key={table.id} table={table} customerUrl={buildCustomerUrl(table.customer_path)} canRotate={canRotateQr} rotating={rotatingId === table.id} exporting={exportingId === table.id} onOpen={handleOpenCustomerPage} onRotate={handleRotateQr} onExport={(target) => { const customerUrl = buildCustomerUrl(target.customer_path); if (!customerUrl) return void message.warning('ยังไม่มีลิงก์ลูกค้าสำหรับโต๊ะนี้'); setExportTargetTable(target); setExportFormat('pdf'); setIsExportModalOpen(true); }} onPreviewQr={setPreviewTable} />)}</div><div style={{ marginTop: 12 }}><ListPagination page={page} total={total} pageSize={pageSize} loading={loading || refreshing} onPageChange={setPage} onPageSizeChange={setPageSize} activeColor="#2563eb" /></div></Space>}
+                        {loading && tables.length === 0 ? <PageState status="loading" /> : error && tables.length === 0 ? <PageState status="error" title="โหลดรายการ QR โต๊ะไม่สำเร็จ" error={error} onRetry={() => void fetchQrCodes()} /> : tables.length === 0 ? <UIEmptyState title={debouncedSearch.trim() ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีรายการโต๊ะ'} description={debouncedSearch.trim() ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรอง' : 'เพิ่มโต๊ะในหน้าจัดการโต๊ะก่อน แล้วระบบจะสร้าง QR ให้โดยอัตโนมัติ'} /> : <Space direction="vertical" size={14} style={{ width: '100%' }}><div className="qr-cards-grid">{tables.map((table) => <TableQrCard key={table.id} table={table} customerUrl={buildCustomerUrl(table.customer_path)} canRotate={canRotateQr} rotating={rotatingId === table.id} exporting={exportingId === table.id} onOpen={handleOpenCustomerPage} onRotate={handleRotateQr} onExport={(target) => { const customerUrl = buildCustomerUrl(target.customer_path); if (!customerUrl) return void message.warning('ยังไม่มีลิงก์ลูกค้าสำหรับโต๊ะนี้'); setExportTargetTable(target); setExportFormat('a4'); setIsExportModalOpen(true); }} onPreviewQr={setPreviewTable} />)}</div><div style={{ marginTop: 12 }}><ListPagination page={page} total={total} pageSize={pageSize} loading={loading || refreshing} onPageChange={setPage} onPageSizeChange={setPageSize} activeColor="#2563eb" /></div></Space>}
                     </PageSection>
                 </PageStack>
             </PageContainer>
@@ -789,8 +919,13 @@ export default function TableQrCodePage() {
                 <Space direction="vertical" size={14} style={{ width: '100%' }}>
                     <Text type="secondary">{exportTargetTable ? `โต๊ะ: ${exportTargetTable.table_name}` : 'เลือกรูปแบบไฟล์ที่ต้องการส่งออก'}</Text>
                     <Radio.Group value={exportFormat} onChange={(event) => setExportFormat(event.target.value as ExportFormat)} style={{ width: '100%' }}>
-                        <Space direction="vertical" size={10} style={{ width: '100%' }}>
+                        {false && <Space direction="vertical" size={10} style={{ width: '100%' }}>
                             <Radio value="pdf">PDF (เปิดหน้าพิมพ์หรือบันทึกเป็น PDF)</Radio>
+                            <Radio value="png">PNG (ดาวน์โหลดรูป QR)</Radio>
+                        </Space>}
+                        <Space direction="vertical" size={10} style={{ width: '100%' }}>
+                            <Radio value="a4">A4 (4 QR ต่อหน้า เหมาะกับเครื่องพิมพ์มาตรฐาน)</Radio>
+                            <Radio value="receipt">เครื่องพิมพ์ใบเสร็จ (พิมพ์แบบม้วนยาว)</Radio>
                             <Radio value="png">PNG (ดาวน์โหลดรูป QR)</Radio>
                         </Space>
                     </Radio.Group>
@@ -805,7 +940,7 @@ export default function TableQrCodePage() {
                     setBulkExportProgress(null);
                 }}
                 onOk={() => { void handleConfirmBulkExport(); }}
-                okText={bulkExportFormat === 'pdf' ? 'ดาวน์โหลด PDF รวม' : 'ดาวน์โหลด ZIP'}
+                okText={bulkExportFormat === 'png' ? 'ดาวน์โหลด ZIP' : 'สร้างไฟล์สำหรับพิมพ์'}
                 cancelText="ยกเลิก"
                 confirmLoading={bulkExporting}
                 okButtonProps={{ disabled: loading || total === 0 }}
@@ -816,8 +951,13 @@ export default function TableQrCodePage() {
                 <Space direction="vertical" size={14} style={{ width: '100%' }}>
                     <Text type="secondary">ระบบจะส่งออกทุกโต๊ะตามตัวกรองปัจจุบัน รวมถึงรายการจากหน้าถัดไปให้อัตโนมัติ</Text>
                     <Radio.Group value={bulkExportFormat} onChange={(event) => setBulkExportFormat(event.target.value as ExportFormat)} style={{ width: '100%' }} disabled={bulkExporting}>
-                        <Space direction="vertical" size={10} style={{ width: '100%' }}>
+                        {false && <Space direction="vertical" size={10} style={{ width: '100%' }}>
                             <Radio value="pdf">PDF รวมทุกโต๊ะ (1 ไฟล์)</Radio>
+                            <Radio value="png">ZIP ของ PNG (แยกไฟล์ต่อโต๊ะ)</Radio>
+                        </Space>}
+                        <Space direction="vertical" size={10} style={{ width: '100%' }}>
+                            <Radio value="a4">A4 (4 QR ต่อหน้า)</Radio>
+                            <Radio value="receipt">เครื่องพิมพ์ใบเสร็จ (เรียงต่อเนื่องแบบม้วน)</Radio>
                             <Radio value="png">ZIP ของ PNG (แยกไฟล์ต่อโต๊ะ)</Radio>
                         </Space>
                     </Radio.Group>
@@ -849,8 +989,13 @@ export default function TableQrCodePage() {
                 <Space direction="vertical" size={14} style={{ width: '100%' }}>
                     <Text type="secondary">{takeawayLabel}</Text>
                     <Radio.Group value={takeawayQrExportFormat} onChange={(event) => setTakeawayQrExportFormat(event.target.value as ExportFormat)} style={{ width: '100%' }}>
-                        <Space direction="vertical" size={10} style={{ width: '100%' }}>
+                        {false && <Space direction="vertical" size={10} style={{ width: '100%' }}>
                             <Radio value="pdf">PDF</Radio>
+                            <Radio value="png">PNG</Radio>
+                        </Space>}
+                        <Space direction="vertical" size={10} style={{ width: '100%' }}>
+                            <Radio value="a4">A4</Radio>
+                            <Radio value="receipt">เครื่องพิมพ์ใบเสร็จ</Radio>
                             <Radio value="png">PNG</Radio>
                         </Space>
                     </Radio.Group>

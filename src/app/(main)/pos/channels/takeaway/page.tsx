@@ -39,8 +39,9 @@ import { DynamicQRCode, DynamicQRCodeCanvas } from "../../../../../lib/dynamic-i
 import { takeawayQrService, type TakeawayQrInfo } from "../../../../../services/pos/takeawayQr.service";
 import { getBackendErrorMessage, unwrapBackendData } from "../../../../../utils/api/backendResponse";
 import { getCsrfTokenCached } from "../../../../../utils/pos/csrf";
-import { buildTableQrExportCanvas, downloadCanvasAsPng, saveCanvasAsPdf } from "../../../../../utils/print-settings/tableQrExport";
-import { closePrintWindow, getPrintSettings, printTableQrDocument, reservePrintWindow } from "../../../../../utils/print-settings/runtime";
+import { buildTableQrExportCanvas, downloadCanvasAsPng } from "../../../../../utils/print-settings/tableQrExport";
+import { closePrintWindow, getPrintSettings, reservePrintWindow } from "../../../../../utils/print-settings/runtime";
+import { createTableQrPrintDocument } from "../../../../../utils/print-settings/tableQrPrintExport";
 import { getTakeawayCustomerLabel } from "../../../../../utils/orders";
 
 const { Text } = Typography;
@@ -58,7 +59,7 @@ const TAKEAWAY_QR_UI = {
     refreshLabel: "รีเฟรช QR",
 };
 
-type ExportFormat = "png" | "pdf";
+type ExportFormat = "a4" | "receipt" | "png";
 
 /* ── Theme helpers ── */
 
@@ -311,7 +312,7 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
     const [isQrLoading, setIsQrLoading] = useState(false);
     const [isQrRefreshing, setIsQrRefreshing] = useState(false);
     const [isExportModalOpen, setIsExportModalOpen] = useState(false);
-    const [exportFormat, setExportFormat] = useState<ExportFormat>("pdf");
+    const [exportFormat, setExportFormat] = useState<ExportFormat>("a4");
     const [isExportingQr, setIsExportingQr] = useState(false);
     const [takeawayQr, setTakeawayQr] = useState<TakeawayQrInfo | null>(null);
     const [csrfToken, setCsrfToken] = useState("");
@@ -358,7 +359,6 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
     const takeawayLabel = useMemo(() => takeawayQr?.shop_name?.trim() || "Takeaway", [takeawayQr?.shop_name]);
     const takeawayQrHeading = useMemo(() => `${takeawayLabel} QR`, [takeawayLabel]);
     const takeawayQrSubtitle = "Scan to open takeaway order";
-    const takeawayQrAltText = `QR code for takeaway ordering at ${takeawayLabel}`;
     const takeawayQrDocumentTitle = useMemo(() => `${TAKEAWAY_QR_UI.label} ${takeawayLabel}`, [takeawayLabel]);
     const takeawayQrRenderKey = takeawayQr?.token || customerUrl || "takeaway-qr";
 
@@ -456,24 +456,47 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
         throw new Error("QR image is not ready for export");
     }, []);
 
-    const buildExportBundle = useCallback(async () => {
+    const buildExportSource = useCallback(async () => {
         if (!customerUrl) throw new Error("No takeaway QR link available");
 
         const printSettings = await getPrintSettings();
-        const setting = printSettings.documents.table_qr;
         const qrImageDataUrl = await captureCanvasImage(TAKEAWAY_EXPORT_CANVAS_ID);
-        const exportCanvas = await buildTableQrExportCanvas({
-            tableName: takeawayLabel,
-            customerUrl,
-            qrImageDataUrl,
-            qrCodeExpiresAt: takeawayQr?.qr_code_expires_at,
-            setting,
-            heading: takeawayQrHeading,
-            subtitle: takeawayQrSubtitle,
+
+        return { printSettings, qrImageDataUrl };
+    }, [captureCanvasImage, customerUrl]);
+
+    const openQrPrintExport = useCallback(async (
+        mode: Exclude<ExportFormat, "png">,
+        printSettings: Awaited<ReturnType<typeof getPrintSettings>>,
+        qrImageDataUrl: string,
+        filenameBase: string,
+        targetWindow?: Window | null
+    ) => {
+        const resolvedTargetWindow = targetWindow ?? reservePrintWindow(takeawayQrDocumentTitle);
+        const document = await createTableQrPrintDocument({
+            items: [{
+                tableName: takeawayLabel,
+                customerUrl,
+                qrImageDataUrl,
+                qrCodeExpiresAt: takeawayQr?.qr_code_expires_at,
+                heading: takeawayQrHeading,
+                subtitle: takeawayQrSubtitle,
+            }],
+            mode,
+            baseSetting: printSettings.documents.table_qr,
+            locale: printSettings.locale,
         });
 
-        return { exportCanvas, printSettings, qrImageDataUrl, setting };
-    }, [captureCanvasImage, customerUrl, takeawayLabel, takeawayQr?.qr_code_expires_at, takeawayQrHeading, takeawayQrSubtitle]);
+        if (!resolvedTargetWindow) {
+            throw new Error("Popup blocked. Please allow popups to print.");
+        }
+
+        document.openInWindow(resolvedTargetWindow, {
+            filename: `${filenameBase}-${mode}.pdf`,
+            title: takeawayQrDocumentTitle,
+        });
+        return "window" as const;
+    }, [customerUrl, takeawayLabel, takeawayQr?.qr_code_expires_at, takeawayQrDocumentTitle, takeawayQrHeading, takeawayQrSubtitle]);
 
     const handleOpenExportModal = useCallback(() => {
         if (!customerUrl) {
@@ -481,7 +504,7 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
             return;
         }
 
-        setExportFormat("pdf");
+        setExportFormat("a4");
         setIsExportModalOpen(true);
     }, [customerUrl, message]);
 
@@ -492,16 +515,36 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
         }
 
         setIsExportingQr(true);
+        let reservedPrintWindow: Window | null = null;
         try {
-            const { exportCanvas, printSettings, qrImageDataUrl, setting } = await buildExportBundle();
+            if (exportFormat !== "png") {
+                reservedPrintWindow = reservePrintWindow(takeawayQrDocumentTitle);
+            }
+            const { printSettings, qrImageDataUrl } = await buildExportSource();
             const filenameBase = `takeaway-qr-${toSafeFilename(takeawayLabel)}`;
 
             if (exportFormat === "png") {
+                const exportCanvas = await buildTableQrExportCanvas({
+                    tableName: takeawayLabel,
+                    customerUrl,
+                    qrImageDataUrl,
+                    qrCodeExpiresAt: takeawayQr?.qr_code_expires_at,
+                    setting: printSettings.documents.table_qr,
+                    heading: takeawayQrHeading,
+                    subtitle: takeawayQrSubtitle,
+                });
                 downloadCanvasAsPng(exportCanvas, `${filenameBase}.png`);
                 message.success("ดาวน์โหลด PNG สำเร็จ");
             } else {
-                const targetWindow = reservePrintWindow(takeawayQrDocumentTitle);
-                if (!targetWindow) {
+                const result = await openQrPrintExport(
+                    exportFormat,
+                    printSettings,
+                    qrImageDataUrl,
+                    filenameBase,
+                    reservedPrintWindow
+                );
+                reservedPrintWindow = null;
+                /* legacy takeaway export path replaced
                     await saveCanvasAsPdf({ canvas: exportCanvas, filename: `${filenameBase}.pdf`, setting });
                     message.success("ดาวน์โหลด PDF สำเร็จ");
                 } else {
@@ -526,13 +569,25 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                 }
             }
 
+            */
+            message.success(
+                result === "window"
+                    ? exportFormat === "a4"
+                        ? "เปิดหน้าพิมพ์ A4 แล้ว"
+                        : "เปิดหน้าพิมพ์สำหรับเครื่องพิมพ์ใบเสร็จแล้ว"
+                    : exportFormat === "a4"
+                        ? "ดาวน์โหลด PDF A4 สำเร็จ"
+                        : "ดาวน์โหลด PDF สำหรับเครื่องพิมพ์ใบเสร็จสำเร็จ"
+            );
+            }
             setIsExportModalOpen(false);
         } catch (error) {
+            closePrintWindow(reservedPrintWindow);
             message.error(error instanceof Error ? error.message : TAKEAWAY_QR_UI.exportError);
         } finally {
             setIsExportingQr(false);
         }
-    }, [buildExportBundle, customerUrl, exportFormat, message, takeawayLabel, takeawayQr?.qr_code_expires_at, takeawayQrAltText, takeawayQrDocumentTitle, takeawayQrHeading, takeawayQrSubtitle]);
+    }, [buildExportSource, customerUrl, exportFormat, message, openQrPrintExport, takeawayLabel, takeawayQr?.qr_code_expires_at, takeawayQrDocumentTitle, takeawayQrHeading, takeawayQrSubtitle]);
 
     // Responsive grid columns with minmax(0, 1fr) to prevent overflow
     const gridColumns = isMobile
@@ -781,8 +836,13 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
                             onChange={(event) => setExportFormat(event.target.value as ExportFormat)}
                             style={{ width: "100%" }}
                         >
-                            <Space direction="vertical" size={10} style={{ width: "100%" }}>
+                            {false && <Space direction="vertical" size={10} style={{ width: "100%" }}>
                                 <Radio value="pdf">PDF</Radio>
+                                <Radio value="png">PNG</Radio>
+                            </Space>}
+                            <Space direction="vertical" size={10} style={{ width: "100%" }}>
+                                <Radio value="a4">A4</Radio>
+                                <Radio value="receipt">เครื่องพิมพ์ใบเสร็จ</Radio>
                                 <Radio value="png">PNG</Radio>
                             </Space>
                         </Radio.Group>
