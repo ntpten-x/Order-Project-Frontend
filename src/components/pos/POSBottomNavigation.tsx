@@ -11,7 +11,7 @@ import {
   HomeOutlined,
   PoweroffOutlined,
   TableOutlined,
-  UnorderedListOutlined,
+  FireOutlined,
   QrcodeOutlined,
   TagsOutlined,
   ClockCircleOutlined,
@@ -24,6 +24,7 @@ import { Badge, Button, Drawer, List } from "antd";
 import { useAuth } from "../../contexts/AuthContext";
 import { useShift } from "../../contexts/pos/ShiftContext";
 import { useEffectivePermissions } from "../../hooks/useEffectivePermissions";
+import { useServingBoardIndicator } from "../../hooks/pos/useServingBoardIndicator";
 import { canViewMenu } from "../../lib/rbac/menu-visibility";
 import FloatingBottomNav from "../navigation/FloatingBottomNav";
 import CloseShiftModal from "./shifts/CloseShiftModal";
@@ -41,26 +42,48 @@ const POSBottomNavigation = () => {
   const pathname = usePathname();
   const { user } = useAuth();
   const { currentShift } = useShift();
-  const { can, canAny, rows } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+  const { can, canAny, rows } = useEffectivePermissions({
+    enabled: Boolean(user?.id),
+  });
 
   const [moreOpen, setMoreOpen] = useState(false);
   const [closeShiftModalOpen, setCloseShiftModalOpen] = useState(false);
 
   const canSeeMenu = React.useCallback(
     (menuKey: string) => canViewMenu(menuKey, { rows, can, canAny }),
-    [rows, can, canAny]
+    [rows, can, canAny],
   );
+  const canSeeListMenu = canSeeMenu("menu.pos.list");
+  const isListPage =
+    pathname === "/pos/list" || pathname.startsWith("/pos/list/");
+  const { hasItems: hasServingBoardItems, totalItems: servingBoardTotalItems } =
+    useServingBoardIndicator({
+      enabled: canSeeListMenu && Boolean(currentShift),
+      liveUpdates: !isListPage,
+    });
 
   const primaryItems: MenuItem[] = useMemo(() => {
     const items: MenuItem[] = [
-      { key: "home", visibilityKey: "menu.pos.home", label: "หน้าแรก", icon: <HomeOutlined />, path: "/" },
-      { key: "pos", visibilityKey: "menu.pos.sell", label: "ขาย", icon: <ShopOutlined />, path: "/pos" },
       {
-        key: "orders",
-        visibilityKey: "menu.pos.orders",
-        label: "ออเดอร์",
-        icon: <FileTextOutlined />,
-        path: "/pos/orders",
+        key: "home",
+        visibilityKey: "menu.pos.home",
+        label: "หน้าแรก",
+        icon: <HomeOutlined />,
+        path: "/",
+      },
+      {
+        key: "pos",
+        visibilityKey: "menu.pos.sell",
+        label: "ขาย",
+        icon: <ShopOutlined />,
+        path: "/pos",
+      },
+      {
+        key: "list",
+        visibilityKey: "menu.pos.list",
+        label: "รายการ",
+        icon: <FireOutlined />,
+        path: "/pos/list",
       },
     ];
 
@@ -72,9 +95,16 @@ const POSBottomNavigation = () => {
       {
         key: "tableQr",
         visibilityKey: "menu.pos.tables",
-        label: "QR Code โต๊ะ",
+        label: "QR Code สั่งอาหาร",
         icon: <QrcodeOutlined />,
         path: "/pos/qr-code",
+      },
+      {
+        key: "orders",
+        visibilityKey: "menu.pos.orders",
+        label: "ออเดอร์",
+        icon: <FileTextOutlined />,
+        path: "/pos/orders",
       },
       {
         key: "dashboard",
@@ -82,13 +112,6 @@ const POSBottomNavigation = () => {
         label: "สรุป",
         icon: <AppstoreOutlined />,
         path: "/pos/dashboard",
-      },
-      {
-        key: "list",
-        visibilityKey: "menu.pos.list",
-        label: "เช็กรายการ",
-        icon: <UnorderedListOutlined />,
-        path: "/pos/list",
       },
       {
         key: "shift",
@@ -174,7 +197,9 @@ const POSBottomNavigation = () => {
     return pathname === itemPath || pathname.startsWith(itemPath + "/");
   };
 
-  const isSecondaryActive = secondaryItems.some((item) => isActivePath(item.path));
+  const isSecondaryActive = secondaryItems.some((item) =>
+    isActivePath(item.path),
+  );
 
   const handleNavigate = (path: string) => {
     router.push(path);
@@ -192,6 +217,11 @@ const POSBottomNavigation = () => {
             icon: item.icon,
             onClick: () => handleNavigate(item.path),
             active: isActivePath(item.path),
+            badgeDot: item.key === "list" && hasServingBoardItems,
+            ariaLabel:
+              item.key === "list" && hasServingBoardItems
+                ? `${item.label} มี ${servingBoardTotalItems} รายการ`
+                : item.label,
           })),
           {
             key: "more",
@@ -210,7 +240,9 @@ const POSBottomNavigation = () => {
         title="เมนูเพิ่มเติม"
         zIndex={2000}
       >
-        <div style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom))" }}>
+        <div
+          style={{ paddingBottom: "calc(12px + env(safe-area-inset-bottom))" }}
+        >
           {secondaryItems.length > 0 && (
             <List
               dataSource={secondaryItems}

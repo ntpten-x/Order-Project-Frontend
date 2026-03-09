@@ -20,7 +20,7 @@ export const AccessGuardFallback = ({ message, tone = "secondary" }: AccessGuard
             <ConfigProvider
                 theme={{
                     token: {
-                        colorPrimary: '#3b82f6',
+                        colorPrimary: '#6366f1',
                     },
                 }}
             >
@@ -31,17 +31,21 @@ export const AccessGuardFallback = ({ message, tone = "secondary" }: AccessGuard
                         </div>
                     ) : (
                         <div className="spinner-wrapper">
-                            <Spin indicator={<LoadingOutlined style={{ fontSize: 40 }} spin />} />
+                            <Spin size="large" />
                         </div>
                     )}
 
                     <div className="text-content">
-                        {tone === 'danger' && (
-                            <Title level={4} style={{ margin: 0, color: '#1e293b' }}>
-                                Access Denied
-                            </Title>
+                        {tone === 'danger' ? (
+                            <>
+                                <Title level={4} style={{ margin: 0, color: '#1e293b' }}>
+                                    Access Denied
+                                </Title>
+                                <Text type="danger" style={{ fontSize: 16 }}>{message}</Text>
+                            </>
+                        ) : (
+                            <Text style={{ fontSize: 14, color: '#64748b', fontWeight: 500 }}>{message}</Text>
                         )}
-                        <Text type={tone} style={{ fontSize: 16 }}>{message}</Text>
                     </div>
 
                     {tone === "danger" ? (
@@ -82,15 +86,15 @@ export const AccessGuardFallback = ({ message, tone = "secondary" }: AccessGuard
                 }
                 .content-wrapper {
                     background: white;
-                    padding: 40px;
-                    border-radius: 24px;
-                    box-shadow: 0 20px 40px rgba(0,0,0,0.05);
+                    padding: ${tone === 'danger' ? '40px' : '24px'};
+                    border-radius: 20px;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
                     display: flex;
                     flex-direction: column;
                     align-items: center;
-                    gap: 24px;
+                    gap: ${tone === 'danger' ? '24px' : '12px'};
                     text-align: center;
-                    min-width: 320px;
+                    min-width: ${tone === 'danger' ? '320px' : '240px'};
                     animation: fadeIn 0.5s ease-out;
                 }
                 .icon-circle {

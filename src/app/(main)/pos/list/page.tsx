@@ -40,6 +40,7 @@ import RequireOpenShift from "../../../../components/pos/shared/RequireOpenShift
 import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
+import { SERVING_BOARD_QUERY_KEY } from "../../../../hooks/pos/useServingBoardIndicator";
 import { useSocket } from "../../../../hooks/useSocket";
 import { useServingBoardSound, ServingBoardTone } from "../../../../hooks/pos/useServingBoardSound";
 import { servingBoardService } from "../../../../services/pos/servingBoard.service";
@@ -47,6 +48,13 @@ import { ServingBoardGroup, ServingBoardItem, ServingStatus } from "../../../../
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { ORDER_REALTIME_EVENTS } from "../../../../utils/pos/orderRealtimeEvents";
 import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
+import {
+    dedupeStrings,
+    ENTITY_NOTICE_COOLDOWN_MS,
+    FALLBACK_NOTICE_COOLDOWN_MS,
+    getGroupNotificationKeys,
+    getPayloadNotificationKeys,
+} from "../../../../utils/pos/servingBoardNotifications";
 import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { servingBoardStyles } from "./style";
 
@@ -58,6 +66,11 @@ const { Title, Text } = Typography;
 type StatusCategory = "pending" | "received";
 type ColumnTone = "pending" | "served";
 type ColumnCard = ServingBoardGroup & { visibleItems: ServingBoardItem[] };
+type BrowserNotificationPermissionState = NotificationPermission | "unsupported";
+type NotificationPayload = {
+    groups?: ServingBoardGroup[];
+    keys?: string[];
+};
 
 function normalized(value: string): string {
     return value.trim().toLowerCase();
@@ -173,6 +186,7 @@ function sortCards(cards: ColumnCard[]): ColumnCard[] {
     });
 }
 
+
 /* ─── Item Action Button ─── */
 function ItemActionButton({
     item,
@@ -195,6 +209,7 @@ function ItemActionButton({
             loading={loading}
             onClick={onClick}
             className={`sb-item-action-btn ${isServed ? "undo" : "serve"}`}
+            icon={isServed ? <ReloadOutlined /> : <CheckCircleOutlined />}
         >
             {isServed ? "ย้ายกลับ" : "ได้รับแล้ว"}
         </Button>
@@ -411,6 +426,7 @@ function ServingBoardPageContent() {
     const {
         notifyMode,
         playNotificationSound,
+        playTestSound,
         setNotifyMode,
         setTone,
         setVolume,
@@ -418,7 +434,9 @@ function ServingBoardPageContent() {
         soundEnabled,
         soundTone,
         soundVolume,
+        toastEnabled,
         toggleSound,
+        toggleToast,
     } = useServingBoardSound();
 
     const [search, setSearch] = useState("");
@@ -427,13 +445,18 @@ function ServingBoardPageContent() {
     const [statsExpanded, setStatsExpanded] = useState(false);
     const [itemLoadingIds, setItemLoadingIds] = useState<Set<string>>(new Set());
     const [groupLoadingIds, setGroupLoadingIds] = useState<Set<string>>(new Set());
+    const [isDocumentVisible, setIsDocumentVisible] = useState(true);
+    const [browserNotificationPermission, setBrowserNotificationPermission] = useState<BrowserNotificationPermissionState>("default");
     const hasShownSoundBlockedRef = useRef(false);
     const seenGroupIdsRef = useRef<Set<string>>(new Set());
     const hasInitializedBoardRef = useRef(false);
     const lastNoticeAtRef = useRef(0);
+    const notificationCooldownRef = useRef<Map<string, number>>(new Map());
+    const pageTitleRef = useRef("Serving Board");
+    const hiddenNoticeCountRef = useRef(0);
 
     const { data = [], isLoading, isFetching, refetch, error } = useQuery<ServingBoardGroup[]>({
-        queryKey: ["serving-board"],
+        queryKey: SERVING_BOARD_QUERY_KEY,
         queryFn: () => servingBoardService.getBoard(),
         staleTime: isConnected ? 45_000 : 7_500,
         refetchInterval: isConnected ? false : 15_000,
@@ -447,35 +470,211 @@ function ServingBoardPageContent() {
         onRefresh: () => {
             void refetch();
         },
-        intervalMs: isConnected ? undefined : 15_000,
         debounceMs: 500,
         enabled: true,
     });
 
-    const notifyIncomingBatches = useCallback(
-        async (groups: ServingBoardGroup[]) => {
-            const now = Date.now();
-            if (now - lastNoticeAtRef.current < 1200) return;
+    useEffect(() => {
+        if (typeof document === "undefined") return;
+
+        pageTitleRef.current = document.title || "Serving Board";
+        setIsDocumentVisible(document.visibilityState === "visible");
+
+        const handleVisibilityChange = () => {
+            const visible = document.visibilityState === "visible";
+            setIsDocumentVisible(visible);
+            if (visible) {
+                hiddenNoticeCountRef.current = 0;
+                document.title = pageTitleRef.current;
+            }
+        };
+
+        document.addEventListener("visibilitychange", handleVisibilityChange);
+        return () => {
+            document.removeEventListener("visibilitychange", handleVisibilityChange);
+        };
+    }, []);
+
+    useEffect(() => {
+        if (typeof window === "undefined" || !("Notification" in window)) {
+            setBrowserNotificationPermission("unsupported");
+            return;
+        }
+
+        const syncPermission = () => {
+            setBrowserNotificationPermission(window.Notification.permission);
+        };
+
+        syncPermission();
+        window.addEventListener("focus", syncPermission);
+        return () => {
+            window.removeEventListener("focus", syncPermission);
+        };
+    }, []);
+
+    const pruneNotificationCooldowns = useCallback((now: number) => {
+        const cooldowns = notificationCooldownRef.current;
+        cooldowns.forEach((timestamp, key) => {
+            if (now - timestamp >= ENTITY_NOTICE_COOLDOWN_MS) {
+                cooldowns.delete(key);
+            }
+        });
+    }, []);
+
+    const areKeysCoolingDown = useCallback((keys: string[], now: number) => {
+        if (!keys.length) {
+            return now - lastNoticeAtRef.current < FALLBACK_NOTICE_COOLDOWN_MS;
+        }
+
+        pruneNotificationCooldowns(now);
+        return keys.some((key) => {
+            const lastTimestamp = notificationCooldownRef.current.get(key);
+            return typeof lastTimestamp === "number" && now - lastTimestamp < ENTITY_NOTICE_COOLDOWN_MS;
+        });
+    }, [pruneNotificationCooldowns]);
+
+    const markNotificationKeys = useCallback((keys: string[], now: number) => {
+        if (!keys.length) {
             lastNoticeAtRef.current = now;
+            return;
+        }
 
-            await playNotificationSound();
+        keys.forEach((key) => {
+            notificationCooldownRef.current.set(key, now);
+        });
+    }, []);
 
-            const firstGroup = groups[0];
-            const content =
-                groups.length === 0
-                    ? "มีรายการใหม่เข้ามาในคิวเสิร์ฟ"
-                    : groups.length === 1
-                      ? `มีรายการใหม่เข้ามา: ${firstGroup.source_title}`
-                      : `มีรายการใหม่เข้ามา ${groups.length} รอบ`;
+    const buildNotificationContent = useCallback((groups: ServingBoardGroup[], hidden: boolean) => {
+        const firstGroup = groups[0];
+        const toastContent =
+            groups.length === 0
+                ? "มีรายการใหม่เข้ามาในคิวเสิร์ฟ"
+                : groups.length === 1
+                  ? `มีรายการใหม่เข้ามา: ${firstGroup.source_title}`
+                  : `มีรายการใหม่เข้ามา ${groups.length} รอบ`;
+
+        const notificationBody =
+            groups.length === 0
+                ? hidden
+                    ? "มีรายการใหม่เข้ามาใน Serving Board เปิดแท็บเพื่อตรวจสอบ"
+                    : toastContent
+                : groups.length === 1
+                  ? hidden
+                      ? `มีรายการใหม่จาก ${firstGroup.source_title} เปิดแท็บเพื่อตรวจสอบ`
+                      : toastContent
+                  : hidden
+                    ? `มีรายการใหม่ ${groups.length} รอบใน Serving Board เปิดแท็บเพื่อตรวจสอบ`
+                    : toastContent;
+
+        return { toastContent, notificationBody };
+    }, []);
+
+    const showBackgroundNotification = useCallback((body: string, keys: string[]) => {
+        if (
+            typeof window === "undefined" ||
+            !("Notification" in window) ||
+            window.Notification.permission !== "granted"
+        ) {
+            return false;
+        }
+
+        const notification = new window.Notification("Serving Board", {
+            body,
+            tag: keys[0] || "serving-board",
+            renotify: true,
+        } as NotificationOptions & { renotify?: boolean });
+
+        notification.onclick = () => {
+            window.focus();
+            notification.close();
+        };
+
+        window.setTimeout(() => {
+            notification.close();
+        }, 8000);
+
+        return true;
+    }, []);
+
+    const handleTestSound = useCallback(async () => {
+        const result = await playTestSound();
+        if (result === "blocked") {
+            message.warning("เบราว์เซอร์ยังบล็อกเสียงแจ้งเตือนอยู่");
+        } else if (result === "unsupported") {
+            message.warning("เบราว์เซอร์นี้ไม่รองรับการเล่นเสียงแจ้งเตือน");
+        }
+    }, [message, playTestSound]);
+
+    const handleEnableBrowserNotification = useCallback(async () => {
+        if (typeof window === "undefined" || !("Notification" in window)) {
+            message.warning("เบราว์เซอร์นี้ไม่รองรับ Browser Notification");
+            return;
+        }
+
+        const permission = await window.Notification.requestPermission();
+        setBrowserNotificationPermission(permission);
+        if (permission === "granted") {
+            message.success("เปิด Browser Notification แล้ว");
+        } else if (permission === "denied") {
+            message.warning("Browser Notification ถูกปฏิเสธ กรุณาอนุญาตจากการตั้งค่าเบราว์เซอร์");
+        }
+    }, [message]);
+
+    const notifyIncomingBatches = useCallback(
+        async ({ groups = [], keys = [] }: NotificationPayload) => {
+            const now = Date.now();
+            const hidden = !isDocumentVisible;
+
+            const eligibleGroups = groups.filter((group) => {
+                const groupKeys = getGroupNotificationKeys(group);
+                return !areKeysCoolingDown(groupKeys, now);
+            });
+            const notificationGroups = eligibleGroups.length > 0 ? eligibleGroups : groups;
+            const notificationKeys = notificationGroups.length > 0
+                ? dedupeStrings(notificationGroups.flatMap((group) => getGroupNotificationKeys(group)))
+                : dedupeStrings(keys);
+
+            if (notificationGroups.length === 0 && areKeysCoolingDown(notificationKeys, now)) {
+                return;
+            }
+            if (notificationGroups.length > 0 && eligibleGroups.length === 0) {
+                return;
+            }
+
+            markNotificationKeys(notificationKeys, now);
+
+            if (soundEnabled) {
+                await playNotificationSound();
+            }
+
+            if (!toastEnabled) {
+                return;
+            }
+
+            if (hidden) {
+                hiddenNoticeCountRef.current += Math.max(1, notificationGroups.length || 1);
+                if (typeof document !== "undefined") {
+                    document.title = `(${hiddenNoticeCountRef.current}) ${pageTitleRef.current}`;
+                }
+            }
+
+            const { toastContent, notificationBody } = buildNotificationContent(notificationGroups, hidden);
+
+            if (hidden) {
+                const shown = showBackgroundNotification(notificationBody, notificationKeys);
+                if (shown) {
+                    return;
+                }
+            }
 
             message.open({
                 type: "info",
                 icon: <NotificationOutlined style={{ color: "#10b981" }} />,
-                content,
-                duration: 3,
+                content: toastContent,
+                duration: hidden ? 6 : 3,
             });
         },
-        [message, playNotificationSound]
+        [areKeysCoolingDown, buildNotificationContent, isDocumentVisible, markNotificationKeys, message, playNotificationSound, showBackgroundNotification, soundEnabled, toastEnabled]
     );
 
     useEffect(() => {
@@ -503,7 +702,7 @@ function ServingBoardPageContent() {
         seenGroupIdsRef.current = nextSeenIds;
 
         if (notifyMode === "new-batches" && newGroups.length > 0) {
-            void notifyIncomingBatches(newGroups);
+            void notifyIncomingBatches({ groups: newGroups });
         }
     }, [data, notifyIncomingBatches, notifyMode]);
 
@@ -511,11 +710,11 @@ function ServingBoardPageContent() {
         if (!socket || notifyMode !== "event-stream") return;
 
         let lastNoticeAt = 0;
-        const notify = () => {
+        const notify = (payload?: unknown) => {
             const now = Date.now();
-            if (now - lastNoticeAt < 1500) return;
+            if (now - lastNoticeAt < FALLBACK_NOTICE_COOLDOWN_MS) return;
             lastNoticeAt = now;
-            void notifyIncomingBatches([]);
+            void notifyIncomingBatches({ keys: getPayloadNotificationKeys(payload) });
         };
 
         socket.on(RealtimeEvents.orders.create, notify);
@@ -602,6 +801,19 @@ function ServingBoardPageContent() {
         <div className="sb-sound-popover">
             <div className="sb-sound-section">
                 <div className="sb-sound-label">
+                    <span>เปิดเสียงแจ้งเตือน</span>
+                    <Switch checked={soundEnabled} onChange={() => { void toggleSound(); }} />
+                </div>
+                <div className="sb-sound-label" style={{ marginTop: 10 }}>
+                    <span>เปิดข้อความแจ้งเตือน</span>
+                    <Switch checked={toastEnabled} onChange={toggleToast} />
+                </div>
+                <Text className="sb-sound-hint">
+                    เมื่อแท็บอยู่เบื้องหลัง ระบบจะใช้ Browser Notification หากเบราว์เซอร์อนุญาต
+                </Text>
+            </div>
+            <div className="sb-sound-section">
+                <div className="sb-sound-label">
                     <span>โทนเสียง</span>
                     <Text style={{ color: "#94a3b8" }}>
                         {soundTone === "chime" ? "Chime" : soundTone === "service-bell" ? "Bell" : "Alert"}
@@ -628,6 +840,29 @@ function ServingBoardPageContent() {
                     value={soundVolume}
                     onChange={(value) => setVolume(Array.isArray(value) ? value[0] : value)}
                 />
+                <Button size="small" icon={<SoundOutlined />} onClick={() => void handleTestSound()} disabled={!soundEnabled} style={{ marginTop: 10 }}>
+                    ทดสอบเสียง
+                </Button>
+            </div>
+
+            <div className="sb-sound-section">
+                <div className="sb-sound-label">
+                    <span>Browser Notification</span>
+                    <Text style={{ color: "#94a3b8" }}>
+                        {browserNotificationPermission === "granted"
+                            ? "อนุญาตแล้ว"
+                            : browserNotificationPermission === "denied"
+                              ? "ถูกปฏิเสธ"
+                              : browserNotificationPermission === "unsupported"
+                                ? "ไม่รองรับ"
+                                : "ยังไม่อนุญาต"}
+                    </Text>
+                </div>
+                {browserNotificationPermission !== "granted" && browserNotificationPermission !== "unsupported" ? (
+                    <Button size="small" onClick={() => void handleEnableBrowserNotification()}>
+                        เปิดแจ้งเตือนเบราว์เซอร์
+                    </Button>
+                ) : null}
             </div>
 
             <div className="sb-sound-section">
@@ -733,7 +968,11 @@ function ServingBoardPageContent() {
                                 className={`sb-filter-btn sb-filter-btn-${category.value} ${active ? "active" : ""}`}
                                 data-status-category={category.value}
                             >
-                                <FilterOutlined className="sb-filter-btn-icon" />
+                                {category.value === "pending" ? (
+                                    <FireOutlined className="sb-filter-btn-icon" />
+                                ) : (
+                                    <CheckCircleOutlined className="sb-filter-btn-icon" />
+                                )}
                                 {category.label}
                             </Button>
                         );

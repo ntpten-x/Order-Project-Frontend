@@ -765,7 +765,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                                                             loading={qrRotating}
                                                             onClick={handleRotateQr}
                                                         >
-                                                            Refresh QR
+                                                            Refresh
                                                         </Button>
                                                         <Button
                                                             type="default"
@@ -773,7 +773,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                                                             loading={qrPdfDownloading}
                                                             onClick={handleDownloadQrPdf}
                                                         >
-                                                            ดาวน์โหลด PDF
+                                                            Export PDF
                                                         </Button>
                                                     </Space>
                                                     <div style={{ display: 'none' }}>

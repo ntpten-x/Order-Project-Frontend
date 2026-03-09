@@ -10,7 +10,7 @@ import { AccessGuardFallback } from "../../components/pos/AccessGuard";
 function MainPermissionGate({ children }: { children: React.ReactNode }) {
   const { isChecking, isAuthorized } = useRoleGuard({
     requiredRole: undefined,
-    unauthorizedMessage: "You do not have permission to access this page.",
+    unauthorizedMessage: "คุณไม่มีสิทธิ์เข้าถึงหน้านี้",
   });
 
   if (isChecking) {
