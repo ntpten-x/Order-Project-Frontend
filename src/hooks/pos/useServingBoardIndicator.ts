@@ -17,6 +17,20 @@ type UseServingBoardIndicatorOptions = {
   liveUpdates?: boolean;
 };
 
+export function countServingBoardPendingItems(groups: ServingBoardGroup[]) {
+  return groups.reduce(
+    (sum, group) => sum + Math.max(0, Number(group.pending_count) || 0),
+    0,
+  );
+}
+
+export function countServingBoardTotalItems(groups: ServingBoardGroup[]) {
+  return groups.reduce(
+    (sum, group) => sum + Math.max(0, Number(group.total_items) || 0),
+    0,
+  );
+}
+
 export function useServingBoardIndicator(
   options: UseServingBoardIndicatorOptions = {},
 ) {
@@ -49,17 +63,20 @@ export function useServingBoardIndicator(
     enabled: enabled && liveUpdates,
   });
 
+  const pendingItems = useMemo(() => {
+    if (!enabled) return 0;
+    return countServingBoardPendingItems(data);
+  }, [data, enabled]);
+
   const totalItems = useMemo(() => {
     if (!enabled) return 0;
-
-    return data.reduce(
-      (sum, group) => sum + Math.max(0, Number(group.total_items) || 0),
-      0,
-    );
+    return countServingBoardTotalItems(data);
   }, [data, enabled]);
 
   return {
     hasItems: totalItems > 0,
+    hasPendingItems: pendingItems > 0,
+    pendingItems,
     totalItems,
     isLoading: enabled ? isLoading : false,
     isFetching: enabled ? isFetching : false,

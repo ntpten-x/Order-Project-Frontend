@@ -56,7 +56,10 @@ const POSBottomNavigation = () => {
   const canSeeListMenu = canSeeMenu("menu.pos.list");
   const isListPage =
     pathname === "/pos/list" || pathname.startsWith("/pos/list/");
-  const { hasItems: hasServingBoardItems, totalItems: servingBoardTotalItems } =
+  const {
+    hasPendingItems: hasServingBoardPendingItems,
+    pendingItems: servingBoardPendingItems,
+  } =
     useServingBoardIndicator({
       enabled: canSeeListMenu && Boolean(currentShift),
       liveUpdates: !isListPage,
@@ -217,10 +220,10 @@ const POSBottomNavigation = () => {
             icon: item.icon,
             onClick: () => handleNavigate(item.path),
             active: isActivePath(item.path),
-            badgeDot: item.key === "list" && hasServingBoardItems,
+            badgeDot: item.key === "list" && hasServingBoardPendingItems,
             ariaLabel:
-              item.key === "list" && hasServingBoardItems
-                ? `${item.label} มี ${servingBoardTotalItems} รายการ`
+              item.key === "list" && hasServingBoardPendingItems
+                ? `${item.label} มี ${servingBoardPendingItems} รายการกำลังดำเนินการ`
                 : item.label,
           })),
           {
