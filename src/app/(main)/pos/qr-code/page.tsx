@@ -52,6 +52,14 @@ const TAKEAWAY_QR_UI = {
     openPdfSuccess: 'เปิดหน้า Takeaway QR PDF แล้ว',
     refreshLabel: 'Refresh',
 };
+const TABLE_QR_EXPORT_UI = {
+    singleButtonLabel: 'Export โต๊ะนี้',
+    singleModalTitle: 'ส่งออก QR โต๊ะนี้',
+    singleScopeDescription: 'จะส่งออกเฉพาะ QR Code ของโต๊ะที่เลือกเท่านั้น',
+    bulkButtonLabel: 'Export ทั้งหมด (โต๊ะ)',
+    bulkModalTitle: 'ส่งออก QR ทุกโต๊ะ',
+    bulkScopeDescription: 'ระบบจะส่งออก QR Code ของทุกโต๊ะตามผลการค้นหาและตัวกรองปัจจุบัน',
+};
 
 type StatusFilter = 'all' | 'active' | 'inactive';
 type TableStateFilter = 'all' | TableStatus.Available | TableStatus.Unavailable;
@@ -94,7 +102,7 @@ function TableQrCard({ table, customerUrl, canRotate, rotating, exporting, onOpe
             <Space size={8} wrap>
                 <Button icon={<LinkOutlined />} onClick={() => onOpen(table)} disabled={!hasQrUrl}>ไปที่หน้า</Button>
                 <Button icon={<SyncOutlined spin={rotating} />} loading={rotating} disabled={!canRotate} onClick={() => onRotate(table)}>Refresh</Button>
-                <Button icon={<DownloadOutlined />} loading={exporting} disabled={!hasQrUrl} onClick={() => onExport(table)}>Export</Button>
+                <Button icon={<DownloadOutlined />} loading={exporting} disabled={!hasQrUrl} onClick={() => onExport(table)}>{TABLE_QR_EXPORT_UI.singleButtonLabel}</Button>
             </Space>
             {hasQrUrl ? <div style={{ display: 'none' }}><DynamicQRCodeCanvas id={getCanvasId(table.id)} value={customerUrl} size={EXPORT_QR_CANVAS_SIZE} marginSize={0} /></div> : null}
         </article>
@@ -419,6 +427,7 @@ export default function TableQrCodePage() {
         filenameBase: string;
         documentTitle: string;
         targetWindow?: Window | null;
+        a4Layout?: 'grid4' | 'single';
     }) => {
         const targetWindow = options.targetWindow ?? reservePrintWindow(options.documentTitle);
         try {
@@ -427,6 +436,7 @@ export default function TableQrCodePage() {
                 mode: options.mode,
                 baseSetting: options.printSettings.documents.table_qr,
                 locale: options.printSettings.locale,
+                a4Layout: options.a4Layout,
             });
 
             if (!targetWindow) {
@@ -653,6 +663,7 @@ export default function TableQrCodePage() {
                     filenameBase,
                     documentTitle: takeawayQrDocumentTitle,
                     targetWindow: reservedPrintWindow,
+                    a4Layout: takeawayQrExportFormat === 'a4' ? 'single' : undefined,
                 });
                 reservedPrintWindow = null;
                 /* legacy takeaway export path replaced
@@ -696,6 +707,24 @@ export default function TableQrCodePage() {
             setIsTakeawayQrExporting(false);
         }
     }, [buildStandardExportCanvas, buildTakeawayExportSource, openQrPrintExport, takeawayCustomerUrl, takeawayLabel, takeawayQr?.qr_code_expires_at, takeawayQrDocumentTitle, takeawayQrExportFormat, takeawayQrHeading, takeawayQrSubtitle]);
+
+    const handleOpenSingleTableExportModal = useCallback((target: TableQrCodeListItem) => {
+        const customerUrl = buildCustomerUrl(target.customer_path);
+        if (!customerUrl) {
+            message.warning('ยังไม่มีลิงก์ลูกค้าสำหรับโต๊ะนี้');
+            return;
+        }
+
+        setExportTargetTable(target);
+        setExportFormat('a4');
+        setIsExportModalOpen(true);
+    }, [buildCustomerUrl]);
+
+    const handleOpenBulkExportModal = useCallback(() => {
+        setBulkExportFormat('a4');
+        setBulkExportProgress(null);
+        setIsBulkExportModalOpen(true);
+    }, []);
 
     const handleConfirmBulkExport = useCallback(async () => {
         if (bulkExporting) return;
@@ -838,14 +867,10 @@ export default function TableQrCodePage() {
                         ) : null}
                         <Button
                             icon={<DownloadOutlined />}
-                            onClick={() => {
-                                setBulkExportFormat('a4');
-                                setBulkExportProgress(null);
-                                setIsBulkExportModalOpen(true);
-                            }}
+                            onClick={handleOpenBulkExportModal}
                             disabled={loading || refreshing || total === 0 || bulkExporting}
                         >
-                            Export ทั้งหมด (โต๊ะ)
+                            {TABLE_QR_EXPORT_UI.bulkButtonLabel}
                         </Button>
                         <Button icon={<TableOutlined />} onClick={() => router.push('/pos/tables')}>จัดการโต๊ะ</Button>
                     </Space>
@@ -864,7 +889,7 @@ export default function TableQrCodePage() {
                         </Space>
                     </SearchBar>
                     <PageSection title="รายการ QR โต๊ะ" extra={<Space size={8} wrap>{refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}<Text strong>{total} รายการ</Text></Space>}>
-                        {loading && tables.length === 0 ? <PageState status="loading" /> : error && tables.length === 0 ? <PageState status="error" title="โหลดรายการ QR โต๊ะไม่สำเร็จ" error={error} onRetry={() => void fetchQrCodes()} /> : tables.length === 0 ? <UIEmptyState title={debouncedSearch.trim() ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีรายการโต๊ะ'} description={debouncedSearch.trim() ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรอง' : 'เพิ่มโต๊ะในหน้าจัดการโต๊ะก่อน แล้วระบบจะสร้าง QR ให้โดยอัตโนมัติ'} /> : <Space direction="vertical" size={14} style={{ width: '100%' }}><div className="qr-cards-grid">{tables.map((table) => <TableQrCard key={table.id} table={table} customerUrl={buildCustomerUrl(table.customer_path)} canRotate={canRotateQr} rotating={rotatingId === table.id} exporting={exportingId === table.id} onOpen={handleOpenCustomerPage} onRotate={handleRotateQr} onExport={(target) => { const customerUrl = buildCustomerUrl(target.customer_path); if (!customerUrl) return void message.warning('ยังไม่มีลิงก์ลูกค้าสำหรับโต๊ะนี้'); setExportTargetTable(target); setExportFormat('a4'); setIsExportModalOpen(true); }} onPreviewQr={setPreviewTable} />)}</div><div style={{ marginTop: 12 }}><ListPagination page={page} total={total} pageSize={pageSize} loading={loading || refreshing} onPageChange={setPage} onPageSizeChange={setPageSize} activeColor="#2563eb" /></div></Space>}
+                        {loading && tables.length === 0 ? <PageState status="loading" /> : error && tables.length === 0 ? <PageState status="error" title="โหลดรายการ QR โต๊ะไม่สำเร็จ" error={error} onRetry={() => void fetchQrCodes()} /> : tables.length === 0 ? <UIEmptyState title={debouncedSearch.trim() ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีรายการโต๊ะ'} description={debouncedSearch.trim() ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรอง' : 'เพิ่มโต๊ะในหน้าจัดการโต๊ะก่อน แล้วระบบจะสร้าง QR ให้โดยอัตโนมัติ'} /> : <Space direction="vertical" size={14} style={{ width: '100%' }}><div className="qr-cards-grid">{tables.map((table) => <TableQrCard key={table.id} table={table} customerUrl={buildCustomerUrl(table.customer_path)} canRotate={canRotateQr} rotating={rotatingId === table.id} exporting={exportingId === table.id} onOpen={handleOpenCustomerPage} onRotate={handleRotateQr} onExport={handleOpenSingleTableExportModal} onPreviewQr={setPreviewTable} />)}</div><div style={{ marginTop: 12 }}><ListPagination page={page} total={total} pageSize={pageSize} loading={loading || refreshing} onPageChange={setPage} onPageSizeChange={setPageSize} activeColor="#2563eb" /></div></Space>}
                     </PageSection>
                 </PageStack>
             </PageContainer>
@@ -915,8 +940,9 @@ export default function TableQrCodePage() {
                     {takeawayCustomerUrl ? <Text style={{ wordBreak: 'break-all' }}>{takeawayCustomerUrl}</Text> : null}
                 </div>
             </Modal>
-            <Modal title="ส่งออก QR Code" open={isExportModalOpen} onCancel={() => { setIsExportModalOpen(false); setExportTargetTable(null); }} onOk={() => { void handleConfirmExport(); }} okText="ตกลง" cancelText="ยกเลิก" confirmLoading={Boolean(exportTargetTable && exportingId === exportTargetTable.id)} destroyOnClose>
+            <Modal title={TABLE_QR_EXPORT_UI.singleModalTitle} open={isExportModalOpen} onCancel={() => { setIsExportModalOpen(false); setExportTargetTable(null); }} onOk={() => { void handleConfirmExport(); }} okText="ตกลง" cancelText="ยกเลิก" confirmLoading={Boolean(exportTargetTable && exportingId === exportTargetTable.id)} destroyOnClose>
                 <Space direction="vertical" size={14} style={{ width: '100%' }}>
+                    <Text type="secondary">{TABLE_QR_EXPORT_UI.singleScopeDescription}</Text>
                     <Text type="secondary">{exportTargetTable ? `โต๊ะ: ${exportTargetTable.table_name}` : 'เลือกรูปแบบไฟล์ที่ต้องการส่งออก'}</Text>
                     <Radio.Group value={exportFormat} onChange={(event) => setExportFormat(event.target.value as ExportFormat)} style={{ width: '100%' }}>
                         {false && <Space direction="vertical" size={10} style={{ width: '100%' }}>
@@ -924,15 +950,15 @@ export default function TableQrCodePage() {
                             <Radio value="png">PNG (ดาวน์โหลดรูป QR)</Radio>
                         </Space>}
                         <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                            <Radio value="a4">A4 (4 QR ต่อหน้า เหมาะกับเครื่องพิมพ์มาตรฐาน)</Radio>
-                            <Radio value="receipt">เครื่องพิมพ์ใบเสร็จ (พิมพ์แบบม้วนยาว)</Radio>
-                            <Radio value="png">PNG (ดาวน์โหลดรูป QR)</Radio>
+                            <Radio value="a4">A4 สำหรับโต๊ะนี้ 1 QR ต่อไฟล์</Radio>
+                            <Radio value="receipt">เครื่องพิมพ์ใบเสร็จ สำหรับโต๊ะนี้</Radio>
+                            <Radio value="png">PNG ของโต๊ะนี้</Radio>
                         </Space>
                     </Radio.Group>
                 </Space>
             </Modal>
             <Modal
-                title="ส่งออก QR ทั้งหมด"
+                title={TABLE_QR_EXPORT_UI.bulkModalTitle}
                 open={isBulkExportModalOpen}
                 onCancel={() => {
                     if (bulkExporting) return;
@@ -949,7 +975,7 @@ export default function TableQrCodePage() {
                 destroyOnClose
             >
                 <Space direction="vertical" size={14} style={{ width: '100%' }}>
-                    <Text type="secondary">ระบบจะส่งออกทุกโต๊ะตามตัวกรองปัจจุบัน รวมถึงรายการจากหน้าถัดไปให้อัตโนมัติ</Text>
+                    <Text type="secondary">{TABLE_QR_EXPORT_UI.bulkScopeDescription}</Text>
                     <Radio.Group value={bulkExportFormat} onChange={(event) => setBulkExportFormat(event.target.value as ExportFormat)} style={{ width: '100%' }} disabled={bulkExporting}>
                         {false && <Space direction="vertical" size={10} style={{ width: '100%' }}>
                             <Radio value="pdf">PDF รวมทุกโต๊ะ (1 ไฟล์)</Radio>

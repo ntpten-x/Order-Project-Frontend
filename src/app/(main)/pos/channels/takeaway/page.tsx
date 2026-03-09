@@ -485,6 +485,7 @@ function TakeawayContent({ canCreateOrder }: { canCreateOrder: boolean }) {
             mode,
             baseSetting: printSettings.documents.table_qr,
             locale: printSettings.locale,
+            a4Layout: mode === "a4" ? "single" : undefined,
         });
 
         if (!resolvedTargetWindow) {

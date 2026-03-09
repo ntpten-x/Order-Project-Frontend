@@ -5,6 +5,7 @@ import { applyPresetToDocument } from "./defaults";
 import { buildTableQrExportCanvas } from "./tableQrExport";
 
 export type TableQrPrintMode = "a4" | "receipt";
+export type TableQrA4Layout = "grid4" | "single";
 
 export type TableQrPrintItem = {
     tableName: string;
@@ -611,6 +612,30 @@ function createA4CardSetting(baseSetting: PrintDocumentSetting): PrintDocumentSe
     };
 }
 
+function createA4SingleCardSetting(baseSetting: PrintDocumentSetting): PrintDocumentSetting {
+    const pageSize = getEffectiveDocumentSize(baseSetting);
+    const cardWidth = Math.max(
+        1,
+        pageSize.width - baseSetting.margin_left - baseSetting.margin_right
+    );
+    const cardHeight = Math.max(
+        1,
+        pageSize.height - baseSetting.margin_top - baseSetting.margin_bottom
+    );
+
+    return {
+        ...baseSetting,
+        width: cardWidth,
+        height: cardHeight,
+        height_mode: "fixed",
+        margin_top: mm(10, baseSetting.unit),
+        margin_right: mm(10, baseSetting.unit),
+        margin_bottom: mm(10, baseSetting.unit),
+        margin_left: mm(10, baseSetting.unit),
+        copies: 1,
+    };
+}
+
 function createReceiptCardSetting(baseSetting: PrintDocumentSetting): PrintDocumentSetting {
     const pageSize = getEffectiveDocumentSize(baseSetting);
     const cardWidth = Math.max(
@@ -690,6 +715,7 @@ export async function createTableQrPrintDocument(options: {
     mode: TableQrPrintMode;
     baseSetting: PrintDocumentSetting;
     locale?: string;
+    a4Layout?: TableQrA4Layout;
 }): Promise<{
     blob: Blob;
     download: (filename: string) => void;
@@ -716,9 +742,14 @@ export async function createTableQrPrintDocument(options: {
             unit: pageSetting.unit,
             format: [pageSize.width, pageSize.height],
         });
-        const cardSetting = createA4CardSetting(pageSetting);
+        const a4Layout = options.a4Layout ?? "grid4";
+        const cardSetting =
+            a4Layout === "single" ? createA4SingleCardSetting(pageSetting) : createA4CardSetting(pageSetting);
         const cardSize = getEffectiveDocumentSize(cardSetting);
-        const pages = chunkTableQrItems(items, A4_ITEMS_PER_PAGE);
+        const pages =
+            a4Layout === "single"
+                ? items.map((item) => [item])
+                : chunkTableQrItems(items, A4_ITEMS_PER_PAGE);
         const previewPages: TableQrPreviewPage[] = [];
 
         let isFirstPage = true;
@@ -726,11 +757,14 @@ export async function createTableQrPrintDocument(options: {
             if (!isFirstPage) {
                 doc.addPage([pageSize.width, pageSize.height], pageSetting.orientation);
             }
-            const positions = buildA4Positions({
-                itemCount: pageItems.length,
-                pageSetting,
-                cardSetting,
-            });
+            const positions =
+                a4Layout === "single"
+                    ? [{ x: pageSetting.margin_left, y: pageSetting.margin_top }]
+                    : buildA4Positions({
+                        itemCount: pageItems.length,
+                        pageSetting,
+                        cardSetting,
+                    });
             const placements: PreviewPlacement[] = [];
 
             for (let index = 0; index < pageItems.length; index += 1) {
