@@ -21,7 +21,6 @@ import {
     CheckCircleOutlined,
     ClockCircleOutlined,
     DownOutlined,
-    FilterOutlined,
     FireOutlined,
     NotificationOutlined,
     ReloadOutlined,
@@ -43,8 +42,10 @@ import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissio
 import { SERVING_BOARD_QUERY_KEY } from "../../../../hooks/pos/useServingBoardIndicator";
 import { useSocket } from "../../../../hooks/useSocket";
 import { useServingBoardSound, ServingBoardTone } from "../../../../hooks/pos/useServingBoardSound";
+import { ordersService } from "../../../../services/pos/orders.service";
 import { servingBoardService } from "../../../../services/pos/servingBoard.service";
 import { ServingBoardGroup, ServingBoardItem, ServingStatus } from "../../../../types/api/pos/servingBoard";
+import { OrderType } from "../../../../types/api/pos/salesOrder";
 import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { ORDER_REALTIME_EVENTS } from "../../../../utils/pos/orderRealtimeEvents";
 import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
@@ -71,6 +72,7 @@ type NotificationPayload = {
     groups?: ServingBoardGroup[];
     keys?: string[];
 };
+const TAKEAWAY_NAME_MAX_LENGTH = 12;
 
 function normalized(value: string): string {
     return value.trim().toLowerCase();
@@ -91,6 +93,7 @@ function matchesSearch(group: ServingBoardGroup, search: string): boolean {
     const haystacks = [
         group.source_title,
         group.source_subtitle || "",
+        group.customer_name || "",
         group.order_no,
         ...group.items.map((item) => item.display_name),
         ...group.items.map((item) => item.notes || ""),
@@ -163,6 +166,56 @@ function getUrgencyConfig(batchCreatedAt: string) {
     if (minutes < 5) return { color: "#10b981", label: "ใหม่", level: 1 };
     if (minutes < 12) return { color: "#f59e0b", label: "เร่งเสิร์ฟ", level: 2 };
     return { color: "#ef4444", label: dayjs(batchCreatedAt).fromNow(true), level: 3 };
+}
+
+function truncateTakeawayName(value: string, maxLength: number = TAKEAWAY_NAME_MAX_LENGTH): string {
+    const trimmed = value.trim();
+    const characters = Array.from(trimmed);
+    if (characters.length <= maxLength) return trimmed;
+    return `${characters.slice(0, maxLength).join("").trimEnd()}...`;
+}
+
+function getTakeawayNameFromSourceTitle(sourceTitle: string): string {
+    const match = sourceTitle.match(/^take\s*away\s*#(.+)$/i);
+    return match?.[1]?.trim() || "";
+}
+
+function getTakeawayReference(card: ColumnCard): string {
+    const takeawayName = String(card.customer_name ?? "").trim() || getTakeawayNameFromSourceTitle(card.source_title);
+    if (takeawayName) {
+        return `#${truncateTakeawayName(takeawayName)}`;
+    }
+
+    const shortOrderNo = card.order_no ? card.order_no.slice(4, 7) : "";
+    return shortOrderNo ? `#${shortOrderNo}` : "";
+}
+
+function getTakeawayDisplaySourceTitle(card: ColumnCard): string {
+    const fallbackTitle = getDisplaySourceTitle(card);
+    if (card.order_type !== "TakeAway") return fallbackTitle;
+
+    const takeawayReference = getTakeawayReference(card);
+    if (!takeawayReference) return fallbackTitle;
+    if (/#\S+$/.test(fallbackTitle)) {
+        return fallbackTitle.replace(/#\S+$/, takeawayReference);
+    }
+
+    return `${fallbackTitle} ${takeawayReference}`.trim();
+}
+
+function enrichTakeawayCustomerNames(groups: ServingBoardGroup[], takeawayCustomerNames: Record<string, string>): ServingBoardGroup[] {
+    return groups.map((group) => {
+        if (group.order_type !== OrderType.TakeAway) return group;
+        if (String(group.customer_name ?? "").trim()) return group;
+
+        const fallbackCustomerName = takeawayCustomerNames[group.order_id]?.trim();
+        if (!fallbackCustomerName) return group;
+
+        return {
+            ...group,
+            customer_name: fallbackCustomerName,
+        };
+    });
 }
 
 function getDisplaySourceTitle(card: ColumnCard): string {
@@ -267,7 +320,7 @@ function Column({
                         const urgency = getUrgencyConfig(card.batch_created_at);
                         const orderTypeMeta = getOrderTypeMeta(card.order_type);
                         const themeClass = getCardThemeClass(card.order_type);
-                        const displaySourceTitle = getDisplaySourceTitle(card);
+                        const displaySourceTitle = getTakeawayDisplaySourceTitle(card);
                         const displaySubtitle = card.order_type === "Delivery" ? card.source_subtitle : null;
                         const deliveryProviderLabel = card.order_type === "Delivery" ? getDeliveryProviderLabel(card.source_title) : "";
                         const progress = Math.max(8, Math.round((card.served_count / Math.max(card.total_items, 1)) * 100));
@@ -463,6 +516,54 @@ function ServingBoardPageContent() {
         refetchIntervalInBackground: false,
         refetchOnWindowFocus: false,
     });
+
+    const takeawayOrderIdsMissingCustomerName = useMemo(
+        () =>
+            Array.from(
+                new Set(
+                    data
+                        .filter(
+                            (group) =>
+                                group.order_type === OrderType.TakeAway &&
+                                !String(group.customer_name ?? "").trim() &&
+                                Boolean(group.order_id)
+                        )
+                        .map((group) => group.order_id)
+                )
+            ).sort(),
+        [data]
+    );
+
+    const { data: takeawayCustomerNames = {} } = useQuery<Record<string, string>>({
+        queryKey: ["serving-board", "takeaway-customer-names", takeawayOrderIdsMissingCustomerName],
+        enabled: takeawayOrderIdsMissingCustomerName.length > 0,
+        staleTime: isConnected ? 45_000 : 7_500,
+        refetchOnWindowFocus: false,
+        queryFn: async () => {
+            const entries = await Promise.all(
+                takeawayOrderIdsMissingCustomerName.map(async (orderId) => {
+                    try {
+                        const order = await ordersService.getById(orderId);
+                        return [orderId, String(order.customer_name ?? "").trim()] as const;
+                    } catch {
+                        return [orderId, ""] as const;
+                    }
+                })
+            );
+
+            return entries.reduce<Record<string, string>>((acc, [orderId, customerName]) => {
+                if (customerName) {
+                    acc[orderId] = customerName;
+                }
+                return acc;
+            }, {});
+        },
+    });
+
+    const displayData = useMemo(
+        () => enrichTakeawayCustomerNames(data, takeawayCustomerNames),
+        [data, takeawayCustomerNames]
+    );
 
     useRealtimeRefresh({
         socket,
@@ -727,8 +828,8 @@ function ServingBoardPageContent() {
     }, [notifyIncomingBatches, notifyMode, socket]);
 
     const filteredGroups = useMemo(() => {
-        return data.filter((group) => matchesSearch(group, deferredSearch));
-    }, [data, deferredSearch]);
+        return displayData.filter((group) => matchesSearch(group, deferredSearch));
+    }, [deferredSearch, displayData]);
 
     const pendingCards = useMemo(
         () =>

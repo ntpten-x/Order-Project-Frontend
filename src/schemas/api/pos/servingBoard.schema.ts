@@ -22,6 +22,7 @@ export const ServingBoardGroupSchema = z.object({
     order_no: z.string(),
     order_type: z.nativeEnum(OrderType),
     order_status: z.string(),
+    customer_name: z.string().nullable().optional().default(null),
     source_title: z.string(),
     source_subtitle: z.string().nullable(),
     batch_created_at: z.string(),
