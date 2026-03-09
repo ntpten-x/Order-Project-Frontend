@@ -1,5 +1,6 @@
 import { createDefaultPrintSettings } from "../../utils/print-settings/defaults";
 import {
+    calculateReceiptRollHeight,
     RECEIPT_MAX_PAGE_HEIGHT_MM,
     chunkTableQrItems,
     planReceiptQrPages,
@@ -46,5 +47,17 @@ describe("tableQrPrintExport", () => {
         expect(plans.length).toBeGreaterThan(1);
         expect(plans.every((plan) => plan.pageHeightMm <= RECEIPT_MAX_PAGE_HEIGHT_MM)).toBe(true);
         expect(plans.reduce((sum, plan) => sum + plan.itemCount, 0)).toBe(20);
+    });
+
+    it("calculates a single continuous receipt roll height for all QR items", () => {
+        expect(
+            calculateReceiptRollHeight({
+                itemCount: 3,
+                cardHeight: 100,
+                gap: 4,
+                marginTop: 4,
+                marginBottom: 4,
+            })
+        ).toBe(316);
     });
 });

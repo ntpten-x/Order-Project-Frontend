@@ -1,6 +1,6 @@
 import { loadPdfExport } from "../../lib/dynamic-imports";
 import { PrintDocumentSetting, PrintPreset, PrintUnit } from "../../types/api/pos/printSettings";
-import { downloadBlob } from "../browser/download";
+import { downloadBlob, openBlobInWindow } from "../browser/download";
 import { applyPresetToDocument } from "./defaults";
 import { buildTableQrExportCanvas } from "./tableQrExport";
 
@@ -569,6 +569,27 @@ export function planReceiptQrPages(options: {
     return plans;
 }
 
+export function calculateReceiptRollHeight(options: {
+    itemCount: number;
+    cardHeight: number;
+    gap: number;
+    marginTop: number;
+    marginBottom: number;
+}): number {
+    const itemCount = Math.max(0, Math.floor(options.itemCount));
+    const cardHeight = Math.max(1, options.cardHeight);
+    const gap = Math.max(0, options.gap);
+    const marginTop = Math.max(0, options.marginTop);
+    const marginBottom = Math.max(0, options.marginBottom);
+
+    return (
+        marginTop +
+        marginBottom +
+        itemCount * cardHeight +
+        Math.max(0, itemCount - 1) * gap
+    );
+}
+
 function createA4CardSetting(baseSetting: PrintDocumentSetting): PrintDocumentSetting {
     const pageSize = getEffectiveDocumentSize(baseSetting);
     const gap = mm(A4_GRID_GAP_MM, baseSetting.unit);
@@ -921,15 +942,14 @@ export async function createTableQrPrintDocument(options: {
     const cardSetting = createReceiptCardSetting(pageSetting);
     const cardSize = getEffectiveDocumentSize(cardSetting);
     const gap = mm(RECEIPT_ITEM_GAP_MM, pageSetting.unit);
-    const plans = planReceiptQrPages({
-        itemCount: items.length,
-        cardHeightMm: convertToMm(cardSize.height, pageSetting.unit),
-        gapMm: RECEIPT_ITEM_GAP_MM,
-        pageTopMm: convertToMm(pageSetting.margin_top, pageSetting.unit),
-        pageBottomMm: convertToMm(pageSetting.margin_bottom, pageSetting.unit),
-    });
-    const firstPageHeight = convertFromMm(plans[0].pageHeightMm, pageSetting.unit);
     const pageWidth = getEffectiveDocumentSize(pageSetting).width;
+    const pageHeight = calculateReceiptRollHeight({
+        itemCount: items.length,
+        cardHeight: cardSize.height,
+        gap,
+        marginTop: pageSetting.margin_top,
+        marginBottom: pageSetting.margin_bottom,
+    });
     const printableWidth = Math.max(
         1,
         pageWidth - pageSetting.margin_left - pageSetting.margin_right
@@ -937,52 +957,40 @@ export async function createTableQrPrintDocument(options: {
     const doc = new JsPdfCtor({
         orientation: "portrait",
         unit: pageSetting.unit,
-        format: [pageWidth, firstPageHeight],
+        format: [pageWidth, pageHeight],
     });
-    const previewPages: TableQrPreviewPage[] = [];
+    const placements: PreviewPlacement[] = [];
 
-    let itemIndex = 0;
-    for (let pageIndex = 0; pageIndex < plans.length; pageIndex += 1) {
-        const plan = plans[pageIndex];
-        const pageHeight = convertFromMm(plan.pageHeightMm, pageSetting.unit);
-        if (pageIndex > 0) {
-            doc.addPage([pageWidth, pageHeight], "portrait");
-        }
-
-        let currentY = pageSetting.margin_top;
-        const placements: PreviewPlacement[] = [];
-        for (let cardIndex = 0; cardIndex < plan.itemCount; cardIndex += 1) {
-            const canvas = await buildQrCardCanvas(items[itemIndex], cardSetting, locale);
-            doc.addImage(
-                canvas.toDataURL("image/png"),
-                "PNG",
-                pageSetting.margin_left,
-                currentY,
-                printableWidth,
-                cardSize.height,
-                undefined,
-                "FAST"
-            );
-            placements.push({
-                canvas,
-                x: pageSetting.margin_left,
-                y: currentY,
-                width: printableWidth,
-                height: cardSize.height,
-            });
-            currentY += cardSize.height + gap;
-            itemIndex += 1;
-        }
-
-        previewPages.push(
-            buildPreviewPageImage({
-                pageWidth,
-                pageHeight,
-                unit: pageSetting.unit,
-                placements,
-            })
+    let currentY = pageSetting.margin_top;
+    for (const item of items) {
+        const canvas = await buildQrCardCanvas(item, cardSetting, locale);
+        doc.addImage(
+            canvas.toDataURL("image/png"),
+            "PNG",
+            pageSetting.margin_left,
+            currentY,
+            printableWidth,
+            cardSize.height,
+            undefined,
+            "FAST"
         );
+        placements.push({
+            canvas,
+            x: pageSetting.margin_left,
+            y: currentY,
+            width: printableWidth,
+            height: cardSize.height,
+        });
+        currentY += cardSize.height + gap;
     }
+    const previewPages: TableQrPreviewPage[] = [
+        buildPreviewPageImage({
+            pageWidth,
+            pageHeight,
+            unit: pageSetting.unit,
+            placements,
+        }),
+    ];
 
     const blob = doc.output("blob");
     return {
@@ -992,12 +1000,7 @@ export async function createTableQrPrintDocument(options: {
         },
         openInWindow(targetWindow, previewOptions) {
             if (previewPages.every((page) => Boolean(page.src))) {
-                writePrintWindow({
-                    targetWindow,
-                    title: previewOptions?.title || "QR Print Preview",
-                    pageSizeCss: buildPageSizeCss(pageSetting),
-                    previewPages,
-                });
+                openBlobInWindow(targetWindow, blob);
                 return;
             }
 
