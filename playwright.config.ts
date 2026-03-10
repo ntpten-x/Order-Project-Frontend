@@ -22,7 +22,7 @@ export default defineConfig({
         },
     ],
     webServer: {
-        command: `npm run dev -- -p ${e2ePort}`,
+        command: `npx next dev -p ${e2ePort}`,
         url: e2eBaseUrl,
         timeout: webServerTimeout,
         reuseExistingServer: !process.env.CI,

@@ -2,6 +2,10 @@
 .git
 .gitignore
 .github
+.agent
+.agents
+.codex
+.cursor
 
 # Dependencies and package manager caches
 node_modules
@@ -11,6 +15,8 @@ node_modules
 
 # Build caches/artifacts
 .next
+.next-build
+.next-build*
 .next-guard
 .swc
 out
@@ -25,10 +31,18 @@ coverage
 
 # Test and QA artifacts
 playwright-report
+playwright-report-*
 test-results
+test-results-*
 test-results-uat
 tests
 src/__tests__
+docker-pos-gate.log
+perf-pos-main-run.log
+staging-e2e-run.log
+errors.txt
+tmp_*
+tmp-*
 
 # Local-only files and docs
 logs
@@ -38,6 +52,8 @@ build_log.txt
 *.tgz
 *.tar
 *.tar.gz
+frontend-release.tgz
+frontend-runtime.tgz
 
 # Tooling and editor files
 .vscode
@@ -47,4 +63,5 @@ Thumbs.db
 
 # Files not needed to build image
 docker-compose.yml
+docker-compose*.yml
 vercel.json

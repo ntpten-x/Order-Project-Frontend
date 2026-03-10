@@ -857,7 +857,9 @@ function ServingBoardPageContent() {
         try {
             const csrfToken = await getCsrfTokenCached();
             await servingBoardService.updateItemStatus(itemId, status, undefined, csrfToken);
-            await refetch();
+            if (!isConnected) {
+                await refetch();
+            }
         } catch (err) {
             message.error(err instanceof Error ? err.message : "ไม่สามารถอัปเดตสถานะรายการได้");
         } finally {
@@ -875,7 +877,9 @@ function ServingBoardPageContent() {
         try {
             const csrfToken = await getCsrfTokenCached();
             await servingBoardService.updateGroupStatus(groupId, status, undefined, csrfToken);
-            await refetch();
+            if (!isConnected) {
+                await refetch();
+            }
         } catch (err) {
             message.error(err instanceof Error ? err.message : "ไม่สามารถอัปเดตสถานะทั้งกลุ่มได้");
         } finally {

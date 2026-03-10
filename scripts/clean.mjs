@@ -1,11 +1,17 @@
 import fs from "node:fs";
 import path from "node:path";
 
+const cwdEntries = fs.readdirSync(process.cwd(), { withFileTypes: true });
+const dynamicNextBuildDirs = cwdEntries
+  .filter((entry) => entry.isDirectory() && entry.name.startsWith(".next-build"))
+  .map((entry) => entry.name);
+
 const targets = [
   ".next",
-  ".next-build",
+  ".next-dist-dir",
   ".swc",
   ".turbo",
+  ...dynamicNextBuildDirs,
   path.join("node_modules", ".cache"),
 ];
 

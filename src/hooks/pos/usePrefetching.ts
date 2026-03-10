@@ -111,14 +111,15 @@ export function usePOSPrefetching() {
 export function useOrderListPrefetching() {
     const queryClient = useQueryClient();
     const defaultSort = "old" as const;
+    const defaultLimit = 20;
 
     useEffect(() => {
         const prefetchData = async () => {
             try {
                 // Prefetch first page of orders summary
                 await queryClient.prefetchQuery({
-                    queryKey: ['ordersSummary', 1, 50, 'all', 'all', '', defaultSort],
-                    queryFn: () => ordersService.getAllSummary(undefined, 1, 50, undefined, undefined, undefined, defaultSort),
+                    queryKey: ['ordersSummary', 1, defaultLimit, 'all', 'all', '', defaultSort],
+                    queryFn: () => ordersService.getAllSummary(undefined, 1, defaultLimit, undefined, undefined, undefined, defaultSort),
                     staleTime: 3000,
                     meta: { trackGlobalLoading: false },
                 });
@@ -128,5 +129,5 @@ export function useOrderListPrefetching() {
         };
 
         prefetchData();
-    }, [defaultSort, queryClient]);
+    }, [defaultLimit, defaultSort, queryClient]);
 }

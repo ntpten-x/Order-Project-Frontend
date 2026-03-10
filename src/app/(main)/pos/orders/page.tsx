@@ -19,8 +19,7 @@ import {
   RocketOutlined,
 } from "@ant-design/icons";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { SalesOrder, OrderStatus, OrderType } from "../../../../types/api/pos/salesOrder";
-import { ItemStatus } from "../../../../types/api/pos/salesOrderItem";
+import { SalesOrderSummary, OrderStatus, OrderType } from "../../../../types/api/pos/salesOrder";
 import { 
  
   getOrderStatusText, 
@@ -31,7 +30,7 @@ import {
 } from "../../../../utils/orders";
 import { orderColors } from "../../../../theme/pos/orders/style";
 import { useDebouncedValue } from "../../../../utils/useDebouncedValue";
-import { useOrders } from "../../../../hooks/pos/useOrders";
+import { useOrdersSummary } from "../../../../hooks/pos/useOrdersSummary";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
 import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
@@ -161,12 +160,12 @@ const responsiveCSS = `
 `;
 
 type OrderCardProps = {
-    order: SalesOrder;
+    order: SalesOrderSummary;
     index: number;
     isMobile: boolean;
-    getEffectiveStatus: (order: SalesOrder) => OrderStatus;
+    getEffectiveStatus: (order: SalesOrderSummary) => OrderStatus;
     getTimeSince: (date: string) => string;
-    onNavigate: (order: SalesOrder) => void;
+    onNavigate: (order: SalesOrderSummary) => void;
 };
 
 function OrderCard({
@@ -180,8 +179,7 @@ function OrderCard({
     const effStatus = getEffectiveStatus(order);
     const statusConf = STATUS_CONFIG[effStatus] || { color: '#64748B', bg: '#F1F5F9', glow: 'rgba(100,116,139,0.1)' };
     const channelConf = CHANNEL_CONFIG[order.order_type] || { icon: <ContainerOutlined />, color: '#64748B', bg: '#F1F5F9' };
-    const activeItems = order.items?.filter((item) => item.status !== ItemStatus.Cancelled) || [];
-    const totalQty = activeItems.reduce((sum, item) => sum + Number(item.quantity), 0) || 0;
+    const totalQty = Math.max(0, Number(order.items_count) || 0);
     const inProgressQty = totalQty;
     const isUrgent = effStatus === OrderStatus.Pending && dayjs().diff(dayjs(order.create_date), 'minute') > 15;
 
@@ -476,7 +474,7 @@ function POSOrdersPageContent() {
         router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
     }, [router, pathname, page, debouncedSearch, activeTab, createdSort]);
 
-    const { orders, total, isLoading, isFetching, isError, refetch } = useOrders({
+    const { orders, total, isLoading, isFetching, isError, refetch } = useOrdersSummary({
         page,
         limit: LIMIT,
         status: currentTabConfig.apiStatus,
@@ -485,22 +483,12 @@ function POSOrdersPageContent() {
     });
     const { stats: ordersStats } = useChannelStats();
 
-    const getEffectiveStatus = useCallback((order: SalesOrder): OrderStatus => {
-        // Only override for In-Progress orders
-        if (![OrderStatus.Pending, OrderStatus.Cooking, OrderStatus.Served].includes(order.status)) {
-            return order.status;
-        }
-
-        // Filter out cancelled items for calculation
-        const items = (order.items || []).filter(item => item.status !== ItemStatus.Cancelled);
-        if (items.length === 0) return OrderStatus.Pending;
-
-        // Legacy item states are collapsed into Pending/กำลังดำเนินการ.
-        if (items.some(item => item.status === ItemStatus.Pending || item.status === ItemStatus.Cooking || item.status === ItemStatus.Served)) {
+    const getEffectiveStatus = useCallback((order: SalesOrderSummary): OrderStatus => {
+        if ([OrderStatus.Pending, OrderStatus.Cooking, OrderStatus.Served].includes(order.status)) {
             return OrderStatus.Pending;
         }
 
-        return OrderStatus.Pending;
+        return order.status;
     }, []);
 
     // ── Stats ──
@@ -533,7 +521,7 @@ function POSOrdersPageContent() {
         total,
     ]);
 
-    const navigateToOrder = useCallback((order: SalesOrder) => {
+    const navigateToOrder = useCallback((order: SalesOrderSummary) => {
         const path = getOrderNavigationPath(order);
         router.push(path);
     }, [router]);

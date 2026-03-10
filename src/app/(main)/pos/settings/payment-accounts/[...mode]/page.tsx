@@ -187,7 +187,7 @@ const PaymentAccountPreviewCard = ({
 
 export default function PaymentAccountManagementPage({ params }: { params: { mode?: string[] } }) {
     const router = useRouter();
-    const { socket } = useSocket();
+    const { socket, isConnected } = useSocket();
     const { user } = useAuth();
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.md;
@@ -290,13 +290,17 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
             RealtimeEvents.paymentAccounts.delete,
         ],
         onRefresh: () => {
-            void accountsListQuery.refetch();
+            if (isManage) {
+                void accountsListQuery.refetch();
+                return;
+            }
+
             void accountsCatalogQuery.refetch();
             if (isEdit && editId) {
                 void editAccountQuery.refetch();
             }
         },
-        intervalMs: 45000,
+        intervalMs: isConnected ? undefined : 45000,
         debounceMs: 500,
         enabled: isAuthorized && isUrlReady,
     });
@@ -391,14 +395,18 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
             const csrfToken = await getCsrfTokenCached();
             await paymentAccountService.activate(account.id, undefined, undefined, csrfToken);
             message.success(`ตั้ง "${account.account_name}" เป็นบัญชีหลักแล้ว`);
-            const refetches = [
-                accountsListQuery.refetch(),
-                accountsCatalogQuery.refetch(),
-            ];
-            if (isEdit && editId) {
-                refetches.push(editAccountQuery.refetch());
+            if (!isConnected) {
+                const refetches = [];
+                if (isManage) {
+                    refetches.push(accountsListQuery.refetch());
+                } else {
+                    refetches.push(accountsCatalogQuery.refetch());
+                }
+                if (isEdit && editId) {
+                    refetches.push(editAccountQuery.refetch());
+                }
+                await Promise.all(refetches);
             }
-            await Promise.all(refetches);
         } catch (error) {
             console.error(error);
             message.error(getFriendlyErrorMessage(error, 'ไม่สามารถตั้งบัญชีหลักได้'));
@@ -434,10 +442,15 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                     const csrfToken = await getCsrfTokenCached();
                     await paymentAccountService.delete(account.id, undefined, undefined, csrfToken);
                     message.success(`ลบบัญชี "${account.account_name}" สำเร็จ`);
-                    await Promise.all([
-                        accountsListQuery.refetch(),
-                        accountsCatalogQuery.refetch(),
-                    ]);
+                    if (!isConnected) {
+                        const refetches = [];
+                        if (isManage) {
+                            refetches.push(accountsListQuery.refetch());
+                        } else {
+                            refetches.push(accountsCatalogQuery.refetch());
+                        }
+                        await Promise.all(refetches);
+                    }
 
                     if (isEdit) {
                         router.replace('/pos/settings/payment-accounts/manage');
@@ -501,14 +514,18 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                 message.success(`เพิ่มบัญชี "${payload.account_name}" สำเร็จ`);
             }
 
-            const refetches = [
-                accountsListQuery.refetch(),
-                accountsCatalogQuery.refetch(),
-            ];
-            if (isEdit && editId) {
-                refetches.push(editAccountQuery.refetch());
+            if (!isConnected) {
+                const refetches = [];
+                if (isManage) {
+                    refetches.push(accountsListQuery.refetch());
+                } else {
+                    refetches.push(accountsCatalogQuery.refetch());
+                }
+                if (isEdit && editId) {
+                    refetches.push(editAccountQuery.refetch());
+                }
+                await Promise.all(refetches);
             }
-            await Promise.all(refetches);
             router.replace('/pos/settings/payment-accounts/manage');
         } catch (error) {
             console.error(error);

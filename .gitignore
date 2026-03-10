@@ -9,6 +9,7 @@ node_modules/
 .next/**
 .next-build/
 .next-build/**
+.next-dist-dir
 .next-buildcheck-*/
 .next-guard/
 out/

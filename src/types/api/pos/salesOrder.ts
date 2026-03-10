@@ -60,7 +60,7 @@ export interface SalesOrderSummary {
     table_id?: string | null;
     delivery_id?: string | null;
     table?: { table_name?: string | null } | null;
-    delivery?: { delivery_name?: string | null } | null;
+    delivery?: { delivery_name?: string | null; logo?: string | null } | null;
     items_summary?: Record<string, number>;
     items_count?: number;
     payment_method?: { payment_method_name?: string | null } | null;

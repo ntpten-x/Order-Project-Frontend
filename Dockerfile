@@ -2,6 +2,10 @@
 FROM node:20-alpine AS builder
 
 WORKDIR /app
+ENV npm_config_fetch_retries=5 \
+    npm_config_fetch_retry_mintimeout=20000 \
+    npm_config_fetch_retry_maxtimeout=120000 \
+    npm_config_registry=https://registry.npmjs.org/
 
 # These envs are compiled into the frontend bundle at build time.
 # Defaults are for local/dev; override via `--build-arg` for production.
@@ -16,17 +20,18 @@ ENV NEXT_PUBLIC_SOCKET_URL=$NEXT_PUBLIC_SOCKET_URL
 ENV NEXT_PUBLIC_SOCKET_PATH=$NEXT_PUBLIC_SOCKET_PATH
 
 COPY package*.json ./
-RUN npm install
+RUN npm ci --no-audit --prefer-offline
 
 COPY . .
-RUN npm run build
+RUN /app/node_modules/.bin/next build
 
 # Production stage
 FROM node:20-alpine AS runner
 
 WORKDIR /app
 
-ENV NODE_ENV=production
+ENV NODE_ENV=production \
+    NEXT_TELEMETRY_DISABLED=1
 
 # Copy only necessary files for next start
 COPY --from=builder /app/package*.json ./
@@ -40,4 +45,4 @@ EXPOSE 3001
 # Next.js by default runs on 3000, we can override it with PORT env
 ENV PORT=3001
 
-CMD ["npm", "start"]
+CMD ["/app/node_modules/.bin/next", "start", "-p", "3001"]

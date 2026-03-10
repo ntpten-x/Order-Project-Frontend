@@ -83,7 +83,9 @@ export default function POSSettingsPage() {
     const { user } = useAuth();
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.md;
-    const { isAuthorized, isChecking } = useRoleGuard();
+    const { isAuthorized, isChecking } = useRoleGuard({
+        requiredPermission: { resourceKey: 'payment_accounts.page', action: 'view' },
+    });
     const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     const canUpdateAccounts = can('payment_accounts.page', 'update');
     const accountsQuery = useQuery<{ data: ShopPaymentAccount[]; total: number; page: number; last_page: number }>({

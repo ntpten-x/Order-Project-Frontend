@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import fs from "node:fs/promises";
+import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
@@ -33,7 +34,7 @@ const username = process.env.PERF_USERNAME || process.env.E2E_USERNAME || "e2e_p
 const password = process.env.PERF_PASSWORD || process.env.E2E_PASSWORD || "E2E_Pos_123!";
 
 const backendBaseUrl = `http://127.0.0.1:${backendPort}`;
-const frontendBaseUrl = `http://127.0.0.1:${frontendPort}`;
+const frontendBaseUrl = `http://localhost:${frontendPort}`;
 const isWin = process.platform === "win32";
 
 function quoteArg(arg) {
@@ -114,8 +115,17 @@ async function waitForHttp(url, timeoutMs = 150000) {
   const startAt = Date.now();
   while (Date.now() - startAt < timeoutMs) {
     try {
-      const response = await fetch(url);
-      if (response.ok || response.status === 401 || response.status === 403) return;
+      const status = await new Promise((resolve, reject) => {
+        const req = http.get(url, { timeout: 5000 }, (response) => {
+          response.resume();
+          resolve(response.statusCode || 0);
+        });
+        req.on("timeout", () => {
+          req.destroy(new Error("timeout"));
+        });
+        req.on("error", reject);
+      });
+      if ([200, 204, 401, 403, 307, 308].includes(Number(status))) return;
     } catch {
       // keep waiting
     }
@@ -165,10 +175,16 @@ async function startBackend() {
 }
 
 async function startFrontend() {
+  const noProxy = "127.0.0.1,localhost";
   const frontend = start("npm", ["run", "dev", "--", "-p", String(frontendPort)], {
     cwd: frontendDir,
     env: {
       ...process.env,
+      NO_PROXY: noProxy,
+      no_proxy: noProxy,
+      HTTP_PROXY: "",
+      HTTPS_PROXY: "",
+      ALL_PROXY: "",
       NEXT_PUBLIC_BACKEND_API: backendBaseUrl,
       BACKEND_API_INTERNAL: backendBaseUrl,
       NEXT_PUBLIC_SOCKET_URL: backendBaseUrl,
@@ -176,7 +192,7 @@ async function startFrontend() {
       NEXT_PUBLIC_SOCKET_TRANSPORTS: process.env.NEXT_PUBLIC_SOCKET_TRANSPORTS || "polling,websocket",
     },
   });
-  await waitForHttp(`${frontendBaseUrl}/login`, 180000);
+  await waitForHttp(`${frontendBaseUrl}/api/csrf`, 180000);
   return frontend;
 }
 

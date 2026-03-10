@@ -97,4 +97,41 @@ describe("proxyToBackend forwarded ip hardening", () => {
             })
         );
     });
+
+    it("preserves structured backend errors so frontend can read error codes", async () => {
+        fetchMock.mockResolvedValue(
+            new Response(
+                JSON.stringify({
+                    success: false,
+                    error: {
+                        code: "DUPLICATE_ENTRY",
+                        message: "Duplicate account",
+                    },
+                }),
+                {
+                    status: 409,
+                    headers: { "content-type": "application/json" },
+                }
+            )
+        );
+
+        const req = new NextRequest("http://localhost/api/pos/payment-accounts/accounts", {
+            method: "GET",
+        });
+
+        const res = await proxyToBackend(req, {
+            url: "http://backend/pos/payment-accounts/accounts",
+            method: "GET",
+        });
+        const payload = await res.json();
+
+        expect(res.status).toBe(409);
+        expect(payload).toEqual({
+            success: false,
+            error: {
+                code: "DUPLICATE_ENTRY",
+                message: "Duplicate account",
+            },
+        });
+    });
 });

@@ -86,7 +86,7 @@ export default function POSOrderDetailsPage() {
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     // Avoid "flash 403" while effective permissions are still loading.
     const canUpdateOrders = user?.role === "Admin" ? true : (!permissionLoading && can("orders.page", "update"));
-    const canDeleteOrders = user?.role === "Admin" ? true : (!permissionLoading && can("orders.page", "delete"));
+    const canCancelOrders = user?.role === "Admin" ? true : (!permissionLoading && can("orders.cancel.feature", "access"));
 
     const [order, setOrder] = useState<SalesOrder | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -248,7 +248,7 @@ export default function POSOrderDetailsPage() {
     };
 
     const handleCancelOrder = () => {
-        if (!canDeleteOrders) {
+        if (!canCancelOrders) {
             message.warning("คุณไม่มีสิทธิ์ลบ/ยกเลิกออเดอร์");
             return;
         }
@@ -1267,7 +1267,7 @@ export default function POSOrderDetailsPage() {
                                     fontSize: 15,
                                     border: `1px solid ${orderDetailColors.danger}`,
                                 }}
-                                disabled={!canDeleteOrders || isUpdating}
+                                disabled={!canCancelOrders || isUpdating}
                                 className="scale-hover"
                             >
                                 ยกเลิกออเดอร์

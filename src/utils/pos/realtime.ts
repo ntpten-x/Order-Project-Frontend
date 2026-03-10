@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { Socket } from "socket.io-client";
 
 type RealtimeEntityPayload =
@@ -53,8 +53,18 @@ export function useRealtimeRefresh({
     debounceMs,
     shouldRefresh,
 }: RefreshOptions) {
+    const eventsKey = events.join("::");
+    const stableEventsRef = useRef<string[]>([]);
+    const stableEventsKeyRef = useRef("");
+
+    if (stableEventsKeyRef.current !== eventsKey) {
+        stableEventsKeyRef.current = eventsKey;
+        stableEventsRef.current = Array.from(new Set(events.filter(Boolean)));
+    }
+
     useEffect(() => {
-        if (!enabled || !socket || events.length === 0) return;
+        const stableEvents = stableEventsRef.current;
+        if (!enabled || !socket || stableEvents.length === 0) return;
 
         let debounceTimer: ReturnType<typeof setTimeout> | null = null;
         const handler = (payload: unknown) => {
@@ -71,13 +81,13 @@ export function useRealtimeRefresh({
                 onRefresh();
             }, debounceMs);
         };
-        events.forEach((event) => socket.on(event, handler));
+        stableEvents.forEach((event) => socket.on(event, handler));
 
         return () => {
             if (debounceTimer) clearTimeout(debounceTimer);
-            events.forEach((event) => socket.off(event, handler));
+            stableEvents.forEach((event) => socket.off(event, handler));
         };
-    }, [enabled, socket, events, onRefresh, debounceMs, shouldRefresh]);
+    }, [enabled, socket, eventsKey, onRefresh, debounceMs, shouldRefresh]);
 
     useEffect(() => {
         if (!enabled || !intervalMs) return;

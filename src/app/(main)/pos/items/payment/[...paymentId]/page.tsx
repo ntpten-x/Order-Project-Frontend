@@ -105,7 +105,7 @@ export default function POSPaymentPage() {
     const isAdminUser = user?.role === "Admin";
     const canCreatePayment = can("payments.page", "create");
     const canEditOrder = isAdminUser || can("orders.edit.feature", "access") || can("orders.page", "update");
-    const canCancelOrder = isAdminUser || can("orders.cancel.feature", "access") || can("orders.page", "delete");
+    const canCancelOrder = isAdminUser || can("orders.cancel.feature", "access");
 
     const [order, setOrder] = useState<SalesOrder | null>(null);
     const [isLoading, setIsLoading] = useState(true);
