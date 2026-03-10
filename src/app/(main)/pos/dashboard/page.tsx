@@ -28,8 +28,8 @@ import {
   DownloadOutlined,
   EyeOutlined,
   FileExcelOutlined,
-  FilePdfOutlined,
   HomeOutlined,
+  PrinterOutlined,
   ReloadOutlined,
   RiseOutlined,
   ShopOutlined,
@@ -73,7 +73,9 @@ import {
   primePrintResources,
   reservePrintWindow,
 } from "../../../../utils/print-settings/runtime";
+import { applyPresetToDocument } from "../../../../utils/print-settings/defaults";
 import { readCache, writeCache } from "../../../../utils/pos/cache";
+import { PrintPreset } from "../../../../types/api/pos/printSettings";
 
 const { Title, Text } = Typography;
 const { RangePicker } = DatePicker;
@@ -82,7 +84,7 @@ const { useBreakpoint } = Grid;
 dayjs.locale("th");
 
 type PresetKey = "today" | "yesterday" | "7d" | "15d" | "30d" | "custom";
-type ExportFormat = "pdf" | "xlsx";
+type ExportFormat = "a4" | "receipt" | "xlsx";
 
 const PRESET_OPTIONS: Array<{ label: string; value: PresetKey }> = [
   { label: "วันนี้", value: "today" },
@@ -329,7 +331,9 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [exportDialogOpen, setExportDialogOpen] = useState(false);
-  const [exportFormat, setExportFormat] = useState<ExportFormat>("pdf");
+  const [exportFormat, setExportFormat] = useState<ExportFormat>("a4");
+  const [receiptPaperPreset, setReceiptPaperPreset] =
+    useState<Extract<PrintPreset, "thermal_58mm" | "thermal_80mm">>("thermal_80mm");
   const [exporting, setExporting] = useState(false);
 
   const startDate = dateRange[0].format("YYYY-MM-DD");
@@ -432,8 +436,12 @@ export default function DashboardPage() {
   const handleExport = useCallback(
     async (format: ExportFormat) => {
       let pdfPreviewWindow: Window | null = null;
-      if (format === "pdf") {
-        pdfPreviewWindow = reservePrintWindow("รายงานสรุปผลการขาย");
+      if (format === "a4" || format === "receipt") {
+        pdfPreviewWindow = reservePrintWindow(
+          format === "a4"
+            ? "รายงานสรุปผลการขาย A4"
+            : "รายงานสรุปผลการขายสำหรับเครื่องพิมพ์ใบเสร็จ",
+        );
         if (!pdfPreviewWindow) {
           messageApi.error("เบราว์เซอร์บล็อกหน้าต่าง PDF กรุณาอนุญาตป๊อปอัป");
           return;
@@ -478,7 +486,14 @@ export default function DashboardPage() {
           secondaryColor: shopProfile?.secondary_color || "#1d4ed8",
         };
 
-        if (format === "pdf") {
+        if (format === "a4" || format === "receipt") {
+          const receiptDocumentSetting =
+            format === "receipt"
+              ? applyPresetToDocument(
+                  printSettings.documents.receipt,
+                  receiptPaperPreset,
+                )
+              : null;
           await exportSalesReportPDF(
             payload,
             [exportStart, exportEnd],
@@ -486,7 +501,10 @@ export default function DashboardPage() {
             branding,
             {
               targetWindow: pdfPreviewWindow,
-              documentSetting: printSettings.documents.order_summary,
+              documentSetting:
+                format === "a4"
+                  ? printSettings.documents.order_summary
+                  : receiptDocumentSetting,
             },
           );
         } else {
@@ -500,7 +518,11 @@ export default function DashboardPage() {
         }
 
         messageApi.success(
-          `ส่งออก${format.toUpperCase()} สำเร็จ (${exportLabel})`,
+          format === "xlsx"
+            ? `ส่งออก XLSX สำเร็จ (${exportLabel})`
+            : format === "a4"
+              ? `เปิดหน้าพิมพ์ A4 สำเร็จ (${exportLabel})`
+              : `เปิดหน้าพิมพ์แบบยาว ${receiptPaperPreset === "thermal_58mm" ? "58mm" : "80mm"} สำเร็จ (${exportLabel})`,
         );
         setExportDialogOpen(false);
       } catch (error) {
@@ -520,6 +542,7 @@ export default function DashboardPage() {
       user?.branch?.branch_name,
       dateRange,
       preset,
+      receiptPaperPreset,
     ],
   );
 
@@ -635,7 +658,7 @@ export default function DashboardPage() {
               onClick={openExportDialog}
               disabled={!overview || loading}
             >
-              {!isMobile ? "ดาวน์โหลดสรุปผลการขาย" : ""}
+              {!isMobile ? "พิมพ์หรือดาวน์โหลดสรุปผลการขาย" : ""}
             </Button>
           </Space>
         }
@@ -858,7 +881,7 @@ export default function DashboardPage() {
       </PageContainer>
 
       <Modal
-        title="ดาวน์โหลดสรุปผลการขาย"
+        title="พิมพ์หรือดาวน์โหลดสรุปผลการขาย"
         open={exportDialogOpen}
         onCancel={() => !exporting && setExportDialogOpen(false)}
         footer={[
@@ -875,14 +898,14 @@ export default function DashboardPage() {
             loading={exporting}
             onClick={() => void handleExport(exportFormat)}
             icon={
-              exportFormat === "pdf" ? (
-                <FilePdfOutlined />
-              ) : (
+              exportFormat === "xlsx" ? (
                 <FileExcelOutlined />
+              ) : (
+                <PrinterOutlined />
               )
             }
           >
-            ยืนยันการดาวน์โหลด
+            {exportFormat === "xlsx" ? "ยืนยันการดาวน์โหลด" : "พิมพ์"}
           </Button>,
         ]}
         maskClosable={!exporting}
@@ -897,7 +920,7 @@ export default function DashboardPage() {
             description={`${dateRange[0].format("DD/MM/YYYY")} - ${dateRange[1].format("DD/MM/YYYY")}`}
           />
           <div>
-            <Text strong>เลือกรูปแบบไฟล์</Text>
+            <Text strong>เลือกรูปแบบการส่งออก</Text>
             <Radio.Group
               style={{ display: "grid", gap: 8, marginTop: 8 }}
               value={exportFormat}
@@ -905,12 +928,37 @@ export default function DashboardPage() {
                 setExportFormat(event.target.value as ExportFormat)
               }
             >
-              <Radio value="pdf">PDF (รายงานสำหรับพิมพ์/แชร์)</Radio>
+              <Radio value="receipt">สำหรับเครื่องพิมพ์ใบเสร็จ</Radio>
+              <Radio value="a4">สำหรับเครื่องพิมพ์ปกติ (A4)</Radio>
               <Radio value="xlsx">XLSX (ไฟล์สำหรับวิเคราะห์ต่อ)</Radio>
             </Radio.Group>
           </div>
+          {exportFormat === "receipt" ? (
+            <div>
+              <Text strong>เลือกหน้ากว้างกระดาษใบเสร็จ</Text>
+              <Radio.Group
+                style={{ display: "grid", gap: 8, marginTop: 8 }}
+                value={receiptPaperPreset}
+                onChange={(event) =>
+                  setReceiptPaperPreset(
+                    event.target.value as Extract<
+                      PrintPreset,
+                      "thermal_58mm" | "thermal_80mm"
+                    >,
+                  )
+                }
+              >
+                <Radio value="thermal_58mm">58mm</Radio>
+                <Radio value="thermal_80mm">80mm</Radio>
+              </Radio.Group>
+            </div>
+          ) : null}
           <Text type="secondary" style={{ fontSize: 12 }}>
-            เมื่อกด &quot;ยืนยันการดาวน์โหลด&quot; ระบบจะเริ่มสร้างไฟล์ทันที
+            {exportFormat === "xlsx"
+              ? "เมื่อกดปุ่มยืนยัน ระบบจะเริ่มสร้างไฟล์ทันที"
+              : exportFormat === "receipt"
+                ? `เมื่อกดปุ่มพิมพ์ ระบบจะเปิดหน้าพิมพ์แบบยาวสำหรับกระดาษ ${receiptPaperPreset === "thermal_58mm" ? "58mm" : "80mm"}`
+                : "เมื่อกดปุ่มพิมพ์ ระบบจะเปิดหน้าพิมพ์ตามรูปแบบที่เลือก"}
           </Text>
         </Space>
       </Modal>

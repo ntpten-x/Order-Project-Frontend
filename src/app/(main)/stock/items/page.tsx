@@ -10,6 +10,7 @@ import {
   Grid,
   List,
   Modal,
+  Radio,
   Row,
   Space,
   Table,
@@ -48,11 +49,14 @@ import {
   getPrintSettings,
   primePrintResources,
   reservePrintWindow,
+  shouldUseReceiptRollPdf,
 } from "../../../../utils/print-settings/runtime";
-import { toCssLength } from "../../../../utils/print-settings/defaults";
-import { PrintDocumentSetting } from "../../../../types/api/pos/printSettings";
+import { applyPresetToDocument, toCssLength } from "../../../../utils/print-settings/defaults";
+import { PrintDocumentSetting, PrintPreset } from "../../../../types/api/pos/printSettings";
 
 const { Text, Title } = Typography;
+type StockOrderPrintMode = "a4" | "receipt";
+type ReceiptPaperPreset = Extract<PrintPreset, "thermal_58mm" | "thermal_80mm">;
 
 function formatDateTime(value?: string): string {
   if (!value) return "-";
@@ -108,6 +112,10 @@ export default function StockOrdersQueuePage() {
   const [csrfToken, setCsrfToken] = useState("");
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+  const [printingOrder, setPrintingOrder] = useState<Order | null>(null);
+  const [printMode, setPrintMode] = useState<StockOrderPrintMode>("a4");
+  const [receiptPaperPreset, setReceiptPaperPreset] = useState<ReceiptPaperPreset>("thermal_80mm");
+  const [printing, setPrinting] = useState(false);
 
   const fetchOrders = useCallback(async () => {
     try {
@@ -207,22 +215,51 @@ export default function StockOrdersQueuePage() {
     });
   };
 
-  const printOrderToPdf = useCallback(async (order: Order) => {
+  const openPrintModal = useCallback((order: Order) => {
+    setPrintingOrder(order);
+    setPrintMode("a4");
+  }, []);
+
+  const printOrderDocument = useCallback(async (order: Order) => {
     const orderCode = `#${order.id.slice(0, 8).toUpperCase()}`;
-    const popup = reservePrintWindow(`ใบสั่งซื้อ ${orderCode}`);
+    const popup = reservePrintWindow(
+      printMode === "a4"
+        ? `ใบสั่งซื้อ ${orderCode} A4`
+        : `ใบสั่งซื้อ ${orderCode} สำหรับเครื่องพิมพ์ใบเสร็จ`,
+    );
     if (!popup) {
       messageApi.error("เบราว์เซอร์บล็อกหน้าต่างพิมพ์ กรุณาอนุญาตป๊อปอัป");
       return;
     }
 
     try {
+      setPrinting(true);
       const printSettings = await getPrintSettings();
-      const documentSetting = printSettings.documents.purchase_order;
+      const documentSetting =
+        printMode === "a4"
+          ? printSettings.documents.purchase_order
+          : {
+              ...applyPresetToDocument(
+                printSettings.documents.purchase_order,
+                receiptPaperPreset,
+              ),
+              margin_top: 3,
+              margin_right: 3,
+              margin_bottom: 3,
+              margin_left: 3,
+              density: "compact" as const,
+              line_spacing: 1.12,
+              font_scale: Math.min(
+                printSettings.documents.purchase_order.font_scale || 100,
+                100,
+              ),
+            };
       const pageSizeCss = buildPageSizeCss(documentSetting);
       const pagePaddingCss = buildPageMarginCss(documentSetting);
       const effectiveSize = getEffectiveDocumentSize(documentSetting);
       const sheetWidthCss = toCssLength(effectiveSize.width, documentSetting.unit);
       const sheetHeightCss = effectiveSize.height == null ? "auto" : toCssLength(effectiveSize.height, documentSetting.unit);
+      const receiptLayout = shouldUseReceiptRollPdf(documentSetting);
 
       const createdAt = formatDateTime(order.create_date);
       const orderedBy = order.ordered_by?.name || order.ordered_by?.username || "-";
@@ -251,174 +288,82 @@ export default function StockOrdersQueuePage() {
           `;
         })
         .join("");
+      const receiptRows = (order.ordersItems || [])
+        .map((item, index) => {
+          const name = escapeHtml(item.ingredient?.display_name || item.ingredient?.ingredient_name || "-");
+          const unit = escapeHtml(item.ingredient?.unit?.display_name || item.ingredient?.unit?.unit_name || "หน่วย");
+          const quantity = Number(item.quantity_ordered || 0);
+          return `
+            <article class="receipt-item">
+              <div class="receipt-item-head">
+                <strong>${index + 1}. ${name}</strong>
+              </div>
+              <div class="receipt-item-row">
+                <span>จำนวน</span>
+                <strong>${quantity.toLocaleString()}</strong>
+              </div>
+              <div class="receipt-item-row">
+                <span>หน่วย</span>
+                <strong>${unit}</strong>
+              </div>
+            </article>
+          `;
+        })
+        .join("");
 
       const totalItems = (order.ordersItems || []).length;
       const totalQty = (order.ordersItems || []).reduce(
         (acc, item) => acc + Number(item.quantity_ordered || 0),
         0
       );
+      const statusLabel =
+        order.status === OrderStatus.PENDING
+          ? "รอดำเนินการ"
+          : order.status === OrderStatus.COMPLETED
+            ? "เสร็จสิ้น"
+            : "ยกเลิก";
+      const bodyContent = receiptLayout
+        ? `
+            <section class="receipt-meta">
+              <div class="meta-line"><span>รหัสใบซื้อ</span><strong>${escapeHtml(orderCode)}</strong></div>
+              <div class="meta-line"><span>วันที่สร้าง</span><strong>${escapeHtml(createdAt)}</strong></div>
+              <div class="meta-line"><span>ผู้สร้าง</span><strong>${escapeHtml(orderedBy)}</strong></div>
+              <div class="meta-line"><span>สถานะ</span><strong>${escapeHtml(statusLabel)}</strong></div>
+              <div class="meta-line"><span>พิมพ์เมื่อ</span><strong>${escapeHtml(printAt)}</strong></div>
+              <div class="meta-line"><span>หน้ากว้าง</span><strong>${receiptPaperPreset === "thermal_58mm" ? "58mm" : "80mm"}</strong></div>
+            </section>
 
-      const html = `
-      <!DOCTYPE html>
-      <html lang="th">
-        <head>
-          <meta charset="UTF-8" />
-          <title>ใบสั่งซื้อ ${orderCode}</title>
-          <style>
-            * { box-sizing: border-box; }
-            @page {
-              size: ${pageSizeCss};
-              margin: 0;
-            }
-            body {
-              margin: 0;
-              padding: 0;
-              background: #eef2f7;
-              font-family: "Tahoma", "Noto Sans Thai", sans-serif;
-              color: #1f2937;
-            }
-            .sheet {
-              width: ${sheetWidthCss};
-              min-height: ${sheetHeightCss};
-              margin: 10mm auto;
-              background: #fff;
-              padding: ${pagePaddingCss};
-              border-radius: 10px;
-              box-shadow: 0 8px 28px rgba(15, 23, 42, 0.14);
-            }
-            .header {
-              display: flex;
-              justify-content: space-between;
-              gap: 12px;
-              border-bottom: 2px solid #e5e7eb;
-              padding-bottom: 10px;
-            }
-            .title {
-              margin: 0;
-              font-size: 26px;
-              color: #0f172a;
-            }
-            .subtitle {
-              margin-top: 4px;
-              color: #475569;
-              font-size: 13px;
-            }
-            .badge {
-              align-self: flex-start;
-              border: 1px solid #1d4ed8;
-              color: #1d4ed8;
-              padding: 8px 12px;
-              border-radius: 8px;
-              font-size: 12px;
-              font-weight: 700;
-              background: #eff6ff;
-            }
-            .meta {
-              display: grid;
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-              gap: 8px 14px;
-              margin-top: 14px;
-            }
-            .meta-card {
-              background: #f8fafc;
-              border: 1px solid #e2e8f0;
-              border-radius: 8px;
-              padding: 8px 10px;
-            }
-            .meta-label { color: #64748b; font-size: 12px; }
-            .meta-value { margin-top: 2px; font-size: 14px; font-weight: 600; color: #0f172a; }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-top: 14px;
-              font-size: 13px;
-            }
-            thead th {
-              background: #f1f5f9;
-              border: 1px solid #cbd5e1;
-              padding: 9px 8px;
-              text-align: left;
-              color: #0f172a;
-            }
-            td {
-              border: 1px solid #e2e8f0;
-              padding: 8px;
-              vertical-align: top;
-            }
-            .center { text-align: center; }
-            .summary {
-              margin-top: 12px;
-              display: flex;
-              justify-content: flex-end;
-            }
-            .summary-box {
-              width: 270px;
-              border: 1px solid #dbeafe;
-              background: #f8fbff;
-              border-radius: 8px;
-              padding: 8px 10px;
-              font-size: 13px;
-            }
-            .summary-row {
-              display: flex;
-              justify-content: space-between;
-              padding: 4px 0;
-            }
-            .remarks {
-              margin-top: 14px;
-              border: 1px dashed #cbd5e1;
-              background: #fcfdff;
-              border-radius: 8px;
-              padding: 10px;
-              min-height: 58px;
-            }
-            .signatures {
-              margin-top: 32px;
-              display: grid;
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-              gap: 22px;
-            }
-            .sign-box {
-              text-align: center;
-              font-size: 12px;
-              color: #475569;
-            }
-            .sign-line {
-              border-bottom: 1px solid #94a3b8;
-              margin: 0 auto 8px;
-              width: 78%;
-              height: 28px;
-            }
-            .footer {
-              margin-top: 20px;
-              border-top: 1px solid #e5e7eb;
-              padding-top: 8px;
-              font-size: 11px;
-              color: #64748b;
-              text-align: right;
-            }
-            @media print {
-              body { background: #fff; }
-              .sheet {
-                margin: 0;
-                border-radius: 0;
-                box-shadow: none;
-                width: ${sheetWidthCss};
-                min-height: ${sheetHeightCss};
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <main class="sheet">
-            <header class="header">
-              <div>
-                <h1 class="title">ใบสั่งซื้อสินค้า (Stock)</h1>
-                <div class="subtitle">เอกสารสำหรับจดรายการที่ต้องซื้อและตรวจรับภายหลัง</div>
+            <section class="receipt-section">
+              <div class="receipt-section-title">รายการที่ต้องซื้อ</div>
+              <div class="receipt-list">
+                ${receiptRows || `<div class="receipt-empty">ไม่มีรายการสินค้า</div>`}
               </div>
-              <div class="badge">${escapeHtml(orderCode)}</div>
-            </header>
+            </section>
 
+            <section class="receipt-summary">
+              <div class="meta-line"><span>จำนวนรายการทั้งหมด</span><strong>${totalItems.toLocaleString()} รายการ</strong></div>
+              <div class="meta-line"><span>จำนวนหน่วยรวม</span><strong>${totalQty.toLocaleString()} หน่วย</strong></div>
+            </section>
+
+            <section class="receipt-remarks">
+              <div class="receipt-section-title">หมายเหตุ</div>
+              <div>${safeRemark}</div>
+            </section>
+
+            <section class="receipt-signatures">
+              <div class="receipt-sign-box">
+                <div class="receipt-sign-line"></div>
+                ผู้จัดทำใบสั่งซื้อ
+              </div>
+              <div class="receipt-sign-box">
+                <div class="receipt-sign-line"></div>
+                ผู้ตรวจรับสินค้า
+              </div>
+            </section>
+
+            <footer class="footer receipt-footer">เอกสารนี้จัดทำจากระบบจัดการคลังสินค้า</footer>
+          `
+        : `
             <section class="meta">
               <div class="meta-card">
                 <div class="meta-label">วันที่สร้างเอกสาร</div>
@@ -430,7 +375,7 @@ export default function StockOrdersQueuePage() {
               </div>
               <div class="meta-card">
                 <div class="meta-label">สถานะใบสั่งซื้อ</div>
-                <div class="meta-value">${escapeHtml(order.status === OrderStatus.PENDING ? "รอดำเนินการ" : order.status === OrderStatus.COMPLETED ? "เสร็จสิ้น" : "ยกเลิก")}</div>
+                <div class="meta-value">${escapeHtml(statusLabel)}</div>
               </div>
               <div class="meta-card">
                 <div class="meta-label">พิมพ์เมื่อ</div>
@@ -476,10 +421,264 @@ export default function StockOrdersQueuePage() {
             </section>
 
             <footer class="footer">เอกสารนี้จัดทำจากระบบจัดการคลังสินค้า</footer>
+          `;
+
+      const html = `
+      <!DOCTYPE html>
+      <html lang="th">
+        <head>
+          <meta charset="UTF-8" />
+          <title>ใบสั่งซื้อ ${orderCode}</title>
+          <style>
+            * { box-sizing: border-box; }
+            @page {
+              size: ${pageSizeCss};
+              margin: 0;
+            }
+            body {
+              margin: 0;
+              padding: 0;
+              background: ${receiptLayout ? "#ffffff" : "#eef2f7"};
+              font-family: "Tahoma", "Noto Sans Thai", sans-serif;
+              color: #1f2937;
+            }
+            .sheet {
+              width: ${sheetWidthCss};
+              min-height: ${sheetHeightCss};
+              margin: ${receiptLayout ? "0 auto" : "10mm auto"};
+              background: #fff;
+              padding: ${pagePaddingCss};
+              border-radius: ${receiptLayout ? "0" : "10px"};
+              box-shadow: ${receiptLayout ? "none" : "0 8px 28px rgba(15, 23, 42, 0.14)"};
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              gap: 12px;
+              border-bottom: 2px solid #e5e7eb;
+              padding-bottom: 10px;
+            }
+            .title {
+              margin: 0;
+              font-size: 26px;
+              color: #0f172a;
+            }
+            .subtitle {
+              margin-top: 4px;
+              color: #475569;
+              font-size: 13px;
+            }
+            .badge {
+              align-self: flex-start;
+              border: 1px solid #1d4ed8;
+              color: #1d4ed8;
+              padding: 8px 12px;
+              border-radius: 8px;
+              font-size: 12px;
+              font-weight: 700;
+              background: #eff6ff;
+            }
+            .meta {
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 8px 14px;
+              margin-top: 14px;
+            }
+            .meta-card {
+              background: #f8fafc;
+              border: 1px solid #e2e8f0;
+              border-radius: 8px;
+              padding: 8px 10px;
+            }
+            .meta-label { color: #64748b; font-size: 12px; }
+            .meta-value { margin-top: 2px; font-size: 14px; font-weight: 600; color: #0f172a; }
+            .meta-line {
+              display: flex;
+              justify-content: space-between;
+              gap: 10px;
+              font-size: 13px;
+              padding: 4px 0;
+            }
+            .meta-line span {
+              color: #64748b;
+              min-width: 0;
+            }
+            .meta-line strong {
+              text-align: right;
+              flex-shrink: 0;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-top: 14px;
+              font-size: 13px;
+            }
+            thead th {
+              background: #f1f5f9;
+              border: 1px solid #cbd5e1;
+              padding: 9px 8px;
+              text-align: left;
+              color: #0f172a;
+            }
+            td {
+              border: 1px solid #e2e8f0;
+              padding: 8px;
+              vertical-align: top;
+            }
+            .center { text-align: center; }
+            .summary {
+              margin-top: 12px;
+              display: flex;
+              justify-content: flex-end;
+            }
+            .summary-box {
+              width: 270px;
+              border: 1px solid #dbeafe;
+              background: #f8fbff;
+              border-radius: 8px;
+              padding: 8px 10px;
+              font-size: 13px;
+            }
+            .summary-row {
+              display: flex;
+              justify-content: space-between;
+              padding: 4px 0;
+            }
+            .remarks {
+              margin-top: 14px;
+              border: 1px dashed #cbd5e1;
+              background: #fcfdff;
+              border-radius: 8px;
+              padding: 10px;
+              min-height: 58px;
+            }
+            .receipt-meta,
+            .receipt-list,
+            .receipt-signatures {
+              display: grid;
+              gap: 8px;
+            }
+            .receipt-section,
+            .receipt-summary,
+            .receipt-remarks {
+              margin-top: 12px;
+            }
+            .receipt-section-title {
+              font-size: 14px;
+              font-weight: 700;
+              color: #0f172a;
+              margin-bottom: 6px;
+            }
+            .receipt-item {
+              border: 1px solid #dbe4f0;
+              border-radius: 10px;
+              padding: 8px 10px;
+              background: #fff;
+            }
+            .receipt-item-head {
+              margin-bottom: 6px;
+              color: #0f172a;
+            }
+            .receipt-item-row {
+              display: flex;
+              justify-content: space-between;
+              gap: 10px;
+              font-size: 13px;
+              padding: 2px 0;
+            }
+            .receipt-item-row span {
+              color: #64748b;
+            }
+            .receipt-empty {
+              text-align: center;
+              color: #64748b;
+              border: 1px dashed #cbd5e1;
+              border-radius: 10px;
+              padding: 12px;
+            }
+            .receipt-summary,
+            .receipt-remarks {
+              border: 1px solid #dbe4f0;
+              border-radius: 10px;
+              padding: 8px 10px;
+              background: #fcfdff;
+            }
+            .receipt-signatures {
+              margin-top: 20px;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 12px;
+            }
+            .receipt-sign-box {
+              text-align: center;
+              font-size: 11px;
+              color: #475569;
+            }
+            .receipt-sign-line {
+              border-bottom: 1px solid #94a3b8;
+              margin: 0 auto 8px;
+              width: 92%;
+              height: 24px;
+            }
+            .signatures {
+              margin-top: 32px;
+              display: grid;
+              grid-template-columns: repeat(2, minmax(0, 1fr));
+              gap: 22px;
+            }
+            .sign-box {
+              text-align: center;
+              font-size: 12px;
+              color: #475569;
+            }
+            .sign-line {
+              border-bottom: 1px solid #94a3b8;
+              margin: 0 auto 8px;
+              width: 78%;
+              height: 28px;
+            }
+            .footer {
+              margin-top: 20px;
+              border-top: 1px solid #e5e7eb;
+              padding-top: 8px;
+              font-size: 11px;
+              color: #64748b;
+              text-align: right;
+            }
+            .receipt-footer {
+              text-align: center;
+            }
+            @media print {
+              body { background: #fff; }
+              .sheet {
+                margin: 0;
+                border-radius: 0;
+                box-shadow: none;
+                width: ${sheetWidthCss};
+                min-height: ${sheetHeightCss};
+              }
+            }
+          </style>
+        </head>
+        <body>
+          <main class="sheet">
+            <header class="header">
+              <div>
+                <h1 class="title">ใบสั่งซื้อสินค้า (Stock)</h1>
+                <div class="subtitle">${receiptLayout ? "สำหรับเครื่องพิมพ์ใบเสร็จแบบยาว" : "เอกสารสำหรับจดรายการที่ต้องซื้อและตรวจรับภายหลัง"}</div>
+              </div>
+              <div class="badge">${escapeHtml(orderCode)}</div>
+            </header>
+            ${bodyContent}
           </main>
           <script>
+            window.addEventListener("afterprint", () => {
+              setTimeout(() => {
+                try { window.close(); } catch (error) {}
+              }, 120);
+            });
             window.addEventListener("load", () => {
               setTimeout(() => {
+                window.focus();
                 window.print();
               }, 250);
             });
@@ -495,8 +694,16 @@ export default function StockOrdersQueuePage() {
       closePrintWindow(popup);
       console.error("Print purchase order failed", error);
       messageApi.error(error instanceof Error ? error.message : "เปิดหน้าพิมพ์ใบสั่งซื้อไม่สำเร็จ");
+    } finally {
+      setPrinting(false);
     }
-  }, [messageApi]);
+  }, [messageApi, printMode, receiptPaperPreset]);
+
+  const handleConfirmPrint = useCallback(async () => {
+    if (!printingOrder) return;
+    await printOrderDocument(printingOrder);
+    setPrintingOrder(null);
+  }, [printOrderDocument, printingOrder]);
 
   const metrics = useMemo(() => {
     const totalOrders = orders.length;
@@ -569,7 +776,7 @@ export default function StockOrdersQueuePage() {
             </Button>
           </Tooltip>
           <Tooltip title="พิมพ์ใบสั่งซื้อ (PDF)">
-            <Button icon={<PrinterOutlined />} onClick={() => printOrderToPdf(record)}>
+            <Button icon={<PrinterOutlined />} onClick={() => openPrintModal(record)}>
               พิมพ์
             </Button>
           </Tooltip>
@@ -674,7 +881,7 @@ export default function StockOrdersQueuePage() {
                           <Text type="secondary">{formatDateTime(order.create_date)}</Text>
                           <Space wrap>
                             <Button size="small" icon={<EyeOutlined />} onClick={() => setViewingOrder(order)}>ดู</Button>
-                            <Button size="small" icon={<PrinterOutlined />} onClick={() => printOrderToPdf(order)}>พิมพ์</Button>
+                            <Button size="small" icon={<PrinterOutlined />} onClick={() => openPrintModal(order)}>พิมพ์</Button>
                             <Button
                               size="small"
                               icon={<EditOutlined />}
@@ -727,6 +934,52 @@ export default function StockOrdersQueuePage() {
         order={viewingOrder}
         onClose={() => setViewingOrder(null)}
       />
+
+      <Modal
+        title="พิมพ์ใบสั่งซื้อ"
+        open={Boolean(printingOrder)}
+        onCancel={() => !printing && setPrintingOrder(null)}
+        onOk={() => void handleConfirmPrint()}
+        okText="พิมพ์"
+        cancelText="ยกเลิก"
+        confirmLoading={printing}
+        maskClosable={!printing}
+        closable={!printing}
+        destroyOnClose
+      >
+        <Space direction="vertical" size={14} style={{ width: "100%" }}>
+          <Text type="secondary">
+            {printingOrder
+              ? `ใบสั่งซื้อ ${`#${printingOrder.id.slice(0, 8).toUpperCase()}`}`
+              : "เลือกรูปแบบการพิมพ์"}
+          </Text>
+          <Radio.Group
+            value={printMode}
+            onChange={(event) => setPrintMode(event.target.value as StockOrderPrintMode)}
+            style={{ width: "100%" }}
+          >
+            <Space direction="vertical" size={10} style={{ width: "100%" }}>
+              <Radio value="receipt">สำหรับเครื่องพิมพ์ใบเสร็จ</Radio>
+              <Radio value="a4">สำหรับเครื่องพิมพ์ปกติ (A4)</Radio>
+            </Space>
+          </Radio.Group>
+          {printMode === "receipt" ? (
+            <div>
+              <Text strong>เลือกหน้ากว้างกระดาษใบเสร็จ</Text>
+              <Radio.Group
+                value={receiptPaperPreset}
+                onChange={(event) => setReceiptPaperPreset(event.target.value as ReceiptPaperPreset)}
+                style={{ width: "100%", marginTop: 8 }}
+              >
+                <Space direction="vertical" size={10} style={{ width: "100%" }}>
+                  <Radio value="thermal_58mm">58mm</Radio>
+                  <Radio value="thermal_80mm">80mm</Radio>
+                </Space>
+              </Radio.Group>
+            </div>
+          ) : null}
+        </Space>
+      </Modal>
     </div>
   );
 }
