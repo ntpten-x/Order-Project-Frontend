@@ -125,6 +125,7 @@ export default function POSOrderDetailsPage() {
             return;
         }
         if (isWaitingForPaymentStatus(data.status)) {
+            primeOrderTransitionCache(data);
             router.push(getOrderNavigationPath(data));
             return;
         }
@@ -200,10 +201,10 @@ export default function POSOrderDetailsPage() {
     const shouldVirtualizeServed = groupedServedItems.length > 12;
 
     useEffect(() => {
-        if (waitingPaymentPath) {
+        if (waitingPaymentPath && isWaitingForPaymentStatus(order?.status)) {
             router.prefetch(waitingPaymentPath);
         }
-    }, [router, waitingPaymentPath]);
+    }, [order?.status, router, waitingPaymentPath]);
 
     const handleCancelSelected = async () => {
         if (!canUpdateOrders) {
@@ -454,9 +455,16 @@ export default function POSOrderDetailsPage() {
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
                     const updatedOrder = await ordersService.updateStatus(orderId as string, OrderStatus.WaitingForPayment, csrfToken);
-                    primeOrderTransitionCache(updatedOrder);
+                    const transitionOrder = {
+                        ...updatedOrder,
+                        status: OrderStatus.WaitingForPayment,
+                    };
+                    const targetPath = isDelivery
+                        ? `/pos/items/delivery/${transitionOrder.id}`
+                        : `/pos/items/payment/${transitionOrder.id}`;
+                    primeOrderTransitionCache(transitionOrder);
                     message.success("เปลี่ยนสถานะเป็นรอชำระเงินเรียบร้อย");
-                    router.push(getOrderNavigationPath(updatedOrder));
+                    router.push(targetPath);
                 } catch {
                     message.error("เกิดข้อผิดพลาดในการย้ายออเดอร์");
                 } finally {

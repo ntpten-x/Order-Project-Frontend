@@ -242,7 +242,7 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
                                     >
                                         <Form.Item
                                             name="display_name"
-                                            label={<span style={{ fontWeight: 600 }}>ชื่อส่วนลด <span style={{ color: '#ff4d4f' }}>*</span></span>}
+                                            label={<span style={{ fontWeight: 600 }}>ชื่อส่วนลด</span>}
                                             validateTrigger={['onBlur', 'onSubmit']}
                                             rules={[
                                                 { required: true, message: 'กรุณากรอกชื่อส่วนลด' },

@@ -28,6 +28,35 @@ const resolveAxiosUrl = (url?: string, baseURL?: string) => {
   return `${base}/${path}`;
 };
 
+const isNetworkConnectivityError = (error: unknown) => {
+  if (typeof window === "undefined") return false;
+
+  if (typeof navigator !== "undefined" && navigator.onLine === false) {
+    return true;
+  }
+
+  const err = error as {
+    name?: string;
+    code?: string;
+    message?: string;
+    response?: unknown;
+    __CANCEL__?: boolean;
+  } | null;
+
+  if (!err) return false;
+  if (err.response) return false;
+  if (err.__CANCEL__ || err.code === "ERR_CANCELED" || err.name === "AbortError") {
+    return false;
+  }
+
+  const messageText = String(err.message || "").toLowerCase();
+  if (/abort|cancell?ed/.test(messageText)) {
+    return false;
+  }
+
+  return /failed to fetch|load failed|network error|network request failed|timeout|socket hang up/.test(messageText);
+};
+
 export const useNetworkInterceptors = () => {
   const { showLoading, hideLoading, loadingMessage } = useGlobalLoading();
   const pendingRef = useRef(0);
@@ -121,7 +150,9 @@ export const useNetworkInterceptors = () => {
 
         return response;
       } catch (err) {
-        notifyOffline();
+        if (isNetworkConnectivityError(err)) {
+          notifyOffline();
+        }
         throw err;
       } finally {
         if (track) stop();
@@ -139,7 +170,9 @@ export const useNetworkInterceptors = () => {
       (error) => {
         const cfg = (error?.config || {}) as { _trackLoading?: boolean };
         if (cfg._trackLoading) stop();
-        notifyOffline();
+        if (isNetworkConnectivityError(error)) {
+          notifyOffline();
+        }
         return Promise.reject(error);
       }
     );
@@ -153,7 +186,9 @@ export const useNetworkInterceptors = () => {
       (error) => {
         const cfg = (error?.config || {}) as { _trackLoading?: boolean };
         if (cfg._trackLoading) stop();
-        notifyOffline();
+        if (isNetworkConnectivityError(error)) {
+          notifyOffline();
+        }
         return Promise.reject(error);
       }
     );

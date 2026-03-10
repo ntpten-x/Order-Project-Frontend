@@ -23,7 +23,7 @@ type OrdersListKey = readonly [
     string?,
     string?
 ];
-type OrdersSummaryKey = readonly ['ordersSummary', number?, number?, string?, string?, string?];
+type OrdersSummaryKey = readonly ['ordersSummary', number?, number?, string?, string?, string?, string?];
 type ChannelOrdersKey = readonly [
     'orders',
     'channel',
@@ -36,6 +36,19 @@ type ChannelOrdersKey = readonly [
         createdSort?: string;
     }?
 ];
+type OrderRealtimeSocketPayload = Partial<SalesOrder> & {
+    id: string;
+    summary_snapshot?: Partial<SalesOrderSummary> | null;
+};
+type SearchableOrderLike = {
+    order_no?: string | null;
+    order_type?: OrderType;
+    status?: OrderStatus;
+    delivery_code?: string | null;
+    customer_name?: string | null;
+    table?: { table_name?: string | null } | null;
+    delivery?: { delivery_name?: string | null } | null;
+};
 
 interface PaginatedCache<T> {
     data: T[];
@@ -75,6 +88,35 @@ function extractOrderPayload(payload: SocketPayload): (Partial<SalesOrder> & { i
     return payload as Partial<SalesOrder> & { id: string };
 }
 
+function extractSummaryPayload(payload: SocketPayload): SalesOrderSummary | null {
+    if (!isObjectPayload(payload)) return null;
+    const rawSummary = payload.summary_snapshot;
+    if (!rawSummary || typeof rawSummary !== 'object') return null;
+    const summary = rawSummary as Partial<SalesOrderSummary> & { id?: string };
+    if (typeof summary.id !== 'string' || summary.id.trim().length === 0) {
+        return null;
+    }
+
+    return {
+        id: summary.id,
+        order_no: typeof summary.order_no === 'string' ? summary.order_no : '',
+        order_type: (summary.order_type as OrderType) ?? OrderType.TakeAway,
+        status: (summary.status as OrderStatus) ?? OrderStatus.Pending,
+        create_date: typeof summary.create_date === 'string' ? summary.create_date : new Date().toISOString(),
+        total_amount: toNumber(summary.total_amount),
+        delivery_code: typeof summary.delivery_code === 'string' ? summary.delivery_code : null,
+        customer_name: typeof summary.customer_name === 'string' ? summary.customer_name : null,
+        table_id: typeof summary.table_id === 'string' ? summary.table_id : null,
+        delivery_id: typeof summary.delivery_id === 'string' ? summary.delivery_id : null,
+        table: summary.table?.table_name ? { table_name: summary.table.table_name } : null,
+        delivery: summary.delivery?.delivery_name
+            ? { delivery_name: summary.delivery.delivery_name, logo: summary.delivery.logo ?? null }
+            : null,
+        items_count: toNumber(summary.items_count),
+        payment_method: summary.payment_method ?? null,
+    };
+}
+
 function toNumber(value: unknown, fallback = 0): number {
     const numeric = Number(value);
     return Number.isFinite(numeric) ? numeric : fallback;
@@ -95,15 +137,29 @@ function matchesEnumFilter(filter: string | undefined, value: unknown): boolean 
     return tokens.includes(value.trim().toLowerCase());
 }
 
-function matchesSearchPrefix(search: string | undefined, order: Partial<SalesOrder>): boolean {
+function matchesSearchPrefix(search: string | undefined, order: SearchableOrderLike): boolean {
     const normalizedSearch = (search ?? '').trim().toLowerCase();
     if (!normalizedSearch) return true;
 
     const orderNo = typeof order.order_no === 'string' ? order.order_no.toLowerCase() : '';
     const deliveryCode = typeof order.delivery_code === 'string' ? order.delivery_code.toLowerCase() : '';
-    if (orderNo.startsWith(normalizedSearch)) return true;
-    if (deliveryCode.startsWith(normalizedSearch)) return true;
-    return false;
+    const customerName = typeof order.customer_name === 'string' ? order.customer_name.toLowerCase() : '';
+    const tableName =
+        order.table && typeof order.table === 'object' && typeof order.table.table_name === 'string'
+            ? order.table.table_name.toLowerCase()
+            : '';
+    const deliveryName =
+        order.delivery && typeof order.delivery === 'object' && typeof order.delivery.delivery_name === 'string'
+            ? order.delivery.delivery_name.toLowerCase()
+            : '';
+
+    return (
+        orderNo.startsWith(normalizedSearch) ||
+        deliveryCode.startsWith(normalizedSearch) ||
+        customerName.startsWith(normalizedSearch) ||
+        tableName.startsWith(normalizedSearch) ||
+        deliveryName.startsWith(normalizedSearch)
+    );
 }
 
 function getOrdersListPage(key: OrdersListKey): number {
@@ -121,7 +177,7 @@ function getOrdersListSort(key: OrdersListKey): 'old' | 'new' {
     return key[6] === 'new' ? 'new' : 'old';
 }
 
-function canIncludeInOrdersListKey(order: Partial<SalesOrder>, key: OrdersListKey): boolean {
+function canIncludeInOrdersListKey(order: SearchableOrderLike, key: OrdersListKey): boolean {
     const statusFilter = typeof key[3] === 'string' ? key[3] : 'all';
     const typeFilter = typeof key[4] === 'string' ? key[4] : 'all';
     const searchFilter = typeof key[5] === 'string' ? key[5] : '';
@@ -133,7 +189,7 @@ function canIncludeInOrdersListKey(order: Partial<SalesOrder>, key: OrdersListKe
     );
 }
 
-function canIncludeInOrdersSummaryKey(order: Partial<SalesOrder>, key: OrdersSummaryKey): boolean {
+function canIncludeInOrdersSummaryKey(order: SearchableOrderLike, key: OrdersSummaryKey): boolean {
     const statusFilter = typeof key[3] === 'string' ? key[3] : 'all';
     const typeFilter = typeof key[4] === 'string' ? key[4] : 'all';
     const searchFilter = typeof key[5] === 'string' ? key[5] : '';
@@ -143,6 +199,21 @@ function canIncludeInOrdersSummaryKey(order: Partial<SalesOrder>, key: OrdersSum
         matchesEnumFilter(typeFilter, order.order_type) &&
         matchesSearchPrefix(searchFilter, order)
     );
+}
+
+function getOrdersSummaryPage(key: OrdersSummaryKey): number {
+    return typeof key[1] === 'number' && Number.isFinite(key[1]) ? key[1] : 1;
+}
+
+function getOrdersSummaryLimit(key: OrdersSummaryKey, oldLength: number): number {
+    if (typeof key[2] === 'number' && Number.isFinite(key[2]) && key[2] > 0) {
+        return key[2];
+    }
+    return Math.max(oldLength, 1);
+}
+
+function getOrdersSummarySort(key: OrdersSummaryKey): 'old' | 'new' {
+    return key[6] === 'new' ? 'new' : 'old';
 }
 
 function isChannelOptions(
@@ -173,7 +244,7 @@ function getChannelQueryOptions(key: ChannelOrdersKey): {
     };
 }
 
-function canIncludeInChannelKey(order: Partial<SalesOrder>, key: ChannelOrdersKey): boolean {
+function canIncludeInChannelKey(order: SearchableOrderLike, key: ChannelOrdersKey): boolean {
     const orderTypeFilter = key[2];
     const options = getChannelQueryOptions(key);
 
@@ -225,11 +296,30 @@ function toOrderSummary(order: SalesOrder): SalesOrderSummary {
         create_date: order.create_date,
         total_amount: toNumber(order.total_amount),
         delivery_code: order.delivery_code ?? null,
+        customer_name: order.customer_name ?? null,
         table_id: order.table_id ?? null,
         delivery_id: order.delivery_id ?? null,
         table: order.table?.table_name ? { table_name: order.table.table_name } : null,
-        delivery: order.delivery?.delivery_name ? { delivery_name: order.delivery.delivery_name } : null,
+        delivery: order.delivery?.delivery_name
+            ? { delivery_name: order.delivery.delivery_name, logo: order.delivery.logo ?? null }
+            : null,
         items_count: itemsCount,
+    };
+}
+
+function getMinimalOrderPatch(summary: SalesOrderSummary): Partial<SalesOrder> & { id: string } {
+    return {
+        id: summary.id,
+        order_no: summary.order_no,
+        order_type: summary.order_type,
+        status: summary.status,
+        create_date: summary.create_date,
+        update_date: new Date().toISOString(),
+        total_amount: toNumber(summary.total_amount),
+        delivery_code: summary.delivery_code ?? null,
+        customer_name: summary.customer_name ?? null,
+        table_id: summary.table_id ?? null,
+        delivery_id: summary.delivery_id ?? null,
     };
 }
 
@@ -261,6 +351,51 @@ function hasOrdersSummaryFilters(key: OrdersSummaryKey): boolean {
     const type = typeof key[4] === 'string' ? key[4] : 'all';
     const query = typeof key[5] === 'string' ? key[5] : '';
     return status !== 'all' || type !== 'all' || query.trim().length > 0;
+}
+
+function applySummaryDelta<T extends SalesOrderSummary>(
+    oldData: PaginatedCache<T> | undefined,
+    summary: T,
+    matches: boolean,
+    page: number,
+    limit: number,
+    createdSort: 'old' | 'new'
+): PaginatedCache<T> | undefined {
+    if (!oldData || !Array.isArray(oldData.data)) return oldData;
+
+    const existingIndex = oldData.data.findIndex((item) => item.id === summary.id);
+    const exists = existingIndex >= 0;
+    let nextTotal = oldData.total;
+    let nextData = oldData.data;
+
+    if (exists && !matches) {
+        nextData = oldData.data.filter((item) => item.id !== summary.id);
+        nextTotal = Math.max(0, oldData.total - 1);
+    } else if (!exists && matches) {
+        nextTotal = oldData.total + 1;
+
+        if (page === 1) {
+            if (createdSort === 'new') {
+                nextData = [summary, ...oldData.data.filter((item) => item.id !== summary.id)].slice(0, limit);
+            } else if (oldData.data.length < limit) {
+                nextData = [...oldData.data, summary];
+            }
+        }
+    } else if (exists && matches) {
+        nextData = oldData.data.map((item, index) => (index === existingIndex ? summary : item));
+    } else {
+        return oldData;
+    }
+
+    if (nextData === oldData.data && nextTotal === oldData.total) {
+        return oldData;
+    }
+
+    return {
+        ...oldData,
+        data: nextData,
+        total: nextTotal,
+    };
 }
 
 export const useOrderSocketEvents = () => {
@@ -402,7 +537,10 @@ export const useOrderSocketEvents = () => {
             if (!orderId || !isObjectPayload(payload)) return false;
 
             let updated = false;
-            const patch = payload as Partial<SalesOrder> & { id: string };
+            const summaryPatch = extractSummaryPayload(payload);
+            const patch = summaryPatch
+                ? { ...(payload as OrderRealtimeSocketPayload), ...getMinimalOrderPatch(summaryPatch) }
+                : (payload as OrderRealtimeSocketPayload);
 
             queryClient.setQueriesData<PaginatedCache<SalesOrder>>({ queryKey: ['orders'] }, (oldData) => {
                 if (!oldData || !Array.isArray(oldData.data)) return oldData;
@@ -419,34 +557,83 @@ export const useOrderSocketEvents = () => {
                 return { ...oldData, data: nextItems };
             });
 
-            queryClient.setQueriesData<PaginatedCache<SalesOrderSummary>>({ queryKey: ['ordersSummary'] }, (oldData) => {
-                if (!oldData || !Array.isArray(oldData.data)) return oldData;
+            if (!summaryPatch) {
+                queryClient.setQueriesData<PaginatedCache<SalesOrderSummary>>({ queryKey: ['ordersSummary'] }, (oldData) => {
+                    if (!oldData || !Array.isArray(oldData.data)) return oldData;
 
-                let changed = false;
-                const nextItems = oldData.data.map((order) => {
-                    if (order.id !== orderId) return order;
-                    changed = true;
-                    return { ...order, ...patch, id: order.id };
+                    let changed = false;
+                    const nextItems = oldData.data.map((order) => {
+                        if (order.id !== orderId) return order;
+                        changed = true;
+                        return { ...order, ...patch, id: order.id };
+                    });
+
+                    if (!changed) return oldData;
+                    updated = true;
+                    return { ...oldData, data: nextItems };
                 });
 
-                if (!changed) return oldData;
-                updated = true;
-                return { ...oldData, data: nextItems };
+                queryClient.setQueriesData<PaginatedCache<SalesOrderSummary>>({ queryKey: ['orders', 'channel'] }, (oldData) => {
+                    if (!oldData || !Array.isArray(oldData.data)) return oldData;
+
+                    let changed = false;
+                    const nextItems = oldData.data.map((order) => {
+                        if (order.id !== orderId) return order;
+                        changed = true;
+                        return { ...order, ...patch, id: order.id };
+                    });
+
+                    if (!changed) return oldData;
+                    updated = true;
+                    return { ...oldData, data: nextItems };
+                });
+
+                return updated;
+            }
+
+            const summaryQueries = queryClient.getQueryCache().findAll({ queryKey: ['ordersSummary'] });
+            summaryQueries.forEach((query) => {
+                const queryKey = query.queryKey as QueryKeyLike;
+                if (!isOrdersSummaryKey(queryKey)) return;
+
+                queryClient.setQueryData<PaginatedCache<SalesOrderSummary>>(queryKey, (oldData) => {
+                    const nextData = applySummaryDelta(
+                        oldData,
+                        summaryPatch,
+                        canIncludeInOrdersSummaryKey(summaryPatch, queryKey),
+                        getOrdersSummaryPage(queryKey),
+                        getOrdersSummaryLimit(queryKey, oldData?.data?.length ?? 0),
+                        getOrdersSummarySort(queryKey)
+                    );
+
+                    if (nextData !== oldData) {
+                        updated = true;
+                    }
+                    return nextData;
+                });
             });
 
-            queryClient.setQueriesData<PaginatedCache<SalesOrderSummary>>({ queryKey: ['orders', 'channel'] }, (oldData) => {
-                if (!oldData || !Array.isArray(oldData.data)) return oldData;
+            const channelQueries = queryClient.getQueryCache().findAll({ queryKey: ['orders', 'channel'] });
+            channelQueries.forEach((query) => {
+                const queryKey = query.queryKey as QueryKeyLike;
+                if (!isTypedOrdersChannelKey(queryKey)) return;
 
-                let changed = false;
-                const nextItems = oldData.data.map((order) => {
-                    if (order.id !== orderId) return order;
-                    changed = true;
-                    return { ...order, ...patch, id: order.id };
+                const options = getChannelQueryOptions(queryKey);
+                queryClient.setQueryData<PaginatedCache<SalesOrderSummary>>(queryKey, (oldData) => {
+                    const nextData = applySummaryDelta(
+                        oldData,
+                        summaryPatch,
+                        canIncludeInChannelKey(summaryPatch, queryKey),
+                        options.page,
+                        options.limit,
+                        options.createdSort
+                    );
+
+                    if (nextData !== oldData) {
+                        updated = true;
+                    }
+                    return nextData;
                 });
-
-                if (!changed) return oldData;
-                updated = true;
-                return { ...oldData, data: nextItems };
             });
 
             return updated;
@@ -460,7 +647,7 @@ export const useOrderSocketEvents = () => {
             if (!created) return false;
 
             const order = normalizeOrder(created);
-            const summary = toOrderSummary(order);
+            const summary = extractSummaryPayload(payload) ?? toOrderSummary(order);
             let updated = false;
 
             const orderQueries = queryClient.getQueryCache().findAll({ queryKey: ['orders'] });
@@ -528,26 +715,19 @@ export const useOrderSocketEvents = () => {
                 if (!isOrdersSummaryKey(queryKey)) return;
 
                 queryClient.setQueryData<PaginatedCache<SalesOrderSummary>>(queryKey, (oldData) => {
-                    if (!oldData || !Array.isArray(oldData.data)) return oldData;
-                    if (!canIncludeInOrdersSummaryKey(order, queryKey)) return oldData;
+                    const nextData = applySummaryDelta(
+                        oldData,
+                        summary,
+                        canIncludeInOrdersSummaryKey(summary, queryKey),
+                        getOrdersSummaryPage(queryKey),
+                        getOrdersSummaryLimit(queryKey, oldData?.data?.length ?? 0),
+                        getOrdersSummarySort(queryKey)
+                    );
 
-                    const exists = oldData.data.some((item) => item.id === order.id);
-                    const nextTotal = exists ? oldData.total : oldData.total + 1;
-                    let nextData = oldData.data;
-
-                    if (!exists && (typeof queryKey[1] !== 'number' || queryKey[1] === 1)) {
-                        const limit =
-                            typeof queryKey[2] === 'number' && queryKey[2] > 0
-                                ? queryKey[2]
-                                : Math.max(oldData.data.length, 1);
-                        if (oldData.data.length < limit) {
-                            nextData = [...oldData.data, summary];
-                        }
+                    if (nextData !== oldData) {
+                        updated = true;
                     }
-
-                    if (nextData === oldData.data && nextTotal === oldData.total) return oldData;
-                    updated = true;
-                    return { ...oldData, data: nextData, total: nextTotal };
+                    return nextData;
                 });
             });
 
@@ -672,10 +852,7 @@ export const useOrderSocketEvents = () => {
         const handleSocketEvent = (event: string, data: SocketPayload) => {
             trackSocketEventReceived(event);
 
-            const isOrderEvent =
-                event.startsWith("orders:") ||
-                event.startsWith("payments:") ||
-                event.startsWith("salesOrderDetail:");
+            const isOrderEvent = event.startsWith("orders:");
             const isOrdersUpdateEvent = event === RealtimeEvents.orders.update;
             const isOrdersCreateEvent = event === RealtimeEvents.orders.create;
             const isOrdersDeleteEvent = event === RealtimeEvents.orders.delete;
@@ -683,6 +860,7 @@ export const useOrderSocketEvents = () => {
             const didPatchOrderUpdateCache = isOrdersUpdateEvent ? patchOrderUpdateCaches(data) : false;
             const didPatchOrderCreateCache = isOrdersCreateEvent ? patchOrderCreateCaches(data) : false;
             const didPatchOrderDeleteCache = isOrdersDeleteEvent ? patchOrderDeleteCaches(data) : false;
+            const hasSummaryPatch = extractSummaryPayload(data) !== null;
 
             if (isOrderEvent) {
                 const didPatchOrderCache =
@@ -697,16 +875,18 @@ export const useOrderSocketEvents = () => {
                         (key) => isOrdersListKey(key) && hasOrdersListFilters(key),
                         fallbackDebounce
                     );
-                    scheduleInvalidateFilteredActive(
-                        ['ordersSummary'],
-                        (key) => isOrdersSummaryKey(key) && hasOrdersSummaryFilters(key),
-                        fallbackDebounce
-                    );
-                    scheduleInvalidateFilteredActive(
-                        ['orders', 'channel'],
-                        (key) => isOrdersChannelKey(key),
-                        fallbackDebounce
-                    );
+                    if (!hasSummaryPatch) {
+                        scheduleInvalidateFilteredActive(
+                            ['ordersSummary'],
+                            (key) => isOrdersSummaryKey(key) && hasOrdersSummaryFilters(key),
+                            fallbackDebounce
+                        );
+                        scheduleInvalidateFilteredActive(
+                            ['orders', 'channel'],
+                            (key) => isOrdersChannelKey(key),
+                            fallbackDebounce
+                        );
+                    }
                 } else if (
                     (isOrdersCreateEvent && didPatchOrderCreateCache) ||
                     (isOrdersDeleteEvent && didPatchOrderDeleteCache)

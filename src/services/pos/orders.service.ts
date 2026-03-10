@@ -91,45 +91,49 @@ export const ordersService = {
         type?: string,
         query?: string,
         sortCreated: string = "old"
-    ): Promise<{ data: SalesOrderSummary[]; total: number; page: number; last_page?: number }> => {
-        const queryParams = new URLSearchParams({
-            page: page.toString(),
-            limit: limit.toString(),
-            ...(status && { status }),
-            ...(type && { type }),
-            ...(query && { q: query }),
-            sort_created: sortCreated,
-        });
-        const endpoint = `${BASE_PATH}/summary?${queryParams.toString()}`;
-        const url = getProxyUrl("GET", endpoint);
-        const headers = getHeaders(cookie, "");
+    ): Promise<{ data: SalesOrderSummary[]; total: number; page: number; last_page?: number }> =>
+        withInflightDedup(
+            `orders:getAllSummary:${cookie ?? "client"}:${page}:${limit}:${status ?? "all"}:${type ?? "all"}:${query ?? ""}:${sortCreated}`,
+            async () => {
+                const queryParams = new URLSearchParams({
+                    page: page.toString(),
+                    limit: limit.toString(),
+                    ...(status && { status }),
+                    ...(type && { type }),
+                    ...(query && { q: query }),
+                    sort_created: sortCreated,
+                });
+                const endpoint = `${BASE_PATH}/summary?${queryParams.toString()}`;
+                const url = getProxyUrl("GET", endpoint);
+                const headers = getHeaders(cookie, "");
 
-        const response = await fetch(url!, {
-            cache: "no-store",
-            headers,
-            credentials: "include",
-        });
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "Unable to load order summary");
-        }
+                const response = await fetch(url!, {
+                    cache: "no-store",
+                    headers,
+                    credentials: "include",
+                });
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({}));
+                    throwBackendHttpError(response, errorData, "Unable to load order summary");
+                }
 
-        const json = await response.json();
-        try {
-            return OrdersSummaryResponseSchema.parse(normalizeBackendPaginated<SalesOrderSummary>(json)) as unknown as {
-                data: SalesOrderSummary[];
-                total: number;
-                page: number;
-                last_page?: number;
-            };
-        } catch (error) {
-            console.error("Zod Validation Error in ordersService.getAllSummary:", error);
-            if (error instanceof ZodError) {
-                console.error("Zod Issues:", error.issues);
+                const json = await response.json();
+                try {
+                    return OrdersSummaryResponseSchema.parse(normalizeBackendPaginated<SalesOrderSummary>(json)) as unknown as {
+                        data: SalesOrderSummary[];
+                        total: number;
+                        page: number;
+                        last_page?: number;
+                    };
+                } catch (error) {
+                    console.error("Zod Validation Error in ordersService.getAllSummary:", error);
+                    if (error instanceof ZodError) {
+                        console.error("Zod Issues:", error.issues);
+                    }
+                    throw error;
+                }
             }
-            throw error;
-        }
-    },
+        ),
 
     getStats: async (cookie?: string): Promise<{
         dineIn: number;

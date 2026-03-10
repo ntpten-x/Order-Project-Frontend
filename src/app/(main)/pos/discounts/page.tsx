@@ -135,17 +135,9 @@ const DiscountCard = ({
                             {isFixed ? 'ลดเป็นบาท' : 'ลดเปอร์เซ็นต์'}
                         </Tag>
                     </div>
-                    <Text type="secondary" style={{ fontSize: 13, display: 'block', color: '#334155' }} ellipsis={{ tooltip: discount.display_name }}>
-                        {discount.display_name}
-                    </Text>
                     <Text style={{ fontSize: 13, display: 'block', marginTop: 4, color: '#b45309', fontWeight: 700 }}>
                         {formatDiscountAmount(discount)}
                     </Text>
-                    {discount.description ? (
-                        <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }} ellipsis={{ tooltip: discount.description }}>
-                            {discount.description}
-                        </Text>
-                    ) : null}
                     <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
                         อัปเดตล่าสุด {formatDate(discount.create_date)}
                     </Text>

@@ -1,15 +1,9 @@
-import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback, useContext, useEffect, useMemo, useRef } from "react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { useContext, useMemo } from "react";
 
 import { ordersService } from "../../services/pos/orders.service";
 import { OrderStatus, OrderType } from "../../types/api/pos/salesOrder";
 import { SocketContext } from "../../contexts/SocketContext";
-import { RealtimeEvents } from "../realtimeEvents";
-import {
-    shouldDisableInvalidateDebounce,
-    trackInvalidateExecuted,
-    trackInvalidateRequested,
-} from "./invalidateProfiler";
 
 
 const DEFAULT_ACTIVE_STATUS_FILTER = [
@@ -57,46 +51,10 @@ export function useChannelOrders({
     createdSort = "old",
     enabled = true,
 }: ChannelOrdersOptions) {
-    const queryClient = useQueryClient();
-    const { socket, isConnected } = useContext(SocketContext);
-    const invalidateTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+    const { isConnected } = useContext(SocketContext);
     const queryKey = useMemo(
         () => ['orders', 'channel', orderType, { page, limit, statusFilter, query, createdSort }] as const,
         [createdSort, limit, orderType, page, query, statusFilter]
-    );
-    const refreshEvents = useMemo(
-        () => [
-            RealtimeEvents.orders.create,
-            RealtimeEvents.orders.update,
-            RealtimeEvents.orders.delete,
-            RealtimeEvents.payments.create,
-            RealtimeEvents.payments.update,
-            RealtimeEvents.payments.delete,
-        ],
-        []
-    );
-
-    const scheduleInvalidate = useCallback(
-        (delayMs = 220) => {
-            trackInvalidateRequested(queryKey);
-
-            if (shouldDisableInvalidateDebounce()) {
-                queryClient.invalidateQueries({ queryKey });
-                trackInvalidateExecuted(queryKey);
-                return;
-            }
-
-            if (invalidateTimerRef.current) {
-                clearTimeout(invalidateTimerRef.current);
-            }
-
-            invalidateTimerRef.current = setTimeout(() => {
-                invalidateTimerRef.current = null;
-                queryClient.invalidateQueries({ queryKey });
-                trackInvalidateExecuted(queryKey);
-            }, delayMs);
-        },
-        [queryClient, queryKey]
     );
 
     const { data, error, isLoading, isFetching, refetch } = useQuery<ChannelOrdersResponse>({
@@ -122,24 +80,6 @@ export function useChannelOrders({
         refetchIntervalInBackground: false,
     });
 
-    useEffect(() => {
-        if (!socket) return;
-
-        const handleRefresh = () => {
-            scheduleInvalidate();
-        };
-
-        refreshEvents.forEach((event) => socket.on(event, handleRefresh));
-
-        return () => {
-            refreshEvents.forEach((event) => socket.off(event, handleRefresh));
-            if (invalidateTimerRef.current) {
-                clearTimeout(invalidateTimerRef.current);
-                invalidateTimerRef.current = null;
-            }
-        };
-    }, [refreshEvents, scheduleInvalidate, socket]);
-
     return {
         orders: data?.data || [],
         total: data?.total || 0,
@@ -148,12 +88,9 @@ export function useChannelOrders({
         isLoading,
         isFetching,
         error,
-        refresh: async (silent?: boolean) => {
-            if (silent) {
-                await queryClient.invalidateQueries({ queryKey });
-            } else {
-                await refetch();
-            }
+        refresh: async (force?: boolean) => {
+            void force;
+            await refetch();
         },
     };
 }

@@ -4,6 +4,14 @@ const RELATIVE_URL_PREFIX = /^(\/|\.\/|\.\.\/)/;
 const RAW_BASE64_PAYLOAD_PREFIX = /^[A-Za-z0-9+/_=\-\s]+$/;
 const DATA_IMAGE_PREFIX = /^data:image\/[a-zA-Z0-9.+-]+/i;
 const BASE64_BODY_PATTERN = /^[A-Za-z0-9+/]+={0,2}$/;
+const KNOWN_NON_IMAGE_HOSTS = [
+    "www.google.com",
+    "google.com",
+    "googleadservices.com",
+    "www.googleadservices.com",
+    "doubleclick.net",
+    "www.doubleclick.net",
+];
 
 function decodePercentEncoded(value: string): string {
     if (!/%[0-9A-Fa-f]{2}/.test(value)) return value;
@@ -28,6 +36,28 @@ function normalizeGoogleImageSearchSource(source: string): string {
         return normalizedTarget || source;
     } catch {
         return source;
+    }
+}
+
+function isKnownNonImageHttpSource(source: string): boolean {
+    try {
+        const url = new URL(source);
+        const host = url.hostname.toLowerCase();
+        const path = url.pathname.toLowerCase();
+
+        if (KNOWN_NON_IMAGE_HOSTS.includes(host)) {
+            if (path === "/imgres" && url.searchParams.get("imgurl")) {
+                return false;
+            }
+
+            if (path === "/aclk" || path === "/url" || path === "/search") {
+                return true;
+            }
+        }
+
+        return false;
+    } catch {
+        return false;
     }
 }
 
@@ -153,7 +183,11 @@ export function normalizeImageSource(source?: string | null): string {
 
     if (HTTP_URL_PREFIX.test(value)) {
         const normalizedGoogleImageSearch = normalizeGoogleImageSearchSource(value);
-        return normalizeGoogleDriveImageSource(normalizedGoogleImageSearch);
+        const normalizedRemoteSource = normalizeGoogleDriveImageSource(normalizedGoogleImageSearch);
+        if (isKnownNonImageHttpSource(normalizedRemoteSource)) {
+            return "";
+        }
+        return normalizedRemoteSource;
     }
 
     return value;
