@@ -94,6 +94,6 @@ describe("servingBoardNotifications", () => {
 
         pruneNotificationCooldowns(cooldowns, 11_100, ENTITY_NOTICE_COOLDOWN_MS);
 
-        expect([...cooldowns.keys()]).toEqual(["group:active"]);
+        expect(Array.from(cooldowns.keys())).toEqual(["group:active"]);
     });
 });

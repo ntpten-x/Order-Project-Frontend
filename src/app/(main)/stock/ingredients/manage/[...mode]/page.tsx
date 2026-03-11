@@ -1,330 +1,458 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { Button, Form, Input, message, Modal, Spin, Switch } from 'antd';
-import { useRouter } from 'next/navigation';
-import { IngredientsUnit } from '../../../../../../types/api/stock/ingredientsUnit';
-import { useAuth } from '../../../../../../contexts/AuthContext';
-import { useEffectivePermissions } from '../../../../../../hooks/useEffectivePermissions';
-import { isSupportedImageSource, normalizeImageSource } from '../../../../../../utils/image/source';
-import {
-    ManagePageStyles,
-    pageStyles,
-    ImagePreview,
-    ActionButtons
-} from './style';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { App, Button, Form, Input, Space, Switch, Typography } from "antd";
+import { DeleteOutlined, SaveOutlined, ShoppingOutlined } from "@ant-design/icons";
+import { useRouter } from "next/navigation";
+import { AccessGuardFallback } from "../../../../../../components/pos/AccessGuard";
+import StockImageThumb from "../../../../../../components/stock/StockImageThumb";
+import PageContainer from "../../../../../../components/ui/page/PageContainer";
+import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
+import PageSection from "../../../../../../components/ui/page/PageSection";
+import PageStack from "../../../../../../components/ui/page/PageStack";
+import { ModalSelector } from "../../../../../../components/ui/select/ModalSelector";
+import PageState from "../../../../../../components/ui/states/PageState";
+import { useAuth } from "../../../../../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
+import { authService } from "../../../../../../services/auth.service";
+import { ingredientsService } from "../../../../../../services/stock/ingredients.service";
+import { ingredientsUnitService } from "../../../../../../services/stock/ingredientsUnit.service";
+import { IngredientsUnit } from "../../../../../../types/api/stock/ingredientsUnit";
+import { isSupportedImageSource, normalizeImageSource } from "../../../../../../utils/image/source";
+import IngredientsManageStyle from "./style";
 
 const { TextArea } = Input;
-
-import { authService } from '../../../../../../services/auth.service';
-import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
-import { ModalSelector } from "../../../../../../components/ui/select/ModalSelector";
-import PageContainer from '@/components/ui/page/PageContainer';
-import PageSection from '@/components/ui/page/PageSection';
+const { Paragraph, Text } = Typography;
 
 type IngredientFormValues = {
-    ingredient_name: string;
     display_name: string;
     description?: string;
     img_url?: string;
     unit_id: string;
-    is_active?: boolean;
+    is_active: boolean;
 };
 
 export default function IngredientsManagePage({ params }: { params: { mode: string[] } }) {
+    const { message: messageApi, modal } = App.useApp();
     const router = useRouter();
     const [form] = Form.useForm<IngredientFormValues>();
-    const { user } = useAuth();
-    const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canDelete = can("stock.ingredients.page", "delete");
-    const [loading, setLoading] = useState(false);
-    const [submitting, setSubmitting] = useState(false);
-    const [units, setUnits] = useState<IngredientsUnit[]>([]);
-    const [imageUrl, setImageUrl] = useState<string>('');
-    const [displayName, setDisplayName] = useState<string>('');
-    const [csrfToken, setCsrfToken] = useState<string>("");
+    const requestRef = useRef<AbortController | null>(null);
 
-    const selectedUnitId = Form.useWatch('unit_id', form);
+    const { user, loading: authLoading } = useAuth();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
 
     const mode = params.mode[0];
     const id = params.mode[1] || null;
-    const isEdit = mode === 'edit' && !!id;
+    const isEdit = mode === "edit" && Boolean(id);
+    const isAdd = mode === "add";
+
+    const canCreate = can("stock.ingredients.page", "create");
+    const canUpdate = can("stock.ingredients.page", "update");
+    const canDelete = can("stock.ingredients.page", "delete");
+    const canAccessPage = isEdit ? canUpdate : isAdd ? canCreate : false;
+
+    const [csrfToken, setCsrfToken] = useState("");
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+    const [units, setUnits] = useState<IngredientsUnit[]>([]);
+
+    const displayName = Form.useWatch("display_name", form) || "";
+    const imageUrl = Form.useWatch("img_url", form) || "";
+    const selectedUnitId = Form.useWatch("unit_id", form);
+    const isActive = Form.useWatch("is_active", form);
 
     useEffect(() => {
-        const fetchCsrf = async () => {
-             const token = await authService.getCsrfToken();
-             setCsrfToken(token);
-        };
-        fetchCsrf();
-    }, []);
+        let mounted = true;
 
-    const fetchUnits = async () => {
-        try {
-            const response = await fetch('/api/stock/ingredientsUnit/getAll?active=true');
-            if (response.ok) {
-                const data = await response.json();
-                setUnits(data);
+        const run = async () => {
+            if (!user?.id) return;
+            try {
+                const token = await authService.getCsrfToken();
+                if (mounted) setCsrfToken(token);
+            } catch {
+                if (mounted) messageApi.error("โหลดโทเค็นความปลอดภัยไม่สำเร็จ");
             }
-        } catch (error) {
-            console.error("Failed to fetch units", error);
-        }
-    };
+        };
 
-    const fetchIngredient = useCallback(async () => {
-        setLoading(true);
+        void run();
+        return () => {
+            mounted = false;
+        };
+    }, [messageApi, user?.id]);
+
+    const fetchPageData = useCallback(async () => {
+        if (!canAccessPage || (!isAdd && !isEdit)) return;
+
+        requestRef.current?.abort();
+        const controller = new AbortController();
+        requestRef.current = controller;
+
         try {
-            const response = await fetch(`/api/stock/ingredients/getById/${id}`);
-            if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลวัตถุดิบได้');
-            const data = await response.json();
-            form.setFieldsValue({
-                ingredient_name: data.ingredient_name,
-                display_name: data.display_name,
-                description: data.description,
-                img_url: data.img_url,
-                unit_id: data.unit_id,
-                is_active: data.is_active,
-            });
-            setImageUrl(data.img_url || '');
-            setDisplayName(data.display_name || '');
-        } catch (error) {
-            console.error(error);
-            message.error('ไม่สามารถดึงข้อมูลวัตถุดิบได้');
-            router.push('/stock/ingredients');
+            setLoading(true);
+            setError(null);
+
+            const unitParams = new URLSearchParams();
+            unitParams.set("sort_created", "new");
+            const [unitsData, ingredientData] = await Promise.all([
+                ingredientsUnitService.findAll(undefined, unitParams),
+                isEdit && id
+                    ? ingredientsService.findOne(id, undefined, { signal: controller.signal })
+                    : Promise.resolve(null),
+            ]);
+
+            if (requestRef.current !== controller) return;
+
+            setUnits(Array.isArray(unitsData) ? unitsData : []);
+
+            if (ingredientData) {
+                form.setFieldsValue({
+                    display_name: ingredientData.display_name,
+                    description: ingredientData.description || "",
+                    img_url: ingredientData.img_url || "",
+                    unit_id: ingredientData.unit_id,
+                    is_active: ingredientData.is_active,
+                });
+            } else {
+                form.setFieldsValue({
+                    description: "",
+                    img_url: "",
+                    is_active: true,
+                });
+            }
+        } catch (err) {
+            if ((err as Error)?.name === "AbortError") return;
+            if (requestRef.current !== controller) return;
+
+            setError(err instanceof Error ? err.message : "โหลดข้อมูลวัตถุดิบไม่สำเร็จ");
         } finally {
-            setLoading(false);
+            if (requestRef.current === controller) {
+                requestRef.current = null;
+                setLoading(false);
+            }
         }
-    }, [id, form, router]);
+    }, [canAccessPage, form, id, isAdd, isEdit]);
 
     useEffect(() => {
-        fetchUnits();
+        void fetchPageData();
+        return () => {
+            requestRef.current?.abort();
+        };
+    }, [fetchPageData]);
+
+    const selectedUnit = useMemo(
+        () => units.find((unit) => unit.id === selectedUnitId) || null,
+        [selectedUnitId, units]
+    );
+
+    const unitOptions = useMemo(
+        () =>
+            units
+                .filter((unit) => unit.is_active || unit.id === selectedUnitId)
+                .map((unit) => ({
+                    label: unit.is_active ? unit.display_name : `${unit.display_name} (ปิดใช้งาน)`,
+                    value: unit.id,
+                })),
+        [selectedUnitId, units]
+    );
+
+    const pageMeta = useMemo(() => {
         if (isEdit) {
-            fetchIngredient();
+            return {
+                title: "แก้ไขวัตถุดิบ",
+                subtitle: "อัปเดตชื่อที่ใช้แสดง หน่วยนับ รูปภาพ และสถานะให้ตรงกับงานจริงของสาขา",
+            };
         }
-    }, [isEdit, id, fetchIngredient]);
+
+        return {
+            title: "เพิ่มวัตถุดิบ",
+            subtitle: "สร้างวัตถุดิบใหม่เพื่อใช้ในใบสั่งซื้อและการตรวจรับของในระบบ stock",
+        };
+    }, [isEdit]);
 
     const onFinish = async (values: IngredientFormValues) => {
-        setSubmitting(true);
+        setSaving(true);
+        setError(null);
+
         try {
             const payload = {
-                ingredient_name: values.ingredient_name?.trim(),
-                display_name: values.display_name?.trim(),
-                description: values.description?.trim() ?? '',
+                display_name: values.display_name.trim(),
+                description: values.description?.trim() || "",
                 img_url: normalizeImageSource(values.img_url) || null,
                 unit_id: values.unit_id,
-                is_active: values.is_active,
+                is_active: Boolean(values.is_active),
             };
 
-            if (isEdit) {
-                const response = await fetch(`/api/stock/ingredients/update/${id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': csrfToken
-                    },
-                    body: JSON.stringify(payload),
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถอัปเดตวัตถุดิบได้');
-                }
-                
-                message.success('อัปเดตวัตถุดิบสำเร็จ');
+            if (isEdit && id) {
+                await ingredientsService.update(id, payload, undefined, csrfToken);
+                messageApi.success("บันทึกการแก้ไขวัตถุดิบเรียบร้อย");
             } else {
-                const response = await fetch(`/api/stock/ingredients/create`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': csrfToken
-                    },
-                    body: JSON.stringify(payload),
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถสร้างวัตถุดิบได้');
-                }
-                
-                message.success('สร้างวัตถุดิบสำเร็จ');
+                await ingredientsService.create(payload, undefined, csrfToken);
+                messageApi.success("สร้างวัตถุดิบเรียบร้อย");
             }
-            router.push('/stock/ingredients');
-        } catch (error: unknown) {
-            console.error(error);
-            message.error((error as { message: string }).message || (isEdit ? 'ไม่สามารถอัปเดตวัตถุดิบได้' : 'ไม่สามารถสร้างวัตถุดิบได้'));
+
+            router.push("/stock/ingredients");
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "บันทึกข้อมูลวัตถุดิบไม่สำเร็จ";
+            setError(message);
+            messageApi.error(message);
         } finally {
-            setSubmitting(false);
+            setSaving(false);
         }
     };
 
     const handleDelete = () => {
-        if (!id) return;
-        Modal.confirm({
-            title: 'ยืนยันการลบวัตถุดิบ',
-            content: `คุณต้องการลบวัตถุดิบ "${displayName}" หรือไม่?`,
-            okText: 'ลบ',
-            okType: 'danger',
-            cancelText: 'ยกเลิก',
-            centered: true,
+        if (!id || !canDelete) return;
+
+        modal.confirm({
+            title: "ลบวัตถุดิบ",
+            content: `ต้องการลบ "${displayName || "-"}" หรือไม่ หากมีใบสั่งซื้ออ้างอิงอยู่ ระบบจะไม่อนุญาตให้ลบ`,
+            okText: "ลบวัตถุดิบ",
+            okButtonProps: { danger: true, loading: deleting },
+            cancelText: "ยกเลิก",
             onOk: async () => {
+                setDeleting(true);
                 try {
-                    const response = await fetch(`/api/stock/ingredients/delete/${id}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'X-CSRF-Token': csrfToken
-                        }
-                    });
-                    if (!response.ok) throw new Error('ไม่สามารถลบวัตถุดิบได้');
-                    message.success('ลบวัตถุดิบสำเร็จ');
-                    router.push('/stock/ingredients');
-                } catch (error) {
-                    console.error(error);
-                    message.error('ไม่สามารถลบวัตถุดิบได้');
+                    await ingredientsService.delete(id, undefined, csrfToken);
+                    messageApi.success("ลบวัตถุดิบเรียบร้อย");
+                    router.push("/stock/ingredients");
+                } catch (err) {
+                    const message = err instanceof Error ? err.message : "ลบวัตถุดิบไม่สำเร็จ";
+                    setError(message);
+                    messageApi.error(message);
+                    throw err;
+                } finally {
+                    setDeleting(false);
                 }
-            }
+            },
         });
     };
 
-    const handleBack = () => router.push('/stock/ingredients');
+    if (authLoading || permissionLoading) {
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
+    }
+
+    if (!user || !canAccessPage) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้าจัดการวัตถุดิบ" tone="danger" />;
+    }
+
+    if (!isAdd && !isEdit) {
+        return (
+            <div className="stock-ingredient-manage-shell">
+                <IngredientsManageStyle />
+                <UIPageHeader
+                    title="รูปแบบหน้าจอไม่ถูกต้อง"
+                    subtitle="โปรดกลับไปที่รายการวัตถุดิบ แล้วเลือกเพิ่มหรือแก้ไขอีกครั้ง"
+                    icon={<ShoppingOutlined />}
+                    onBack={() => router.push("/stock/ingredients")}
+                />
+                <PageContainer maxWidth={960}>
+                    <PageSection>
+                        <PageState
+                            status="error"
+                            title="ไม่พบโหมดที่ต้องการใช้งาน"
+                            action={
+                                <Button type="primary" onClick={() => router.push("/stock/ingredients")}>
+                                    กลับหน้ารายการ
+                                </Button>
+                            }
+                        />
+                    </PageSection>
+                </PageContainer>
+            </div>
+        );
+    }
 
     return (
-        <div className="manage-page" style={pageStyles.container}>
-            <ManagePageStyles />
-            
+        <div className="stock-ingredient-manage-shell" data-testid="stock-ingredient-manage-page">
+            <IngredientsManageStyle />
+
             <UIPageHeader
-                title={isEdit ? "แก้ไขวัตถุดิบ" : "เพิ่มวัตถุดิบ"}
-                subtitle="ข้อมูลวัตถุดิบในคลัง"
-                onBack={handleBack}
+                title={pageMeta.title}
+                subtitle={pageMeta.subtitle}
+                icon={<ShoppingOutlined />}
+                onBack={() => router.push("/stock/ingredients")}
                 actions={
                     isEdit && canDelete ? (
-                        <Button danger onClick={handleDelete}>
-                            ลบ
+                        <Button danger icon={<DeleteOutlined />} onClick={handleDelete} loading={deleting}>
+                            ลบวัตถุดิบ
                         </Button>
                     ) : undefined
                 }
             />
 
-            <PageContainer maxWidth={900}>
-                <div className="manage-form-card">
-                    <PageSection>
-                        {loading ? (
-                            <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
-                                <Spin size="large" />
+            <PageContainer maxWidth={980}>
+                <PageStack gap={14}>
+                    <section className="stock-ingredient-manage-hero">
+                        <div className="stock-ingredient-manage-grid">
+                            <div>
+                                <span className="stock-ingredient-manage-eyebrow">
+                                    <ShoppingOutlined />
+                                    {isEdit ? "edit ingredient" : "create ingredient"}
+                                </span>
+                                <h1 className="stock-ingredient-manage-title">{pageMeta.title}</h1>
+                                <p className="stock-ingredient-manage-subtitle">
+                                    ใช้ชื่อเดียวเป็นมาตรฐานทั้งการ์ดวัตถุดิบ ใบสั่งซื้อ และหน้าตรวจรับของ เพื่อลดความสับสนเวลาใช้งานจริง
+                                </p>
                             </div>
+
+                            <aside className="stock-ingredient-manage-preview">
+                                <span className="stock-ingredient-manage-preview-key">ตัวอย่างที่จะแสดงในระบบ</span>
+                                <div className="stock-ingredient-manage-preview-row">
+                                    <StockImageThumb
+                                        src={isSupportedImageSource(imageUrl) ? imageUrl : null}
+                                        alt={displayName?.trim() || "ingredient preview"}
+                                        size={84}
+                                        borderRadius={18}
+                                    />
+                                    <div>
+                                        <div className="stock-ingredient-manage-preview-value">
+                                            {displayName?.trim() || "ชื่อวัตถุดิบที่ใช้แสดง"}
+                                        </div>
+                                        <Paragraph style={{ margin: "4px 0 0", color: "#64748b" }}>
+                                            หน่วยนับ: <Text strong>{selectedUnit?.display_name || "-"}</Text>
+                                        </Paragraph>
+                                        <Space wrap style={{ marginTop: 6 }}>
+                                            <Text type="secondary">
+                                                สถานะ: <Text strong>{isActive === false ? "ปิดใช้งาน" : "ใช้งาน"}</Text>
+                                            </Text>
+                                        </Space>
+                                    </div>
+                                </div>
+                            </aside>
+                        </div>
+                    </section>
+
+                    <section className="stock-ingredient-manage-panel">
+                        {loading ? (
+                            <PageState status="loading" title="กำลังโหลดข้อมูลวัตถุดิบ" />
+                        ) : error && isEdit && !displayName ? (
+                            <PageState status="error" title={error} onRetry={() => void fetchPageData()} />
+                        ) : unitOptions.length === 0 ? (
+                            <PageState
+                                status="empty"
+                                title="ยังไม่มีหน่วยนับวัตถุดิบให้เลือก"
+                                description="ควรสร้างหน่วยนับก่อน เช่น กิโลกรัม กรัม ลิตร หรือ แพ็ก เพื่อให้วัตถุดิบถูกจัดเก็บอย่างเป็นมาตรฐาน"
+                                action={
+                                    <Button type="primary" onClick={() => router.push("/stock/ingredientsUnit")}>
+                                        ไปหน้าหน่วยนับ
+                                    </Button>
+                                }
+                            />
                         ) : (
-                            <Form
+                            <Form<IngredientFormValues>
                                 form={form}
                                 layout="vertical"
-                                onFinish={onFinish}
                                 requiredMark={false}
                                 autoComplete="off"
-                                initialValues={{ is_active: true }}
-                                onValuesChange={(changedValues: Record<string, unknown>) => {
-                                    if (typeof changedValues.img_url === "string") {
-                                        setImageUrl(changedValues.img_url);
-                                    }
-                                    if (typeof changedValues.display_name === "string") {
-                                        setDisplayName(changedValues.display_name);
-                                    }
-                                }}
+                                initialValues={{ description: "", img_url: "", is_active: true }}
+                                onFinish={(values) => void onFinish(values)}
                             >
                                 <Form.Item
-                                    name="ingredient_name"
-                                    label="ชื่อวัตถุดิบ (ภาษาอังกฤษ) *"
-                                    rules={[
-                                        { required: true, message: 'กรุณากรอกชื่อวัตถุดิบ' },
-                                        { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'กรุณากรอกภาษาอังกฤษเท่านั้น' },
-                                        { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
-                                    ]}
-                                >
-                                    <Input
-                                        size="large"
-                                        placeholder="เช่น Sugar, Salt, Flour"
-                                        maxLength={100}
-                                    />
-                                </Form.Item>
-
-                                <Form.Item
                                     name="display_name"
-                                    label="ชื่อที่แสดง (ภาษาไทย) *"
+                                    label="ชื่อวัตถุดิบ"
+                                    extra="ชื่อนี้จะใช้แสดงในหน้าวัตถุดิบ ใบสั่งซื้อ และรายการตรวจรับ"
                                     rules={[
-                                        { required: true, message: 'กรุณากรอกชื่อที่แสดง' },
-                                        { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
+                                        { required: true, message: "กรุณากรอกชื่อวัตถุดิบ" },
+                                        { max: 100, message: "ความยาวต้องไม่เกิน 100 ตัวอักษร" },
                                     ]}
                                 >
                                     <Input
                                         size="large"
-                                        placeholder="เช่น น้ำตาล, เกลือ, แป้ง"
-                                        maxLength={100}
-                                    />
-                                </Form.Item>
-
-                                <Form.Item
-                                    name="unit_id"
-                                    label={<span style={{ fontWeight: 600, color: '#334155' }}>หน่วยวัตถุดิบ *</span>}
-                                    rules={[{ required: true, message: 'กรุณาเลือกหน่วยวัตถุดิบ' }]}
-                                >
-                                    <ModalSelector
-                                        title="เลือกหน่วยวัตถุดิบ"
-                                        value={selectedUnitId}
-                                        onChange={(value) => form.setFieldsValue({ unit_id: value })}
-                                        options={units.map((unit) => ({
-                                            label: `${unit.display_name} (${unit.unit_name})`,
-                                            value: unit.id,
-                                        }))}
-                                        placeholder="เลือกหน่วยสินค้า"
-                                        showSearch
-                                        style={{
-                                            padding: '10px 16px',
-                                            borderRadius: 12,
-                                            border: '2px solid',
-                                            cursor: 'pointer',
-                                            background: selectedUnitId ? 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)' : '#fff',
-                                            borderColor: selectedUnitId ? '#4F46E5' : '#e2e8f0',
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center',
-                                            minHeight: 46
+                                        placeholder="เช่น น้ำตาลทราย"
+                                        data-testid="stock-ingredient-display-name-input"
+                                        onBlur={() => {
+                                            const value = form.getFieldValue("display_name");
+                                            if (typeof value === "string") {
+                                                form.setFieldValue("display_name", value.trim());
+                                            }
                                         }}
                                     />
                                 </Form.Item>
 
                                 <Form.Item
+                                    name="unit_id"
+                                    label="หน่วยนับวัตถุดิบ"
+                                    extra="เลือกหน่วยนับที่ใช้จริงในการสั่งซื้อและตรวจรับ"
+                                    rules={[{ required: true, message: "กรุณาเลือกหน่วยนับวัตถุดิบ" }]}
+                                >
+                                    <ModalSelector
+                                        title="เลือกหน่วยนับวัตถุดิบ"
+                                        value={selectedUnitId}
+                                        onChange={(value) => form.setFieldValue("unit_id", value)}
+                                        options={unitOptions}
+                                        placeholder="เลือกหน่วยนับ"
+                                        showSearch
+                                    />
+                                </Form.Item>
+
+                                <Form.Item
                                     name="img_url"
-                                    label="รูปภาพ URL"
+                                    label="รูปภาพ"
+                                    extra="รองรับ URL แบบ http, https, data:image, blob หรือ path ภายในระบบ"
                                     rules={[
                                         {
                                             validator: async (_, value: string | undefined) => {
                                                 if (!value?.trim()) return;
                                                 const normalized = normalizeImageSource(value);
                                                 if (!isSupportedImageSource(normalized)) {
-                                                    throw new Error('รองรับเฉพาะ URL รูปภาพแบบ http(s), data:image, blob หรือ path ภายในระบบ');
+                                                    throw new Error(
+                                                        "รองรับเฉพาะ URL รูปภาพแบบ http(s), data:image, blob หรือ path ภายในระบบ"
+                                                    );
                                                 }
-                                            }
-                                        }
+                                            },
+                                        },
                                     ]}
                                 >
-                                    <Input size="large" placeholder="https://example.com/image.jpg หรือ data:image/...;base64,..." />
+                                    <Input size="large" placeholder="https://example.com/image.jpg" />
                                 </Form.Item>
 
-                                <ImagePreview url={imageUrl} name={displayName} />
-
-                                <Form.Item name="description" label="รายละเอียด" style={{ marginTop: 20 }}>
-                                    <TextArea
-                                        rows={4}
-                                        placeholder="รายละเอียดเพิ่มเติม..."
-                                        style={{ borderRadius: 12 }}
-                                    />
+                                <Form.Item
+                                    name="description"
+                                    label="รายละเอียด"
+                                    extra="ใช้บันทึกรายละเอียดเพิ่มเติม เช่น ยี่ห้อ ประเภท หรือหมายเหตุสำหรับการซื้อ"
+                                >
+                                    <TextArea rows={5} placeholder="เช่น ใช้ทำเมนูเบเกอรี่หรือซื้อจากร้านประจำ" />
                                 </Form.Item>
 
-                                <Form.Item name="is_active" label="สถานะการใช้งาน" valuePropName="checked">
-                                    <Switch checkedChildren="ใช้งาน" unCheckedChildren="ไม่ใช้งาน" />
+                                <Form.Item
+                                    name="is_active"
+                                    label="สถานะการใช้งาน"
+                                    valuePropName="checked"
+                                    extra="ปิดใช้งานเมื่อต้องการเก็บประวัติไว้ แต่ไม่ต้องการให้เลือกใช้ต่อ"
+                                >
+                                    <Switch checkedChildren="ใช้งาน" unCheckedChildren="ปิดใช้งาน" />
                                 </Form.Item>
-
-                                <ActionButtons isEdit={isEdit} loading={submitting} onCancel={handleBack} />
                             </Form>
                         )}
-                    </PageSection>
-                </div>
+                    </section>
+
+                    <section className="stock-ingredient-manage-actions">
+                        <div className="stock-ingredient-manage-actions-left">
+                            <Button size="large" onClick={() => router.push("/stock/ingredients")}>
+                                กลับหน้ารายการ
+                            </Button>
+                        </div>
+                        <div className="stock-ingredient-manage-actions-right">
+                            {isEdit && canDelete ? (
+                                <Button danger size="large" icon={<DeleteOutlined />} onClick={handleDelete} loading={deleting}>
+                                    ลบวัตถุดิบ
+                                </Button>
+                            ) : null}
+                            <Button
+                                type="primary"
+                                size="large"
+                                icon={<SaveOutlined />}
+                                loading={saving}
+                                onClick={() => form.submit()}
+                                data-testid="stock-ingredient-save"
+                            >
+                                {isEdit ? "บันทึกการแก้ไข" : "สร้างวัตถุดิบ"}
+                            </Button>
+                        </div>
+                    </section>
+                </PageStack>
             </PageContainer>
         </div>
     );
