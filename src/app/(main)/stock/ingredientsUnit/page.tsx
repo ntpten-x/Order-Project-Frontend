@@ -1,30 +1,170 @@
 "use client";
 
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { App, Button, Card, Input, Modal, Space, Tag, Typography } from "antd";
-import { DeleteOutlined, EditOutlined, ExperimentOutlined, PlusOutlined, ReloadOutlined } from "@ant-design/icons";
-import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
-import { IngredientsUnit } from "../../../../types/api/stock/ingredientsUnit";
-import { useSocket } from "../../../../hooks/useSocket";
-import { RealtimeEvents } from "../../../../utils/realtimeEvents";
-import { useAuth } from "../../../../contexts/AuthContext";
-import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
-import { authService } from "../../../../services/auth.service";
-import { ingredientsUnitService } from "../../../../services/stock/ingredientsUnit.service";
-import ListPagination, { type CreatedSort } from "../../../../components/ui/pagination/ListPagination";
-import { DEFAULT_CREATED_SORT, parseCreatedSort } from "../../../../lib/list-sort";
-import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import { App, Button, Modal, Space, Switch, Tag, Typography } from "antd";
+import {
+    DeleteOutlined,
+    EditOutlined,
+    ExperimentOutlined,
+    PlusOutlined,
+    ReloadOutlined,
+} from "@ant-design/icons";
+import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
 import PageContainer from "../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../components/ui/page/PageSection";
 import PageStack from "../../../../components/ui/page/PageStack";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import { SearchBar } from "../../../../components/ui/page/SearchBar";
+import { SearchInput } from "../../../../components/ui/input/SearchInput";
+import ListPagination, { type CreatedSort } from "../../../../components/ui/pagination/ListPagination";
+import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
+import UIEmptyState from "../../../../components/ui/states/EmptyState";
 import PageState from "../../../../components/ui/states/PageState";
-import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
-import IngredientsUnitPageStyle from "./style";
+import { useAuth } from "../../../../contexts/AuthContext";
+import { useSocket } from "../../../../hooks/useSocket";
+import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from "../../../../lib/list-sort";
+import { authService } from "../../../../services/auth.service";
+import { ingredientsUnitService } from "../../../../services/stock/ingredientsUnit.service";
+import { IngredientsUnit } from "../../../../types/api/stock/ingredientsUnit";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
+import IngredientsUnitPageStyle, { globalStyles, pageStyles } from "./style";
 
-const { Paragraph, Text, Title } = Typography;
+const { Text } = Typography;
 
 type StatusFilter = "all" | "active" | "inactive";
+
+const formatDate = (raw?: string | Date) => {
+    if (!raw) return "-";
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return "-";
+    return new Intl.DateTimeFormat("th-TH", {
+        dateStyle: "medium",
+        timeStyle: "short",
+    }).format(date);
+};
+
+type UnitCardProps = {
+    unit: IngredientsUnit;
+    canUpdate: boolean;
+    canDelete: boolean;
+    updatingStatusId: string | null;
+    deletingId: string | null;
+    onEdit: (unit: IngredientsUnit) => void;
+    onDelete: (unit: IngredientsUnit) => void;
+    onToggleActive: (unit: IngredientsUnit, next: boolean) => void;
+};
+
+const UnitCard = ({
+    unit,
+    canUpdate,
+    canDelete,
+    updatingStatusId,
+    deletingId,
+    onEdit,
+    onDelete,
+    onToggleActive,
+}: UnitCardProps) => {
+    return (
+        <div
+            className="stock-ingredients-unit-card"
+            style={pageStyles.unitCard(unit.is_active)}
+            onClick={() => {
+                if (!canUpdate) return;
+                onEdit(unit);
+            }}
+        >
+            <div style={pageStyles.unitCardInner}>
+                <div
+                    style={{
+                        width: 52,
+                        height: 52,
+                        borderRadius: 14,
+                        background: unit.is_active
+                            ? "linear-gradient(135deg, #ccfbf1 0%, #99f6e4 100%)"
+                            : "#f1f5f9",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        flexShrink: 0,
+                        boxShadow: unit.is_active ? "0 4px 10px rgba(15, 118, 110, 0.18)" : "none",
+                    }}
+                >
+                    <ExperimentOutlined
+                        style={{
+                            fontSize: 22,
+                            color: unit.is_active ? "#0f766e" : "#94a3b8",
+                        }}
+                    />
+                </div>
+
+                <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                        <Text strong style={{ fontSize: 16, color: "#0f172a" }} ellipsis={{ tooltip: unit.display_name }}>
+                            {unit.display_name}
+                        </Text>
+                        <Tag color={unit.is_active ? "green" : "default"} style={{ borderRadius: 999 }}>
+                            {unit.is_active ? "ใช้งาน" : "ปิดใช้งาน"}
+                        </Tag>
+                    </div>
+                    <Text type="secondary" style={{ fontSize: 12, display: "block", marginTop: 4 }}>
+                        สร้างเมื่อ {formatDate(unit.create_date)}
+                    </Text>
+                </div>
+
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <Switch
+                        size="small"
+                        checked={unit.is_active}
+                        loading={updatingStatusId === unit.id}
+                        disabled={!canUpdate || deletingId === unit.id}
+                        onClick={(checked, event) => {
+                            event?.stopPropagation();
+                            if (!canUpdate) return;
+                            onToggleActive(unit, checked);
+                        }}
+                    />
+                    {canUpdate ? (
+                        <Button
+                            type="text"
+                            icon={<EditOutlined />}
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onEdit(unit);
+                            }}
+                            style={{
+                                borderRadius: 10,
+                                color: "#0f766e",
+                                background: "#ecfdf5",
+                                width: 36,
+                                height: 36,
+                            }}
+                        />
+                    ) : null}
+                    {canDelete ? (
+                        <Button
+                            type="text"
+                            danger
+                            loading={deletingId === unit.id}
+                            icon={deletingId === unit.id ? undefined : <DeleteOutlined />}
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onDelete(unit);
+                            }}
+                            style={{
+                                borderRadius: 10,
+                                background: "#fef2f2",
+                                width: 36,
+                                height: 36,
+                            }}
+                        />
+                    ) : null}
+                </div>
+            </div>
+        </div>
+    );
+};
 
 export default function IngredientsUnitPage() {
     const { message: messageApi } = App.useApp();
@@ -48,7 +188,10 @@ export default function IngredientsUnitPage() {
     const [units, setUnits] = useState<IngredientsUnit[]>([]);
     const [totalUnits, setTotalUnits] = useState(0);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState<Error | null>(null);
+    const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
@@ -88,7 +231,7 @@ export default function IngredientsUnitPage() {
 
         const query = params.toString();
         router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [router, pathname, page, pageSize, deferredSearchText, statusFilter, createdSort]);
+    }, [createdSort, deferredSearchText, page, pageSize, pathname, router, statusFilter]);
 
     useEffect(() => {
         let mounted = true;
@@ -98,7 +241,7 @@ export default function IngredientsUnitPage() {
                 const token = await authService.getCsrfToken();
                 if (mounted) setCsrfToken(token);
             } catch {
-                if (mounted) messageApi.error("โหลดโทเคนความปลอดภัยไม่สำเร็จ");
+                if (mounted) messageApi.error("โหลดโทเค็นความปลอดภัยไม่สำเร็จ");
             }
         };
         void run();
@@ -108,7 +251,7 @@ export default function IngredientsUnitPage() {
     }, [messageApi, user?.id]);
 
     const fetchUnits = useCallback(
-        async ({ silent = false }: { silent?: boolean } = {}) => {
+        async ({ background = false }: { background?: boolean } = {}) => {
             if (!canView) return;
 
             requestRef.current?.abort();
@@ -116,7 +259,9 @@ export default function IngredientsUnitPage() {
             requestRef.current = controller;
 
             try {
-                if (!silent) {
+                if (background) {
+                    setRefreshing(true);
+                } else {
                     setLoading(true);
                 }
                 setError(null);
@@ -140,16 +285,14 @@ export default function IngredientsUnitPage() {
             } catch (err) {
                 if ((err as Error)?.name === "AbortError") return;
                 if (requestRef.current !== controller) return;
-
-                setError(err instanceof Error ? err.message : "โหลดรายการหน่วยนับไม่สำเร็จ");
-                setUnits([]);
-                setTotalUnits(0);
+                setError(err instanceof Error ? err : new Error("โหลดรายการหน่วยนับไม่สำเร็จ"));
             } finally {
                 if (requestRef.current === controller) {
                     requestRef.current = null;
-                    if (!silent) {
-                        setLoading(false);
-                    }
+                }
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                    setRefreshing(false);
                 }
             }
         },
@@ -158,7 +301,7 @@ export default function IngredientsUnitPage() {
 
     useEffect(() => {
         if (!initRef.current || !canView) return;
-        void fetchUnits({ silent: hasLoadedRef.current });
+        void fetchUnits({ background: hasLoadedRef.current });
         return () => {
             requestRef.current?.abort();
         };
@@ -168,7 +311,7 @@ export default function IngredientsUnitPage() {
         if (!socket || !canView) return;
 
         const refresh = () => {
-            void fetchUnits({ silent: true });
+            void fetchUnits({ background: true });
         };
 
         socket.on(RealtimeEvents.ingredientsUnit.create, refresh);
@@ -180,37 +323,85 @@ export default function IngredientsUnitPage() {
             socket.off(RealtimeEvents.ingredientsUnit.update, refresh);
             socket.off(RealtimeEvents.ingredientsUnit.delete, refresh);
         };
-    }, [socket, canView, fetchUnits]);
+    }, [canView, fetchUnits, socket]);
+
+    const handleAdd = () => {
+        if (!canCreate) {
+            messageApi.warning("คุณไม่มีสิทธิ์เพิ่มหน่วยนับวัตถุดิบ");
+            return;
+        }
+        router.push("/stock/ingredientsUnit/manage/add");
+    };
+
+    const handleEdit = (unit: IngredientsUnit) => {
+        if (!canUpdate) {
+            messageApi.warning("คุณไม่มีสิทธิ์แก้ไขหน่วยนับวัตถุดิบ");
+            return;
+        }
+        router.push(`/stock/ingredientsUnit/manage/edit/${unit.id}`);
+    };
 
     const handleDelete = (unit: IngredientsUnit) => {
         if (!canDelete) {
-            messageApi.error("คุณไม่มีสิทธิ์ลบหน่วยนับ");
+            messageApi.warning("คุณไม่มีสิทธิ์ลบหน่วยนับวัตถุดิบ");
             return;
         }
 
         Modal.confirm({
-            title: `ลบหน่วยนับ ${unit.display_name}`,
-            content: "หน่วยนับนี้จะถูกลบออกจากระบบ หากยังมีวัตถุดิบใช้งานอยู่ ระบบจะไม่อนุญาตให้ลบ",
-            okText: "ลบหน่วยนับ",
-            okButtonProps: { danger: true },
+            title: "ยืนยันการลบหน่วยนับวัตถุดิบ",
+            content: `ต้องการลบหน่วยนับ ${unit.display_name} หรือไม่?`,
+            okText: "ลบ",
+            okType: "danger",
             cancelText: "ยกเลิก",
+            centered: true,
+            icon: <DeleteOutlined style={{ color: "#ef4444" }} />,
             onOk: async () => {
+                setDeletingId(unit.id);
                 try {
                     await ingredientsUnitService.delete(unit.id, undefined, csrfToken);
-                    messageApi.success("ลบหน่วยนับแล้ว");
-                    void fetchUnits({ silent: true });
+                    const shouldMoveToPreviousPage = page > 1 && units.length === 1;
+                    setUnits((prev) => prev.filter((item) => item.id !== unit.id));
+                    setTotalUnits((prev) => Math.max(prev - 1, 0));
+                    if (shouldMoveToPreviousPage) {
+                        setPage(page - 1);
+                    } else {
+                        void fetchUnits({ background: true });
+                    }
+                    messageApi.success(`ลบหน่วยนับ "${unit.display_name}" สำเร็จ`);
                 } catch (err) {
-                    messageApi.error(err instanceof Error ? err.message : "ลบหน่วยนับไม่สำเร็จ");
+                    messageApi.error(err instanceof Error ? err.message : "ลบหน่วยนับวัตถุดิบไม่สำเร็จ");
+                } finally {
+                    setDeletingId(null);
                 }
             },
         });
     };
 
-    const summary = useMemo(() => {
-        const active = units.filter((unit) => unit.is_active).length;
-        const inactive = units.filter((unit) => !unit.is_active).length;
-        return { active, inactive };
-    }, [units]);
+    const handleToggleActive = async (unit: IngredientsUnit, next: boolean) => {
+        if (!canUpdate) {
+            messageApi.warning("คุณไม่มีสิทธิ์เปลี่ยนสถานะหน่วยนับวัตถุดิบ");
+            return;
+        }
+
+        setUpdatingStatusId(unit.id);
+        try {
+            const updated = await ingredientsUnitService.update(
+                unit.id,
+                {
+                    display_name: unit.display_name,
+                    is_active: next,
+                },
+                undefined,
+                csrfToken
+            );
+            setUnits((prev) => prev.map((item) => (item.id === unit.id ? updated : item)));
+            messageApi.success(next ? "เปิดใช้งานหน่วยนับแล้ว" : "ปิดใช้งานหน่วยนับแล้ว");
+        } catch (err) {
+            messageApi.error(err instanceof Error ? err.message : "เปลี่ยนสถานะหน่วยนับไม่สำเร็จ");
+        } finally {
+            setUpdatingStatusId(null);
+        }
+    };
 
     if (authLoading || permissionLoading) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
@@ -221,25 +412,22 @@ export default function IngredientsUnitPage() {
     }
 
     return (
-        <div className="stock-unit-shell" data-testid="stock-ingredients-unit-page">
+        <div className="stock-ingredients-unit-list-page" style={pageStyles.container}>
             <IngredientsUnitPageStyle />
+            <style>{globalStyles}</style>
 
             <UIPageHeader
                 title="หน่วยนับวัตถุดิบ"
-                subtitle="ดูแลหน่วยที่ใช้ในสูตรและใบซื้อให้เป็นมาตรฐานเดียวกันทุกสาขา"
                 icon={<ExperimentOutlined />}
                 actions={
-                    <Space wrap>
-                        <Button icon={<ReloadOutlined />} onClick={() => void fetchUnits()} loading={loading}>
-                            รีเฟรช
-                        </Button>
+                    <Space size={10} wrap>
+                        <Button
+                            icon={<ReloadOutlined />}
+                            loading={refreshing}
+                            onClick={() => void fetchUnits({ background: units.length > 0 })}
+                        />
                         {canCreate ? (
-                            <Button
-                                type="primary"
-                                icon={<PlusOutlined />}
-                                onClick={() => router.push("/stock/ingredientsUnit/manage/add")}
-                                data-testid="stock-ingredients-unit-add"
-                            >
+                            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                                 เพิ่มหน่วยนับ
                             </Button>
                         ) : null}
@@ -247,182 +435,101 @@ export default function IngredientsUnitPage() {
                 }
             />
 
-            <PageContainer maxWidth={1200}>
-                <PageStack gap={14}>
-                    <section className="stock-unit-hero">
-                        <div className="stock-unit-hero-grid">
-                            <div className="stock-unit-hero-copy">
-                                <span className="stock-unit-eyebrow">
-                                    <ExperimentOutlined />
-                                    ingredients unit
-                                </span>
-                                <h1 className="stock-unit-title">จัดการหน่วยให้ชัด ใช้ซ้ำได้ และไม่ซ้ำกัน</h1>
-                                <p className="stock-unit-subtitle">
-                                    หน้านี้ใช้ดูรายการหน่วยทั้งหมด ค้นหาได้เร็ว แยกสถานะได้ และเข้าหน้าเพิ่มหรือแก้ไขได้ทันที
-                                    โดยข้อมูลจะรีเฟรชแบบเงียบเมื่อมีการเปลี่ยนแปลงที่จำเป็น
-                                </p>
-                            </div>
-
-                            <div className="stock-unit-hero-side">
-                                <div className="stock-unit-side-card">
-                                    <span className="stock-unit-side-label">ผลลัพธ์ทั้งหมด</span>
-                                    <span className="stock-unit-side-value">{totalUnits.toLocaleString()}</span>
-                                </div>
-                                <div className="stock-unit-side-card">
-                                    <span className="stock-unit-side-label">พร้อมใช้งาน / ปิดใช้งาน</span>
-                                    <span className="stock-unit-side-value">
-                                        {summary.active.toLocaleString()} / {summary.inactive.toLocaleString()}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section className="stock-unit-stat-grid">
-                        <article className="stock-unit-stat-card">
-                            <span className="stock-unit-stat-label">ผลลัพธ์ทั้งหมด</span>
-                            <span className="stock-unit-stat-value">{totalUnits.toLocaleString()}</span>
-                        </article>
-                        <article className="stock-unit-stat-card">
-                            <span className="stock-unit-stat-label">ใช้งานในหน้าปัจจุบัน</span>
-                            <span className="stock-unit-stat-value" style={{ color: "#15803d" }}>
-                                {summary.active.toLocaleString()}
-                            </span>
-                        </article>
-                        <article className="stock-unit-stat-card">
-                            <span className="stock-unit-stat-label">ปิดใช้งานในหน้าปัจจุบัน</span>
-                            <span className="stock-unit-stat-value" style={{ color: "#b42318" }}>
-                                {summary.inactive.toLocaleString()}
-                            </span>
-                        </article>
-                    </section>
-
-                    <PageSection title="ค้นหาและกรอง">
-                        <div className="stock-unit-panel">
-                            <div className="stock-unit-toolbar">
-                                <Input
-                                    placeholder="ค้นหาจากรหัสหน่วย เช่น kg, g, pack หรือชื่อที่ใช้แสดง"
-                                    value={searchText}
-                                    allowClear
-                                    size="large"
-                                    data-testid="stock-ingredients-unit-search"
-                                    onChange={(event) => {
-                                        setPage(1);
-                                        setSearchText(event.target.value);
-                                    }}
-                                />
+            <PageContainer>
+                <PageStack>
+                    <SearchBar>
+                        <SearchInput placeholder="ค้นหาหน่วยนับ" value={searchText} onChange={(value) => {
+                            setPage(1);
+                            setSearchText(value);
+                        }} />
+                        <Space wrap size={10} style={{ justifyContent: "space-between", width: "100%" }}>
+                            <Space wrap size={10}>
                                 <ModalSelector<StatusFilter>
                                     title="เลือกสถานะ"
+                                    options={[
+                                        { label: "ทั้งหมด", value: "all" },
+                                        { label: "ใช้งาน", value: "active" },
+                                        { label: "ปิดใช้งาน", value: "inactive" },
+                                    ]}
                                     value={statusFilter}
                                     onChange={(value) => {
                                         setPage(1);
                                         setStatusFilter(value);
                                     }}
+                                    style={{ minWidth: 120 }}
+                                />
+                                <ModalSelector<CreatedSort>
+                                    title="เรียงลำดับ"
                                     options={[
-                                        { label: "ทุกสถานะ", value: "all" },
-                                        { label: "ใช้งาน", value: "active" },
-                                        { label: "ปิดใช้งาน", value: "inactive" },
+                                        { label: "เก่าก่อน", value: "old" },
+                                        { label: "ใหม่ก่อน", value: "new" },
                                     ]}
-                                    placeholder="เลือกสถานะ"
+                                    value={createdSort}
+                                    onChange={(value) => {
+                                        setPage(1);
+                                        setCreatedSort(value);
+                                    }}
+                                    style={{ minWidth: 120 }}
                                 />
-                            </div>
-                        </div>
-                    </PageSection>
+                            </Space>
+                        </Space>
+                    </SearchBar>
 
-                    <PageSection title="รายการหน่วยนับ" extra={<Text strong>{totalUnits.toLocaleString()} รายการ</Text>}>
-                        {loading ? (
-                            <PageState status="loading" title="กำลังโหลดรายการหน่วยนับ" />
-                        ) : error ? (
-                            <PageState status="error" title={error} onRetry={() => void fetchUnits()} />
-                        ) : units.length === 0 ? (
-                            <div className="stock-unit-panel stock-unit-list-empty">
-                                <PageState
-                                    status="empty"
-                                    title="ยังไม่มีข้อมูลหน่วยนับ"
-                                    description="เริ่มต้นด้วยการเพิ่มหน่วยพื้นฐาน เช่น กิโลกรัม กรัม ลิตร หรือแพ็ก"
-                                    action={
-                                        canCreate ? (
-                                            <Button
-                                                type="primary"
-                                                icon={<PlusOutlined />}
-                                                onClick={() => router.push("/stock/ingredientsUnit/manage/add")}
-                                            >
-                                                เพิ่มหน่วยนับ
-                                            </Button>
-                                        ) : undefined
-                                    }
-                                />
-                            </div>
-                        ) : (
-                            <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                    <PageSection
+                        title="รายการหน่วยนับวัตถุดิบ"
+                        extra={
+                            <Space size={8} wrap>
+                                {refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}
+                                <span style={{ fontWeight: 600 }}>{totalUnits} รายการ</span>
+                            </Space>
+                        }
+                    >
+                        {loading && units.length === 0 ? (
+                            <PageState status="loading" title="กำลังโหลดรายการหน่วยนับวัตถุดิบ..." />
+                        ) : error && units.length === 0 ? (
+                            <PageState
+                                status="error"
+                                title="โหลดรายการหน่วยนับวัตถุดิบไม่สำเร็จ"
+                                error={error}
+                                onRetry={() => void fetchUnits()}
+                            />
+                        ) : units.length > 0 ? (
+                            <Space direction="vertical" size={16} style={{ width: "100%" }}>
                                 {units.map((unit) => (
-                                    <Card key={unit.id} className="stock-unit-card" bordered={false}>
-                                        <div className="stock-unit-card-grid">
-                                            <div>
-                                                <Space wrap size={8} style={{ marginBottom: 8 }}>
-                                                    {unit.is_active ? (
-                                                        <Tag color="success">ใช้งาน</Tag>
-                                                    ) : (
-                                                        <Tag>ปิดใช้งาน</Tag>
-                                                    )}
-                                                </Space>
-
-                                                <Title level={5} style={{ margin: 0, color: "#0f172a" }}>
-                                                    {unit.display_name}
-                                                </Title>
-                                                <Paragraph style={{ margin: "8px 0 0", color: "#64748b" }}>
-                                                    ใช้เป็นชื่อที่ผู้ใช้งานเห็นจริงในหน้าวัตถุดิบ ใบซื้อ และเอกสารที่เกี่ยวข้อง
-                                                </Paragraph>
-                                                <Text type="secondary" style={{ fontSize: 12 }}>
-                                                    สร้างเมื่อ{" "}
-                                                    {unit.create_date
-                                                        ? new Date(unit.create_date).toLocaleDateString("th-TH", {
-                                                              day: "2-digit",
-                                                              month: "short",
-                                                              year: "numeric",
-                                                          })
-                                                        : "-"}
-                                                </Text>
-                                            </div>
-
-                                            <div className="stock-unit-actions">
-                                                {canUpdate ? (
-                                                    <Button
-                                                        icon={<EditOutlined />}
-                                                        onClick={() => router.push(`/stock/ingredientsUnit/manage/edit/${unit.id}`)}
-                                                    >
-                                                        แก้ไข
-                                                    </Button>
-                                                ) : null}
-                                                {canDelete ? (
-                                                    <Button danger icon={<DeleteOutlined />} onClick={() => handleDelete(unit)}>
-                                                        ลบ
-                                                    </Button>
-                                                ) : null}
-                                            </div>
-                                        </div>
-                                    </Card>
+                                    <UnitCard
+                                        key={unit.id}
+                                        unit={unit}
+                                        canUpdate={canUpdate}
+                                        canDelete={canDelete}
+                                        updatingStatusId={updatingStatusId}
+                                        deletingId={deletingId}
+                                        onEdit={handleEdit}
+                                        onDelete={handleDelete}
+                                        onToggleActive={handleToggleActive}
+                                    />
                                 ))}
 
-                                <div className="stock-unit-panel">
+                                <div style={{ marginTop: 12 }}>
                                     <ListPagination
                                         page={page}
                                         pageSize={pageSize}
                                         total={totalUnits}
-                                        loading={loading}
+                                        loading={loading || refreshing}
                                         onPageChange={setPage}
-                                        onPageSizeChange={(size) => {
-                                            setPage(1);
-                                            setPageSize(size);
-                                        }}
-                                        sortCreated={createdSort}
-                                        onSortCreatedChange={(nextSort) => {
-                                            setPage(1);
-                                            setCreatedSort(nextSort);
-                                        }}
+                                        onPageSizeChange={setPageSize}
+                                        activeColor="#0f766e"
                                     />
                                 </div>
                             </Space>
+                        ) : (
+                            <UIEmptyState
+                                title={deferredSearchText ? "ไม่พบหน่วยนับตามคำค้น" : "ยังไม่มีหน่วยนับวัตถุดิบ"}
+                                description={
+                                    deferredSearchText
+                                        ? "ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ"
+                                        : "เพิ่มหน่วยนับแรกเพื่อให้ทีมงานเลือกใช้งานได้ถูกต้อง"
+                                }
+                            />
                         )}
                     </PageSection>
                 </PageStack>

@@ -133,6 +133,10 @@ export const MENU_VISIBILITY_RULES: Record<string, MenuVisibilityRule> = {
         explicitAnyOf: [{ resourceKey: "menu.pos.productsUnit", action: "view" }],
         fallbackAnyOf: [{ resourceKey: "products_unit.page", action: "view" }],
     },
+    "menu.pos.topping": {
+        explicitAnyOf: [{ resourceKey: "menu.pos.topping", action: "view" }],
+        fallbackAnyOf: [{ resourceKey: "topping.page", action: "view" }],
+    },
     "menu.pos.discounts": {
         explicitAnyOf: [{ resourceKey: "menu.pos.discounts", action: "view" }],
         fallbackAnyOf: [{ resourceKey: "discounts.page", action: "view" }],

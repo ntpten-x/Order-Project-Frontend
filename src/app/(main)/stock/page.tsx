@@ -3,9 +3,11 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   App,
+  Alert,
   Badge,
   Button,
   Card,
+  Empty,
   List,
   Pagination,
   Segmented,
@@ -14,13 +16,14 @@ import {
 import {
   ReloadOutlined,
   SearchOutlined,
+  ShoppingCartOutlined,
   ShoppingOutlined,
 } from "@ant-design/icons";
 
 import IngredientCard from "../../../components/stock/IngredientCard";
 import CartDrawer from "../../../components/stock/CartDrawer";
+import StockImageThumb from "../../../components/stock/StockImageThumb";
 import { AccessGuardFallback } from "../../../components/pos/AccessGuard";
-import { StatsGroup } from "../../../components/ui/card/StatsGroup";
 import { SearchInput } from "../../../components/ui/input/SearchInput";
 import PageContainer from "../../../components/ui/page/PageContainer";
 import UIPageHeader from "../../../components/ui/page/PageHeader";
@@ -33,7 +36,7 @@ import { useEffectivePermissions } from "../../../hooks/useEffectivePermissions"
 import { ingredientsService } from "../../../services/stock/ingredients.service";
 import { Ingredients } from "../../../types/api/stock/ingredients";
 import { useDebouncedValue } from "../../../utils/useDebouncedValue";
-import ItemsPageStyle from "./style";
+import StockPageStyle from "./style";
 
 const { Text, Title } = Typography;
 
@@ -65,7 +68,6 @@ export default function StockShoppingPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(12);
-  const [lastPage, setLastPage] = useState(1);
   const [sortCreated, setSortCreated] = useState<SortCreated>("new");
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebouncedValue(searchText.trim(), 250);
@@ -85,8 +87,9 @@ export default function StockShoppingPage() {
       const controller = new AbortController();
       abortRef.current = controller;
 
-      if (silent) setRefreshing(true);
-      else {
+      if (silent) {
+        setRefreshing(true);
+      } else {
         setLoading(true);
         setError(null);
       }
@@ -112,7 +115,6 @@ export default function StockShoppingPage() {
         hasLoadedRef.current = true;
         setIngredients(payload.data);
         setTotal(payload.total);
-        setLastPage(payload.last_page);
         setLastSyncedAt(new Date());
       } catch (caughtError) {
         if ((caughtError as { name?: string })?.name === "AbortError") return;
@@ -148,54 +150,33 @@ export default function StockShoppingPage() {
     [items]
   );
 
-  const metrics = useMemo(
-    () => [
-      {
-        label: "วัตถุดิบทั้งหมด",
-        value: total.toLocaleString(),
-        color: "#0f172a",
-        subLabel: "พร้อมสั่งซื้อในสาขาปัจจุบัน",
-      },
-      {
-        label: "แสดงในหน้านี้",
-        value: ingredients.length.toLocaleString(),
-        color: "#1d4ed8",
-        subLabel: `หน้า ${page} จาก ${Math.max(lastPage, 1)}`,
-      },
-      {
-        label: "รายการในตะกร้า",
-        value: itemCount.toLocaleString(),
-        color: "#7c3aed",
-        subLabel: `${items.length.toLocaleString()} วัตถุดิบ`,
-      },
-      {
-        label: "จำนวนที่ต้องซื้อ",
-        value: cartQuantityTotal.toLocaleString(),
-        color: "#15803d",
-        subLabel: canCreateOrders ? "พร้อมสร้างใบซื้อ" : "สิทธิ์สร้างใบซื้อถูกปิด",
-      },
-    ],
-    [canCreateOrders, cartQuantityTotal, ingredients.length, itemCount, items.length, lastPage, page, total]
+  const notedItemsCount = useMemo(
+    () => items.filter((item) => item.note?.trim()).length,
+    [items]
   );
+
+  const cartPreviewItems = useMemo(() => items.slice(0, 5), [items]);
+
+  const hiddenCartItemsCount = Math.max(items.length - cartPreviewItems.length, 0);
 
   if (permissionsLoading) {
     return <PageState status="loading" title="กำลังตรวจสอบสิทธิ์การใช้งาน" />;
   }
 
   if (!canViewOrders) {
-    return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้าสั่งของสต๊อก" tone="danger" />;
+    return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้าสั่งของสต็อก" tone="danger" />;
   }
 
   return (
-    <div className="stock-catalog-shell" data-testid="stock-catalog-page">
-      <ItemsPageStyle />
+    <div className="stock-order-shell" data-testid="stock-catalog-page">
+      <StockPageStyle />
 
       <UIPageHeader
-        title="จดรายการซื้อวัตถุดิบ"
+        title="จัดรายการซื้อวัตถุดิบ"
         subtitle={
           lastSyncedAt
             ? `อัปเดตล่าสุด ${formatDateTime(lastSyncedAt.toISOString())}`
-            : "เลือกวัตถุดิบใส่ตะกร้า เพื่อสร้างใบซื้อสำหรับไปซื้อของ"
+            : "เลือกวัตถุดิบลงตะกร้า แล้วเปิดตะกร้าเพื่อยืนยันการสร้างใบซื้อ"
         }
         icon={<ShoppingOutlined />}
         actions={
@@ -210,142 +191,249 @@ export default function StockShoppingPage() {
       />
 
       <PageContainer maxWidth={1440}>
-        <PageStack gap={16}>
-          <section className="stock-catalog-hero">
-            <div className="stock-catalog-hero-copy">
-              <Badge
-                status={refreshing ? "processing" : "success"}
-                text={refreshing ? "กำลังซิงก์ข้อมูลล่าสุด" : "หน้าสั่งของสำหรับจดรายการไปซื้อ"}
-              />
-              <Title level={3} style={{ margin: "12px 0 8px" }}>
-                เลือกสินค้า ใส่ตะกร้า สร้างใบซื้อ แล้วนำไปซื้อของจริง
-              </Title>
-              <Text type="secondary">
-                flow นี้เป็น stock-only: ใช้จดวัตถุดิบที่ต้องไปซื้อ และพิมพ์ใบซื้อเพื่อถือไปเช็กรายการหน้างาน
-              </Text>
-            </div>
-
-            <div className="stock-catalog-hero-side">
-              <StatsGroup stats={metrics} />
-            </div>
-          </section>
-
-          <PageSection title="ค้นหาและเลือกวัตถุดิบ">
-            <div className="stock-catalog-toolbar">
-              <div className="stock-catalog-toolbar-main">
-                <div className="stock-catalog-search" data-testid="stock-catalog-search">
-                  <SearchInput
-                    value={searchText}
-                    onChange={(value) => {
-                      setSearchText(value);
-                      setPage(1);
-                    }}
-                    onClear={() => {
-                      setSearchText("");
-                      setPage(1);
-                    }}
-                    placeholder="ค้นหาจากชื่อแสดง ชื่อระบบ หรือคำอธิบาย"
+        <div className="stock-order-layout">
+          <main className="stock-order-main">
+            <PageStack gap={16}>
+              <section className="stock-order-hero">
+                <div className="stock-order-hero-copy">
+                  <Badge
+                    status={refreshing ? "processing" : "success"}
+                    text={refreshing ? "กำลังซิงก์ข้อมูลล่าสุด" : "พร้อมจัดรายการสั่งซื้อ"}
                   />
+                  <Title level={3} className="stock-order-title">
+                    เลือกวัตถุดิบ ค้นหาได้เร็ว และจัดลงตะกร้าแบบเข้าใจง่าย
+                  </Title>
+                  <Text type="secondary" className="stock-order-subtitle">
+                    โครงหน้านี้ดึงแนวคิดจากหน้า order มาใช้กับ stock: รายการสินค้าอ่านง่าย, สรุปตะกร้าชัด,
+                    และยืนยันการสั่งซื้อได้ต่อเนื่องโดยไม่เปลี่ยน flow เดิมของระบบ
+                  </Text>
                 </div>
 
-                <Segmented<SortCreated>
-                  value={sortCreated}
-                  onChange={(value) => {
-                    setSortCreated(value);
-                    setPage(1);
-                  }}
-                  options={[
-                    { label: "ใหม่ก่อน", value: "new" },
-                    { label: "เก่าก่อน", value: "old" },
-                  ]}
-                  className="stock-catalog-segmented"
-                />
-              </div>
-
-              <div className="stock-catalog-toolbar-side">
-                <div className="stock-catalog-inline-stat">
-                  <SearchOutlined />
-                  <span>{total.toLocaleString()} รายการ</span>
-                </div>
-                <Segmented<number>
-                  value={pageSize}
-                  onChange={(value) => {
-                    setPageSize(value);
-                    setPage(1);
-                  }}
-                  options={[
-                    { label: "8/หน้า", value: 8 },
-                    { label: "12/หน้า", value: 12 },
-                    { label: "20/หน้า", value: 20 },
-                  ]}
-                  className="stock-catalog-segmented stock-catalog-segmented-compact"
-                />
-              </div>
-            </div>
-
-            {loading && !hasLoadedRef.current ? (
-              <PageState status="loading" title="กำลังโหลดวัตถุดิบ" />
-            ) : error ? (
-              <PageState
-                status="error"
-                title="โหลดรายการวัตถุดิบไม่สำเร็จ"
-                error={error}
-                onRetry={() => void loadIngredients()}
-              />
-            ) : ingredients.length === 0 ? (
-              <div className="stock-catalog-empty">
-                <PageState
-                  status="empty"
-                  title="ไม่พบวัตถุดิบในเงื่อนไขนี้"
-                  description="ลองเปลี่ยนคำค้นหา หรือกดรีเฟรชข้อมูลอีกครั้ง"
-                  action={
-                    <Button icon={<ReloadOutlined />} onClick={() => void loadIngredients()}>
-                      โหลดใหม่
-                    </Button>
-                  }
-                />
-              </div>
-            ) : (
-              <>
-                <List
-                  className="stock-catalog-grid"
-                  data-testid="stock-catalog-list"
-                  grid={{ gutter: 16, xs: 1, sm: 2, lg: 3, xl: 4 }}
-                  dataSource={ingredients}
-                  renderItem={(ingredient) => (
-                    <List.Item key={ingredient.id}>
-                      <IngredientCard
-                        ingredient={ingredient}
-                        orderingEnabled={canCreateOrders}
-                      />
-                    </List.Item>
-                  )}
-                />
-
-                <div className="stock-catalog-pagination">
-                  <div className="stock-catalog-pagination-summary">
-                    แสดง {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} จาก {total.toLocaleString()} รายการ
+                <div className="stock-order-hero-metrics">
+                  <div className="stock-order-metric-card">
+                    <span className="stock-order-metric-label">วัตถุดิบทั้งหมด</span>
+                    <span className="stock-order-metric-value">{total.toLocaleString()}</span>
                   </div>
-                  <Pagination
-                    current={page}
-                    pageSize={pageSize}
-                    total={total}
-                    showSizeChanger={false}
-                    onChange={(nextPage) => setPage(nextPage)}
+                  <div className="stock-order-metric-card">
+                    <span className="stock-order-metric-label">รายการในตะกร้า</span>
+                    <span className="stock-order-metric-value">{itemCount.toLocaleString()}</span>
+                  </div>
+                  <div className="stock-order-metric-card">
+                    <span className="stock-order-metric-label">จำนวนที่ต้องซื้อ</span>
+                    <span className="stock-order-metric-value">{cartQuantityTotal.toLocaleString()}</span>
+                  </div>
+                </div>
+              </section>
+
+              <PageSection title="ค้นหาและเลือกวัตถุดิบ">
+                <div className="stock-order-toolbar">
+                  <div className="stock-order-toolbar-main">
+                    <div className="stock-order-search" data-testid="stock-catalog-search">
+                      <SearchInput
+                        value={searchText}
+                        onChange={(value) => {
+                          setSearchText(value);
+                          setPage(1);
+                        }}
+                        onClear={() => {
+                          setSearchText("");
+                          setPage(1);
+                        }}
+                        placeholder="ค้นหาจากชื่อแสดง ชื่อในระบบ หรือคำอธิบาย"
+                      />
+                    </div>
+
+                    <Segmented<SortCreated>
+                      value={sortCreated}
+                      onChange={(value) => {
+                        setSortCreated(value);
+                        setPage(1);
+                      }}
+                      options={[
+                        { label: "ใหม่ก่อน", value: "new" },
+                        { label: "เก่าก่อน", value: "old" },
+                      ]}
+                      className="stock-order-segmented"
+                    />
+                  </div>
+
+                  <div className="stock-order-toolbar-side">
+                    <div className="stock-order-inline-stat">
+                      <SearchOutlined />
+                      <span>{total.toLocaleString()} รายการ</span>
+                    </div>
+                    <Segmented<number>
+                      value={pageSize}
+                      onChange={(value) => {
+                        setPageSize(value);
+                        setPage(1);
+                      }}
+                      options={[
+                        { label: "8/หน้า", value: 8 },
+                        { label: "12/หน้า", value: 12 },
+                        { label: "20/หน้า", value: 20 },
+                      ]}
+                      className="stock-order-segmented stock-order-segmented-compact"
+                    />
+                  </div>
+                </div>
+
+                {loading && !hasLoadedRef.current ? (
+                  <PageState status="loading" title="กำลังโหลดวัตถุดิบ" />
+                ) : error ? (
+                  <PageState
+                    status="error"
+                    title="โหลดรายการวัตถุดิบไม่สำเร็จ"
+                    error={error}
+                    onRetry={() => void loadIngredients()}
+                  />
+                ) : ingredients.length === 0 ? (
+                  <div className="stock-order-empty">
+                    <PageState
+                      status="empty"
+                      title="ไม่พบวัตถุดิบในเงื่อนไขนี้"
+                      description="ลองเปลี่ยนคำค้นหา หรือกดรีเฟรชข้อมูลอีกครั้ง"
+                      action={
+                        <Button icon={<ReloadOutlined />} onClick={() => void loadIngredients()}>
+                          โหลดใหม่
+                        </Button>
+                      }
+                    />
+                  </div>
+                ) : (
+                  <>
+                    <List
+                      className="stock-order-grid"
+                      data-testid="stock-catalog-list"
+                      grid={{ gutter: 16, xs: 1, sm: 2, lg: 2, xl: 3, xxl: 3 }}
+                      dataSource={ingredients}
+                      renderItem={(ingredient) => (
+                        <List.Item key={ingredient.id}>
+                          <IngredientCard
+                            ingredient={ingredient}
+                            orderingEnabled={canCreateOrders}
+                          />
+                        </List.Item>
+                      )}
+                    />
+
+                    <div className="stock-order-pagination">
+                      <div className="stock-order-pagination-summary">
+                        แสดง {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} จาก {total.toLocaleString()} รายการ
+                      </div>
+                      <Pagination
+                        current={page}
+                        pageSize={pageSize}
+                        total={total}
+                        showSizeChanger={false}
+                        onChange={(nextPage) => setPage(nextPage)}
+                      />
+                    </div>
+                  </>
+                )}
+              </PageSection>
+            </PageStack>
+          </main>
+
+          <aside className="stock-order-side">
+            <Card className="stock-order-summary-card" bordered={false}>
+              <div className="stock-order-summary-header">
+                <div>
+                  <Title level={5} className="stock-order-summary-title">
+                    สรุปรายการที่เลือก
+                  </Title>
+                  <Text type="secondary">
+                    ใช้ปุ่มตะกร้ามุมขวาล่างเพื่อแก้ไขหมายเหตุและยืนยันการสร้างใบซื้อ
+                  </Text>
+                </div>
+                <Badge count={itemCount} overflowCount={99}>
+                  <div className="stock-order-summary-badge">
+                    <ShoppingCartOutlined />
+                  </div>
+                </Badge>
+              </div>
+
+              {cartPreviewItems.length === 0 ? (
+                <div className="stock-order-summary-empty">
+                  <Empty
+                    image={Empty.PRESENTED_IMAGE_SIMPLE}
+                    description="ยังไม่มีรายการในตะกร้า"
                   />
                 </div>
-              </>
-            )}
-          </PageSection>
+              ) : (
+                <>
+                  <div className="stock-order-summary-list">
+                    {cartPreviewItems.map((item, index) => (
+                      <div
+                        key={item.ingredient.id}
+                        className={`stock-order-summary-item${index === cartPreviewItems.length - 1 ? " is-last" : ""}`}
+                      >
+                        <StockImageThumb
+                          src={item.ingredient.img_url}
+                          alt={item.ingredient.display_name}
+                          size={48}
+                          borderRadius={14}
+                        />
+                        <div className="stock-order-summary-item-content">
+                          <div className="stock-order-summary-item-head">
+                            <Text strong ellipsis={{ tooltip: item.ingredient.display_name }}>
+                              {item.ingredient.display_name}
+                            </Text>
+                            <Text strong>{item.quantity.toLocaleString()}</Text>
+                          </div>
+                          <Text type="secondary" className="stock-order-summary-item-subtitle">
+                            หน่วย: {item.ingredient.unit?.display_name || "-"}
+                          </Text>
+                          {item.note?.trim() ? (
+                            <div className="stock-order-summary-item-note">{item.note}</div>
+                          ) : null}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
 
-          {!canCreateOrders ? (
-            <Card className="stock-catalog-empty" bordered={false}>
-              <Text type="secondary">
-                บัญชีนี้ดูรายการวัตถุดิบได้ แต่ยังไม่มีสิทธิ์สร้างใบซื้อ
-              </Text>
+                  {hiddenCartItemsCount > 0 ? (
+                    <div className="stock-order-summary-more">
+                      + อีก {hiddenCartItemsCount.toLocaleString()} รายการในตะกร้า
+                    </div>
+                  ) : null}
+                </>
+              )}
+
+              <div className="stock-order-summary-total">
+                <div className="stock-order-summary-row">
+                  <Text type="secondary">จำนวนรายการ</Text>
+                  <Text strong>{itemCount.toLocaleString()} ชิ้น</Text>
+                </div>
+                <div className="stock-order-summary-row">
+                  <Text type="secondary">รวมที่ต้องซื้อ</Text>
+                  <Text strong>{cartQuantityTotal.toLocaleString()} หน่วย</Text>
+                </div>
+                <div className="stock-order-summary-row">
+                  <Text type="secondary">มีหมายเหตุ</Text>
+                  <Text strong>{notedItemsCount.toLocaleString()} รายการ</Text>
+                </div>
+              </div>
+
+              <div className="stock-order-summary-footer">
+                <div className="stock-order-summary-action">
+                  <ShoppingCartOutlined />
+                  <span>แตะปุ่มตะกร้าเพื่อแก้ไขและยืนยันการสั่งซื้อ</span>
+                </div>
+              </div>
             </Card>
-          ) : null}
-        </PageStack>
+
+            {!canCreateOrders ? (
+              <Alert
+                type="warning"
+                showIcon
+                className="stock-order-side-alert"
+                message="บัญชีนี้ยังไม่มีสิทธิ์สร้างใบซื้อ"
+                description="สามารถดูรายการวัตถุดิบและจัดตะกร้าได้ แต่ยังไม่สามารถยืนยันการสร้างใบซื้อ"
+              />
+            ) : null}
+          </aside>
+        </div>
       </PageContainer>
 
       <CartDrawer />

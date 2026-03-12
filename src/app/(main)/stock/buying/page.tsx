@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   App,
   Button,
-  Card,
   Empty,
+  Input,
   InputNumber,
   Modal,
   Progress,
@@ -19,19 +19,20 @@ import {
   ArrowLeftOutlined,
   CheckCircleOutlined,
   CheckSquareOutlined,
+  DownOutlined,
   MinusOutlined,
   PlusOutlined,
   ReloadOutlined,
+  SearchOutlined,
+  UpOutlined,
 } from "@ant-design/icons";
 import { useRouter, useSearchParams } from "next/navigation";
 
 import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
 import StockImageThumb from "../../../../components/stock/StockImageThumb";
-import { StatsGroup } from "../../../../components/ui/card/StatsGroup";
 import PageContainer from "../../../../components/ui/page/PageContainer";
 import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import PageSection from "../../../../components/ui/page/PageSection";
-import PageStack from "../../../../components/ui/page/PageStack";
 import PageState from "../../../../components/ui/states/PageState";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
@@ -97,6 +98,54 @@ function areItemStatesEqual(left: PurchaseItemState[], right: PurchaseItemState[
   });
 }
 
+function matchesItem(item: PurchaseItemState, search: string): boolean {
+  if (!search) return true;
+  const haystacks = [item.display_name, item.description || "", item.unit_label];
+  return haystacks.some((value) => value.toLowerCase().includes(search));
+}
+
+function getDiffMeta(item: PurchaseItemState): {
+  label: string;
+  color: string;
+  background: string;
+  borderColor: string;
+} {
+  if (!item.is_purchased) {
+    return {
+      label: "ยังไม่ยืนยัน",
+      color: "#64748b",
+      background: "#f8fafc",
+      borderColor: "#e2e8f0",
+    };
+  }
+
+  const diff = item.actual_quantity - item.ordered_quantity;
+  if (diff === 0) {
+    return {
+      label: "ตรงตามแผน",
+      color: "#15803d",
+      background: "#f0fdf4",
+      borderColor: "#bbf7d0",
+    };
+  }
+
+  if (diff > 0) {
+    return {
+      label: `เกิน ${diff.toLocaleString()}`,
+      color: "#1d4ed8",
+      background: "#eff6ff",
+      borderColor: "#bfdbfe",
+    };
+  }
+
+  return {
+    label: `ขาด ${Math.abs(diff).toLocaleString()}`,
+    color: "#b91c1c",
+    background: "#fef2f2",
+    borderColor: "#fecaca",
+  };
+}
+
 export default function StockBuyingPage() {
   const { message: messageApi } = App.useApp();
   const router = useRouter();
@@ -109,7 +158,9 @@ export default function StockBuyingPage() {
 
   const { user, loading: authLoading } = useAuth();
   const { socket } = useSocket();
-  const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+  const { can, loading: permissionLoading } = useEffectivePermissions({
+    enabled: Boolean(user?.id),
+  });
   const canViewOrders = can("stock.orders.page", "view");
   const canUpdateOrders = can("stock.orders.page", "update");
 
@@ -123,6 +174,8 @@ export default function StockBuyingPage() {
   const [error, setError] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
   const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
+  const [searchText, setSearchText] = useState("");
+  const [statsExpanded, setStatsExpanded] = useState(true);
 
   const isEditable = canUpdateOrders && order?.status === OrderStatus.PENDING;
 
@@ -135,8 +188,9 @@ export default function StockBuyingPage() {
       requestRef.current = controller;
 
       try {
-        if (silent && hasLoadedRef.current) setRefreshing(true);
-        else {
+        if (silent && hasLoadedRef.current) {
+          setRefreshing(true);
+        } else {
           setLoading(true);
           setError(null);
         }
@@ -242,9 +296,7 @@ export default function StockBuyingPage() {
           ? {
               ...item,
               is_purchased: checked,
-              actual_quantity: checked
-                ? Math.max(item.actual_quantity, item.ordered_quantity)
-                : 0,
+              actual_quantity: checked ? Math.max(item.actual_quantity, item.ordered_quantity) : 0,
             }
           : item
       )
@@ -312,45 +364,29 @@ export default function StockBuyingPage() {
   }, [items]);
 
   const baselineItems = useMemo(() => buildItems(order), [order]);
-  const hasChanges = useMemo(
-    () => !areItemStatesEqual(items, baselineItems),
-    [baselineItems, items]
-  );
-
-  const metrics = useMemo(
-    () => [
-      {
-        label: "รายการทั้งหมด",
-        value: items.length.toLocaleString(),
-        color: "#0f172a",
-        subLabel: "บรรทัดวัตถุดิบในใบซื้อ",
-      },
-      {
-        label: "ต้องซื้อ",
-        value: totals.required.toLocaleString(),
-        color: "#1d4ed8",
-        subLabel: "ยอดรวมตามแผนที่ขอซื้อ",
-      },
-      {
-        label: "ซื้อจริง",
-        value: totals.actual.toLocaleString(),
-        color: "#15803d",
-        subLabel: `${totals.selected.toLocaleString()} รายการที่ยืนยันแล้ว`,
-      },
-      {
-        label: "ต่างจากแผน",
-        value: (totals.missing + totals.over).toLocaleString(),
-        color: "#b45309",
-        subLabel: "รายการที่ต้องตรวจซ้ำก่อนยืนยัน",
-      },
-    ],
-    [items.length, totals.actual, totals.missing, totals.over, totals.required, totals.selected]
-  );
+  const hasChanges = useMemo(() => !areItemStatesEqual(items, baselineItems), [baselineItems, items]);
 
   const completionPercent = useMemo(() => {
     if (items.length === 0) return 0;
     return Math.round((totals.selected / items.length) * 100);
   }, [items.length, totals.selected]);
+
+  const deferredSearchText = useDeferredValue(searchText.trim().toLowerCase());
+
+  const visibleItems = useMemo(
+    () => items.filter((item) => matchesItem(item, deferredSearchText)),
+    [deferredSearchText, items]
+  );
+
+  const summaryCards = useMemo(
+    () => [
+      { label: "ทั้งหมด", value: items.length, color: "#6366f1" },
+      { label: "ยืนยันแล้ว", value: totals.selected, color: "#2563eb" },
+      { label: "ตรงแผน", value: totals.matched, color: "#16a34a" },
+      { label: "ต่างจากแผน", value: totals.missing + totals.over, color: "#f59e0b" },
+    ],
+    [items.length, totals.matched, totals.missing, totals.over, totals.selected]
+  );
 
   const confirmPurchase = async () => {
     if (!orderId || !isEditable) return;
@@ -381,7 +417,7 @@ export default function StockBuyingPage() {
   };
 
   if (authLoading || permissionLoading) {
-    return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ..." />;
+    return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
   }
 
   if (!user || !canViewOrders) {
@@ -424,95 +460,157 @@ export default function StockBuyingPage() {
     <div className="stock-buying-shell" data-testid="stock-buying-page">
       <StockBuyingPageStyle />
 
-      <UIPageHeader
-        title="ตรวจรับหลังซื้อ"
-        subtitle={
-          order
-            ? `${getOrderCode(order.id)} • อัปเดตล่าสุด ${formatDateTime(lastSyncedAt?.toISOString())}`
-            : "ตรวจและยืนยันจำนวนที่ซื้อจริง"
-        }
-        icon={<CheckSquareOutlined />}
-        onBack={() => router.push("/stock/items")}
-        actions={
-          <Space wrap>
-            <Button
-              icon={<ReloadOutlined />}
-              onClick={() => void fetchOrder({ silent: true })}
-              loading={refreshing}
-            >
-              รีเฟรช
-            </Button>
-            <Button
-              icon={<CheckCircleOutlined />}
-              onClick={markAllAsPurchased}
-              disabled={!isEditable || items.length === 0}
-              data-testid="stock-buying-match-all"
-            >
-              ตรงตามแผนทั้งหมด
-            </Button>
-          </Space>
-        }
-      />
-
       <PageContainer maxWidth={1440}>
-        <PageStack gap={16}>
-          {loading && !order ? (
-            <PageSection>
-              <PageState status="loading" title="กำลังโหลดข้อมูลใบซื้อ" />
-            </PageSection>
-          ) : error && !order ? (
-            <PageSection>
-              <PageState
-                status="error"
-                title={error}
-                action={
-                  <Button
-                    type="primary"
-                    icon={<ArrowLeftOutlined />}
-                    onClick={() => router.push("/stock/items")}
-                  >
-                    กลับหน้าคิวใบซื้อ
-                  </Button>
-                }
-              />
-            </PageSection>
-          ) : !order ? (
-            <PageSection>
-              <PageState status="empty" title="ไม่พบข้อมูลใบซื้อ" />
-            </PageSection>
-          ) : (
-            <>
-              <section className="stock-buying-hero">
-                <div className="stock-buying-hero-copy">
-                  <Tag color="blue" className="stock-buying-chip">
-                    {isEditable ? "พร้อมตรวจรับ" : "โหมดอ่านอย่างเดียว"}
-                  </Tag>
-                  <Title level={3} style={{ margin: "10px 0 8px" }}>
-                    ตรวจยอดจริงให้ครบในหน้าจอเดียว
-                  </Title>
-                  <Text type="secondary">
-                    ใช้สำหรับเช็กจำนวนวัตถุดิบที่ซื้อจริงหลังออกไปซื้อของแล้ว
-                    ระบบจะแยกข้อมูลตามสาขาและรับการอัปเดตแบบเรียลไทม์เฉพาะคำสั่งซื้อนี้
-                  </Text>
-                  {order.remark ? (
-                    <div className="stock-buying-note">
-                      <Text strong>หมายเหตุใบซื้อ</Text>
-                      <Text type="secondary">{order.remark}</Text>
+        <section className="stock-buying-hero">
+          <div className="stock-buying-hero-panel">
+            <div className="stock-buying-hero-top">
+              <div className="stock-buying-title-wrap">
+                <Button
+                  type="text"
+                  icon={<ArrowLeftOutlined />}
+                  onClick={() => router.push("/stock/items")}
+                  className="stock-buying-hero-icon-btn"
+                />
+
+                <div className="stock-buying-title-copy">
+                  <div className="stock-buying-title-line">
+                    <div className="stock-buying-title-icon">
+                      <CheckSquareOutlined />
                     </div>
-                  ) : null}
+                    <div>
+                      <Text className="stock-buying-eyebrow">ตรวจรับหลังซื้อ</Text>
+                      <Title level={3} className="stock-buying-title">
+                        {order ? getOrderCode(order.id) : "กำลังโหลดใบซื้อ"}
+                      </Title>
+                    </div>
+                    <Tag
+                      className={`stock-buying-mode-tag ${isEditable ? "editable" : "readonly"}`}
+                    >
+                      {isEditable ? "พร้อมตรวจรับ" : "โหมดอ่านอย่างเดียว"}
+                    </Tag>
+                  </div>
+                  <Text className="stock-buying-subtitle">
+                    {order
+                      ? `สร้างเมื่อ ${formatDateTime(order.create_date)} และอัปเดตล่าสุด ${
+                          lastSyncedAt ? formatDateTime(lastSyncedAt.toISOString()) : "-"
+                        }`
+                      : "ตรวจและยืนยันจำนวนจริงของวัตถุดิบในใบซื้อ"}
+                  </Text>
                 </div>
+              </div>
 
-                <div className="stock-buying-hero-side">
-                  <StatsGroup stats={metrics} />
+              <div className="stock-buying-hero-actions">
+                <Button
+                  icon={<ReloadOutlined />}
+                  onClick={() => void fetchOrder({ silent: true })}
+                  loading={refreshing}
+                  className="stock-buying-hero-btn"
+                >
+                  รีเฟรช
+                </Button>
+                <Button
+                  icon={<CheckCircleOutlined />}
+                  onClick={markAllAsPurchased}
+                  disabled={!isEditable || items.length === 0}
+                  className="stock-buying-hero-btn"
+                  data-testid="stock-buying-match-all"
+                >
+                  ตรงตามแผนทั้งหมด
+                </Button>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              className="stock-buying-stats-toggle"
+              onClick={() => setStatsExpanded((prev) => !prev)}
+            >
+              <div>
+                <Text className="stock-buying-stats-toggle-label">ภาพรวมคำสั่งซื้อ</Text>
+                <div className="stock-buying-stats-toggle-value">
+                  ตรวจแล้ว {totals.selected.toLocaleString()}/{items.length.toLocaleString()} รายการ
                 </div>
-              </section>
+              </div>
+              <span className="stock-buying-stats-toggle-icon">
+                {statsExpanded ? <UpOutlined /> : <DownOutlined />}
+              </span>
+            </button>
 
+            {statsExpanded ? (
+              <div className="stock-buying-stats-row">
+                {summaryCards.map((stat) => (
+                  <div key={stat.label} className="stock-buying-stat-card">
+                    <span className="stock-buying-stat-value" style={{ color: stat.color }}>
+                      {stat.value.toLocaleString()}
+                    </span>
+                    <span className="stock-buying-stat-label">{stat.label}</span>
+                  </div>
+                ))}
+              </div>
+            ) : null}
+
+            <div className="stock-buying-hero-toolbar">
+              <div className="stock-buying-search">
+                <Input
+                  allowClear
+                  prefix={<SearchOutlined className="stock-buying-search-icon" />}
+                  placeholder="ค้นหาวัตถุดิบ ชื่อ หรือคำอธิบาย"
+                  value={searchText}
+                  onChange={(event) => setSearchText(event.target.value)}
+                  className="stock-buying-search-input"
+                />
+              </div>
+
+              <div className="stock-buying-hero-meta">
+                <span>{completionPercent}% ตรวจแล้ว</span>
+                <span>ซื้อจริง {totals.actual.toLocaleString()} / {totals.required.toLocaleString()}</span>
+                {hasChanges ? <span>มีรายการยังไม่ยืนยัน</span> : <span>ข้อมูลตรงกับล่าสุด</span>}
+              </div>
+            </div>
+
+            {order?.remark ? (
+              <div className="stock-buying-note">
+                <Text strong>หมายเหตุใบซื้อ</Text>
+                <Text type="secondary">{order.remark}</Text>
+              </div>
+            ) : null}
+          </div>
+        </section>
+
+        {loading && !order ? (
+          <PageSection>
+            <PageState status="loading" title="กำลังโหลดข้อมูลใบซื้อ" />
+          </PageSection>
+        ) : error && !order ? (
+          <PageSection>
+            <PageState
+              status="error"
+              title={error}
+              action={
+                <Button
+                  type="primary"
+                  icon={<ArrowLeftOutlined />}
+                  onClick={() => router.push("/stock/items")}
+                >
+                  กลับหน้าคิวใบซื้อ
+                </Button>
+              }
+            />
+          </PageSection>
+        ) : !order ? (
+          <PageSection>
+            <PageState status="empty" title="ไม่พบข้อมูลใบซื้อ" />
+          </PageSection>
+        ) : (
+          <section className="stock-buying-layout">
+            <div className="stock-buying-main">
               {refreshError ? (
                 <Alert
                   type="warning"
                   showIcon
                   message="ซิงก์ข้อมูลล่าสุดไม่สำเร็จ"
                   description={refreshError}
+                  style={{ marginBottom: 16 }}
                 />
               ) : null}
 
@@ -521,198 +619,221 @@ export default function StockBuyingPage() {
                   type="info"
                   showIcon
                   message="ใบซื้อนี้ไม่อยู่ในสถานะรอตรวจรับ"
-                  description="คุณยังดูรายละเอียดได้ตามปกติ แต่ไม่สามารถแก้จำนวนหรือยืนยันผลการซื้อซ้ำได้"
+                  description="ยังดูรายละเอียดได้ตามปกติ แต่ไม่สามารถแก้จำนวนหรือยืนยันผลการซื้อซ้ำได้"
+                  style={{ marginBottom: 16 }}
                 />
               ) : null}
 
-              <section className="stock-buying-layout">
-                <div className="stock-buying-main">
-                  <PageSection
-                    title="รายการวัตถุดิบ"
-                    extra={<Text strong>{items.length.toLocaleString()} รายการ</Text>}
-                  >
-                    {items.length === 0 ? (
-                      <Empty
-                        image={Empty.PRESENTED_IMAGE_SIMPLE}
-                        description="ไม่มีรายการวัตถุดิบในใบซื้อ"
-                      />
-                    ) : (
-                      <div className="stock-buying-list">
-                        {items.map((item) => {
-                          const diff = item.actual_quantity - item.ordered_quantity;
-                          const diffTag = !item.is_purchased ? (
-                            <Tag>ยังไม่ยืนยัน</Tag>
-                          ) : diff === 0 ? (
-                            <Tag color="success">ตรงตามแผน</Tag>
-                          ) : diff > 0 ? (
-                            <Tag color="processing">เกิน {diff.toLocaleString()}</Tag>
-                          ) : (
-                            <Tag color="error">ขาด {Math.abs(diff).toLocaleString()}</Tag>
-                          );
-
-                          return (
-                            <Card
-                              key={item.ingredient_id}
-                              className="stock-buying-item-card"
-                              bordered={false}
-                              data-testid={`stock-buying-item-${item.ingredient_id}`}
-                            >
-                              <div className="stock-buying-item-head">
-                                <div className="stock-buying-item-identity">
-                                  <StockImageThumb
-                                    src={item.img_url}
-                                    alt={item.display_name}
-                                    size={64}
-                                    borderRadius={18}
-                                  />
-                                  <div className="stock-buying-item-copy">
-                                    <div className="stock-buying-item-title-row">
-                                      <Text strong>{item.display_name}</Text>
-                                      {diffTag}
-                                    </div>
-                                    <Text type="secondary">
-                                      ต้องซื้อ {item.ordered_quantity.toLocaleString()} {item.unit_label}
-                                    </Text>
-                                    {item.description ? (
-                                      <Text type="secondary" className="stock-buying-item-description">
-                                        {item.description}
-                                      </Text>
-                                    ) : null}
-                                  </div>
-                                </div>
-
-                                <div className="stock-buying-item-toggle">
-                                  <Switch
-                                    checked={item.is_purchased}
-                                    checkedChildren="ซื้อแล้ว"
-                                    unCheckedChildren="ยังไม่ซื้อ"
-                                    onChange={(checked) => setPurchased(item.ingredient_id, checked)}
-                                    disabled={!isEditable}
-                                  />
-                                </div>
-                              </div>
-
-                              <div className="stock-buying-item-controls">
-                                <div className="stock-buying-item-quick-actions">
-                                  <Button
-                                    onClick={() => setMatchRequired(item.ingredient_id)}
-                                    disabled={!isEditable}
-                                  >
-                                    เท่าที่สั่ง
-                                  </Button>
-                                  <Button
-                                    onClick={() => setActualQuantity(item.ingredient_id, 0)}
-                                    disabled={!isEditable}
-                                  >
-                                    ไม่ได้ซื้อ
-                                  </Button>
-                                </div>
-
-                                <div className="stock-buying-qty-box">
-                                  <Text type="secondary">จำนวนที่ซื้อจริง</Text>
-                                  <Space.Compact block>
-                                    <Button
-                                      icon={<MinusOutlined />}
-                                      onClick={() => nudgeQuantity(item.ingredient_id, -1)}
-                                      disabled={!isEditable}
-                                    />
-                                    <InputNumber
-                                      min={0}
-                                      value={item.actual_quantity}
-                                      onChange={(value) => setActualQuantity(item.ingredient_id, value)}
-                                      disabled={!isEditable}
-                                      controls={false}
-                                      style={{ width: "100%" }}
-                                    />
-                                    <Button
-                                      icon={<PlusOutlined />}
-                                      onClick={() => nudgeQuantity(item.ingredient_id, 1)}
-                                      disabled={!isEditable}
-                                    />
-                                  </Space.Compact>
-                                  <Text type="secondary">หน่วย: {item.unit_label}</Text>
-                                </div>
-                              </div>
-                            </Card>
-                          );
-                        })}
-                      </div>
-                    )}
-                  </PageSection>
+              <section className="stock-buying-section-card">
+                <div className="stock-buying-section-head">
+                  <div>
+                    <Title level={4} className="stock-buying-section-title">
+                      รายการวัตถุดิบ
+                    </Title>
+                    <Text type="secondary">
+                      {deferredSearchText
+                        ? `แสดง ${visibleItems.length.toLocaleString()} จาก ${items.length.toLocaleString()} รายการ`
+                        : `${items.length.toLocaleString()} รายการในใบซื้อ`}
+                    </Text>
+                  </div>
+                  <div className="stock-buying-section-meta">
+                    <Tag color="blue">{totals.selected.toLocaleString()} ยืนยันแล้ว</Tag>
+                    <Tag color="gold">{(totals.missing + totals.over).toLocaleString()} ต่างจากแผน</Tag>
+                  </div>
                 </div>
 
-                <aside className="stock-buying-aside">
-                  <Card className="stock-buying-summary-card" bordered={false}>
-                    <Space direction="vertical" size={16} style={{ width: "100%" }}>
-                      <div>
-                        <Text type="secondary">สรุปการตรวจรับ</Text>
-                        <Title level={4} style={{ margin: "4px 0 0" }}>
-                          {getOrderCode(order.id)}
-                        </Title>
-                        <Text type="secondary">
-                          สร้างเมื่อ {formatDateTime(order.create_date)}
-                        </Text>
-                      </div>
+                {items.length === 0 ? (
+                  <div className="stock-buying-empty">
+                    <Empty
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                      description="ไม่มีรายการวัตถุดิบในใบซื้อ"
+                    />
+                  </div>
+                ) : visibleItems.length === 0 ? (
+                  <div className="stock-buying-empty">
+                    <Empty
+                      image={Empty.PRESENTED_IMAGE_SIMPLE}
+                      description="ไม่พบรายการที่ค้นหา"
+                    />
+                  </div>
+                ) : (
+                  <div className="stock-buying-list">
+                    {visibleItems.map((item) => {
+                      const diffMeta = getDiffMeta(item);
 
-                      <div>
-                        <div className="stock-buying-summary-row">
-                          <Text>รายการที่ตรวจแล้ว</Text>
-                          <Text strong>
-                            {totals.selected.toLocaleString()}/{items.length.toLocaleString()}
-                          </Text>
-                        </div>
-                        <Progress
-                          percent={completionPercent}
-                          showInfo={false}
-                          strokeColor="#2563eb"
-                          trailColor="#dbeafe"
-                        />
-                      </div>
+                      return (
+                        <article
+                          key={item.ingredient_id}
+                          className="stock-buying-item-card"
+                          data-testid={`stock-buying-item-${item.ingredient_id}`}
+                        >
+                          <div className="stock-buying-item-head">
+                            <div className="stock-buying-item-identity">
+                              <StockImageThumb
+                                src={item.img_url}
+                                alt={item.display_name}
+                                size={68}
+                                borderRadius={18}
+                              />
+                              <div className="stock-buying-item-copy">
+                                <div className="stock-buying-item-title-row">
+                                  <Text strong>{item.display_name}</Text>
+                                  <span
+                                    className="stock-buying-item-status"
+                                    style={{
+                                      color: diffMeta.color,
+                                      background: diffMeta.background,
+                                      borderColor: diffMeta.borderColor,
+                                    }}
+                                  >
+                                    {diffMeta.label}
+                                  </span>
+                                </div>
+                                <Text type="secondary">
+                                  ต้องซื้อ {item.ordered_quantity.toLocaleString()} {item.unit_label}
+                                </Text>
+                                {item.description ? (
+                                  <Text type="secondary" className="stock-buying-item-description">
+                                    {item.description}
+                                  </Text>
+                                ) : null}
+                              </div>
+                            </div>
 
-                      <div className="stock-buying-summary-grid">
-                        <div>
-                          <Text type="secondary">ต้องซื้อ</Text>
-                          <Title level={5}>{totals.required.toLocaleString()}</Title>
-                        </div>
-                        <div>
-                          <Text type="secondary">ซื้อจริง</Text>
-                          <Title level={5}>{totals.actual.toLocaleString()}</Title>
-                        </div>
-                        <div>
-                          <Text type="secondary">ครบตามแผน</Text>
-                          <Title level={5}>{totals.matched.toLocaleString()}</Title>
-                        </div>
-                        <div>
-                          <Text type="secondary">ต้องทวนอีกครั้ง</Text>
-                          <Title level={5}>{(totals.missing + totals.over).toLocaleString()}</Title>
-                        </div>
-                      </div>
+                            <div className="stock-buying-item-toggle">
+                              <Switch
+                                checked={item.is_purchased}
+                                checkedChildren="ซื้อแล้ว"
+                                unCheckedChildren="ยังไม่ซื้อ"
+                                onChange={(checked) => setPurchased(item.ingredient_id, checked)}
+                                disabled={!isEditable}
+                              />
+                            </div>
+                          </div>
 
-                      <div className="stock-buying-pill-row">
-                        <Tag color={totals.missing > 0 ? "warning" : "default"}>
-                          ซื้อน้อยกว่า {totals.missing.toLocaleString()}
-                        </Tag>
-                        <Tag color={totals.over > 0 ? "processing" : "default"}>
-                          ซื้อมากกว่า {totals.over.toLocaleString()}
-                        </Tag>
-                        <Tag color={hasChanges ? "blue" : "default"}>
-                          {hasChanges ? "มีการแก้ไขยังไม่ยืนยัน" : "ยังไม่มีการแก้ไขใหม่"}
-                        </Tag>
-                      </div>
+                          <div className="stock-buying-item-stats">
+                            <span>สั่งซื้อ {item.ordered_quantity.toLocaleString()} {item.unit_label}</span>
+                            <span>
+                              ซื้อจริง {item.is_purchased ? item.actual_quantity.toLocaleString() : "0"}{" "}
+                              {item.unit_label}
+                            </span>
+                          </div>
 
-                      <Alert
-                        type="info"
-                        showIcon
-                        message="วิธีใช้งาน"
-                        description="เปิดสวิตช์เมื่อซื้อแล้ว กด 'เท่าที่สั่ง' เพื่อกรอกเร็ว หรือปรับจำนวนจริงทีละรายการก่อนยืนยัน"
-                      />
-                    </Space>
-                  </Card>
-                </aside>
+                          <div className="stock-buying-item-controls">
+                            <div className="stock-buying-item-quick-actions">
+                              <Button
+                                onClick={() => setMatchRequired(item.ingredient_id)}
+                                disabled={!isEditable}
+                              >
+                                เท่าที่สั่ง
+                              </Button>
+                              <Button
+                                onClick={() => setActualQuantity(item.ingredient_id, 0)}
+                                disabled={!isEditable}
+                              >
+                                ไม่ได้ซื้อ
+                              </Button>
+                            </div>
+
+                            <div className="stock-buying-qty-box">
+                              <Text type="secondary">จำนวนที่ซื้อจริง</Text>
+                              <Space.Compact block>
+                                <Button
+                                  icon={<MinusOutlined />}
+                                  onClick={() => nudgeQuantity(item.ingredient_id, -1)}
+                                  disabled={!isEditable}
+                                />
+                                <InputNumber
+                                  min={0}
+                                  value={item.actual_quantity}
+                                  onChange={(value) => setActualQuantity(item.ingredient_id, value)}
+                                  disabled={!isEditable}
+                                  controls={false}
+                                  style={{ width: "100%" }}
+                                />
+                                <Button
+                                  icon={<PlusOutlined />}
+                                  onClick={() => nudgeQuantity(item.ingredient_id, 1)}
+                                  disabled={!isEditable}
+                                />
+                              </Space.Compact>
+                              <Text type="secondary">หน่วย: {item.unit_label}</Text>
+                            </div>
+                          </div>
+                        </article>
+                      );
+                    })}
+                  </div>
+                )}
               </section>
-            </>
-          )}
-        </PageStack>
+            </div>
+
+            <aside className="stock-buying-aside">
+              <div className="stock-buying-summary-card">
+                <div className="stock-buying-summary-block">
+                  <Text type="secondary">สรุปการตรวจรับ</Text>
+                  <Title level={4} className="stock-buying-summary-code">
+                    {getOrderCode(order.id)}
+                  </Title>
+                  <Text type="secondary">สร้างเมื่อ {formatDateTime(order.create_date)}</Text>
+                </div>
+
+                <div className="stock-buying-summary-block">
+                  <div className="stock-buying-summary-row">
+                    <Text>รายการที่ตรวจแล้ว</Text>
+                    <Text strong>
+                      {totals.selected.toLocaleString()}/{items.length.toLocaleString()}
+                    </Text>
+                  </div>
+                  <Progress
+                    percent={completionPercent}
+                    showInfo={false}
+                    strokeColor="#2563eb"
+                    trailColor="#dbeafe"
+                  />
+                </div>
+
+                <div className="stock-buying-summary-grid">
+                  <div>
+                    <Text type="secondary">ต้องซื้อ</Text>
+                    <Title level={5}>{totals.required.toLocaleString()}</Title>
+                  </div>
+                  <div>
+                    <Text type="secondary">ซื้อจริง</Text>
+                    <Title level={5}>{totals.actual.toLocaleString()}</Title>
+                  </div>
+                  <div>
+                    <Text type="secondary">ครบตามแผน</Text>
+                    <Title level={5}>{totals.matched.toLocaleString()}</Title>
+                  </div>
+                  <div>
+                    <Text type="secondary">ต้องทวนอีกครั้ง</Text>
+                    <Title level={5}>{(totals.missing + totals.over).toLocaleString()}</Title>
+                  </div>
+                </div>
+
+                <div className="stock-buying-pill-row">
+                  <Tag color={totals.missing > 0 ? "warning" : "default"}>
+                    ซื้อน้อยกว่า {totals.missing.toLocaleString()}
+                  </Tag>
+                  <Tag color={totals.over > 0 ? "processing" : "default"}>
+                    ซื้อมากกว่า {totals.over.toLocaleString()}
+                  </Tag>
+                  <Tag color={hasChanges ? "blue" : "default"}>
+                    {hasChanges ? "มีการแก้ไขยังไม่ยืนยัน" : "ข้อมูลตรงกับล่าสุด"}
+                  </Tag>
+                </div>
+
+                <Alert
+                  type="info"
+                  showIcon
+                  message="วิธีใช้งาน"
+                  description="เปิดสวิตช์เมื่อซื้อแล้ว กด 'เท่าที่สั่ง' เพื่อกรอกเร็ว หรือปรับจำนวนจริงทีละรายการก่อนยืนยัน"
+                />
+              </div>
+            </aside>
+          </section>
+        )}
       </PageContainer>
 
       {order && isEditable ? (
@@ -756,6 +877,7 @@ export default function StockBuyingPage() {
             message="เมื่อยืนยันแล้ว ใบซื้อจะถูกปิดงาน"
             description="ระบบจะบันทึกทุกบรรทัดที่ยังไม่เลือกเป็นไม่ได้ซื้อ และเปลี่ยนสถานะใบซื้อเป็นเสร็จสิ้น"
           />
+
           <div className="stock-buying-modal-summary">
             <div>
               <Text type="secondary">รายการทั้งหมด</Text>

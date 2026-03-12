@@ -1,523 +1,397 @@
 "use client";
 
 import React from "react";
-import { Typography, Tag, Button, Empty } from "antd";
-import { 
-    HistoryOutlined,
-    CheckCircleFilled,
-    CloseCircleFilled,
-    EyeOutlined,
-    DeleteOutlined,
-    CalendarOutlined,
-    UserOutlined,
-    ShoppingOutlined
-} from "@ant-design/icons";
-import { Order, OrderStatus } from "../../../../types/api/stock/orders";
-import { resolveImageSource } from "../../../../utils/image/source";
-import SmartAvatar from "../../../../components/ui/image/SmartAvatar";
-const { Text, Title } = Typography;
 
-// ============ STYLES ============
+export default function HistoryPageStyle() {
+  return (
+    <style jsx global>{`
+      @keyframes stockHistoryFadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
 
-export const pageStyles = {
-    container: {
-        paddingBottom: 100,
-        backgroundColor: '#f8f9fc',
-        minHeight: '100vh'
-    },
-    header: {
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        padding: '20px 20px 60px 20px',
-        position: 'relative' as const,
-        overflow: 'hidden' as const
-    },
-    headerDecoCircle1: {
-        position: 'absolute' as const,
-        top: -50,
-        right: -50,
-        width: 150,
-        height: 150,
-        borderRadius: '50%',
-        background: 'rgba(255,255,255,0.1)'
-    },
-    headerDecoCircle2: {
-        position: 'absolute' as const,
-        bottom: -30,
-        left: -30,
-        width: 100,
-        height: 100,
-        borderRadius: '50%',
-        background: 'rgba(255,255,255,0.08)'
-    },
-    headerContent: {
-        position: 'relative' as const, 
-        zIndex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'space-between'
-    },
-    headerLeft: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12
-    },
-    headerIconBox: {
-        width: 48,
-        height: 48,
-        borderRadius: 14,
-        background: 'rgba(255,255,255,0.2)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backdropFilter: 'blur(8px)'
-    },
-    statsCard: {
-        margin: '-40px 16px 0 16px',
-        padding: '16px',
-        background: 'white',
-        borderRadius: 20,
-        boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-        display: 'flex',
-        justifyContent: 'space-around',
-        position: 'relative' as const,
-        zIndex: 10
-    },
-    statItem: {
-        textAlign: 'center' as const,
-        flex: 1
-    },
-    statNumber: {
-        fontSize: 24,
-        fontWeight: 700,
-        display: 'block'
-    },
-    statLabel: {
-        fontSize: 12,
-        color: '#8c8c8c',
-        marginTop: 2
-    },
-    listContainer: {
-        padding: '20px 16px 0 16px'
-    },
-    sectionTitle: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 16
-    },
-    orderCard: (status: OrderStatus) => ({
-        marginBottom: 12,
-        borderRadius: 20,
-        border: 'none',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.04)',
-        overflow: 'hidden',
-        transition: 'all 0.3s ease',
-        background: status === OrderStatus.COMPLETED 
-            ? 'linear-gradient(to right, #f6ffed, white)'
-            : 'linear-gradient(to right, #fff2f0, white)'
-    }),
-    orderCardInner: {
-        padding: 16,
-        display: 'flex',
-        flexDirection: 'column' as const,
-        gap: 12
-    },
-    orderHeader: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start'
-    },
-    orderInfo: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10
-    },
-    orderActions: {
-        display: 'flex',
-        gap: 8
-    }
-};
+      .stock-history-page-shell {
+        min-height: 100vh;
+        background: #f8fafc;
+        padding-bottom: 120px;
+      }
 
-// ============ STATUS CONFIG ============
+      .stock-history-search-panel,
+      .stock-history-summary-card,
+      .stock-history-toolbar,
+      .stock-history-feedback,
+      .stock-history-card,
+      .stock-history-pagination {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        box-shadow: 0 2px 12px rgba(15, 23, 42, 0.04);
+      }
 
-export const statusConfig = {
-    [OrderStatus.PENDING]: {
-        color: '#faad14',
-        bgColor: 'linear-gradient(135deg, #fffbe6 0%, #fff1b8 100%)',
-        borderColor: '#ffe58f',
-        icon: <></>,
-        label: 'รอดำเนินการ',
-        tagColor: 'gold'
-    },
-    [OrderStatus.COMPLETED]: {
-        color: '#52c41a',
-        bgColor: 'linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%)',
-        borderColor: '#b7eb8f',
-        icon: <CheckCircleFilled style={{ color: '#52c41a' }} />,
-        label: 'เสร็จสิ้น',
-        tagColor: 'success'
-    },
-    [OrderStatus.CANCELLED]: {
-        color: '#ff4d4f',
-        bgColor: 'linear-gradient(135deg, #fff2f0 0%, #ffccc7 100%)',
-        borderColor: '#ffa39e',
-        icon: <CloseCircleFilled style={{ color: '#ff4d4f' }} />,
-        label: 'ยกเลิก',
-        tagColor: 'error'
-    }
-};
+      .stock-history-header-actions {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
 
-// ============ CSS ANIMATIONS ============
+      .stock-history-search-panel {
+        margin-bottom: 16px;
+        border-radius: 16px;
+        padding: 4px 16px;
+        animation: stockHistoryFadeInUp 0.2s ease;
+      }
 
-export const HistoryPageStyles = () => (
-    <style>{`
-        .history-page-modal .ant-modal-content {
-            border-radius: 24px !important;
-            overflow: hidden;
-            padding: 0 !important;
+      .stock-history-search-panel .ant-input,
+      .stock-history-search-panel .ant-input-affix-wrapper {
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent !important;
+      }
+
+      .stock-history-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-bottom: 16px;
+      }
+
+      .stock-history-summary-card {
+        border-radius: 18px;
+        padding: 16px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .stock-history-summary-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
+      }
+
+      .stock-history-summary-label {
+        display: block;
+        margin-bottom: 6px;
+        color: #64748b;
+        font-size: 13px;
+      }
+
+      .stock-history-summary-value {
+        display: block;
+        color: #0f172a;
+        font-size: 24px;
+        line-height: 1.2;
+        font-weight: 700;
+      }
+
+      .stock-history-summary-meta {
+        display: block;
+        margin-top: 6px;
+        color: #94a3b8;
+        font-size: 12px;
+      }
+
+      .stock-history-tab-row {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 16px;
+        overflow-x: auto;
+        padding-bottom: 4px;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+      }
+
+      .stock-history-tab-row::-webkit-scrollbar {
+        display: none;
+      }
+
+      .stock-history-tab-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 44px;
+        padding: 10px 18px;
+        border-radius: 14px;
+        border: 1px solid #e2e8f0;
+        background: #ffffff;
+        color: #475569;
+        font-size: 14px;
+        font-weight: 600;
+        white-space: nowrap;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+      }
+
+      .stock-history-tab-btn:hover {
+        transform: translateY(-1px);
+      }
+
+      .stock-history-tab-btn:active {
+        transform: scale(0.98);
+      }
+
+      .stock-history-toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px;
+        margin-bottom: 16px;
+        border-radius: 16px;
+      }
+
+      .stock-history-toolbar-right {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .stock-history-segmented {
+        background: #f1f5f9;
+        padding: 4px;
+        border-radius: 14px;
+      }
+
+      .stock-history-segmented .ant-segmented-item {
+        min-height: 36px;
+        border-radius: 10px;
+        font-weight: 600;
+      }
+
+      .stock-history-feedback {
+        margin-bottom: 14px;
+        border-radius: 14px;
+        padding: 12px 14px;
+      }
+
+      .stock-history-feedback-danger {
+        color: #b91c1c;
+        background: #fef2f2;
+        border-color: #fecaca;
+      }
+
+      .stock-history-list {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+      }
+
+      .stock-history-card {
+        border-radius: 18px;
+        padding: 16px;
+        animation: stockHistoryFadeInUp 0.35s ease both;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .stock-history-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 12px 28px rgba(15, 23, 42, 0.08);
+      }
+
+      .stock-history-card-head,
+      .stock-history-card-main,
+      .stock-history-card-main-left,
+      .stock-history-card-main-right,
+      .stock-history-card-foot,
+      .stock-history-card-metrics,
+      .stock-history-meta-row,
+      .stock-history-item-chips,
+      .stock-history-card-actions {
+        display: flex;
+      }
+
+      .stock-history-card-head,
+      .stock-history-card-foot {
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .stock-history-card-main {
+        justify-content: space-between;
+        gap: 16px;
+        margin-top: 14px;
+      }
+
+      .stock-history-card-main-left,
+      .stock-history-card-main-right {
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .stock-history-card-main-left {
+        flex: 1;
+        min-width: 0;
+      }
+
+      .stock-history-card-main-right {
+        min-width: 180px;
+        align-items: flex-end;
+      }
+
+      .stock-history-card-title {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .stock-history-card-code {
+        font-size: 16px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      .stock-history-status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 4px 10px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .stock-history-status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 999px;
+        display: inline-block;
+      }
+
+      .stock-history-meta-row,
+      .stock-history-card-metrics,
+      .stock-history-item-chips,
+      .stock-history-card-actions {
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .stock-history-meta-row {
+        color: #64748b;
+        font-size: 13px;
+      }
+
+      .stock-history-meta-row span,
+      .stock-history-card-metrics span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      .stock-history-card-metrics span {
+        padding: 6px 10px;
+        border-radius: 10px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        color: #475569;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .stock-history-item-chip {
+        margin-inline-end: 0;
+        padding-inline: 10px;
+        border-radius: 999px;
+        background: #f8fafc;
+        border: 1px solid #dbeafe;
+        color: #334155;
+        font-weight: 600;
+      }
+
+      .stock-history-remark {
+        width: 100%;
+        padding: 12px 14px;
+        border-radius: 14px;
+        background: #f8fafc;
+        color: #475569;
+      }
+
+      .stock-history-remark-title {
+        display: block;
+        margin-bottom: 4px;
+        color: #94a3b8;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .stock-history-card-actions {
+        justify-content: flex-end;
+      }
+
+      .stock-history-card-actions .ant-btn {
+        border-radius: 12px;
+        font-weight: 600;
+      }
+
+      .stock-history-pagination {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 16px;
+        padding: 14px 16px;
+        border-radius: 16px;
+      }
+
+      .stock-history-pagination-summary {
+        color: #64748b;
+        font-size: 13px;
+      }
+
+      @media screen and (max-width: 1200px) {
+        .stock-history-summary-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
         }
-        
-        @keyframes fadeSlideIn {
-            from {
-                opacity: 0;
-                transform: translateY(12px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+      }
+
+      @media screen and (max-width: 768px) {
+        .stock-history-page-shell {
+          padding-bottom: 96px;
         }
-        
-        .history-order-card {
-            animation: fadeSlideIn 0.4s ease both;
+
+        .stock-history-header-actions,
+        .stock-history-toolbar,
+        .stock-history-toolbar-right,
+        .stock-history-card-head,
+        .stock-history-card-main,
+        .stock-history-card-foot,
+        .stock-history-pagination {
+          flex-direction: column;
+          align-items: stretch;
         }
-        
-        .history-order-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.1) !important;
+
+        .stock-history-summary-grid {
+          grid-template-columns: 1fr 1fr;
         }
-        
-        .history-order-card:active {
-            transform: scale(0.98);
+
+        .stock-history-card-main-right {
+          min-width: 0;
+          align-items: flex-start;
         }
-        
-        /* Custom scrollbar */
-        .history-page *::-webkit-scrollbar {
-            width: 6px;
+
+        .stock-history-card-actions {
+          justify-content: stretch;
         }
-        .history-page *::-webkit-scrollbar-track {
-            background: transparent;
+
+        .stock-history-card-actions .ant-btn {
+          flex: 1 1 calc(50% - 6px);
         }
-        .history-page *::-webkit-scrollbar-thumb {
-            background: #d9d9d9;
-            border-radius: 3px;
+      }
+
+      @media screen and (max-width: 576px) {
+        .stock-history-summary-grid {
+          grid-template-columns: 1fr;
         }
-        .history-page *::-webkit-scrollbar-thumb:hover {
-            background: #bfbfbf;
+
+        .stock-history-card-actions .ant-btn {
+          flex-basis: 100%;
         }
+      }
     `}</style>
-);
-
-// ============ HEADER COMPONENT ============
-
-interface HeaderProps {
-    onRefresh: () => void;
-    loading?: boolean;
+  );
 }
-
-export const PageHeader = ({ onRefresh, loading }: HeaderProps) => (
-    <div style={pageStyles.header}>
-        {/* Decorative circles */}
-        <div style={pageStyles.headerDecoCircle1} />
-        <div style={pageStyles.headerDecoCircle2} />
-        
-        {/* Header Content */}
-        <div style={pageStyles.headerContent}>
-            <div style={pageStyles.headerLeft}>
-                <div style={pageStyles.headerIconBox}>
-                    <HistoryOutlined style={{ fontSize: 24, color: 'white' }} />
-                </div>
-                <div>
-                    <Text style={{ 
-                        color: 'rgba(255,255,255,0.85)', 
-                        fontSize: 13,
-                        display: 'block'
-                    }}>
-                        ประวัติทั้งหมด
-                    </Text>
-                    <Title level={4} style={{ 
-                        color: 'white', 
-                        margin: 0,
-                        fontWeight: 700,
-                        letterSpacing: '0.5px'
-                    }}>
-                        รายการสั่งซื้อ
-                    </Title>
-                </div>
-            </div>
-            <Button
-                type="text"
-                icon={<HistoryOutlined style={{ color: 'white' }} />}
-                onClick={onRefresh}
-                loading={loading}
-                style={{
-                    background: 'rgba(255,255,255,0.2)',
-                    borderRadius: 12,
-                    height: 40,
-                    color: 'white',
-                    fontWeight: 600
-                }}
-            >
-                รีเฟรช
-            </Button>
-        </div>
-    </div>
-);
-
-// ============ STATS CARD COMPONENT ============
-
-interface StatsCardProps {
-    totalOrders: number;
-    completedOrders: number;
-    cancelledOrders: number;
-}
-
-export const StatsCard = ({ totalOrders, completedOrders, cancelledOrders }: StatsCardProps) => (
-    <div style={pageStyles.statsCard}>
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#667eea' }}>{totalOrders}</span>
-            <Text style={pageStyles.statLabel}>ทั้งหมด</Text>
-        </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#52c41a' }}>{completedOrders}</span>
-            <Text style={pageStyles.statLabel}>เสร็จสิ้น</Text>
-        </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#ff4d4f' }}>{cancelledOrders}</span>
-            <Text style={pageStyles.statLabel}>ยกเลิก</Text>
-        </div>
-    </div>
-);
-
-// ============ ORDER CARD COMPONENT ============
-
-interface OrderCardProps {
-    order: Order;
-    index: number;
-    onView: (order: Order) => void;
-    onDelete: (order: Order) => void;
-    canDelete: boolean;
-}
-
-export const OrderCard = ({ order, index, onView, onDelete, canDelete }: OrderCardProps) => {
-    const status = statusConfig[order.status] || statusConfig[OrderStatus.PENDING];
-    const itemCount = order.ordersItems?.length || 0;
-    const purchasedCount = order.ordersItems?.filter(i => i.ordersDetail?.is_purchased).length || 0;
-    
-    // Get first 3 items for preview
-    const previewItems = order.ordersItems?.slice(0, 3) || [];
-    const moreItems = itemCount - 3;
-
-    return (
-        <div
-            className="history-order-card"
-            style={{
-                ...pageStyles.orderCard(order.status),
-                animationDelay: `${index * 0.05}s`
-            }}
-        >
-            <div style={pageStyles.orderCardInner}>
-                {/* Header row */}
-                <div style={pageStyles.orderHeader}>
-                    <div style={pageStyles.orderInfo}>
-                        {/* Status Icon */}
-                        <div style={{
-                            width: 44,
-                            height: 44,
-                            borderRadius: 12,
-                            background: status.bgColor,
-                            border: `1px solid ${status.borderColor}`,
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            fontSize: 20
-                        }}>
-                            {status.icon}
-                        </div>
-                        <div>
-                            <Text strong style={{ fontSize: 15, color: '#1a1a2e', display: 'block' }}>
-                                #{order.id.substring(0, 8).toUpperCase()}
-                            </Text>
-                            <Tag 
-                                color={status.tagColor as "gold" | "success" | "error"} 
-                                style={{ 
-                                    marginTop: 4, 
-                                    borderRadius: 10,
-                                    fontWeight: 600 
-                                }}
-                            >
-                                {status.label}
-                            </Tag>
-                        </div>
-                    </div>
-                    
-                    {/* Actions */}
-                    <div style={pageStyles.orderActions}>
-                        <Button
-                            type="primary"
-                            size="small"
-                            icon={<EyeOutlined />}
-                            onClick={() => onView(order)}
-                            style={{
-                                borderRadius: 10,
-                                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                border: 'none'
-                            }}
-                        >
-                            ดู
-                        </Button>
-                        {canDelete && (
-                            <Button
-                                danger
-                                size="small"
-                                icon={<DeleteOutlined />}
-                                onClick={() => onDelete(order)}
-                                style={{ borderRadius: 10 }}
-                            >
-                                ลบ
-                            </Button>
-                        )}
-                    </div>
-                </div>
-
-                {/* Order Info */}
-                <div style={{ 
-                    display: 'flex', 
-                    gap: 16, 
-                    padding: '12px 0',
-                    borderTop: '1px solid #f0f0f0',
-                    borderBottom: '1px solid #f0f0f0'
-                }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <UserOutlined style={{ color: '#8c8c8c' }} />
-                        <Text type="secondary" style={{ fontSize: 13 }}>
-                            {order.ordered_by?.name || order.ordered_by?.username || 'Unknown'}
-                        </Text>
-                    </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <CalendarOutlined style={{ color: '#8c8c8c' }} />
-                        <Text type="secondary" style={{ fontSize: 13 }}>
-                            {new Date(order.create_date).toLocaleDateString('th-TH', {
-                                day: 'numeric',
-                                month: 'short',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit'
-                            })}
-                        </Text>
-                    </div>
-                </div>
-
-                {/* Items Preview */}
-                <div>
-                    <div style={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: 6,
-                        marginBottom: 10
-                    }}>
-                        <ShoppingOutlined style={{ color: '#667eea', fontSize: 14 }} />
-                        <Text style={{ fontSize: 13, color: '#666' }}>
-                            {order.status === OrderStatus.COMPLETED 
-                                ? `ซื้อแล้ว ${purchasedCount}/${itemCount} รายการ`
-                                : `${itemCount} รายการ`
-                            }
-                        </Text>
-                    </div>
-                    
-                    <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                        {previewItems.map((item) => (
-                            <div 
-                                key={item.id}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: 8,
-                                    padding: '6px 10px',
-                                    background: '#f5f5f5',
-                                    borderRadius: 10
-                                }}
-                            >
-                                <SmartAvatar
-                                    src={resolveImageSource(item.ingredient?.img_url, "https://placehold.co/32x32/f5f5f5/999999?text=Preview")}
-                                    alt={item.ingredient?.display_name || "ingredient"}
-                                    size={28}
-                                    shape="square"
-                                    icon={<ShoppingOutlined />}
-                                    imageStyle={{ objectFit: "cover" }}
-                                    style={{ borderRadius: 6 }}
-                                />
-                                <div>
-                                    <Text 
-                                        style={{ fontSize: 12, display: 'block' }}
-                                        ellipsis={{ tooltip: item.ingredient?.display_name }}
-                                    >
-                                        {item.ingredient?.display_name}
-                                    </Text>
-                                    <Text type="secondary" style={{ fontSize: 11 }}>
-                                        {item.ordersDetail?.is_purchased 
-                                            ? item.ordersDetail.actual_quantity 
-                                            : item.quantity_ordered
-                                        } {item.ingredient?.unit?.display_name}
-                                    </Text>
-                                </div>
-                            </div>
-                        ))}
-                        {moreItems > 0 && (
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                padding: '6px 12px',
-                                background: '#e6f4ff',
-                                borderRadius: 10,
-                                color: '#1890ff',
-                                fontWeight: 600,
-                                fontSize: 12
-                            }}>
-                                +{moreItems} อื่นๆ
-                            </div>
-                        )}
-                    </div>
-                </div>
-            </div>
-        </div>
-    );
-};
-
-// ============ EMPTY STATE COMPONENT ============
-
-export const EmptyState = () => (
-    <Empty
-        image={Empty.PRESENTED_IMAGE_SIMPLE}
-        description={
-            <div style={{ textAlign: 'center' }}>
-                <Text type="secondary" style={{ fontSize: 15 }}>
-                    ยังไม่มีประวัติการสั่งซื้อ
-                </Text>
-                <br />
-                <Text type="secondary" style={{ fontSize: 13 }}>
-                    เมื่อมีการสั่งซื้อเสร็จสิ้นหรือยกเลิก จะแสดงที่นี่
-                </Text>
-            </div>
-        }
-        style={{
-            padding: '60px 20px',
-            background: 'white',
-            borderRadius: 20,
-            margin: '0 16px'
-        }}
-    />
-);

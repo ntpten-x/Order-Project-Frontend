@@ -1,26 +1,41 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { App, Button, Form, Input, Switch, Typography } from "antd";
-import { DeleteOutlined, ExperimentOutlined, SaveOutlined } from "@ant-design/icons";
+import { Alert, App, Button, Card, Col, Form, Input, Row, Spin, Switch, Typography } from "antd";
+import {
+    DeleteOutlined,
+    ExperimentOutlined,
+    InfoCircleOutlined,
+    SaveOutlined,
+    UnorderedListOutlined,
+} from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
 import { authService } from "../../../../../../services/auth.service";
 import { ingredientsUnitService } from "../../../../../../services/stock/ingredientsUnit.service";
+import { IngredientsUnit } from "../../../../../../types/api/stock/ingredientsUnit";
 import PageContainer from "../../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../../components/ui/page/PageSection";
-import PageStack from "../../../../../../components/ui/page/PageStack";
-import PageState from "../../../../../../components/ui/states/PageState";
 import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
 import { AccessGuardFallback } from "../../../../../../components/pos/AccessGuard";
-import IngredientsUnitManageStyle from "./style";
+import IngredientsUnitManageStyle, { pageStyles } from "./style";
 
-const { Paragraph, Text } = Typography;
+const { Title, Text, Paragraph } = Typography;
+
+type ManageMode = "add" | "edit";
 
 type FormValues = {
     display_name: string;
     is_active: boolean;
+};
+
+const formatDate = (raw?: string | Date) => {
+    if (!raw) return "-";
+    const date = new Date(raw);
+    return Number.isNaN(date.getTime())
+        ? "-"
+        : new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(date);
 };
 
 export default function IngredientsUnitManagePage({ params }: { params: { mode: string[] } }) {
@@ -32,10 +47,11 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
     const { user, loading: authLoading } = useAuth();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
 
-    const mode = params.mode[0];
-    const id = params.mode[1] || null;
+    const mode = params.mode?.[0] as ManageMode | undefined;
+    const id = params.mode?.[1] || null;
     const isEdit = mode === "edit" && Boolean(id);
     const isAdd = mode === "add";
+    const isValidMode = isAdd || isEdit;
 
     const canCreate = can("stock.ingredients_unit.page", "create");
     const canUpdate = can("stock.ingredients_unit.page", "update");
@@ -44,12 +60,25 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
 
     const [csrfToken, setCsrfToken] = useState("");
     const [loading, setLoading] = useState(isEdit);
-    const [saving, setSaving] = useState(false);
+    const [submitting, setSubmitting] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [originalUnit, setOriginalUnit] = useState<IngredientsUnit | null>(null);
 
     const displayName = Form.useWatch("display_name", form) || "";
     const isActive = Form.useWatch("is_active", form);
+
+    const title = useMemo(
+        () => (isEdit ? "แก้ไขหน่วยนับวัตถุดิบ" : "เพิ่มหน่วยนับวัตถุดิบ"),
+        [isEdit]
+    );
+
+    useEffect(() => {
+        if (!isValidMode || (mode === "edit" && !id)) {
+            messageApi.warning("รูปแบบ URL ไม่ถูกต้อง");
+            router.replace("/stock/ingredientsUnit");
+        }
+    }, [id, isValidMode, messageApi, mode, router]);
 
     useEffect(() => {
         let mounted = true;
@@ -86,17 +115,22 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
                 display_name: data.display_name,
                 is_active: data.is_active,
             });
+            setOriginalUnit(data);
         } catch (err) {
             if ((err as Error)?.name === "AbortError") return;
             if (requestRef.current !== controller) return;
-            setError(err instanceof Error ? err.message : "โหลดข้อมูลหน่วยนับไม่สำเร็จ");
+
+            const nextError = err instanceof Error ? err.message : "โหลดข้อมูลหน่วยนับวัตถุดิบไม่สำเร็จ";
+            setError(nextError);
+            messageApi.error(nextError);
+            router.replace("/stock/ingredientsUnit");
         } finally {
             if (requestRef.current === controller) {
                 requestRef.current = null;
                 setLoading(false);
             }
         }
-    }, [canUpdate, form, id, isEdit]);
+    }, [canUpdate, form, id, isEdit, messageApi, router]);
 
     useEffect(() => {
         if (isEdit) {
@@ -107,22 +141,10 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
         };
     }, [fetchUnit, isEdit]);
 
-    const pageMeta = useMemo(() => {
-        if (isEdit) {
-            return {
-                title: "แก้ไขหน่วยนับวัตถุดิบ",
-                subtitle: "อัปเดตชื่อที่ใช้แสดงและสถานะการใช้งานให้ตรงกับงานจริงของสาขา",
-            };
-        }
-        return {
-            title: "เพิ่มหน่วยนับวัตถุดิบ",
-            subtitle: "สร้างหน่วยนับใหม่ที่ใช้ซ้ำได้กับวัตถุดิบหลายรายการ เช่น กิโลกรัม กรัม ลิตร หรือ แพ็ก",
-        };
-    }, [isEdit]);
-
     const onFinish = async (values: FormValues) => {
-        setSaving(true);
+        setSubmitting(true);
         setError(null);
+
         try {
             const payload = {
                 display_name: values.display_name.trim(),
@@ -137,13 +159,13 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
                 messageApi.success("สร้างหน่วยนับเรียบร้อย");
             }
 
-            router.push("/stock/ingredientsUnit");
+            router.replace("/stock/ingredientsUnit");
         } catch (err) {
-            const message = err instanceof Error ? err.message : "บันทึกหน่วยนับไม่สำเร็จ";
-            setError(message);
-            messageApi.error(message);
+            const nextError = err instanceof Error ? err.message : "บันทึกหน่วยนับไม่สำเร็จ";
+            setError(nextError);
+            messageApi.error(nextError);
         } finally {
-            setSaving(false);
+            setSubmitting(false);
         }
     };
 
@@ -152,20 +174,21 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
 
         modal.confirm({
             title: "ลบหน่วยนับวัตถุดิบ",
-            content: `ต้องการลบหน่วย "${displayName || "-"}" หรือไม่ หากยังมีวัตถุดิบอ้างอิงอยู่ ระบบจะไม่อนุญาตให้ลบ`,
-            okText: "ลบหน่วยนับ",
+            content: `ต้องการลบหน่วยนับ "${displayName.trim() || "-"}" หรือไม่`,
+            okText: "ลบ",
             okButtonProps: { danger: true, loading: deleting },
             cancelText: "ยกเลิก",
+            centered: true,
             onOk: async () => {
                 setDeleting(true);
                 try {
                     await ingredientsUnitService.delete(id, undefined, csrfToken);
                     messageApi.success("ลบหน่วยนับเรียบร้อย");
-                    router.push("/stock/ingredientsUnit");
+                    router.replace("/stock/ingredientsUnit");
                 } catch (err) {
-                    const message = err instanceof Error ? err.message : "ลบหน่วยนับไม่สำเร็จ";
-                    setError(message);
-                    messageApi.error(message);
+                    const nextError = err instanceof Error ? err.message : "ลบหน่วยนับไม่สำเร็จ";
+                    setError(nextError);
+                    messageApi.error(nextError);
                     throw err;
                 } finally {
                     setDeleting(false);
@@ -182,151 +205,167 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
         return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้าจัดการหน่วยนับวัตถุดิบ" tone="danger" />;
     }
 
-    if (!isAdd && !isEdit) {
-        return (
-            <div className="stock-unit-manage-shell">
-                <IngredientsUnitManageStyle />
-                <UIPageHeader
-                    title="รูปแบบหน้าจอไม่ถูกต้อง"
-                    subtitle="โปรดกลับไปที่รายการหน่วยนับแล้วเลือกเพิ่มหรือแก้ไขอีกครั้ง"
-                    icon={<ExperimentOutlined />}
-                    onBack={() => router.push("/stock/ingredientsUnit")}
-                />
-                <PageContainer maxWidth={960}>
-                    <PageSection>
-                        <PageState
-                            status="error"
-                            title="ไม่พบโหมดที่ต้องการใช้งาน"
-                            action={
-                                <Button type="primary" onClick={() => router.push("/stock/ingredientsUnit")}>
-                                    กลับหน้ารายการ
-                                </Button>
-                            }
-                        />
-                    </PageSection>
-                </PageContainer>
-            </div>
-        );
-    }
-
     return (
-        <div className="stock-unit-manage-shell" data-testid="stock-ingredients-unit-manage-page">
+        <div className="stock-ingredients-unit-manage-page" style={pageStyles.container}>
             <IngredientsUnitManageStyle />
 
             <UIPageHeader
-                title={pageMeta.title}
-                subtitle={pageMeta.subtitle}
-                icon={<ExperimentOutlined />}
-                onBack={() => router.push("/stock/ingredientsUnit")}
+                title={title}
+                onBack={() => router.replace("/stock/ingredientsUnit")}
                 actions={
                     isEdit && canDelete ? (
                         <Button danger icon={<DeleteOutlined />} onClick={handleDelete} loading={deleting}>
-                            ลบหน่วยนับ
+                            ลบ
                         </Button>
-                    ) : undefined
+                    ) : null
                 }
             />
 
-            <PageContainer maxWidth={980}>
-                <PageStack gap={14}>
-                    <section className="stock-unit-manage-hero">
-                        <div className="stock-unit-manage-grid">
-                            <div>
-                                <span className="stock-unit-manage-eyebrow">
-                                    <ExperimentOutlined />
-                                    {isEdit ? "edit mode" : "create mode"}
-                                </span>
-                                <h1 className="stock-unit-manage-title">{pageMeta.title}</h1>
-                                <p className="stock-unit-manage-subtitle">
-                                    ใช้ชื่อเดียวเป็นมาตรฐานทั้งการเลือกในฟอร์ม รายการวัตถุดิบ และเอกสารสั่งซื้อ เพื่อให้ทีมงานอ่านตรงกันทุกหน้าจอ
-                                </p>
-                            </div>
-
-                            <aside className="stock-unit-manage-preview">
-                                <span className="stock-unit-manage-preview-key">ตัวอย่างที่จะแสดงในระบบ</span>
-                                <div className="stock-unit-manage-preview-value" style={{ marginTop: 6 }}>
-                                    {displayName?.trim() || "ชื่อหน่วยนับที่ใช้แสดง"}
-                                </div>
-                                <Paragraph style={{ margin: "10px 0 0", color: "#64748b" }}>
-                                    สถานะ: <Text strong>{isActive === false ? "ปิดใช้งาน" : "ใช้งาน"}</Text>
-                                </Paragraph>
-                            </aside>
+            <PageContainer maxWidth={1040}>
+                <PageSection style={{ background: "transparent", border: "none" }}>
+                    {loading ? (
+                        <div style={pageStyles.loadingWrap}>
+                            <Spin size="large" />
                         </div>
-                    </section>
+                    ) : (
+                        <Row gutter={[20, 20]}>
+                            <Col xs={24} lg={15}>
+                                <Card bordered={false} className="stock-manage-card stock-manage-main-card">
+                                    <div className="stock-manage-card-header">
+                                        <ExperimentOutlined className="stock-manage-card-icon" />
+                                        <Title level={5} style={{ margin: 0 }}>
+                                            ข้อมูลหน่วยนับ
+                                        </Title>
+                                    </div>
 
-                    <section className="stock-unit-manage-panel">
-                        {loading ? (
-                            <PageState status="loading" title="กำลังโหลดข้อมูลหน่วยนับ" />
-                        ) : error && isEdit && !displayName ? (
-                            <PageState status="error" title={error} onRetry={() => void fetchUnit()} />
-                        ) : (
-                            <Form<FormValues>
-                                form={form}
-                                layout="vertical"
-                                requiredMark={false}
-                                autoComplete="off"
-                                initialValues={{ is_active: true }}
-                                onFinish={(values) => void onFinish(values)}
-                            >
-                                <Form.Item
-                                    name="display_name"
-                                    label="ชื่อหน่วยนับ"
-                                    extra="ชื่อนี้จะใช้แสดงในหน้าวัตถุดิบ หน้าสั่งซื้อ และเอกสารที่เกี่ยวข้อง"
-                                    rules={[
-                                        { required: true, message: "กรอกชื่อหน่วยนับ" },
-                                        { max: 100, message: "ความยาวต้องไม่เกิน 100 ตัวอักษร" },
-                                    ]}
-                                >
-                                    <Input
-                                        size="large"
-                                        placeholder="เช่น กิโลกรัม"
-                                        data-testid="stock-ingredients-unit-display-name-input"
-                                        onBlur={() => {
-                                            const value = form.getFieldValue("display_name");
-                                            if (typeof value === "string") {
-                                                form.setFieldValue("display_name", value.trim());
+                                    {error ? (
+                                        <Alert
+                                            type="error"
+                                            showIcon
+                                            style={{ marginBottom: 20 }}
+                                            message={error}
+                                        />
+                                    ) : null}
+
+                                    <Form<FormValues>
+                                        form={form}
+                                        layout="vertical"
+                                        requiredMark={false}
+                                        initialValues={{ is_active: true }}
+                                        onFinish={(values) => void onFinish(values)}
+                                    >
+                                        <Form.Item
+                                            name="display_name"
+                                            label={<span style={{ fontWeight: 600 }}>ชื่อหน่วยนับ</span>}
+                                            extra="ใช้ชื่อสั้น ชัดเจน เช่น กิโลกรัม กรัม ลิตร หรือ แพ็ก"
+                                            rules={[
+                                                { required: true, message: "กรุณากรอกชื่อหน่วยนับ" },
+                                                { max: 100, message: "ความยาวต้องไม่เกิน 100 ตัวอักษร" },
+                                            ]}
+                                        >
+                                            <Input
+                                                size="large"
+                                                maxLength={100}
+                                                placeholder="เช่น กิโลกรัม"
+                                                onBlur={() => {
+                                                    const value = form.getFieldValue("display_name");
+                                                    if (typeof value === "string") {
+                                                        form.setFieldValue("display_name", value.trim());
+                                                    }
+                                                }}
+                                            />
+                                        </Form.Item>
+
+                                        <div className="stock-manage-switch-panel">
+                                            <div>
+                                                <Text strong>สถานะการใช้งาน</Text>
+                                                <Text type="secondary" className="stock-manage-muted-text">
+                                                    เปิดไว้เมื่อยังต้องการให้หน่วยนี้แสดงในฟอร์มเลือกวัตถุดิบ
+                                                </Text>
+                                            </div>
+                                            <Form.Item name="is_active" valuePropName="checked" noStyle>
+                                                <Switch checked={Boolean(isActive)} />
+                                            </Form.Item>
+                                        </div>
+
+                                        <div className="stock-manage-form-actions">
+                                            <Button
+                                                size="large"
+                                                onClick={() => router.replace("/stock/ingredientsUnit")}
+                                                className="stock-manage-action-button"
+                                            >
+                                                ยกเลิก
+                                            </Button>
+                                            <Button
+                                                type="primary"
+                                                htmlType="submit"
+                                                size="large"
+                                                icon={<SaveOutlined />}
+                                                loading={submitting}
+                                                className="stock-manage-action-button stock-manage-action-button-primary"
+                                            >
+                                                บันทึกข้อมูล
+                                            </Button>
+                                        </div>
+                                    </Form>
+                                </Card>
+                            </Col>
+
+                            <Col xs={24} lg={9}>
+                                <div className="stock-manage-side-grid">
+                                    <Card className="stock-manage-card stock-manage-side-card">
+                                        <div className="stock-manage-card-header">
+                                            <UnorderedListOutlined className="stock-manage-side-icon" />
+                                            <Text strong>ตัวอย่างการแสดงผล</Text>
+                                        </div>
+
+                                        <Title level={4} className="stock-manage-preview-title">
+                                            {displayName.trim() || "ชื่อหน่วยนับ"}
+                                        </Title>
+
+                                        <Alert
+                                            type={isActive === false ? "warning" : "success"}
+                                            showIcon
+                                            message={
+                                                isActive === false
+                                                    ? "หน่วยนับนี้ถูกปิดใช้งาน"
+                                                    : "หน่วยนับนี้พร้อมให้เลือกใช้งาน"
                                             }
-                                        }}
-                                    />
-                                </Form.Item>
+                                        />
+                                    </Card>
 
-                                <Form.Item
-                                    name="is_active"
-                                    label="สถานะการใช้งาน"
-                                    valuePropName="checked"
-                                    extra="ปิดใช้งานเมื่อไม่ต้องการให้หน่วยนี้ถูกเลือกใช้ต่อ แต่ยังต้องการเก็บประวัติเดิมไว้"
-                                >
-                                    <Switch checkedChildren="ใช้งาน" unCheckedChildren="ปิดใช้งาน" />
-                                </Form.Item>
-                            </Form>
-                        )}
-                    </section>
+                                    <Card className="stock-manage-card stock-manage-side-card">
+                                        <div className="stock-manage-card-header">
+                                            <InfoCircleOutlined className="stock-manage-side-icon" />
+                                            <Text strong>คำแนะนำ</Text>
+                                        </div>
+                                        <Paragraph className="stock-manage-help-text">
+                                            ตั้งชื่อให้ตรงกับการใช้งานจริงของคลัง เพื่อให้ทีมงานค้นหาและเลือกได้เร็วขึ้น
+                                        </Paragraph>
+                                        <Paragraph className="stock-manage-help-text" style={{ marginBottom: 0 }}>
+                                            หากเลิกใช้หน่วยนี้ชั่วคราว แนะนำให้ปิดการใช้งานแทนการลบ เพื่อไม่ให้กระทบข้อมูลเดิม
+                                        </Paragraph>
+                                    </Card>
 
-                    <section className="stock-unit-manage-actions">
-                        <div className="stock-unit-manage-actions-left">
-                            <Button size="large" onClick={() => router.push("/stock/ingredientsUnit")}>
-                                กลับหน้ารายการ
-                            </Button>
-                        </div>
-                        <div className="stock-unit-manage-actions-right">
-                            {isEdit && canDelete ? (
-                                <Button danger size="large" icon={<DeleteOutlined />} onClick={handleDelete} loading={deleting}>
-                                    ลบหน่วยนับ
-                                </Button>
-                            ) : null}
-                            <Button
-                                type="primary"
-                                size="large"
-                                icon={<SaveOutlined />}
-                                loading={saving}
-                                onClick={() => form.submit()}
-                                data-testid="stock-ingredients-unit-save"
-                            >
-                                {isEdit ? "บันทึกการแก้ไข" : "สร้างหน่วยนับ"}
-                            </Button>
-                        </div>
-                    </section>
-                </PageStack>
+                                    {isEdit && originalUnit ? (
+                                        <Card className="stock-manage-card stock-manage-side-card">
+                                            <div className="stock-manage-card-header">
+                                                <InfoCircleOutlined className="stock-manage-side-icon" />
+                                                <Text strong>รายละเอียดรายการ</Text>
+                                            </div>
+                                            <Text type="secondary" className="stock-manage-detail-line">
+                                                รหัสรายการ: {originalUnit.id}
+                                            </Text>
+                                            <Text type="secondary" className="stock-manage-detail-line">
+                                                สร้างเมื่อ: {formatDate(originalUnit.create_date)}
+                                            </Text>
+                                        </Card>
+                                    ) : null}
+                                </div>
+                            </Col>
+                        </Row>
+                    )}
+                </PageSection>
             </PageContainer>
         </div>
     );

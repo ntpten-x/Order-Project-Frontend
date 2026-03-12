@@ -1,159 +1,159 @@
 "use client";
 
+import { CSSProperties } from "react";
+
+export const pageStyles: Record<string, CSSProperties> = {
+    container: {
+        minHeight: "100dvh",
+        background: "#f8fafc",
+        paddingBottom: 96,
+    },
+    loadingWrap: {
+        display: "flex",
+        justifyContent: "center",
+        padding: "80px 0",
+    },
+};
+
 export default function IngredientsManageStyle() {
     return (
-        <style>{`
-            .stock-ingredient-manage-shell {
-                min-height: 100vh;
-                background:
-                    radial-gradient(circle at top right, rgba(34, 197, 94, 0.09), transparent 28%),
-                    linear-gradient(180deg, #f8fbff 0%, #f5f7fb 55%, #f8fafc 100%);
-                padding-bottom: 112px;
+        <style jsx global>{`
+            .stock-ingredients-manage-page .stock-ingredient-card {
+                border-radius: 20px;
+                border: 1px solid #e2e8f0;
+                box-shadow: 0 10px 30px rgba(15, 23, 42, 0.05);
             }
 
-            .stock-ingredient-manage-hero,
-            .stock-ingredient-manage-panel,
-            .stock-ingredient-manage-preview {
-                border: 1px solid rgba(148, 163, 184, 0.18);
-                box-shadow: 0 18px 48px rgba(15, 23, 42, 0.06);
-            }
-
-            .stock-ingredient-manage-hero {
-                background: linear-gradient(135deg, rgba(255,255,255,0.96), rgba(240,253,244,0.95));
-                border-radius: 28px;
+            .stock-ingredients-manage-page .stock-ingredient-main-card .ant-card-body,
+            .stock-ingredients-manage-page .stock-ingredient-side-card .ant-card-body {
                 padding: 24px;
             }
 
-            .stock-ingredient-manage-grid {
-                display: grid;
-                gap: 18px;
-                grid-template-columns: minmax(0, 1.55fr) minmax(280px, 0.95fr);
-                align-items: start;
-            }
-
-            .stock-ingredient-manage-eyebrow {
-                display: inline-flex;
+            .stock-ingredients-manage-page .stock-ingredient-card-header {
+                display: flex;
                 align-items: center;
-                gap: 8px;
-                padding: 8px 12px;
-                border-radius: 999px;
-                background: rgba(34, 197, 94, 0.12);
-                color: #15803d;
-                font-size: 12px;
-                font-weight: 700;
-                letter-spacing: 0.08em;
-                text-transform: uppercase;
+                gap: 10px;
+                margin-bottom: 20px;
             }
 
-            .stock-ingredient-manage-title {
-                margin: 14px 0 10px;
-                color: #0f172a;
-                font-size: clamp(1.7rem, 1.25rem + 1.2vw, 2.4rem);
-                line-height: 1.1;
+            .stock-ingredients-manage-page .stock-ingredient-card-icon,
+            .stock-ingredients-manage-page .stock-ingredient-side-icon {
+                font-size: 18px;
+                color: #0f766e;
             }
 
-            .stock-ingredient-manage-subtitle {
-                margin: 0;
-                color: #475569;
-                line-height: 1.7;
+            .stock-ingredients-manage-page .stock-ingredient-inline-action {
+                display: flex;
+                flex-direction: column;
+                gap: 4px;
+                margin-top: 6px;
             }
 
-            .stock-ingredient-manage-preview {
-                border-radius: 22px;
-                background: rgba(255,255,255,0.96);
-                padding: 18px;
+            .stock-ingredients-manage-page .stock-ingredient-side-grid {
                 display: grid;
-                gap: 12px;
+                gap: 14px;
             }
 
-            .stock-ingredient-manage-preview-key {
-                color: #64748b;
-                font-size: 12px;
-                font-weight: 700;
-                letter-spacing: 0.08em;
-                text-transform: uppercase;
-            }
-
-            .stock-ingredient-manage-preview-row {
+            .stock-ingredients-manage-page .stock-ingredient-preview-row {
                 display: grid;
                 grid-template-columns: auto minmax(0, 1fr);
-                gap: 12px;
+                gap: 14px;
                 align-items: center;
             }
 
-            .stock-ingredient-manage-preview-value {
-                color: #0f172a;
-                font-size: 1.2rem;
-                font-weight: 700;
+            .stock-ingredients-manage-page .stock-ingredient-preview-title {
+                margin: 0 0 6px;
+                word-break: break-word;
             }
 
-            .stock-ingredient-manage-panel {
-                background: rgba(255,255,255,0.97);
-                border-radius: 26px;
-                padding: 22px;
+            .stock-ingredients-manage-page .stock-ingredient-preview-description {
+                margin: 16px 0 0;
+                padding-top: 16px;
+                border-top: 1px solid #e2e8f0;
+                color: #475569;
             }
 
-            .stock-ingredient-manage-panel .ant-form-item {
-                margin-bottom: 18px;
+            .stock-ingredients-manage-page .stock-ingredient-help-text {
+                color: #475569;
+                margin-bottom: 12px;
             }
 
-            .stock-ingredient-manage-panel .ant-form-item-label > label {
-                color: #0f172a;
-                font-weight: 600;
+            .stock-ingredients-manage-page .stock-ingredient-detail-line,
+            .stock-ingredients-manage-page .stock-ingredient-muted-text {
+                display: block;
             }
 
-            .stock-ingredient-manage-panel .ant-input,
-            .stock-ingredient-manage-panel .ant-input-affix-wrapper {
-                border-radius: 14px;
-                min-height: 48px;
+            .stock-ingredients-manage-page .stock-ingredient-muted-text {
+                margin-top: 4px;
+                font-size: 13px;
             }
 
-            .stock-ingredient-manage-panel textarea.ant-input {
-                min-height: 120px;
-            }
-
-            .stock-ingredient-manage-actions {
+            .stock-ingredients-manage-page .stock-ingredient-switch-panel {
                 display: flex;
                 justify-content: space-between;
-                gap: 12px;
-                flex-wrap: wrap;
+                align-items: center;
+                gap: 16px;
+                padding: 16px;
+                margin-bottom: 20px;
+                border-radius: 14px;
+                background: #f8fafc;
+                border: 1px solid #e2e8f0;
             }
 
-            .stock-ingredient-manage-actions-left,
-            .stock-ingredient-manage-actions-right {
+            .stock-ingredients-manage-page .stock-ingredient-form-actions {
                 display: flex;
-                gap: 10px;
-                flex-wrap: wrap;
+                gap: 12px;
+                margin-top: 4px;
             }
 
-            @media (max-width: 1024px) {
-                .stock-ingredient-manage-grid {
+            .stock-ingredients-manage-page .stock-ingredient-action-button {
+                flex: 1;
+            }
+
+            .stock-ingredients-manage-page .stock-ingredient-action-button-primary {
+                flex: 1.4;
+            }
+
+            .stock-ingredients-manage-page .ant-form-item {
+                margin-bottom: 20px;
+            }
+
+            .stock-ingredients-manage-page .ant-input,
+            .stock-ingredients-manage-page .ant-input-affix-wrapper {
+                min-height: 48px;
+                border-radius: 14px;
+            }
+
+            .stock-ingredients-manage-page textarea.ant-input {
+                min-height: 120px;
+                border-radius: 14px;
+            }
+
+            .stock-ingredients-manage-page .ant-input:focus,
+            .stock-ingredients-manage-page .ant-input-focused,
+            .stock-ingredients-manage-page .ant-input-affix-wrapper-focused {
+                border-color: #0f766e;
+                box-shadow: 0 0 0 3px rgba(15, 118, 110, 0.12);
+            }
+
+            @media (max-width: 767px) {
+                .stock-ingredients-manage-page .stock-ingredient-main-card .ant-card-body,
+                .stock-ingredients-manage-page .stock-ingredient-side-card .ant-card-body {
+                    padding: 18px;
+                }
+
+                .stock-ingredients-manage-page .stock-ingredient-preview-row,
+                .stock-ingredients-manage-page .stock-ingredient-switch-panel,
+                .stock-ingredients-manage-page .stock-ingredient-form-actions {
                     grid-template-columns: 1fr;
-                }
-            }
-
-            @media (max-width: 768px) {
-                .stock-ingredient-manage-shell {
-                    padding-bottom: 96px;
+                    flex-direction: column;
+                    align-items: stretch;
                 }
 
-                .stock-ingredient-manage-hero,
-                .stock-ingredient-manage-panel {
-                    padding: 20px;
-                    border-radius: 22px;
-                }
-
-                .stock-ingredient-manage-actions {
-                    flex-direction: column-reverse;
-                }
-
-                .stock-ingredient-manage-actions-left,
-                .stock-ingredient-manage-actions-right {
+                .stock-ingredients-manage-page .stock-ingredient-action-button,
+                .stock-ingredients-manage-page .stock-ingredient-action-button-primary {
                     width: 100%;
-                }
-
-                .stock-ingredient-manage-actions .ant-btn {
-                    flex: 1 1 100%;
+                    flex: initial;
                 }
             }
         `}</style>

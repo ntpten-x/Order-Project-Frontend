@@ -1,8 +1,8 @@
 "use client";
 
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { App, Button, Card, Input, Modal, Space, Tag, Typography } from "antd";
+import { App, Button, Modal, Space, Switch, Tag, Typography } from "antd";
 import {
     DeleteOutlined,
     EditOutlined,
@@ -11,14 +11,17 @@ import {
     ShoppingOutlined,
 } from "@ant-design/icons";
 import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
+import StockImageThumb from "../../../../components/stock/StockImageThumb";
 import PageContainer from "../../../../components/ui/page/PageContainer";
-import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import PageSection from "../../../../components/ui/page/PageSection";
 import PageStack from "../../../../components/ui/page/PageStack";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import { SearchBar } from "../../../../components/ui/page/SearchBar";
+import { SearchInput } from "../../../../components/ui/input/SearchInput";
 import ListPagination, { type CreatedSort } from "../../../../components/ui/pagination/ListPagination";
 import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
+import UIEmptyState from "../../../../components/ui/states/EmptyState";
 import PageState from "../../../../components/ui/states/PageState";
-import StockImageThumb from "../../../../components/stock/StockImageThumb";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { useSocket } from "../../../../hooks/useSocket";
 import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
@@ -27,11 +30,139 @@ import { authService } from "../../../../services/auth.service";
 import { ingredientsService } from "../../../../services/stock/ingredients.service";
 import { Ingredients } from "../../../../types/api/stock/ingredients";
 import { RealtimeEvents } from "../../../../utils/realtimeEvents";
-import IngredientsPageStyle from "./style";
+import IngredientsPageStyle, { globalStyles, pageStyles } from "./style";
 
-const { Paragraph, Text, Title } = Typography;
+const { Paragraph, Text } = Typography;
 
 type StatusFilter = "all" | "active" | "inactive";
+
+const formatDate = (raw?: string | Date) => {
+    if (!raw) return "-";
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return "-";
+    return new Intl.DateTimeFormat("th-TH", {
+        dateStyle: "medium",
+        timeStyle: "short",
+    }).format(date);
+};
+
+type IngredientCardProps = {
+    ingredient: Ingredients;
+    canUpdate: boolean;
+    canDelete: boolean;
+    updatingStatusId: string | null;
+    deletingId: string | null;
+    onEdit: (ingredient: Ingredients) => void;
+    onDelete: (ingredient: Ingredients) => void;
+    onToggleActive: (ingredient: Ingredients, next: boolean) => void;
+};
+
+const IngredientCard = ({
+    ingredient,
+    canUpdate,
+    canDelete,
+    updatingStatusId,
+    deletingId,
+    onEdit,
+    onDelete,
+    onToggleActive,
+}: IngredientCardProps) => {
+    return (
+        <div
+            className="stock-ingredients-card"
+            style={pageStyles.ingredientCard(ingredient.is_active)}
+            onClick={() => {
+                if (!canUpdate) return;
+                onEdit(ingredient);
+            }}
+        >
+            <div style={pageStyles.ingredientCardInner}>
+                <StockImageThumb
+                    src={ingredient.img_url}
+                    alt={ingredient.display_name}
+                    size={56}
+                    borderRadius={16}
+                />
+
+                <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                        <Text strong style={{ fontSize: 16, color: "#0f172a" }} ellipsis={{ tooltip: ingredient.display_name }}>
+                            {ingredient.display_name}
+                        </Text>
+                        {ingredient.unit?.display_name ? (
+                            <Tag color="blue" style={{ borderRadius: 999 }}>
+                                {ingredient.unit.display_name}
+                            </Tag>
+                        ) : null}
+                        <Tag color={ingredient.is_active ? "green" : "default"} style={{ borderRadius: 999 }}>
+                            {ingredient.is_active ? "ใช้งาน" : "ปิดใช้งาน"}
+                        </Tag>
+                    </div>
+
+                    <Paragraph
+                        style={{ margin: "6px 0", color: "#64748b" }}
+                        ellipsis={{ rows: 2, tooltip: ingredient.description || undefined }}
+                    >
+                        {ingredient.description?.trim() || "ไม่มีรายละเอียดเพิ่มเติม"}
+                    </Paragraph>
+
+                    <Text type="secondary" style={{ fontSize: 12, display: "block" }}>
+                        สร้างเมื่อ {formatDate(ingredient.create_date)}
+                    </Text>
+                </div>
+
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <Switch
+                        size="small"
+                        checked={ingredient.is_active}
+                        loading={updatingStatusId === ingredient.id}
+                        disabled={!canUpdate || deletingId === ingredient.id}
+                        onClick={(checked, event) => {
+                            event?.stopPropagation();
+                            if (!canUpdate) return;
+                            onToggleActive(ingredient, checked);
+                        }}
+                    />
+                    {canUpdate ? (
+                        <Button
+                            type="text"
+                            icon={<EditOutlined />}
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onEdit(ingredient);
+                            }}
+                            style={{
+                                borderRadius: 10,
+                                color: "#0369a1",
+                                background: "#e0f2fe",
+                                width: 36,
+                                height: 36,
+                            }}
+                        />
+                    ) : null}
+                    {canDelete ? (
+                        <Button
+                            type="text"
+                            danger
+                            loading={deletingId === ingredient.id}
+                            icon={deletingId === ingredient.id ? undefined : <DeleteOutlined />}
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onDelete(ingredient);
+                            }}
+                            style={{
+                                borderRadius: 10,
+                                background: "#fef2f2",
+                                width: 36,
+                                height: 36,
+                            }}
+                        />
+                    ) : null}
+                </div>
+            </div>
+        </div>
+    );
+};
 
 export default function IngredientsPage() {
     const { message: messageApi } = App.useApp();
@@ -55,7 +186,10 @@ export default function IngredientsPage() {
     const [ingredients, setIngredients] = useState<Ingredients[]>([]);
     const [totalIngredients, setTotalIngredients] = useState(0);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState<Error | null>(null);
+    const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
@@ -95,7 +229,7 @@ export default function IngredientsPage() {
 
         const query = params.toString();
         router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [router, pathname, page, pageSize, deferredSearchText, statusFilter, createdSort]);
+    }, [createdSort, deferredSearchText, page, pageSize, pathname, router, statusFilter]);
 
     useEffect(() => {
         let mounted = true;
@@ -108,7 +242,6 @@ export default function IngredientsPage() {
                 if (mounted) messageApi.error("โหลดโทเค็นความปลอดภัยไม่สำเร็จ");
             }
         };
-
         void run();
         return () => {
             mounted = false;
@@ -116,7 +249,7 @@ export default function IngredientsPage() {
     }, [messageApi, user?.id]);
 
     const fetchIngredients = useCallback(
-        async ({ silent = false }: { silent?: boolean } = {}) => {
+        async ({ background = false }: { background?: boolean } = {}) => {
             if (!canView) return;
 
             requestRef.current?.abort();
@@ -124,7 +257,11 @@ export default function IngredientsPage() {
             requestRef.current = controller;
 
             try {
-                if (!silent) setLoading(true);
+                if (background) {
+                    setRefreshing(true);
+                } else {
+                    setLoading(true);
+                }
                 setError(null);
 
                 const params = new URLSearchParams();
@@ -146,14 +283,14 @@ export default function IngredientsPage() {
             } catch (err) {
                 if ((err as Error)?.name === "AbortError") return;
                 if (requestRef.current !== controller) return;
-
-                setError(err instanceof Error ? err.message : "โหลดรายการวัตถุดิบไม่สำเร็จ");
-                setIngredients([]);
-                setTotalIngredients(0);
+                setError(err instanceof Error ? err : new Error("โหลดรายการวัตถุดิบไม่สำเร็จ"));
             } finally {
                 if (requestRef.current === controller) {
                     requestRef.current = null;
-                    if (!silent) setLoading(false);
+                }
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                    setRefreshing(false);
                 }
             }
         },
@@ -162,8 +299,7 @@ export default function IngredientsPage() {
 
     useEffect(() => {
         if (!initRef.current || !canView) return;
-        void fetchIngredients({ silent: hasLoadedRef.current });
-
+        void fetchIngredients({ background: hasLoadedRef.current });
         return () => {
             requestRef.current?.abort();
         };
@@ -173,7 +309,7 @@ export default function IngredientsPage() {
         if (!socket || !canView) return;
 
         const refresh = () => {
-            void fetchIngredients({ silent: true });
+            void fetchIngredients({ background: true });
         };
 
         socket.on(RealtimeEvents.ingredients.create, refresh);
@@ -185,68 +321,114 @@ export default function IngredientsPage() {
             socket.off(RealtimeEvents.ingredients.update, refresh);
             socket.off(RealtimeEvents.ingredients.delete, refresh);
         };
-    }, [socket, canView, fetchIngredients]);
+    }, [canView, fetchIngredients, socket]);
+
+    const handleAdd = () => {
+        if (!canCreate) {
+            messageApi.warning("คุณไม่มีสิทธิ์เพิ่มวัตถุดิบ");
+            return;
+        }
+        router.push("/stock/ingredients/manage/add");
+    };
+
+    const handleEdit = (ingredient: Ingredients) => {
+        if (!canUpdate) {
+            messageApi.warning("คุณไม่มีสิทธิ์แก้ไขวัตถุดิบ");
+            return;
+        }
+        router.push(`/stock/ingredients/manage/edit/${ingredient.id}`);
+    };
 
     const handleDelete = (ingredient: Ingredients) => {
         if (!canDelete) {
-            messageApi.error("คุณไม่มีสิทธิ์ลบวัตถุดิบ");
+            messageApi.warning("คุณไม่มีสิทธิ์ลบวัตถุดิบ");
             return;
         }
 
         Modal.confirm({
-            title: `ลบวัตถุดิบ ${ingredient.display_name}`,
-            content:
-                "หากวัตถุดิบนี้ยังถูกอ้างอิงในใบสั่งซื้อหรือประวัติการใช้งาน ระบบจะไม่อนุญาตให้ลบ",
-            okText: "ลบวัตถุดิบ",
-            okButtonProps: { danger: true },
+            title: "ยืนยันการลบวัตถุดิบ",
+            content: `ต้องการลบวัตถุดิบ ${ingredient.display_name} หรือไม่?`,
+            okText: "ลบ",
+            okType: "danger",
             cancelText: "ยกเลิก",
+            centered: true,
+            icon: <DeleteOutlined style={{ color: "#ef4444" }} />,
             onOk: async () => {
+                setDeletingId(ingredient.id);
                 try {
                     await ingredientsService.delete(ingredient.id, undefined, csrfToken);
-                    messageApi.success("ลบวัตถุดิบเรียบร้อย");
-                    void fetchIngredients({ silent: true });
+                    const shouldMoveToPreviousPage = page > 1 && ingredients.length === 1;
+                    setIngredients((prev) => prev.filter((item) => item.id !== ingredient.id));
+                    setTotalIngredients((prev) => Math.max(prev - 1, 0));
+                    if (shouldMoveToPreviousPage) {
+                        setPage(page - 1);
+                    } else {
+                        void fetchIngredients({ background: true });
+                    }
+                    messageApi.success(`ลบวัตถุดิบ "${ingredient.display_name}" สำเร็จ`);
                 } catch (err) {
                     messageApi.error(err instanceof Error ? err.message : "ลบวัตถุดิบไม่สำเร็จ");
+                } finally {
+                    setDeletingId(null);
                 }
             },
         });
     };
 
-    const summary = useMemo(() => {
-        const active = ingredients.filter((item) => item.is_active).length;
-        const inactive = ingredients.filter((item) => !item.is_active).length;
-        const withImage = ingredients.filter((item) => Boolean(item.img_url)).length;
-        return { active, inactive, withImage };
-    }, [ingredients]);
+    const handleToggleActive = async (ingredient: Ingredients, next: boolean) => {
+        if (!canUpdate) {
+            messageApi.warning("คุณไม่มีสิทธิ์เปลี่ยนสถานะวัตถุดิบ");
+            return;
+        }
+
+        setUpdatingStatusId(ingredient.id);
+        try {
+            const updated = await ingredientsService.update(
+                ingredient.id,
+                {
+                    display_name: ingredient.display_name,
+                    description: ingredient.description || "",
+                    img_url: ingredient.img_url,
+                    unit_id: ingredient.unit_id,
+                    is_active: next,
+                },
+                undefined,
+                csrfToken
+            );
+            setIngredients((prev) => prev.map((item) => (item.id === ingredient.id ? updated : item)));
+            messageApi.success(next ? "เปิดใช้งานวัตถุดิบแล้ว" : "ปิดใช้งานวัตถุดิบแล้ว");
+        } catch (err) {
+            messageApi.error(err instanceof Error ? err.message : "เปลี่ยนสถานะวัตถุดิบไม่สำเร็จ");
+        } finally {
+            setUpdatingStatusId(null);
+        }
+    };
 
     if (authLoading || permissionLoading) {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
     }
 
     if (!user || !canView) {
-        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้าจัดการวัตถุดิบ" tone="danger" />;
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้าวัตถุดิบ" tone="danger" />;
     }
 
     return (
-        <div className="stock-ingredient-shell" data-testid="stock-ingredients-page">
+        <div className="stock-ingredients-list-page" style={pageStyles.container}>
             <IngredientsPageStyle />
+            <style>{globalStyles}</style>
 
             <UIPageHeader
                 title="วัตถุดิบ"
-                subtitle="จัดการวัตถุดิบของสาขาปัจจุบันสำหรับใช้สร้างใบสั่งซื้อและตรวจรับสินค้า"
                 icon={<ShoppingOutlined />}
                 actions={
-                    <Space wrap>
-                        <Button icon={<ReloadOutlined />} onClick={() => void fetchIngredients()} loading={loading}>
-                            รีเฟรช
-                        </Button>
+                    <Space size={10} wrap>
+                        <Button
+                            icon={<ReloadOutlined />}
+                            loading={refreshing}
+                            onClick={() => void fetchIngredients({ background: ingredients.length > 0 })}
+                        />
                         {canCreate ? (
-                            <Button
-                                type="primary"
-                                icon={<PlusOutlined />}
-                                onClick={() => router.push("/stock/ingredients/manage/add")}
-                                data-testid="stock-ingredients-add"
-                            >
+                            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                                 เพิ่มวัตถุดิบ
                             </Button>
                         ) : null}
@@ -254,202 +436,105 @@ export default function IngredientsPage() {
                 }
             />
 
-            <PageContainer maxWidth={1240}>
-                <PageStack gap={14}>
-                    <section className="stock-ingredient-hero">
-                        <div className="stock-ingredient-hero-grid">
-                            <div>
-                                <span className="stock-ingredient-eyebrow">
-                                    <ShoppingOutlined />
-                                    stock ingredients
-                                </span>
-                                <h1 className="stock-ingredient-title">
-                                    เก็บรายการวัตถุดิบให้ค้นหาเร็ว ใช้งานง่าย และแยกตามสาขาชัดเจน
-                                </h1>
-                                <p className="stock-ingredient-subtitle">
-                                    หน้านี้ใช้ดู ค้นหา และแก้ไขวัตถุดิบของสาขาปัจจุบันโดยตรง พร้อมรีเฟรชข้อมูลแบบเงียบเมื่อมีการเพิ่ม
-                                    แก้ไข หรือลบรายการที่จำเป็นต้องเห็นทันที
-                                </p>
-                            </div>
-
-                            <div className="stock-ingredient-side">
-                                <div className="stock-ingredient-side-card">
-                                    <span className="stock-ingredient-side-label">วัตถุดิบทั้งหมดในผลลัพธ์</span>
-                                    <span className="stock-ingredient-side-value">{totalIngredients.toLocaleString()}</span>
-                                </div>
-                                <div className="stock-ingredient-side-card">
-                                    <span className="stock-ingredient-side-label">มีรูปภาพ / ใช้งานอยู่</span>
-                                    <span className="stock-ingredient-side-value">
-                                        {summary.withImage.toLocaleString()} / {summary.active.toLocaleString()}
-                                    </span>
-                                </div>
-                            </div>
-                        </div>
-                    </section>
-
-                    <section className="stock-ingredient-stat-grid">
-                        <article className="stock-ingredient-stat-card">
-                            <span className="stock-ingredient-stat-label">ผลลัพธ์ทั้งหมด</span>
-                            <span className="stock-ingredient-stat-value">{totalIngredients.toLocaleString()}</span>
-                        </article>
-                        <article className="stock-ingredient-stat-card">
-                            <span className="stock-ingredient-stat-label">พร้อมใช้งาน</span>
-                            <span className="stock-ingredient-stat-value" style={{ color: "#15803d" }}>
-                                {summary.active.toLocaleString()}
-                            </span>
-                        </article>
-                        <article className="stock-ingredient-stat-card">
-                            <span className="stock-ingredient-stat-label">ปิดใช้งาน</span>
-                            <span className="stock-ingredient-stat-value" style={{ color: "#b42318" }}>
-                                {summary.inactive.toLocaleString()}
-                            </span>
-                        </article>
-                    </section>
-
-                    <PageSection title="ค้นหาและกรอง">
-                        <div className="stock-ingredient-panel">
-                            <div className="stock-ingredient-toolbar">
-                                <Input
-                                    size="large"
-                                    allowClear
-                                    placeholder="ค้นหาจากชื่อที่ใช้แสดง ชื่อในระบบ รายละเอียด หรือชื่อหน่วยนับ"
-                                    value={searchText}
-                                    data-testid="stock-ingredients-search"
-                                    onChange={(event) => {
-                                        setPage(1);
-                                        setSearchText(event.target.value);
-                                    }}
-                                />
+            <PageContainer>
+                <PageStack>
+                    <SearchBar>
+                        <SearchInput
+                            placeholder="ค้นหาวัตถุดิบ"
+                            value={searchText}
+                            onChange={(value) => {
+                                setPage(1);
+                                setSearchText(value);
+                            }}
+                        />
+                        <Space wrap size={10} style={{ justifyContent: "space-between", width: "100%" }}>
+                            <Space wrap size={10}>
                                 <ModalSelector<StatusFilter>
                                     title="เลือกสถานะ"
+                                    options={[
+                                        { label: "ทั้งหมด", value: "all" },
+                                        { label: "ใช้งาน", value: "active" },
+                                        { label: "ปิดใช้งาน", value: "inactive" },
+                                    ]}
                                     value={statusFilter}
                                     onChange={(value) => {
                                         setPage(1);
                                         setStatusFilter(value);
                                     }}
+                                    style={{ minWidth: 120 }}
+                                />
+                                <ModalSelector<CreatedSort>
+                                    title="เรียงลำดับ"
                                     options={[
-                                        { label: "ทุกสถานะ", value: "all" },
-                                        { label: "ใช้งาน", value: "active" },
-                                        { label: "ปิดใช้งาน", value: "inactive" },
+                                        { label: "เก่าก่อน", value: "old" },
+                                        { label: "ใหม่ก่อน", value: "new" },
                                     ]}
-                                    placeholder="เลือกสถานะ"
+                                    value={createdSort}
+                                    onChange={(value) => {
+                                        setPage(1);
+                                        setCreatedSort(value);
+                                    }}
+                                    style={{ minWidth: 120 }}
                                 />
-                            </div>
-                        </div>
-                    </PageSection>
+                            </Space>
+                        </Space>
+                    </SearchBar>
 
-                    <PageSection title="รายการวัตถุดิบ" extra={<Text strong>{totalIngredients.toLocaleString()} รายการ</Text>}>
-                        {loading ? (
-                            <PageState status="loading" title="กำลังโหลดรายการวัตถุดิบ" />
-                        ) : error ? (
-                            <PageState status="error" title={error} onRetry={() => void fetchIngredients()} />
-                        ) : ingredients.length === 0 ? (
-                            <div className="stock-ingredient-panel stock-ingredient-empty">
-                                <PageState
-                                    status="empty"
-                                    title="ยังไม่มีรายการวัตถุดิบ"
-                                    description="เริ่มต้นด้วยการเพิ่มวัตถุดิบหลักของร้าน เช่น น้ำตาล เกลือ นม หรือวัตถุดิบที่ใช้สั่งซื้อเป็นประจำ"
-                                    action={
-                                        canCreate ? (
-                                            <Button
-                                                type="primary"
-                                                icon={<PlusOutlined />}
-                                                onClick={() => router.push("/stock/ingredients/manage/add")}
-                                            >
-                                                เพิ่มวัตถุดิบ
-                                            </Button>
-                                        ) : undefined
-                                    }
-                                />
-                            </div>
-                        ) : (
-                            <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                    <PageSection
+                        title="รายการวัตถุดิบ"
+                        extra={
+                            <Space size={8} wrap>
+                                {refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}
+                                <span style={{ fontWeight: 600 }}>{totalIngredients} รายการ</span>
+                            </Space>
+                        }
+                    >
+                        {loading && ingredients.length === 0 ? (
+                            <PageState status="loading" title="กำลังโหลดรายการวัตถุดิบ..." />
+                        ) : error && ingredients.length === 0 ? (
+                            <PageState
+                                status="error"
+                                title="โหลดรายการวัตถุดิบไม่สำเร็จ"
+                                error={error}
+                                onRetry={() => void fetchIngredients()}
+                            />
+                        ) : ingredients.length > 0 ? (
+                            <Space direction="vertical" size={16} style={{ width: "100%" }}>
                                 {ingredients.map((ingredient) => (
-                                    <Card key={ingredient.id} className="stock-ingredient-card" bordered={false}>
-                                        <div className="stock-ingredient-card-grid">
-                                            <div className="stock-ingredient-card-main">
-                                                <div className="stock-ingredient-thumb">
-                                                    <StockImageThumb
-                                                        src={ingredient.img_url}
-                                                        alt={ingredient.display_name}
-                                                        size={72}
-                                                        borderRadius={16}
-                                                    />
-                                                </div>
-
-                                                <div>
-                                                    <div className="stock-ingredient-meta">
-                                                        {ingredient.unit?.display_name ? (
-                                                            <Tag color="blue">{ingredient.unit.display_name}</Tag>
-                                                        ) : null}
-                                                        {ingredient.is_active ? (
-                                                            <Tag color="success">ใช้งาน</Tag>
-                                                        ) : (
-                                                            <Tag>ปิดใช้งาน</Tag>
-                                                        )}
-                                                    </div>
-
-                                                    <Title level={5} style={{ margin: 0, color: "#0f172a" }}>
-                                                        {ingredient.display_name}
-                                                    </Title>
-                                                    <Paragraph className="stock-ingredient-desc" ellipsis={{ rows: 2 }}>
-                                                        {ingredient.description?.trim() || "ไม่มีรายละเอียดเพิ่มเติม"}
-                                                    </Paragraph>
-                                                    <Text type="secondary" style={{ fontSize: 12 }}>
-                                                        สร้างเมื่อ{" "}
-                                                        {ingredient.create_date
-                                                            ? new Date(ingredient.create_date).toLocaleDateString("th-TH", {
-                                                                  day: "2-digit",
-                                                                  month: "short",
-                                                                  year: "numeric",
-                                                              })
-                                                            : "-"}
-                                                    </Text>
-                                                </div>
-                                            </div>
-
-                                            <div className="stock-ingredient-actions">
-                                                {canUpdate ? (
-                                                    <Button
-                                                        icon={<EditOutlined />}
-                                                        onClick={() => router.push(`/stock/ingredients/manage/edit/${ingredient.id}`)}
-                                                    >
-                                                        แก้ไข
-                                                    </Button>
-                                                ) : null}
-                                                {canDelete ? (
-                                                    <Button
-                                                        danger
-                                                        icon={<DeleteOutlined />}
-                                                        onClick={() => handleDelete(ingredient)}
-                                                    >
-                                                        ลบ
-                                                    </Button>
-                                                ) : null}
-                                            </div>
-                                        </div>
-                                    </Card>
+                                    <IngredientCard
+                                        key={ingredient.id}
+                                        ingredient={ingredient}
+                                        canUpdate={canUpdate}
+                                        canDelete={canDelete}
+                                        updatingStatusId={updatingStatusId}
+                                        deletingId={deletingId}
+                                        onEdit={handleEdit}
+                                        onDelete={handleDelete}
+                                        onToggleActive={handleToggleActive}
+                                    />
                                 ))}
 
-                                <div className="stock-ingredient-panel">
+                                <div style={{ marginTop: 12 }}>
                                     <ListPagination
                                         page={page}
                                         pageSize={pageSize}
                                         total={totalIngredients}
-                                        loading={loading}
+                                        loading={loading || refreshing}
                                         onPageChange={setPage}
-                                        onPageSizeChange={(size) => {
-                                            setPage(1);
-                                            setPageSize(size);
-                                        }}
-                                        sortCreated={createdSort}
-                                        onSortCreatedChange={(nextSort) => {
-                                            setPage(1);
-                                            setCreatedSort(nextSort);
-                                        }}
+                                        onPageSizeChange={setPageSize}
+                                        activeColor="#0369a1"
                                     />
                                 </div>
                             </Space>
+                        ) : (
+                            <UIEmptyState
+                                title={deferredSearchText ? "ไม่พบวัตถุดิบตามคำค้น" : "ยังไม่มีวัตถุดิบ"}
+                                description={
+                                    deferredSearchText
+                                        ? "ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ"
+                                        : "เพิ่มวัตถุดิบรายการแรกเพื่อเริ่มใช้งานคลังวัตถุดิบ"
+                                }
+                            />
                         )}
                     </PageSection>
                 </PageStack>

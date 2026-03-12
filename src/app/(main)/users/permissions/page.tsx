@@ -117,6 +117,7 @@ const MENU_NAV_LABEL_BY_RESOURCE_KEY: Record<string, string> = {
     "menu.pos.category": "หมวดหมู่",
     "menu.pos.products": "สินค้า",
     "menu.pos.productsUnit": "หน่วยสินค้า",
+    "menu.pos.topping": "ท็อปปิ้ง",
     "menu.pos.discounts": "ส่วนลด",
     "menu.pos.payment": "วิธีชำระเงิน",
     "menu.pos.settings": "ตั้งค่า",

@@ -1,9 +1,31 @@
 "use client";
 
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
-import { App, Button, Card, Col, Input, Row, Space, Tag, Typography } from "antd";
-import { DeleteOutlined, EyeOutlined, HistoryOutlined, ReloadOutlined } from "@ant-design/icons";
+import {
+  App,
+  Button,
+  Grid,
+  Input,
+  Modal,
+  Pagination,
+  Segmented,
+  Skeleton,
+  Tag,
+  Typography,
+} from "antd";
+import {
+  CheckCircleOutlined,
+  CloseCircleOutlined,
+  DeleteOutlined,
+  EyeOutlined,
+  HistoryOutlined,
+  ReloadOutlined,
+  SearchOutlined,
+  SyncOutlined,
+  UnorderedListOutlined,
+} from "@ant-design/icons";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+
 import { useSocket } from "../../../../hooks/useSocket";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
@@ -11,20 +33,53 @@ import { authService } from "../../../../services/auth.service";
 import { LegacyRealtimeEvents, RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { Order, OrderStatus } from "../../../../types/api/stock/orders";
 import { ordersService } from "../../../../services/stock/orders.service";
-import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
-import ListPagination, { CreatedSort } from "../../../../components/ui/pagination/ListPagination";
 import { DEFAULT_CREATED_SORT, parseCreatedSort } from "../../../../lib/list-sort";
 import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import PageContainer from "../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../components/ui/page/PageSection";
-import PageStack from "../../../../components/ui/page/PageStack";
 import PageState from "../../../../components/ui/states/PageState";
 import OrderDetailModal from "../../../../components/stock/OrderDetailModal";
 import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
+import HistoryPageStyle from "./style";
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
 
+type CreatedSort = "old" | "new";
 type HistoryStatusFilter = "all" | OrderStatus.COMPLETED | OrderStatus.CANCELLED;
+
+type StatusTabConfig = {
+  key: HistoryStatusFilter;
+  label: string;
+  icon: React.ReactNode;
+  activeBg: string;
+  activeShadow: string;
+};
+
+const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
+
+const STATUS_TABS: StatusTabConfig[] = [
+  {
+    key: "all",
+    label: "ทั้งหมด",
+    icon: <HistoryOutlined />,
+    activeBg: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+    activeShadow: "0 4px 12px rgba(59, 130, 246, 0.24)",
+  },
+  {
+    key: OrderStatus.COMPLETED,
+    label: "เสร็จสิ้น",
+    icon: <CheckCircleOutlined />,
+    activeBg: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
+    activeShadow: "0 4px 12px rgba(34, 197, 94, 0.22)",
+  },
+  {
+    key: OrderStatus.CANCELLED,
+    label: "ยกเลิก",
+    icon: <CloseCircleOutlined />,
+    activeBg: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+    activeShadow: "0 4px 12px rgba(239, 68, 68, 0.22)",
+  },
+];
 
 function formatDateTime(value?: string): string {
   if (!value) return "-";
@@ -37,37 +92,189 @@ function formatDateTime(value?: string): string {
   });
 }
 
-function getStatusTag(status: OrderStatus): React.ReactNode {
-  if (status === OrderStatus.COMPLETED) return <Tag color="success">เสร็จสิ้น</Tag>;
-  if (status === OrderStatus.CANCELLED) return <Tag color="error">ยกเลิก</Tag>;
-  return <Tag color="warning">รอดำเนินการ</Tag>;
+function getOrderCode(id: string): string {
+  return `#${id.slice(0, 8).toUpperCase()}`;
+}
+
+function getStatusMeta(status: OrderStatus): {
+  label: string;
+  color: string;
+  background: string;
+  borderColor: string;
+} {
+  if (status === OrderStatus.COMPLETED) {
+    return {
+      label: "เสร็จสิ้น",
+      color: "#15803d",
+      background: "#f0fdf4",
+      borderColor: "#bbf7d0",
+    };
+  }
+
+  if (status === OrderStatus.CANCELLED) {
+    return {
+      label: "ยกเลิก",
+      color: "#b91c1c",
+      background: "#fef2f2",
+      borderColor: "#fecaca",
+    };
+  }
+
+  return {
+    label: "รอดำเนินการ",
+    color: "#b45309",
+    background: "#fffbeb",
+    borderColor: "#fde68a",
+  };
+}
+
+type HistoryOrderCardProps = {
+  order: Order;
+  index: number;
+  canDeleteOrders: boolean;
+  isMobile: boolean;
+  onView: (order: Order) => void;
+  onDelete: (order: Order) => void;
+};
+
+function HistoryOrderCard({
+  order,
+  index,
+  canDeleteOrders,
+  isMobile,
+  onView,
+  onDelete,
+}: HistoryOrderCardProps) {
+  const statusMeta = getStatusMeta(order.status);
+  const previewItems = (order.ordersItems || []).slice(0, 4);
+  const lineCount = order.ordersItems?.length || 0;
+  const required = (order.ordersItems || []).reduce(
+    (acc, item) => acc + Number(item.quantity_ordered || 0),
+    0
+  );
+  const actual = (order.ordersItems || []).reduce(
+    (acc, item) => acc + Number(item.ordersDetail?.actual_quantity || 0),
+    0
+  );
+  const extraItems = Math.max(0, lineCount - previewItems.length);
+
+  return (
+    <div className="stock-history-card" style={{ animationDelay: `${index * 0.04}s` }}>
+      <div className="stock-history-card-head">
+        <div>
+          <div className="stock-history-card-title">
+            <span className="stock-history-card-code">{getOrderCode(order.id)}</span>
+            <span
+              className="stock-history-status-badge"
+              style={{
+                color: statusMeta.color,
+                background: statusMeta.background,
+                border: `1px solid ${statusMeta.borderColor}`,
+              }}
+            >
+              <span
+                className="stock-history-status-dot"
+                style={{ background: statusMeta.color }}
+              />
+              {statusMeta.label}
+            </span>
+          </div>
+          <div className="stock-history-meta-row" style={{ marginTop: 8 }}>
+            <span>ผู้สร้าง: {order.ordered_by?.name || order.ordered_by?.username || "-"}</span>
+            <span>สร้างเมื่อ: {formatDateTime(order.create_date)}</span>
+          </div>
+        </div>
+
+        <div className="stock-history-card-metrics" style={{ justifyContent: isMobile ? "flex-start" : "flex-end" }}>
+          <span>{lineCount} รายการ</span>
+          <span>ต้องซื้อ {required}</span>
+          <span>ซื้อจริง {actual}</span>
+        </div>
+      </div>
+
+      <div className="stock-history-card-main">
+        <div className="stock-history-card-main-left">
+          <div className="stock-history-item-chips">
+            {previewItems.map((item) => (
+              <Tag key={item.id} className="stock-history-item-chip">
+                {item.ingredient?.display_name || "-"} x
+                {Number(
+                  order.status === OrderStatus.COMPLETED
+                    ? item.ordersDetail?.actual_quantity || item.quantity_ordered || 0
+                    : item.quantity_ordered || 0
+                )}
+              </Tag>
+            ))}
+            {extraItems > 0 ? (
+              <Tag className="stock-history-item-chip">+{extraItems} รายการ</Tag>
+            ) : null}
+          </div>
+
+          {order.remark ? (
+            <div className="stock-history-remark">
+              <span className="stock-history-remark-title">หมายเหตุ</span>
+              {order.remark}
+            </div>
+          ) : null}
+        </div>
+
+        <div className="stock-history-card-main-right">
+          <div className="stock-history-card-metrics">
+            <span>อัปเดตล่าสุด {formatDateTime(order.update_date)}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="stock-history-card-foot" style={{ marginTop: 14 }}>
+        <div />
+        <div className="stock-history-card-actions">
+          <Button icon={<EyeOutlined />} onClick={() => onView(order)}>
+            ดูรายละเอียด
+          </Button>
+          {canDeleteOrders ? (
+            <Button danger icon={<DeleteOutlined />} onClick={() => onDelete(order)}>
+              ลบ
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function StockHistoryPage() {
-  const { message: messageApi, modal } = App.useApp();
+  const { message: messageApi } = App.useApp();
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
   const initRef = useRef(false);
   const hasLoadedRef = useRef(false);
   const requestRef = useRef<AbortController | null>(null);
 
   const { socket } = useSocket();
   const { user, loading: authLoading } = useAuth();
-  const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+  const { can, loading: permissionLoading } = useEffectivePermissions({
+    enabled: Boolean(user?.id),
+  });
   const canViewOrders = can("stock.orders.page", "view");
   const canDeleteOrders = can("stock.orders.page", "delete");
 
   const [orders, setOrders] = useState<Order[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
 
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
   const [searchText, setSearchText] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
   const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>("all");
 
   const deferredSearchText = useDeferredValue(searchText.trim());
@@ -85,8 +292,11 @@ export default function StockHistoryPage() {
     setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 10);
     setCreatedSort(parseCreatedSort(sortParam));
     setSearchText(qParam);
+    setShowSearch(Boolean(qParam));
     setStatusFilter(
-      statusParam === OrderStatus.COMPLETED || statusParam === OrderStatus.CANCELLED ? statusParam : "all"
+      statusParam === OrderStatus.COMPLETED || statusParam === OrderStatus.CANCELLED
+        ? statusParam
+        : "all"
     );
 
     initRef.current = true;
@@ -115,9 +325,12 @@ export default function StockHistoryPage() {
       requestRef.current = controller;
 
       try {
-        if (!silent) {
+        if (silent && hasLoadedRef.current) {
+          setRefreshing(true);
+        } else {
           setLoading(true);
         }
+
         setError(null);
 
         const params = new URLSearchParams();
@@ -135,24 +348,31 @@ export default function StockHistoryPage() {
 
         setOrders(Array.isArray(payload.data) ? payload.data : []);
         setTotal(Number(payload.total || 0));
+        setLastSyncedAt(new Date());
+        setRefreshError(null);
         hasLoadedRef.current = true;
       } catch (err) {
         if ((err as Error)?.name === "AbortError") return;
         if (requestRef.current !== controller) return;
 
-        setError(err instanceof Error ? err.message : "โหลดประวัติใบซื้อไม่สำเร็จ");
-        setOrders([]);
-        setTotal(0);
+        const nextMessage =
+          err instanceof Error ? err.message : "โหลดประวัติใบสั่งซื้อไม่สำเร็จ";
+        if (silent && orders.length > 0) {
+          setRefreshError(nextMessage);
+        } else {
+          setError(nextMessage);
+          setOrders([]);
+          setTotal(0);
+        }
       } finally {
         if (requestRef.current === controller) {
           requestRef.current = null;
-          if (!silent) {
-            setLoading(false);
-          }
+          setLoading(false);
+          setRefreshing(false);
         }
       }
     },
-    [canViewOrders, createdSort, deferredSearchText, page, pageSize, statusFilter]
+    [canViewOrders, createdSort, deferredSearchText, page, pageSize, statusFilter, orders.length]
   );
 
   useEffect(() => {
@@ -187,25 +407,28 @@ export default function StockHistoryPage() {
     };
   }, [socket, canViewOrders, fetchHistory]);
 
-  const deleteOrder = (order: Order) => {
-    modal.confirm({
-      title: `ลบใบซื้อ #${order.id.slice(0, 8).toUpperCase()}`,
-      content: "การลบจะไม่สามารถกู้คืนได้ ต้องการดำเนินการต่อหรือไม่",
-      okText: "ลบใบซื้อ",
-      okButtonProps: { danger: true },
-      cancelText: "ยกเลิก",
-      onOk: async () => {
-        try {
-          const token = await authService.getCsrfToken();
-          await ordersService.deleteOrder(order.id, undefined, token);
-          messageApi.success("ลบใบซื้อแล้ว");
-          void fetchHistory({ silent: true });
-        } catch (err) {
-          messageApi.error(err instanceof Error ? err.message : "ลบใบซื้อไม่สำเร็จ");
-        }
-      },
-    });
-  };
+  const deleteOrder = useCallback(
+    (order: Order) => {
+      Modal.confirm({
+        title: `ลบใบสั่งซื้อ ${getOrderCode(order.id)}`,
+        content: "การลบไม่สามารถกู้คืนได้ ต้องการดำเนินการต่อหรือไม่",
+        okText: "ลบใบสั่งซื้อ",
+        okButtonProps: { danger: true },
+        cancelText: "ยกเลิก",
+        onOk: async () => {
+          try {
+            const token = await authService.getCsrfToken();
+            await ordersService.deleteOrder(order.id, undefined, token);
+            messageApi.success("ลบใบสั่งซื้อแล้ว");
+            void fetchHistory({ silent: true });
+          } catch (err) {
+            messageApi.error(err instanceof Error ? err.message : "ลบใบสั่งซื้อไม่สำเร็จ");
+          }
+        },
+      });
+    },
+    [fetchHistory, messageApi]
+  );
 
   const summary = useMemo(() => {
     const completed = orders.filter((order) => order.status === OrderStatus.COMPLETED).length;
@@ -228,171 +451,259 @@ export default function StockHistoryPage() {
     return { completed, cancelled, totalRequired, totalActual };
   }, [orders]);
 
+  const tabCounts = useMemo(
+    () => ({
+      all: total,
+      [OrderStatus.COMPLETED]:
+        statusFilter === OrderStatus.COMPLETED ? total : summary.completed,
+      [OrderStatus.CANCELLED]:
+        statusFilter === OrderStatus.CANCELLED ? total : summary.cancelled,
+    }),
+    [statusFilter, summary.cancelled, summary.completed, total]
+  );
+
   if (authLoading || permissionLoading) {
     return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
   }
 
   if (!user || !canViewOrders) {
-    return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงประวัติใบซื้อของสต๊อก" tone="danger" />;
+    return (
+      <AccessGuardFallback
+        message="คุณไม่มีสิทธิ์เข้าถึงประวัติใบสั่งซื้อของสต็อก"
+        tone="danger"
+      />
+    );
   }
 
+  const isInitialLoading = loading && !hasLoadedRef.current;
+
   return (
-    <div style={{ minHeight: "100vh", background: "#f7f9fc", paddingBottom: 120 }}>
+    <div className="stock-history-page-shell">
+      <HistoryPageStyle />
+
       <UIPageHeader
-        title="ประวัติใบซื้อ"
-        subtitle="รายการที่เสร็จสิ้นหรือยกเลิกแล้ว"
+        title="ประวัติใบสั่งซื้อ"
+        subtitle={
+          lastSyncedAt
+            ? `อัปเดตล่าสุด ${formatDateTime(lastSyncedAt.toISOString())}`
+            : "รายการที่เสร็จสิ้นหรือยกเลิกแล้ว"
+        }
         icon={<HistoryOutlined />}
         actions={
-          <Button icon={<ReloadOutlined />} onClick={() => void fetchHistory()} loading={loading}>
-            รีเฟรช
-          </Button>
+          <div className="stock-history-header-actions">
+            <Button
+              type="text"
+              icon={<SearchOutlined />}
+              onClick={() => setShowSearch((prev) => !prev)}
+              style={{
+                borderRadius: 12,
+                width: 40,
+                height: 40,
+                color: showSearch ? "#2563eb" : undefined,
+                background: showSearch ? "#eff6ff" : undefined,
+              }}
+            />
+            <Button
+              icon={<UnorderedListOutlined />}
+              onClick={() => router.push("/stock/items")}
+            >
+              คิวงาน
+            </Button>
+            <Button
+              icon={refreshing ? <SyncOutlined spin /> : <ReloadOutlined />}
+              onClick={() => void fetchHistory({ silent: true })}
+              loading={loading && !hasLoadedRef.current}
+            >
+              รีเฟรช
+            </Button>
+          </div>
         }
       />
 
-      <PageContainer maxWidth={1300}>
-        <PageStack gap={12}>
-          <Row gutter={[12, 12]}>
-            <Col xs={24} sm={12} md={6}>
-              <Card>
-                <Text type="secondary">ผลลัพธ์ทั้งหมด</Text>
-                <Title level={4} style={{ margin: "6px 0 0" }}>{total.toLocaleString()}</Title>
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} md={6}>
-              <Card>
-                <Text type="secondary">เสร็จสิ้นในหน้านี้</Text>
-                <Title level={4} style={{ margin: "6px 0 0", color: "#389e0d" }}>{summary.completed.toLocaleString()}</Title>
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} md={6}>
-              <Card>
-                <Text type="secondary">ยกเลิกในหน้านี้</Text>
-                <Title level={4} style={{ margin: "6px 0 0", color: "#cf1322" }}>{summary.cancelled.toLocaleString()}</Title>
-              </Card>
-            </Col>
-            <Col xs={24} sm={12} md={6}>
-              <Card>
-                <Text type="secondary">สัดส่วนซื้อจริง/แผน</Text>
-                <Title level={4} style={{ margin: "6px 0 0", color: "#1677ff" }}>
-                  {summary.totalRequired > 0 ? `${Math.round((summary.totalActual / summary.totalRequired) * 100)}%` : "-"}
-                </Title>
-              </Card>
-            </Col>
-          </Row>
+      <PageContainer maxWidth={1440}>
+        {showSearch ? (
+          <div className="stock-history-search-panel">
+            <Input
+              allowClear
+              prefix={<SearchOutlined style={{ color: "#94a3b8" }} />}
+              placeholder="ค้นหาจากเลขใบสั่งซื้อ ผู้สร้าง หรือหมายเหตุ"
+              value={searchText}
+              onChange={(event) => {
+                setPage(1);
+                setSearchText(event.target.value);
+              }}
+              variant="borderless"
+            />
+          </div>
+        ) : null}
 
-          <PageSection title="ค้นหาและกรอง">
-            <Row gutter={[8, 8]}>
-              <Col xs={24} md={14}>
-                <Input
-                  placeholder="ค้นหาจากเลขใบซื้อ ผู้สร้าง หรือหมายเหตุ"
-                  value={searchText}
-                  allowClear
-                  onChange={(event) => {
-                    setPage(1);
-                    setSearchText(event.target.value);
-                  }}
-                />
-              </Col>
-              <Col xs={24} md={10}>
-                <ModalSelector<HistoryStatusFilter>
-                  title="เลือกสถานะ"
-                  value={statusFilter}
-                  onChange={(value) => {
-                    setPage(1);
-                    setStatusFilter(value);
-                  }}
-                  options={[
-                    { label: "เสร็จสิ้นและยกเลิก", value: "all" },
-                    { label: "เสร็จสิ้น", value: OrderStatus.COMPLETED },
-                    { label: "ยกเลิก", value: OrderStatus.CANCELLED },
-                  ]}
-                  placeholder="เลือกสถานะ"
-                />
-              </Col>
-            </Row>
-          </PageSection>
+        <div className="stock-history-summary-grid">
+          <div className="stock-history-summary-card">
+            <span className="stock-history-summary-label">ผลลัพธ์ทั้งหมด</span>
+            <span className="stock-history-summary-value">{total.toLocaleString()}</span>
+            <span className="stock-history-summary-meta">ตามตัวกรองที่เลือก</span>
+          </div>
+          <div className="stock-history-summary-card">
+            <span className="stock-history-summary-label">เสร็จสิ้นบนหน้านี้</span>
+            <span className="stock-history-summary-value">{summary.completed.toLocaleString()}</span>
+            <span className="stock-history-summary-meta">นับจากรายการที่กำลังแสดง</span>
+          </div>
+          <div className="stock-history-summary-card">
+            <span className="stock-history-summary-label">ยกเลิกบนหน้านี้</span>
+            <span className="stock-history-summary-value">{summary.cancelled.toLocaleString()}</span>
+            <span className="stock-history-summary-meta">นับจากรายการที่กำลังแสดง</span>
+          </div>
+          <div className="stock-history-summary-card">
+            <span className="stock-history-summary-label">สัดส่วนซื้อจริง/แผน</span>
+            <span className="stock-history-summary-value">
+              {summary.totalRequired > 0
+                ? `${Math.round((summary.totalActual / summary.totalRequired) * 100)}%`
+                : "-"}
+            </span>
+            <span className="stock-history-summary-meta">
+              {summary.totalActual.toLocaleString()} / {summary.totalRequired.toLocaleString()}
+            </span>
+          </div>
+        </div>
 
-          <PageSection title="รายการย้อนหลัง" extra={<Text strong>{total.toLocaleString()} รายการ</Text>}>
-            {loading ? (
-              <PageState status="loading" title="กำลังโหลดข้อมูล" />
-            ) : error ? (
-              <PageState status="error" title={error} onRetry={() => void fetchHistory()} />
-            ) : orders.length === 0 ? (
-              <PageState status="empty" title="ยังไม่มีประวัติใบซื้อ" />
-            ) : (
-              <>
-                <Space direction="vertical" size={12} style={{ width: "100%" }}>
-                  {orders.map((order) => {
-                    const lineCount = order.ordersItems?.length || 0;
-                    const required = (order.ordersItems || []).reduce(
-                      (acc, item) => acc + Number(item.quantity_ordered || 0),
-                      0
-                    );
-                    const actual = (order.ordersItems || []).reduce(
-                      (acc, item) => acc + Number(item.ordersDetail?.actual_quantity || 0),
-                      0
-                    );
+        <div className="stock-history-tab-row">
+          {STATUS_TABS.map((tab) => {
+            const isActive = statusFilter === tab.key;
+            const count =
+              tab.key === "all"
+                ? tabCounts.all
+                : tabCounts[tab.key as OrderStatus.COMPLETED | OrderStatus.CANCELLED];
 
-                    return (
-                      <Card key={order.id} size="small" style={{ borderRadius: 14 }}>
-                        <Row gutter={[12, 12]} align="middle">
-                          <Col xs={24} md={14}>
-                            <Space direction="vertical" size={2}>
-                              <Space wrap>
-                                <Text strong>#{order.id.slice(0, 8).toUpperCase()}</Text>
-                                {getStatusTag(order.status)}
-                              </Space>
-                              <Text type="secondary">
-                                ผู้สร้าง: {order.ordered_by?.name || order.ordered_by?.username || "-"}
-                              </Text>
-                              <Text type="secondary">วันที่สร้าง: {formatDateTime(order.create_date)}</Text>
-                              <Space size={12}>
-                                <Text style={{ fontSize: 12 }}>จำนวนรายการ {lineCount.toLocaleString()}</Text>
-                                <Text style={{ fontSize: 12 }}>ต้องซื้อ {required.toLocaleString()}</Text>
-                                <Text style={{ fontSize: 12, color: "#1677ff" }}>ซื้อจริง {actual.toLocaleString()}</Text>
-                              </Space>
-                            </Space>
-                          </Col>
-                          <Col xs={24} md={10}>
-                            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
-                              <Button icon={<EyeOutlined />} onClick={() => setViewingOrder(order)}>
-                                ดูรายละเอียด
-                              </Button>
-                              {canDeleteOrders ? (
-                                <Button danger icon={<DeleteOutlined />} onClick={() => deleteOrder(order)}>
-                                  ลบ
-                                </Button>
-                              ) : null}
-                            </div>
-                          </Col>
-                        </Row>
-                      </Card>
-                    );
-                  })}
-                </Space>
-
-                <div style={{ marginTop: 20 }}>
-                  <ListPagination
-                    page={page}
-                    pageSize={pageSize}
-                    total={total}
-                    loading={loading}
-                    onPageChange={setPage}
-                    onPageSizeChange={(size) => {
-                      setPage(1);
-                      setPageSize(size);
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                className="stock-history-tab-btn"
+                onClick={() => {
+                  setPage(1);
+                  setStatusFilter(tab.key);
+                }}
+                style={{
+                  background: isActive ? tab.activeBg : "#ffffff",
+                  color: isActive ? "#ffffff" : "#475569",
+                  boxShadow: isActive ? tab.activeShadow : "0 1px 4px rgba(15, 23, 42, 0.06)",
+                  border: isActive ? "none" : "1px solid #e2e8f0",
+                }}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+                {count > 0 ? (
+                  <span
+                    style={{
+                      padding: "2px 8px",
+                      borderRadius: 999,
+                      background: isActive ? "rgba(255,255,255,0.2)" : "#f1f5f9",
+                      color: isActive ? "#ffffff" : "#475569",
+                      fontSize: 12,
+                      fontWeight: 700,
                     }}
-                    sortCreated={createdSort}
-                    onSortCreatedChange={(nextSort) => {
-                      setPage(1);
-                      setCreatedSort(nextSort);
-                    }}
-                  />
+                  >
+                    {count}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="stock-history-toolbar">
+          <Segmented<CreatedSort>
+            className="stock-history-segmented"
+            value={createdSort}
+            onChange={(value) => {
+              setPage(1);
+              setCreatedSort(value);
+            }}
+            options={[
+              { label: "ล่าสุดก่อน", value: "new" },
+              { label: "เก่าก่อน", value: "old" },
+            ]}
+          />
+
+          <div className="stock-history-toolbar-right">
+            <Segmented<number>
+              className="stock-history-segmented"
+              value={pageSize}
+              onChange={(value) => {
+                setPage(1);
+                setPageSize(value);
+              }}
+              options={PAGE_SIZE_OPTIONS.map((value) => ({
+                label: `${value}/หน้า`,
+                value,
+              }))}
+            />
+          </div>
+        </div>
+
+        <PageSection title="รายการย้อนหลัง" extra={<Text strong>{total.toLocaleString()} รายการ</Text>}>
+          {refreshError ? (
+            <div className="stock-history-feedback stock-history-feedback-danger">
+              <Text>{refreshError}</Text>
+            </div>
+          ) : null}
+
+          {isInitialLoading ? (
+            <div className="stock-history-list">
+              {[1, 2, 3].map((value) => (
+                <div key={value} className="stock-history-card">
+                  <Skeleton active paragraph={{ rows: 3 }} />
                 </div>
-              </>
-            )}
-          </PageSection>
-        </PageStack>
+              ))}
+            </div>
+          ) : error ? (
+            <PageState
+              status="error"
+              title={error}
+              onRetry={() => void fetchHistory()}
+            />
+          ) : orders.length === 0 ? (
+            <PageState
+              status="empty"
+              title="ยังไม่มีประวัติใบสั่งซื้อ"
+              description={
+                deferredSearchText
+                  ? "ลองเปลี่ยนคำค้นหาหรือสถานะที่ต้องการดู"
+                  : "เมื่อมีรายการที่เสร็จสิ้นหรือยกเลิกแล้ว ระบบจะแสดงที่นี่"
+              }
+            />
+          ) : (
+            <>
+              <div className="stock-history-list">
+                {orders.map((order, index) => (
+                  <HistoryOrderCard
+                    key={order.id}
+                    order={order}
+                    index={index}
+                    canDeleteOrders={canDeleteOrders}
+                    isMobile={isMobile}
+                    onView={(target) => setViewingOrder(target)}
+                    onDelete={deleteOrder}
+                  />
+                ))}
+              </div>
+
+              <div className="stock-history-pagination">
+                <div className="stock-history-pagination-summary">
+                  แสดง {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} จาก{" "}
+                  {total.toLocaleString()} รายการ
+                </div>
+                <Pagination
+                  current={page}
+                  pageSize={pageSize}
+                  total={total}
+                  showSizeChanger={false}
+                  onChange={(nextPage) => setPage(nextPage)}
+                />
+              </div>
+            </>
+          )}
+        </PageSection>
       </PageContainer>
 
       <OrderDetailModal
