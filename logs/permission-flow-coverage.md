@@ -1,6 +1,6 @@
 # Permission Flow Coverage
 
-Generated: 2026-03-12T08:02:55.583Z
+Generated: 2026-03-12T08:25:58.016Z
 Files with permission/menu checks: 65
 Unique keys discovered: 114
 

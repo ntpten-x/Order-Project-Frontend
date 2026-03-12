@@ -30,6 +30,7 @@ import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import { DEFAULT_CREATED_SORT } from '../../../../lib/list-sort';
 import { pageStyles, globalStyles } from '../../../../theme/pos/topping/style';
 import { formatCurrency } from '../../../../utils/format.utils';
+import { isSupportedImageSource, normalizeImageSource } from '../../../../utils/image/source';
 
 const { Text } = Typography;
 
@@ -37,7 +38,7 @@ type StatusFilter = 'all' | 'active' | 'inactive';
 type CategoryFilter = 'all' | string;
 type ToppingCachePayload = { items: Topping[]; total: number };
 
-const TOPPING_CACHE_KEY = 'pos:topping:list:default-v2';
+const TOPPING_CACHE_KEY = 'pos:topping:list:default-v3';
 const TOPPING_CACHE_TTL_MS = 60 * 1000;
 
 interface ToppingCardProps {
@@ -74,102 +75,118 @@ const ToppingCard = ({
     onToggleActive,
     updatingStatusId,
     deletingId,
-}: ToppingCardProps) => (
-    <div
-        className="topping-card"
-        style={{ ...pageStyles.unitCard(topping.is_active), borderRadius: 16, cursor: canUpdate ? 'pointer' : 'default' }}
-        onClick={() => {
-            if (!canUpdate) return;
-            onEdit(topping);
-        }}
-    >
-        <div style={pageStyles.unitCardInner}>
-            <div
-                style={{
-                    width: 52,
-                    height: 52,
-                    borderRadius: 14,
-                    background: topping.is_active ? 'linear-gradient(135deg, #fef3c7 0%, #fdba74 100%)' : '#f1f5f9',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    flexShrink: 0,
-                    boxShadow: topping.is_active ? '0 4px 10px rgba(234, 88, 12, 0.16)' : 'none',
-                }}
-            >
-                <TagsOutlined style={{ fontSize: 22, color: topping.is_active ? '#ea580c' : '#94a3b8' }} />
-            </div>
+}: ToppingCardProps) => {
+    const imageSrc = normalizeImageSource(topping.img);
+    const hasImage = isSupportedImageSource(imageSrc);
+    const deliveryPrice = Number(topping.price_delivery ?? topping.price ?? 0);
 
-            <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                    <Text strong style={{ fontSize: 16, color: '#0f172a' }} ellipsis={{ tooltip: topping.display_name }}>
-                        {topping.display_name}
-                    </Text>
-                    <Tag color={topping.is_active ? 'green' : 'default'} style={{ borderRadius: 999 }}>
-                        {topping.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}
-                    </Tag>
-                    <Tag color="orange" style={{ borderRadius: 999 }}>
-                        {formatCurrency(Number(topping.price || 0))}
-                    </Tag>
-                </div>
-                <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
-                    {(topping.categories || []).length > 0 ? (
-                        topping.categories?.map((category) => (
-                            <Tag key={category.id} color="gold" style={{ borderRadius: 999, marginInlineEnd: 0 }}>
-                                {category.display_name}
-                            </Tag>
-                        ))
+    return (
+        <div
+            className="topping-card"
+            style={{ ...pageStyles.unitCard(topping.is_active), borderRadius: 16, cursor: canUpdate ? 'pointer' : 'default' }}
+            onClick={() => {
+                if (!canUpdate) return;
+                onEdit(topping);
+            }}
+        >
+            <div style={pageStyles.unitCardInner}>
+                <div
+                    style={{
+                        width: 58,
+                        height: 58,
+                        borderRadius: 16,
+                        background: topping.is_active ? 'linear-gradient(135deg, #fef3c7 0%, #fdba74 100%)' : '#f1f5f9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        flexShrink: 0,
+                        overflow: 'hidden',
+                        boxShadow: topping.is_active ? '0 4px 10px rgba(234, 88, 12, 0.16)' : 'none',
+                    }}
+                >
+                    {hasImage ? (
+                        <img src={imageSrc} alt={topping.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                     ) : (
-                        <Text type="secondary" style={{ fontSize: 12 }}>
-                            ยังไม่กำหนดหมวดหมู่
-                        </Text>
+                        <TagsOutlined style={{ fontSize: 24, color: topping.is_active ? '#ea580c' : '#94a3b8' }} />
                     )}
                 </div>
-                <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 6 }}>
-                    อัปเดตล่าสุด {formatDate(topping.update_date)}
-                </Text>
-            </div>
 
-            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                <Switch
-                    size="small"
-                    checked={topping.is_active}
-                    loading={updatingStatusId === topping.id}
-                    disabled={!canUpdate || deletingId === topping.id}
-                    onClick={(checked, event) => {
-                        event?.stopPropagation();
-                        if (!canUpdate) return;
-                        onToggleActive(topping, checked);
-                    }}
-                />
-                {canUpdate ? (
-                    <Button
-                        type="text"
-                        icon={<EditOutlined />}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onEdit(topping);
+                <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                        <Text strong style={{ fontSize: 16, color: '#0f172a' }} ellipsis={{ tooltip: topping.display_name }}>
+                            {topping.display_name}
+                        </Text>
+                        <Tag color={topping.is_active ? 'green' : 'default'} style={{ borderRadius: 999 }}>
+                            {topping.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}
+                        </Tag>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6, marginBottom: 6 }}>
+                        <Tag color="orange" style={{ borderRadius: 999, marginInlineEnd: 0 }}>
+                            POS {formatCurrency(Number(topping.price || 0))}
+                        </Tag>
+                        <Tag color="blue" style={{ borderRadius: 999, marginInlineEnd: 0 }}>
+                            Delivery {formatCurrency(deliveryPrice)}
+                        </Tag>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
+                        {(topping.categories || []).length > 0 ? (
+                            topping.categories?.map((category) => (
+                                <Tag key={category.id} color="gold" style={{ borderRadius: 999, marginInlineEnd: 0 }}>
+                                    {category.display_name}
+                                </Tag>
+                            ))
+                        ) : (
+                            <Text type="secondary" style={{ fontSize: 12 }}>
+                                ยังไม่กำหนดหมวดหมู่
+                            </Text>
+                        )}
+                    </div>
+                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 6 }}>
+                        อัปเดตล่าสุด {formatDate(topping.update_date)}
+                    </Text>
+                </div>
+
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                    <Switch
+                        size="small"
+                        checked={topping.is_active}
+                        loading={updatingStatusId === topping.id}
+                        disabled={!canUpdate || deletingId === topping.id}
+                        onClick={(checked, event) => {
+                            event?.stopPropagation();
+                            if (!canUpdate) return;
+                            onToggleActive(topping, checked);
                         }}
-                        style={{ borderRadius: 10, color: '#ea580c', background: '#fff7ed', width: 36, height: 36 }}
                     />
-                ) : null}
-                {canDelete ? (
-                    <Button
-                        type="text"
-                        danger
-                        loading={deletingId === topping.id}
-                        icon={deletingId === topping.id ? undefined : <DeleteOutlined />}
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onDelete(topping);
-                        }}
-                        style={{ borderRadius: 10, background: '#fef2f2', width: 36, height: 36 }}
-                    />
-                ) : null}
+                    {canUpdate ? (
+                        <Button
+                            type="text"
+                            icon={<EditOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEdit(topping);
+                            }}
+                            style={{ borderRadius: 10, color: '#ea580c', background: '#fff7ed', width: 36, height: 36 }}
+                        />
+                    ) : null}
+                    {canDelete ? (
+                        <Button
+                            type="text"
+                            danger
+                            loading={deletingId === topping.id}
+                            icon={deletingId === topping.id ? undefined : <DeleteOutlined />}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete(topping);
+                            }}
+                            style={{ borderRadius: 10, background: '#fef2f2', width: 36, height: 36 }}
+                        />
+                    ) : null}
+                </div>
             </div>
         </div>
-    </div>
-);
+    );
+};
 
 export default function ToppingPage() {
     const router = useRouter();
@@ -263,7 +280,7 @@ export default function ToppingPage() {
             if (!response.ok) return;
             setCategories(parseListResponse<Category>(await response.json()));
         } catch {
-            // leave selector empty if categories cannot be loaded
+            // keep page usable even if category selector cannot be refreshed
         }
     }, []);
 

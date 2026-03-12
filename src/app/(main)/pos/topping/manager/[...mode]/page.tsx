@@ -16,11 +16,19 @@ import { pageStyles } from '../../../../../../theme/pos/topping/style';
 import { Category } from '../../../../../../types/api/pos/category';
 import { Topping } from '../../../../../../types/api/pos/topping';
 import { formatCurrency } from '../../../../../../utils/format.utils';
+import { isSupportedImageSource, normalizeImageSource } from '../../../../../../utils/image/source';
 
 const { Title, Text } = Typography;
 
 type ManageMode = 'add' | 'edit';
-type ToppingFormValues = { display_name: string; price: number; category_ids: string[]; is_active?: boolean };
+type ToppingFormValues = {
+    display_name: string;
+    price: number;
+    price_delivery?: number;
+    img?: string;
+    category_ids: string[];
+    is_active?: boolean;
+};
 
 const parseListResponse = <T,>(payload: unknown): T[] => {
     if (Array.isArray(payload)) return payload as T[];
@@ -47,6 +55,8 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
     const [categories, setCategories] = useState<Category[]>([]);
     const [displayName, setDisplayName] = useState('');
     const [price, setPrice] = useState(0);
+    const [priceDelivery, setPriceDelivery] = useState(0);
+    const [imageUrl, setImageUrl] = useState('');
     const [isActive, setIsActive] = useState(true);
     const [originalTopping, setOriginalTopping] = useState<Topping | null>(null);
 
@@ -71,6 +81,8 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
         () => categories.some((category) => category.is_active) || selectedCategories.length > 0,
         [categories, selectedCategories.length]
     );
+    const normalizedPreviewImage = normalizeImageSource(imageUrl);
+    const hasPreviewImage = isSupportedImageSource(normalizedPreviewImage);
 
     useEffect(() => {
         if (!isValidMode || (mode === 'edit' && !id)) {
@@ -113,11 +125,15 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
             form.setFieldsValue({
                 display_name: data.display_name,
                 price: Number(data.price || 0),
+                price_delivery: Number(data.price_delivery ?? data.price ?? 0),
+                img: data.img || '',
                 category_ids: (data.categories || []).map((category: Category) => category.id),
                 is_active: data.is_active,
             });
             setDisplayName(data.display_name || '');
             setPrice(Number(data.price || 0));
+            setPriceDelivery(Number(data.price_delivery ?? data.price ?? 0));
+            setImageUrl(data.img || '');
             setIsActive(Boolean(data.is_active));
             setOriginalTopping(data);
         } catch (error) {
@@ -164,6 +180,10 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
             const payload = {
                 display_name: values.display_name.trim(),
                 price: Number(values.price || 0),
+                price_delivery: values.price_delivery === undefined || values.price_delivery === null
+                    ? Number(values.price || 0)
+                    : Number(values.price_delivery),
+                img: normalizeImageSource(values.img) || null,
                 category_ids: values.category_ids,
                 is_active: values.is_active,
             };
@@ -250,10 +270,18 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                                         form={form}
                                         layout="vertical"
                                         onFinish={handleSubmit}
-                                        initialValues={{ is_active: true, price: 0, category_ids: [] }}
+                                        initialValues={{ is_active: true, price: 0, price_delivery: 0, img: '', category_ids: [] }}
                                         onValuesChange={(changed) => {
                                             if (changed.display_name !== undefined) setDisplayName(changed.display_name);
-                                            if (changed.price !== undefined) setPrice(Number(changed.price || 0));
+                                            if (changed.price !== undefined) {
+                                                setPrice(Number(changed.price || 0));
+                                                if (!isEdit && !form.isFieldTouched('price_delivery')) {
+                                                    form.setFieldsValue({ price_delivery: changed.price });
+                                                    setPriceDelivery(Number(changed.price || 0));
+                                                }
+                                            }
+                                            if (changed.price_delivery !== undefined) setPriceDelivery(Number(changed.price_delivery || 0));
+                                            if (changed.img !== undefined) setImageUrl(changed.img || '');
                                             if (changed.is_active !== undefined) setIsActive(Boolean(changed.is_active));
                                         }}
                                     >
@@ -276,40 +304,66 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                                         </Form.Item>
 
                                         <Row gutter={12}>
-                                            <Col xs={24} md={10}>
+                                            <Col xs={24} md={8}>
                                                 <Form.Item
                                                     name="price"
-                                                    label={<span style={{ fontWeight: 600 }}>ราคาเพิ่ม</span>}
+                                                    label={<span style={{ fontWeight: 600 }}>ราคา POS</span>}
                                                     rules={[
-                                                        { required: true, message: 'กรุณากรอกราคาเพิ่ม' },
+                                                        { required: true, message: 'กรุณากรอกราคา POS' },
                                                         { type: 'number', min: 0, message: 'ราคาต้องมากกว่าหรือเท่ากับ 0' },
                                                     ]}
                                                 >
                                                     <InputNumber min={0} precision={2} style={{ width: '100%' }} placeholder="0.00" />
                                                 </Form.Item>
                                             </Col>
-                                            <Col xs={24} md={14}>
+                                            <Col xs={24} md={8}>
                                                 <Form.Item
-                                                    name="category_ids"
-                                                    label={<span style={{ fontWeight: 600 }}>หมวดหมู่ที่ใช้ได้</span>}
-                                                    rules={[{ required: true, type: 'array', min: 1, message: 'กรุณาเลือกอย่างน้อย 1 หมวดหมู่' }]}
-                                                    extra="หนึ่งท็อปปิ้งสามารถใช้ได้หลายหมวดหมู่ เช่น เครื่องดื่ม, นม และของหวาน"
+                                                    name="price_delivery"
+                                                    label={<span style={{ fontWeight: 600 }}>ราคา Delivery</span>}
+                                                    rules={[{ type: 'number', min: 0, message: 'ราคาต้องมากกว่าหรือเท่ากับ 0' }]}
                                                 >
-                                                    <Select
-                                                        mode="multiple"
-                                                        size="large"
-                                                        placeholder="เลือกหมวดหมู่ที่ใช้ท็อปปิ้งนี้"
-                                                        optionFilterProp="label"
-                                                        maxTagCount="responsive"
-                                                        options={categories.map((category) => ({
-                                                            label: category.is_active ? category.display_name : `${category.display_name} (ปิดใช้งาน)`,
-                                                            value: category.id,
-                                                            disabled: !category.is_active && !selectedCategoryIds.includes(category.id),
-                                                        }))}
-                                                    />
+                                                    <InputNumber min={0} precision={2} style={{ width: '100%' }} placeholder="0.00" />
+                                                </Form.Item>
+                                            </Col>
+                                            <Col xs={24} md={8}>
+                                                <Form.Item
+                                                    name="img"
+                                                    label={<span style={{ fontWeight: 600 }}>รูปภาพ URL</span>}
+                                                    rules={[
+                                                        {
+                                                            validator: async (_, value: string | undefined) => {
+                                                                if (!value?.trim()) return;
+                                                                if (!isSupportedImageSource(normalizeImageSource(value))) {
+                                                                    throw new Error('รองรับเฉพาะ URL รูปภาพแบบ http(s), data:image และ blob');
+                                                                }
+                                                            },
+                                                        },
+                                                    ]}
+                                                >
+                                                    <Input size="large" placeholder="https://example.com/topping.jpg" />
                                                 </Form.Item>
                                             </Col>
                                         </Row>
+
+                                        <Form.Item
+                                            name="category_ids"
+                                            label={<span style={{ fontWeight: 600 }}>หมวดหมู่ที่ใช้ได้</span>}
+                                            rules={[{ required: true, type: 'array', min: 1, message: 'กรุณาเลือกอย่างน้อย 1 หมวดหมู่' }]}
+                                            extra="หนึ่งท็อปปิ้งสามารถใช้ได้หลายหมวดหมู่ เช่น เครื่องดื่ม, นม และของหวาน"
+                                        >
+                                            <Select
+                                                mode="multiple"
+                                                size="large"
+                                                placeholder="เลือกหมวดหมู่ที่ใช้ท็อปปิ้งนี้"
+                                                optionFilterProp="label"
+                                                maxTagCount="responsive"
+                                                options={categories.map((category) => ({
+                                                    label: category.is_active ? category.display_name : `${category.display_name} (ปิดใช้งาน)`,
+                                                    value: category.id,
+                                                    disabled: !category.is_active && !selectedCategoryIds.includes(category.id),
+                                                }))}
+                                            />
+                                        </Form.Item>
 
                                         <div style={{ padding: 16, background: '#fff7ed', borderRadius: 14, marginBottom: 18 }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -342,10 +396,34 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                                             <TagsOutlined style={{ color: '#ea580c' }} />
                                             <Text strong>ตัวอย่างการแสดงผล</Text>
                                         </div>
+                                        <div
+                                            style={{
+                                                width: '100%',
+                                                aspectRatio: '16 / 10',
+                                                borderRadius: 16,
+                                                background: '#fff7ed',
+                                                overflow: 'hidden',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'center',
+                                                marginBottom: 14,
+                                            }}
+                                        >
+                                            {hasPreviewImage ? (
+                                                <img src={normalizedPreviewImage} alt={displayName || 'preview'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            ) : (
+                                                <TagsOutlined style={{ fontSize: 40, color: '#ea580c' }} />
+                                            )}
+                                        </div>
                                         <Title level={4} style={{ marginBottom: 8 }}>{displayName || 'ชื่อท็อปปิ้ง'}</Title>
-                                        <Tag color="orange" style={{ borderRadius: 999, marginBottom: 12 }}>
-                                            {formatCurrency(Number(price || 0))}
-                                        </Tag>
+                                        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
+                                            <Tag color="orange" style={{ borderRadius: 999 }}>
+                                                POS {formatCurrency(Number(price || 0))}
+                                            </Tag>
+                                            <Tag color="blue" style={{ borderRadius: 999 }}>
+                                                Delivery {formatCurrency(Number(priceDelivery || 0))}
+                                            </Tag>
+                                        </div>
                                         <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 12 }}>
                                             {selectedCategories.length > 0 ? (
                                                 selectedCategories.map((category) => (
