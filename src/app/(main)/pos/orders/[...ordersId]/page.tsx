@@ -52,6 +52,7 @@ import { primeOrderTransitionCache } from "../../../../../utils/pos/orderTransit
 import UIPageHeader from "../../../../../components/ui/page/PageHeader";
 import SmartImage from "../../../../../components/ui/image/SmartImage";
 import { resolveImageSource } from "../../../../../utils/image/source";
+import { OrderItemDetailInput } from "../../../../../utils/pos/orderToppings";
 
 
 const { Title, Text } = Typography;
@@ -71,11 +72,6 @@ const ConfirmationDialog = dynamic(() => import("../../../../../components/dialo
     ssr: false,
     loading: () => null,
 });
-
-type ItemDetailInput = {
-    detail_name: string;
-    extra_price: number;
-};
 
 export default function POSOrderDetailsPage() {
     const router = useRouter();
@@ -324,7 +320,7 @@ export default function POSOrderDetailsPage() {
         });
     };
 
-    const handleSaveEdit = async (itemId: string, quantity: number, notes: string, details: ItemDetailInput[] = []) => {
+    const handleSaveEdit = async (itemId: string, quantity: number, notes: string, details: OrderItemDetailInput[] = []) => {
         if (!canUpdateOrders) {
             message.warning("คุณไม่มีสิทธิ์แก้ไขออเดอร์");
             return;
@@ -346,7 +342,8 @@ export default function POSOrderDetailsPage() {
                 notes: String(notes || ''),
                 details: Array.isArray(details) ? details.map(d => ({
                     detail_name: String(d.detail_name || ''),
-                    extra_price: Number(d.extra_price || 0)
+                    extra_price: Number(d.extra_price || 0),
+                    ...(d.topping_id ? { topping_id: d.topping_id } : {}),
                 })) : []
             };
             
@@ -380,7 +377,7 @@ export default function POSOrderDetailsPage() {
         setEditModalOpen(true);
     };
 
-    const handleAddItem = async (product: Products, quantity: number, notes: string, details: ItemDetailInput[] = []) => {
+    const handleAddItem = async (product: Products, quantity: number, notes: string, details: OrderItemDetailInput[] = []) => {
         if (!canUpdateOrders) {
             message.warning("คุณไม่มีสิทธิ์แก้ไขออเดอร์");
             return;
@@ -1301,6 +1298,7 @@ export default function POSOrderDetailsPage() {
                     key={`edit-modal-${itemToEdit.id}`}
                     item={itemToEdit}
                     isOpen={editModalOpen}
+                    orderType={order?.order_type}
                     onClose={() => {
                         setEditModalOpen(false);
                         setItemToEdit(null);

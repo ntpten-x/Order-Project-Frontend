@@ -19,11 +19,14 @@ const ProductSchema = z.object({
     display_name: z.string(),
     img_url: z.string().nullable(),
     price: z.coerce.number(),
+    price_delivery: z.coerce.number().nullable().optional(),
+    category_id: z.string().optional(),
     category: CategorySchema.optional(),
 }).partial().nullable();
 
 const SalesOrderDetailSchema = z.object({
     id: z.string().optional(),
+    topping_id: z.string().nullable().optional(),
     detail_name: z.string(),
     extra_price: z.coerce.number(),
 }).partial();

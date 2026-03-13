@@ -78,6 +78,7 @@ export interface CreateOrderItemDTO {
     details?: {
         detail_name: string;
         extra_price: number;
+        topping_id?: string;
     }[];
 }
 

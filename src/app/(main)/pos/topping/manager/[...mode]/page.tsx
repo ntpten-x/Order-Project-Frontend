@@ -9,6 +9,7 @@ import PageContainer from '../../../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../../../components/ui/page/PageSection';
 import UIPageHeader from '../../../../../../components/ui/page/PageHeader';
 import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuard';
+import SmartImage from '../../../../../../components/ui/image/SmartImage';
 import { useEffectivePermissions } from '../../../../../../hooks/useEffectivePermissions';
 import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
 import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
@@ -72,7 +73,8 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
     const canDelete = can('topping.page', 'delete');
 
     const title = useMemo(() => (isEdit ? 'แก้ไขท็อปปิ้ง' : 'เพิ่มท็อปปิ้ง'), [isEdit]);
-    const selectedCategoryIds = Form.useWatch('category_ids', form) || [];
+    const watchedCategoryIds = Form.useWatch('category_ids', form);
+    const selectedCategoryIds = useMemo(() => watchedCategoryIds ?? [], [watchedCategoryIds]);
     const selectedCategories = useMemo(
         () => categories.filter((category) => selectedCategoryIds.includes(category.id)),
         [categories, selectedCategoryIds]
@@ -410,7 +412,13 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                                             }}
                                         >
                                             {hasPreviewImage ? (
-                                                <img src={normalizedPreviewImage} alt={displayName || 'preview'} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                                <SmartImage
+                                                    src={normalizedPreviewImage}
+                                                    alt={displayName || 'preview'}
+                                                    width={640}
+                                                    height={400}
+                                                    style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                                                />
                                             ) : (
                                                 <TagsOutlined style={{ fontSize: 40, color: '#ea580c' }} />
                                             )}

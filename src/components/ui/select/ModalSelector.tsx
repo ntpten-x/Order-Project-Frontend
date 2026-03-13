@@ -1,19 +1,20 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { Input, Modal, Spin } from "antd";
+import { Button, Input, Modal, Spin } from "antd";
 import { CheckCircleOutlined, DownOutlined, SearchOutlined } from "@ant-design/icons";
 
 export interface ModalSelectorProps<T extends string | number = string | number> {
-    value?: T;
+    value?: T | T[];
     options: { label: React.ReactNode; value: T; searchLabel?: string }[];
-    onChange: (value: T) => void;
+    onChange: (value: any) => void;
     title: string;
     placeholder?: string;
     style?: React.CSSProperties;
     disabled?: boolean;
     showSearch?: boolean;
     loading?: boolean;
+    multiple?: boolean;
 }
 
 export const ModalSelector = <T extends string | number,>({
@@ -25,7 +26,8 @@ export const ModalSelector = <T extends string | number,>({
     style,
     disabled = false,
     showSearch = false,
-    loading = false
+    loading = false,
+    multiple = false
 }: ModalSelectorProps<T>) => {
     const [open, setOpen] = useState(false);
     const [searchText, setSearchText] = useState("");
@@ -39,7 +41,29 @@ export const ModalSelector = <T extends string | number,>({
         });
     }, [options, searchText, showSearch]);
 
-    const selectedOption = options.find(o => o.value === value);
+    const isSelected = (val: T) => {
+        if (multiple && Array.isArray(value)) {
+            return value.includes(val);
+        }
+        return value === val;
+    };
+
+    const selectedOptions = options.filter(o => isSelected(o.value));
+    const selectedOption = selectedOptions[0];
+
+    const handleSelect = (val: T) => {
+        if (multiple) {
+            const currentArray = Array.isArray(value) ? value : [];
+            const nextArray = currentArray.includes(val)
+                ? currentArray.filter(v => v !== val)
+                : [...currentArray, val];
+            onChange(nextArray);
+        } else {
+            onChange(val);
+            setOpen(false);
+            setSearchText("");
+        }
+    };
 
     return (
         <>
@@ -63,11 +87,15 @@ export const ModalSelector = <T extends string | number,>({
                     overflow: 'hidden', 
                     textOverflow: 'ellipsis', 
                     whiteSpace: 'nowrap', 
-                    color: value ? '#1f2937' : '#9ca3af',
+                    color: (multiple ? (Array.isArray(value) && value.length > 0) : value) ? '#1f2937' : '#9ca3af',
                     marginRight: 8,
                     fontSize: 14
                 }}>
-                    {loading ? <Spin size="small" /> : (selectedOption?.label || placeholder)}
+                    {loading ? <Spin size="small" /> : (
+                        multiple && Array.isArray(value) && value.length > 0 
+                            ? `เลือกแล้ว ${value.length} รายการ`
+                            : (selectedOption?.label || placeholder)
+                    )}
                 </div>
                 <DownOutlined style={{ fontSize: 12, color: '#9ca3af' }} />
             </div>
@@ -102,28 +130,24 @@ export const ModalSelector = <T extends string | number,>({
                             filteredOptions.map((opt) => (
                                 <div
                                     key={opt.value}
-                                    onClick={() => {
-                                        onChange(opt.value);
-                                        setOpen(false);
-                                        setSearchText("");
-                                    }}
+                                    onClick={() => handleSelect(opt.value)}
                                     style={{
                                         padding: '12px 16px',
                                         borderRadius: 8,
                                         border: '1px solid',
                                         cursor: 'pointer',
-                                        background: value === opt.value ? '#eff6ff' : '#fff',
-                                        borderColor: value === opt.value ? '#3b82f6' : '#e5e7eb',
+                                        background: isSelected(opt.value) ? '#eff6ff' : '#fff',
+                                        borderColor: isSelected(opt.value) ? '#3b82f6' : '#e5e7eb',
                                         display: 'flex',
                                         justifyContent: 'space-between',
                                         alignItems: 'center',
                                         transition: 'all 0.2s'
                                     }}
                                 >
-                                    <span style={{ fontWeight: value === opt.value ? 500 : 400, color: '#374151', fontSize: 14 }}>
+                                    <span style={{ fontWeight: isSelected(opt.value) ? 500 : 400, color: '#374151', fontSize: 14 }}>
                                         {opt.label}
                                     </span>
-                                    {value === opt.value && <CheckCircleOutlined style={{ color: '#3b82f6' }} />}
+                                    {isSelected(opt.value) && <CheckCircleOutlined style={{ color: '#3b82f6' }} />}
                                 </div>
                             ))
                         ) : (
@@ -133,6 +157,17 @@ export const ModalSelector = <T extends string | number,>({
                         )}
                     </div>
                 </div>
+                {multiple && (
+                    <div style={{ padding: '16px', borderTop: '1px solid #f0f0f0', display: 'flex', justifyContent: 'flex-end' }}>
+                        <Button 
+                            type="primary" 
+                            onClick={() => setOpen(false)} 
+                            style={{ borderRadius: 8, height: 40, minWidth: 100 }}
+                        >
+                            ตกลง
+                        </Button>
+                    </div>
+                )}
             </Modal>
         </>
     );

@@ -12,6 +12,7 @@ import { useSocket } from '../../../../hooks/useSocket';
 import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissions';
 import { useListState } from '../../../../hooks/pos/useListState';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
+import SmartImage from '../../../../components/ui/image/SmartImage';
 import PageContainer from '../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../components/ui/page/PageSection';
 import PageStack from '../../../../components/ui/page/PageStack';
@@ -105,7 +106,13 @@ const ToppingCard = ({
                     }}
                 >
                     {hasImage ? (
-                        <img src={imageSrc} alt={topping.display_name} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        <SmartImage
+                            src={imageSrc}
+                            alt={topping.display_name}
+                            width={58}
+                            height={58}
+                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                        />
                     ) : (
                         <TagsOutlined style={{ fontSize: 24, color: topping.is_active ? '#ea580c' : '#94a3b8' }} />
                     )}

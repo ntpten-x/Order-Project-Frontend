@@ -9,6 +9,7 @@ import { PaymentMethod } from "../types/api/pos/paymentMethod";
 export interface CartDetail {
     detail_name: string;
     extra_price: number;
+    topping_id?: string;
 }
 
 export interface CartItem {
