@@ -1448,7 +1448,6 @@ export default function CustomerTableOrderPage() {
                     onClose={closeDetailModal}
                     onSave={handleSaveDetails}
                     orderType={OrderType.DineIn}
-                    allowCustomDetails={false}
                     toppingCatalog={bootstrap?.toppings ?? []}
                 />
 

@@ -194,7 +194,7 @@ export function CartItemDetailModal({
           <div style={{ ...posComponentStyles.modalIconBase, background: posColors.successLight }}>
             <PlusOutlined style={{ color: posColors.success, fontSize: 16 }} />
           </div>
-          <span>รายละเอียดเพิ่มเติม : {item?.name}</span>
+          <span>เพิ่มเติม : {item?.name}</span>
         </div>
       }
       open={isOpen}

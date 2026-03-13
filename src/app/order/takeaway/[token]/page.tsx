@@ -1557,7 +1557,6 @@ export default function CustomerTakeawayOrderPage() {
                     onClose={closeDetailModal}
                     onSave={handleSaveDetails}
                     orderType={OrderType.TakeAway}
-                    allowCustomDetails={false}
                     toppingCatalog={bootstrap?.toppings ?? []}
                 />
 
