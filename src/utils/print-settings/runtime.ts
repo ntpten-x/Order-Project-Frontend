@@ -23,6 +23,8 @@ type PaymentWithMethod = Payments & {
 export type PrintShopProfile = ShopProfile & {
     tax_id?: string;
     logo_url?: string;
+    branch_name?: string;
+    branch_phone?: string;
 };
 
 export type PrintAutomationKey = keyof PrintAutomationSettings;
@@ -352,6 +354,7 @@ function buildPrintShellStyles(setting: PrintDocumentSetting): string {
       --font-size-sm: ${Math.max(baseFontSize - 1.2, 9)}px;
       --font-size-lg: ${Number((baseFontSize * 1.18).toFixed(1))}px;
       --font-size-xl: ${Number((baseFontSize * 1.42).toFixed(1))}px;
+      --font-size-2xl: ${Number((baseFontSize * 1.8).toFixed(1))}px;
       --gap: ${sectionGap}px;
       --line-height: ${setting.line_spacing};
       --muted: #475569;
@@ -410,6 +413,14 @@ function buildPrintShellStyles(setting: PrintDocumentSetting): string {
       font-weight: 800;
       font-size: var(--font-size-lg);
       margin: 0;
+    }
+    
+    .main-title {
+      font-weight: 900;
+      font-size: var(--font-size-2xl);
+      margin: 0;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
     }
 
     .text-center {
@@ -1115,23 +1126,26 @@ function buildBrandMarkup(options: {
     setting: Pick<PrintDocumentSetting, "show_logo" | "show_branch_address">;
 }): string {
     const shopProfile = options.shopProfile;
-    if (!shopProfile?.shop_name && !shopProfile?.address && !shopProfile?.phone && !shopProfile?.tax_id && !shopProfile?.logo_url) {
-        return "";
-    }
-
     const logoUrl = options.setting.show_logo ? resolveImageSource(shopProfile?.logo_url) : null;
     const showMeta = options.setting.show_branch_address;
+    const branchName = shopProfile?.branch_name || shopProfile?.shop_name || "POS Shop";
+
+    if (!branchName && !shopProfile?.address && !shopProfile?.phone && !shopProfile?.tax_id && !shopProfile?.logo_url) {
+        return "";
+    }
+    const branchPhone = shopProfile?.branch_phone || shopProfile?.phone;
+
     const metaLines = [
         showMeta && shopProfile?.address ? `<div class="brand-meta">${escapeHtml(shopProfile.address)}</div>` : "",
-        showMeta && shopProfile?.phone ? `<div class="brand-meta">โทร ${escapeHtml(shopProfile.phone)}</div>` : "",
+        showMeta && branchPhone ? `<div class="brand-meta">โทร ${escapeHtml(branchPhone)}</div>` : "",
         showMeta && shopProfile?.tax_id ? `<div class="brand-meta">เลขผู้เสียภาษี ${escapeHtml(shopProfile.tax_id)}</div>` : "",
     ]
         .filter(Boolean)
         .join("");
 
-    return `<header class="section text-center">
-        ${logoUrl ? `<img class="brand-logo" src="${escapeHtml(logoUrl)}" alt="Shop logo" />` : ""}
-        ${shopProfile?.shop_name ? `<div class="brand-name">${escapeHtml(shopProfile.shop_name)}</div>` : ""}
+    return `<header class="section text-center" style="gap: 4px;">
+        ${logoUrl ? `<img class="brand-logo" src="${escapeHtml(logoUrl)}" alt="Shop logo" style="margin-bottom: 4px;" />` : ""}
+        <div class="brand-name" style="font-size: var(--font-size-lg);">${escapeHtml(branchName)}</div>
         ${metaLines}
     </header>`;
 }
@@ -1223,10 +1237,10 @@ function buildReceiptMarkup(options: {
 
     return renderDocumentPages(
         `<div class="stack">
-            ${buildBrandMarkup({ shopProfile, setting })}
-            <section class="section text-center">
-                <div class="section-title">ใบเสร็จรับเงิน</div>
+            <section class="section text-center" style="gap: 0; margin-bottom: 4px;">
+                <div class="main-title">ใบเสร็จรับเงิน</div>
             </section>
+            ${buildBrandMarkup({ shopProfile, setting })}
             ${metaMarkup}
             <div class="divider"></div>
             <section class="section">

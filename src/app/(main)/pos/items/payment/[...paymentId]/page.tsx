@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 import dynamic from "next/dynamic";
@@ -452,7 +452,11 @@ export default function POSPaymentPage() {
                             await runtime.printReceiptDocument({
                                 order: printableOrder,
                                 settings: printSettings,
-                                shopProfile: shopProfile ?? undefined,
+                                shopProfile: {
+                                    ...(shopProfile as any),
+                                    branch_name: user?.branch?.branch_name,
+                                    branch_phone: user?.branch?.phone,
+                                },
                                 targetWindow: reservedPrintWindow,
                             });
                         } catch (printError) {

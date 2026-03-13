@@ -23,6 +23,7 @@ import dayjs from "dayjs";
 import { useRouter } from "next/navigation";
 
 import { useShift } from "../../../contexts/pos/ShiftContext";
+import { useAuth } from "../../../contexts/AuthContext";
 import { shiftsService } from "../../../services/pos/shifts.service";
 import type { ShiftClosePreview, ShiftSummary } from "../../../types/api/pos/shifts";
 import { BackendHttpError } from "../../../utils/api/backendResponse";
@@ -159,6 +160,7 @@ export default function CloseShiftModal({
     onSuccess,
 }: CloseShiftModalProps) {
     const { currentShift, closeShift } = useShift();
+    const { user } = useAuth();
     const router = useRouter();
     const [form] = Form.useForm();
     const [previewLoading, setPreviewLoading] = useState(false);
@@ -244,6 +246,10 @@ export default function CloseShiftModal({
                         summary,
                         shift: closedShift,
                         settings: printSettings,
+                        shopProfile: {
+                            branch_name: user?.branch?.branch_name,
+                            branch_phone: user?.branch?.phone,
+                        } as any,
                         targetWindow: reservedPrintWindow,
                     });
                 } catch (printError) {
