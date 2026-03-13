@@ -928,9 +928,9 @@ export default function DashboardPage() {
                 setExportFormat(event.target.value as ExportFormat)
               }
             >
+              <Radio value="a4">สำหรับเครื่องพิมพ์ปกติ</Radio>
               <Radio value="receipt">สำหรับเครื่องพิมพ์ใบเสร็จ</Radio>
-              <Radio value="a4">สำหรับเครื่องพิมพ์ปกติ (A4)</Radio>
-              <Radio value="xlsx">XLSX (ไฟล์สำหรับวิเคราะห์ต่อ)</Radio>
+              <Radio value="xlsx">.xlsx</Radio>
             </Radio.Group>
           </div>
           {exportFormat === "receipt" ? (

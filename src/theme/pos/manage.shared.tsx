@@ -291,15 +291,6 @@ export const ManagePageHeader = ({
                 {isEdit ? <EditOutlined style={{ fontSize: 24, color: "white" }} /> : <PlusCircleOutlined style={{ fontSize: 24, color: "white" }} />}
             </div>
             <div style={{ flex: 1 }}>
-                <Text
-                    style={{
-                        color: "rgba(255,255,255,0.85)",
-                        fontSize: 13,
-                        display: "block",
-                    }}
-                >
-                    {isEdit ? "แก้ไขข้อมูล" : "เพิ่มข้อมูลใหม่"}
-                </Text>
                 <Title
                     level={4}
                     style={{

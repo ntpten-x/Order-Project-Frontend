@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { message, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
-import { TagsOutlined, PlusOutlined, ReloadOutlined, EditOutlined, DeleteOutlined } from '@ant-design/icons';
+import { ShopOutlined, PlusOutlined, ReloadOutlined, EditOutlined, DeleteOutlined, TagsOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 
 import { Category } from '../../../../types/api/pos/category';
@@ -30,7 +30,7 @@ import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
 import { RealtimeEvents } from '../../../../utils/realtimeEvents';
 import { DEFAULT_CREATED_SORT } from '../../../../lib/list-sort';
 import { pageStyles, globalStyles } from '../../../../theme/pos/topping/style';
-import { formatCurrency } from '../../../../utils/format.utils';
+import { formatPrice } from '../../../../utils/products/productDisplay.utils';
 import { isSupportedImageSource, normalizeImageSource } from '../../../../utils/image/source';
 
 const { Text } = Typography;
@@ -93,28 +93,37 @@ const ToppingCard = ({
             <div style={pageStyles.unitCardInner}>
                 <div
                     style={{
-                        width: 58,
-                        height: 58,
-                        borderRadius: 16,
-                        background: topping.is_active ? 'linear-gradient(135deg, #fef3c7 0%, #fdba74 100%)' : '#f1f5f9',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0,
+                        width: 64,
+                        height: 64,
+                        borderRadius: 14,
+                        border: '1px solid #F1F5F9',
                         overflow: 'hidden',
-                        boxShadow: topping.is_active ? '0 4px 10px rgba(234, 88, 12, 0.16)' : 'none',
+                        position: 'relative',
+                        background: '#F8FAFC',
+                        flexShrink: 0,
                     }}
                 >
                     {hasImage ? (
                         <SmartImage
                             src={imageSrc}
                             alt={topping.display_name}
-                            width={58}
-                            height={58}
-                            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                            fill
+                            style={{ objectFit: 'cover' }}
+                            sizes="64px"
                         />
                     ) : (
-                        <TagsOutlined style={{ fontSize: 24, color: topping.is_active ? '#ea580c' : '#94a3b8' }} />
+                        <div
+                            style={{
+                                width: '100%',
+                                height: '100%',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                background: 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)',
+                            }}
+                        >
+                            <ShopOutlined style={{ fontSize: 20, color: '#4F46E5' }} />
+                        </div>
                     )}
                 </div>
 
@@ -127,28 +136,22 @@ const ToppingCard = ({
                             {topping.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}
                         </Tag>
                     </div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6, marginBottom: 6 }}>
-                        <Tag color="orange" style={{ borderRadius: 999, marginInlineEnd: 0 }}>
-                            POS {formatCurrency(Number(topping.price || 0))}
+                    <Space size={6} wrap>
+                        <Tag style={{ margin: 0, border: 'none', background: '#ecfdf5', color: '#047857' }}>
+                            {formatPrice(Number(topping.price || 0))}
                         </Tag>
-                        <Tag color="blue" style={{ borderRadius: 999, marginInlineEnd: 0 }}>
-                            Delivery {formatCurrency(deliveryPrice)}
-                        </Tag>
-                    </div>
-                    <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap', marginTop: 6 }}>
-                        {(topping.categories || []).length > 0 ? (
-                            topping.categories?.map((category) => (
-                                <Tag key={category.id} color="gold" style={{ borderRadius: 999, marginInlineEnd: 0 }}>
-                                    {category.display_name}
-                                </Tag>
-                            ))
-                        ) : (
-                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                ยังไม่กำหนดหมวดหมู่
-                            </Text>
-                        )}
-                    </div>
-                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 6 }}>
+                        {Number(topping.price_delivery ?? topping.price ?? 0) !== Number(topping.price ?? 0) ? (
+                            <Tag style={{ margin: 0, border: 'none', background: '#fdf2f8', color: '#be185d' }}>
+                                Delivery {formatPrice(Number(topping.price_delivery ?? 0))}
+                            </Tag>
+                        ) : null}
+                        {topping.categories?.map((category) => (
+                            <Tag key={category.id} style={{ margin: 0, border: 'none', background: '#eff6ff', color: '#1d4ed8' }}>
+                                {category.display_name}
+                            </Tag>
+                        ))}
+                    </Space>
+                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
                         อัปเดตล่าสุด {formatDate(topping.update_date)}
                     </Text>
                 </div>
@@ -173,7 +176,13 @@ const ToppingCard = ({
                                 e.stopPropagation();
                                 onEdit(topping);
                             }}
-                            style={{ borderRadius: 10, color: '#ea580c', background: '#fff7ed', width: 36, height: 36 }}
+                            style={{
+                                borderRadius: 10,
+                                color: '#4F46E5',
+                                background: '#EEF2FF',
+                                width: 36,
+                                height: 36,
+                            }}
                         />
                     ) : null}
                     {canDelete ? (
@@ -186,7 +195,12 @@ const ToppingCard = ({
                                 e.stopPropagation();
                                 onDelete(topping);
                             }}
-                            style={{ borderRadius: 10, background: '#fef2f2', width: 36, height: 36 }}
+                            style={{
+                                borderRadius: 10,
+                                background: '#fef2f2',
+                                width: 36,
+                                height: 36,
+                            }}
                         />
                     ) : null}
                 </div>
