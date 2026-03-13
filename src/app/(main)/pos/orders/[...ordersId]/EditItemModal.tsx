@@ -1,15 +1,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { App, Button, Divider, Input, InputNumber, Modal, Select, Space, Tag, Typography } from 'antd';
-import { DeleteOutlined, InfoCircleOutlined, MinusOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
+import { App, Button, Divider, Input, Modal, Space, Tag, Typography } from 'antd';
+import { CheckOutlined, CloseOutlined, DeleteOutlined, InfoCircleOutlined, MinusOutlined, PictureOutlined, PlusOutlined, SaveOutlined } from '@ant-design/icons';
 import Image from '../../../../../components/ui/image/SmartImage';
 import { SalesOrderItem } from '../../../../../types/api/pos/salesOrderItem';
-import { orderDetailColors, modalStyles } from '../../../../../theme/pos/orders/style';
+import { orderDetailColors, modalStyles, ordersResponsiveStyles } from '../../../../../theme/pos/orders/style';
 import { calculateItemTotal, formatCurrency } from '../../../../../utils/orders';
 import { useGlobalLoadingDispatch } from '../../../../../contexts/pos/GlobalLoadingContext';
 import { resolveImageSource } from '../../../../../utils/image/source';
 import { OrderType } from '../../../../../types/api/pos/salesOrder';
 import { Topping } from '../../../../../types/api/pos/topping';
-import { createCustomOrderDetailDraft, createOrderDetailDraftFromEntity, createToppingOrderDetailDraft, getEligibleProductToppings, getToppingDisplayPrice, loadActiveOrderToppings, OrderItemDetailDraft, OrderItemDetailInput, toOrderItemDetailInputs } from '../../../../../utils/pos/orderToppings';
+import { createOrderDetailDraftFromEntity, createToppingOrderDetailDraft, getEligibleProductToppings, getToppingDisplayPrice, loadActiveOrderToppings, OrderItemDetailDraft, OrderItemDetailInput, toOrderItemDetailInputs } from '../../../../../utils/pos/orderToppings';
+import { ModalSelector } from '../../../../../components/ui/select/ModalSelector';
+import SmartAvatar from '../../../../../components/ui/image/SmartAvatar';
+import { posColors, POSSharedStyles } from '../../../../../components/pos/shared/style';
 
 const { Text, Title } = Typography;
 const { TextArea } = Input;
@@ -30,7 +33,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, orde
     const [notes, setNotes] = useState('');
     const [details, setDetails] = useState<OrderItemDetailDraft[]>([]);
     const [toppings, setToppings] = useState<Topping[]>([]);
-    const [selectedToppingId, setSelectedToppingId] = useState<string | undefined>();
+    const [selectedToppingIds, setSelectedToppingIds] = useState<string[]>([]);
 
     useEffect(() => {
         if (!isOpen) {
@@ -38,7 +41,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, orde
             setQuantity(1);
             setNotes('');
             setDetails([]);
-            setSelectedToppingId(undefined);
+            setSelectedToppingIds([]);
             return;
         }
 
@@ -54,7 +57,7 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, orde
         setQuantity(item.quantity);
         setNotes(item.notes || '');
         setDetails(Array.isArray(item.details) ? item.details.map((detail) => createOrderDetailDraftFromEntity(detail)) : []);
-        setSelectedToppingId(undefined);
+        setSelectedToppingIds([]);
         initializedItemIdRef.current = item.id;
     }, [isOpen, item]);
 
@@ -73,23 +76,18 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, orde
         [details, item?.price, quantity],
     );
 
-    const updateDetail = useCallback((id: string, field: 'detail_name' | 'extra_price', value: string | number) => {
-        setDetails((prev) => prev.map((detail) => detail.id !== id ? detail : {
-            ...detail,
-            [field]: field === 'extra_price' ? (typeof value === 'number' ? value : Number(value) || 0) : String(value),
-        }));
-    }, []);
 
-    const addSelectedTopping = useCallback(() => {
-        if (!selectedToppingId) return;
-        const topping = selectableToppings.find((item) => item.id === selectedToppingId);
-        if (!topping) {
-            message.warning('ท็อปปิ้งนี้ถูกเลือกแล้วหรือไม่พร้อมใช้งาน');
-            return;
-        }
-        setDetails((prev) => [...prev, createToppingOrderDetailDraft(topping, orderType)]);
-        setSelectedToppingId(undefined);
-    }, [message, orderType, selectableToppings, selectedToppingId]);
+    const handleAddTopping = useCallback(() => {
+        if (selectedToppingIds.length === 0) return;
+        
+        const toppingsToAdd = availableToppings.filter(t => selectedToppingIds.includes(t.id));
+        
+        setDetails(prev => [
+            ...prev,
+            ...toppingsToAdd.map(topping => createToppingOrderDetailDraft(topping, orderType))
+        ]);
+        setSelectedToppingIds([]);
+    }, [orderType, availableToppings, selectedToppingIds]);
 
     const save = useCallback(async () => {
         if (!item) return;
@@ -105,8 +103,34 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, orde
 
     if (!item) return null;
 
+    const toppingOptions = selectableToppings.map(topping => ({
+        value: topping.id,
+        label: (
+            <Space size={12}>
+                <SmartAvatar
+                    src={topping.img}
+                    alt={topping.display_name}
+                    size={32}
+                    shape="square"
+                    icon={<PictureOutlined style={{ fontSize: 14 }} />}
+                    imageStyle={{ objectFit: 'contain' }}
+                    style={{
+                        borderRadius: 8,
+                        flexShrink: 0,
+                        background: '#fff',
+                        border: '1px solid #E5E7EB',
+                    }}
+                />
+                <Text>{topping.display_name} ({formatCurrency(getToppingDisplayPrice(topping, orderType))})</Text>
+            </Space>
+        ),
+        searchLabel: topping.display_name
+    }));
+
     return (
         <Modal className="mobile-fullscreen-modal" title={null} open={isOpen} onCancel={onClose} footer={null} width={500} destroyOnHidden centered styles={{ body: { padding: 0, display: 'flex', flexDirection: 'column', height: '80vh', maxHeight: '80vh', overflow: 'hidden', borderRadius: 16 } }}>
+            <POSSharedStyles />
+            <style jsx global>{ordersResponsiveStyles}</style>
             <div style={{ ...modalStyles.modalHeader, flexShrink: 0 }} className="modal-header">
                 <Text strong style={{ fontSize: 18, flex: 1, color: orderDetailColors.text }}>แก้ไขรายการสินค้า</Text>
             </div>
@@ -122,43 +146,114 @@ export const EditItemModal: React.FC<EditItemModalProps> = ({ item, isOpen, orde
                     </div>
                 </div>
 
-                <div style={{ marginBottom: 16 }}>
-                    <Text strong style={{ display: 'block', marginBottom: 10 }}>เลือกท็อปปิ้ง</Text>
-                    <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', padding: 16, background: orderDetailColors.backgroundSecondary, borderRadius: 14 }}>
-                        <Select placeholder={availableToppings.length > 0 ? 'เลือกท็อปปิ้งสำหรับสินค้านี้' : 'ไม่มีท็อปปิ้งที่ตรงกับหมวดสินค้า'} value={selectedToppingId} onChange={(value) => setSelectedToppingId(value)} disabled={selectableToppings.length === 0} style={{ flex: 1, minWidth: 220 }} options={selectableToppings.map((topping) => ({ value: topping.id, label: `${topping.display_name} (${formatCurrency(getToppingDisplayPrice(topping, orderType))})` }))} showSearch optionFilterProp="label" />
-                        <Button type="primary" icon={<PlusOutlined />} onClick={addSelectedTopping} disabled={!selectedToppingId}>เพิ่มท็อปปิ้ง</Button>
+                <div 
+                    style={{ 
+                        marginBottom: 16,
+                        padding: 16,
+                        background: "#F8FAFC",
+                        borderRadius: 12,
+                        border: "1px solid #E2E8F0",
+                    }}
+                >
+                    <div className="topping-selection-header" style={{ marginBottom: 12 }}>
+                        <Text strong className="topping-selection-label" style={{ color: orderDetailColors.textSecondary }}>เลือกท็อปปิ้ง</Text>
                     </div>
+                    <ModalSelector<string>
+                        value={selectedToppingIds}
+                        onChange={(value) => setSelectedToppingIds(value)}
+                        title="เลือกท็อปปิ้ง"
+                        placeholder={availableToppings.length > 0 ? "เลือก" : "ไม่มีท็อปปิ้งสำหรับการสินค้านี้"}
+                        disabled={selectableToppings.length === 0}
+                        style={{ width: "100%", height: 44 }}
+                        showSearch
+                        multiple
+                        options={toppingOptions}
+                    />
+                    {selectedToppingIds.length > 0 ? (
+                        <div className="topping-selection-actions">
+                            <Space size={12}>
+                                <Button
+                                    danger
+                                    className="topping-selection-btn btn-clear"
+                                    icon={<CloseOutlined style={{ fontSize: 12 }} />}
+                                    onClick={() => setSelectedToppingIds([])}
+                                >
+                                    ล้าง
+                                </Button>
+                                <Button
+                                    type="primary"
+                                    className="topping-selection-btn btn-confirm"
+                                    icon={<CheckOutlined style={{ fontSize: 12 }} />}
+                                    onClick={handleAddTopping}
+                                >
+                                    ยืนยัน ({selectedToppingIds.length})
+                                </Button>
+                            </Space>
+                        </div>
+                    ) : null}
                 </div>
 
                 <div style={{ marginBottom: 24 }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                        <Text strong>รายละเอียดเพิ่มเติม</Text>
-                        <Button type="text" icon={<PlusOutlined />} onClick={() => setDetails((prev) => [...prev, createCustomOrderDetailDraft()])}>เพิ่มข้อความเอง</Button>
+                        <Text strong style={{ color: posColors.textSecondary }}>รายการท็อปปิ้ง</Text>
                     </div>
-                    <Space direction="vertical" style={{ width: '100%' }} size={12}>
-                        {details.length === 0 ? <div style={{ textAlign: 'center', padding: 16, background: orderDetailColors.backgroundSecondary, borderRadius: 12, border: `1px dashed ${orderDetailColors.border}` }}><Text type="secondary">ยังไม่มีรายการเพิ่มเติม</Text></div> : null}
-                        {details.map((detail) => (
-                            <div key={detail.id} style={{ display: 'flex', gap: 10, alignItems: 'center', padding: 12, background: orderDetailColors.backgroundSecondary, borderRadius: 12, border: `1px solid ${orderDetailColors.border}` }}>
-                                {detail.source === 'topping' ? (
-                                    <>
-                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                            <Space size={8} wrap>
-                                                <Tag color="gold" style={{ margin: 0, borderRadius: 999 }}>Topping</Tag>
+                    {details.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: 32, background: "#F8FAFC", borderRadius: 12, border: `1px dashed ${orderDetailColors.border}` }}>
+                            <PlusOutlined style={{ fontSize: 24, marginBottom: 8, opacity: 0.4 }} />
+                            <div style={{ color: posColors.textSecondary }}>ยังไม่มีรายการท็อปปิ้ง</div>
+                        </div>
+                    ) : (
+                        <Space direction="vertical" style={{ width: '100%' }} size={12}>
+                            {details.map((detail) => (
+                                <div key={detail.id} style={{ display: 'flex', gap: 10, alignItems: 'center' }}>
+                                    <div
+                                        style={{
+                                            flex: 1,
+                                            minHeight: 54,
+                                            display: 'flex',
+                                            alignItems: 'center',
+                                            justifyContent: 'space-between',
+                                            gap: 12,
+                                            padding: '8px 12px',
+                                            borderRadius: 12,
+                                            background: '#F0FDF4',
+                                            border: '1px solid #DCFCE7',
+                                        }}
+                                    >
+                                        <Space size={10} wrap>
+                                            <SmartAvatar
+                                                src={detail.img || toppings.find(t => t.id === detail.topping_id)?.img}
+                                                alt={detail.detail_name}
+                                                size={32}
+                                                shape="square"
+                                                icon={<PictureOutlined style={{ fontSize: 14 }} />}
+                                                imageStyle={{ objectFit: 'contain' }}
+                                                style={{
+                                                    borderRadius: 8,
+                                                    flexShrink: 0,
+                                                    background: '#fff',
+                                                    border: '1px solid #A7F3D0',
+                                                }}
+                                            />
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                                                 <Text strong>{detail.detail_name}</Text>
-                                            </Space>
-                                        </div>
-                                        <Text style={{ color: orderDetailColors.primary, fontWeight: 600 }}>{formatCurrency(detail.extra_price)}</Text>
-                                    </>
-                                ) : (
-                                    <>
-                                        <Input placeholder="รายการ" value={detail.detail_name} onChange={(event) => updateDetail(detail.id, 'detail_name', event.target.value)} style={{ flex: 1, borderRadius: 10 }} />
-                                        <InputNumber<number> placeholder="0.00" value={detail.extra_price} onChange={(value) => updateDetail(detail.id, 'extra_price', value || 0)} style={{ width: 140 }} min={0} controls={false} precision={2} />
-                                    </>
-                                )}
-                                <Button danger type="text" icon={<DeleteOutlined />} onClick={() => setDetails((prev) => prev.filter((itemDetail) => itemDetail.id !== detail.id))} />
-                            </div>
-                        ))}
-                    </Space>
+                                            </div>
+                                        </Space>
+                                        <Text style={{ color: posColors.success, fontWeight: 700 }}>
+                                            +{formatCurrency(detail.extra_price)}
+                                        </Text>
+                                    </div>
+                                    <Button 
+                                        danger 
+                                        type="text" 
+                                        icon={<DeleteOutlined />} 
+                                        onClick={() => setDetails((prev) => prev.filter((itemDetail) => itemDetail.id !== detail.id))} 
+                                        style={{ borderRadius: 8, height: 42, width: 42 }}
+                                    />
+                                </div>
+                            ))}
+                        </Space>
+                    )}
                 </div>
 
                 <Divider style={{ margin: '0 0 20px 0' }} />

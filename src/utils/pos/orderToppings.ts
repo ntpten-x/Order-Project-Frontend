@@ -12,11 +12,11 @@ export type OrderItemDetailInput = {
 
 export type OrderItemDetailDraft = {
     id: string;
-    source: "topping" | "custom";
     detail_name: string;
     extra_price: number;
     topping_id?: string;
     img?: string | null;
+    source?: 'topping';
 };
 
 const TOPPING_CATALOG_CACHE_TTL_MS = 60_000;
@@ -34,56 +34,34 @@ const createDraftId = (prefix: string): string =>
 export const getToppingDisplayPrice = (topping: Topping, orderType?: OrderType): number =>
     Number(orderType === OrderType.Delivery ? (topping.price_delivery ?? topping.price) : topping.price);
 
-export const createCustomOrderDetailDraft = (): OrderItemDetailDraft => ({
-    id: createDraftId("custom"),
-    source: "custom",
-    detail_name: "",
-    extra_price: 0,
-});
 
 export const createToppingOrderDetailDraft = (topping: Topping, orderType?: OrderType): OrderItemDetailDraft => ({
     id: createDraftId(`topping-${topping.id}`),
-    source: "topping",
     detail_name: topping.display_name,
     extra_price: getToppingDisplayPrice(topping, orderType),
     topping_id: topping.id,
     img: topping.img,
+    source: 'topping',
 });
 
+
 export const createOrderDetailDraftFromEntity = (detail: Pick<SalesOrderDetail, "id" | "detail_name" | "extra_price" | "topping_id"> & { img?: string | null }): OrderItemDetailDraft => ({
-    id: detail.id || createDraftId(detail.topping_id ? `topping-${detail.topping_id}` : "custom"),
-    source: detail.topping_id ? "topping" : "custom",
+    id: detail.id || createDraftId(detail.topping_id ? `topping-${detail.topping_id}` : "topping"),
     detail_name: detail.detail_name,
     extra_price: Number(detail.extra_price || 0),
     topping_id: detail.topping_id || undefined,
     img: detail.img,
+    source: 'topping',
 });
 
-export const toOrderItemDetailInputs = (details: OrderItemDetailDraft[]): OrderItemDetailInput[] =>
-    details
-        .map((detail) => {
-            const detailName = String(detail.detail_name || "").trim();
-            const extraPrice = Number(detail.extra_price || 0);
-            const toppingId = detail.topping_id?.trim();
-
-            if (toppingId) {
-                return {
-                    detail_name: detailName || "",
-                    extra_price: extraPrice,
-                    topping_id: toppingId,
-                };
-            }
-
-            if (!detailName) {
-                return null;
-            }
-
-            return {
-                detail_name: detailName,
-                extra_price: extraPrice,
-            };
-        })
-        .filter((detail): detail is OrderItemDetailInput => detail !== null);
+export const toOrderItemDetailInputs = (details: OrderItemDetailDraft[]): OrderItemDetailInput[] => {
+    return details
+        .map((detail) => ({
+            detail_name: String(detail.detail_name || "").trim(),
+            extra_price: Number(detail.extra_price || 0),
+            topping_id: detail.topping_id || undefined,
+        }));
+};
 
 export const getEligibleProductToppings = (toppings: Topping[], product?: Products | null): Topping[] => {
     const productCategoryId = product?.category_id || product?.category?.id;

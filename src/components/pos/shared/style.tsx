@@ -904,5 +904,81 @@ export const POSSharedStyles = () => (
         animation: none !important;
       }
     }
+
+    /* Topping Selection Refinements */
+    .topping-selection-header {
+      display: flex;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .topping-selection-label {
+      font-size: 14px;
+      color: ${posColors.textSecondary};
+      font-weight: 500;
+    }
+
+    .topping-selection-actions {
+      display: flex !important;
+      justify-content: center !important;
+      text-align: center !important;
+      margin-top: 16px !important;
+      width: 100% !important;
+    }
+
+    .topping-selection-btn {
+      height: 38px !important;
+      min-height: unset !important;
+      min-width: 110px !important;
+      font-size: 14px !important;
+      padding-inline: 16px !important;
+      border-radius: 10px !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      justify-content: center !important;
+      gap: 6px !important;
+      font-weight: 600 !important;
+      transition: all 0.2s ease !important;
+      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.05) !important;
+    }
+
+    .topping-selection-btn:active {
+      transform: scale(0.96) !important;
+    }
+
+    .topping-selection-btn.btn-clear {
+      background-color: #FEF2F2 !important;
+      color: #EF4444 !important;
+      border: 1px solid #FCA5A5 !important;
+    }
+
+    .topping-selection-btn.btn-confirm {
+      background-color: ${posColors.success} !important;
+      color: white !important;
+      border: none !important;
+    }
+
+    @media (max-width: 480px) {
+      .topping-selection-header {
+        margin-bottom: 10px !important;
+        gap: 8px !important;
+      }
+
+      .topping-selection-label {
+        font-size: 12px !important;
+      }
+
+      .topping-selection-btn {
+        height: 34px !important;
+        min-height: unset !important;
+        font-size: 13px !important;
+        padding-inline: 15px !important;
+        border-radius: 7px !important;
+      }
+
+      .topping-selection-btn .anticon {
+        font-size: 10px !important;
+      }
+    }
   `}</style>
 );

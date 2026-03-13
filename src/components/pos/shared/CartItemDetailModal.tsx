@@ -1,14 +1,14 @@
 "use client";
 
 import React from "react";
-import { Button, Input, InputNumber, Modal, Space, Tag, Typography } from "antd";
+import { Button, Modal, Space, Typography } from "antd";
 import { CheckOutlined, CloseOutlined, DeleteOutlined, PictureOutlined, PlusOutlined } from "@ant-design/icons";
 import { makeSelectCartItem, useCartStore } from "../../../store/useCartStore";
-import { posColors, posComponentStyles } from "./style";
+import { posColors, posComponentStyles, POSSharedStyles } from "./style";
+import { ordersResponsiveStyles } from "../../../theme/pos/orders/style";
 import { OrderType } from "../../../types/api/pos/salesOrder";
 import type { Products } from "../../../types/api/pos/products";
 import {
-  createCustomOrderDetailDraft,
   createOrderDetailDraftFromEntity,
   createToppingOrderDetailDraft,
   getEligibleProductToppings,
@@ -35,7 +35,6 @@ export interface CartItemDetailModalProps {
   onClose: () => void;
   onSave: (details: { detail_name: string; extra_price: number; topping_id?: string }[]) => void;
   orderType?: OrderType;
-  allowCustomDetails?: boolean;
   toppingCatalog?: Topping[] | null;
 }
 
@@ -45,7 +44,6 @@ export function CartItemDetailModal({
   onClose,
   onSave,
   orderType,
-  allowCustomDetails = true,
   toppingCatalog,
 }: CartItemDetailModalProps) {
   const itemSelector = React.useMemo(() => makeSelectCartItem(item?.id || "__missing__"), [item?.id]);
@@ -60,9 +58,25 @@ export function CartItemDetailModal({
       return;
     }
 
-    setDetails(item.details ? item.details.map((detail) => createOrderDetailDraftFromEntity({ ...detail, id: `${detail.topping_id || detail.detail_name}-${detail.extra_price}` })) : []);
+    const initialDetails = item.details
+      ? item.details.map((detail) => {
+          const draft = createOrderDetailDraftFromEntity({
+            ...detail,
+            id: `${detail.topping_id || detail.detail_name}-${detail.extra_price}`,
+          });
+          // Try to enrich with image from catalog if available locally
+          if (!draft.img && detail.topping_id && catalogToppings.length > 0) {
+            const topping = catalogToppings.find((t) => t.id === detail.topping_id);
+            if (topping?.img) {
+              draft.img = topping.img;
+            }
+          }
+          return draft;
+        })
+      : [];
+    setDetails(initialDetails);
     setSelectedToppingIds([]);
-  }, [item, isOpen]);
+  }, [item, isOpen, catalogToppings]);
 
   React.useEffect(() => {
     if (!isOpen) {
@@ -112,8 +126,9 @@ export function CartItemDetailModal({
 
   const toppingOptions = React.useMemo(() =>
     selectableToppings.map(topping => ({
+      value: topping.id,
       label: (
-        <div style={{ display: 'flex', justifyContent: 'flex-start', alignItems: 'center', gap: 10, width: '100%' }}>
+        <Space size={12}>
           <SmartAvatar
             src={topping.img}
             alt={topping.display_name}
@@ -124,30 +139,18 @@ export function CartItemDetailModal({
             style={{
               borderRadius: 8,
               flexShrink: 0,
-              background: resolveImageSource(topping.img) ? '#fff' : '#F8FAFC',
-              border: '1px solid #E2E8F0',
+              background: '#fff',
+              border: '1px solid #E5E7EB',
             }}
           />
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <span style={{ fontWeight: 600 }}>{topping.display_name}</span>
-            <span style={{ color: posColors.success, fontWeight: 700 }}>
-              (+{formatPrice(getToppingDisplayPrice(topping, effectiveOrderType))})
-            </span>
-          </div>
-        </div>
+          <Text>{topping.display_name} (+{formatPrice(getToppingDisplayPrice(topping, effectiveOrderType))})</Text>
+        </Space>
       ),
-      value: topping.id,
       searchLabel: topping.display_name
     })),
     [selectableToppings, effectiveOrderType]
   );
 
-  const handleAddDetail = React.useCallback(() => {
-    if (!allowCustomDetails) {
-      return;
-    }
-    setDetails((prev) => [...prev, createCustomOrderDetailDraft()]);
-  }, [allowCustomDetails]);
 
   const handleAddTopping = React.useCallback(() => {
     if (selectedToppingIds.length === 0) {
@@ -170,51 +173,19 @@ export function CartItemDetailModal({
     setDetails((prev) => prev.filter((detail) => detail.id !== id));
   }, []);
 
-  const handleUpdateDetail = React.useCallback((id: string, field: "detail_name" | "extra_price", value: unknown) => {
-    setDetails((prev) =>
-      prev.map((detail) => {
-        if (detail.id !== id) {
-          return detail;
-        }
-
-        return {
-          ...detail,
-          [field]: field === "extra_price" ? Number(value || 0) : String(value || ""),
-        };
-      }),
-    );
-  }, []);
 
   const handleSave = React.useCallback(() => {
     const nextDetails = details
-      .map((detail) => {
-        if (detail.topping_id) {
-          return {
-            detail_name: detail.detail_name,
-            extra_price: Number(detail.extra_price || 0),
-            topping_id: detail.topping_id,
-          };
-        }
-
-        if (!allowCustomDetails) {
-          return null;
-        }
-
-        const detailName = detail.detail_name.trim();
-        if (!detailName) {
-          return null;
-        }
-
-        return {
-          detail_name: detailName,
-          extra_price: Number(detail.extra_price || 0),
-        };
-      })
-      .filter((detail): detail is { detail_name: string; extra_price: number; topping_id?: string } => detail !== null);
+      .filter((detail) => !!detail.topping_id)
+      .map((detail) => ({
+        detail_name: detail.detail_name,
+        extra_price: Number(detail.extra_price || 0),
+        topping_id: detail.topping_id as string,
+      }));
 
     onSave(nextDetails);
     onClose();
-  }, [allowCustomDetails, details, onClose, onSave]);
+  }, [details, onClose, onSave]);
 
   return (
     <Modal
@@ -223,7 +194,7 @@ export function CartItemDetailModal({
           <div style={{ ...posComponentStyles.modalIconBase, background: posColors.successLight }}>
             <PlusOutlined style={{ color: posColors.success, fontSize: 16 }} />
           </div>
-          <span>รายละเอียดเพิ่มเติม: {item?.name}</span>
+          <span>รายละเอียดเพิ่มเติม : {item?.name}</span>
         </div>
       }
       open={isOpen}
@@ -235,6 +206,8 @@ export function CartItemDetailModal({
       width={560}
       centered
     >
+      <POSSharedStyles />
+      <style jsx global>{ordersResponsiveStyles}</style>
       <div style={{ padding: "16px 0", display: "flex", flexDirection: "column", gap: 16 }}>
         <div
           style={{
@@ -244,51 +217,46 @@ export function CartItemDetailModal({
             border: "1px solid #E2E8F0",
           }}
         >
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 12 }}>
-            <Text strong style={{ color: posColors.textSecondary }}>เลือกท็อปปิ้ง</Text>
-            {selectedToppingIds.length > 0 ? (
-              <Space size={8}>
-                <Button 
-                  danger 
-                  size="small"
-                  icon={<CloseOutlined style={{ fontSize: 12 }} />} 
-                  onClick={() => setSelectedToppingIds([])} 
-                  style={{ borderRadius: 6, background: "#FEF2F2", fontSize: 13, height: 32 }}
-                >
-                  ล้าง
-                </Button>
-                <Button 
-                  type="primary" 
-                  size="small"
-                  icon={<CheckOutlined style={{ fontSize: 12 }} />} 
-                  onClick={handleAddTopping} 
-                  style={{ borderRadius: 6, background: posColors.success, border: "none", fontSize: 13, height: 32 }}
-                >
-                  ยืนยัน ({selectedToppingIds.length})
-                </Button>
-              </Space>
-            ) : null}
+          <div className="topping-selection-header" style={{ marginBottom: 12 }}>
+            <Text strong className="topping-selection-label" style={{ color: posColors.textSecondary }}>เลือกท็อปปิ้ง</Text>
           </div>
           <ModalSelector<string>
             value={selectedToppingIds}
             onChange={(value) => setSelectedToppingIds(value)}
             title="เลือกท็อปปิ้ง"
-            placeholder={availableToppings.length > 0 ? "เลือก" : "ไม่มีท็อปปิ้งที่ตรงกับหมวดสินค้า"}
+            placeholder={availableToppings.length > 0 ? "เลือก" : "ไม่มีท็อปปิ้ง"}
             disabled={selectableToppings.length === 0}
             style={{ width: "100%", height: 44 }}
             showSearch
             multiple
             options={toppingOptions}
           />
+          {selectedToppingIds.length > 0 ? (
+            <div className="topping-selection-actions">
+              <Space size={12}>
+                <Button 
+                  danger 
+                  className="topping-selection-btn btn-clear"
+                  icon={<CloseOutlined style={{ fontSize: 12 }} />} 
+                  onClick={() => setSelectedToppingIds([])} 
+                >
+                  ล้าง
+                </Button>
+                <Button 
+                  type="primary" 
+                  className="topping-selection-btn btn-confirm"
+                  icon={<CheckOutlined style={{ fontSize: 12 }} />} 
+                  onClick={handleAddTopping} 
+                >
+                  ยืนยัน ({selectedToppingIds.length})
+                </Button>
+              </Space>
+            </div>
+          ) : null}
         </div>
 
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <Text strong style={{ color: posColors.textSecondary }}>รายการเพิ่มเติม</Text>
-          {allowCustomDetails ? (
-            <Button type="dashed" size="small" icon={<PlusOutlined />} onClick={handleAddDetail} style={{ borderRadius: 8 }}>
-              เพิ่มข้อความเอง
-            </Button>
-          ) : null}
+          <Text strong style={{ color: posColors.textSecondary }}>รายการท็อปปิ้ง</Text>
         </div>
 
         {details.length === 0 ? (
@@ -302,72 +270,51 @@ export function CartItemDetailModal({
             }}
           >
             <PlusOutlined style={{ fontSize: 24, marginBottom: 8, opacity: 0.4 }} />
-            <div>ยังไม่มีรายการเพิ่มเติม</div>
+            <div>ยังไม่มีรายการท็อปปิ้ง</div>
           </div>
         ) : (
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             {details.map((detail) => (
               <div key={detail.id} style={{ display: "flex", gap: 10, alignItems: "center" }}>
-                {detail.topping_id ? (
-                  <div
-                    style={{
-                      flex: 1,
-                      minHeight: 54,
-                      display: "flex",
-                      alignItems: "center",
-                      justifyContent: "space-between",
-                      gap: 12,
-                      padding: "8px 12px",
-                      borderRadius: 10,
-                      background: "#F0FDF4",
-                      border: "1px solid #DCFCE7",
-                    }}
-                  >
-                    <Space size={10} wrap>
-                      <SmartAvatar
-                        src={detail.img}
-                        alt={detail.detail_name}
-                        size={32}
-                        shape="square"
-                        icon={<PictureOutlined style={{ fontSize: 14 }} />}
-                        imageStyle={{ objectFit: 'contain' }}
-                        style={{
-                          borderRadius: 8,
-                          flexShrink: 0,
-                          background: resolveImageSource(detail.img) ? '#fff' : '#fff',
-                          border: '1px solid #A7F3D0',
-                        }}
-                      />
-                      <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                          <Text strong>{detail.detail_name}</Text>
-                        </div>
+                <div
+                  style={{
+                    flex: 1,
+                    minHeight: 54,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    gap: 12,
+                    padding: "8px 12px",
+                    borderRadius: 10,
+                    background: "#F0FDF4",
+                    border: "1px solid #DCFCE7",
+                  }}
+                >
+                  <Space size={10} wrap>
+                    <SmartAvatar
+                      src={detail.img || catalogToppings.find(t => t.id === detail.topping_id)?.img}
+                      alt={detail.detail_name}
+                      size={32}
+                      shape="square"
+                      icon={<PictureOutlined style={{ fontSize: 14 }} />}
+                      imageStyle={{ objectFit: 'contain' }}
+                      style={{
+                        borderRadius: 8,
+                        flexShrink: 0,
+                        background: '#fff',
+                        border: '1px solid #A7F3D0',
+                      }}
+                    />
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <Text strong>{detail.detail_name}</Text>
                       </div>
-                    </Space>
-                    <Text style={{ color: posColors.success, fontWeight: 700 }}>
-                      +{formatPrice(Number(detail.extra_price || 0))}
-                    </Text>
-                  </div>
-                ) : (
-                  <>
-                    <Input
-                      placeholder="ชื่อรายการ"
-                      value={detail.detail_name}
-                      onChange={(e) => handleUpdateDetail(detail.id, "detail_name", e.target.value)}
-                      style={{ flex: 2, borderRadius: 8, height: 42 }}
-                    />
-                    <InputNumber<number>
-                      placeholder="ราคา"
-                      value={detail.extra_price}
-                      onChange={(val: number | null) => handleUpdateDetail(detail.id, "extra_price", val || 0)}
-                      style={{ flex: 1, height: 42 }}
-                      inputMode="decimal"
-                      controls={false}
-                      min={0}
-                      precision={2}
-                    />
-                  </>
-                )}
+                    </div>
+                  </Space>
+                  <Text style={{ color: posColors.success, fontWeight: 700 }}>
+                    +{formatPrice(Number(detail.extra_price || 0))}
+                  </Text>
+                </div>
                 <Button
                   danger
                   type="text"
