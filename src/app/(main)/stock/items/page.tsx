@@ -1,58 +1,108 @@
-﻿"use client";
+"use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   App,
   Button,
-  Card,
-  Col,
-  Empty,
   Grid,
-  List,
+  Input,
   Modal,
-  Row,
-  Space,
-  Table,
+  Pagination,
+  Radio,
+  Segmented,
+  Skeleton,
   Tag,
-  Tooltip,
   Typography,
 } from "antd";
 import {
   CheckSquareOutlined,
+  ClockCircleOutlined,
   CloseCircleOutlined,
   EditOutlined,
   EyeOutlined,
+  HistoryOutlined,
   PrinterOutlined,
   ReloadOutlined,
+  SearchOutlined,
   ShoppingCartOutlined,
+  SyncOutlined,
   UnorderedListOutlined,
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
-import { Order, OrderStatus } from "../../../../types/api/stock/orders";
+
+import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
 import EditOrderModal from "../../../../components/stock/EditOrderModal";
 import OrderDetailModal from "../../../../components/stock/OrderDetailModal";
-import { useSocket } from "../../../../hooks/useSocket";
-import { LegacyRealtimeEvents, RealtimeEvents } from "../../../../utils/realtimeEvents";
-import { authService } from "../../../../services/auth.service";
+import PageContainer from "../../../../components/ui/page/PageContainer";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import PageSection from "../../../../components/ui/page/PageSection";
+import PageState from "../../../../components/ui/states/PageState";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
-import UIPageHeader from "../../../../components/ui/page/PageHeader";
-import PageContainer from "../../../../components/ui/page/PageContainer";
-import PageSection from "../../../../components/ui/page/PageSection";
-import PageStack from "../../../../components/ui/page/PageStack";
-import PageState from "../../../../components/ui/states/PageState";
+import { useSocket } from "../../../../hooks/useSocket";
+import { authService } from "../../../../services/auth.service";
+import { ordersService } from "../../../../services/stock/orders.service";
+import { PrintPreset } from "../../../../types/api/pos/printSettings";
+import { Order, OrderStatus } from "../../../../types/api/stock/orders";
+import { useDebouncedValue } from "../../../../utils/useDebouncedValue";
 import {
-  buildPageMarginCss,
-  buildPageSizeCss,
   closePrintWindow,
   getPrintSettings,
   primePrintResources,
   reservePrintWindow,
 } from "../../../../utils/print-settings/runtime";
-import { toCssLength } from "../../../../utils/print-settings/defaults";
-import { PrintDocumentSetting } from "../../../../types/api/pos/printSettings";
+import { applyPresetToDocument } from "../../../../utils/print-settings/defaults";
+import { LegacyRealtimeEvents, RealtimeEvents } from "../../../../utils/realtimeEvents";
+import { buildStockOrderPrintHtml } from "./print";
+import ItemsPageStyle from "./style";
 
-const { Text, Title } = Typography;
+const { Text } = Typography;
+
+type OrderFilterStatus = "all" | OrderStatus;
+type SortCreated = "old" | "new";
+type StockOrderPrintMode = "a4" | "receipt";
+type ReceiptPaperPreset = Extract<PrintPreset, "thermal_58mm" | "thermal_80mm">;
+
+type StatusTabConfig = {
+  key: OrderFilterStatus;
+  label: string;
+  icon: React.ReactNode;
+  activeBg: string;
+  activeShadow: string;
+};
+
+const PAGE_SIZE_OPTIONS = [8, 12, 20, 50];
+
+const STATUS_TABS: StatusTabConfig[] = [
+  {
+    key: OrderStatus.PENDING,
+    label: "รอดำเนินการ",
+    icon: <ClockCircleOutlined />,
+    activeBg: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
+    activeShadow: "0 4px 12px rgba(245, 158, 11, 0.25)",
+  },
+  {
+    key: OrderStatus.COMPLETED,
+    label: "เสร็จสิ้น",
+    icon: <CheckSquareOutlined />,
+    activeBg: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
+    activeShadow: "0 4px 12px rgba(34, 197, 94, 0.22)",
+  },
+  {
+    key: OrderStatus.CANCELLED,
+    label: "ยกเลิก",
+    icon: <CloseCircleOutlined />,
+    activeBg: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
+    activeShadow: "0 4px 12px rgba(239, 68, 68, 0.22)",
+  },
+  {
+    key: "all",
+    label: "ทั้งหมด",
+    icon: <UnorderedListOutlined />,
+    activeBg: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
+    activeShadow: "0 4px 12px rgba(59, 130, 246, 0.24)",
+  },
+];
 
 function formatDateTime(value?: string): string {
   if (!value) return "-";
@@ -65,72 +115,331 @@ function formatDateTime(value?: string): string {
   });
 }
 
-function statusTag(status: OrderStatus): React.ReactNode {
-  if (status === OrderStatus.COMPLETED) return <Tag color="success">เสร็จสิ้น</Tag>;
-  if (status === OrderStatus.CANCELLED) return <Tag color="error">ยกเลิก</Tag>;
-  return <Tag color="warning">รอดำเนินการ</Tag>;
+function formatTimeSince(value?: string): string {
+  if (!value) return "-";
+  const diffMinutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000));
+  if (diffMinutes < 1) return "เมื่อกี้";
+  if (diffMinutes < 60) return `${diffMinutes} นาทีที่แล้ว`;
+  if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)} ชม.ที่แล้ว`;
+  return formatDateTime(value);
 }
 
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;")
-    .replaceAll("'", "&#39;");
+function getOrderCode(id: string): string {
+  return `#${id.slice(0, 8).toUpperCase()}`;
 }
 
-function getEffectiveDocumentSize(setting: Pick<PrintDocumentSetting, "width" | "height" | "height_mode" | "orientation" | "unit">) {
-  const baseWidth = setting.width;
-  const baseHeight =
-    setting.height_mode === "fixed" && setting.height != null ? setting.height : null;
+function getOrderLineCount(order: Order): number {
+  return order.ordersItems?.length || 0;
+}
 
-  if (setting.orientation === "landscape" && baseHeight != null) {
-    return { width: baseHeight, height: baseWidth };
+function getOrderQuantity(order: Order): number {
+  return (order.ordersItems || []).reduce(
+    (sum, item) => sum + Number(item.quantity_ordered || 0),
+    0
+  );
+}
+
+function getStatusMeta(status: OrderStatus): {
+  label: string;
+  color: string;
+  background: string;
+  borderColor: string;
+} {
+  if (status === OrderStatus.COMPLETED) {
+    return {
+      label: "เสร็จสิ้น",
+      color: "#15803d",
+      background: "#f0fdf4",
+      borderColor: "#bbf7d0",
+    };
   }
 
-  return { width: baseWidth, height: baseHeight };
+  if (status === OrderStatus.CANCELLED) {
+    return {
+      label: "ยกเลิก",
+      color: "#b91c1c",
+      background: "#fef2f2",
+      borderColor: "#fecaca",
+    };
+  }
+
+  return {
+    label: "รอดำเนินการ",
+    color: "#b45309",
+    background: "#fffbeb",
+    borderColor: "#fde68a",
+  };
+}
+
+type StockOrderCardProps = {
+  order: Order;
+  index: number;
+  canUpdateOrders: boolean;
+  isMobile: boolean;
+  onView: (order: Order) => void;
+  onPrint: (order: Order) => void;
+  onEdit: (order: Order) => void;
+  onReceive: (order: Order) => void;
+  onCancel: (order: Order) => void;
+};
+
+function StockOrderCard({
+  order,
+  index,
+  canUpdateOrders,
+  isMobile,
+  onView,
+  onPrint,
+  onEdit,
+  onReceive,
+  onCancel,
+}: StockOrderCardProps) {
+  const statusMeta = getStatusMeta(order.status);
+  const previewItems = (order.ordersItems || []).slice(0, 4);
+  const extraItems = Math.max(0, getOrderLineCount(order) - previewItems.length);
+  const canMutate = canUpdateOrders && order.status === OrderStatus.PENDING;
+
+  return (
+    <div className="stock-items-card" style={{ animationDelay: `${index * 0.04}s` }}>
+      <div className="stock-items-card-head">
+        <div>
+          <div className="stock-items-card-title">
+            <span className="stock-items-card-code">{getOrderCode(order.id)}</span>
+            <span
+              className="stock-items-status-badge"
+              style={{
+                color: statusMeta.color,
+                background: statusMeta.background,
+                border: `1px solid ${statusMeta.borderColor}`,
+              }}
+            >
+              <span
+                className="stock-items-status-dot"
+                style={{ background: statusMeta.color }}
+              />
+              {statusMeta.label}
+            </span>
+          </div>
+          <div className="stock-items-meta-row" style={{ marginTop: 8 }}>
+            <span>
+              <ClockCircleOutlined />
+              {formatDateTime(order.create_date)}
+            </span>
+            <span>{formatTimeSince(order.create_date)}</span>
+          </div>
+        </div>
+
+        <div className="stock-items-card-metrics" style={{ justifyContent: isMobile ? "flex-start" : "flex-end" }}>
+          <span>{getOrderLineCount(order)} รายการ</span>
+          <span>{getOrderQuantity(order)} หน่วย</span>
+        </div>
+      </div>
+
+      <div className="stock-items-card-main">
+        <div className="stock-items-card-main-left">
+          <div className="stock-items-meta-row">
+            <span>ผู้สร้าง: {order.ordered_by?.name || order.ordered_by?.username || "-"}</span>
+            <span>อัปเดตล่าสุด: {formatDateTime(order.update_date)}</span>
+          </div>
+
+          <div className="stock-items-item-chips">
+            {previewItems.map((item) => (
+              <Tag key={item.id} className="stock-items-item-chip">
+                {item.ingredient?.display_name || "-"} x{Number(item.quantity_ordered || 0)}
+              </Tag>
+            ))}
+            {extraItems > 0 ? (
+              <Tag className="stock-items-item-chip">+{extraItems} รายการ</Tag>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="stock-items-card-main-right">
+          <div className="stock-items-card-metrics">
+            <span>ซื้อแล้ว {order.ordersItems?.filter((item) => item.ordersDetail?.is_purchased).length || 0}</span>
+            <span>คงเหลือ {Math.max(0, getOrderLineCount(order) - (order.ordersItems?.filter((item) => item.ordersDetail?.is_purchased).length || 0))}</span>
+          </div>
+        </div>
+      </div>
+
+      <div className="stock-items-card-foot" style={{ marginTop: 14 }}>
+        {order.remark ? (
+          <div className="stock-items-remark">
+            <span className="stock-items-remark-title">หมายเหตุ</span>
+            {order.remark}
+          </div>
+        ) : (
+          <div />
+        )}
+
+        <div className="stock-items-card-actions">
+          <Button
+            icon={<EyeOutlined />}
+            onClick={() => onView(order)}
+            data-testid={`stock-order-view-${order.id}`}
+          >
+            ดู
+          </Button>
+          <Button
+            icon={<PrinterOutlined />}
+            onClick={() => onPrint(order)}
+            data-testid={`stock-order-print-${order.id}`}
+          >
+            พิมพ์
+          </Button>
+          <Button
+            icon={<EditOutlined />}
+            onClick={() => onEdit(order)}
+            disabled={!canMutate}
+            data-testid={`stock-order-edit-${order.id}`}
+          >
+            แก้ไข
+          </Button>
+          <Button
+            type="primary"
+            icon={<CheckSquareOutlined />}
+            onClick={() => onReceive(order)}
+            disabled={!canMutate}
+            data-testid={`stock-order-receive-${order.id}`}
+          >
+            ตรวจรับ
+          </Button>
+          {canUpdateOrders ? (
+            <Button
+              danger
+              icon={<CloseCircleOutlined />}
+              onClick={() => onCancel(order)}
+              disabled={order.status !== OrderStatus.PENDING}
+              data-testid={`stock-order-cancel-${order.id}`}
+            >
+              ยกเลิก
+            </Button>
+          ) : null}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function StockOrdersQueuePage() {
-  const { message: messageApi } = App.useApp();
   const router = useRouter();
+  const { message: messageApi } = App.useApp();
   const screens = Grid.useBreakpoint();
   const isMobile = !screens.md;
   const { socket } = useSocket();
   const { user } = useAuth();
-  const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+  const { can, loading: permissionsLoading } = useEffectivePermissions({
+    enabled: Boolean(user?.id),
+  });
+
+  const canViewOrders = can("stock.orders.page", "view");
+  const canCreateOrders = can("stock.orders.page", "create");
   const canUpdateOrders = can("stock.orders.page", "update");
 
   const [orders, setOrders] = useState<Order[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(12);
+  const [lastPage, setLastPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState<OrderFilterStatus>(OrderStatus.PENDING);
+  const [sortCreated, setSortCreated] = useState<SortCreated>("new");
+  const [searchText, setSearchText] = useState("");
+  const [showSearch, setShowSearch] = useState(false);
+  const debouncedSearch = useDebouncedValue(searchText.trim(), 300);
+
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [error, setError] = useState<unknown>(null);
+  const [refreshError, setRefreshError] = useState<string | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [csrfToken, setCsrfToken] = useState("");
+
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
   const [viewingOrder, setViewingOrder] = useState<Order | null>(null);
+  const [printingOrder, setPrintingOrder] = useState<Order | null>(null);
+  const [printMode, setPrintMode] = useState<StockOrderPrintMode>("a4");
+  const [receiptPaperPreset, setReceiptPaperPreset] =
+    useState<ReceiptPaperPreset>("thermal_80mm");
+  const [printing, setPrinting] = useState(false);
 
-  const fetchOrders = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      const response = await fetch("/api/stock/orders?status=pending&sort_created=new", {
-        cache: "no-store",
-      });
-      if (!response.ok) throw new Error("โหลดรายการใบซื้อไม่สำเร็จ");
-      const payload = await response.json();
-      setOrders(Array.isArray(payload) ? payload : payload?.data || []);
-    } catch (caughtError) {
-      const message = (caughtError as Error)?.message || "โหลดรายการใบซื้อไม่สำเร็จ";
-      setError(message);
-      messageApi.error(message);
-    } finally {
-      setLoading(false);
-    }
-  }, [messageApi]);
+  const abortRef = useRef<AbortController | null>(null);
+  const refreshTimerRef = useRef<number | null>(null);
+  const hasLoadedRef = useRef(false);
+  const orderCountRef = useRef(0);
 
   useEffect(() => {
-    void fetchOrders();
-  }, [fetchOrders]);
+    orderCountRef.current = orders.length;
+  }, [orders.length]);
+
+  const loadOrders = useCallback(
+    async (options?: { silent?: boolean }) => {
+      const silent = Boolean(options?.silent) && hasLoadedRef.current;
+      abortRef.current?.abort();
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      if (silent) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+        setError(null);
+      }
+
+      const params = new URLSearchParams({
+        page: String(page),
+        limit: String(pageSize),
+        sort_created: sortCreated,
+      });
+      if (statusFilter !== "all") params.set("status", statusFilter);
+      if (debouncedSearch) params.set("q", debouncedSearch);
+
+      try {
+        const payload = await ordersService.getAllOrders(undefined, params, {
+          signal: controller.signal,
+        });
+        if (controller.signal.aborted) return;
+        if (payload.last_page > 0 && page > payload.last_page) {
+          setPage(payload.last_page);
+          return;
+        }
+
+        hasLoadedRef.current = true;
+        setOrders(payload.data);
+        setTotal(payload.total);
+        setLastPage(payload.last_page);
+        setLastSyncedAt(new Date());
+        setRefreshError(null);
+        setError(null);
+      } catch (caughtError) {
+        if ((caughtError as { name?: string })?.name === "AbortError") return;
+        const nextMessage =
+          caughtError instanceof Error ? caughtError.message : "โหลดคิวใบสั่งซื้อไม่สำเร็จ";
+        if (silent && orderCountRef.current > 0) {
+          setRefreshError(nextMessage);
+        } else {
+          setError(caughtError);
+        }
+      } finally {
+        if (!controller.signal.aborted) {
+          setLoading(false);
+          setRefreshing(false);
+        }
+      }
+    },
+    [debouncedSearch, page, pageSize, sortCreated, statusFilter]
+  );
+
+  useEffect(() => {
+    if (!canViewOrders) return;
+    void loadOrders({ silent: hasLoadedRef.current });
+  }, [canViewOrders, loadOrders]);
+
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+      if (refreshTimerRef.current) window.clearTimeout(refreshTimerRef.current);
+    };
+  }, []);
 
   useEffect(() => {
     primePrintResources();
@@ -153,573 +462,404 @@ export default function StockOrdersQueuePage() {
   }, [messageApi]);
 
   useEffect(() => {
-    if (!socket) return;
-
-    const refresh = () => {
-      void fetchOrders();
+    if (!socket || !canViewOrders) return;
+    const queueRefresh = () => {
+      if (refreshTimerRef.current) window.clearTimeout(refreshTimerRef.current);
+      refreshTimerRef.current = window.setTimeout(() => {
+        void loadOrders({ silent: true });
+      }, 300);
     };
 
-    socket.on(RealtimeEvents.stockOrders.create, refresh);
-    socket.on(RealtimeEvents.stockOrders.update, refresh);
-    socket.on(RealtimeEvents.stockOrders.status, refresh);
-    socket.on(RealtimeEvents.stockOrders.delete, refresh);
-    socket.on(RealtimeEvents.stockOrders.detailUpdate, refresh);
-    socket.on(LegacyRealtimeEvents.stockOrdersUpdated, refresh);
+    socket.on(RealtimeEvents.stockOrders.create, queueRefresh);
+    socket.on(RealtimeEvents.stockOrders.update, queueRefresh);
+    socket.on(RealtimeEvents.stockOrders.status, queueRefresh);
+    socket.on(RealtimeEvents.stockOrders.delete, queueRefresh);
+    socket.on(RealtimeEvents.stockOrders.detailUpdate, queueRefresh);
+    socket.on(LegacyRealtimeEvents.stockOrdersUpdated, queueRefresh);
 
     return () => {
-      socket.off(RealtimeEvents.stockOrders.create, refresh);
-      socket.off(RealtimeEvents.stockOrders.update, refresh);
-      socket.off(RealtimeEvents.stockOrders.status, refresh);
-      socket.off(RealtimeEvents.stockOrders.delete, refresh);
-      socket.off(RealtimeEvents.stockOrders.detailUpdate, refresh);
-      socket.off(LegacyRealtimeEvents.stockOrdersUpdated, refresh);
+      socket.off(RealtimeEvents.stockOrders.create, queueRefresh);
+      socket.off(RealtimeEvents.stockOrders.update, queueRefresh);
+      socket.off(RealtimeEvents.stockOrders.status, queueRefresh);
+      socket.off(RealtimeEvents.stockOrders.delete, queueRefresh);
+      socket.off(RealtimeEvents.stockOrders.detailUpdate, queueRefresh);
+      socket.off(LegacyRealtimeEvents.stockOrdersUpdated, queueRefresh);
+      if (refreshTimerRef.current) window.clearTimeout(refreshTimerRef.current);
     };
-  }, [socket, fetchOrders]);
+  }, [canViewOrders, loadOrders, socket]);
 
-  const cancelOrder = (order: Order) => {
-    if (!canUpdateOrders) {
-      messageApi.error("คุณไม่มีสิทธิ์ยกเลิกใบซื้อ");
-      return;
-    }
-    Modal.confirm({
-      title: `ยกเลิกใบซื้อ #${order.id.slice(0, 8).toUpperCase()}`,
-      content: "ต้องการยกเลิกใบซื้อนี้ใช่หรือไม่",
-      okText: "ยืนยันยกเลิก",
-      okButtonProps: { danger: true },
-      cancelText: "ปิด",
-      onOk: async () => {
-        try {
-          const response = await fetch(`/api/stock/orders/${order.id}/status`, {
-            method: "PUT",
-            headers: {
-              "Content-Type": "application/json",
-              "X-CSRF-Token": csrfToken,
-            },
-            body: JSON.stringify({ status: OrderStatus.CANCELLED }),
-          });
-          if (!response.ok) throw new Error("ยกเลิกใบซื้อไม่สำเร็จ");
-          messageApi.success("ยกเลิกใบซื้อแล้ว");
-          void fetchOrders();
-        } catch {
-          messageApi.error("ยกเลิกใบซื้อไม่สำเร็จ");
-        }
-      },
-    });
-  };
+  const cancelOrder = useCallback(
+    (order: Order) => {
+      if (!canUpdateOrders) {
+        messageApi.error("คุณไม่มีสิทธิ์ยกเลิกใบสั่งซื้อ");
+        return;
+      }
 
-  const printOrderToPdf = useCallback(async (order: Order) => {
-    const orderCode = `#${order.id.slice(0, 8).toUpperCase()}`;
-    const popup = reservePrintWindow(`ใบสั่งซื้อ ${orderCode}`);
+      Modal.confirm({
+        title: `ยกเลิกใบสั่งซื้อ ${getOrderCode(order.id)}`,
+        content: "ต้องการยกเลิกใบสั่งซื้อนี้ใช่หรือไม่",
+        okText: "ยืนยันยกเลิก",
+        okButtonProps: { danger: true },
+        cancelText: "ปิด",
+        onOk: async () => {
+          try {
+            await ordersService.updateStatus(order.id, OrderStatus.CANCELLED, undefined, csrfToken);
+            messageApi.success("ยกเลิกใบสั่งซื้อแล้ว");
+            void loadOrders({ silent: true });
+          } catch (caughtError) {
+            messageApi.error(
+              caughtError instanceof Error ? caughtError.message : "ยกเลิกใบสั่งซื้อไม่สำเร็จ"
+            );
+          }
+        },
+      });
+    },
+    [canUpdateOrders, csrfToken, loadOrders, messageApi]
+  );
+
+  const openPrintModal = useCallback((order: Order) => {
+    setPrintingOrder(order);
+    setPrintMode("a4");
+  }, []);
+
+  const handleConfirmPrint = useCallback(async () => {
+    if (!printingOrder) return;
+    const popup = reservePrintWindow(`ใบสั่งซื้อ ${getOrderCode(printingOrder.id)}`);
     if (!popup) {
       messageApi.error("เบราว์เซอร์บล็อกหน้าต่างพิมพ์ กรุณาอนุญาตป๊อปอัป");
       return;
     }
 
     try {
+      setPrinting(true);
       const printSettings = await getPrintSettings();
-      const documentSetting = printSettings.documents.purchase_order;
-      const pageSizeCss = buildPageSizeCss(documentSetting);
-      const pagePaddingCss = buildPageMarginCss(documentSetting);
-      const effectiveSize = getEffectiveDocumentSize(documentSetting);
-      const sheetWidthCss = toCssLength(effectiveSize.width, documentSetting.unit);
-      const sheetHeightCss = effectiveSize.height == null ? "auto" : toCssLength(effectiveSize.height, documentSetting.unit);
-
-      const createdAt = formatDateTime(order.create_date);
-      const orderedBy = order.ordered_by?.name || order.ordered_by?.username || "-";
-      const printAt = new Date().toLocaleString("th-TH", {
-        day: "2-digit",
-        month: "short",
-        year: "numeric",
-        hour: "2-digit",
-        minute: "2-digit",
-        second: "2-digit",
-      });
-
-      const safeRemark = escapeHtml(order.remark?.trim() || "-");
-      const rows = (order.ordersItems || [])
-        .map((item, index) => {
-          const name = escapeHtml(item.ingredient?.display_name || item.ingredient?.ingredient_name || "-");
-          const unit = escapeHtml(item.ingredient?.unit?.display_name || item.ingredient?.unit?.unit_name || "หน่วย");
-          const quantity = Number(item.quantity_ordered || 0);
-          return `
-            <tr>
-              <td class="center">${index + 1}</td>
-              <td>${name}</td>
-              <td class="center">${quantity.toLocaleString()}</td>
-              <td class="center">${unit}</td>
-            </tr>
-          `;
-        })
-        .join("");
-
-      const totalItems = (order.ordersItems || []).length;
-      const totalQty = (order.ordersItems || []).reduce(
-        (acc, item) => acc + Number(item.quantity_ordered || 0),
-        0
-      );
-
-      const html = `
-      <!DOCTYPE html>
-      <html lang="th">
-        <head>
-          <meta charset="UTF-8" />
-          <title>ใบสั่งซื้อ ${orderCode}</title>
-          <style>
-            * { box-sizing: border-box; }
-            @page {
-              size: ${pageSizeCss};
-              margin: 0;
-            }
-            body {
-              margin: 0;
-              padding: 0;
-              background: #eef2f7;
-              font-family: "Tahoma", "Noto Sans Thai", sans-serif;
-              color: #1f2937;
-            }
-            .sheet {
-              width: ${sheetWidthCss};
-              min-height: ${sheetHeightCss};
-              margin: 10mm auto;
-              background: #fff;
-              padding: ${pagePaddingCss};
-              border-radius: 10px;
-              box-shadow: 0 8px 28px rgba(15, 23, 42, 0.14);
-            }
-            .header {
-              display: flex;
-              justify-content: space-between;
-              gap: 12px;
-              border-bottom: 2px solid #e5e7eb;
-              padding-bottom: 10px;
-            }
-            .title {
-              margin: 0;
-              font-size: 26px;
-              color: #0f172a;
-            }
-            .subtitle {
-              margin-top: 4px;
-              color: #475569;
-              font-size: 13px;
-            }
-            .badge {
-              align-self: flex-start;
-              border: 1px solid #1d4ed8;
-              color: #1d4ed8;
-              padding: 8px 12px;
-              border-radius: 8px;
-              font-size: 12px;
-              font-weight: 700;
-              background: #eff6ff;
-            }
-            .meta {
-              display: grid;
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-              gap: 8px 14px;
-              margin-top: 14px;
-            }
-            .meta-card {
-              background: #f8fafc;
-              border: 1px solid #e2e8f0;
-              border-radius: 8px;
-              padding: 8px 10px;
-            }
-            .meta-label { color: #64748b; font-size: 12px; }
-            .meta-value { margin-top: 2px; font-size: 14px; font-weight: 600; color: #0f172a; }
-            table {
-              width: 100%;
-              border-collapse: collapse;
-              margin-top: 14px;
-              font-size: 13px;
-            }
-            thead th {
-              background: #f1f5f9;
-              border: 1px solid #cbd5e1;
-              padding: 9px 8px;
-              text-align: left;
-              color: #0f172a;
-            }
-            td {
-              border: 1px solid #e2e8f0;
-              padding: 8px;
-              vertical-align: top;
-            }
-            .center { text-align: center; }
-            .summary {
-              margin-top: 12px;
-              display: flex;
-              justify-content: flex-end;
-            }
-            .summary-box {
-              width: 270px;
-              border: 1px solid #dbeafe;
-              background: #f8fbff;
-              border-radius: 8px;
-              padding: 8px 10px;
-              font-size: 13px;
-            }
-            .summary-row {
-              display: flex;
-              justify-content: space-between;
-              padding: 4px 0;
-            }
-            .remarks {
-              margin-top: 14px;
-              border: 1px dashed #cbd5e1;
-              background: #fcfdff;
-              border-radius: 8px;
-              padding: 10px;
-              min-height: 58px;
-            }
-            .signatures {
-              margin-top: 32px;
-              display: grid;
-              grid-template-columns: repeat(2, minmax(0, 1fr));
-              gap: 22px;
-            }
-            .sign-box {
-              text-align: center;
-              font-size: 12px;
-              color: #475569;
-            }
-            .sign-line {
-              border-bottom: 1px solid #94a3b8;
-              margin: 0 auto 8px;
-              width: 78%;
-              height: 28px;
-            }
-            .footer {
-              margin-top: 20px;
-              border-top: 1px solid #e5e7eb;
-              padding-top: 8px;
-              font-size: 11px;
-              color: #64748b;
-              text-align: right;
-            }
-            @media print {
-              body { background: #fff; }
-              .sheet {
-                margin: 0;
-                border-radius: 0;
-                box-shadow: none;
-                width: ${sheetWidthCss};
-                min-height: ${sheetHeightCss};
-              }
-            }
-          </style>
-        </head>
-        <body>
-          <main class="sheet">
-            <header class="header">
-              <div>
-                <h1 class="title">ใบสั่งซื้อสินค้า (Stock)</h1>
-                <div class="subtitle">เอกสารสำหรับจดรายการที่ต้องซื้อและตรวจรับภายหลัง</div>
-              </div>
-              <div class="badge">${escapeHtml(orderCode)}</div>
-            </header>
-
-            <section class="meta">
-              <div class="meta-card">
-                <div class="meta-label">วันที่สร้างเอกสาร</div>
-                <div class="meta-value">${escapeHtml(createdAt)}</div>
-              </div>
-              <div class="meta-card">
-                <div class="meta-label">ผู้สร้างใบสั่งซื้อ</div>
-                <div class="meta-value">${escapeHtml(orderedBy)}</div>
-              </div>
-              <div class="meta-card">
-                <div class="meta-label">สถานะใบสั่งซื้อ</div>
-                <div class="meta-value">${escapeHtml(order.status === OrderStatus.PENDING ? "รอดำเนินการ" : order.status === OrderStatus.COMPLETED ? "เสร็จสิ้น" : "ยกเลิก")}</div>
-              </div>
-              <div class="meta-card">
-                <div class="meta-label">พิมพ์เมื่อ</div>
-                <div class="meta-value">${escapeHtml(printAt)}</div>
-              </div>
-            </section>
-
-            <table>
-              <thead>
-                <tr>
-                  <th class="center" style="width: 56px;">ลำดับ</th>
-                  <th>รายการสินค้า</th>
-                  <th class="center" style="width: 120px;">จำนวนที่ต้องซื้อ</th>
-                  <th class="center" style="width: 110px;">หน่วย</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${rows || `<tr><td colspan="4" class="center">ไม่มีรายการสินค้า</td></tr>`}
-              </tbody>
-            </table>
-
-            <section class="summary">
-              <div class="summary-box">
-                <div class="summary-row"><span>จำนวนรายการทั้งหมด</span><strong>${totalItems.toLocaleString()} รายการ</strong></div>
-                <div class="summary-row"><span>จำนวนหน่วยรวม</span><strong>${totalQty.toLocaleString()} หน่วย</strong></div>
-              </div>
-            </section>
-
-            <section class="remarks">
-              <div class="meta-label">หมายเหตุ</div>
-              <div class="meta-value">${safeRemark}</div>
-            </section>
-
-            <section class="signatures">
-              <div class="sign-box">
-                <div class="sign-line"></div>
-                ผู้จัดทำใบสั่งซื้อ
-              </div>
-              <div class="sign-box">
-                <div class="sign-line"></div>
-                ผู้ตรวจรับสินค้า
-              </div>
-            </section>
-
-            <footer class="footer">เอกสารนี้จัดทำจากระบบจัดการคลังสินค้า</footer>
-          </main>
-          <script>
-            window.addEventListener("load", () => {
-              setTimeout(() => {
-                window.print();
-              }, 250);
-            });
-          </script>
-        </body>
-      </html>
-    `;
+      const documentSetting =
+        printMode === "a4"
+          ? printSettings.documents.purchase_order
+          : {
+              ...applyPresetToDocument(
+                printSettings.documents.purchase_order,
+                receiptPaperPreset
+              ),
+              margin_top: 3,
+              margin_right: 3,
+              margin_bottom: 3,
+              margin_left: 3,
+              density: "compact" as const,
+              line_spacing: 1.12,
+              font_scale: Math.min(
+                printSettings.documents.purchase_order.font_scale || 100,
+                100
+              ),
+            };
 
       popup.document.open();
-      popup.document.write(html);
+      popup.document.write(
+        buildStockOrderPrintHtml({
+          order: printingOrder,
+          documentSetting,
+          receiptPaperPreset,
+        })
+      );
       popup.document.close();
-    } catch (error) {
+      setPrintingOrder(null);
+    } catch (caughtError) {
       closePrintWindow(popup);
-      console.error("Print purchase order failed", error);
-      messageApi.error(error instanceof Error ? error.message : "เปิดหน้าพิมพ์ใบสั่งซื้อไม่สำเร็จ");
+      messageApi.error(
+        caughtError instanceof Error ? caughtError.message : "เปิดหน้าพิมพ์ใบสั่งซื้อไม่สำเร็จ"
+      );
+    } finally {
+      setPrinting(false);
     }
-  }, [messageApi]);
+  }, [messageApi, printMode, printingOrder, receiptPaperPreset]);
 
-  const metrics = useMemo(() => {
-    const totalOrders = orders.length;
-    const totalLines = orders.reduce((acc, order) => acc + Number(order.ordersItems?.length || 0), 0);
-    const totalRequiredQty = orders.reduce(
-      (acc, order) =>
-        acc +
-        (order.ordersItems || []).reduce((inner, item) => inner + Number(item.quantity_ordered || 0), 0),
-      0
-    );
+  const pageStats = useMemo(() => {
+    const pending = orders.filter((order) => order.status === OrderStatus.PENDING).length;
+    const completed = orders.filter((order) => order.status === OrderStatus.COMPLETED).length;
+    const cancelled = orders.filter((order) => order.status === OrderStatus.CANCELLED).length;
+    const lines = orders.reduce((sum, order) => sum + getOrderLineCount(order), 0);
+    const quantity = orders.reduce((sum, order) => sum + getOrderQuantity(order), 0);
 
-    return { totalOrders, totalLines, totalRequiredQty };
+    return { pending, completed, cancelled, lines, quantity };
   }, [orders]);
 
-  const tableColumns = [
-    {
-      title: "รหัสใบซื้อ",
-      key: "id",
-      width: 150,
-      render: (_: unknown, record: Order) => <Text strong>#{record.id.slice(0, 8).toUpperCase()}</Text>,
-    },
-    {
-      title: "ผู้สร้าง",
-      dataIndex: "ordered_by",
-      key: "ordered_by",
-      width: 180,
-      render: (orderedBy: { name?: string; username?: string } | null) => (
-        <Text>{orderedBy?.name || orderedBy?.username || "-"}</Text>
-      ),
-    },
-    {
-      title: "รายการ",
-      key: "items",
-      render: (_: unknown, record: Order) => {
-        const lines = record.ordersItems?.length || 0;
-        const qty = (record.ordersItems || []).reduce((acc, item) => acc + Number(item.quantity_ordered || 0), 0);
-        return (
-          <Space direction="vertical" size={0}>
-            <Text>{lines.toLocaleString()} รายการ</Text>
-            <Text type="secondary" style={{ fontSize: 12 }}>
-              รวม {qty.toLocaleString()} หน่วย
-            </Text>
-          </Space>
-        );
-      },
-    },
-    {
-      title: "วันที่สร้าง",
-      dataIndex: "create_date",
-      key: "create_date",
-      width: 180,
-      render: (value: string) => <Text>{formatDateTime(value)}</Text>,
-    },
-    {
-      title: "สถานะ",
-      dataIndex: "status",
-      key: "status",
-      width: 120,
-      render: (value: OrderStatus) => statusTag(value),
-    },
-    {
-      title: "การจัดการ",
-      key: "actions",
-      width: 340,
-      render: (_: unknown, record: Order) => (
-        <Space wrap>
-          <Tooltip title="ดูรายละเอียด">
-            <Button icon={<EyeOutlined />} onClick={() => setViewingOrder(record)}>
-              ดู
-            </Button>
-          </Tooltip>
-          <Tooltip title="พิมพ์ใบสั่งซื้อ (PDF)">
-            <Button icon={<PrinterOutlined />} onClick={() => printOrderToPdf(record)}>
-              พิมพ์
-            </Button>
-          </Tooltip>
-          <Tooltip title="แก้ไขรายการ">
-            <Button
-              icon={<EditOutlined />}
-              onClick={() => setEditingOrder(record)}
-              disabled={!canUpdateOrders || record.status !== OrderStatus.PENDING}
-            >
-              แก้ไข
-            </Button>
-          </Tooltip>
-          <Tooltip title="ตรวจรับหลังซื้อ">
-            <Button
-              type="primary"
-              icon={<CheckSquareOutlined />}
-              onClick={() => router.push(`/stock/buying?orderId=${record.id}`)}
-              disabled={!canUpdateOrders || record.status !== OrderStatus.PENDING}
-            >
-              ตรวจรับ
-            </Button>
-          </Tooltip>
-          {canUpdateOrders ? (
-            <Tooltip title="ยกเลิกใบซื้อ">
-              <Button danger icon={<CloseCircleOutlined />} onClick={() => cancelOrder(record)}>
-                ยกเลิก
-              </Button>
-            </Tooltip>
-          ) : null}
-        </Space>
-      ),
-    },
-  ];
+  const tabCounts = useMemo(
+    () => ({
+      all: statusFilter === "all" ? total : total,
+      [OrderStatus.PENDING]:
+        statusFilter === OrderStatus.PENDING ? total : pageStats.pending,
+      [OrderStatus.COMPLETED]:
+        statusFilter === OrderStatus.COMPLETED ? total : pageStats.completed,
+      [OrderStatus.CANCELLED]:
+        statusFilter === OrderStatus.CANCELLED ? total : pageStats.cancelled,
+    }),
+    [pageStats.cancelled, pageStats.completed, pageStats.pending, statusFilter, total]
+  );
+
+  if (permissionsLoading) {
+    return <PageState status="loading" title="กำลังตรวจสอบสิทธิ์การใช้งาน" />;
+  }
+
+  if (!canViewOrders) {
+    return (
+      <AccessGuardFallback
+        message="คุณไม่มีสิทธิ์เข้าถึงคิวใบสั่งซื้อของสต็อก"
+        tone="danger"
+      />
+    );
+  }
+
+  const isInitialLoading = loading && !hasLoadedRef.current;
 
   return (
-    <div style={{ minHeight: "100vh", background: "#f7f9fc", paddingBottom: 120 }}>
+    <div className="stock-items-page-shell" data-testid="stock-orders-page">
+      <ItemsPageStyle />
+
       <UIPageHeader
-        title="รายการใบซื้อที่รอตรวจรับ"
-        subtitle={`คิวที่ต้องดำเนินการ ${orders.length} ใบ`}
+        title="คิวใบสั่งซื้อสต็อก"
+        subtitle={
+          lastSyncedAt
+            ? `อัปเดตล่าสุด ${formatDateTime(lastSyncedAt.toISOString())}`
+            : `รายการทั้งหมด ${total.toLocaleString()} รายการ`
+        }
         icon={<UnorderedListOutlined />}
         actions={
-          <Button icon={<ReloadOutlined />} onClick={() => void fetchOrders()} loading={loading}>
-            รีเฟรช
-          </Button>
+          <div className="stock-items-header-actions">
+            <Button
+              type="text"
+              icon={<SearchOutlined />}
+              onClick={() => setShowSearch((prev) => !prev)}
+              style={{
+                borderRadius: 12,
+                width: 40,
+                height: 40,
+                color: showSearch ? "#2563eb" : undefined,
+                background: showSearch ? "#eff6ff" : undefined,
+              }}
+            />
+            <Button
+              icon={<HistoryOutlined />}
+              onClick={() => router.push("/stock/history")}
+            >
+              ประวัติ
+            </Button>
+            <Button
+              icon={refreshing ? <SyncOutlined spin /> : <ReloadOutlined />}
+              onClick={() => void loadOrders({ silent: true })}
+              loading={loading && !hasLoadedRef.current}
+            >
+              รีเฟรช
+            </Button>
+          </div>
         }
       />
 
-      <PageContainer maxWidth={1400}>
-        <PageStack gap={12}>
-          <Row gutter={[12, 12]}>
-            <Col xs={24} sm={8}>
-              <Card>
-                <Text type="secondary">จำนวนใบซื้อ</Text>
-                <Title level={4} style={{ margin: "6px 0 0" }}>{metrics.totalOrders.toLocaleString()}</Title>
-              </Card>
-            </Col>
-            <Col xs={24} sm={8}>
-              <Card>
-                <Text type="secondary">จำนวนรายการทั้งหมด</Text>
-                <Title level={4} style={{ margin: "6px 0 0", color: "#1677ff" }}>{metrics.totalLines.toLocaleString()}</Title>
-              </Card>
-            </Col>
-            <Col xs={24} sm={8}>
-              <Card>
-                <Text type="secondary">จำนวนหน่วยที่ต้องซื้อ</Text>
-                <Title level={4} style={{ margin: "6px 0 0", color: "#389e0d" }}>{metrics.totalRequiredQty.toLocaleString()}</Title>
-              </Card>
-            </Col>
-          </Row>
+      <PageContainer maxWidth={1440}>
+        {showSearch ? (
+          <div className="stock-items-search-panel">
+            <Input
+              allowClear
+              prefix={<SearchOutlined style={{ color: "#94a3b8" }} />}
+              placeholder="ค้นหารหัสใบสั่งซื้อ ผู้สร้าง หมายเหตุ หรือชื่อวัตถุดิบ"
+              value={searchText}
+              onChange={(event) => {
+                setSearchText(event.target.value);
+                setPage(1);
+              }}
+              onClear={() => {
+                setSearchText("");
+                setPage(1);
+              }}
+              variant="borderless"
+            />
+          </div>
+        ) : null}
 
-          <PageSection title="คิวใบซื้อ">
-            {loading ? (
-              <PageState status="loading" title="กำลังโหลดรายการใบซื้อ" />
-            ) : error ? (
-              <PageState status="error" title={error} onRetry={() => void fetchOrders()} />
-            ) : orders.length === 0 ? (
-              <PageState
-                status="empty"
-                title="ไม่มีใบซื้อที่รอดำเนินการ"
-                action={
-                  <Button type="primary" icon={<ShoppingCartOutlined />} onClick={() => router.push("/stock")}> 
-                    ไปจดรายการซื้อ
+        <div className="stock-items-summary-grid">
+          <div className="stock-items-summary-card">
+            <span className="stock-items-summary-label">เอกสารทั้งหมด</span>
+            <span className="stock-items-summary-value">{total.toLocaleString()}</span>
+            <span className="stock-items-summary-meta">ตามตัวกรองที่เลือก</span>
+          </div>
+          <div className="stock-items-summary-card">
+            <span className="stock-items-summary-label">เอกสารบนหน้านี้</span>
+            <span className="stock-items-summary-value">{orders.length.toLocaleString()}</span>
+            <span className="stock-items-summary-meta">
+              หน้า {page} จาก {Math.max(lastPage, 1)}
+            </span>
+          </div>
+          <div className="stock-items-summary-card">
+            <span className="stock-items-summary-label">รายการวัตถุดิบ</span>
+            <span className="stock-items-summary-value">{pageStats.lines.toLocaleString()}</span>
+            <span className="stock-items-summary-meta">รวมจำนวนบรรทัดในหน้านี้</span>
+          </div>
+          <div className="stock-items-summary-card">
+            <span className="stock-items-summary-label">จำนวนที่ต้องซื้อ</span>
+            <span className="stock-items-summary-value">{pageStats.quantity.toLocaleString()}</span>
+            <span className="stock-items-summary-meta">รวมทุกหน่วยในหน้านี้</span>
+          </div>
+        </div>
+
+        <div className="stock-items-tab-row">
+          {STATUS_TABS.map((tab) => {
+            const isActive = statusFilter === tab.key;
+            const count =
+              tab.key === "all"
+                ? tabCounts.all
+                : tabCounts[tab.key as OrderStatus];
+
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                className="stock-items-tab-btn"
+                onClick={() => {
+                  setStatusFilter(tab.key);
+                  setPage(1);
+                }}
+                style={{
+                  background: isActive ? tab.activeBg : "#ffffff",
+                  color: isActive ? "#ffffff" : "#475569",
+                  boxShadow: isActive ? tab.activeShadow : "0 1px 4px rgba(15, 23, 42, 0.06)",
+                  border: isActive ? "none" : "1px solid #e2e8f0",
+                }}
+              >
+                {tab.icon}
+                <span>{tab.label}</span>
+                {count > 0 ? (
+                  <span
+                    style={{
+                      padding: "2px 8px",
+                      borderRadius: 999,
+                      background: isActive ? "rgba(255,255,255,0.2)" : "#f1f5f9",
+                      color: isActive ? "#ffffff" : "#475569",
+                      fontSize: 12,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {count}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="stock-items-toolbar">
+          <Segmented<SortCreated>
+            className="stock-items-segmented"
+            value={sortCreated}
+            onChange={(value) => {
+              setSortCreated(value);
+              setPage(1);
+            }}
+            options={[
+              { label: "ล่าสุดก่อน", value: "new" },
+              { label: "เก่าก่อน", value: "old" },
+            ]}
+          />
+
+          <div className="stock-items-toolbar-right">
+            <Segmented<number>
+              className="stock-items-segmented"
+              value={pageSize}
+              onChange={(value) => {
+                setPageSize(value);
+                setPage(1);
+              }}
+              options={PAGE_SIZE_OPTIONS.map((value) => ({
+                label: `${value}/หน้า`,
+                value,
+              }))}
+            />
+          </div>
+        </div>
+
+        <PageSection title="รายการใบสั่งซื้อ" extra={<Text strong>{total.toLocaleString()} รายการ</Text>}>
+          {refreshError ? (
+            <div className="stock-items-feedback stock-items-feedback-danger">
+              <Text>{refreshError}</Text>
+            </div>
+          ) : null}
+
+          {isInitialLoading ? (
+            <div className="stock-items-list">
+              {[1, 2, 3].map((value) => (
+                <div key={value} className="stock-items-card">
+                  <Skeleton active paragraph={{ rows: 3 }} />
+                </div>
+              ))}
+            </div>
+          ) : error ? (
+            <PageState
+              status="error"
+              title="โหลดคิวใบสั่งซื้อไม่สำเร็จ"
+              error={error}
+              onRetry={() => void loadOrders()}
+            />
+          ) : orders.length === 0 ? (
+            <PageState
+              status="empty"
+              title="ไม่พบใบสั่งซื้อในตัวกรองนี้"
+              description={
+                debouncedSearch
+                  ? "ลองเปลี่ยนคำค้นหาหรือสลับสถานะที่ต้องการดู"
+                  : "เมื่อมีใบสั่งซื้อ ระบบจะแสดงรายการที่นี่"
+              }
+              action={
+                canCreateOrders ? (
+                  <Button
+                    type="primary"
+                    icon={<ShoppingCartOutlined />}
+                    onClick={() => router.push("/stock")}
+                  >
+                    ไปสร้างใบสั่งซื้อ
                   </Button>
-                }
-              />
-            ) : isMobile ? (
-              <List
-                dataSource={orders}
-                renderItem={(order) => {
-                  const lines = order.ordersItems?.length || 0;
-                  const qty = (order.ordersItems || []).reduce((acc, item) => acc + Number(item.quantity_ordered || 0), 0);
-                  return (
-                    <List.Item>
-                      <Card style={{ width: "100%", borderRadius: 14 }}>
-                        <Space direction="vertical" size={8} style={{ width: "100%" }}>
-                          <Space wrap>
-                            <Text strong>#{order.id.slice(0, 8).toUpperCase()}</Text>
-                            {statusTag(order.status)}
-                          </Space>
-                          <Text type="secondary">ผู้สร้าง: {order.ordered_by?.name || order.ordered_by?.username || "-"}</Text>
-                          <Text>{lines.toLocaleString()} รายการ | รวม {qty.toLocaleString()} หน่วย</Text>
-                          <Text type="secondary">{formatDateTime(order.create_date)}</Text>
-                          <Space wrap>
-                            <Button size="small" icon={<EyeOutlined />} onClick={() => setViewingOrder(order)}>ดู</Button>
-                            <Button size="small" icon={<PrinterOutlined />} onClick={() => printOrderToPdf(order)}>พิมพ์</Button>
-                            <Button
-                              size="small"
-                              icon={<EditOutlined />}
-                              onClick={() => setEditingOrder(order)}
-                              disabled={!canUpdateOrders || order.status !== OrderStatus.PENDING}
-                            >
-                              แก้ไข
-                            </Button>
-                            <Button
-                              size="small"
-                              type="primary"
-                              icon={<CheckSquareOutlined />}
-                              onClick={() => router.push(`/stock/buying?orderId=${order.id}`)}
-                              disabled={!canUpdateOrders || order.status !== OrderStatus.PENDING}
-                            >
-                              ตรวจรับ
-                            </Button>
-                          </Space>
-                        </Space>
-                      </Card>
-                    </List.Item>
-                  );
-                }}
-              />
-            ) : (
-              <Table
-                rowKey="id"
-                dataSource={orders}
-                columns={tableColumns}
-                pagination={{ pageSize: 10 }}
-                scroll={{ x: 1024 }}
-                locale={{
-                  emptyText: <Empty description="ไม่มีข้อมูล" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-                }}
-              />
-            )}
-          </PageSection>
-        </PageStack>
+                ) : null
+              }
+            />
+          ) : (
+            <>
+              <div className="stock-items-list">
+                {orders.map((order, index) => (
+                  <StockOrderCard
+                    key={order.id}
+                    order={order}
+                    index={index}
+                    canUpdateOrders={canUpdateOrders}
+                    isMobile={isMobile}
+                    onView={(target) => setViewingOrder(target)}
+                    onPrint={openPrintModal}
+                    onEdit={(target) => setEditingOrder(target)}
+                    onReceive={(target) => router.push(`/stock/buying?orderId=${target.id}`)}
+                    onCancel={cancelOrder}
+                  />
+                ))}
+              </div>
+
+              <div className="stock-items-pagination">
+                <div className="stock-items-pagination-summary">
+                  แสดง {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} จาก{" "}
+                  {total.toLocaleString()} รายการ
+                </div>
+                <Pagination
+                  current={page}
+                  pageSize={pageSize}
+                  total={total}
+                  showSizeChanger={false}
+                  onChange={(nextPage) => setPage(nextPage)}
+                />
+              </div>
+            </>
+          )}
+        </PageSection>
       </PageContainer>
 
       <EditOrderModal
         open={Boolean(editingOrder)}
         order={editingOrder}
         onClose={() => setEditingOrder(null)}
-        onSuccess={() => void fetchOrders()}
+        onSuccess={() => void loadOrders({ silent: true })}
       />
 
       <OrderDetailModal
@@ -727,6 +867,51 @@ export default function StockOrdersQueuePage() {
         order={viewingOrder}
         onClose={() => setViewingOrder(null)}
       />
+
+      <Modal
+        title="พิมพ์ใบสั่งซื้อ"
+        open={Boolean(printingOrder)}
+        onCancel={() => !printing && setPrintingOrder(null)}
+        onOk={() => void handleConfirmPrint()}
+        okText="พิมพ์"
+        cancelText="ยกเลิก"
+        confirmLoading={printing}
+        destroyOnClose
+      >
+        <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+          <Text type="secondary">
+            {printingOrder ? `ใบสั่งซื้อ ${getOrderCode(printingOrder.id)}` : "เลือกรูปแบบการพิมพ์"}
+          </Text>
+
+          <Radio.Group
+            value={printMode}
+            onChange={(event) => setPrintMode(event.target.value as StockOrderPrintMode)}
+          >
+            <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <Radio value="receipt">สำหรับเครื่องพิมพ์ใบเสร็จ</Radio>
+              <Radio value="a4">สำหรับเครื่องพิมพ์ทั่วไป (A4)</Radio>
+            </div>
+          </Radio.Group>
+
+          {printMode === "receipt" ? (
+            <div>
+              <Text strong>เลือกหน้ากว้างกระดาษ</Text>
+              <Radio.Group
+                value={receiptPaperPreset}
+                onChange={(event) =>
+                  setReceiptPaperPreset(event.target.value as ReceiptPaperPreset)
+                }
+                style={{ display: "block", marginTop: 8 }}
+              >
+                <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                  <Radio value="thermal_58mm">58mm</Radio>
+                  <Radio value="thermal_80mm">80mm</Radio>
+                </div>
+              </Radio.Group>
+            </div>
+          ) : null}
+        </div>
+      </Modal>
     </div>
   );
 }

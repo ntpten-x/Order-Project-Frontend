@@ -24,11 +24,11 @@ interface TableWithActiveOrder extends Tables {
     active_order?: { id: string; status: OrderStatus };
 }
 
-export const normalizeOrderStatusValue = (status: unknown): string => {
+const normalizeOrderStatusValue = (status: unknown): string => {
     return String(status ?? "").trim().toLowerCase();
 };
 
-export const normalizeOrderTypeValue = (orderType: unknown): string => {
+const normalizeOrderTypeValue = (orderType: unknown): string => {
     return String(orderType ?? "").trim().toLowerCase();
 };
 
@@ -161,21 +161,6 @@ export const getOrderChannelText = (type: string): string => {
     }
 };
 
-export const getServeActionText = (type?: string): string => {
-    if (type === 'Delivery') return 'ส่งให้ไรเดอร์';
-    return 'ดำเนินการต่อ';
-};
-
-export const getConfirmServeActionText = (type?: string): string => {
-    if (type === 'Delivery') return 'ยืนยันจัดส่งให้ไรเดอร์';
-    return 'ยืนยันดำเนินการเพื่อชำระเงิน';
-};
-
-export const getServedStatusText = (_type?: string): string => {
-    void _type;
-    return 'กำลังดำเนินการ';
-};
-
 export const formatCurrency = (amount: number | string): string => {
     const numAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     return `฿${Number(numAmount).toLocaleString('th-TH', { minimumFractionDigits: 0, maximumFractionDigits: 2 })}`;
@@ -187,24 +172,11 @@ export const getTakeawayCustomerLabel = (order: Pick<OrderLike, "customer_name" 
     return order.order_no || "ไม่ระบุลูกค้า";
 };
 
-export const getOrderReference = (order: OrderLike): string => {
-    if (order.order_type === 'DineIn') {
-        return order.table?.table_name || 'ไม่ระบุโต๊ะ';
-    }
-    if (order.order_type === 'Delivery') {
-        return order.delivery_code || order.delivery?.delivery_name || 'ไม่ระบุข้อมูล';
-    }
-    if (order.order_type === 'TakeAway') {
-        return getTakeawayCustomerLabel(order);
-    }
-    return order.order_no || 'N/A';
-};
-
 export const getNonCancelledItems = (items?: OrderItemLike[]): OrderItemLike[] => {
     return (items ?? []).filter(item => !isCancelledStatus(item.status));
 };
 
-export const calculateItemExtras = (details?: OrderItemDetailLike[]): number => {
+const calculateItemExtras = (details?: OrderItemDetailLike[]): number => {
     return (details ?? []).reduce((sum, detail) => sum + (Number(detail.extra_price) || 0), 0);
 };
 
@@ -212,10 +184,6 @@ export const calculateItemTotal = (price: number | string, quantity: number, det
     const basePrice = Number(price) || 0;
     const extrasPrice = calculateItemExtras(details);
     return (basePrice + extrasPrice) * quantity;
-};
-
-export const getTotalItemsQuantity = (items?: OrderItemLike[]): number => {
-    return getNonCancelledItems(items).reduce((sum, item) => sum + (item.quantity || 0), 0);
 };
 
 export const groupItemsByCategory = (items?: OrderItemLike[]): Record<string, number> => {
@@ -230,52 +198,6 @@ export const calculateOrderTotal = (items?: OrderItemLike[]): number => {
     return getNonCancelledItems(items).reduce((sum, item) => sum + Number(item.total_price || 0), 0);
 };
 
-export const sortOrdersByDate = <T extends { create_date?: string }>(orders: T[] = [], ascending: boolean = true): T[] => {
-    return [...orders].sort((a, b) => {
-        const dateA = a.create_date ? new Date(a.create_date).getTime() : 0;
-        const dateB = b.create_date ? new Date(b.create_date).getTime() : 0;
-        return ascending ? dateA - dateB : dateB - dateA;
-    });
-};
-
-export const sortOrdersByQuantity = <T extends { items?: OrderItemLike[] }>(orders: T[] = [], ascending: boolean = false): T[] => {
-    return [...orders].sort((a, b) => {
-        const qtyA = getTotalItemsQuantity(a.items);
-        const qtyB = getTotalItemsQuantity(b.items);
-        return ascending ? qtyA - qtyB : qtyB - qtyA;
-    });
-};
-
-/**
- * Get navigation path after all items are served (Confirm Serve)
- * @param order - The order object
- * @returns The target navigation path
- */
-export const getPostConfirmServeNavigationPath = (order: OrderLike | SalesOrder): string => {
-    if (order.order_type === 'DineIn') {
-        return '/pos/channels/dine-in';
-    }
-    if (order.order_type === 'TakeAway') {
-        return '/pos/channels/takeaway';
-    }
-    if (order.order_type === 'Delivery') {
-        return '/pos/channels/delivery';
-    }
-
-    // Fallback to orders list
-    return '/pos/orders';
-};
-
-/**
- * Get navigation path after an order is successfully created
- * @param orderType - The type of order created
- * @returns The target navigation path
- */
-/**
- * Get navigation path for editing an order (Order Detail page)
- * @param orderId - The ID of the order to edit
- * @returns The target navigation path
- */
 export const getEditOrderNavigationPath = (orderId: string): string => {
     return `/pos/orders/${orderId}`;
 };

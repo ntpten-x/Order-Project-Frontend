@@ -1,38 +1,168 @@
-﻿"use client";
+"use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { App, Button, Modal, Space, Switch, Tag, Typography } from "antd";
 import {
-    App,
-    Button,
-    Card,
-    Col,
-    Input,
-    Modal,
-    Row,
-    Space,
-    Spin,
-    Tag,
-    Typography,
-} from "antd";
-import { DeleteOutlined, EditOutlined, PlusOutlined, ReloadOutlined, ShoppingOutlined } from "@ant-design/icons";
-import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
-import { Ingredients } from "../../../../types/api/stock/ingredients";
-import { useSocket } from "../../../../hooks/useSocket";
-import { RealtimeEvents } from "../../../../utils/realtimeEvents";
-import { useAuth } from "../../../../contexts/AuthContext";
-import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
-import { authService } from "../../../../services/auth.service";
-import ListPagination, { type CreatedSort } from "../../../../components/ui/pagination/ListPagination";
-import { DEFAULT_CREATED_SORT, parseCreatedSort } from "../../../../lib/list-sort";
-import UIPageHeader from "../../../../components/ui/page/PageHeader";
+    DeleteOutlined,
+    EditOutlined,
+    PlusOutlined,
+    ReloadOutlined,
+    ShoppingOutlined,
+} from "@ant-design/icons";
+import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
+import StockImageThumb from "../../../../components/stock/StockImageThumb";
 import PageContainer from "../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../components/ui/page/PageSection";
 import PageStack from "../../../../components/ui/page/PageStack";
+import UIPageHeader from "../../../../components/ui/page/PageHeader";
+import { SearchBar } from "../../../../components/ui/page/SearchBar";
+import { SearchInput } from "../../../../components/ui/input/SearchInput";
+import ListPagination, { type CreatedSort } from "../../../../components/ui/pagination/ListPagination";
+import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
+import UIEmptyState from "../../../../components/ui/states/EmptyState";
 import PageState from "../../../../components/ui/states/PageState";
-import StockImageThumb from "../../../../components/stock/StockImageThumb";
+import { useAuth } from "../../../../contexts/AuthContext";
+import { useSocket } from "../../../../hooks/useSocket";
+import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
+import { DEFAULT_CREATED_SORT, parseCreatedSort } from "../../../../lib/list-sort";
+import { authService } from "../../../../services/auth.service";
+import { ingredientsService } from "../../../../services/stock/ingredients.service";
+import { Ingredients } from "../../../../types/api/stock/ingredients";
+import { RealtimeEvents } from "../../../../utils/realtimeEvents";
+import IngredientsPageStyle, { globalStyles, pageStyles } from "./style";
 
-const { Text, Title, Paragraph } = Typography;
+const { Paragraph, Text } = Typography;
+
+type StatusFilter = "all" | "active" | "inactive";
+
+const formatDate = (raw?: string | Date) => {
+    if (!raw) return "-";
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return "-";
+    return new Intl.DateTimeFormat("th-TH", {
+        dateStyle: "medium",
+        timeStyle: "short",
+    }).format(date);
+};
+
+type IngredientCardProps = {
+    ingredient: Ingredients;
+    canUpdate: boolean;
+    canDelete: boolean;
+    updatingStatusId: string | null;
+    deletingId: string | null;
+    onEdit: (ingredient: Ingredients) => void;
+    onDelete: (ingredient: Ingredients) => void;
+    onToggleActive: (ingredient: Ingredients, next: boolean) => void;
+};
+
+const IngredientCard = ({
+    ingredient,
+    canUpdate,
+    canDelete,
+    updatingStatusId,
+    deletingId,
+    onEdit,
+    onDelete,
+    onToggleActive,
+}: IngredientCardProps) => {
+    return (
+        <div
+            className="stock-ingredients-card"
+            style={pageStyles.ingredientCard(ingredient.is_active)}
+            onClick={() => {
+                if (!canUpdate) return;
+                onEdit(ingredient);
+            }}
+        >
+            <div style={pageStyles.ingredientCardInner}>
+                <StockImageThumb
+                    src={ingredient.img_url}
+                    alt={ingredient.display_name}
+                    size={56}
+                    borderRadius={16}
+                />
+
+                <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
+                        <Text strong style={{ fontSize: 16, color: "#0f172a" }} ellipsis={{ tooltip: ingredient.display_name }}>
+                            {ingredient.display_name}
+                        </Text>
+                        {ingredient.unit?.display_name ? (
+                            <Tag color="blue" style={{ borderRadius: 999 }}>
+                                {ingredient.unit.display_name}
+                            </Tag>
+                        ) : null}
+                        <Tag color={ingredient.is_active ? "green" : "default"} style={{ borderRadius: 999 }}>
+                            {ingredient.is_active ? "ใช้งาน" : "ปิดใช้งาน"}
+                        </Tag>
+                    </div>
+
+                    <Paragraph
+                        style={{ margin: "6px 0", color: "#64748b" }}
+                        ellipsis={{ rows: 2, tooltip: ingredient.description || undefined }}
+                    >
+                        {ingredient.description?.trim() || "ไม่มีรายละเอียดเพิ่มเติม"}
+                    </Paragraph>
+
+                    <Text type="secondary" style={{ fontSize: 12, display: "block" }}>
+                        สร้างเมื่อ {formatDate(ingredient.create_date)}
+                    </Text>
+                </div>
+
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                    <Switch
+                        size="small"
+                        checked={ingredient.is_active}
+                        loading={updatingStatusId === ingredient.id}
+                        disabled={!canUpdate || deletingId === ingredient.id}
+                        onClick={(checked, event) => {
+                            event?.stopPropagation();
+                            if (!canUpdate) return;
+                            onToggleActive(ingredient, checked);
+                        }}
+                    />
+                    {canUpdate ? (
+                        <Button
+                            type="text"
+                            icon={<EditOutlined />}
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onEdit(ingredient);
+                            }}
+                            style={{
+                                borderRadius: 10,
+                                color: "#0369a1",
+                                background: "#e0f2fe",
+                                width: 36,
+                                height: 36,
+                            }}
+                        />
+                    ) : null}
+                    {canDelete ? (
+                        <Button
+                            type="text"
+                            danger
+                            loading={deletingId === ingredient.id}
+                            icon={deletingId === ingredient.id ? undefined : <DeleteOutlined />}
+                            onClick={(event) => {
+                                event.stopPropagation();
+                                onDelete(ingredient);
+                            }}
+                            style={{
+                                borderRadius: 10,
+                                background: "#fef2f2",
+                                width: 36,
+                                height: 36,
+                            }}
+                        />
+                    ) : null}
+                </div>
+            </div>
+        </div>
+    );
+};
 
 export default function IngredientsPage() {
     const { message: messageApi } = App.useApp();
@@ -40,27 +170,34 @@ export default function IngredientsPage() {
     const pathname = usePathname();
     const searchParams = useSearchParams();
     const initRef = useRef(false);
+    const hasLoadedRef = useRef(false);
+    const requestRef = useRef<AbortController | null>(null);
 
     const { socket } = useSocket();
     const { user, loading: authLoading } = useAuth();
-    const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+
+    const canView = can("stock.ingredients.page", "view");
     const canCreate = can("stock.ingredients.page", "create");
     const canUpdate = can("stock.ingredients.page", "update");
     const canDelete = can("stock.ingredients.page", "delete");
 
-    const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
     const [csrfToken, setCsrfToken] = useState("");
-
     const [ingredients, setIngredients] = useState<Ingredients[]>([]);
     const [totalIngredients, setTotalIngredients] = useState(0);
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState<string | null>(null);
+    const [refreshing, setRefreshing] = useState(false);
+    const [error, setError] = useState<Error | null>(null);
+    const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
+    const [deletingId, setDeletingId] = useState<string | null>(null);
 
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
     const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
     const [searchText, setSearchText] = useState("");
-    const [statusFilter, setStatusFilter] = useState<"all" | "active" | "inactive">("all");
+    const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+
+    const deferredSearchText = useDeferredValue(searchText.trim());
 
     useEffect(() => {
         if (initRef.current) return;
@@ -84,79 +221,95 @@ export default function IngredientsPage() {
         if (!initRef.current) return;
 
         const params = new URLSearchParams();
-        params.set("page", String(page));
-        params.set("limit", String(pageSize));
-        if (searchText.trim()) params.set("q", searchText.trim());
+        if (page > 1) params.set("page", String(page));
+        if (pageSize !== 20) params.set("limit", String(pageSize));
+        if (deferredSearchText) params.set("q", deferredSearchText);
         if (statusFilter !== "all") params.set("status", statusFilter);
         if (createdSort !== DEFAULT_CREATED_SORT) params.set("sort_created", createdSort);
 
-        router.replace(`${pathname}?${params.toString()}`, { scroll: false });
-    }, [router, pathname, page, pageSize, searchText, statusFilter, createdSort]);
-
-    useEffect(() => {
-        if (!authLoading) {
-            if (!user) {
-                setIsAuthorized(false);
-                router.replace("/login");
-            } else {
-                setIsAuthorized(true);
-            }
-        }
-    }, [authLoading, user, router]);
+        const query = params.toString();
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+    }, [createdSort, deferredSearchText, page, pageSize, pathname, router, statusFilter]);
 
     useEffect(() => {
         let mounted = true;
         const run = async () => {
+            if (!user?.id) return;
             try {
                 const token = await authService.getCsrfToken();
                 if (mounted) setCsrfToken(token);
             } catch {
-                if (mounted) messageApi.error("โหลดโทเคนความปลอดภัยไม่สำเร็จ");
+                if (mounted) messageApi.error("โหลดโทเค็นความปลอดภัยไม่สำเร็จ");
             }
         };
         void run();
         return () => {
             mounted = false;
         };
-    }, [messageApi]);
+    }, [messageApi, user?.id]);
 
-    const fetchIngredients = useCallback(async () => {
-        try {
-            setLoading(true);
-            setError(null);
+    const fetchIngredients = useCallback(
+        async ({ background = false }: { background?: boolean } = {}) => {
+            if (!canView) return;
 
-            const params = new URLSearchParams();
-            params.set("page", String(page));
-            params.set("limit", String(pageSize));
-            params.set("sort_created", createdSort);
-            if (searchText.trim()) params.set("q", searchText.trim());
-            if (statusFilter !== "all") params.set("status", statusFilter);
+            requestRef.current?.abort();
+            const controller = new AbortController();
+            requestRef.current = controller;
 
-            const response = await fetch(`/api/stock/ingredients?${params.toString()}`, { cache: "no-store" });
-            if (!response.ok) throw new Error("โหลดรายการวัตถุดิบไม่สำเร็จ");
+            try {
+                if (background) {
+                    setRefreshing(true);
+                } else {
+                    setLoading(true);
+                }
+                setError(null);
 
-            const payload = await response.json();
-            setIngredients(Array.isArray(payload?.data) ? payload.data : []);
-            setTotalIngredients(Number(payload?.total || 0));
-        } catch {
-            setError("โหลดรายการวัตถุดิบไม่สำเร็จ");
-            setIngredients([]);
-            setTotalIngredients(0);
-        } finally {
-            setLoading(false);
-        }
-    }, [page, pageSize, createdSort, searchText, statusFilter]);
+                const params = new URLSearchParams();
+                params.set("page", String(page));
+                params.set("limit", String(pageSize));
+                params.set("sort_created", createdSort);
+                if (deferredSearchText) params.set("q", deferredSearchText);
+                if (statusFilter !== "all") params.set("status", statusFilter);
+
+                const payload = await ingredientsService.findAllPaginated(undefined, params, {
+                    signal: controller.signal,
+                });
+
+                if (requestRef.current !== controller) return;
+
+                setIngredients(Array.isArray(payload.data) ? payload.data : []);
+                setTotalIngredients(Number(payload.total || 0));
+                hasLoadedRef.current = true;
+            } catch (err) {
+                if ((err as Error)?.name === "AbortError") return;
+                if (requestRef.current !== controller) return;
+                setError(err instanceof Error ? err : new Error("โหลดรายการวัตถุดิบไม่สำเร็จ"));
+            } finally {
+                if (requestRef.current === controller) {
+                    requestRef.current = null;
+                }
+                if (!controller.signal.aborted) {
+                    setLoading(false);
+                    setRefreshing(false);
+                }
+            }
+        },
+        [canView, createdSort, deferredSearchText, page, pageSize, statusFilter]
+    );
 
     useEffect(() => {
-        if (isAuthorized !== true || !initRef.current) return;
-        void fetchIngredients();
-    }, [isAuthorized, fetchIngredients]);
+        if (!initRef.current || !canView) return;
+        void fetchIngredients({ background: hasLoadedRef.current });
+        return () => {
+            requestRef.current?.abort();
+        };
+    }, [canView, fetchIngredients]);
 
     useEffect(() => {
-        if (!socket || isAuthorized !== true) return;
+        if (!socket || !canView) return;
 
         const refresh = () => {
-            void fetchIngredients();
+            void fetchIngredients({ background: true });
         };
 
         socket.on(RealtimeEvents.ingredients.create, refresh);
@@ -168,209 +321,220 @@ export default function IngredientsPage() {
             socket.off(RealtimeEvents.ingredients.update, refresh);
             socket.off(RealtimeEvents.ingredients.delete, refresh);
         };
-    }, [socket, isAuthorized, fetchIngredients]);
+    }, [canView, fetchIngredients, socket]);
+
+    const handleAdd = () => {
+        if (!canCreate) {
+            messageApi.warning("คุณไม่มีสิทธิ์เพิ่มวัตถุดิบ");
+            return;
+        }
+        router.push("/stock/ingredients/manage/add");
+    };
+
+    const handleEdit = (ingredient: Ingredients) => {
+        if (!canUpdate) {
+            messageApi.warning("คุณไม่มีสิทธิ์แก้ไขวัตถุดิบ");
+            return;
+        }
+        router.push(`/stock/ingredients/manage/edit/${ingredient.id}`);
+    };
 
     const handleDelete = (ingredient: Ingredients) => {
         if (!canDelete) {
-            messageApi.error("คุณไม่มีสิทธิ์ลบวัตถุดิบ");
+            messageApi.warning("คุณไม่มีสิทธิ์ลบวัตถุดิบ");
             return;
         }
+
         Modal.confirm({
-            title: `ลบวัตถุดิบ ${ingredient.display_name}`,
-            content: "ต้องการลบวัตถุดิบนี้หรือไม่",
+            title: "ยืนยันการลบวัตถุดิบ",
+            content: `ต้องการลบวัตถุดิบ ${ingredient.display_name} หรือไม่?`,
             okText: "ลบ",
-            okButtonProps: { danger: true },
+            okType: "danger",
             cancelText: "ยกเลิก",
+            centered: true,
+            icon: <DeleteOutlined style={{ color: "#ef4444" }} />,
             onOk: async () => {
+                setDeletingId(ingredient.id);
                 try {
-                    const response = await fetch(`/api/stock/ingredients/delete/${ingredient.id}`, {
-                        method: "DELETE",
-                        headers: { "X-CSRF-Token": csrfToken },
-                    });
-                    if (!response.ok) throw new Error("ลบวัตถุดิบไม่สำเร็จ");
-                    messageApi.success("ลบวัตถุดิบแล้ว");
-                    void fetchIngredients();
-                } catch {
-                    messageApi.error("ลบวัตถุดิบไม่สำเร็จ");
+                    await ingredientsService.delete(ingredient.id, undefined, csrfToken);
+                    const shouldMoveToPreviousPage = page > 1 && ingredients.length === 1;
+                    setIngredients((prev) => prev.filter((item) => item.id !== ingredient.id));
+                    setTotalIngredients((prev) => Math.max(prev - 1, 0));
+                    if (shouldMoveToPreviousPage) {
+                        setPage(page - 1);
+                    } else {
+                        void fetchIngredients({ background: true });
+                    }
+                    messageApi.success(`ลบวัตถุดิบ "${ingredient.display_name}" สำเร็จ`);
+                } catch (err) {
+                    messageApi.error(err instanceof Error ? err.message : "ลบวัตถุดิบไม่สำเร็จ");
+                } finally {
+                    setDeletingId(null);
                 }
             },
         });
     };
 
-    const activeCount = useMemo(() => ingredients.filter((item) => item.is_active).length, [ingredients]);
-    const inactiveCount = useMemo(() => ingredients.filter((item) => !item.is_active).length, [ingredients]);
+    const handleToggleActive = async (ingredient: Ingredients, next: boolean) => {
+        if (!canUpdate) {
+            messageApi.warning("คุณไม่มีสิทธิ์เปลี่ยนสถานะวัตถุดิบ");
+            return;
+        }
 
-    if (authLoading || isAuthorized === null) {
-        return (
-            <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Spin size="large" />
-            </div>
-        );
+        setUpdatingStatusId(ingredient.id);
+        try {
+            const updated = await ingredientsService.update(
+                ingredient.id,
+                {
+                    display_name: ingredient.display_name,
+                    description: ingredient.description || "",
+                    img_url: ingredient.img_url,
+                    unit_id: ingredient.unit_id,
+                    is_active: next,
+                },
+                undefined,
+                csrfToken
+            );
+            setIngredients((prev) => prev.map((item) => (item.id === ingredient.id ? updated : item)));
+            messageApi.success(next ? "เปิดใช้งานวัตถุดิบแล้ว" : "ปิดใช้งานวัตถุดิบแล้ว");
+        } catch (err) {
+            messageApi.error(err instanceof Error ? err.message : "เปลี่ยนสถานะวัตถุดิบไม่สำเร็จ");
+        } finally {
+            setUpdatingStatusId(null);
+        }
+    };
+
+    if (authLoading || permissionLoading) {
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
     }
 
-    if (isAuthorized === false) {
-        return (
-            <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                <Text type="danger">กำลังพาไปหน้าเข้าสู่ระบบ...</Text>
-            </div>
-        );
+    if (!user || !canView) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้าวัตถุดิบ" tone="danger" />;
     }
 
     return (
-        <div style={{ minHeight: "100vh", background: "#f7f9fc", paddingBottom: 120 }}>
+        <div className="stock-ingredients-list-page" style={pageStyles.container}>
+            <IngredientsPageStyle />
+            <style>{globalStyles}</style>
+
             <UIPageHeader
-                title="จัดการวัตถุดิบ"
-                subtitle={`ทั้งหมด ${totalIngredients.toLocaleString()} รายการ`}
+                title="วัตถุดิบ"
                 icon={<ShoppingOutlined />}
                 actions={
-                <Space wrap>
-                    <Button icon={<ReloadOutlined />} onClick={() => void fetchIngredients()} loading={loading}>
-                        รีเฟรช
-                    </Button>
-                    {canCreate ? (
-                        <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push("/stock/ingredients/manage/add")}>
-                            เพิ่มวัตถุดิบ
-                        </Button>
-                    ) : null}
-                </Space>
-            }
-        />
+                    <Space size={10} wrap>
+                        <Button
+                            icon={<ReloadOutlined />}
+                            loading={refreshing}
+                            onClick={() => void fetchIngredients({ background: ingredients.length > 0 })}
+                        />
+                        {canCreate ? (
+                            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                                เพิ่มวัตถุดิบ
+                            </Button>
+                        ) : null}
+                    </Space>
+                }
+            />
 
-            <PageContainer maxWidth={1300}>
-                <PageStack gap={12}>
-                    <Row gutter={[12, 12]}>
-                        <Col xs={24} sm={8}>
-                            <Card>
-                                <Text type="secondary">ทั้งหมด</Text>
-                                <Title level={4} style={{ margin: "6px 0 0" }}>{totalIngredients.toLocaleString()}</Title>
-                            </Card>
-                        </Col>
-                        <Col xs={24} sm={8}>
-                            <Card>
-                                <Text type="secondary">ใช้งาน</Text>
-                                <Title level={4} style={{ margin: "6px 0 0", color: "#389e0d" }}>{activeCount.toLocaleString()}</Title>
-                            </Card>
-                        </Col>
-                        <Col xs={24} sm={8}>
-                            <Card>
-                                <Text type="secondary">ปิดใช้งาน</Text>
-                                <Title level={4} style={{ margin: "6px 0 0", color: "#cf1322" }}>{inactiveCount.toLocaleString()}</Title>
-                            </Card>
-                        </Col>
-                    </Row>
-
-                    <PageSection title="ค้นหาและกรอง">
-                        <Row gutter={[8, 8]}>
-                            <Col xs={24} md={14}>
-                                <Input
-                                    placeholder="ค้นหาจากชื่อแสดง ชื่อระบบ หรือคำอธิบาย"
-                                    value={searchText}
-                                    allowClear
-                                    onChange={(event) => {
-                                        setPage(1);
-                                        setSearchText(event.target.value);
-                                    }}
-                                />
-                            </Col>
-                            <Col xs={24} md={10}>
-                                <ModalSelector<"all" | "active" | "inactive">
+            <PageContainer>
+                <PageStack>
+                    <SearchBar>
+                        <SearchInput
+                            placeholder="ค้นหาวัตถุดิบ"
+                            value={searchText}
+                            onChange={(value) => {
+                                setPage(1);
+                                setSearchText(value);
+                            }}
+                        />
+                        <Space wrap size={10} style={{ justifyContent: "space-between", width: "100%" }}>
+                            <Space wrap size={10}>
+                                <ModalSelector<StatusFilter>
                                     title="เลือกสถานะ"
+                                    options={[
+                                        { label: "ทั้งหมด", value: "all" },
+                                        { label: "ใช้งาน", value: "active" },
+                                        { label: "ปิดใช้งาน", value: "inactive" },
+                                    ]}
                                     value={statusFilter}
                                     onChange={(value) => {
                                         setPage(1);
                                         setStatusFilter(value);
                                     }}
-                                    options={[
-                                        { label: "ทุกสถานะ", value: "all" },
-                                        { label: "ใช้งาน", value: "active" },
-                                        { label: "ปิดใช้งาน", value: "inactive" },
-                                    ]}
-                                    placeholder="เลือกสถานะ"
+                                    style={{ minWidth: 120 }}
                                 />
-                            </Col>
-                        </Row>
-                    </PageSection>
-
-                    <PageSection title="รายการวัตถุดิบ" extra={<Text strong>{totalIngredients.toLocaleString()} รายการ</Text>}>
-                        {loading ? (
-                            <PageState status="loading" title="กำลังโหลดข้อมูล" />
-                        ) : error ? (
-                            <PageState status="error" title={error} onRetry={() => void fetchIngredients()} />
-                        ) : ingredients.length === 0 ? (
-                            <PageState
-                                status="empty"
-                                title="ยังไม่มีวัตถุดิบ"
-                                action={
-                                    canCreate ? (
-                                    <Button type="primary" icon={<PlusOutlined />} onClick={() => router.push("/stock/ingredients/manage/add")}>
-                                        เพิ่มวัตถุดิบ
-                                    </Button>
-                                    ) : undefined
-                                }
-                            />
-                        ) : (
-                            <Space direction="vertical" size={10} style={{ width: "100%" }}>
-                                {ingredients.map((ingredient) => (
-                                    <Card key={ingredient.id} size="small" style={{ borderRadius: 12 }}>
-                                        <Row gutter={[12, 12]} align="middle">
-                                            <Col xs={24} md={15}>
-                                                <Space align="start" size={12}>
-                                                    <StockImageThumb
-                                                        src={ingredient.img_url}
-                                                        alt={ingredient.display_name}
-                                                        size={56}
-                                                        borderRadius={10}
-                                                    />
-                                                    <Space direction="vertical" size={2}>
-                                                        <Space wrap>
-                                                            <Text strong>{ingredient.display_name}</Text>
-                                                            <Tag>{ingredient.unit?.display_name || "หน่วย"}</Tag>
-                                                            {ingredient.is_active ? <Tag color="success">ใช้งาน</Tag> : <Tag color="default">ปิดใช้งาน</Tag>}
-                                                        </Space>
-                                                        <Text type="secondary" style={{ fontSize: 12 }}>
-                                                            ชื่อระบบ: {ingredient.ingredient_name}
-                                                        </Text>
-                                                        <Paragraph ellipsis={{ rows: 2 }} style={{ marginBottom: 0, fontSize: 12 }}>
-                                                            {ingredient.description || "ไม่มีคำอธิบาย"}
-                                                        </Paragraph>
-                                                    </Space>
-                                                </Space>
-                                            </Col>
-                                            <Col xs={24} md={9}>
-                                                <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, flexWrap: "wrap" }}>
-                                                    {canUpdate ? (
-                                                        <Button icon={<EditOutlined />} onClick={() => router.push(`/stock/ingredients/manage/edit/${ingredient.id}`)}>
-                                                            แก้ไข
-                                                        </Button>
-                                                    ) : null}
-                                                    {canDelete ? (
-                                                        <Button danger icon={<DeleteOutlined />} onClick={() => handleDelete(ingredient)}>
-                                                            ลบ
-                                                        </Button>
-                                                    ) : null}
-                                                </div>
-                                            </Col>
-                                        </Row>
-                                    </Card>
-                                ))}
-
-                                <ListPagination
-                                    page={page}
-                                    pageSize={pageSize}
-                                    total={totalIngredients}
-                                    loading={loading}
-                                    onPageChange={setPage}
-                                    onPageSizeChange={(size) => {
+                                <ModalSelector<CreatedSort>
+                                    title="เรียงลำดับ"
+                                    options={[
+                                        { label: "เก่าก่อน", value: "old" },
+                                        { label: "ใหม่ก่อน", value: "new" },
+                                    ]}
+                                    value={createdSort}
+                                    onChange={(value) => {
                                         setPage(1);
-                                        setPageSize(size);
+                                        setCreatedSort(value);
                                     }}
-                                    sortCreated={createdSort}
-                                    onSortCreatedChange={(nextSort) => {
-                                        setPage(1);
-                                        setCreatedSort(nextSort);
-                                    }}
+                                    style={{ minWidth: 120 }}
                                 />
                             </Space>
+                        </Space>
+                    </SearchBar>
+
+                    <PageSection
+                        title="รายการวัตถุดิบ"
+                        extra={
+                            <Space size={8} wrap>
+                                {refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}
+                                <span style={{ fontWeight: 600 }}>{totalIngredients} รายการ</span>
+                            </Space>
+                        }
+                    >
+                        {loading && ingredients.length === 0 ? (
+                            <PageState status="loading" title="กำลังโหลดรายการวัตถุดิบ..." />
+                        ) : error && ingredients.length === 0 ? (
+                            <PageState
+                                status="error"
+                                title="โหลดรายการวัตถุดิบไม่สำเร็จ"
+                                error={error}
+                                onRetry={() => void fetchIngredients()}
+                            />
+                        ) : ingredients.length > 0 ? (
+                            <Space direction="vertical" size={16} style={{ width: "100%" }}>
+                                {ingredients.map((ingredient) => (
+                                    <IngredientCard
+                                        key={ingredient.id}
+                                        ingredient={ingredient}
+                                        canUpdate={canUpdate}
+                                        canDelete={canDelete}
+                                        updatingStatusId={updatingStatusId}
+                                        deletingId={deletingId}
+                                        onEdit={handleEdit}
+                                        onDelete={handleDelete}
+                                        onToggleActive={handleToggleActive}
+                                    />
+                                ))}
+
+                                <div style={{ marginTop: 12 }}>
+                                    <ListPagination
+                                        page={page}
+                                        pageSize={pageSize}
+                                        total={totalIngredients}
+                                        loading={loading || refreshing}
+                                        onPageChange={setPage}
+                                        onPageSizeChange={setPageSize}
+                                        activeColor="#0369a1"
+                                    />
+                                </div>
+                            </Space>
+                        ) : (
+                            <UIEmptyState
+                                title={deferredSearchText ? "ไม่พบวัตถุดิบตามคำค้น" : "ยังไม่มีวัตถุดิบ"}
+                                description={
+                                    deferredSearchText
+                                        ? "ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ"
+                                        : "เพิ่มวัตถุดิบรายการแรกเพื่อเริ่มใช้งานคลังวัตถุดิบ"
+                                }
+                            />
                         )}
                     </PageSection>
                 </PageStack>

@@ -47,7 +47,10 @@ describe("PUT /api/permissions/roles/:id", () => {
         const payload = await res.json();
 
         expect(res.status).toBe(statusCode);
-        expect(payload).toEqual({ error: `backend-status-${statusCode}` });
+        expect(payload).toEqual({
+            success: false,
+            error: { message: `backend-status-${statusCode}` },
+        });
         expect(fetchMock).toHaveBeenCalledWith(
             "http://backend/permissions/roles/r1",
             expect.objectContaining({
@@ -60,4 +63,3 @@ describe("PUT /api/permissions/roles/:id", () => {
         );
     });
 });
-

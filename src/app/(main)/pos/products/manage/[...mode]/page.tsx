@@ -27,7 +27,6 @@ type ProductFormValues = {
     img_url?: string;
     price: number;
     price_delivery?: number;
-    cost?: number;
     category_id: string;
     unit_id: string;
     is_active?: boolean;
@@ -40,6 +39,8 @@ const parseListResponse = <T,>(payload: unknown): T[] => {
     }
     return [];
 };
+
+const normalizeDigits = (value: string) => value.replace(/\D/g, '');
 
 const formatDate = (raw?: string | Date) => {
     if (!raw) return '-';
@@ -131,7 +132,6 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                 img_url: data.img_url || undefined,
                 price: Number(data.price || 0),
                 price_delivery: Number(data.price_delivery ?? data.price ?? 0),
-                cost: data.cost !== undefined && data.cost !== null ? Number(data.cost) : undefined,
                 category_id: data.category_id,
                 unit_id: data.unit_id,
                 is_active: data.is_active,
@@ -182,7 +182,6 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                 img_url: normalizeImageSource(values.img_url) || null,
                 price: Number(values.price || 0),
                 price_delivery: values.price_delivery === undefined || values.price_delivery === null ? Number(values.price || 0) : Number(values.price_delivery),
-                cost: values.cost === undefined || values.cost === null ? undefined : Number(values.cost),
                 category_id: values.category_id,
                 unit_id: values.unit_id,
                 is_active: values.is_active,
@@ -296,19 +295,30 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                         </Form.Item>
 
                                         <Row gutter={12}>
-                                            <Col xs={24} md={8}>
+                                            <Col xs={24} md={12}>
                                                 <Form.Item name="price" label={<span style={{ fontWeight: 600 }}>ราคาขาย</span>} rules={[{ required: true, message: 'กรุณากรอกราคา' }]}>
-                                                    <InputNumber min={0} precision={2} style={{ width: '100%' }} />
+                                                    <Input
+                                                        inputMode="numeric"
+                                                        placeholder="0"
+                                                        style={{ width: '100%', borderRadius: 12, height: 46 }}
+                                                        onChange={(e) => {
+                                                            const normalized = normalizeDigits(e.target.value);
+                                                            form.setFieldValue('price', normalized);
+                                                        }}
+                                                    />
                                                 </Form.Item>
                                             </Col>
-                                            <Col xs={24} md={8}>
+                                            <Col xs={24} md={12}>
                                                 <Form.Item name="price_delivery" label={<span style={{ fontWeight: 600 }}>ราคาเดลิเวอรี</span>}>
-                                                    <InputNumber min={0} precision={2} style={{ width: '100%' }} />
-                                                </Form.Item>
-                                            </Col>
-                                            <Col xs={24} md={8}>
-                                                <Form.Item name="cost" label={<span style={{ fontWeight: 600 }}>ต้นทุน</span>}>
-                                                    <InputNumber min={0} precision={2} style={{ width: '100%' }} />
+                                                    <Input
+                                                        inputMode="numeric"
+                                                        placeholder="0"
+                                                        style={{ width: '100%', borderRadius: 12, height: 46 }}
+                                                        onChange={(e) => {
+                                                            const normalized = normalizeDigits(e.target.value);
+                                                            form.setFieldValue('price_delivery', normalized);
+                                                        }}
+                                                    />
                                                 </Form.Item>
                                             </Col>
                                         </Row>
@@ -381,7 +391,6 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                         <Title level={5} style={{ color: '#4f46e5', marginBottom: 16 }}>ตัวอย่างการแสดงผล</Title>
                                         <ProductPreview
                                             name={displayName}
-                                            productName={displayName}
                                             imageUrl={imageUrl}
                                             price={price}
                                             priceDelivery={priceDelivery}

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { categoryService } from "../../../../../../services/pos/category.service";
 import { handleApiRouteError } from "../../../../_utils/route-error";
+import { BackendHttpError } from "../../../../../../utils/api/backendResponse";
 
 export const dynamic = 'force-dynamic';
 
@@ -10,6 +11,9 @@ export async function GET(request: NextRequest, { params }: { params: { name: st
         const category = await categoryService.findOneByName(params.name, cookie);
         return NextResponse.json(category);
     } catch (error) {
+        if (error instanceof BackendHttpError && error.status === 404) {
+            return NextResponse.json(null);
+        }
         return handleApiRouteError(error);
     }
 }

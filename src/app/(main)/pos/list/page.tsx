@@ -2,7 +2,7 @@
 
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import SmartImage from "../../../../components/ui/image/SmartImage";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
     App,
     Badge,
@@ -50,11 +50,13 @@ import { getCsrfTokenCached } from "../../../../utils/pos/csrf";
 import { ORDER_REALTIME_EVENTS } from "../../../../utils/pos/orderRealtimeEvents";
 import { useRealtimeRefresh } from "../../../../utils/pos/realtime";
 import {
+    areNotificationKeysCoolingDown,
     dedupeStrings,
     ENTITY_NOTICE_COOLDOWN_MS,
     FALLBACK_NOTICE_COOLDOWN_MS,
     getGroupNotificationKeys,
     getPayloadNotificationKeys,
+    markNotificationKeys as markNotificationCooldownKeys,
 } from "../../../../utils/pos/servingBoardNotifications";
 import { RealtimeEvents } from "../../../../utils/realtimeEvents";
 import { servingBoardStyles } from "./style";
@@ -237,6 +239,73 @@ function sortCards(cards: ColumnCard[]): ColumnCard[] {
     return [...cards].sort((left, right) => {
         return dayjs(left.batch_created_at).valueOf() - dayjs(right.batch_created_at).valueOf();
     });
+}
+
+function recalculateServingBoardGroup(group: ServingBoardGroup): ServingBoardGroup {
+    const pendingCount = group.items.reduce(
+        (sum, item) => sum + (resolveServingStatus(item.serving_status) === ServingStatus.PendingServe ? 1 : 0),
+        0
+    );
+
+    return {
+        ...group,
+        pending_count: pendingCount,
+        served_count: Math.max(group.items.length - pendingCount, 0),
+        total_items: group.items.length,
+    };
+}
+
+function patchServingBoardItemStatus(
+    groups: ServingBoardGroup[] | undefined,
+    itemId: string,
+    status: ServingStatus
+): ServingBoardGroup[] | undefined {
+    if (!Array.isArray(groups)) return groups;
+
+    let changed = false;
+    const nextGroups = groups.map((group) => {
+        let groupChanged = false;
+        const nextItems = group.items.map((item) => {
+            if (item.id !== itemId) return item;
+            groupChanged = true;
+            changed = true;
+            return {
+                ...item,
+                serving_status: status,
+            };
+        });
+
+        if (!groupChanged) return group;
+        return recalculateServingBoardGroup({
+            ...group,
+            items: nextItems,
+        });
+    });
+
+    return changed ? nextGroups : groups;
+}
+
+function patchServingBoardGroupStatus(
+    groups: ServingBoardGroup[] | undefined,
+    groupId: string,
+    status: ServingStatus
+): ServingBoardGroup[] | undefined {
+    if (!Array.isArray(groups)) return groups;
+
+    let changed = false;
+    const nextGroups = groups.map((group) => {
+        if (group.id !== groupId) return group;
+        changed = true;
+        return recalculateServingBoardGroup({
+            ...group,
+            items: group.items.map((item) => ({
+                ...item,
+                serving_status: status,
+            })),
+        });
+    });
+
+    return changed ? nextGroups : groups;
 }
 
 
@@ -475,6 +544,7 @@ function Column({
 /* ─── Main Page Content ─── */
 function ServingBoardPageContent() {
     const { message } = App.useApp();
+    const queryClient = useQueryClient();
     const { socket, isConnected } = useSocket();
     const {
         notifyMode,
@@ -564,6 +634,7 @@ function ServingBoardPageContent() {
         () => enrichTakeawayCustomerNames(data, takeawayCustomerNames),
         [data, takeawayCustomerNames]
     );
+    const isUpdatingServingStatus = itemLoadingIds.size > 0 || groupLoadingIds.size > 0;
 
     useRealtimeRefresh({
         socket,
@@ -613,26 +684,16 @@ function ServingBoardPageContent() {
         };
     }, []);
 
-    const pruneNotificationCooldowns = useCallback((now: number) => {
-        const cooldowns = notificationCooldownRef.current;
-        cooldowns.forEach((timestamp, key) => {
-            if (now - timestamp >= ENTITY_NOTICE_COOLDOWN_MS) {
-                cooldowns.delete(key);
-            }
-        });
-    }, []);
-
     const areKeysCoolingDown = useCallback((keys: string[], now: number) => {
-        if (!keys.length) {
-            return now - lastNoticeAtRef.current < FALLBACK_NOTICE_COOLDOWN_MS;
-        }
-
-        pruneNotificationCooldowns(now);
-        return keys.some((key) => {
-            const lastTimestamp = notificationCooldownRef.current.get(key);
-            return typeof lastTimestamp === "number" && now - lastTimestamp < ENTITY_NOTICE_COOLDOWN_MS;
-        });
-    }, [pruneNotificationCooldowns]);
+        return areNotificationKeysCoolingDown(
+            notificationCooldownRef.current,
+            keys,
+            now,
+            lastNoticeAtRef.current,
+            FALLBACK_NOTICE_COOLDOWN_MS,
+            ENTITY_NOTICE_COOLDOWN_MS,
+        );
+    }, []);
 
     const markNotificationKeys = useCallback((keys: string[], now: number) => {
         if (!keys.length) {
@@ -640,9 +701,7 @@ function ServingBoardPageContent() {
             return;
         }
 
-        keys.forEach((key) => {
-            notificationCooldownRef.current.set(key, now);
-        });
+        markNotificationCooldownKeys(notificationCooldownRef.current, keys, now);
     }, []);
 
     const buildNotificationContent = useCallback((groups: ServingBoardGroup[], hidden: boolean) => {
@@ -862,13 +921,19 @@ function ServingBoardPageContent() {
     );
 
     const handleUpdateItem = async (itemId: string, status: ServingStatus) => {
+        const previousGroups = queryClient.getQueryData<ServingBoardGroup[]>(SERVING_BOARD_QUERY_KEY);
         setItemLoadingIds((prev) => new Set(prev).add(itemId));
+        queryClient.setQueryData<ServingBoardGroup[]>(
+            SERVING_BOARD_QUERY_KEY,
+            (oldData) => patchServingBoardItemStatus(oldData, itemId, status) ?? oldData
+        );
 
         try {
             const csrfToken = await getCsrfTokenCached();
             await servingBoardService.updateItemStatus(itemId, status, undefined, csrfToken);
-            await refetch();
+            void refetch();
         } catch (err) {
+            queryClient.setQueryData(SERVING_BOARD_QUERY_KEY, previousGroups);
             message.error(err instanceof Error ? err.message : "ไม่สามารถอัปเดตสถานะรายการได้");
         } finally {
             setItemLoadingIds((prev) => {
@@ -880,13 +945,19 @@ function ServingBoardPageContent() {
     };
 
     const handleUpdateGroup = async (groupId: string, status: ServingStatus) => {
+        const previousGroups = queryClient.getQueryData<ServingBoardGroup[]>(SERVING_BOARD_QUERY_KEY);
         setGroupLoadingIds((prev) => new Set(prev).add(groupId));
+        queryClient.setQueryData<ServingBoardGroup[]>(
+            SERVING_BOARD_QUERY_KEY,
+            (oldData) => patchServingBoardGroupStatus(oldData, groupId, status) ?? oldData
+        );
 
         try {
             const csrfToken = await getCsrfTokenCached();
             await servingBoardService.updateGroupStatus(groupId, status, undefined, csrfToken);
-            await refetch();
+            void refetch();
         } catch (err) {
+            queryClient.setQueryData(SERVING_BOARD_QUERY_KEY, previousGroups);
             message.error(err instanceof Error ? err.message : "ไม่สามารถอัปเดตสถานะทั้งกลุ่มได้");
         } finally {
             setGroupLoadingIds((prev) => {
@@ -1005,6 +1076,11 @@ function ServingBoardPageContent() {
                                 {isConnected ? "LIVE" : "OFFLINE"}
                             </Tag>
                         </div>
+                        {isUpdatingServingStatus ? (
+                            <Tag color="processing" style={{ marginTop: 12, width: "fit-content", borderRadius: 999 }}>
+                                กำลังอัปเดตสถานะรายการ...
+                            </Tag>
+                        ) : null}
                     </div>
 
                     <div className="sb-action-btns">

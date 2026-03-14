@@ -4,7 +4,7 @@ import dayjs from "dayjs";
 import "dayjs/locale/th";
 import { resolveImageSource } from "./image/source";
 import { PrintDocumentSetting } from "../types/api/pos/printSettings";
-import { buildPageMarginCss, buildPageSizeCss, reservePrintWindow } from "./print-settings/runtime";
+import { buildPageMarginCss, buildPageSizeCss, reservePrintWindow, shouldUseReceiptRollPdf } from "./print-settings/runtime";
 import { createDefaultDocumentSetting, toCssLength } from "./print-settings/defaults";
 import { downloadWorkbookBytes } from "./print-settings/excelPageSetup";
 
@@ -186,6 +186,85 @@ function getEffectiveDocumentSize(setting: Pick<PrintDocumentSetting, "width" | 
   return { width: baseWidth, height: baseHeight };
 }
 
+function buildReceiptMetricRows(summary: DashboardSummaryExport): string {
+  return [
+    ["ยอดขายรวม", formatMoney(summary.total_sales)],
+    ["จำนวนออเดอร์", Number(summary.total_orders || 0).toLocaleString()],
+    ["เฉลี่ยต่อบิล", formatMoney(summary.average_order_value)],
+    ["ส่วนลดรวม", formatMoney(summary.total_discount)],
+    ["เงินสด", formatMoney(summary.cash_sales)],
+    ["QR/พร้อมเพย์", formatMoney(summary.qr_sales)],
+    ["ทานที่ร้าน", formatMoney(summary.dine_in_sales)],
+    ["กลับบ้าน", formatMoney(summary.takeaway_sales)],
+    ["เดลิเวอรี่", formatMoney(summary.delivery_sales)],
+  ]
+    .map(
+      ([label, value]) => `
+        <div class="receipt-row">
+          <span>${escapeHtml(label)}</span>
+          <strong>${escapeHtml(value)}</strong>
+        </div>
+      `
+    )
+    .join("");
+}
+
+function buildReceiptDailySalesMarkup(rows: SalesSummaryExport[]): string {
+  return rows
+    .map((row) => {
+      const totalOrders = Number(row.total_orders || 0);
+      const totalSales = Number(row.total_sales || 0);
+      const avg = totalOrders > 0 ? totalSales / totalOrders : 0;
+      return `
+        <article class="receipt-card">
+          <div class="receipt-card-title">${escapeHtml(formatDate(row.date))}</div>
+          <div class="receipt-grid">
+            <span>ออเดอร์</span><strong>${totalOrders.toLocaleString()}</strong>
+            <span>ยอดขาย</span><strong>${escapeHtml(formatMoney(totalSales))}</strong>
+            <span>ส่วนลด</span><strong>${escapeHtml(formatMoney(Number(row.total_discount || 0)))}</strong>
+            <span>เฉลี่ย/บิล</span><strong>${escapeHtml(formatMoney(avg))}</strong>
+          </div>
+        </article>
+      `;
+    })
+    .join("");
+}
+
+function buildReceiptTopItemsMarkup(rows: TopItemExport[]): string {
+  return rows
+    .map(
+      (item, index) => `
+        <article class="receipt-card">
+          <div class="receipt-card-title">${index + 1}. ${escapeHtml(item.display_name || "-")}</div>
+          <div class="receipt-grid">
+            <span>จำนวนขาย</span><strong>${Number(item.total_quantity || 0).toLocaleString()}</strong>
+            <span>ยอดขายรวม</span><strong>${escapeHtml(formatMoney(Number(item.total_revenue || 0)))}</strong>
+          </div>
+        </article>
+      `
+    )
+    .join("");
+}
+
+function buildReceiptRecentOrdersMarkup(rows: RecentOrderExport[]): string {
+  return rows
+    .map(
+      (order) => `
+        <article class="receipt-card">
+          <div class="receipt-card-title">#${escapeHtml(order.order_no || "-")}</div>
+          <div class="receipt-grid">
+            <span>ประเภท</span><strong>${escapeHtml(orderTypeThai(order.order_type))}</strong>
+            <span>สถานะ</span><strong>${escapeHtml(orderStatusThai(order.status))}</strong>
+            <span>เวลา</span><strong>${escapeHtml(dayjs(order.create_date).format("DD/MM HH:mm"))}</strong>
+            <span>สินค้า</span><strong>${Number(order.items_count || 0).toLocaleString()}</strong>
+            <span>ยอดรวม</span><strong>${escapeHtml(formatMoney(Number(order.total_amount || 0)))}</strong>
+          </div>
+        </article>
+      `
+    )
+    .join("");
+}
+
 export const exportSalesReportPDF = async (
   payload: SalesReportExportPayload,
   dateRange: [string, string],
@@ -195,6 +274,7 @@ export const exportSalesReportPDF = async (
 ): Promise<void> => {
   const summary = payload.summary || buildFallbackSummary(payload.daily_sales);
   const documentSetting = options.documentSetting ?? createDefaultDocumentSetting("order_summary");
+  const receiptLayout = shouldUseReceiptRollPdf(documentSetting);
   const pageSizeCss = buildPageSizeCss(documentSetting);
   const pagePaddingCss = buildPageMarginCss(documentSetting);
   const effectiveSize = getEffectiveDocumentSize(documentSetting);
@@ -288,132 +368,49 @@ export const exportSalesReportPDF = async (
   const primaryColorCss = colorToCss(primaryColor);
   const secondaryColorCss = colorToCss(secondaryColor);
   const filename = `รายงานสรุปผลการขาย_${rangeLabel.replace(/\s+/g, "_")}_${dateRange[0]}_${dateRange[1]}.pdf`;
+  const receiptMetricRows = buildReceiptMetricRows(summary);
+  const receiptDailyRows = buildReceiptDailySalesMarkup(payload.daily_sales || []);
+  const receiptTopItems = buildReceiptTopItemsMarkup(payload.top_items || []);
+  const receiptRecentOrders = buildReceiptRecentOrdersMarkup(payload.recent_orders || []);
+  const reportBodyHtml = receiptLayout
+    ? `
+          <section class="section receipt-period">
+            <div class="muted">ช่วงเวลา: ${escapeHtml(dateRange[0])} ถึง ${escapeHtml(dateRange[1])}</div>
+            <div class="muted">ชุดข้อมูล: ${escapeHtml(rangeLabel)}</div>
+            <div class="muted">พิมพ์เมื่อ: ${escapeHtml(dayjs().format("DD/MM/YYYY HH:mm:ss"))}</div>
+          </section>
 
-  const html = `
-    <!DOCTYPE html>
-    <html lang="th">
-      <head>
-        <meta charset="UTF-8" />
-        <title>${escapeHtml(filename)}</title>
-        <style>
-          * { box-sizing: border-box; }
-          @page { size: ${pageSizeCss}; margin: 0; }
-          body {
-            margin: 0;
-            background: #edf2f7;
-            color: #111827;
-            font-family: "Sarabun", "Tahoma", "Noto Sans Thai", sans-serif;
-            font-size: ${bodyFontSize}px;
-            line-height: ${Math.max(1.1, documentSetting.line_spacing).toFixed(2)};
-          }
-          .sheet {
-            width: ${sheetWidthCss};
-            min-height: ${sheetHeightCss};
-            margin: 10mm auto;
-            background: #ffffff;
-            border-radius: 10px;
-            padding: ${pagePaddingCss};
-            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.14);
-          }
-          .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            gap: 10px;
-            background: ${primaryColorCss};
-            color: #ffffff;
-            border-radius: 10px;
-            padding: 10px 12px;
-          }
-          .header-left {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            min-width: 0;
-          }
-          .shop-logo {
-            width: 42px;
-            height: 42px;
-            border-radius: 999px;
-            object-fit: cover;
-            border: 2px solid rgba(255, 255, 255, 0.7);
-            background: #ffffff;
-          }
-          .header-title {
-            margin: 0;
-            font-size: ${headerTitleSize}px;
-            line-height: 1.2;
-          }
-          .header-meta {
-            margin-top: 2px;
-            font-size: 12px;
-            opacity: 0.95;
-          }
-          .section {
-            margin-top: ${sectionGap}px;
-          }
-          .section-title {
-            margin: 0 0 6px;
-            font-size: 15px;
-            color: ${secondaryColorCss};
-          }
-          .summary-table,
-          .report-table {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: ${tableFontSize}px;
-          }
-          .summary-table td,
-          .report-table th,
-          .report-table td {
-            border: 1px solid #dbe4f0;
-            padding: ${cellPaddingY}px ${cellPaddingX}px;
-            vertical-align: top;
-          }
-          .report-table th {
-            background: #f8fafc;
-            color: #1f2937;
-            font-weight: 700;
-          }
-          .text-right { text-align: right; }
-          .text-center { text-align: center; }
-          .muted {
-            color: #64748b;
-            font-size: 12px;
-          }
-          .footer {
-            margin-top: 14px;
-            padding-top: 8px;
-            border-top: 1px solid #e2e8f0;
-            text-align: right;
-            font-size: 11px;
-            color: #64748b;
-          }
-          @media print {
-            body { background: #ffffff; }
-            .sheet {
-              width: ${sheetWidthCss};
-              min-height: ${sheetHeightCss};
-              margin: 0;
-              box-shadow: none;
-              border-radius: 0;
-            }
-          }
-        </style>
-      </head>
-      <body>
-        <main class="sheet">
-          <header class="header">
-            <div class="header-left">
-              ${logoHtml}
-              <div>
-                <h1 class="header-title">${escapeHtml(shopName)}</h1>
-                ${branchName ? `<div class="header-meta">สาขา: ${escapeHtml(branchName)}</div>` : ""}
-              </div>
+          <section class="section">
+            <h2 class="section-title">สรุปภาพรวม</h2>
+            <div class="receipt-panel">
+              ${receiptMetricRows}
             </div>
-            <div class="header-meta">รายงานสรุปผลการขาย</div>
-          </header>
+          </section>
 
+          <section class="section">
+            <h2 class="section-title">ยอดขายรายวัน</h2>
+            <div class="receipt-stack">
+              ${receiptDailyRows || `<div class="receipt-empty">ไม่มีข้อมูลยอดขายรายวัน</div>`}
+            </div>
+          </section>
+
+          <section class="section">
+            <h2 class="section-title">สินค้าขายดี</h2>
+            <div class="receipt-stack">
+              ${receiptTopItems || `<div class="receipt-empty">ไม่มีข้อมูลสินค้าขายดี</div>`}
+            </div>
+          </section>
+
+          <section class="section">
+            <h2 class="section-title">ออเดอร์ล่าสุด</h2>
+            <div class="receipt-stack">
+              ${receiptRecentOrders || `<div class="receipt-empty">ไม่มีข้อมูลออเดอร์ล่าสุด</div>`}
+            </div>
+          </section>
+
+          <footer class="footer receipt-footer">เอกสารจากระบบ POS Shop</footer>
+      `
+    : `
           <section class="section">
             <div class="muted">ช่วงเวลา: ${escapeHtml(dateRange[0])} ถึง ${escapeHtml(dateRange[1])} (${escapeHtml(rangeLabel)})</div>
             <div class="muted">พิมพ์เมื่อ: ${escapeHtml(dayjs().format("DD/MM/YYYY HH:mm:ss"))}</div>
@@ -486,14 +483,223 @@ export const exportSalesReportPDF = async (
           </section>
 
           <footer class="footer">เอกสารจากระบบ POS Shop</footer>
+      `;
+
+  const html = `
+    <!DOCTYPE html>
+    <html lang="th">
+      <head>
+        <meta charset="UTF-8" />
+        <title>${escapeHtml(filename)}</title>
+        <style>
+          * { box-sizing: border-box; }
+          @page { size: ${pageSizeCss}; margin: 0; }
+          body {
+            margin: 0;
+            background: #edf2f7;
+            color: #111827;
+            font-family: "Sarabun", "Tahoma", "Noto Sans Thai", sans-serif;
+            font-size: ${bodyFontSize}px;
+            line-height: ${Math.max(1.1, documentSetting.line_spacing).toFixed(2)};
+          }
+          .sheet {
+            width: ${sheetWidthCss};
+            min-height: ${sheetHeightCss};
+            margin: ${receiptLayout ? "0 auto" : "10mm auto"};
+            background: #ffffff;
+            border-radius: ${receiptLayout ? "0" : "10px"};
+            padding: ${pagePaddingCss};
+            box-shadow: ${receiptLayout ? "none" : "0 8px 24px rgba(15, 23, 42, 0.14)"};
+          }
+          .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+            background: ${primaryColorCss};
+            color: #ffffff;
+            border-radius: 10px;
+            padding: 10px 12px;
+          }
+          .header-left {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            min-width: 0;
+          }
+          .shop-logo {
+            width: 42px;
+            height: 42px;
+            border-radius: 999px;
+            object-fit: cover;
+            border: 2px solid rgba(255, 255, 255, 0.7);
+            background: #ffffff;
+          }
+          .header-title {
+            margin: 0;
+            font-size: ${headerTitleSize}px;
+            line-height: 1.2;
+          }
+          .header-meta {
+            margin-top: 2px;
+            font-size: 12px;
+            opacity: 0.95;
+          }
+          .receipt-period,
+          .receipt-stack {
+            display: grid;
+            gap: 8px;
+          }
+          .receipt-panel {
+            border: 1px dashed #cbd5e1;
+            border-radius: 12px;
+            padding: 8px 10px;
+            display: grid;
+            gap: 6px;
+          }
+          .receipt-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: flex-start;
+            font-size: ${tableFontSize}px;
+          }
+          .receipt-row span {
+            color: #475569;
+            min-width: 0;
+          }
+          .receipt-row strong {
+            text-align: right;
+            flex-shrink: 0;
+          }
+          .receipt-card {
+            border: 1px solid #dbe4f0;
+            border-radius: 12px;
+            padding: 8px 10px;
+            background: #ffffff;
+          }
+          .receipt-card-title {
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: #111827;
+          }
+          .receipt-grid {
+            display: grid;
+            grid-template-columns: minmax(0, 1fr) auto;
+            gap: 4px 10px;
+            font-size: ${tableFontSize}px;
+          }
+          .receipt-grid span {
+            color: #475569;
+          }
+          .receipt-grid strong {
+            text-align: right;
+          }
+          .receipt-empty {
+            text-align: center;
+            color: #64748b;
+            border: 1px dashed #cbd5e1;
+            border-radius: 12px;
+            padding: 12px;
+          }
+          .section {
+            margin-top: ${sectionGap}px;
+          }
+          .section-title {
+            margin: 0 0 6px;
+            font-size: 15px;
+            color: ${secondaryColorCss};
+          }
+          .summary-table,
+          .report-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: ${tableFontSize}px;
+          }
+          .summary-table td,
+          .report-table th,
+          .report-table td {
+            border: 1px solid #dbe4f0;
+            padding: ${cellPaddingY}px ${cellPaddingX}px;
+            vertical-align: top;
+          }
+          .report-table th {
+            background: #f8fafc;
+            color: #1f2937;
+            font-weight: 700;
+          }
+          .text-right { text-align: right; }
+          .text-center { text-align: center; }
+          .muted {
+            color: #64748b;
+            font-size: 12px;
+          }
+          .footer {
+            margin-top: 14px;
+            padding-top: 8px;
+            border-top: 1px solid #e2e8f0;
+            text-align: right;
+            font-size: 11px;
+            color: #64748b;
+          }
+          .receipt-footer {
+            text-align: center;
+          }
+          @media print {
+            body { background: #ffffff; }
+            .sheet {
+              width: ${sheetWidthCss};
+              min-height: ${sheetHeightCss};
+              margin: 0;
+              box-shadow: none;
+              border-radius: 0;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <main class="sheet">
+          <header class="header">
+            <div class="header-left">
+              ${logoHtml}
+              <div>
+                <h1 class="header-title">${escapeHtml(shopName)}</h1>
+                ${branchName ? `<div class="header-meta">สาขา: ${escapeHtml(branchName)}</div>` : ""}
+              </div>
+            </div>
+            <div class="header-meta">รายงานสรุปผลการขาย</div>
+          </header>
+          ${reportBodyHtml}
         </main>
         <script>
-          window.addEventListener("load", () => {
-            setTimeout(() => {
-              window.focus();
-              ${options.autoPrint === false ? "" : "window.print();"}
-            }, 250);
-          });
+          (function () {
+            const waitForImages = () => {
+              const images = Array.from(document.images || []);
+              if (!images.length) return Promise.resolve();
+              return Promise.all(images.map((img) => {
+                if (img.complete) return Promise.resolve();
+                return new Promise((resolve) => {
+                  const done = () => resolve();
+                  img.addEventListener("load", done, { once: true });
+                  img.addEventListener("error", done, { once: true });
+                  setTimeout(done, 1200);
+                });
+              }));
+            };
+            window.addEventListener("afterprint", () => {
+              setTimeout(() => {
+                try { window.close(); } catch (error) {}
+              }, 120);
+            });
+            window.addEventListener("load", () => {
+              waitForImages().finally(() => {
+                setTimeout(() => {
+                  window.focus();
+                  ${options.autoPrint === false ? "" : "window.print();"}
+                }, 250);
+              });
+            });
+          })();
         </script>
       </body>
     </html>

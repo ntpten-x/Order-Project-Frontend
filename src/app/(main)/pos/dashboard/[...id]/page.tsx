@@ -291,7 +291,15 @@ export default function DashboardOrderDetailPage({ params }: Props) {
         if (!order) return;
 
         const reservedPrintWindow = reservePrintWindow(`Receipt #${order.order_no || ""}`.trim());
-        void printReceiptDocument({ order, shopProfile, targetWindow: reservedPrintWindow }).catch((error) => {
+        void printReceiptDocument({
+            order,
+            shopProfile: {
+                ...(shopProfile as any),
+                branch_name: user?.branch?.branch_name,
+                branch_phone: user?.branch?.phone,
+            },
+            targetWindow: reservedPrintWindow,
+        }).catch((error) => {
             closePrintWindow(reservedPrintWindow);
             console.error("Receipt print failed", error);
             messageApi.error("เปิดหน้าพิมพ์ใบเสร็จไม่สำเร็จ");

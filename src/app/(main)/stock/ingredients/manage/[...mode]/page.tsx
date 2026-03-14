@@ -1,330 +1,543 @@
-'use client';
+"use client";
 
-import React, { useEffect, useState, useCallback } from 'react';
-import { Button, Form, Input, message, Modal, Spin, Switch } from 'antd';
-import { useRouter } from 'next/navigation';
-import { IngredientsUnit } from '../../../../../../types/api/stock/ingredientsUnit';
-import { useAuth } from '../../../../../../contexts/AuthContext';
-import { useEffectivePermissions } from '../../../../../../hooks/useEffectivePermissions';
-import { isSupportedImageSource, normalizeImageSource } from '../../../../../../utils/image/source';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Alert, App, Button, Card, Col, Form, Input, Row, Spin, Switch, Typography } from "antd";
 import {
-    ManagePageStyles,
-    pageStyles,
-    ImagePreview,
-    ActionButtons
-} from './style';
-
-const { TextArea } = Input;
-
-import { authService } from '../../../../../../services/auth.service';
+    DeleteOutlined,
+    InfoCircleOutlined,
+    PictureOutlined,
+    SaveOutlined,
+    ShoppingOutlined,
+    TagsOutlined,
+} from "@ant-design/icons";
+import { useRouter } from "next/navigation";
+import { AccessGuardFallback } from "../../../../../../components/pos/AccessGuard";
+import StockImageThumb from "../../../../../../components/stock/StockImageThumb";
+import PageContainer from "../../../../../../components/ui/page/PageContainer";
+import PageSection from "../../../../../../components/ui/page/PageSection";
 import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
 import { ModalSelector } from "../../../../../../components/ui/select/ModalSelector";
-import PageContainer from '@/components/ui/page/PageContainer';
-import PageSection from '@/components/ui/page/PageSection';
+import { useAuth } from "../../../../../../contexts/AuthContext";
+import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
+import { authService } from "../../../../../../services/auth.service";
+import { ingredientsService } from "../../../../../../services/stock/ingredients.service";
+import { ingredientsUnitService } from "../../../../../../services/stock/ingredientsUnit.service";
+import { Ingredients } from "../../../../../../types/api/stock/ingredients";
+import { IngredientsUnit } from "../../../../../../types/api/stock/ingredientsUnit";
+import { isSupportedImageSource, normalizeImageSource } from "../../../../../../utils/image/source";
+import IngredientsManageStyle, { pageStyles } from "./style";
+
+const { TextArea } = Input;
+const { Title, Text, Paragraph } = Typography;
+
+type ManageMode = "add" | "edit";
 
 type IngredientFormValues = {
-    ingredient_name: string;
     display_name: string;
     description?: string;
     img_url?: string;
     unit_id: string;
-    is_active?: boolean;
+    is_active: boolean;
+};
+
+const selectorStyle: React.CSSProperties = {
+    minHeight: 48,
+    borderRadius: 14,
+    borderColor: "#d9d9d9",
+    padding: "12px 14px",
+};
+
+const formatDate = (raw?: string | Date) => {
+    if (!raw) return "-";
+    const date = new Date(raw);
+    return Number.isNaN(date.getTime())
+        ? "-"
+        : new Intl.DateTimeFormat("th-TH", { dateStyle: "medium", timeStyle: "short" }).format(date);
 };
 
 export default function IngredientsManagePage({ params }: { params: { mode: string[] } }) {
+    const { message: messageApi, modal } = App.useApp();
     const router = useRouter();
     const [form] = Form.useForm<IngredientFormValues>();
-    const { user } = useAuth();
-    const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const requestRef = useRef<AbortController | null>(null);
+
+    const { user, loading: authLoading } = useAuth();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+
+    const mode = params.mode?.[0] as ManageMode | undefined;
+    const id = params.mode?.[1] || null;
+    const isEdit = mode === "edit" && Boolean(id);
+    const isAdd = mode === "add";
+    const isValidMode = isAdd || isEdit;
+
+    const canCreate = can("stock.ingredients.page", "create");
+    const canUpdate = can("stock.ingredients.page", "update");
     const canDelete = can("stock.ingredients.page", "delete");
-    const [loading, setLoading] = useState(false);
+    const canAccessPage = isEdit ? canUpdate : isAdd ? canCreate : false;
+
+    const [csrfToken, setCsrfToken] = useState("");
+    const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
     const [units, setUnits] = useState<IngredientsUnit[]>([]);
-    const [imageUrl, setImageUrl] = useState<string>('');
-    const [displayName, setDisplayName] = useState<string>('');
-    const [csrfToken, setCsrfToken] = useState<string>("");
+    const [originalIngredient, setOriginalIngredient] = useState<Ingredients | null>(null);
 
-    const selectedUnitId = Form.useWatch('unit_id', form);
+    const displayName = Form.useWatch("display_name", form) || "";
+    const imageUrl = Form.useWatch("img_url", form) || "";
+    const description = Form.useWatch("description", form) || "";
+    const selectedUnitId = Form.useWatch("unit_id", form);
+    const isActive = Form.useWatch("is_active", form);
 
-    const mode = params.mode[0];
-    const id = params.mode[1] || null;
-    const isEdit = mode === 'edit' && !!id;
+    const title = useMemo(() => (isEdit ? "แก้ไขวัตถุดิบ" : "เพิ่มวัตถุดิบ"), [isEdit]);
 
     useEffect(() => {
-        const fetchCsrf = async () => {
-             const token = await authService.getCsrfToken();
-             setCsrfToken(token);
-        };
-        fetchCsrf();
-    }, []);
+        if (!isValidMode || (mode === "edit" && !id)) {
+            messageApi.warning("รูปแบบ URL ไม่ถูกต้อง");
+            router.replace("/stock/ingredients");
+        }
+    }, [id, isValidMode, messageApi, mode, router]);
 
-    const fetchUnits = async () => {
-        try {
-            const response = await fetch('/api/stock/ingredientsUnit/getAll?active=true');
-            if (response.ok) {
-                const data = await response.json();
-                setUnits(data);
+    useEffect(() => {
+        let mounted = true;
+
+        const run = async () => {
+            if (!user?.id) return;
+            try {
+                const token = await authService.getCsrfToken();
+                if (mounted) setCsrfToken(token);
+            } catch {
+                if (mounted) messageApi.error("โหลดโทเค็นความปลอดภัยไม่สำเร็จ");
             }
-        } catch (error) {
-            console.error("Failed to fetch units", error);
-        }
-    };
+        };
 
-    const fetchIngredient = useCallback(async () => {
-        setLoading(true);
+        void run();
+        return () => {
+            mounted = false;
+        };
+    }, [messageApi, user?.id]);
+
+    const fetchPageData = useCallback(async () => {
+        if (!canAccessPage || !isValidMode) return;
+
+        requestRef.current?.abort();
+        const controller = new AbortController();
+        requestRef.current = controller;
+
         try {
-            const response = await fetch(`/api/stock/ingredients/getById/${id}`);
-            if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลวัตถุดิบได้');
-            const data = await response.json();
-            form.setFieldsValue({
-                ingredient_name: data.ingredient_name,
-                display_name: data.display_name,
-                description: data.description,
-                img_url: data.img_url,
-                unit_id: data.unit_id,
-                is_active: data.is_active,
-            });
-            setImageUrl(data.img_url || '');
-            setDisplayName(data.display_name || '');
-        } catch (error) {
-            console.error(error);
-            message.error('ไม่สามารถดึงข้อมูลวัตถุดิบได้');
-            router.push('/stock/ingredients');
-        } finally {
-            setLoading(false);
-        }
-    }, [id, form, router]);
+            setLoading(true);
+            setError(null);
 
-    useEffect(() => {
-        fetchUnits();
-        if (isEdit) {
-            fetchIngredient();
-        }
-    }, [isEdit, id, fetchIngredient]);
+            const unitParams = new URLSearchParams();
+            unitParams.set("sort_created", "new");
 
-    const onFinish = async (values: IngredientFormValues) => {
-        setSubmitting(true);
-        try {
-            const payload = {
-                ingredient_name: values.ingredient_name?.trim(),
-                display_name: values.display_name?.trim(),
-                description: values.description?.trim() ?? '',
-                img_url: normalizeImageSource(values.img_url) || null,
-                unit_id: values.unit_id,
-                is_active: values.is_active,
-            };
+            const [unitsData, ingredientData] = await Promise.all([
+                ingredientsUnitService.findAll(undefined, unitParams),
+                isEdit && id
+                    ? ingredientsService.findOne(id, undefined, { signal: controller.signal })
+                    : Promise.resolve(null),
+            ]);
+
+            if (requestRef.current !== controller) return;
+
+            setUnits(Array.isArray(unitsData) ? unitsData : []);
+
+            if (ingredientData) {
+                form.setFieldsValue({
+                    display_name: ingredientData.display_name,
+                    description: ingredientData.description || "",
+                    img_url: ingredientData.img_url || "",
+                    unit_id: ingredientData.unit_id,
+                    is_active: ingredientData.is_active,
+                });
+                setOriginalIngredient(ingredientData);
+            } else {
+                form.setFieldsValue({
+                    description: "",
+                    img_url: "",
+                    is_active: true,
+                });
+                setOriginalIngredient(null);
+            }
+        } catch (err) {
+            if ((err as Error)?.name === "AbortError") return;
+            if (requestRef.current !== controller) return;
+
+            const nextError = err instanceof Error ? err.message : "โหลดข้อมูลวัตถุดิบไม่สำเร็จ";
+            setError(nextError);
+            messageApi.error(nextError);
 
             if (isEdit) {
-                const response = await fetch(`/api/stock/ingredients/update/${id}`, {
-                    method: 'PUT',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': csrfToken
-                    },
-                    body: JSON.stringify(payload),
-                });
-                
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถอัปเดตวัตถุดิบได้');
-                }
-                
-                message.success('อัปเดตวัตถุดิบสำเร็จ');
-            } else {
-                const response = await fetch(`/api/stock/ingredients/create`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRF-Token': csrfToken
-                    },
-                    body: JSON.stringify(payload),
-                });
-
-                if (!response.ok) {
-                    const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถสร้างวัตถุดิบได้');
-                }
-                
-                message.success('สร้างวัตถุดิบสำเร็จ');
+                router.replace("/stock/ingredients");
             }
-            router.push('/stock/ingredients');
-        } catch (error: unknown) {
-            console.error(error);
-            message.error((error as { message: string }).message || (isEdit ? 'ไม่สามารถอัปเดตวัตถุดิบได้' : 'ไม่สามารถสร้างวัตถุดิบได้'));
+        } finally {
+            if (requestRef.current === controller) {
+                requestRef.current = null;
+                setLoading(false);
+            }
+        }
+    }, [canAccessPage, form, id, isEdit, isValidMode, messageApi, router]);
+
+    useEffect(() => {
+        void fetchPageData();
+        return () => {
+            requestRef.current?.abort();
+        };
+    }, [fetchPageData]);
+
+    const selectedUnit = useMemo(
+        () => units.find((unit) => unit.id === selectedUnitId) || null,
+        [selectedUnitId, units]
+    );
+
+    const unitOptions = useMemo(
+        () =>
+            units
+                .filter((unit) => unit.is_active || unit.id === selectedUnitId)
+                .map((unit) => ({
+                    label: unit.is_active ? unit.display_name : `${unit.display_name} (ปิดใช้งาน)`,
+                    value: unit.id,
+                    searchLabel: unit.display_name,
+                })),
+        [selectedUnitId, units]
+    );
+
+    const hasAvailableUnits = unitOptions.length > 0;
+    const normalizedImageUrl = normalizeImageSource(imageUrl);
+
+    const onFinish = async (values: IngredientFormValues) => {
+        if (!hasAvailableUnits) {
+            messageApi.warning("กรุณาสร้างหน่วยนับวัตถุดิบก่อน");
+            return;
+        }
+
+        setSubmitting(true);
+        setError(null);
+
+        try {
+            const payload = {
+                display_name: values.display_name.trim(),
+                description: values.description?.trim() || "",
+                img_url: normalizeImageSource(values.img_url) || null,
+                unit_id: values.unit_id,
+                is_active: Boolean(values.is_active),
+            };
+
+            if (isEdit && id) {
+                await ingredientsService.update(id, payload, undefined, csrfToken);
+                messageApi.success("บันทึกการแก้ไขวัตถุดิบเรียบร้อย");
+            } else {
+                await ingredientsService.create(payload, undefined, csrfToken);
+                messageApi.success("สร้างวัตถุดิบเรียบร้อย");
+            }
+
+            router.replace("/stock/ingredients");
+        } catch (err) {
+            const nextError = err instanceof Error ? err.message : "บันทึกข้อมูลวัตถุดิบไม่สำเร็จ";
+            setError(nextError);
+            messageApi.error(nextError);
         } finally {
             setSubmitting(false);
         }
     };
 
     const handleDelete = () => {
-        if (!id) return;
-        Modal.confirm({
-            title: 'ยืนยันการลบวัตถุดิบ',
-            content: `คุณต้องการลบวัตถุดิบ "${displayName}" หรือไม่?`,
-            okText: 'ลบ',
-            okType: 'danger',
-            cancelText: 'ยกเลิก',
+        if (!id || !canDelete) return;
+
+        modal.confirm({
+            title: "ลบวัตถุดิบ",
+            content: `ต้องการลบ "${displayName.trim() || "-"}" หรือไม่`,
+            okText: "ลบ",
+            okButtonProps: { danger: true, loading: deleting },
+            cancelText: "ยกเลิก",
             centered: true,
             onOk: async () => {
+                setDeleting(true);
                 try {
-                    const response = await fetch(`/api/stock/ingredients/delete/${id}`, {
-                        method: 'DELETE',
-                        headers: {
-                            'X-CSRF-Token': csrfToken
-                        }
-                    });
-                    if (!response.ok) throw new Error('ไม่สามารถลบวัตถุดิบได้');
-                    message.success('ลบวัตถุดิบสำเร็จ');
-                    router.push('/stock/ingredients');
-                } catch (error) {
-                    console.error(error);
-                    message.error('ไม่สามารถลบวัตถุดิบได้');
+                    await ingredientsService.delete(id, undefined, csrfToken);
+                    messageApi.success("ลบวัตถุดิบเรียบร้อย");
+                    router.replace("/stock/ingredients");
+                } catch (err) {
+                    const nextError = err instanceof Error ? err.message : "ลบวัตถุดิบไม่สำเร็จ";
+                    setError(nextError);
+                    messageApi.error(nextError);
+                    throw err;
+                } finally {
+                    setDeleting(false);
                 }
-            }
+            },
         });
     };
 
-    const handleBack = () => router.push('/stock/ingredients');
+    if (authLoading || permissionLoading) {
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
+    }
+
+    if (!user || !canAccessPage) {
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้าจัดการวัตถุดิบ" tone="danger" />;
+    }
 
     return (
-        <div className="manage-page" style={pageStyles.container}>
-            <ManagePageStyles />
-            
+        <div className="stock-ingredients-manage-page" style={pageStyles.container}>
+            <IngredientsManageStyle />
+
             <UIPageHeader
-                title={isEdit ? "แก้ไขวัตถุดิบ" : "เพิ่มวัตถุดิบ"}
-                subtitle="ข้อมูลวัตถุดิบในคลัง"
-                onBack={handleBack}
+                title={title}
+                onBack={() => router.replace("/stock/ingredients")}
                 actions={
                     isEdit && canDelete ? (
-                        <Button danger onClick={handleDelete}>
+                        <Button danger icon={<DeleteOutlined />} onClick={handleDelete} loading={deleting}>
                             ลบ
                         </Button>
-                    ) : undefined
+                    ) : null
                 }
             />
 
-            <PageContainer maxWidth={900}>
-                <div className="manage-form-card">
-                    <PageSection>
-                        {loading ? (
-                            <div style={{ display: 'flex', justifyContent: 'center', padding: '60px 0' }}>
-                                <Spin size="large" />
-                            </div>
-                        ) : (
-                            <Form
-                                form={form}
-                                layout="vertical"
-                                onFinish={onFinish}
-                                requiredMark={false}
-                                autoComplete="off"
-                                initialValues={{ is_active: true }}
-                                onValuesChange={(changedValues: Record<string, unknown>) => {
-                                    if (typeof changedValues.img_url === "string") {
-                                        setImageUrl(changedValues.img_url);
-                                    }
-                                    if (typeof changedValues.display_name === "string") {
-                                        setDisplayName(changedValues.display_name);
-                                    }
-                                }}
-                            >
-                                <Form.Item
-                                    name="ingredient_name"
-                                    label="ชื่อวัตถุดิบ (ภาษาอังกฤษ) *"
-                                    rules={[
-                                        { required: true, message: 'กรุณากรอกชื่อวัตถุดิบ' },
-                                        { pattern: /^[a-zA-Z0-9\s\-_().]*$/, message: 'กรุณากรอกภาษาอังกฤษเท่านั้น' },
-                                        { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
-                                    ]}
-                                >
-                                    <Input
-                                        size="large"
-                                        placeholder="เช่น Sugar, Salt, Flour"
-                                        maxLength={100}
-                                    />
-                                </Form.Item>
+            <PageContainer maxWidth={1140}>
+                <PageSection style={{ background: "transparent", border: "none" }}>
+                    {loading ? (
+                        <div style={pageStyles.loadingWrap}>
+                            <Spin size="large" />
+                        </div>
+                    ) : (
+                        <Row gutter={[20, 20]}>
+                            <Col xs={24} lg={15}>
+                                <Card bordered={false} className="stock-ingredient-card stock-ingredient-main-card">
+                                    <div className="stock-ingredient-card-header">
+                                        <ShoppingOutlined className="stock-ingredient-card-icon" />
+                                        <Title level={5} style={{ margin: 0 }}>
+                                            ข้อมูลวัตถุดิบ
+                                        </Title>
+                                    </div>
 
-                                <Form.Item
-                                    name="display_name"
-                                    label="ชื่อที่แสดง (ภาษาไทย) *"
-                                    rules={[
-                                        { required: true, message: 'กรุณากรอกชื่อที่แสดง' },
-                                        { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' }
-                                    ]}
-                                >
-                                    <Input
-                                        size="large"
-                                        placeholder="เช่น น้ำตาล, เกลือ, แป้ง"
-                                        maxLength={100}
-                                    />
-                                </Form.Item>
+                                    {error ? (
+                                        <Alert
+                                            type="error"
+                                            showIcon
+                                            style={{ marginBottom: 20 }}
+                                            message={error}
+                                        />
+                                    ) : null}
 
-                                <Form.Item
-                                    name="unit_id"
-                                    label={<span style={{ fontWeight: 600, color: '#334155' }}>หน่วยวัตถุดิบ *</span>}
-                                    rules={[{ required: true, message: 'กรุณาเลือกหน่วยวัตถุดิบ' }]}
-                                >
-                                    <ModalSelector
-                                        title="เลือกหน่วยวัตถุดิบ"
-                                        value={selectedUnitId}
-                                        onChange={(value) => form.setFieldsValue({ unit_id: value })}
-                                        options={units.map((unit) => ({
-                                            label: `${unit.display_name} (${unit.unit_name})`,
-                                            value: unit.id,
-                                        }))}
-                                        placeholder="เลือกหน่วยสินค้า"
-                                        showSearch
-                                        style={{
-                                            padding: '10px 16px',
-                                            borderRadius: 12,
-                                            border: '2px solid',
-                                            cursor: 'pointer',
-                                            background: selectedUnitId ? 'linear-gradient(135deg, #EEF2FF 0%, #E0E7FF 100%)' : '#fff',
-                                            borderColor: selectedUnitId ? '#4F46E5' : '#e2e8f0',
-                                            display: 'flex',
-                                            justifyContent: 'space-between',
-                                            alignItems: 'center',
-                                            minHeight: 46
-                                        }}
-                                    />
-                                </Form.Item>
-
-                                <Form.Item
-                                    name="img_url"
-                                    label="รูปภาพ URL"
-                                    rules={[
-                                        {
-                                            validator: async (_, value: string | undefined) => {
-                                                if (!value?.trim()) return;
-                                                const normalized = normalizeImageSource(value);
-                                                if (!isSupportedImageSource(normalized)) {
-                                                    throw new Error('รองรับเฉพาะ URL รูปภาพแบบ http(s), data:image, blob หรือ path ภายในระบบ');
-                                                }
+                                    {!hasAvailableUnits ? (
+                                        <Alert
+                                            type="warning"
+                                            showIcon
+                                            style={{ marginBottom: 20 }}
+                                            message="ยังไม่มีหน่วยนับวัตถุดิบให้เลือก"
+                                            description={
+                                                <div className="stock-ingredient-inline-action">
+                                                    สร้างหน่วยนับก่อนเพื่อให้สามารถบันทึกวัตถุดิบได้
+                                                    <Button
+                                                        type="link"
+                                                        onClick={() => router.push("/stock/ingredientsUnit/manage/add")}
+                                                        style={{ paddingInline: 0 }}
+                                                    >
+                                                        ไปหน้าเพิ่มหน่วยนับ
+                                                    </Button>
+                                                </div>
                                             }
-                                        }
-                                    ]}
-                                >
-                                    <Input size="large" placeholder="https://example.com/image.jpg หรือ data:image/...;base64,..." />
-                                </Form.Item>
+                                        />
+                                    ) : null}
 
-                                <ImagePreview url={imageUrl} name={displayName} />
+                                    <Form<IngredientFormValues>
+                                        form={form}
+                                        layout="vertical"
+                                        requiredMark={false}
+                                        autoComplete="off"
+                                        initialValues={{ description: "", img_url: "", is_active: true }}
+                                        onFinish={(values) => void onFinish(values)}
+                                    >
+                                        <Row gutter={[16, 0]}>
+                                            <Col xs={24} md={12}>
+                                                <Form.Item
+                                                    name="display_name"
+                                                    label={<span style={{ fontWeight: 600 }}>ชื่อวัตถุดิบ</span>}
+                                                    extra="ใช้ชื่อที่ทีมงานเข้าใจตรงกัน เช่น น้ำตาลทราย นมสด หรือ แป้งเค้ก"
+                                                    rules={[
+                                                        { required: true, message: "กรุณากรอกชื่อวัตถุดิบ" },
+                                                        { max: 100, message: "ความยาวต้องไม่เกิน 100 ตัวอักษร" },
+                                                    ]}
+                                                >
+                                                    <Input
+                                                        size="large"
+                                                        maxLength={100}
+                                                        placeholder="เช่น น้ำตาลทราย"
+                                                        onBlur={() => {
+                                                            const value = form.getFieldValue("display_name");
+                                                            if (typeof value === "string") {
+                                                                form.setFieldValue("display_name", value.trim());
+                                                            }
+                                                        }}
+                                                    />
+                                                </Form.Item>
+                                            </Col>
 
-                                <Form.Item name="description" label="รายละเอียด" style={{ marginTop: 20 }}>
-                                    <TextArea
-                                        rows={4}
-                                        placeholder="รายละเอียดเพิ่มเติม..."
-                                        style={{ borderRadius: 12 }}
-                                    />
-                                </Form.Item>
+                                            <Col xs={24} md={12}>
+                                                <Form.Item
+                                                    name="unit_id"
+                                                    label={<span style={{ fontWeight: 600 }}>หน่วยนับ</span>}
+                                                    extra="เลือกหน่วยที่ใช้จริงในการสั่งซื้อ รับเข้า และคุมสต็อก"
+                                                    rules={[{ required: true, message: "กรุณาเลือกหน่วยนับ" }]}
+                                                >
+                                                    <ModalSelector
+                                                        title="เลือกหน่วยนับวัตถุดิบ"
+                                                        value={selectedUnitId}
+                                                        onChange={(value) => form.setFieldValue("unit_id", value)}
+                                                        options={unitOptions}
+                                                        placeholder="เลือกหน่วยนับ"
+                                                        showSearch
+                                                        disabled={!hasAvailableUnits}
+                                                        style={selectorStyle}
+                                                    />
+                                                </Form.Item>
+                                            </Col>
 
-                                <Form.Item name="is_active" label="สถานะการใช้งาน" valuePropName="checked">
-                                    <Switch checkedChildren="ใช้งาน" unCheckedChildren="ไม่ใช้งาน" />
-                                </Form.Item>
+                                            <Col xs={24}>
+                                                <Form.Item
+                                                    name="img_url"
+                                                    label={<span style={{ fontWeight: 600 }}>รูปภาพ</span>}
+                                                    extra="รองรับ URL แบบ http, https, data:image, blob หรือ path ภายในระบบ"
+                                                    rules={[
+                                                        {
+                                                            validator: async (_, value: string | undefined) => {
+                                                                if (!value?.trim()) return;
+                                                                const normalized = normalizeImageSource(value);
+                                                                if (!isSupportedImageSource(normalized)) {
+                                                                    throw new Error(
+                                                                        "รองรับเฉพาะ URL รูปภาพแบบ http(s), data:image, blob หรือ path ภายในระบบ"
+                                                                    );
+                                                                }
+                                                            },
+                                                        },
+                                                    ]}
+                                                >
+                                                    <Input
+                                                        size="large"
+                                                        placeholder="https://example.com/image.jpg"
+                                                    />
+                                                </Form.Item>
+                                            </Col>
 
-                                <ActionButtons isEdit={isEdit} loading={submitting} onCancel={handleBack} />
-                            </Form>
-                        )}
-                    </PageSection>
-                </div>
+                                            <Col xs={24}>
+                                                <Form.Item
+                                                    name="description"
+                                                    label={<span style={{ fontWeight: 600 }}>รายละเอียดเพิ่มเติม</span>}
+                                                    extra="ใช้ระบุข้อมูลที่ช่วยให้ค้นหาและใช้งานได้ง่ายขึ้น เช่น ยี่ห้อ ประเภท หรือหมายเหตุ"
+                                                >
+                                                    <TextArea
+                                                        rows={5}
+                                                        placeholder="เช่น ใช้สำหรับเมนูเบเกอรี่ หรือซื้อจากผู้ขายประจำ"
+                                                    />
+                                                </Form.Item>
+                                            </Col>
+
+                                            <Col xs={24}>
+                                                <div className="stock-ingredient-switch-panel">
+                                                    <div>
+                                                        <Text strong>สถานะการใช้งาน</Text>
+                                                        <Text type="secondary" className="stock-ingredient-muted-text">
+                                                            ปิดการใช้งานเมื่อต้องการเก็บประวัติไว้ แต่ไม่ให้เลือกใช้ต่อ
+                                                        </Text>
+                                                    </div>
+                                                    <Form.Item name="is_active" valuePropName="checked" noStyle>
+                                                        <Switch checked={Boolean(isActive)} />
+                                                    </Form.Item>
+                                                </div>
+                                            </Col>
+                                        </Row>
+
+                                        <div className="stock-ingredient-form-actions">
+                                            <Button
+                                                size="large"
+                                                onClick={() => router.replace("/stock/ingredients")}
+                                                className="stock-ingredient-action-button"
+                                            >
+                                                ยกเลิก
+                                            </Button>
+                                            <Button
+                                                type="primary"
+                                                htmlType="submit"
+                                                size="large"
+                                                icon={<SaveOutlined />}
+                                                loading={submitting}
+                                                disabled={!hasAvailableUnits}
+                                                className="stock-ingredient-action-button stock-ingredient-action-button-primary"
+                                            >
+                                                บันทึกข้อมูล
+                                            </Button>
+                                        </div>
+                                    </Form>
+                                </Card>
+                            </Col>
+
+                            <Col xs={24} lg={9}>
+                                <div className="stock-ingredient-side-grid">
+                                    <Card className="stock-ingredient-card stock-ingredient-side-card">
+                                        <div className="stock-ingredient-card-header">
+                                            <PictureOutlined className="stock-ingredient-side-icon" />
+                                            <Text strong>ตัวอย่างการแสดงผล</Text>
+                                        </div>
+
+                                        <div className="stock-ingredient-preview-row">
+                                            <StockImageThumb
+                                                src={isSupportedImageSource(normalizedImageUrl) ? normalizedImageUrl : null}
+                                                alt={displayName.trim() || "ingredient preview"}
+                                                size={84}
+                                                borderRadius={18}
+                                            />
+                                            <div style={{ minWidth: 0 }}>
+                                                <Title level={4} className="stock-ingredient-preview-title">
+                                                    {displayName.trim() || "ชื่อวัตถุดิบ"}
+                                                </Title>
+                                                <Text type="secondary" className="stock-ingredient-detail-line">
+                                                    หน่วยนับ: {selectedUnit?.display_name || "-"}
+                                                </Text>
+                                                <Text type="secondary" className="stock-ingredient-detail-line">
+                                                    สถานะ: {isActive === false ? "ปิดใช้งาน" : "ใช้งาน"}
+                                                </Text>
+                                            </div>
+                                        </div>
+
+                                        {description.trim() ? (
+                                            <Paragraph className="stock-ingredient-preview-description">
+                                                {description.trim()}
+                                            </Paragraph>
+                                        ) : null}
+                                    </Card>
+
+                                    <Card className="stock-ingredient-card stock-ingredient-side-card">
+                                        <div className="stock-ingredient-card-header">
+                                            <TagsOutlined className="stock-ingredient-side-icon" />
+                                            <Text strong>คำแนะนำ</Text>
+                                        </div>
+                                        <Paragraph className="stock-ingredient-help-text">
+                                            เลือกหน่วยนับให้ตรงกับการรับเข้าจริง เพื่อให้รายงานสต็อกและการสั่งซื้ออ่านง่าย
+                                        </Paragraph>
+                                        <Paragraph className="stock-ingredient-help-text" style={{ marginBottom: 0 }}>
+                                            หากมีรูปภาพ แนะนำให้ใช้ภาพที่มองเห็นสินค้าได้ชัด เพื่อช่วยตรวจสอบรายการได้เร็วขึ้น
+                                        </Paragraph>
+                                    </Card>
+
+                                    {isEdit && originalIngredient ? (
+                                        <Card className="stock-ingredient-card stock-ingredient-side-card">
+                                            <div className="stock-ingredient-card-header">
+                                                <InfoCircleOutlined className="stock-ingredient-side-icon" />
+                                                <Text strong>รายละเอียดรายการ</Text>
+                                            </div>
+                                            <Text type="secondary" className="stock-ingredient-detail-line">
+                                                รหัสรายการ: {originalIngredient.id}
+                                            </Text>
+                                            <Text type="secondary" className="stock-ingredient-detail-line">
+                                                สร้างเมื่อ: {formatDate(originalIngredient.create_date)}
+                                            </Text>
+                                        </Card>
+                                    ) : null}
+                                </div>
+                            </Col>
+                        </Row>
+                    )}
+                </PageSection>
             </PageContainer>
         </div>
     );

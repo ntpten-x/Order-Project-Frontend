@@ -26,6 +26,8 @@ type DiscountFormValues = {
     is_active?: boolean;
 };
 
+const normalizeDigits = (value: string) => value.replace(/\D/g, '');
+
 const formatDate = (raw?: string | Date) => {
     if (!raw) return '-';
     const date = new Date(raw);
@@ -242,7 +244,7 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
                                     >
                                         <Form.Item
                                             name="display_name"
-                                            label={<span style={{ fontWeight: 600 }}>ชื่อส่วนลด <span style={{ color: '#ff4d4f' }}>*</span></span>}
+                                            label={<span style={{ fontWeight: 600 }}>ชื่อส่วนลด</span>}
                                             validateTrigger={['onBlur', 'onSubmit']}
                                             rules={[
                                                 { required: true, message: 'กรุณากรอกชื่อส่วนลด' },
@@ -275,15 +277,26 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
                                             rules={[
                                                 { required: true, message: 'กรุณากรอกมูลค่าส่วนลด' },
                                                 {
-                                                    validator: async (_, value: number) => {
-                                                        if (value === undefined || value === null) return;
-                                                        if (value < 0) throw new Error('มูลค่าต้องไม่ติดลบ');
-                                                        if (previewType === DiscountType.Percentage && value > 100) throw new Error('เปอร์เซ็นต์ต้องไม่เกิน 100');
+                                                    validator: async (_, value: any) => {
+                                                        if (value === undefined || value === null || value === '') return;
+                                                        const num = Number(value);
+                                                        if (Number.isNaN(num) || num < 0) throw new Error('มูลค่าต้องไม่ติดลบ');
+                                                        if (previewType === DiscountType.Percentage && num > 100) throw new Error('เปอร์เซ็นต์ต้องไม่เกิน 100');
                                                     },
                                                 },
                                             ]}
                                         >
-                                            <InputNumber min={0} max={previewType === DiscountType.Percentage ? 100 : undefined} precision={2} style={{ width: '100%' }} />
+                                            <Input
+                                                size="large"
+                                                inputMode="numeric"
+                                                placeholder="0"
+                                                style={{ width: '100%', borderRadius: 12, height: 46 }}
+                                                onChange={(e) => {
+                                                    const normalized = normalizeDigits(e.target.value);
+                                                    form.setFieldValue('discount_amount', normalized);
+                                                    setPreviewAmount(Number(normalized || 0));
+                                                }}
+                                            />
                                         </Form.Item>
 
                                         <div style={{ padding: 16, background: '#f8fafc', borderRadius: 14, marginBottom: 18 }}>

@@ -202,6 +202,7 @@ export default function POSPage() {
             "/pos/shift",
             "/pos/shiftHistory",
             "/pos/list",
+            "/pos/topping",
             "/pos/settings",
         ].forEach((path) => router.prefetch(path));
     }, [authLoading, can, permissionLoading, router]);

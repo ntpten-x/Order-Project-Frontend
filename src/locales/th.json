@@ -103,7 +103,7 @@
   "dashboard.viewDetails": "ดูรายละเอียด",
   "dashboard.dailySales": "ยอดขายรายวัน",
   "dashboard.dailySales.date": "วันที่",
-  "dashboard.dailySales.orders": "ออเดอร์",
+  "dashboard.dailySales.orders": "จำนวนออเดอร์",
   "dashboard.dailySales.sales": "ยอดขาย",
   "dashboard.export.pdf": "PDF",
   "dashboard.export.excel": "Excel",

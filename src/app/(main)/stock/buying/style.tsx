@@ -1,712 +1,582 @@
 "use client";
 
 import React from "react";
-import { Typography, Tag, Button, Checkbox, InputNumber } from "antd";
-import { 
-    MinusOutlined, 
-    PlusOutlined, 
-    CheckCircleFilled, 
-    ShoppingCartOutlined,
-    ArrowLeftOutlined,
-    ShoppingOutlined
-} from "@ant-design/icons";
-import { resolveImageSource } from "../../../../utils/image/source";
-import SmartAvatar from "../../../../components/ui/image/SmartAvatar";
-const { Text, Title } = Typography;
 
-// ============ STYLES ============
+export default function StockBuyingPageStyle() {
+  return (
+    <style jsx global>{`
+      @keyframes stockBuyingFadeInUp {
+        from {
+          opacity: 0;
+          transform: translateY(12px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
 
-export const pageStyles = {
-    container: {
-        paddingBottom: 160,
-        backgroundColor: '#f8f9fc',
-        minHeight: '100vh'
-    },
-    header: {
-        background: 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)',
-        padding: '20px 20px 60px 20px',
-        position: 'relative' as const,
-        overflow: 'hidden' as const
-    },
-    headerDecoCircle1: {
-        position: 'absolute' as const,
-        top: -50,
-        right: -50,
-        width: 150,
-        height: 150,
-        borderRadius: '50%',
-        background: 'rgba(255,255,255,0.1)'
-    },
-    headerDecoCircle2: {
-        position: 'absolute' as const,
-        bottom: -30,
-        left: -30,
-        width: 100,
-        height: 100,
-        borderRadius: '50%',
-        background: 'rgba(255,255,255,0.08)'
-    },
-    headerContent: {
-        position: 'relative' as const, 
-        zIndex: 1,
-        display: 'flex',
-        alignItems: 'center',
-        gap: 12
-    },
-    headerIconBox: {
-        width: 48,
-        height: 48,
-        borderRadius: 14,
-        background: 'rgba(255,255,255,0.2)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backdropFilter: 'blur(8px)'
-    },
-    statsCard: {
-        margin: '-40px 16px 0 16px',
-        padding: '16px',
-        background: 'white',
-        borderRadius: 20,
-        boxShadow: '0 8px 24px rgba(0,0,0,0.08)',
-        display: 'flex',
-        justifyContent: 'space-around',
-        position: 'relative' as const,
-        zIndex: 10
-    },
-    statItem: {
-        textAlign: 'center' as const,
-        flex: 1
-    },
-    statNumber: {
-        fontSize: 24,
-        fontWeight: 700,
-        display: 'block'
-    },
-    statLabel: {
-        fontSize: 12,
-        color: '#8c8c8c',
-        marginTop: 2
-    },
-    listContainer: {
-        padding: '20px 16px 0 16px'
-    },
-    sectionTitle: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8,
-        marginBottom: 16
-    },
-    itemCard: (isPurchased: boolean) => ({
-        marginBottom: 12,
-        borderRadius: 20,
-        border: 'none',
-        boxShadow: isPurchased 
-            ? '0 4px 16px rgba(82, 196, 26, 0.2)' 
-            : '0 2px 8px rgba(0,0,0,0.04)',
-        overflow: 'hidden',
-        transition: 'all 0.3s ease'
-    }),
-    itemCardInner: (isPurchased: boolean) => ({
-        padding: 16,
-        display: 'flex',
-        alignItems: 'flex-start',
-        background: isPurchased 
-            ? 'linear-gradient(135deg, #f6ffed 0%, #d9f7be 100%)' 
-            : 'white',
-        position: 'relative' as const
-    }),
-    itemCheckbox: {
-        marginTop: 6,
-        marginRight: 14,
-        transform: 'scale(1.3)'
-    },
-    avatarWrapper: {
-        marginRight: 14,
-        flexShrink: 0
-    },
-    itemInfo: {
-        flex: 1,
-        minWidth: 0
-    },
-    itemHeader: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 6
-    },
-    orderedTag: {
-        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-        border: 'none',
-        borderRadius: 12,
-        padding: '4px 10px',
-        color: 'white',
-        fontWeight: 600,
-        fontSize: 12
-    },
-    quantitySection: {
-        marginTop: 10
-    },
-    quantityHeader: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 8
-    },
-    quantityControls: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 8
-    },
-    quantityButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 12,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center'
-    },
-    quantityInput: {
-        flex: 1,
-        textAlign: 'center' as const,
-        height: 40,
-        borderRadius: 12,
-        fontSize: 16,
-        fontWeight: 600
-    },
-    floatingFooter: {
-        position: 'fixed' as const,
-        bottom: 70,
-        left: 16,
-        right: 16,
-        zIndex: 99
-    },
-    confirmButton: (hasItems: boolean) => ({
-        height: 56,
-        borderRadius: 28,
-        fontWeight: 700,
-        fontSize: 16,
-        boxShadow: hasItems ? '0 8px 24px rgba(82, 196, 26, 0.4)' : undefined,
-        background: hasItems ? 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)' : undefined,
-        border: 'none'
-    }),
-    modalStyles: {
-        body: { padding: 0 },
-        mask: {
-            backdropFilter: 'blur(8px)',
-            background: 'rgba(0, 0, 0, 0.45)'
-        }
-    }
-};
+      .stock-buying-shell {
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 24%),
+          linear-gradient(180deg, #f8fbff 0%, #f3f6fb 100%);
+        padding-bottom: 132px;
+      }
 
-// ============ CSS ANIMATIONS ============
+      .stock-buying-hero {
+        position: sticky;
+        top: 0;
+        z-index: 20;
+        padding: 16px 0;
+      }
 
-export const BuyingPageStyles = () => (
-    <style>{`
-        .buying-page-modal .ant-modal-content {
-            border-radius: 24px !important;
-            overflow: hidden;
-            padding: 0 !important;
+      .stock-buying-hero-panel,
+      .stock-buying-section-card,
+      .stock-buying-item-card,
+      .stock-buying-summary-card,
+      .stock-buying-footer-card {
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid rgba(148, 163, 184, 0.18);
+        box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
+        backdrop-filter: blur(14px);
+      }
+
+      .stock-buying-hero-panel,
+      .stock-buying-section-card,
+      .stock-buying-summary-card,
+      .stock-buying-footer-card {
+        border-radius: 24px;
+      }
+
+      .stock-buying-hero-panel {
+        padding: 18px;
+      }
+
+      .stock-buying-hero-top,
+      .stock-buying-title-wrap,
+      .stock-buying-title-line,
+      .stock-buying-hero-actions,
+      .stock-buying-section-head,
+      .stock-buying-item-head,
+      .stock-buying-item-controls,
+      .stock-buying-item-stats,
+      .stock-buying-summary-row,
+      .stock-buying-footer-card,
+      .stock-buying-modal-item {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+      }
+
+      .stock-buying-hero-top,
+      .stock-buying-title-wrap,
+      .stock-buying-title-line,
+      .stock-buying-item-head {
+        align-items: flex-start;
+      }
+
+      .stock-buying-title-wrap,
+      .stock-buying-title-copy,
+      .stock-buying-summary-card {
+        min-width: 0;
+      }
+
+      .stock-buying-title-wrap {
+        flex: 1;
+      }
+
+      .stock-buying-title-copy {
+        display: grid;
+        gap: 6px;
+        flex: 1;
+      }
+
+      .stock-buying-title-icon,
+      .stock-buying-hero-icon-btn {
+        width: 44px;
+        height: 44px;
+        border-radius: 14px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      .stock-buying-title-icon {
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+        color: #ffffff;
+        font-size: 18px;
+        flex-shrink: 0;
+      }
+
+      .stock-buying-hero-icon-btn {
+        border: 1px solid #dbeafe !important;
+        background: #eff6ff !important;
+        color: #1d4ed8 !important;
+      }
+
+      .stock-buying-eyebrow {
+        display: block;
+        color: #64748b;
+        font-size: 13px;
+      }
+
+      .stock-buying-title {
+        margin: 0 !important;
+        color: #0f172a !important;
+      }
+
+      .stock-buying-subtitle {
+        color: #64748b;
+        font-size: 14px;
+      }
+
+      .stock-buying-mode-tag {
+        margin-inline-end: 0 !important;
+        border-radius: 999px;
+        padding-inline: 10px;
+        font-weight: 700;
+      }
+
+      .stock-buying-mode-tag.editable {
+        color: #15803d;
+        background: #f0fdf4;
+        border-color: #bbf7d0;
+      }
+
+      .stock-buying-mode-tag.readonly {
+        color: #b45309;
+        background: #fffbeb;
+        border-color: #fde68a;
+      }
+
+      .stock-buying-hero-actions {
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .stock-buying-hero-btn {
+        border-radius: 14px;
+        font-weight: 600;
+      }
+
+      .stock-buying-stats-toggle {
+        width: 100%;
+        margin-top: 14px;
+        padding: 12px 14px;
+        border: 1px solid #dbeafe;
+        background: #eff6ff;
+        border-radius: 18px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        cursor: pointer;
+        transition: background 0.2s ease;
+      }
+
+      .stock-buying-stats-toggle:hover {
+        background: #e0f2fe;
+      }
+
+      .stock-buying-stats-toggle-label {
+        display: block;
+        color: #64748b;
+        font-size: 13px;
+      }
+
+      .stock-buying-stats-toggle-value {
+        color: #0f172a;
+        font-size: 15px;
+        font-weight: 700;
+      }
+
+      .stock-buying-stats-toggle-icon {
+        color: #2563eb;
+      }
+
+      .stock-buying-stats-row {
+        display: grid;
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .stock-buying-stat-card {
+        padding: 16px;
+        border-radius: 18px;
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        display: grid;
+        gap: 4px;
+      }
+
+      .stock-buying-stat-value {
+        font-size: 24px;
+        font-weight: 800;
+        line-height: 1.1;
+      }
+
+      .stock-buying-stat-label {
+        color: #64748b;
+        font-size: 13px;
+      }
+
+      .stock-buying-hero-toolbar {
+        margin-top: 14px;
+        display: grid;
+        grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+        gap: 12px;
+        align-items: center;
+      }
+
+      .stock-buying-search {
+        min-width: 0;
+      }
+
+      .stock-buying-search-input {
+        border-radius: 16px !important;
+        background: #ffffff !important;
+        border: 1px solid #e2e8f0 !important;
+      }
+
+      .stock-buying-search-input .ant-input {
+        background: transparent !important;
+      }
+
+      .stock-buying-search-icon {
+        color: #94a3b8;
+      }
+
+      .stock-buying-hero-meta {
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        flex-wrap: wrap;
+      }
+
+      .stock-buying-hero-meta span {
+        padding: 6px 10px;
+        border-radius: 999px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        color: #475569;
+        font-size: 12px;
+        font-weight: 600;
+      }
+
+      .stock-buying-note {
+        margin-top: 14px;
+        padding: 14px 16px;
+        background: #eff6ff;
+        border: 1px solid #bfdbfe;
+        border-radius: 18px;
+        display: grid;
+        gap: 4px;
+      }
+
+      .stock-buying-layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.78fr);
+        gap: 18px;
+        align-items: start;
+        margin-top: 8px;
+      }
+
+      .stock-buying-main,
+      .stock-buying-aside {
+        min-width: 0;
+      }
+
+      .stock-buying-aside {
+        position: sticky;
+        top: 224px;
+      }
+
+      .stock-buying-section-card {
+        padding: 18px;
+      }
+
+      .stock-buying-section-head {
+        align-items: flex-start;
+        margin-bottom: 16px;
+      }
+
+      .stock-buying-section-title {
+        margin: 0 0 4px !important;
+      }
+
+      .stock-buying-section-meta {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+      }
+
+      .stock-buying-empty {
+        padding: 24px 8px;
+      }
+
+      .stock-buying-list {
+        display: grid;
+        gap: 14px;
+      }
+
+      .stock-buying-item-card {
+        padding: 18px;
+        border-radius: 22px;
+        animation: stockBuyingFadeInUp 0.32s ease both;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+
+      .stock-buying-item-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
+      }
+
+      .stock-buying-item-identity {
+        display: flex;
+        align-items: flex-start;
+        gap: 14px;
+        min-width: 0;
+        flex: 1;
+      }
+
+      .stock-buying-item-copy {
+        min-width: 0;
+        display: grid;
+        gap: 4px;
+      }
+
+      .stock-buying-item-title-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        flex-wrap: wrap;
+      }
+
+      .stock-buying-item-description {
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+      }
+
+      .stock-buying-item-status {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 999px;
+        border: 1px solid;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .stock-buying-item-toggle {
+        flex-shrink: 0;
+      }
+
+      .stock-buying-item-stats {
+        margin-top: 14px;
+        color: #475569;
+        font-size: 13px;
+        flex-wrap: wrap;
+      }
+
+      .stock-buying-item-stats span {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 10px;
+        border-radius: 12px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+      }
+
+      .stock-buying-item-controls {
+        margin-top: 14px;
+        align-items: end;
+      }
+
+      .stock-buying-item-quick-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .stock-buying-item-quick-actions .ant-btn,
+      .stock-buying-qty-box .ant-btn,
+      .stock-buying-footer-card .ant-btn {
+        border-radius: 14px;
+        font-weight: 600;
+      }
+
+      .stock-buying-qty-box {
+        display: grid;
+        gap: 8px;
+        min-width: min(100%, 280px);
+      }
+
+      .stock-buying-qty-box .ant-input-number {
+        border-radius: 0;
+      }
+
+      .stock-buying-qty-box .ant-input-number-input {
+        text-align: center;
+        font-weight: 700;
+      }
+
+      .stock-buying-summary-card {
+        padding: 20px;
+        display: grid;
+        gap: 18px;
+      }
+
+      .stock-buying-summary-block {
+        display: grid;
+        gap: 8px;
+      }
+
+      .stock-buying-summary-code {
+        margin: 0 !important;
+      }
+
+      .stock-buying-summary-row {
+        margin-bottom: 8px;
+      }
+
+      .stock-buying-summary-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .stock-buying-summary-grid > div {
+        padding: 14px;
+        background: #f8fafc;
+        border-radius: 18px;
+      }
+
+      .stock-buying-summary-grid .ant-typography {
+        margin: 0;
+      }
+
+      .stock-buying-pill-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .stock-buying-footer {
+        position: fixed;
+        left: 16px;
+        right: 16px;
+        bottom: 18px;
+        z-index: 40;
+      }
+
+      .stock-buying-footer-card {
+        padding: 16px 18px;
+        align-items: center;
+      }
+
+      .stock-buying-footer-main {
+        font-size: 16px;
+        font-weight: 700;
+        color: #0f172a;
+      }
+
+      .stock-buying-modal-summary {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .stock-buying-modal-summary > div,
+      .stock-buying-modal-item {
+        background: #f8fafc;
+        border-radius: 16px;
+        padding: 12px 14px;
+      }
+
+      .stock-buying-modal-list {
+        display: grid;
+        gap: 8px;
+      }
+
+      .stock-buying-modal-item {
+        align-items: center;
+      }
+
+      @media screen and (max-width: 1200px) {
+        .stock-buying-stats-row,
+        .stock-buying-hero-toolbar,
+        .stock-buying-layout {
+          grid-template-columns: 1fr;
         }
-        
-        @keyframes fadeSlideIn {
-            from {
-                opacity: 0;
-                transform: translateY(12px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
+
+        .stock-buying-aside {
+          position: static;
+          top: auto;
         }
-        
-        .purchase-item-card {
-            animation: fadeSlideIn 0.4s ease both;
+      }
+
+      @media screen and (max-width: 768px) {
+        .stock-buying-shell {
+          padding-bottom: 108px;
         }
-        
-        .purchase-item-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 24px rgba(0,0,0,0.1) !important;
+
+        .stock-buying-hero {
+          padding: 12px 0;
         }
-        
-        .buying-page .ant-input-number {
-            border-radius: 12px !important;
+
+        .stock-buying-hero-panel,
+        .stock-buying-section-card,
+        .stock-buying-summary-card,
+        .stock-buying-item-card {
+          padding: 16px;
         }
-        
-        .buying-page .ant-input-number-input {
-            text-align: center;
-            font-weight: 600;
-            font-size: 16px;
+
+        .stock-buying-hero-top,
+        .stock-buying-title-wrap,
+        .stock-buying-title-line,
+        .stock-buying-hero-actions,
+        .stock-buying-section-head,
+        .stock-buying-item-head,
+        .stock-buying-item-controls,
+        .stock-buying-item-stats,
+        .stock-buying-footer-card,
+        .stock-buying-modal-item {
+          flex-direction: column;
+          align-items: stretch;
         }
-        
-        .buying-page .ant-checkbox-inner {
-            border-radius: 6px;
-            width: 22px;
-            height: 22px;
+
+        .stock-buying-mode-tag {
+          width: fit-content;
         }
-        
-        .buying-page .ant-checkbox-checked .ant-checkbox-inner {
-            background: linear-gradient(135deg, #52c41a 0%, #73d13d 100%);
-            border-color: #52c41a;
+
+        .stock-buying-hero-meta {
+          justify-content: flex-start;
         }
-        
-        .buying-page .ant-checkbox-checked .ant-checkbox-inner::after {
-            left: 30%;
+
+        .stock-buying-item-toggle {
+          width: 100%;
         }
-        
-        /* Custom scrollbar */
-        .buying-page *::-webkit-scrollbar {
-            width: 6px;
+
+        .stock-buying-item-toggle .ant-switch {
+          width: 100%;
         }
-        .buying-page *::-webkit-scrollbar-track {
-            background: transparent;
+
+        .stock-buying-summary-grid,
+        .stock-buying-modal-summary {
+          grid-template-columns: 1fr;
         }
-        .buying-page *::-webkit-scrollbar-thumb {
-            background: #d9d9d9;
-            border-radius: 3px;
+
+        .stock-buying-footer {
+          left: 12px;
+          right: 12px;
+          bottom: 12px;
         }
-        .buying-page *::-webkit-scrollbar-thumb:hover {
-            background: #bfbfbf;
-        }
+      }
     `}</style>
-);
-
-// ============ HEADER COMPONENT ============
-
-interface HeaderProps {
-    orderId?: string;
-    onBack: () => void;
+  );
 }
-
-export const PageHeader = ({ orderId, onBack }: HeaderProps) => (
-    <div style={pageStyles.header}>
-        {/* Decorative circles */}
-        <div style={pageStyles.headerDecoCircle1} />
-        <div style={pageStyles.headerDecoCircle2} />
-        
-        {/* Header Content */}
-        <div style={pageStyles.headerContent}>
-            <Button 
-                type="text" 
-                icon={<ArrowLeftOutlined style={{ fontSize: 20, color: 'white' }} />}
-                onClick={onBack}
-                style={{ 
-                    width: 40, 
-                    height: 40, 
-                    borderRadius: 12,
-                    background: 'rgba(255,255,255,0.2)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                }}
-            />
-            <div style={pageStyles.headerIconBox}>
-                <ShoppingCartOutlined style={{ fontSize: 24, color: 'white' }} />
-            </div>
-            <div>
-                <Text style={{ 
-                    color: 'rgba(255,255,255,0.85)', 
-                    fontSize: 13,
-                    display: 'block'
-                }}>
-                    ทำการสั่งซื้อ
-                </Text>
-                <Title level={4} style={{ 
-                    color: 'white', 
-                    margin: 0,
-                    fontWeight: 700,
-                    letterSpacing: '0.5px'
-                }}>
-                    #{orderId?.substring(0, 8).toUpperCase() || '...'}
-                </Title>
-            </div>
-        </div>
-    </div>
-);
-
-// ============ STATS CARD COMPONENT ============
-
-interface StatsCardProps {
-    totalItems: number;
-    purchasedItems: number;
-    notPurchasedItems: number;
-}
-
-export const StatsCard = ({ totalItems, purchasedItems, notPurchasedItems }: StatsCardProps) => (
-    <div style={pageStyles.statsCard}>
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#667eea' }}>{totalItems}</span>
-            <Text style={pageStyles.statLabel}>รายการทั้งหมด</Text>
-        </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#52c41a' }}>{purchasedItems}</span>
-            <Text style={pageStyles.statLabel}>เลือกซื้อแล้ว</Text>
-        </div>
-        <div style={{ width: 1, background: '#f0f0f0' }} />
-        <div style={pageStyles.statItem}>
-            <span style={{ ...pageStyles.statNumber, color: '#faad14' }}>{notPurchasedItems}</span>
-            <Text style={pageStyles.statLabel}>ยังไม่เลือก</Text>
-        </div>
-    </div>
-);
-
-// ============ PURCHASE ITEM CARD COMPONENT ============
-
-interface PurchaseItemState {
-    ingredient_id: string;
-    actual_quantity: number;
-    ordered_quantity: number;
-    is_purchased: boolean;
-    display_name: string;
-    unit_name: string;
-    img_url?: string;
-    description?: string;
-}
-
-interface PurchaseItemCardProps {
-    item: PurchaseItemState;
-    index: number;
-    onCheck: (id: string, checked: boolean) => void;
-    onQuantityChange: (id: string, val: number | null) => void;
-    onSetFullAmount: (id: string) => void;
-}
-
-export const PurchaseItemCard = ({ 
-    item, 
-    index, 
-    onCheck, 
-    onQuantityChange, 
-    onSetFullAmount 
-}: PurchaseItemCardProps) => (
-    <div
-        className="purchase-item-card"
-        style={{
-            ...pageStyles.itemCard(item.is_purchased),
-            animationDelay: `${index * 0.05}s`
-        }}
-        onClick={() => !item.is_purchased && onCheck(item.ingredient_id, true)}
-    >
-        <div style={pageStyles.itemCardInner(item.is_purchased)}>
-            <Checkbox 
-                checked={item.is_purchased} 
-                onChange={(e) => {
-                    e.stopPropagation();
-                    onCheck(item.ingredient_id, e.target.checked);
-                }}
-                style={pageStyles.itemCheckbox}
-            />
-            
-            {/* Avatar without badge to avoid overlap */}
-            <SmartAvatar
-                src={resolveImageSource(item.img_url, "https://placehold.co/72x72/f5f5f5/999999?text=Preview")}
-                alt={item.display_name}
-                shape="square"
-                size={72}
-                icon={<ShoppingOutlined />}
-                imageStyle={{ objectFit: "cover" }}
-                style={{ 
-                    borderRadius: 16, 
-                    border: item.is_purchased ? '3px solid #52c41a' : '3px solid white',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-                    marginRight: 14,
-                    flexShrink: 0
-                }}
-            />
-            
-            <div style={pageStyles.itemInfo}>
-                {/* Name and Tag in separate rows */}
-                <div style={{ marginBottom: 4 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 2 }}>
-                        <Text 
-                            strong 
-                            style={{ 
-                                fontSize: 16, 
-                                color: '#1a1a2e'
-                            }} 
-                            ellipsis={{ tooltip: item.display_name }}
-                        >
-                            {item.display_name}
-                        </Text>
-                        {item.is_purchased && (
-                            <CheckCircleFilled style={{ color: '#52c41a', fontSize: 16 }} />
-                        )}
-                    </div>
-                    {/* Description */}
-                    {item.description && (
-                        <Text 
-                            type="secondary" 
-                            style={{ 
-                                fontSize: 12, 
-                                display: 'block',
-                                marginBottom: 4
-                            }}
-                            ellipsis={{ tooltip: item.description }}
-                        >
-                            {item.description}
-                        </Text>
-                    )}
-                    {/* Ordered quantity tag */}
-                    <Tag style={pageStyles.orderedTag}>
-                        สั่ง {item.ordered_quantity} {item.unit_name}
-                    </Tag>
-                </div>
-                
-                {!item.is_purchased ? (
-                    <Button 
-                        size="large" 
-                        type="dashed" 
-                        block
-                        onClick={(e) => {
-                            e.stopPropagation();
-                            onCheck(item.ingredient_id, true);
-                        }}
-                        style={{ 
-                            color: '#8c8c8c',
-                            borderRadius: 12,
-                            marginTop: 8
-                        }}
-                    >
-                        <ShoppingOutlined style={{ marginRight: 6 }} />
-                        แตะเพื่อเลือกซื้อ
-                    </Button>
-                ) : (
-                    <div 
-                        style={pageStyles.quantitySection}
-                        onClick={(e) => e.stopPropagation()}
-                    >
-                        <div style={pageStyles.quantityHeader}>
-                            <Text style={{ fontSize: 13, color: '#666' }}>
-                                จำนวนที่ซื้อจริง ({item.unit_name})
-                            </Text>
-                            <Button
-                                type="link"
-                                size="small"
-                                onClick={() => onSetFullAmount(item.ingredient_id)}
-                                style={{ 
-                                    padding: '4px 8px',
-                                    fontSize: 13,
-                                    fontWeight: 600,
-                                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                                    WebkitBackgroundClip: 'text',
-                                    WebkitTextFillColor: 'transparent'
-                                }}
-                            >
-                                เต็มจำนวน
-                            </Button>
-                        </div>
-                        <div style={pageStyles.quantityControls}>
-                            <Button 
-                                icon={<MinusOutlined />}
-                                style={pageStyles.quantityButton}
-                                onClick={() => {
-                                    const newVal = Math.max(0, item.actual_quantity - 1);
-                                    onQuantityChange(item.ingredient_id, newVal);
-                                }}
-                            />
-                            <InputNumber 
-                                min={0} 
-                                value={item.actual_quantity} 
-                                onChange={(v) => onQuantityChange(item.ingredient_id, v)}
-                                style={pageStyles.quantityInput}
-                                controls={false}
-                            />
-                            <Button 
-                                icon={<PlusOutlined />}
-                                style={pageStyles.quantityButton}
-                                onClick={() => {
-                                    const newVal = item.actual_quantity + 1;
-                                    onQuantityChange(item.ingredient_id, newVal);
-                                }}
-                            />
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
-    </div>
-);
-
-// ============ MODAL HEADER COMPONENT ============
-
-export const ModalHeader = () => (
-    <div style={{
-        background: 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)',
-        padding: '24px',
-        position: 'relative',
-        overflow: 'hidden'
-    }}>
-        {/* Decorative circles */}
-        <div style={{
-            position: 'absolute',
-            top: -30,
-            right: -30,
-            width: 100,
-            height: 100,
-            borderRadius: '50%',
-            background: 'rgba(255,255,255,0.1)'
-        }} />
-        <div style={{
-            position: 'absolute',
-            bottom: -20,
-            left: -20,
-            width: 70,
-            height: 70,
-            borderRadius: '50%',
-            background: 'rgba(255,255,255,0.08)'
-        }} />
-        
-        <div style={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 12,
-            position: 'relative',
-            zIndex: 1
-        }}>
-            <div style={{
-                width: 44,
-                height: 44,
-                borderRadius: 14,
-                background: 'rgba(255,255,255,0.2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                backdropFilter: 'blur(8px)'
-            }}>
-                <CheckCircleFilled style={{ fontSize: 22, color: 'white' }} />
-            </div>
-            <div>
-                <Text style={{ 
-                    color: 'rgba(255,255,255,0.9)', 
-                    fontSize: 13,
-                    display: 'block'
-                }}>
-                    ยืนยันการสั่งซื้อ
-                </Text>
-                <Title level={4} style={{ 
-                    color: 'white', 
-                    margin: 0,
-                    fontWeight: 700
-                }}>
-                    สรุปรายการ
-                </Title>
-            </div>
-        </div>
-    </div>
-);
-
-// ============ MODAL ITEM CARD COMPONENT ============
-
-interface ModalItemCardProps {
-    item: PurchaseItemState;
-    index: number;
-}
-
-export const ModalItemCard = ({ item, index }: ModalItemCardProps) => {
-    const diff = item.actual_quantity - item.ordered_quantity;
-    
-    return (
-        <div
-            style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 14,
-                padding: 14,
-                background: '#fafafa',
-                borderRadius: 16,
-                marginBottom: 10,
-                animation: `fadeSlideIn 0.3s ease ${index * 0.05}s both`
-            }}
-        >
-            <SmartAvatar
-                src={resolveImageSource(item.img_url, "https://placehold.co/56x56/f5f5f5/999999?text=Preview")}
-                alt={item.display_name}
-                shape="square"
-                size={56}
-                icon={<ShoppingOutlined />}
-                imageStyle={{ objectFit: "cover" }}
-                style={{ 
-                    borderRadius: 12,
-                    border: '2px solid white',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.08)'
-                }}
-            />
-            <div style={{ flex: 1, minWidth: 0 }}>
-                <Text 
-                    strong 
-                    style={{ fontSize: 15, display: 'block', color: '#1a1a2e' }}
-                    ellipsis={{ tooltip: item.display_name }}
-                >
-                    {item.display_name}
-                </Text>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 4 }}>
-                    <Text style={{ fontSize: 13 }}>
-                        ซื้อ: <Text strong style={{ color: '#52c41a' }}>{item.actual_quantity}</Text>
-                    </Text>
-                    <Text type="secondary">/</Text>
-                    <Text type="secondary" style={{ fontSize: 13 }}>
-                        สั่ง: {item.ordered_quantity}
-                    </Text>
-                </div>
-            </div>
-            <div style={{ textAlign: 'right' }}>
-                <div style={{
-                    padding: '8px 14px',
-                    borderRadius: 12,
-                    fontWeight: 600,
-                    fontSize: 14,
-                    background: diff === 0 
-                        ? 'linear-gradient(135deg, #52c41a 0%, #73d13d 100%)'
-                        : diff > 0 
-                            ? 'linear-gradient(135deg, #1890ff 0%, #69c0ff 100%)'
-                            : 'linear-gradient(135deg, #ff4d4f 0%, #ff7875 100%)',
-                    color: 'white',
-                    minWidth: 60,
-                    textAlign: 'center'
-                }}>
-                    {diff === 0 ? 'ครบ' : diff > 0 ? `+${diff}` : diff}
-                </div>
-                <Text style={{ fontSize: 11, color: '#8c8c8c', marginTop: 2, display: 'block' }}>
-                    {item.unit_name}
-                </Text>
-            </div>
-        </div>
-    );
-};
-
-// ============ WARNING BANNER COMPONENT ============
-
-interface WarningBannerProps {
-    count: number;
-}
-
-export const WarningBanner = ({ count }: WarningBannerProps) => (
-    <div style={{ 
-        marginTop: 16, 
-        padding: '14px 16px', 
-        background: 'linear-gradient(135deg, #fffbe6 0%, #fff1b8 100%)',
-        borderRadius: 14, 
-        border: '1px solid #ffe58f',
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10
-    }}>
-        <div style={{
-            width: 32,
-            height: 32,
-            borderRadius: 10,
-            background: '#faad14',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-            fontSize: 16,
-            fontWeight: 700
-        }}>
-            !
-        </div>
-        <Text style={{ color: '#ad6800', fontSize: 13 }}>
-            มี <Text strong>{count}</Text> รายการที่ <Text strong>&quot;ไม่ได้เลือก&quot;</Text> (จะถูกบันทึกว่าไม่ได้ซื้อ)
-        </Text>
-    </div>
-);

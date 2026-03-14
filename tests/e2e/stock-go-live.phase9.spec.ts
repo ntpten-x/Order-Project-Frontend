@@ -83,7 +83,6 @@ async function ensureIngredients(context: APIRequestContext, csrfToken: string):
     const createResp = await context.post("/api/stock/ingredients/create", {
       headers: { "X-CSRF-Token": csrfToken },
       data: {
-        ingredient_name: `e2e_stock_seed_${suffix}`,
         display_name: `E2E Stock Seed ${suffix}`,
         description: "seed for stock phase9 e2e",
         unit_id: unitId,

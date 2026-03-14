@@ -23,7 +23,7 @@ export type CartItemRowProps = {
   onOpenDetail: (
     id: string,
     name: string,
-    details?: { detail_name: string; extra_price: number }[]
+    details?: { detail_name: string; extra_price: number; topping_id?: string }[]
   ) => void;
 };
 

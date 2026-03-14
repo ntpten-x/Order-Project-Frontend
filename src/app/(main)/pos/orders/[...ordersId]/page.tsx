@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useCallback, useEffect, useState, useMemo } from "react";
 import dynamic from "next/dynamic";
@@ -21,6 +21,7 @@ import { getCsrfTokenCached } from "../../../../../utils/pos/csrf";
 import { SalesOrder, OrderStatus, OrderType } from "../../../../../types/api/pos/salesOrder";
 import { ItemStatus, SalesOrderItem } from "../../../../../types/api/pos/salesOrderItem";
 import { orderDetailStyles, orderDetailColors, ordersResponsiveStyles, orderDetailTypography } from "../../../../../theme/pos/orders/style"; 
+import { POSSharedStyles } from "../../../../../components/pos/shared/style";
 import {
   calculateOrderTotal,
   getNonCancelledItems,
@@ -52,6 +53,7 @@ import { primeOrderTransitionCache } from "../../../../../utils/pos/orderTransit
 import UIPageHeader from "../../../../../components/ui/page/PageHeader";
 import SmartImage from "../../../../../components/ui/image/SmartImage";
 import { resolveImageSource } from "../../../../../utils/image/source";
+import { OrderItemDetailInput } from "../../../../../utils/pos/orderToppings";
 
 
 const { Title, Text } = Typography;
@@ -72,11 +74,6 @@ const ConfirmationDialog = dynamic(() => import("../../../../../components/dialo
     loading: () => null,
 });
 
-type ItemDetailInput = {
-    detail_name: string;
-    extra_price: number;
-};
-
 export default function POSOrderDetailsPage() {
     const router = useRouter();
     const params = useParams();
@@ -86,7 +83,7 @@ export default function POSOrderDetailsPage() {
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
     // Avoid "flash 403" while effective permissions are still loading.
     const canUpdateOrders = user?.role === "Admin" ? true : (!permissionLoading && can("orders.page", "update"));
-    const canDeleteOrders = user?.role === "Admin" ? true : (!permissionLoading && can("orders.page", "delete"));
+    const canCancelOrders = user?.role === "Admin" ? true : (!permissionLoading && can("orders.cancel.feature", "access"));
 
     const [order, setOrder] = useState<SalesOrder | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -125,6 +122,7 @@ export default function POSOrderDetailsPage() {
             return;
         }
         if (isWaitingForPaymentStatus(data.status)) {
+            primeOrderTransitionCache(data);
             router.push(getOrderNavigationPath(data));
             return;
         }
@@ -200,10 +198,10 @@ export default function POSOrderDetailsPage() {
     const shouldVirtualizeServed = groupedServedItems.length > 12;
 
     useEffect(() => {
-        if (waitingPaymentPath) {
+        if (waitingPaymentPath && isWaitingForPaymentStatus(order?.status)) {
             router.prefetch(waitingPaymentPath);
         }
-    }, [router, waitingPaymentPath]);
+    }, [order?.status, router, waitingPaymentPath]);
 
     const handleCancelSelected = async () => {
         if (!canUpdateOrders) {
@@ -248,7 +246,7 @@ export default function POSOrderDetailsPage() {
     };
 
     const handleCancelOrder = () => {
-        if (!canDeleteOrders) {
+        if (!canCancelOrders) {
             message.warning("คุณไม่มีสิทธิ์ลบ/ยกเลิกออเดอร์");
             return;
         }
@@ -323,7 +321,7 @@ export default function POSOrderDetailsPage() {
         });
     };
 
-    const handleSaveEdit = async (itemId: string, quantity: number, notes: string, details: ItemDetailInput[] = []) => {
+    const handleSaveEdit = async (itemId: string, quantity: number, notes: string, details: OrderItemDetailInput[] = []) => {
         if (!canUpdateOrders) {
             message.warning("คุณไม่มีสิทธิ์แก้ไขออเดอร์");
             return;
@@ -345,7 +343,8 @@ export default function POSOrderDetailsPage() {
                 notes: String(notes || ''),
                 details: Array.isArray(details) ? details.map(d => ({
                     detail_name: String(d.detail_name || ''),
-                    extra_price: Number(d.extra_price || 0)
+                    extra_price: Number(d.extra_price || 0),
+                    ...(d.topping_id ? { topping_id: d.topping_id } : {}),
                 })) : []
             };
             
@@ -379,7 +378,7 @@ export default function POSOrderDetailsPage() {
         setEditModalOpen(true);
     };
 
-    const handleAddItem = async (product: Products, quantity: number, notes: string, details: ItemDetailInput[] = []) => {
+    const handleAddItem = async (product: Products, quantity: number, notes: string, details: OrderItemDetailInput[] = []) => {
         if (!canUpdateOrders) {
             message.warning("คุณไม่มีสิทธิ์แก้ไขออเดอร์");
             return;
@@ -454,9 +453,16 @@ export default function POSOrderDetailsPage() {
                     closeConfirm();
                     const csrfToken = await getCsrfTokenCached();
                     const updatedOrder = await ordersService.updateStatus(orderId as string, OrderStatus.WaitingForPayment, csrfToken);
-                    primeOrderTransitionCache(updatedOrder);
+                    const transitionOrder = {
+                        ...updatedOrder,
+                        status: OrderStatus.WaitingForPayment,
+                    };
+                    const targetPath = isDelivery
+                        ? `/pos/items/delivery/${transitionOrder.id}`
+                        : `/pos/items/payment/${transitionOrder.id}`;
+                    primeOrderTransitionCache(transitionOrder);
                     message.success("เปลี่ยนสถานะเป็นรอชำระเงินเรียบร้อย");
-                    router.push(getOrderNavigationPath(updatedOrder));
+                    router.push(targetPath);
                 } catch {
                     message.error("เกิดข้อผิดพลาดในการย้ายออเดอร์");
                 } finally {
@@ -501,25 +507,25 @@ export default function POSOrderDetailsPage() {
         {
             title: 'รายการ',
             key: 'product',
-            align: 'center' as const,
+            align: 'left' as const,
             render: (_value: unknown, record: SalesOrderItem) => (
-                <Space orientation="vertical" size={2} align="center">
+                <Space orientation="vertical" size={2} align="start">
                     <Text strong style={{ fontSize: 15, lineHeight: '1.2' }}>{record.product?.display_name}</Text>
                     {record.details && record.details.length > 0 && (
-                        <div style={{ fontSize: 13, color: orderDetailColors.served, textAlign: 'center', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                        <div style={{ fontSize: 13, color: orderDetailColors.served, textAlign: 'left', whiteSpace: 'nowrap' }}>
                             {record.details.map((d, i) => (
                                 <div key={i} style={{ lineHeight: '1.4' }}>+ {d.detail_name} (+฿{Number(d.extra_price).toLocaleString()})</div>
                             ))}
                         </div>
                     )}
-                    {record.notes && <Text style={{ fontSize: 13, color: orderDetailColors.cancelled, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}><InfoCircleOutlined /> {record.notes}</Text>}
+                    {record.notes && <Text style={{ fontSize: 13, color: orderDetailColors.cancelled, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>โน้ต: {record.notes}</Text>}
                 </Space>
             )
         },
         {
             title: <span style={{ whiteSpace: 'nowrap' }}>หมวดหมู่</span>,
             key: 'category',
-            width: 140,
+            width: 110,
             align: 'center' as const,
             render: (_value: unknown, record: SalesOrderItem) => (
                 <Space orientation="vertical" size={0} align="center">
@@ -559,7 +565,7 @@ export default function POSOrderDetailsPage() {
             title: 'สถานะ',
             dataIndex: 'status',
             key: 'status',
-            width: 120,
+            width: 110,
             align: 'center' as const,
             render: (status: string) => (
                 <Tag color={getOrderStatusColor(status)}>
@@ -618,9 +624,9 @@ export default function POSOrderDetailsPage() {
         {
             title: 'สินค้า',
             key: 'product',
-            align: 'center' as const,
+            align: 'left' as const,
             render: (_value: unknown, record: SalesOrderItem) => (
-                <Space orientation="vertical" size={2} align="center">
+                <Space orientation="vertical" size={2} align="start">
                     <Text strong style={{ 
                         fontSize: 15, 
                         lineHeight: '1.2',
@@ -630,20 +636,20 @@ export default function POSOrderDetailsPage() {
                         {record.product?.display_name}
                     </Text>
                     {record.details && record.details.length > 0 && (
-                        <div style={{ fontSize: 12, color: orderDetailColors.served, opacity: 0.7, textAlign: 'center', whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
+                        <div style={{ fontSize: 12, color: orderDetailColors.served, opacity: 0.7, textAlign: 'left', whiteSpace: 'nowrap' }}>
                             {record.details.map((d, i) => (
                                 <div key={i} style={{ lineHeight: '1.4' }}>+ {d.detail_name} (+฿{Number(d.extra_price).toLocaleString()})</div>
                             ))}
                         </div>
                     )}
-                    {record.notes && <Text style={{ fontSize: 12, opacity: 0.7, color: orderDetailColors.cancelled, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}><InfoCircleOutlined /> {record.notes}</Text>}
+                    {record.notes && <Text style={{ fontSize: 12, opacity: 0.7, color: orderDetailColors.cancelled, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>โน้ต: {record.notes}</Text>}
                 </Space>
             )
         },
         {
             title: <span style={{ whiteSpace: 'nowrap' }}>หมวดหมู่</span>,
             key: 'category',
-            width: 140,
+            width: 110,
             align: 'center' as const,
             render: (_value: unknown, record: SalesOrderItem) => (
                 <Space orientation="vertical" size={0} align="center">
@@ -716,6 +722,7 @@ export default function POSOrderDetailsPage() {
 
     return (
         <div className="order-detail-page" style={orderDetailStyles.container}>
+            <POSSharedStyles />
             <style jsx global>{ordersResponsiveStyles}</style>
             
             <UIPageHeader
@@ -955,7 +962,9 @@ export default function POSOrderDetailsPage() {
                                                         <div style={{ paddingLeft: 24, marginTop: 2 }}>
                                                             {item.details && item.details.length > 0 && (
                                                                 <div style={{ fontSize: 13, color: orderDetailColors.served, marginBottom: 4, lineHeight: 1.4, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                                                                    {item.details.map((d: { detail_name: string; extra_price: number }) => `+ ${d.detail_name} (+ ฿${Number(d.extra_price).toLocaleString()})`).join(', ')}
+                                                                    {item.details.map((d: { detail_name: string; extra_price: number }, i: number) => (
+                                                                        <div key={i} style={{ marginBottom: 2 }}>+ {d.detail_name} (+฿{Number(d.extra_price).toLocaleString()})</div>
+                                                                    ))}
                                                                 </div>
                                                             )}
                                                             <Space orientation="vertical" size={2} style={{ width: '100%' }}>
@@ -969,7 +978,7 @@ export default function POSOrderDetailsPage() {
                                                             {item.notes && (
                                                                 <div style={{ marginTop: 4 }}>
                                                                     <Text style={{ fontSize: 13, color: orderDetailColors.cancelled, lineHeight: 1.4, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                                                                        <InfoCircleOutlined style={{ fontSize: 13 }} /> {item.notes}
+                                                                        โน้ต: {item.notes}
                                                                     </Text>
                                                                 </div>
                                                             )}
@@ -1097,7 +1106,9 @@ export default function POSOrderDetailsPage() {
                                                                 </div>
                                                                 {item.details && item.details.length > 0 && (
                                                                     <div style={{ fontSize: 13, color: orderDetailColors.served, opacity: 0.7, marginBottom: 4, lineHeight: 1.4, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                                                                        {item.details.map((d: { detail_name: string; extra_price: number }) => `+ ${d.detail_name} (+฿${Number(d.extra_price).toLocaleString()})`).join(', ')}
+                                                                        {item.details.map((d: { detail_name: string; extra_price: number }, i: number) => (
+                                                                            <div key={i} style={{ marginBottom: 2 }}>+ {d.detail_name} (+฿{Number(d.extra_price).toLocaleString()})</div>
+                                                                        ))}
                                                                     </div>
                                                                 )}
                                                                 <Space orientation="vertical" size={2} style={{ marginTop: 4, width: '100%' }}>
@@ -1114,7 +1125,7 @@ export default function POSOrderDetailsPage() {
                                                                 {item.notes && (
                                                                     <div style={{ marginTop: 4 }}>
                                                                         <Text style={{ fontSize: 13, opacity: 0.7, color: orderDetailColors.cancelled, lineHeight: 1.4, whiteSpace: 'pre-wrap', wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                                                                            <InfoCircleOutlined style={{ fontSize: 13 }} /> {item.notes}
+                                                                        โน้ต: {item.notes}
                                                                         </Text>
                                                                     </div>
                                                                 )}
@@ -1175,7 +1186,12 @@ export default function POSOrderDetailsPage() {
 
                                             {item.details && item.details.length > 0 && (
                                                 <div style={orderDetailStyles.summaryDetailText}>
-                                                    <PlusOutlined style={{ fontSize: 10 }} /> {item.details.map((d: { detail_name: string; extra_price: number }) => `${d.detail_name} (+฿${Number(d.extra_price).toLocaleString()})`).join(', ')}
+                                                    {item.details.map((d: { detail_name: string; extra_price: number }, i: number) => (
+                                                        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                                                            <PlusOutlined style={{ fontSize: 10 }} />
+                                                            <span>{d.detail_name} (+฿{Number(d.extra_price).toLocaleString()})</span>
+                                                        </div>
+                                                    ))}
                                                 </div>
                                             )}
                                             
@@ -1267,7 +1283,7 @@ export default function POSOrderDetailsPage() {
                                     fontSize: 15,
                                     border: `1px solid ${orderDetailColors.danger}`,
                                 }}
-                                disabled={!canDeleteOrders || isUpdating}
+                                disabled={!canCancelOrders || isUpdating}
                                 className="scale-hover"
                             >
                                 ยกเลิกออเดอร์
@@ -1293,6 +1309,7 @@ export default function POSOrderDetailsPage() {
                     key={`edit-modal-${itemToEdit.id}`}
                     item={itemToEdit}
                     isOpen={editModalOpen}
+                    orderType={order?.order_type}
                     onClose={() => {
                         setEditModalOpen(false);
                         setItemToEdit(null);

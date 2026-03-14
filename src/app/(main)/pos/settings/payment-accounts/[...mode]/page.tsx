@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useState } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
     Typography,
     Button,
@@ -187,7 +187,8 @@ const PaymentAccountPreviewCard = ({
 
 export default function PaymentAccountManagementPage({ params }: { params: { mode?: string[] } }) {
     const router = useRouter();
-    const { socket } = useSocket();
+    const queryClient = useQueryClient();
+    const { socket, isConnected } = useSocket();
     const { user } = useAuth();
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.md;
@@ -230,6 +231,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
     const isManage = routeMode === 'manage';
     const isAdd = routeMode === 'add';
     const isEdit = routeMode === 'edit' && Boolean(editId);
+    const editQueryEnabled = isAuthorized && isUrlReady && isEdit;
 
     const watchedAccountName = Form.useWatch('account_name', form) ?? '';
     const watchedAccountNumber = Form.useWatch('account_number', form) ?? '';
@@ -271,10 +273,42 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
     const editAccountQuery = useQuery<ShopPaymentAccount>({
         queryKey: ['paymentAccounts', 'single', editId],
         queryFn: () => paymentAccountService.getOne(editId!),
-        enabled: isAuthorized && isUrlReady && isEdit,
+        enabled: editQueryEnabled,
         staleTime: 20_000,
         refetchOnWindowFocus: false,
     });
+
+    const refreshPaymentAccountQueries = async ({
+        targetEditId,
+        refetchSingle = false,
+    }: {
+        targetEditId?: string | null;
+        refetchSingle?: boolean;
+    } = {}) => {
+        const singleId = targetEditId ?? editId ?? null;
+
+        await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ['paymentAccounts'] }),
+            queryClient.invalidateQueries({ queryKey: ['paymentAccounts', 'manage'] }),
+            queryClient.invalidateQueries({ queryKey: ['paymentAccounts', 'catalog'] }),
+            singleId
+                ? queryClient.invalidateQueries({ queryKey: ['paymentAccounts', 'single', singleId] })
+                : Promise.resolve(),
+        ]);
+
+        const refetches: Array<Promise<unknown>> = [];
+        if (isManage) {
+            refetches.push(accountsListQuery.refetch());
+        } else {
+            refetches.push(accountsCatalogQuery.refetch());
+        }
+
+        if (singleId && refetchSingle) {
+            refetches.push(queryClient.refetchQueries({ queryKey: ['paymentAccounts', 'single', singleId] }));
+        }
+
+        await Promise.all(refetches);
+    };
 
     useEffect(() => {
         if (!isValidRoute) {
@@ -290,11 +324,17 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
             RealtimeEvents.paymentAccounts.delete,
         ],
         onRefresh: () => {
-            void accountsListQuery.refetch();
+            if (isManage) {
+                void accountsListQuery.refetch();
+                return;
+            }
+
             void accountsCatalogQuery.refetch();
-            void editAccountQuery.refetch();
+            if (isEdit && editId) {
+                void editAccountQuery.refetch();
+            }
         },
-        intervalMs: 45000,
+        intervalMs: isConnected ? undefined : 45000,
         debounceMs: 500,
         enabled: isAuthorized && isUrlReady,
     });
@@ -354,7 +394,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
     }, [accountsCatalogQuery.data?.total, form, isAdd]);
 
     useEffect(() => {
-        if (!isEdit || !editId) return;
+        if (!editQueryEnabled || !editId) return;
 
         if (!editingAccount) {
             if (editAccountQuery.isLoading) return;
@@ -374,7 +414,7 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
         });
 
         setInitializedEditId(editId);
-    }, [editAccountQuery.isLoading, editId, editingAccount, form, initializedEditId, isEdit, router]);
+    }, [editAccountQuery.isLoading, editId, editQueryEnabled, editingAccount, form, initializedEditId, router]);
 
 
     const handleActivate = async (account: ShopPaymentAccount) => {
@@ -388,12 +428,11 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
         try {
             const csrfToken = await getCsrfTokenCached();
             await paymentAccountService.activate(account.id, undefined, undefined, csrfToken);
+            await refreshPaymentAccountQueries({
+                targetEditId: account.id,
+                refetchSingle: isEdit && editId === account.id,
+            });
             message.success(`ตั้ง "${account.account_name}" เป็นบัญชีหลักแล้ว`);
-            await Promise.all([
-                accountsListQuery.refetch(),
-                accountsCatalogQuery.refetch(),
-                editAccountQuery.refetch(),
-            ]);
         } catch (error) {
             console.error(error);
             message.error(getFriendlyErrorMessage(error, 'ไม่สามารถตั้งบัญชีหลักได้'));
@@ -428,11 +467,9 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
                 try {
                     const csrfToken = await getCsrfTokenCached();
                     await paymentAccountService.delete(account.id, undefined, undefined, csrfToken);
+                    queryClient.removeQueries({ queryKey: ['paymentAccounts', 'single', account.id] });
+                    await refreshPaymentAccountQueries({ targetEditId: account.id });
                     message.success(`ลบบัญชี "${account.account_name}" สำเร็จ`);
-                    await Promise.all([
-                        accountsListQuery.refetch(),
-                        accountsCatalogQuery.refetch(),
-                    ]);
 
                     if (isEdit) {
                         router.replace('/pos/settings/payment-accounts/manage');
@@ -490,17 +527,17 @@ export default function PaymentAccountManagementPage({ params }: { params: { mod
 
             if (isEdit && editId) {
                 await paymentAccountService.update(editId, payload, undefined, undefined, csrfToken);
+                await refreshPaymentAccountQueries({
+                    targetEditId: editId,
+                    refetchSingle: true,
+                });
                 message.success(`อัปเดตบัญชี "${payload.account_name}" สำเร็จ`);
             } else {
                 await paymentAccountService.create(payload, undefined, undefined, csrfToken);
+                await refreshPaymentAccountQueries();
                 message.success(`เพิ่มบัญชี "${payload.account_name}" สำเร็จ`);
             }
 
-            await Promise.all([
-                accountsListQuery.refetch(),
-                accountsCatalogQuery.refetch(),
-                editAccountQuery.refetch(),
-            ]);
             router.replace('/pos/settings/payment-accounts/manage');
         } catch (error) {
             console.error(error);

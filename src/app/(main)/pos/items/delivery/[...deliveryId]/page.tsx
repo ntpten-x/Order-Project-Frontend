@@ -30,6 +30,7 @@ import { useGlobalLoading } from "../../../../../../contexts/pos/GlobalLoadingCo
 import { useAuth } from "../../../../../../contexts/AuthContext";
 import { useSocket } from "../../../../../../hooks/useSocket";
 import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
+import { consumeOrderTransitionCache } from "../../../../../../utils/pos/orderTransitionCache";
 import { matchesRealtimeEntityPayload, useRealtimeRefresh } from "../../../../../../utils/pos/realtime";
 import { ORDER_REALTIME_EVENTS } from "../../../../../../utils/pos/orderRealtimeEvents";
 import { resolveImageSource } from "../../../../../../utils/image/source";
@@ -49,7 +50,7 @@ export default function POSDeliverySummaryPage() {
     const isAdminUser = user?.role === "Admin";
     const canCreatePayment = can("payments.page", "create");
     const canEditOrder = isAdminUser || can("orders.edit.feature", "access") || can("orders.page", "update");
-    const canCancelOrder = isAdminUser || can("orders.cancel.feature", "access") || can("orders.page", "delete");
+    const canCancelOrder = isAdminUser || can("orders.cancel.feature", "access");
 
     const [order, setOrder] = useState<SalesOrder | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -69,47 +70,74 @@ export default function POSDeliverySummaryPage() {
 
     const closeConfirm = () => setConfirmConfig(prev => ({ ...prev, open: false }));
 
+    const applyOrderData = useCallback((orderData: SalesOrder) => {
+        if (orderData.order_type !== OrderType.Delivery) {
+            messageApi.warning("รายการนี้ไม่ใช่ Order Delivery");
+            router.push(getOrderNavigationPath(orderData));
+            return false;
+        }
+
+        if (isPaidOrCompletedStatus(orderData.status)) {
+            router.push(`/pos/dashboard/${orderData.id}?from=payment`);
+            return false;
+        }
+
+        if (isCancelledStatus(orderData.status)) {
+            router.push(getCancelOrderNavigationPath(orderData.order_type));
+            return false;
+        }
+
+        if (!isWaitingForPaymentStatus(orderData.status)) {
+            router.push(`/pos/orders/${orderData.id}`);
+            return false;
+        }
+
+        setOrder(orderData);
+        return true;
+    }, [messageApi, router]);
+
     const fetchInitialData = useCallback(async () => {
         if (!deliveryId) return;
+        const warmedOrder = consumeOrderTransitionCache(deliveryId);
+        let shouldHideBlockingLoader = false;
+
         try {
-            setIsLoading(true);
-            showLoading("กำลังโหลดข้อมูลออเดอร์...");
+            if (warmedOrder) {
+                const canRenderWarmedOrder = applyOrderData(warmedOrder);
+                if (canRenderWarmedOrder) {
+                    setIsLoading(false);
+                }
+            } else {
+                setIsLoading(true);
+                showLoading("กำลังโหลดข้อมูลออเดอร์...");
+                shouldHideBlockingLoader = true;
+            }
 
             const [orderData, deliveryMethod] = await Promise.all([
                 ordersService.getById(deliveryId),
                 paymentMethodService.getByName('Delivery').catch(() => null)
             ]);
-            
-            if (orderData.order_type !== OrderType.Delivery) {
-                messageApi.warning("รายการนี้ไม่ใช่ Order Delivery");
-                router.push(getOrderNavigationPath(orderData));
+
+            const canRenderOrder = applyOrderData(orderData);
+            if (!canRenderOrder) {
                 return;
             }
 
-            if (isPaidOrCompletedStatus(orderData.status)) {
-                router.push(`/pos/dashboard/${orderData.id}?from=payment`);
-                return;
-            }
-
-            if (isCancelledStatus(orderData.status)) {
-                router.push(getCancelOrderNavigationPath(orderData.order_type));
-                return;
-            }
-
-            if (!isWaitingForPaymentStatus(orderData.status)) {
-                router.push(`/pos/orders/${orderData.id}`);
-                return;
-            }
-
-            setOrder(orderData);
             setHasDeliveryMethod(!!deliveryMethod);
+            setIsLoading(false);
+            if (shouldHideBlockingLoader) {
+                hideLoading();
+                shouldHideBlockingLoader = false;
+            }
         } catch {
             messageApi.error("ไม่สามารถโหลดข้อมูลออเดอร์ได้");
         } finally {
             setIsLoading(false);
-            hideLoading();
+            if (shouldHideBlockingLoader) {
+                hideLoading();
+            }
         }
-    }, [deliveryId, messageApi, router, showLoading, hideLoading]);
+    }, [applyOrderData, deliveryId, hideLoading, messageApi, showLoading]);
 
     useEffect(() => {
         if (deliveryId) {

@@ -125,24 +125,32 @@ async function main() {
     HTTPS_PROXY: "",
     ALL_PROXY: "",
   };
+  const backendTestEnv = {
+    ...baseEnv,
+    NODE_ENV: "test",
+  };
+  const backendRuntimeEnv = {
+    ...baseEnv,
+    NODE_ENV: process.env.POS_SIGNOFF_BACKEND_NODE_ENV || "production",
+  };
 
   console.log("[phase7] ensure e2e user");
   await runCommand("npm", ["--prefix", backendDir, "run", "ensure:e2e-user"], {
-    env: baseEnv,
+    env: backendTestEnv,
   });
 
   console.log("[phase7] run real DB POS flow");
   await runCommand("npm", ["--prefix", backendDir, "run", "test:integration:pos-flow"], {
-    env: baseEnv,
+    env: backendTestEnv,
   });
 
   console.log("[phase7] run realtime contract (multi-client coverage)");
   await runCommand("npm", ["--prefix", backendDir, "run", "test:realtime:contract"], {
-    env: baseEnv,
+    env: backendTestEnv,
   });
 
   const backendEnv = {
-    ...baseEnv,
+    ...backendRuntimeEnv,
     PORT: String(backendPort),
     E2E_USERNAME: process.env.E2E_USERNAME || "e2e_pos_admin",
     E2E_PASSWORD: process.env.E2E_PASSWORD || "E2E_Pos_123!",
@@ -161,6 +169,7 @@ async function main() {
     const e2eEnv = {
       ...baseEnv,
       CI: "1",
+      NODE_ENV: "development",
       E2E_PORT: String(frontendPort),
       E2E_WEB_SERVER_TIMEOUT: "240000",
       NEXT_PUBLIC_BACKEND_API: backendUrl,

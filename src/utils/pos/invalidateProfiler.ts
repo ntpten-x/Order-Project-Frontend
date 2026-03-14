@@ -1,6 +1,6 @@
 type InvalidateCounts = Record<string, number>;
 
-export interface InvalidateMetricsSnapshot {
+interface InvalidateMetricsSnapshot {
   requestedTotal: number;
   executedTotal: number;
   requestedByKey: InvalidateCounts;

@@ -39,6 +39,7 @@ import { orderDetailColors, orderDetailStyles } from "../../../../theme/pos/orde
 import { POSCategoryFilterBar } from "../../../../components/pos/shared/POSCategoryFilterBar";
 import { POSCartDrawer } from "../../../../components/pos/shared/POSCartDrawer";
 import { POSCheckoutDrawer } from "../../../../components/pos/shared/POSCheckoutDrawer";
+import { CartItemDetailModal } from "../../../../components/pos/shared/CartItemDetailModal";
 import { POSHeaderBar } from "../../../../components/pos/shared/POSHeaderBar";
 import { POSNoteModal } from "../../../../components/pos/shared/POSNoteModal";
 import { POSProductCard } from "../../../../components/pos/shared/POSProductCard";
@@ -50,6 +51,8 @@ import {
     posComponentStyles,
     posLayoutStyles,
 } from "../../../../components/pos/shared/style";
+import { OrderType } from "../../../../types/api/pos/salesOrder";
+import type { Topping } from "../../../../types/api/pos/topping";
 
 const { Text, Title } = Typography;
 
@@ -80,7 +83,7 @@ type CustomerOrderItem = {
     total_price: number;
     status: string;
     notes: string;
-    details?: { detail_name: string; extra_price: number }[];
+    details?: { id?: string; detail_name: string; extra_price: number; topping_id?: string | null }[];
 };
 
 type CustomerOrder = {
@@ -105,6 +108,7 @@ type BootstrapData = {
         shop_name: string;
     };
     menu: MenuCategory[];
+    toppings: Topping[];
     policy: {
         requires_customer_identity: boolean;
         can_customer_cancel: boolean;
@@ -134,6 +138,13 @@ type NoteEditorState = {
     id: string;
     name: string;
     note: string;
+};
+
+type DetailEditorState = {
+    id: string;
+    name: string;
+    product: Products;
+    details: { detail_name: string; extra_price: number; topping_id?: string }[];
 };
 
 type CustomerIdentity = {
@@ -391,6 +402,8 @@ export default function CustomerTakeawayOrderPage() {
     const [isNoteModalVisible, setIsNoteModalVisible] = React.useState(false);
     const [noteInput, setNoteInput] = React.useState("");
     const [currentNoteItem, setCurrentNoteItem] = React.useState<NoteEditorState | null>(null);
+    const [isDetailModalVisible, setIsDetailModalVisible] = React.useState(false);
+    const [currentDetailItem, setCurrentDetailItem] = React.useState<DetailEditorState | null>(null);
 
     const [isProductModalVisible, setIsProductModalVisible] = React.useState(false);
     const [selectedProduct, setSelectedProduct] = React.useState<Products | null>(null);
@@ -419,7 +432,14 @@ export default function CustomerTakeawayOrderPage() {
 
     const deferredSearchQuery = React.useDeferredValue(searchQuery);
     const cartSignature = React.useMemo(
-        () => cartItems.map((item) => `${item.product.id}:${item.quantity}:${item.notes || ""}`).join("|"),
+        () =>
+            cartItems
+                .map((item) =>
+                    `${item.product.id}:${item.quantity}:${item.notes || ""}:${(item.details || [])
+                        .map((detail) => `${detail.topping_id || detail.detail_name}:${Number(detail.extra_price || 0)}`)
+                        .join(",")}`,
+                )
+                .join("|"),
         [cartItems],
     );
     const hasIdentity = React.useMemo(
@@ -649,10 +669,18 @@ export default function CustomerTakeawayOrderPage() {
     }, [filteredProducts.length, page]);
 
     const getProductUnitPrice = React.useCallback((product: Products) => Number(product.price || 0), []);
+    const getCartItemLineTotal = React.useCallback((item: CartItem) => {
+        const unitPrice = Number(item.product.price || 0);
+        const detailsTotal = (item.details || []).reduce(
+            (sum, detail) => sum + Number(detail.extra_price || 0),
+            0,
+        );
+        return (unitPrice + detailsTotal) * item.quantity;
+    }, []);
     const totalItems = React.useMemo(() => cartItems.reduce((sum, item) => sum + item.quantity, 0), [cartItems]);
     const subtotal = React.useMemo(
-        () => cartItems.reduce((sum, item) => sum + Number(item.product.price || 0) * item.quantity, 0),
-        [cartItems],
+        () => cartItems.reduce((sum, item) => sum + getCartItemLineTotal(item), 0),
+        [cartItems, getCartItemLineTotal],
     );
     const shouldShowUnavailableState = !isLoading && (accessDenied || !bootstrap);
     const groupedCartItems = React.useMemo(() => groupOrderItems(cartItems), [cartItems]);
@@ -784,6 +812,21 @@ export default function CustomerTakeawayOrderPage() {
         setIsNoteModalVisible(false);
     }, []);
 
+    const openDetailModal = React.useCallback((item: CartItem) => {
+        setCurrentDetailItem({
+            id: item.cart_item_id,
+            name: item.product.display_name || "สินค้า",
+            product: item.product,
+            details: item.details || [],
+        });
+        setIsDetailModalVisible(true);
+    }, []);
+
+    const closeDetailModal = React.useCallback(() => {
+        setCurrentDetailItem(null);
+        setIsDetailModalVisible(false);
+    }, []);
+
     const handleSaveNote = React.useCallback(() => {
         if (!currentNoteItem) return;
 
@@ -798,6 +841,25 @@ export default function CustomerTakeawayOrderPage() {
         message.success("บันทึกหมายเหตุแล้ว");
         closeNoteModal();
     }, [closeNoteModal, currentNoteItem, message, noteInput]);
+
+    const handleSaveDetails = React.useCallback(
+        (details: { detail_name: string; extra_price: number; topping_id?: string }[]) => {
+            if (!currentDetailItem) return;
+
+            setCartItems((prev) =>
+                prev.map((item) =>
+                    item.cart_item_id === currentDetailItem.id
+                        ? {
+                              ...item,
+                              details,
+                          }
+                        : item,
+                ),
+            );
+            message.success("บันทึกรายละเอียดเพิ่มเติมแล้ว");
+        },
+        [currentDetailItem, message],
+    );
 
     const handleCheckout = React.useCallback(() => {
         if (!ensureIdentity()) return;
@@ -825,6 +887,11 @@ export default function CustomerTakeawayOrderPage() {
                     product_id: entry.product.id,
                     quantity: entry.quantity,
                     notes: entry.notes || "",
+                    details: (entry.details || [])
+                        .filter((detail) => detail.topping_id)
+                        .map((detail) => ({
+                            topping_id: String(detail.topping_id),
+                        })),
                 })),
             };
 
@@ -870,7 +937,7 @@ export default function CustomerTakeawayOrderPage() {
 
     const renderCartItem = React.useCallback(
         (item: CartItem) => {
-            const lineTotal = Number(item.product.price || 0) * item.quantity;
+            const lineTotal = getCartItemLineTotal(item);
             const imageSrc = resolveImageSource(item.product.img_url);
             const productName = item.product.display_name || "สินค้า";
             const categoryName = item.product.category?.display_name || "ทั่วไป";
@@ -932,6 +999,16 @@ export default function CustomerTakeawayOrderPage() {
                                 </div>
                             ) : null}
 
+                            {item.details && item.details.length > 0 ? (
+                                <div style={{ marginTop: 2, display: "flex", flexDirection: "column", gap: 0 }}>
+                                    {item.details.map((detail, index) => (
+                                        <Text key={`${detail.topping_id || detail.detail_name}-${index}`} style={{ fontSize: 13, color: "#10B981", lineHeight: 1.4 }}>
+                                            + {detail.detail_name} (+{formatPrice(Number(detail.extra_price || 0))})
+                                        </Text>
+                                    ))}
+                                </div>
+                            ) : null}
+
                             <div
                                 className="pos-cart-item-controls"
                                 style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 8 }}
@@ -972,6 +1049,15 @@ export default function CustomerTakeawayOrderPage() {
                                     />
                                     <Button
                                         type="text"
+                                        icon={<PlusOutlined />}
+                                        size="small"
+                                        className="pos-cart-icon-btn pos-cart-action-btn"
+                                        aria-label="เพิ่มท็อปปิ้ง"
+                                        onClick={() => openDetailModal(item)}
+                                        style={{ color: "#10b981", background: "#ecfdf5", borderRadius: 10 }}
+                                    />
+                                    <Button
+                                        type="text"
                                         danger
                                         icon={<DeleteOutlined />}
                                         size="small"
@@ -987,7 +1073,7 @@ export default function CustomerTakeawayOrderPage() {
                 </List.Item>
             );
         },
-        [openNoteModal, removeFromCart, updateQuantity],
+        [getCartItemLineTotal, openDetailModal, openNoteModal, removeFromCart, updateQuantity],
     );
 
 
@@ -1463,6 +1549,15 @@ export default function CustomerTakeawayOrderPage() {
                     onChange={setNoteInput}
                     onSave={handleSaveNote}
                     onCancel={closeNoteModal}
+                />
+
+                <CartItemDetailModal
+                    item={currentDetailItem}
+                    isOpen={isDetailModalVisible}
+                    onClose={closeDetailModal}
+                    onSave={handleSaveDetails}
+                    orderType={OrderType.TakeAway}
+                    toppingCatalog={bootstrap?.toppings ?? []}
                 />
 
                 <POSProductDetailModal

@@ -1,6 +1,6 @@
 import { loadPdfExport } from "../../lib/dynamic-imports";
 import { PrintDocumentSetting, PrintPreset, PrintUnit } from "../../types/api/pos/printSettings";
-import { downloadBlob, openBlobInWindow } from "../browser/download";
+import { downloadBlob } from "../browser/download";
 import { applyPresetToDocument } from "./defaults";
 import { buildTableQrExportCanvas } from "./tableQrExport";
 
@@ -942,6 +942,7 @@ export async function createTableQrPrintDocument(options: {
   <script>
     (function () {
       var objectUrl = ${JSON.stringify(objectUrl)};
+      var hasTriggeredAutoPrint = false;
       var frame = document.getElementById("preview-frame");
       var printButton = document.getElementById("print-button");
       var closeButton = document.getElementById("close-button");
@@ -957,9 +958,27 @@ export async function createTableQrPrintDocument(options: {
         window.print();
       };
 
+      var triggerAutoPrint = function () {
+        if (hasTriggeredAutoPrint) return;
+        hasTriggeredAutoPrint = true;
+        window.setTimeout(handlePrint, 180);
+      };
+
+      if (frame) {
+        frame.addEventListener("load", triggerAutoPrint, { once: true });
+        window.setTimeout(triggerAutoPrint, 1200);
+      } else {
+        window.setTimeout(triggerAutoPrint, 200);
+      }
+
       printButton && printButton.addEventListener("click", handlePrint);
       closeButton && closeButton.addEventListener("click", function () {
         window.close();
+      });
+      window.addEventListener("afterprint", function () {
+        window.setTimeout(function () {
+          try { window.close(); } catch (error) {}
+        }, 120);
       });
       window.addEventListener("beforeunload", function () {
         try { URL.revokeObjectURL(objectUrl); } catch (error) {}
@@ -1034,7 +1053,12 @@ export async function createTableQrPrintDocument(options: {
         },
         openInWindow(targetWindow, previewOptions) {
             if (previewPages.every((page) => Boolean(page.src))) {
-                openBlobInWindow(targetWindow, blob);
+                writePrintWindow({
+                    targetWindow,
+                    title: previewOptions?.title || "QR Print Preview",
+                    pageSizeCss: buildPageSizeCss(pageSetting),
+                    previewPages,
+                });
                 return;
             }
 
@@ -1192,3 +1216,4 @@ export async function createTableQrPrintDocument(options: {
         },
     };
 }
+

@@ -10,6 +10,7 @@ import { OrderType, SalesOrder } from "../../types/api/pos/salesOrder";
 import { Shift, ShiftSummary } from "../../types/api/pos/shifts";
 import { printSettingsService } from "../../services/pos/printSettings.service";
 import { ShopProfile, shopProfileService } from "../../services/pos/shopProfile.service";
+import { loadPdfExport } from "../../lib/dynamic-imports";
 import { groupOrderItems } from "../orderGrouping";
 import { resolveImageSource } from "../image/source";
 import { isCancelledStatus } from "../orders";
@@ -22,6 +23,8 @@ type PaymentWithMethod = Payments & {
 export type PrintShopProfile = ShopProfile & {
     tax_id?: string;
     logo_url?: string;
+    branch_name?: string;
+    branch_phone?: string;
 };
 
 export type PrintAutomationKey = keyof PrintAutomationSettings;
@@ -320,12 +323,17 @@ export function closePrintWindow(targetWindow?: Window | null): void {
     }
 }
 
-function buildPrintShellHtml(options: {
-    title: string;
-    setting: PrintDocumentSetting;
-    bodyMarkup: string;
-}): string {
-    const { title, setting, bodyMarkup } = options;
+export function shouldUseReceiptRollPdf(
+    setting: Pick<PrintDocumentSetting, "printer_profile" | "height_mode" | "height">
+): boolean {
+    return setting.printer_profile === "thermal" && (setting.height_mode === "auto" || setting.height == null);
+}
+
+function buildPrintRootMarkup(bodyMarkup: string): string {
+    return `<div class="print-root">${bodyMarkup}</div>`;
+}
+
+function buildPrintShellStyles(setting: PrintDocumentSetting): string {
     const pageSize = buildPageSizeCss(setting);
     const pageMargin = buildPageMarginCss(setting);
     const baseFontSize = getBaseFontSize(setting);
@@ -335,12 +343,7 @@ function buildPrintShellHtml(options: {
             ? toCssLength(getEffectiveSize(setting).width, setting.unit)
             : "100%";
 
-    return `<!doctype html>
-<html>
-<head>
-  <meta charset="utf-8" />
-  <title>${escapeHtml(title)}</title>
-  <style>
+    return `
     @page {
       size: ${pageSize};
       margin: ${pageMargin};
@@ -351,6 +354,7 @@ function buildPrintShellHtml(options: {
       --font-size-sm: ${Math.max(baseFontSize - 1.2, 9)}px;
       --font-size-lg: ${Number((baseFontSize * 1.18).toFixed(1))}px;
       --font-size-xl: ${Number((baseFontSize * 1.42).toFixed(1))}px;
+      --font-size-2xl: ${Number((baseFontSize * 1.8).toFixed(1))}px;
       --gap: ${sectionGap}px;
       --line-height: ${setting.line_spacing};
       --muted: #475569;
@@ -409,6 +413,14 @@ function buildPrintShellHtml(options: {
       font-weight: 800;
       font-size: var(--font-size-lg);
       margin: 0;
+    }
+    
+    .main-title {
+      font-weight: 900;
+      font-size: var(--font-size-2xl);
+      margin: 0;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
     }
 
     .text-center {
@@ -577,10 +589,25 @@ function buildPrintShellHtml(options: {
       display: grid;
       gap: 6px;
     }
-  </style>
+  `;
+}
+
+function buildPrintShellHtml(options: {
+    title: string;
+    setting: PrintDocumentSetting;
+    bodyMarkup: string;
+}): string {
+    const { title, setting, bodyMarkup } = options;
+
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${escapeHtml(title)}</title>
+  <style>${buildPrintShellStyles(setting)}</style>
 </head>
 <body>
-  <div class="print-root">${bodyMarkup}</div>
+  ${buildPrintRootMarkup(bodyMarkup)}
   <script>
     (function () {
       var afterPrint = function () {
@@ -610,6 +637,461 @@ function buildPrintShellHtml(options: {
   </script>
 </body>
 </html>`;
+}
+
+function sanitizeFilename(value: string): string {
+    const normalized = value.trim().replace(/[^\w.-]+/g, "-").replace(/-+/g, "-").replace(/^-+|-+$/g, "");
+    return normalized || "receipt";
+}
+
+function convertPrintUnitToPx(value: number, unit: PrintDocumentSetting["unit"]): number {
+    return unit === "mm" ? (value * 96) / 25.4 : value * 96;
+}
+
+function dataUrlFromBlob(blob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = () => reject(reader.error || new Error("Unable to read blob"));
+        reader.onload = () => resolve(String(reader.result || ""));
+        reader.readAsDataURL(blob);
+    });
+}
+
+async function inlineRenderImages(root: HTMLElement): Promise<void> {
+    const images = Array.from(root.querySelectorAll("img"));
+    await Promise.all(
+        images.map(async (image) => {
+            const source = image.getAttribute("src");
+            if (!source || source.startsWith("data:")) return;
+
+            try {
+                const response = await fetch(source, {
+                    credentials: "include",
+                    mode: "cors",
+                });
+                if (!response.ok) throw new Error(`Unable to load image: ${source}`);
+                image.src = await dataUrlFromBlob(await response.blob());
+            } catch {
+                image.remove();
+            }
+        })
+    );
+}
+
+async function waitForPrintLayout(root: HTMLElement): Promise<void> {
+    try {
+        await document.fonts?.ready;
+    } catch {
+        // Ignore font readiness failures and continue with the default fallback stack.
+    }
+
+    const images = Array.from(root.querySelectorAll("img"));
+    await Promise.all(
+        images.map(
+            (image) =>
+                new Promise<void>((resolve) => {
+                    if (image.complete) {
+                        resolve();
+                        return;
+                    }
+                    const done = () => resolve();
+                    image.addEventListener("load", done, { once: true });
+                    image.addEventListener("error", done, { once: true });
+                    window.setTimeout(done, 1200);
+                })
+        )
+    );
+
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+    await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+}
+
+function openPdfPreviewWindow(options: {
+    targetWindow: Window;
+    title: string;
+    filename: string;
+    blob: Blob;
+    autoPrint?: boolean;
+    previewPage?: {
+        src: string;
+        width: number;
+        height: number;
+        unit: PrintDocumentSetting["unit"];
+    };
+}): void {
+    const objectUrl = URL.createObjectURL(options.blob);
+    const html = buildPdfPreviewWindowHtml({
+        title: options.title,
+        filename: options.filename,
+        objectUrl,
+        autoPrint: options.autoPrint,
+        previewPage: options.previewPage,
+    });
+
+    options.targetWindow.document.open();
+    options.targetWindow.document.write(html);
+    options.targetWindow.document.close();
+}
+
+export function buildPdfPreviewWindowHtml(options: {
+    title: string;
+    filename: string;
+    objectUrl: string;
+    autoPrint?: boolean;
+    previewPage?: {
+        src: string;
+        width: number;
+        height: number;
+        unit: PrintDocumentSetting["unit"];
+    };
+}): string {
+    const previewTitle = escapeHtml(options.title);
+    const downloadName = escapeHtml(options.filename);
+    const objectUrl = options.objectUrl;
+    const autoPrint = options.autoPrint !== false;
+    const previewDescription = options.previewPage
+        ? "Preview before printing"
+        : "Receipt roll preview";
+    const previewContent = options.previewPage
+        ? `<section class="preview-page-shell" style="--page-width:${toCssLength(options.previewPage.width, options.previewPage.unit)};--page-height:${toCssLength(options.previewPage.height, options.previewPage.unit)}">
+    <img id="preview-image" class="preview-image" src="${escapeHtml(options.previewPage.src)}" alt="${previewTitle}" />
+  </section>`
+        : `<iframe id="preview-frame" class="preview-frame" src="${objectUrl}" title="${previewTitle}"></iframe>`;
+
+    return `<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>${previewTitle}</title>
+  <style>
+    :root {
+      --surface: #ffffff;
+      --surface-alt: #f8fafc;
+      --border: #dbe2ea;
+      --ink: #0f172a;
+      --muted: #475569;
+      --brand: #2563eb;
+      --brand-dark: #1d4ed8;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      height: 100%;
+      font-family: "Noto Sans Thai", Tahoma, sans-serif;
+      color: var(--ink);
+      background: var(--surface-alt);
+    }
+    body {
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      background: rgba(255, 255, 255, 0.98);
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+    .title-wrap h1 {
+      margin: 0;
+      font-size: 18px;
+    }
+    .title-wrap p {
+      margin: 4px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+    .button,
+    .button:visited {
+      appearance: none;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--ink);
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 700;
+      text-decoration: none;
+      cursor: pointer;
+    }
+    .button-primary {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: #ffffff;
+    }
+    .button-primary:hover {
+      background: var(--brand-dark);
+      border-color: var(--brand-dark);
+    }
+    .preview-shell {
+      padding: 16px;
+      min-height: 0;
+      display: grid;
+      gap: 16px;
+    }
+    .preview-page-shell {
+      width: min(100%, 980px);
+      margin: 0 auto;
+      background: #ffffff;
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      box-shadow: 0 20px 48px rgba(15, 23, 42, 0.08);
+      overflow: hidden;
+    }
+    .preview-image {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+    .preview-frame {
+      width: 100%;
+      height: calc(100vh - 110px);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      background: #ffffff;
+      box-shadow: 0 20px 48px rgba(15, 23, 42, 0.08);
+    }
+    @media print {
+      .toolbar { display: none; }
+      .preview-shell {
+        padding: 0;
+        display: block;
+      }
+      .preview-page-shell {
+        width: var(--page-width);
+        min-height: var(--page-height);
+        margin: 0 auto;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+        break-after: page;
+        page-break-after: always;
+      }
+      .preview-page-shell:last-child {
+        break-after: auto;
+        page-break-after: auto;
+      }
+      .preview-image {
+        width: 100%;
+      }
+      .preview-frame {
+        height: auto;
+        min-height: 100vh;
+        border: 0;
+        border-radius: 0;
+        box-shadow: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="toolbar">
+    <div class="title-wrap">
+      <h1>${previewTitle}</h1>
+      <p>${previewDescription}</p>
+    </div>
+    <div class="actions">
+      <button id="print-button" class="button button-primary" type="button">Print</button>
+      <a class="button" href="${objectUrl}" download="${downloadName}">Download PDF</a>
+      <button id="close-button" class="button" type="button">Close</button>
+    </div>
+  </div>
+  <div class="preview-shell">
+    ${previewContent}
+  </div>
+  <script>
+    (function () {
+      var objectUrl = ${JSON.stringify(objectUrl)};
+      var shouldAutoPrint = ${JSON.stringify(autoPrint)};
+      var frame = document.getElementById("preview-frame");
+      var previewImage = document.getElementById("preview-image");
+      var printButton = document.getElementById("print-button");
+      var closeButton = document.getElementById("close-button");
+      var hasTriggeredAutoPrint = false;
+
+      var handlePrint = function () {
+        try {
+          if (frame && frame.contentWindow) {
+            frame.contentWindow.focus();
+            frame.contentWindow.print();
+            return;
+          }
+        } catch (error) {}
+        window.focus();
+        window.print();
+      };
+
+      var waitForPreviewImage = function () {
+        if (!previewImage) return Promise.resolve();
+        if (previewImage.complete) return Promise.resolve();
+        return new Promise(function (resolve) {
+          var done = function () { resolve(); };
+          previewImage.addEventListener("load", done, { once: true });
+          previewImage.addEventListener("error", done, { once: true });
+          window.setTimeout(done, 1200);
+        });
+      };
+
+      var triggerAutoPrint = function () {
+        if (!shouldAutoPrint || hasTriggeredAutoPrint) return;
+        hasTriggeredAutoPrint = true;
+        waitForPreviewImage().finally(function () {
+          window.setTimeout(handlePrint, 180);
+        });
+      };
+
+      if (frame) {
+        frame.addEventListener("load", triggerAutoPrint, { once: true });
+        window.setTimeout(triggerAutoPrint, 1200);
+      } else if (previewImage && !previewImage.complete) {
+        previewImage.addEventListener("load", triggerAutoPrint, { once: true });
+        previewImage.addEventListener("error", triggerAutoPrint, { once: true });
+        window.setTimeout(triggerAutoPrint, 1200);
+      } else {
+        window.setTimeout(triggerAutoPrint, 200);
+      }
+
+      printButton && printButton.addEventListener("click", handlePrint);
+      closeButton && closeButton.addEventListener("click", function () {
+        window.close();
+      });
+      window.addEventListener("afterprint", function () {
+        window.setTimeout(function () {
+          try { window.close(); } catch (error) {}
+        }, 120);
+      });
+      window.addEventListener("beforeunload", function () {
+        try { URL.revokeObjectURL(objectUrl); } catch (error) {}
+      });
+    })();
+  </script>
+</body>
+</html>`;
+}
+
+async function writeReceiptRollPdfDocument(options: {
+    title: string;
+    setting: PrintDocumentSetting;
+    bodyMarkup: string;
+    targetWindow?: Window | null;
+    filename?: string;
+}): Promise<void> {
+    const targetWindow = options.targetWindow ?? reservePrintWindow(options.title);
+    if (!targetWindow) {
+        throw new Error("Popup blocked. Please allow popups to print.");
+    }
+
+    const host = document.createElement("div");
+    const effectiveSize = getEffectiveSize(options.setting);
+    const renderWidthPx = Math.max(240, Math.ceil(convertPrintUnitToPx(effectiveSize.width, options.setting.unit)));
+    host.setAttribute("aria-hidden", "true");
+    host.style.position = "fixed";
+    host.style.left = "-10000px";
+    host.style.top = "0";
+    host.style.zIndex = "-1";
+    host.style.width = `${renderWidthPx}px`;
+    host.style.background = "#ffffff";
+    host.style.pointerEvents = "none";
+    host.innerHTML = `<style>${buildPrintShellStyles(options.setting)}</style>${buildPrintRootMarkup(options.bodyMarkup)}`;
+
+    try {
+        document.body.appendChild(host);
+        const root = host.querySelector(".print-root") as HTMLElement | null;
+        if (!root) {
+            throw new Error("Unable to prepare receipt print preview.");
+        }
+
+        root.style.width = `${renderWidthPx}px`;
+        root.style.padding = "0";
+
+        const pages = Array.from(root.querySelectorAll<HTMLElement>(".page"));
+        pages.forEach((page) => {
+            page.style.width = "100%";
+            page.style.margin = "0";
+            page.style.breakAfter = "auto";
+            page.style.pageBreakAfter = "auto";
+        });
+
+        await inlineRenderImages(root);
+        await waitForPrintLayout(root);
+
+        const renderHeightPx = Math.max(
+            Math.ceil(root.scrollHeight),
+            Math.ceil(root.getBoundingClientRect().height)
+        );
+        const renderWidth = Math.max(1, Math.ceil(root.scrollWidth || renderWidthPx));
+        const pixelBudget = 24_000_000;
+        const scaleBudget = Math.sqrt(pixelBudget / Math.max(renderWidth * renderHeightPx, 1));
+        const scale = Math.max(1, Math.min(2, Number.isFinite(scaleBudget) ? scaleBudget : 1));
+
+        const [{ default: html2canvas }, { default: JsPdfCtor }] = await Promise.all([
+            import("html2canvas"),
+            loadPdfExport(),
+        ]);
+
+        const canvas = await html2canvas(root, {
+            backgroundColor: "#ffffff",
+            logging: false,
+            scale,
+            useCORS: true,
+            width: renderWidth,
+            height: renderHeightPx,
+            windowWidth: renderWidth,
+            windowHeight: renderHeightPx,
+            scrollX: 0,
+            scrollY: 0,
+        });
+
+        const pageHeight = Number(((canvas.height / canvas.width) * effectiveSize.width).toFixed(2));
+        const doc = new JsPdfCtor({
+            orientation: "portrait",
+            unit: options.setting.unit,
+            format: [effectiveSize.width, Math.max(pageHeight, 20)],
+        });
+
+        const previewImageSrc = canvas.toDataURL("image/png");
+
+        doc.addImage(
+            previewImageSrc,
+            "PNG",
+            0,
+            0,
+            effectiveSize.width,
+            Math.max(pageHeight, 20),
+            undefined,
+            "FAST"
+        );
+
+        openPdfPreviewWindow({
+            targetWindow,
+            title: options.title,
+            filename: options.filename || `${sanitizeFilename(options.title)}.pdf`,
+            blob: doc.output("blob"),
+            autoPrint: true,
+            previewPage: {
+                src: previewImageSrc,
+                width: effectiveSize.width,
+                height: Math.max(pageHeight, 20),
+                unit: options.setting.unit,
+            },
+        });
+    } catch (error) {
+        closePrintWindow(targetWindow);
+        throw error;
+    } finally {
+        host.remove();
+    }
 }
 
 function writeAndPrintDocument(options: {
@@ -644,23 +1126,26 @@ function buildBrandMarkup(options: {
     setting: Pick<PrintDocumentSetting, "show_logo" | "show_branch_address">;
 }): string {
     const shopProfile = options.shopProfile;
-    if (!shopProfile?.shop_name && !shopProfile?.address && !shopProfile?.phone && !shopProfile?.tax_id && !shopProfile?.logo_url) {
-        return "";
-    }
-
     const logoUrl = options.setting.show_logo ? resolveImageSource(shopProfile?.logo_url) : null;
     const showMeta = options.setting.show_branch_address;
+    const branchName = shopProfile?.branch_name || shopProfile?.shop_name || "POS Shop";
+
+    if (!branchName && !shopProfile?.address && !shopProfile?.phone && !shopProfile?.tax_id && !shopProfile?.logo_url) {
+        return "";
+    }
+    const branchPhone = shopProfile?.branch_phone || shopProfile?.phone;
+
     const metaLines = [
         showMeta && shopProfile?.address ? `<div class="brand-meta">${escapeHtml(shopProfile.address)}</div>` : "",
-        showMeta && shopProfile?.phone ? `<div class="brand-meta">โทร ${escapeHtml(shopProfile.phone)}</div>` : "",
+        showMeta && branchPhone ? `<div class="brand-meta">โทร ${escapeHtml(branchPhone)}</div>` : "",
         showMeta && shopProfile?.tax_id ? `<div class="brand-meta">เลขผู้เสียภาษี ${escapeHtml(shopProfile.tax_id)}</div>` : "",
     ]
         .filter(Boolean)
         .join("");
 
-    return `<header class="section text-center">
-        ${logoUrl ? `<img class="brand-logo" src="${escapeHtml(logoUrl)}" alt="Shop logo" />` : ""}
-        ${shopProfile?.shop_name ? `<div class="brand-name">${escapeHtml(shopProfile.shop_name)}</div>` : ""}
+    return `<header class="section text-center" style="gap: 4px;">
+        ${logoUrl ? `<img class="brand-logo" src="${escapeHtml(logoUrl)}" alt="Shop logo" style="margin-bottom: 4px;" />` : ""}
+        <div class="brand-name" style="font-size: var(--font-size-lg);">${escapeHtml(branchName)}</div>
         ${metaLines}
     </header>`;
 }
@@ -680,85 +1165,82 @@ function buildReceiptMarkup(options: {
 
     const itemMarkup = items.length
         ? items
-              .map((item) => {
-                  const modifiers = (item.details || [])
-                      .map((detail) => {
-                          const extraPrice = toNumber(detail.extra_price);
-                          return `<div class="mod-line">+ ${escapeHtml(detail.detail_name)}${
-                              extraPrice > 0 ? ` (${escapeHtml(formatMoney(extraPrice, locale))})` : ""
-                          }</div>`;
-                      })
-                      .join("");
+            .map((item) => {
+                const modifiers = (item.details || [])
+                    .map((detail) => {
+                        const extraPrice = toNumber(detail.extra_price);
+                        return `<div class="mod-line">+ ${escapeHtml(detail.detail_name)}${extraPrice > 0 ? ` (${escapeHtml(formatMoney(extraPrice, locale))})` : ""
+                            }</div>`;
+                    })
+                    .join("");
 
-                  return `<article class="item-card">
+                return `<article class="item-card">
                     <div class="row">
                       <div style="flex: 1; min-width: 0;">
                         <div class="item-name">${escapeHtml(
-                            item.product?.display_name || "สินค้า"
-                        )}</div>
+                    item.product?.display_name || "สินค้า"
+                )}</div>
                         <div class="item-meta">${escapeHtml(
-                            `${toNumber(item.quantity).toLocaleString(locale)} x ${formatMoney(item.price, locale)}`
-                        )}</div>
+                    `${toNumber(item.quantity).toLocaleString(locale)} x ${formatMoney(item.price, locale)}`
+                )}</div>
                       </div>
                       <div class="value">${escapeHtml(formatMoney(item.total_price, locale))}</div>
                     </div>
                     ${modifiers}
                     ${item.notes ? `<div class="item-note">หมายเหตุ: ${escapeHtml(item.notes)}</div>` : ""}
                   </article>`;
-              })
-              .join("")
+            })
+            .join("")
         : `<div class="muted">ไม่พบรายการสินค้า</div>`;
 
     const paymentMarkup = payments.length
         ? payments
-              .map(
-                  (payment) => `<div class="row">
+            .map(
+                (payment) => `<div class="row">
                 <div class="label">${escapeHtml(
                     payment.payment_method?.display_name ||
-                        payment.payment_method?.payment_method_name ||
-                        "ไม่ระบุวิธีชำระเงิน"
+                    payment.payment_method?.payment_method_name ||
+                    "ไม่ระบุวิธีชำระเงิน"
                 )}</div>
                 <div class="value">${escapeHtml(formatMoney(payment.amount, locale))}</div>
               </div>`
-              )
-              .join("")
+            )
+            .join("")
         : `<div class="muted">ยังไม่มีข้อมูลการชำระเงิน</div>`;
 
     const metaMarkup = setting.show_order_meta
         ? `<section class="section">
             <div class="row"><div class="label">เลขที่ออเดอร์</div><div class="value">#${escapeHtml(order.order_no)}</div></div>
             <div class="row"><div class="label">วันที่</div><div class="value">${escapeHtml(
-                formatDateTime(order.create_date, locale)
-            )}</div></div>
+            formatDateTime(order.create_date, locale)
+        )}</div></div>
             <div class="row"><div class="label">ประเภท</div><div class="value">${escapeHtml(
-                getOrderTypeLabel(order.order_type)
-            )}</div></div>
-            ${
-                order.order_type === OrderType.DineIn && order.table?.table_name
-                    ? `<div class="row"><div class="label">โต๊ะ</div><div class="value">${escapeHtml(
-                          order.table.table_name
-                      )}</div></div>`
-                    : ""
-            }
-            ${
-                order.order_type === OrderType.Delivery && order.delivery_code
-                    ? `<div class="row"><div class="label">รหัสจัดส่ง</div><div class="value">${escapeHtml(
-                          order.delivery_code
-                      )}</div></div>`
-                    : ""
-            }
+            getOrderTypeLabel(order.order_type)
+        )}</div></div>
+            ${order.order_type === OrderType.DineIn && order.table?.table_name
+            ? `<div class="row"><div class="label">โต๊ะ</div><div class="value">${escapeHtml(
+                order.table.table_name
+            )}</div></div>`
+            : ""
+        }
+            ${order.order_type === OrderType.Delivery && order.delivery_code
+            ? `<div class="row"><div class="label">รหัสจัดส่ง</div><div class="value">${escapeHtml(
+                order.delivery_code
+            )}</div></div>`
+            : ""
+        }
             <div class="row"><div class="label">พนักงาน</div><div class="value">${escapeHtml(
-                order.created_by?.name || order.created_by?.username || "-"
-            )}</div></div>
+            order.created_by?.name || order.created_by?.username || "-"
+        )}</div></div>
           </section>`
         : "";
 
     return renderDocumentPages(
         `<div class="stack">
-            ${buildBrandMarkup({ shopProfile, setting })}
-            <section class="section text-center">
-                <div class="section-title">ใบเสร็จรับเงิน</div>
+            <section class="section text-center" style="gap: 0; margin-bottom: 4px;">
+                <div class="main-title">ใบเสร็จรับเงิน</div>
             </section>
+            ${buildBrandMarkup({ shopProfile, setting })}
             ${metaMarkup}
             <div class="divider"></div>
             <section class="section">
@@ -771,24 +1253,21 @@ function buildReceiptMarkup(options: {
             <div class="divider"></div>
             <section class="section">
                 <div class="row"><div class="label">รวมก่อนส่วนลด</div><div class="value">${escapeHtml(
-                    formatMoney(order.sub_total, locale)
-                )}</div></div>
-                ${
-                    toNumber(order.discount_amount) > 0
-                        ? `<div class="row"><div class="label">ส่วนลด ${
-                              escapeHtml(order.discount?.display_name || "")
-                          }</div><div class="value">-${escapeHtml(
-                              formatMoney(order.discount_amount, locale)
-                          )}</div></div>`
-                        : ""
-                }
-                ${
-                    toNumber(order.vat) > 0
-                        ? `<div class="row"><div class="label">VAT</div><div class="value">${escapeHtml(
-                              formatMoney(order.vat, locale)
-                          )}</div></div>`
-                        : ""
-                }
+            formatMoney(order.sub_total, locale)
+        )}</div></div>
+                ${toNumber(order.discount_amount) > 0
+            ? `<div class="row"><div class="label">ส่วนลด ${escapeHtml(order.discount?.display_name || "")
+            }</div><div class="value">-${escapeHtml(
+                formatMoney(order.discount_amount, locale)
+            )}</div></div>`
+            : ""
+        }
+                ${toNumber(order.vat) > 0
+            ? `<div class="row"><div class="label">VAT</div><div class="value">${escapeHtml(
+                formatMoney(order.vat, locale)
+            )}</div></div>`
+            : ""
+        }
                 <div class="row" style="padding-top: 6px; border-top: 1px solid #e2e8f0;">
                     <div class="section-title" style="font-size: var(--font-size-lg);">ยอดสุทธิ</div>
                     <div class="metric-value">${escapeHtml(formatMoney(order.total_amount, locale))}</div>
@@ -799,35 +1278,32 @@ function buildReceiptMarkup(options: {
                 <div class="section-title" style="font-size: var(--font-size);">การชำระเงิน</div>
                 ${paymentMarkup}
                 <div class="row"><div class="label">รวมชำระ</div><div class="value">${escapeHtml(
-                    formatMoney(paymentTotal, locale)
-                )}</div></div>
-                ${
-                    toNumber(order.received_amount) > 0
-                        ? `<div class="row"><div class="label">รับเงิน</div><div class="value">${escapeHtml(
-                              formatMoney(order.received_amount, locale)
-                          )}</div></div>`
-                        : ""
-                }
-                ${
-                    toNumber(order.change_amount) > 0
-                        ? `<div class="row"><div class="label">เงินทอน</div><div class="value">${escapeHtml(
-                              formatMoney(order.change_amount, locale)
-                          )}</div></div>`
-                        : ""
-                }
+            formatMoney(paymentTotal, locale)
+        )}</div></div>
+                ${toNumber(order.received_amount) > 0
+            ? `<div class="row"><div class="label">รับเงิน</div><div class="value">${escapeHtml(
+                formatMoney(order.received_amount, locale)
+            )}</div></div>`
+            : ""
+        }
+                ${toNumber(order.change_amount) > 0
+            ? `<div class="row"><div class="label">เงินทอน</div><div class="value">${escapeHtml(
+                formatMoney(order.change_amount, locale)
+            )}</div></div>`
+            : ""
+        }
             </section>
-            ${
-                setting.show_footer
-                    ? `<div class="divider"></div>
+            ${setting.show_footer
+            ? `<div class="divider"></div>
                        <section class="section text-center">
                            <div style="font-weight: 800;">ขอบคุณที่ใช้บริการ</div>
                            <div class="footer-note">จำนวนสินค้ารวม ${escapeHtml(
-                               totalQty.toLocaleString(locale)
-                           )} ชิ้น</div>
+                totalQty.toLocaleString(locale)
+            )} ชิ้น</div>
                            <div class="footer-note">พิมพ์เมื่อ ${escapeHtml(formatDateTime(new Date(), locale))}</div>
                        </section>`
-                    : ""
-            }
+            : ""
+        }
             ${setting.note ? `<div class="footer-note text-center">${escapeHtml(setting.note)}</div>` : ""}
         </div>`,
         setting.copies
@@ -865,62 +1341,62 @@ function buildShiftSummaryMarkup(options: {
 
     const paymentMarkup = paymentMethods.length
         ? paymentMethods
-              .map(
-                  ([method, amount]) => `<div class="row">
+            .map(
+                ([method, amount]) => `<div class="row">
                 <div class="label">${escapeHtml(method)}</div>
                 <div class="value">${escapeHtml(formatMoney(amount, locale))}</div>
             </div>`
-              )
-              .join("")
+            )
+            .join("")
         : `<div class="muted">ไม่พบข้อมูลวิธีชำระเงิน</div>`;
 
     const orderTypeMarkup = orderTypes.length
         ? orderTypes
-              .map(
-                  ([orderType, amount]) => `<div class="row">
+            .map(
+                ([orderType, amount]) => `<div class="row">
                 <div class="label">${escapeHtml(getOrderTypeLabel(orderType))}</div>
                 <div class="value">${escapeHtml(formatMoney(amount, locale))}</div>
             </div>`
-              )
-              .join("")
+            )
+            .join("")
         : `<div class="muted">ไม่พบข้อมูลช่องทางขาย</div>`;
 
     const topProductsMarkup = summary.top_products.length
         ? summary.top_products
-              .map(
-                  (item, index) => `<li>
+            .map(
+                (item, index) => `<li>
                 <strong>${escapeHtml(`${index + 1}. ${item.name}`)}</strong>
                 <span class="muted"> ${escapeHtml(
                     `${toNumber(item.quantity).toLocaleString(locale)} ${item.unit || "หน่วย"}`
                 )}</span>
                 <span class="value" style="display: block;">${escapeHtml(formatMoney(item.revenue, locale))}</span>
             </li>`
-              )
-              .join("")
+            )
+            .join("")
         : `<div class="muted">ไม่พบข้อมูลสินค้าขายดี</div>`;
 
     const categoriesMarkup = categories.length
         ? categories
-              .map(
-                  ([category, qty]) => `<div class="row">
+            .map(
+                ([category, qty]) => `<div class="row">
                 <div class="label">${escapeHtml(category)}</div>
                 <div class="value">${escapeHtml(toNumber(qty).toLocaleString(locale))}</div>
             </div>`
-              )
-              .join("")
+            )
+            .join("")
         : `<div class="muted">ไม่พบข้อมูลหมวดสินค้า</div>`;
 
     const shiftMetaRows = [
         shift?.id ? `<div class="row"><div class="label">รหัสกะ</div><div class="value">${escapeHtml(shift.id)}</div></div>` : "",
         shift?.open_time
             ? `<div class="row"><div class="label">เวลาเปิดกะ</div><div class="value">${escapeHtml(
-                  formatDateTime(shift.open_time, locale)
-              )}</div></div>`
+                formatDateTime(shift.open_time, locale)
+            )}</div></div>`
             : "",
         shift?.close_time
             ? `<div class="row"><div class="label">เวลาปิดกะ</div><div class="value">${escapeHtml(
-                  formatDateTime(shift.close_time, locale)
-              )}</div></div>`
+                formatDateTime(shift.close_time, locale)
+            )}</div></div>`
             : "",
     ]
         .filter(Boolean)
@@ -933,14 +1409,13 @@ function buildShiftSummaryMarkup(options: {
                 <div class="section-title">สรุปปิดกะ</div>
                 <div class="muted">พิมพ์เมื่อ ${escapeHtml(formatDateTime(new Date(), locale))}</div>
             </section>
-            ${
-                shiftMetaRows
-                    ? `<section class="section panel">
+            ${shiftMetaRows
+            ? `<section class="section panel">
                         <div class="section-title" style="font-size: var(--font-size);">ข้อมูลกะ</div>
                         ${shiftMetaRows}
                       </section>`
-                    : ""
-            }
+            : ""
+        }
             <section class="grid">${metricCards}</section>
             <section class="panel section">
                 <div class="section-title" style="font-size: var(--font-size);">ยอดขายตามวิธีชำระเงิน</div>
@@ -952,11 +1427,10 @@ function buildShiftSummaryMarkup(options: {
             </section>
             <section class="panel section">
                 <div class="section-title" style="font-size: var(--font-size);">สินค้าขายดี</div>
-                ${
-                    summary.top_products.length
-                        ? `<ol class="list">${topProductsMarkup}</ol>`
-                        : topProductsMarkup
-                }
+                ${summary.top_products.length
+            ? `<ol class="list">${topProductsMarkup}</ol>`
+            : topProductsMarkup
+        }
             </section>
             <section class="panel section">
                 <div class="section-title" style="font-size: var(--font-size);">หมวดสินค้าขายออก</div>
@@ -994,18 +1468,16 @@ function buildLegacyTableQrMarkup(options: {
                 <div class="section">
                     ${urlLines.map((line) => `<div class="url-line">${escapeHtml(line)}</div>`).join("")}
                 </div>
-                ${
-                    qrCodeExpiresAt
-                        ? `<div class="footer-note">หมดอายุ ${escapeHtml(
-                              formatDateTime(qrCodeExpiresAt, locale)
-                          )}</div>`
-                        : ""
-                }
-                ${
-                    setting.show_footer
-                        ? `<div class="footer-note">สร้างเมื่อ ${escapeHtml(formatDateTime(new Date(), locale))}</div>`
-                        : ""
-                }
+                ${qrCodeExpiresAt
+            ? `<div class="footer-note">หมดอายุ ${escapeHtml(
+                formatDateTime(qrCodeExpiresAt, locale)
+            )}</div>`
+            : ""
+        }
+                ${setting.show_footer
+            ? `<div class="footer-note">สร้างเมื่อ ${escapeHtml(formatDateTime(new Date(), locale))}</div>`
+            : ""
+        }
                 ${setting.note ? `<div class="footer-note">${escapeHtml(setting.note)}</div>` : ""}
             </section>
         </div>`,
@@ -1076,14 +1548,28 @@ export async function printReceiptDocument(options: {
         return false;
     }
 
+    const title = `Receipt #${options.order.order_no || ""}`.trim();
+    const bodyMarkup = buildReceiptMarkup({
+        order: options.order,
+        settings,
+        shopProfile,
+    });
+
+    if (shouldUseReceiptRollPdf(documentSetting)) {
+        await writeReceiptRollPdfDocument({
+            title,
+            setting: documentSetting,
+            bodyMarkup,
+            targetWindow: options.targetWindow,
+            filename: `receipt-${sanitizeFilename(options.order.order_no || "order")}.pdf`,
+        });
+        return true;
+    }
+
     writeAndPrintDocument({
-        title: `Receipt #${options.order.order_no || ""}`.trim(),
+        title,
         setting: documentSetting,
-        bodyMarkup: buildReceiptMarkup({
-            order: options.order,
-            settings,
-            shopProfile,
-        }),
+        bodyMarkup,
         targetWindow: options.targetWindow,
     });
 

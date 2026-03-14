@@ -43,7 +43,7 @@ interface EditableItem {
     ingredient_id: string;
     quantity_ordered: number;
     display_name: string;
-    unit_name: string;
+    unit_label: string;
     img_url?: string | null;
 }
 
@@ -53,7 +53,7 @@ function mapOrderItems(order: Order | null): EditableItem[] {
             ingredient_id: item.ingredient_id,
             quantity_ordered: Number(item.quantity_ordered || 1),
             display_name: item.ingredient?.display_name || "-",
-            unit_name: item.ingredient?.unit?.display_name || "หน่วย",
+            unit_label: item.ingredient?.unit?.display_name || "หน่วย",
             img_url: item.ingredient?.img_url,
         })) ?? []
     );
@@ -68,6 +68,28 @@ function formatDateTime(value?: string): string {
         hour: "2-digit",
         minute: "2-digit",
     });
+}
+
+async function fetchActiveIngredients(): Promise<Ingredients[]> {
+    const pageSize = 200;
+    let currentPage = 1;
+    let lastPage = 1;
+    const merged: Ingredients[] = [];
+
+    do {
+        const params = new URLSearchParams({
+            page: String(currentPage),
+            limit: String(pageSize),
+            status: "active",
+            sort_created: "new",
+        });
+        const response = await ingredientsService.findAllPaginated(undefined, params);
+        merged.push(...response.data);
+        lastPage = Math.max(response.last_page || 1, 1);
+        currentPage += 1;
+    } while (currentPage <= lastPage);
+
+    return merged;
 }
 
 export default function EditOrderModal({ order, open, onClose, onSuccess }: EditOrderModalProps) {
@@ -96,7 +118,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
             setLoadingIngredients(true);
             try {
                 const token = await authService.getCsrfToken();
-                const data = await ingredientsService.findAll();
+                const data = await fetchActiveIngredients();
                 if (!mounted) return;
                 setCsrfToken(token);
                 setIngredients(data.filter((item) => item.is_active));
@@ -134,7 +156,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                 ingredient_id: ingredient.id,
                 quantity_ordered: 1,
                 display_name: ingredient.display_name,
-                unit_name: ingredient.unit?.display_name || "หน่วย",
+                unit_label: ingredient.unit?.display_name || "หน่วย",
                 img_url: ingredient.img_url,
             },
         ]);
@@ -386,7 +408,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                                                                     {item.display_name}
                                                                 </Text>
                                                                 <Text type="secondary" style={{ fontSize: 12 }}>
-                                                                    หน่วย: {item.unit_name}
+                                                                    หน่วย: {item.unit_label}
                                                                 </Text>
                                                             </div>
                                                             <Space size={6}>
@@ -444,7 +466,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                                                             </Space.Compact>
 
                                                             <Text type="secondary" style={{ fontSize: 12 }}>
-                                                                จำนวน {item.quantity_ordered.toLocaleString()} {item.unit_name}
+                                                                จำนวน {item.quantity_ordered.toLocaleString()} {item.unit_label}
                                                             </Text>
                                                         </div>
                                                     </div>

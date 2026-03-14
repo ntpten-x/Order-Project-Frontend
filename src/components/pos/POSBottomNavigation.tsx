@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   AppstoreOutlined,
   CarOutlined,
+  ControlOutlined,
   CreditCardOutlined,
   EllipsisOutlined,
   FileTextOutlined,
@@ -164,6 +165,13 @@ const POSBottomNavigation = () => {
         label: "หน่วยสินค้า",
         icon: <AppstoreOutlined />,
         path: "/pos/productsUnit",
+      },
+      {
+        key: "topping",
+        visibilityKey: "menu.pos.topping",
+        label: "ท็อปปิ้ง",
+        icon: <ControlOutlined />,
+        path: "/pos/topping",
       },
       {
         key: "discounts",

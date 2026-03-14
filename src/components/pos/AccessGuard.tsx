@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Spin, Typography, ConfigProvider, Button, Space, message as antdMessage } from "antd";
-import { LockFilled, LoadingOutlined } from "@ant-design/icons";
+import { LockFilled } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 
 const { Text, Title } = Typography;
@@ -16,11 +16,11 @@ export const AccessGuardFallback = ({ message, tone = "secondary" }: AccessGuard
     const router = useRouter();
 
     return (
-        <div className="access-guard-container">
+        <div className="access-guard-container" data-testid="access-guard-fallback">
             <ConfigProvider
                 theme={{
                     token: {
-                        colorPrimary: '#6366f1',
+                        colorPrimary: '#1677ff',
                     },
                 }}
             >
@@ -39,7 +39,7 @@ export const AccessGuardFallback = ({ message, tone = "secondary" }: AccessGuard
                         {tone === 'danger' ? (
                             <>
                                 <Title level={4} style={{ margin: 0, color: '#1e293b' }}>
-                                    Access Denied
+                                    ไม่สามารถเข้าถึงได้
                                 </Title>
                                 <Text type="danger" style={{ fontSize: 16 }}>{message}</Text>
                             </>
@@ -50,8 +50,8 @@ export const AccessGuardFallback = ({ message, tone = "secondary" }: AccessGuard
 
                     {tone === "danger" ? (
                         <Space size={8} wrap>
-                            <Button onClick={() => router.refresh()}>Try again</Button>
-                            <Button onClick={() => router.push("/")}>Back to home</Button>
+                            <Button onClick={() => router.refresh()}>ลองใหม่</Button>
+                            <Button onClick={() => router.push("/")}>กลับหน้าแรก</Button>
                             <Button
                                 type="primary"
                                 onClick={async () => {
@@ -60,16 +60,16 @@ export const AccessGuardFallback = ({ message, tone = "secondary" }: AccessGuard
                                     if (typeof navigator !== "undefined" && navigator.clipboard) {
                                         try {
                                             await navigator.clipboard.writeText(requestText);
-                                            antdMessage.success("Access request copied to clipboard");
+                                            antdMessage.success("คัดลอกคำขอสิทธิ์แล้ว");
                                             return;
                                         } catch {
                                             // Fall through to hint message.
                                         }
                                     }
-                                    antdMessage.info("Please contact system administrator for access");
+                                    antdMessage.info("กรุณาติดต่อผู้ดูแลระบบเพื่อขอสิทธิ์");
                                 }}
                             >
-                                Request access
+                                ขอสิทธิ์ใช้งาน
                             </Button>
                         </Space>
                     ) : null}

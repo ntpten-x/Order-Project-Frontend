@@ -5,10 +5,14 @@ node_modules/
 .yarn/install-state.gz
 
 # Build outputs
+.next
 .next/
 .next/**
 .next-build/
 .next-build/**
+.next-build-local/
+.next-build-local/**
+.next-dist-dir
 .next-buildcheck-*/
 .next-guard/
 out/

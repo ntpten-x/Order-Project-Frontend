@@ -169,10 +169,10 @@ export default function POSPageLayout({
 
   // Detail/Topping Management State
   const [isDetailModalVisible, setIsDetailModalVisible] = useState(false);
-  const [currentDetailItem, setCurrentDetailItem] = useState<{ id: string; name: string; details: { detail_name: string; extra_price: number }[] } | null>(null);
+  const [currentDetailItem, setCurrentDetailItem] = useState<{ id: string; name: string; details: { detail_name: string; extra_price: number; topping_id?: string }[] } | null>(null);
 
   const openDetailModal = useCallback(
-    (id: string, name: string, details?: { detail_name: string; extra_price: number }[]) => {
+    (id: string, name: string, details?: { detail_name: string; extra_price: number; topping_id?: string }[]) => {
       setCurrentDetailItem({ id, name, details: details || [] });
       setIsDetailModalVisible(true);
     },
@@ -277,7 +277,7 @@ export default function POSPageLayout({
   ]);
 
   const handleSaveDetails = useCallback(
-    (details: { detail_name: string; extra_price: number }[]) => {
+    (details: { detail_name: string; extra_price: number; topping_id?: string }[]) => {
       if (currentDetailItem) {
         updateItemDetails(currentDetailItem.id, details);
       }

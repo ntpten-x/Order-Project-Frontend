@@ -159,6 +159,14 @@ async function main() {
     HTTPS_PROXY: "",
     ALL_PROXY: "",
   };
+  const backendScriptEnv = {
+    ...baseEnv,
+    NODE_ENV: "test",
+  };
+  const backendRuntimeEnv = {
+    ...baseEnv,
+    NODE_ENV: process.env.POS_SIGNOFF_BACKEND_NODE_ENV || "production",
+  };
   console.log(`[phase8] database target ${dbHost}:${dbPort} ssl=${dbSsl}`);
   if (redisDisabled === "true" || rateLimitRedisDisabled === "true") {
     console.log(
@@ -169,13 +177,13 @@ async function main() {
   console.log("[phase8] ensure permission baseline");
   await ensurePermissionBaseline({
     backendDir,
-    env: baseEnv,
+    env: backendScriptEnv,
   });
 
   console.log("[phase8] ensure admin user");
   await ensureE2eUser({
     backendDir,
-    env: baseEnv,
+    env: backendScriptEnv,
     username: adminUsername,
     password: adminPassword,
     role: "Admin",
@@ -185,7 +193,7 @@ async function main() {
   console.log("[phase8] ensure manager user");
   await ensureE2eUser({
     backendDir,
-    env: baseEnv,
+    env: backendScriptEnv,
     username: managerUsername,
     password: managerPassword,
     role: "Manager",
@@ -195,7 +203,7 @@ async function main() {
   console.log("[phase8] ensure employee user");
   await ensureE2eUser({
     backendDir,
-    env: baseEnv,
+    env: backendScriptEnv,
     username: employeeUsername,
     password: employeePassword,
     role: "Employee",
@@ -205,7 +213,7 @@ async function main() {
   console.log("[phase8] ensure requester admin user");
   await ensureE2eUser({
     backendDir,
-    env: baseEnv,
+    env: backendScriptEnv,
     username: requesterUsername,
     password: requesterPassword,
     role: "Admin",
@@ -215,7 +223,7 @@ async function main() {
   console.log("[phase8] ensure approver admin user");
   await ensureE2eUser({
     backendDir,
-    env: baseEnv,
+    env: backendScriptEnv,
     username: approverUsername,
     password: approverPassword,
     role: "Admin",
@@ -223,7 +231,7 @@ async function main() {
   });
 
   const backendEnv = {
-    ...baseEnv,
+    ...backendRuntimeEnv,
     PORT: String(backendPort),
   };
 
@@ -239,6 +247,7 @@ async function main() {
     const e2eEnv = {
       ...baseEnv,
       CI: "1",
+      NODE_ENV: "development",
       E2E_PORT: String(frontendPort),
       E2E_WEB_SERVER_TIMEOUT: "240000",
       NEXT_PUBLIC_BACKEND_API: backendUrl,

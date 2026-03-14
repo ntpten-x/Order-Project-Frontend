@@ -42,6 +42,24 @@ function extractErrorMessage(payload: unknown, fallback: string): string {
     return fallback;
 }
 
+function formatProxyErrorPayload(payload: unknown, fallback: string) {
+    if (payload && typeof payload === "object") {
+        const record = payload as Record<string, unknown>;
+
+        if (record.success === false && record.error) {
+            return payload;
+        }
+
+        if (record.error) {
+            return payload;
+        }
+    }
+
+    return {
+        error: extractErrorMessage(payload, fallback),
+    };
+}
+
 export async function proxyToBackend(request: NextRequest, options: ProxyToBackendOptions) {
     const headers: Record<string, string> = {
         Accept: "application/json",
@@ -115,7 +133,7 @@ export async function proxyToBackend(request: NextRequest, options: ProxyToBacke
         if (!response.ok) {
             const fallback = `Request failed (${response.status})`;
             return NextResponse.json(
-                { error: extractErrorMessage(payload, fallback) },
+                formatProxyErrorPayload(payload, fallback),
                 { status: response.status }
             );
         }

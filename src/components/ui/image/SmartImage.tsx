@@ -28,10 +28,12 @@ export default function SmartImage({ src, fallbackSrc, alt, style, fill, ...rest
 
     if (!resolvedSource || hasError) return null;
 
-    // Bypass Next/Image optimization for inline images and Google Drive links.
-    // Drive links can return non-image responses/redirects that Next's optimizer rejects,
-    // while the browser <img> path is more tolerant.
-    if (isInlineImageSource(resolvedSource) || isGoogleDriveImageSource(resolvedSource)) {
+    const isRemoteHttpSource = /^https?:\/\//i.test(resolvedSource);
+
+    // Bypass Next/Image optimization for non-local sources. This avoids `_next/image`
+    // 400s for dynamic remote URLs, Drive links, and vendor URLs that do not participate
+    // in Next's remote image allowlist/optimizer flow.
+    if (isInlineImageSource(resolvedSource) || isGoogleDriveImageSource(resolvedSource) || isRemoteHttpSource) {
         const inlineStyle: React.CSSProperties = fill
             ? {
                 position: "absolute",

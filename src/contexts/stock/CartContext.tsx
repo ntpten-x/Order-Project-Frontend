@@ -1,6 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+
+import { useAuth } from "../AuthContext";
 import { Ingredients } from "../../types/api/stock/ingredients";
 
 interface CartItem {
@@ -21,61 +23,120 @@ interface CartContextType {
 
 const CartContext = createContext<CartContextType | undefined>(undefined);
 
-export const CartProvider = ({ children }: { children: React.ReactNode }) => {
-  const [items, setItems] = useState<CartItem[]>([]);
+function isCartItemArray(value: unknown): value is CartItem[] {
+  return Array.isArray(value);
+}
 
-  // Load from local storage on mount
+export const CartProvider = ({ children }: { children: React.ReactNode }) => {
+  const { user } = useAuth();
+  const [items, setItems] = useState<CartItem[]>([]);
+  const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
+
   useEffect(() => {
-    const savedCart = localStorage.getItem("shopping_cart");
-    if (savedCart) {
+    if (typeof window === "undefined") return;
+
+    const syncBranchContext = async () => {
       try {
-        setItems(JSON.parse(savedCart));
-      } catch (error) {
-        console.error("Failed to parse cart from local storage", error);
+        const response = await fetch("/api/auth/active-branch", {
+          credentials: "include",
+          cache: "no-store",
+        });
+        const payload = await response.json().catch(() => null);
+        setActiveBranchId(typeof payload?.active_branch_id === "string" ? payload.active_branch_id : null);
+      } catch {
+        setActiveBranchId(null);
       }
-    }
+    };
+
+    const handleBranchChanged = (event: Event) => {
+      const detail = (event as CustomEvent<{ activeBranchId?: string | null }>).detail;
+      if (typeof detail?.activeBranchId === "string") {
+        setActiveBranchId(detail.activeBranchId);
+        return;
+      }
+      setActiveBranchId(null);
+    };
+
+    void syncBranchContext();
+    window.addEventListener("active-branch-changed", handleBranchChanged);
+    return () => {
+      window.removeEventListener("active-branch-changed", handleBranchChanged);
+    };
   }, []);
 
-  // Save to local storage whenever items change
-  useEffect(() => {
-    localStorage.setItem("shopping_cart", JSON.stringify(items));
-  }, [items]);
+  const storageKey = useMemo(() => {
+    const branchKey = activeBranchId || user?.branch?.id || user?.branch_id || "no-branch";
+    const userKey = user?.id || "anonymous";
+    return `stock_cart:${userKey}:${branchKey}`;
+  }, [activeBranchId, user?.branch?.id, user?.branch_id, user?.id]);
 
-  
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    try {
+      const rawCart = window.localStorage.getItem(storageKey);
+      if (!rawCart) {
+        setItems([]);
+        return;
+      }
+
+      const parsedCart = JSON.parse(rawCart);
+      setItems(isCartItemArray(parsedCart) ? parsedCart : []);
+    } catch {
+      setItems([]);
+    }
+  }, [storageKey]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    if (items.length === 0) {
+      window.localStorage.removeItem(storageKey);
+      return;
+    }
+
+    window.localStorage.setItem(storageKey, JSON.stringify(items));
+  }, [items, storageKey]);
+
   const addToCart = useCallback((ingredient: Ingredients) => {
     setItems((prev) => {
-      const existing = prev.find((i) => i.ingredient.id === ingredient.id);
+      const existing = prev.find((item) => item.ingredient.id === ingredient.id);
       if (existing) {
-        return prev.map((i) =>
-          i.ingredient.id === ingredient.id
-            ? { ...i, quantity: i.quantity + 1 }
-            : i
+        return prev.map((item) =>
+          item.ingredient.id === ingredient.id
+            ? { ...item, quantity: item.quantity + 1 }
+            : item
         );
       }
+
       return [...prev, { ingredient, quantity: 1 }];
     });
   }, []);
 
   const removeFromCart = useCallback((ingredientId: string) => {
-    setItems((prev) => prev.filter((i) => i.ingredient.id !== ingredientId));
+    setItems((prev) => prev.filter((item) => item.ingredient.id !== ingredientId));
   }, []);
 
-  const updateQuantity = useCallback((ingredientId: string, quantity: number) => {
-    if (quantity <= 0) {
-      removeFromCart(ingredientId);
-      return;
-    }
-    setItems((prev) =>
-      prev.map((i) =>
-        i.ingredient.id === ingredientId ? { ...i, quantity } : i
-      )
-    );
-  }, [removeFromCart]);
+  const updateQuantity = useCallback(
+    (ingredientId: string, quantity: number) => {
+      if (quantity <= 0) {
+        removeFromCart(ingredientId);
+        return;
+      }
+
+      setItems((prev) =>
+        prev.map((item) =>
+          item.ingredient.id === ingredientId ? { ...item, quantity } : item
+        )
+      );
+    },
+    [removeFromCart]
+  );
 
   const updateItemNote = useCallback((ingredientId: string, note: string) => {
     setItems((prev) =>
-      prev.map((i) =>
-        i.ingredient.id === ingredientId ? { ...i, note } : i
+      prev.map((item) =>
+        item.ingredient.id === ingredientId ? { ...item, note } : item
       )
     );
   }, []);
@@ -84,23 +145,25 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     setItems([]);
   }, []);
 
-  const itemCount = items.reduce((acc, item) => acc + item.quantity, 0);
-
-  const value = React.useMemo(() => ({
-    items,
-    addToCart,
-    removeFromCart,
-    updateQuantity,
-    updateItemNote,
-    clearCart,
-    itemCount,
-  }), [items, addToCart, removeFromCart, updateQuantity, updateItemNote, clearCart, itemCount]);
-
-  return (
-    <CartContext.Provider value={value}>
-      {children}
-    </CartContext.Provider>
+  const itemCount = useMemo(
+    () => items.reduce((sum, item) => sum + item.quantity, 0),
+    [items]
   );
+
+  const value = useMemo(
+    () => ({
+      items,
+      addToCart,
+      removeFromCart,
+      updateQuantity,
+      updateItemNote,
+      clearCart,
+      itemCount,
+    }),
+    [addToCart, clearCart, itemCount, items, removeFromCart, updateItemNote, updateQuantity]
+  );
+
+  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
 };
 
 export const useCart = () => {

@@ -40,7 +40,6 @@ export const PageHeader = ({ isEdit, onBack, onDelete }: HeaderProps) => (
 
 interface ProductPreviewProps {
     name?: string;
-    productName?: string;
     imageUrl?: string;
     price?: number;
     priceDelivery?: number;
@@ -48,7 +47,7 @@ interface ProductPreviewProps {
     unit?: string;
 }
 
-export const ProductPreview = ({ name, productName, imageUrl, price, priceDelivery, category, unit }: ProductPreviewProps) => (
+export const ProductPreview = ({ name, imageUrl, price, priceDelivery, category, unit }: ProductPreviewProps) => (
     <div
         style={{
             marginTop: 24,
@@ -129,9 +128,6 @@ export const ProductPreview = ({ name, productName, imageUrl, price, priceDelive
                         </Text>
                         <CheckCircleFilled style={{ color: "#10B981", fontSize: 14 }} />
                     </div>
-                    <Text type="secondary" style={{ fontSize: 13, display: "block", marginBottom: 6, color: "#64748B" }} ellipsis>
-                        {productName || "Product Name"}
-                    </Text>
 
                     <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                         <Tag style={{ borderRadius: 6, margin: 0, fontSize: 11, fontWeight: 700, color: "#059669", background: "#ECFDF5", border: "none", padding: "0 8px" }}>

@@ -47,6 +47,9 @@ describe("GET /api/permissions/audits", () => {
             })
         );
         expect(res.status).toBe(403);
-        expect(payload).toEqual({ error: "Forbidden from backend" });
+        expect(payload).toEqual({
+            success: false,
+            error: { message: "Forbidden from backend" },
+        });
     });
 });

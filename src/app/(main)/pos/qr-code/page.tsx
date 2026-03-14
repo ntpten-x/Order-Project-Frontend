@@ -211,15 +211,8 @@ export default function TableQrCodePage() {
                         }
                         return;
                     }
-                } /*
-                message.success(result === 'window'
-                    ? exportFormat === 'a4'
-                        ? 'เน€เธเธดเธ”เธซเธเนเธฒเธเธดเธกเธเน A4 เนเธฅเนเธง'
-                        : 'เน€เธเธดเธ”เธซเธเนเธฒเธเธดเธกเธเนเธชเธณเธซเธฃเธฑเธเน€เธเธฃเธทเนเธญเธเธเธดเธกเธเนเธใเธเน€เธชเธฃเนเธเนเธฅเนเธง'
-                    : exportFormat === 'a4'
-                        ? 'เธ”เธฒเธงเธเนเนเธซเธฅเธ” PDF A4 เธชเธณเน€เธฃเนเธ'
-                        : 'เธ”เธฒเธงเธเนเนเธซเธฅเธ” PDF เธชเธณเธซเธฃเธฑเธเน€เธเธฃเธทเนเธญเธเธเธดเธกเธเนเธใเธเน€เธชเธฃเนเธเธชเธณเน€เธฃเนเธ');
-                */ throw new Error('QR image is not ready for bulk export');
+                }
+                throw new Error('QR image is not ready for bulk export');
             } catch (error) {
                 if (!cancelled && bulkRenderResolverRef.current?.requestId === bulkRenderTarget.requestId) {
                     bulkRenderResolverRef.current.reject(error instanceof Error ? error : new Error('Bulk QR export failed'));
@@ -1045,3 +1038,4 @@ export default function TableQrCodePage() {
         </div>
     );
 }
+

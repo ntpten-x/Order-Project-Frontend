@@ -9,6 +9,8 @@
     "skipLibCheck": true,
     "strict": true,
     "noEmit": true,
+    "target": "es2017",
+    "downlevelIteration": true,
     "esModuleInterop": true,
     "module": "esnext",
     "moduleResolution": "bundler",
@@ -33,7 +35,8 @@
     "**/*.ts",
     "**/*.tsx",
     ".next/types/**/*.ts",
-    ".next-build/types/**/*.ts"
+    ".next-build/types/**/*.ts",
+    ".next-build-local/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

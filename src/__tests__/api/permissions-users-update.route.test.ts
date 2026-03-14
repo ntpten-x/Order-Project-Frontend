@@ -47,7 +47,10 @@ describe("PUT /api/permissions/users/:id", () => {
         const payload = await res.json();
 
         expect(res.status).toBe(statusCode);
-        expect(payload).toEqual({ error: `backend-status-${statusCode}` });
+        expect(payload).toEqual({
+            success: false,
+            error: { message: `backend-status-${statusCode}` },
+        });
         expect(fetchMock).toHaveBeenCalledWith(
             "http://backend/permissions/users/u1",
             expect.objectContaining({
