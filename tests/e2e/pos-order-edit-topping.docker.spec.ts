@@ -1,4 +1,4 @@
-import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, request as playwrightRequest, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { getCsrfToken, login, readJson, unwrapData, unwrapList } from "./helpers.api-auth";
 
 const adminUsername = process.env.E2E_ADMIN_USERNAME || "admin";
@@ -9,6 +9,7 @@ const frontendBaseUrl = process.env.E2E_BASE_URL || "http://localhost:3001";
 type Category = { id: string; display_name?: string; is_active?: boolean };
 type ProductsUnit = { id: string; display_name?: string; is_active?: boolean };
 type Product = { id: string; display_name: string; category_id?: string; price?: number; price_delivery?: number };
+type ToppingGroup = { id: string; display_name: string };
 type Topping = { id: string; display_name: string; price: number; price_delivery?: number };
 type SalesOrder = { id: string; items?: Array<{ id: string }> };
 
@@ -100,15 +101,24 @@ async function createOrder(context: APIRequestContext, orderType: "TakeAway" | "
   });
 }
 
-async function openEditModal(page: Page, orderId: string) {
+async function openEditModal(page: Page, orderId: string): Promise<Locator> {
   await page.setViewportSize({ width: 430, height: 932 });
   await page.goto(`/pos/orders/${orderId}`, { waitUntil: "domcontentloaded" });
   await expect(page).toHaveURL(new RegExp(`/pos/orders/${orderId}$`));
-  await page.getByRole("button", { name: "แก้ไข" }).first().click();
+  await page.getByRole("button", { name: /แก้ไข/i }).first().click();
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
-  await expect(dialog.getByText("แก้ไขรายการสินค้า")).toBeVisible();
+  await expect(dialog.getByText(/แก้ไขรายการสินค้า/i)).toBeVisible();
   return dialog;
+}
+
+async function addToppingInEditModal(page: Page, toppingDialog: Locator, toppingName: string) {
+  await toppingDialog.getByText("เลือก", { exact: true }).click();
+  const selectorModal = page.getByRole("dialog").filter({ hasText: toppingName }).last();
+  await expect(selectorModal).toBeVisible({ timeout: 30000 });
+  await selectorModal.getByText(toppingName, { exact: false }).click();
+  await page.keyboard.press("Escape");
+  await toppingDialog.locator(".btn-confirm").click();
 }
 
 test.describe.serial("POS order edit topping modal on docker", () => {
@@ -121,6 +131,7 @@ test.describe.serial("POS order edit topping modal on docker", () => {
     });
 
     let product: Product | null = null;
+    let toppingGroup: ToppingGroup | null = null;
     let topping: Topping | null = null;
     let takeawayOrderId: string | null = null;
     let deliveryOrderId: string | null = null;
@@ -142,6 +153,10 @@ test.describe.serial("POS order edit topping modal on docker", () => {
       const uniqueSuffix = `${Date.now()}`;
       const category = categories[0];
       const unit = units[0];
+      toppingGroup = await postToBackendWithCsrf<ToppingGroup>(backendRequest, "/pos/topping-group", {
+        display_name: `E2E Edit Group ${uniqueSuffix}`,
+        is_active: true,
+      });
 
       product = await postWithCsrf<Product>(page.request, "/api/pos/products/create", {
         display_name: `E2E Edit Topping Product ${uniqueSuffix}`,
@@ -149,6 +164,7 @@ test.describe.serial("POS order edit topping modal on docker", () => {
         price: 100,
         price_delivery: 130,
         category_id: category.id,
+        topping_group_ids: [toppingGroup.id],
         unit_id: unit.id,
         is_active: true,
       });
@@ -158,6 +174,7 @@ test.describe.serial("POS order edit topping modal on docker", () => {
         price: 11,
         price_delivery: 22,
         category_ids: [category.id],
+        topping_group_ids: [toppingGroup.id],
         is_active: true,
       });
 
@@ -167,23 +184,16 @@ test.describe.serial("POS order edit topping modal on docker", () => {
       deliveryOrderId = deliveryOrder.id;
 
       const takeawayDialog = await openEditModal(page, takeawayOrder.id);
-      await takeawayDialog.getByRole("combobox").click();
-      const takeawayOption = page.locator(".ant-select-item-option").filter({ hasText: topping.display_name }).first();
-      await expect(takeawayOption).toBeVisible();
-      await expect(takeawayOption).toContainText("11");
-      await page.keyboard.press("Escape");
-      await takeawayDialog.getByRole("button", { name: "ยกเลิก", exact: true }).click();
+      await addToppingInEditModal(page, takeawayDialog, topping.display_name);
+      await expect(takeawayDialog.getByText(topping.display_name)).toBeVisible();
+      await expect(takeawayDialog.getByText(/\+฿?11/)).toBeVisible();
+      await takeawayDialog.getByRole("button", { name: /ยกเลิก/i }).click();
 
       const deliveryDialog = await openEditModal(page, deliveryOrder.id);
-      await deliveryDialog.getByRole("combobox").click();
-      const deliveryOption = page.locator(".ant-select-item-option").filter({ hasText: topping.display_name }).first();
-      await expect(deliveryOption).toBeVisible();
-      await expect(deliveryOption).toContainText("22");
-      await deliveryOption.click();
-      await deliveryDialog.getByRole("button", { name: "เพิ่มท็อปปิ้ง" }).click();
+      await addToppingInEditModal(page, deliveryDialog, topping.display_name);
       await expect(deliveryDialog.getByText(topping.display_name)).toBeVisible();
-      await deliveryDialog.getByRole("button", { name: "บันทึกการเปลี่ยนแปลง" }).click();
-      await expect(page.getByText("แก้ไขรายการเรียบร้อย")).toBeVisible();
+      await deliveryDialog.getByRole("button", { name: /บันทึกการเปลี่ยนแปลง/i }).click();
+      await expect(deliveryDialog).not.toBeVisible({ timeout: 30000 });
       await expect(
         page.locator("main").getByText(new RegExp(`${escapeRegex(topping.display_name)}.*22`, "i")).last(),
       ).toBeVisible();
@@ -194,6 +204,7 @@ test.describe.serial("POS order edit topping modal on docker", () => {
       if (deliveryOrderId) cleanupTasks.push(deleteWithCsrf(page.request, `/api/pos/orders/${deliveryOrderId}`).catch(() => undefined));
       if (topping?.id) cleanupTasks.push(deleteFromBackendWithCsrf(backendRequest, `/pos/topping/${topping.id}`).catch(() => undefined));
       if (product?.id) cleanupTasks.push(deleteWithCsrf(page.request, `/api/pos/products/delete/${product.id}`).catch(() => undefined));
+      if (toppingGroup?.id) cleanupTasks.push(deleteFromBackendWithCsrf(backendRequest, `/pos/topping-group/${toppingGroup.id}`).catch(() => undefined));
 
       await Promise.allSettled(cleanupTasks);
       await backendRequest.dispose();

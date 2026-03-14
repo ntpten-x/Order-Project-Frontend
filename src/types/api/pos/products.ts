@@ -1,5 +1,6 @@
 import { Category } from "./category";
 import { ProductsUnit } from "./productsUnit";
+import { ToppingGroup } from "./toppingGroup";
 
 export interface Products {
     id: string;
@@ -15,4 +16,6 @@ export interface Products {
     is_active: boolean;
     category?: Category;
     unit?: ProductsUnit;
+    topping_groups?: ToppingGroup[];
+    topping_group_ids?: string[];
 }

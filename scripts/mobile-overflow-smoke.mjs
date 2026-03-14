@@ -15,7 +15,7 @@ const PAGE_SCENARIOS = [
     label: "pos-shift-history",
     waitFor: "networkidle",
     action: async (page) => {
-      const input = page.locator('input[placeholder*="ค้นหา"], input[placeholder*="เธ"]').first();
+      const input = page.locator('input[placeholder*="ค้นหา"], input[placeholder*="ค"]').first();
       if (await input.count()) {
         await input.fill(LONG_INPUT);
         await page.waitForTimeout(500);
@@ -28,7 +28,7 @@ const PAGE_SCENARIOS = [
     label: "pos-qr-code",
     waitFor: "networkidle",
     action: async (page) => {
-      const input = page.locator('input[placeholder*="ค้นหา"], input[placeholder*="เธ"]').first();
+      const input = page.locator('input[placeholder*="ค้นหา"], input[placeholder*="ค"]').first();
       if (await input.count()) {
         await input.fill(LONG_INPUT);
         await page.waitForTimeout(500);

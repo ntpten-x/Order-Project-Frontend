@@ -44,6 +44,7 @@ export const API_ROUTES = {
         SALES_ORDER_DETAILS: '/pos/salesOrderDetail',
         PRODUCTS_UNIT: '/pos/productsUnit',
         TOPPING: '/pos/topping',
+        TOPPING_GROUP: '/pos/topping-group',
         PAYMENT_DETAILS: '/pos/paymentDetails',
         BRANCH: '/branches',
     },

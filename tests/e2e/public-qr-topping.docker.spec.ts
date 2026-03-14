@@ -1,4 +1,4 @@
-import { expect, request as playwrightRequest, test, type APIRequestContext, type Page } from "@playwright/test";
+import { expect, request as playwrightRequest, test, type APIRequestContext, type Locator, type Page } from "@playwright/test";
 import { getCsrfToken, login, readJson, unwrapData, unwrapList } from "./helpers.api-auth";
 
 const adminUsername = process.env.E2E_ADMIN_USERNAME || "admin";
@@ -9,6 +9,7 @@ const frontendBaseUrl = process.env.E2E_BASE_URL || "http://localhost:3001";
 type Category = { id: string };
 type ProductsUnit = { id: string };
 type Product = { id: string; display_name: string; price?: number; price_delivery?: number };
+type ToppingGroup = { id: string; display_name: string };
 type Topping = { id: string; display_name: string; price: number; price_delivery?: number };
 type Table = { id: string; table_name: string };
 type TableQrInfo = { table_id: string; customer_path: string | null; qr_code_token: string | null };
@@ -125,7 +126,19 @@ async function getTakeawayQr(context: APIRequestContext): Promise<TakeawayQrInfo
   return postWithCsrfNoBody<TakeawayQrInfo>(context, "/api/pos/takeaway-qr/rotate");
 }
 
+async function closeCartIfOpen(page: Page): Promise<void> {
+  const cartDrawer = page.getByRole("dialog").filter({ hasText: /ตะกร้าสินค้า/i }).last();
+  if (!(await cartDrawer.isVisible().catch(() => false))) {
+    return;
+  }
+
+  await cartDrawer.getByRole("button", { name: /close/i }).click();
+  await expect(cartDrawer).not.toBeVisible({ timeout: 30000 });
+}
+
 async function searchAndAddProduct(page: Page, productName: string): Promise<void> {
+  await closeCartIfOpen(page);
+
   const searchBox = page.getByRole("textbox").first();
   await expect(searchBox).toBeVisible({ timeout: 30000 });
   await searchBox.fill(productName);
@@ -135,8 +148,8 @@ async function searchAndAddProduct(page: Page, productName: string): Promise<voi
   await productCard.locator(".pos-add-button").click();
 }
 
-async function openCart(page: Page) {
-  const cartDrawer = page.getByRole("dialog").filter({ hasText: "ตะกร้าสินค้า" }).last();
+async function openCart(page: Page): Promise<Locator> {
+  const cartDrawer = page.getByRole("dialog").filter({ hasText: /ตะกร้าสินค้า/i }).last();
   if (await cartDrawer.isVisible().catch(() => false)) {
     return cartDrawer;
   }
@@ -151,23 +164,21 @@ async function openCart(page: Page) {
 
 async function addToppingFromCart(page: Page, topping: Topping, expectedPriceText: string): Promise<void> {
   const cartDrawer = await openCart(page);
-  await cartDrawer.getByLabel("เพิ่มท็อปปิ้ง").click();
+  await cartDrawer.getByRole("button", { name: /เพิ่มท็อปปิ้ง/i }).click();
 
-  const detailModal = page.getByRole("dialog").filter({ hasText: "รายละเอียดเพิ่มเติม" }).last();
+  const detailModal = page.getByRole("dialog").last();
   await expect(detailModal).toBeVisible({ timeout: 30000 });
-  await detailModal.getByRole("combobox").click();
+  await detailModal.getByText("เลือก", { exact: true }).click();
 
-  const option = page.locator(".ant-select-item-option").filter({ hasText: topping.display_name }).first();
-  await expect(option).toBeVisible({ timeout: 30000 });
-  await expect(option).toContainText(expectedPriceText);
-  await page.keyboard.press("ArrowDown");
-  await page.keyboard.press("Enter");
+  const selectorModal = page.getByRole("dialog").filter({ hasText: topping.display_name }).last();
+  await expect(selectorModal).toBeVisible({ timeout: 30000 });
+  await expect(selectorModal.getByText(topping.display_name, { exact: false })).toContainText(expectedPriceText);
+  await selectorModal.getByText(topping.display_name, { exact: false }).click();
+  await page.keyboard.press("Escape");
 
-  const addToppingButton = detailModal.locator("button").filter({ hasText: "เพิ่มท็อปปิ้ง" }).first();
-  await expect(addToppingButton).toBeEnabled({ timeout: 30000 });
-  await addToppingButton.click();
+  await detailModal.locator(".btn-confirm").click();
   await expect(detailModal.getByText(topping.display_name)).toBeVisible();
-  await detailModal.locator(".ant-modal-footer button.ant-btn-primary").click();
+  await detailModal.getByRole("button", { name: /บันทึก/i }).click();
 
   await expect(cartDrawer.getByText(topping.display_name)).toBeVisible({ timeout: 30000 });
 }
@@ -178,7 +189,7 @@ async function openCheckoutFromCart(page: Page): Promise<void> {
 }
 
 async function confirmCheckout(page: Page) {
-  const checkoutDrawer = page.getByRole("dialog").filter({ hasText: "สรุปรายการออเดอร์" }).last();
+  const checkoutDrawer = page.getByRole("dialog").filter({ hasText: /สรุปรายการออเดอร์/i }).last();
   await expect(checkoutDrawer).toBeVisible({ timeout: 30000 });
   await checkoutDrawer.locator(".ant-drawer-footer button.ant-btn-primary").click();
 }
@@ -192,6 +203,7 @@ test.describe.serial("Public QR ordering toppings on docker", () => {
     });
 
     let product: Product | null = null;
+    let toppingGroup: ToppingGroup | null = null;
     let topping: Topping | null = null;
     let table: Table | null = null;
     let tableOrderId: string | null = null;
@@ -215,6 +227,10 @@ test.describe.serial("Public QR ordering toppings on docker", () => {
       const uniqueSuffix = `${Date.now()}`;
       const category = categories[0];
       const unit = units[0];
+      toppingGroup = await postToBackendWithCsrf<ToppingGroup>(backendRequest, "/pos/topping-group", {
+        display_name: `E2E Public QR Group ${uniqueSuffix}`,
+        is_active: true,
+      });
 
       product = await postWithCsrf<Product>(frontendRequest, "/api/pos/products/create", {
         display_name: `E2E Public QR Product ${uniqueSuffix}`,
@@ -222,6 +238,7 @@ test.describe.serial("Public QR ordering toppings on docker", () => {
         price: 100,
         price_delivery: 140,
         category_id: category.id,
+        topping_group_ids: [toppingGroup.id],
         unit_id: unit.id,
         is_active: true,
       });
@@ -231,6 +248,7 @@ test.describe.serial("Public QR ordering toppings on docker", () => {
         price: 12,
         price_delivery: 19,
         category_ids: [category.id],
+        topping_group_ids: [toppingGroup.id],
         is_active: true,
       });
 
@@ -326,6 +344,9 @@ test.describe.serial("Public QR ordering toppings on docker", () => {
       }
       if (product?.id) {
         cleanupTasks.push(deleteWithCsrf(frontendRequest, `/api/pos/products/delete/${product.id}`).catch(() => undefined));
+      }
+      if (toppingGroup?.id) {
+        cleanupTasks.push(deleteFromBackendWithCsrf(backendRequest, `/pos/topping-group/${toppingGroup.id}`).catch(() => undefined));
       }
 
       await Promise.allSettled(cleanupTasks);

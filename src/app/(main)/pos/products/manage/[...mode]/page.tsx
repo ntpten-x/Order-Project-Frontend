@@ -1,18 +1,20 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Card, Col, Form, Input, InputNumber, Modal, Row, Spin, Switch, Typography, message } from 'antd';
+import { Alert, Button, Card, Col, Form, Input, Modal, Row, Spin, Switch, Typography, message } from 'antd';
 import { AppstoreOutlined, CheckCircleOutlined, DeleteOutlined, DownOutlined, ExclamationCircleOutlined, SaveOutlined, ShopOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import PageContainer from '../../../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../../../components/ui/page/PageSection';
 import UIPageHeader from '../../../../../../components/ui/page/PageHeader';
+import { ModalSelector } from '../../../../../../components/ui/select/ModalSelector';
 import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuard';
 import { useEffectivePermissions } from '../../../../../../hooks/useEffectivePermissions';
 import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
 import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
 import { Category } from '../../../../../../types/api/pos/category';
 import { Products } from '../../../../../../types/api/pos/products';
+import { ToppingGroup } from '../../../../../../types/api/pos/toppingGroup';
 import { ProductsUnit } from '../../../../../../types/api/pos/productsUnit';
 import { isSupportedImageSource, normalizeImageSource } from '../../../../../../utils/image/source';
 import { pageStyles, ProductPreview } from './style';
@@ -28,6 +30,7 @@ type ProductFormValues = {
     price: number;
     price_delivery?: number;
     category_id: string;
+    topping_group_ids?: string[];
     unit_id: string;
     is_active?: boolean;
 };
@@ -56,6 +59,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [categories, setCategories] = useState<Category[]>([]);
+    const [toppingGroups, setToppingGroups] = useState<ToppingGroup[]>([]);
     const [units, setUnits] = useState<ProductsUnit[]>([]);
     const [csrfToken, setCsrfToken] = useState('');
     const [originalProduct, setOriginalProduct] = useState<Products | null>(null);
@@ -75,6 +79,8 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     const canDelete = can('products.page', 'delete');
 
     const selectedCategoryId = Form.useWatch('category_id', form);
+    const watchedToppingGroupIds = Form.useWatch('topping_group_ids', form);
+    const toppingGroupIds = useMemo(() => watchedToppingGroupIds ?? [], [watchedToppingGroupIds]);
     const selectedUnitId = Form.useWatch('unit_id', form);
     const displayName = Form.useWatch('display_name', form);
     const imageUrl = Form.useWatch('img_url', form);
@@ -83,11 +89,15 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     const isActive = Form.useWatch('is_active', form) ?? true;
 
     const activeCategories = useMemo(() => categories.filter((item) => item.is_active), [categories]);
+    const availableToppingGroups = useMemo(
+        () => toppingGroups.filter((item) => item.is_active || toppingGroupIds.includes(item.id)),
+        [toppingGroupIds, toppingGroups]
+    );
     const activeUnits = useMemo(() => units.filter((item) => item.is_active), [units]);
 
     useEffect(() => {
         if (!isValidMode || (mode === 'edit' && !id)) {
-            message.warning('เธฃเธนเธเนเธเธ URL เนเธกเนเธ–เธนเธเธ•เนเธญเธ');
+            message.warning('รูปแบบ URL ไม่ถูกต้อง');
             router.replace('/pos/products');
         }
     }, [id, isValidMode, mode, router]);
@@ -99,12 +109,12 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     useEffect(() => {
         if (isChecking || permissionLoading || !isAuthorized) return;
         if (mode === 'add' && !canCreate) {
-            message.warning('เธเธธเธ“เนเธกเนเธกเธตเธชเธดเธ—เธเธดเนเน€เธเธดเนเธกเธชเธดเธเธเนเธฒ');
+            message.warning('คุณไม่มีสิทธิ์เพิ่มสินค้า');
             router.replace('/pos/products');
             return;
         }
         if (mode === 'edit' && !canUpdate) {
-            message.warning('เธเธธเธ“เนเธกเนเธกเธตเธชเธดเธ—เธเธดเนเนเธเนเนเธเธชเธดเธเธเนเธฒ');
+            message.warning('คุณไม่มีสิทธิ์แก้ไขสินค้า');
             router.replace('/pos/products');
         }
     }, [canCreate, canUpdate, isAuthorized, isChecking, mode, permissionLoading, router]);
@@ -119,12 +129,17 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
         if (response.ok) setUnits(parseListResponse<ProductsUnit>(await response.json()));
     }, []);
 
+    const fetchToppingGroups = useCallback(async () => {
+        const response = await fetch('/api/pos/toppingGroup', { cache: 'no-store' });
+        if (response.ok) setToppingGroups(parseListResponse<ToppingGroup>(await response.json()));
+    }, []);
+
     const fetchProduct = useCallback(async () => {
         if (!id) return;
         setLoading(true);
         try {
             const response = await fetch(`/api/pos/products/getById/${id}`, { cache: 'no-store' });
-            if (!response.ok) throw new Error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธชเธดเธเธเนเธฒเนเธ”เน');
+            if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลสินค้าได้');
             const data = await response.json();
             form.setFieldsValue({
                 display_name: data.display_name,
@@ -133,6 +148,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                 price: Number(data.price || 0),
                 price_delivery: Number(data.price_delivery ?? data.price ?? 0),
                 category_id: data.category_id,
+                topping_group_ids: (data.topping_groups || []).map((group: ToppingGroup) => group.id),
                 unit_id: data.unit_id,
                 is_active: data.is_active,
             });
@@ -140,7 +156,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
             setOriginalProduct(data);
         } catch (error) {
             console.error(error);
-            message.error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธเนเธญเธกเธนเธฅเธชเธดเธเธเนเธฒเนเธ”เน');
+            message.error('ไม่สามารถดึงข้อมูลสินค้าได้');
             router.replace('/pos/products');
         } finally {
             setLoading(false);
@@ -150,9 +166,10 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     useEffect(() => {
         if (!isAuthorized || permissionLoading) return;
         void fetchCategories();
+        void fetchToppingGroups();
         void fetchUnits();
         if (isEdit) void fetchProduct();
-    }, [fetchCategories, fetchProduct, fetchUnits, isAuthorized, isEdit, permissionLoading]);
+    }, [fetchCategories, fetchProduct, fetchToppingGroups, fetchUnits, isAuthorized, isEdit, permissionLoading]);
 
     const checkNameConflict = useCallback(async (rawValue: string) => {
         const value = rawValue.trim();
@@ -170,7 +187,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
 
     const handleSubmit = async (values: ProductFormValues) => {
         if (isEdit ? !canUpdate : !canCreate) {
-            message.warning(isEdit ? 'เธเธธเธ“เนเธกเนเธกเธตเธชเธดเธ—เธเธดเนเนเธเนเนเธเธชเธดเธเธเนเธฒ' : 'เธเธธเธ“เนเธกเนเธกเธตเธชเธดเธ—เธเธดเนเน€เธเธดเนเธกเธชเธดเธเธเนเธฒ');
+            message.warning(isEdit ? 'คุณไม่มีสิทธิ์แก้ไขสินค้า' : 'คุณไม่มีสิทธิ์เพิ่มสินค้า');
             return;
         }
         setSubmitting(true);
@@ -183,6 +200,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                 price: Number(values.price || 0),
                 price_delivery: values.price_delivery === undefined || values.price_delivery === null ? Number(values.price || 0) : Number(values.price_delivery),
                 category_id: values.category_id,
+                topping_group_ids: values.topping_group_ids || [],
                 unit_id: values.unit_id,
                 is_active: values.is_active,
             };
@@ -196,13 +214,13 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
             });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธเธฑเธเธ—เธถเธเธชเธดเธเธเนเธฒเนเธ”เน');
+                throw new Error(errorData.error || errorData.message || 'ไม่สามารถบันทึกสินค้าได้');
             }
-            message.success(isEdit ? 'เธญเธฑเธเน€เธ”เธ•เธชเธดเธเธเนเธฒเธชเธณเน€เธฃเนเธ' : 'เธชเธฃเนเธฒเธเธชเธดเธเธเนเธฒเธชเธณเน€เธฃเนเธ');
+            message.success(isEdit ? 'อัปเดตสินค้าสำเร็จ' : 'สร้างสินค้าสำเร็จ');
             router.replace('/pos/products');
         } catch (error) {
             console.error(error);
-            message.error(error instanceof Error ? error.message : 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธเธฑเธเธ—เธถเธเธชเธดเธเธเนเธฒเนเธ”เน');
+            message.error(error instanceof Error ? error.message : 'ไม่สามารถบันทึกสินค้าได้');
         } finally {
             setSubmitting(false);
         }
@@ -211,10 +229,10 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     const handleDelete = () => {
         if (!id || !canDelete) return;
         Modal.confirm({
-            title: 'เธขเธทเธเธขเธฑเธเธเธฒเธฃเธฅเธเธชเธดเธเธเนเธฒ',
-            content: `เธเธธเธ“เธ•เนเธญเธเธเธฒเธฃเธฅเธเธชเธดเธเธเนเธฒ "${displayName || '-'}" เธซเธฃเธทเธญเนเธกเน?`,
-            okText: 'เธฅเธ',
-            cancelText: 'เธขเธเน€เธฅเธดเธ',
+            title: 'ยืนยันการลบสินค้า',
+            content: `คุณต้องการลบสินค้า "${displayName || '-'}" หรือไม่?`,
+            okText: 'ลบ',
+            cancelText: 'ยกเลิก',
             okType: 'danger',
             centered: true,
             icon: <DeleteOutlined style={{ color: '#ef4444' }} />,
@@ -227,27 +245,27 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                     });
                     if (!response.ok) {
                         const errorData = await response.json().catch(() => ({}));
-                        throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเธชเธดเธเธเนเธฒเนเธ”เน');
+                        throw new Error(errorData.error || errorData.message || 'ไม่สามารถลบสินค้าได้');
                     }
-                    message.success('เธฅเธเธชเธดเธเธเนเธฒเธชเธณเน€เธฃเนเธ');
+                    message.success('ลบสินค้าสำเร็จ');
                     router.replace('/pos/products');
                 } catch (error) {
                     console.error(error);
-                    message.error(error instanceof Error ? error.message : 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธฅเธเธชเธดเธเธเนเธฒเนเธ”เน');
+                    message.error(error instanceof Error ? error.message : 'ไม่สามารถลบสินค้าได้');
                 }
             },
         });
     };
 
-    if (isChecking || permissionLoading) return <AccessGuardFallback message="เธเธณเธฅเธฑเธเธ•เธฃเธงเธเธชเธญเธเธชเธดเธ—เธเธดเน..." />;
-    if (!isAuthorized) return <AccessGuardFallback message="เธเธธเธ“เนเธกเนเธกเธตเธชเธดเธ—เธเธดเนเน€เธเนเธฒเธ–เธถเธเธซเธเนเธฒเธเธตเน" tone="danger" />;
+    if (isChecking || permissionLoading) return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
+    if (!isAuthorized) return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
 
     return (
         <div style={pageStyles.container}>
             <UIPageHeader
-                title={isEdit ? 'เนเธเนเนเธเธชเธดเธเธเนเธฒ' : 'เน€เธเธดเนเธกเธชเธดเธเธเนเธฒ'}
+                title={isEdit ? 'แก้ไขสินค้า' : 'เพิ่มสินค้า'}
                 onBack={() => router.replace('/pos/products')}
-                actions={isEdit && canDelete ? <Button danger icon={<DeleteOutlined />} onClick={handleDelete}>เธฅเธ</Button> : null}
+                actions={isEdit && canDelete ? <Button danger icon={<DeleteOutlined />} onClick={handleDelete}>ลบ</Button> : null}
             />
 
             <PageContainer maxWidth={1040}>
@@ -262,14 +280,14 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                 <Card bordered={false} style={{ borderRadius: 20 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
                                         <AppstoreOutlined style={{ fontSize: 20, color: '#4f46e5' }} />
-                                        <Title level={5} style={{ margin: 0 }}>เธเนเธญเธกเธนเธฅเธชเธดเธเธเนเธฒ</Title>
+                                        <Title level={5} style={{ margin: 0 }}>ข้อมูลสินค้า</Title>
                                     </div>
 
                                     <Form<ProductFormValues>
                                         form={form}
                                         layout="vertical"
                                         onFinish={handleSubmit}
-                                        initialValues={{ is_active: true, price: 0, price_delivery: 0 }}
+                                        initialValues={{ is_active: true, price: 0, price_delivery: 0, topping_group_ids: [] }}
                                         onValuesChange={(changed) => {
                                             if (!isEdit && changed.price !== undefined && !form.isFieldTouched('price_delivery')) {
                                                 form.setFieldsValue({ price_delivery: changed.price });
@@ -278,25 +296,25 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                     >
                                         <Form.Item
                                             name="display_name"
-                                            label={<span style={{ fontWeight: 600 }}>เธเธทเนเธญเธชเธดเธเธเนเธฒ</span>}
+                                            label={<span style={{ fontWeight: 600 }}>ชื่อสินค้า</span>}
                                             validateTrigger={['onBlur', 'onSubmit']}
                                             rules={[
-                                                { required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธเธทเนเธญเธชเธดเธเธเนเธฒ' },
-                                                { max: 100, message: 'เธเธงเธฒเธกเธขเธฒเธงเธ•เนเธญเธเนเธกเนเน€เธเธดเธ 100 เธ•เธฑเธงเธญเธฑเธเธฉเธฃ' },
+                                                { required: true, message: 'กรุณากรอกชื่อสินค้า' },
+                                                { max: 100, message: 'ชื่อต้องไม่เกิน 100 ตัวอักษร' },
                                                 {
                                                     validator: async (_, value: string) => {
                                                         if (!value?.trim()) return;
-                                                        if (await checkNameConflict(value)) throw new Error('เธเธทเนเธญเธเธตเนเธ–เธนเธเนเธเนเธเธฒเธเนเธฅเนเธง');
+                                                        if (await checkNameConflict(value)) throw new Error('ชื่อนี้ถูกใช้งานแล้ว');
                                                     },
                                                 },
                                             ]}
                                         >
-                                            <Input size="large" maxLength={100} placeholder="เธญเน€เธกเธฃเธดเธเธฒเนเธเน, เธเนเธฒเธงเธเธฐเน€เธเธฃเธฒ..." />
+                                            <Input size="large" maxLength={100} placeholder="อเมริกาโน่, ข้าวกะเพรา..." />
                                         </Form.Item>
 
                                         <Row gutter={12}>
                                             <Col xs={24} md={12}>
-                                                <Form.Item name="price" label={<span style={{ fontWeight: 600 }}>เธฃเธฒเธเธฒเธเธฒเธข</span>} rules={[{ required: true, message: 'เธเธฃเธธเธ“เธฒเธเธฃเธญเธเธฃเธฒเธเธฒ' }]}>
+                                                <Form.Item name="price" label={<span style={{ fontWeight: 600 }}>ราคาขาย</span>} rules={[{ required: true, message: 'กรุณากรอกราคา' }]}>
                                                     <Input
                                                         inputMode="numeric"
                                                         placeholder="0"
@@ -309,7 +327,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                                 </Form.Item>
                                             </Col>
                                             <Col xs={24} md={12}>
-                                                <Form.Item name="price_delivery" label={<span style={{ fontWeight: 600 }}>เธฃเธฒเธเธฒเน€เธ”เธฅเธดเน€เธงเธญเธฃเธต</span>}>
+                                                <Form.Item name="price_delivery" label={<span style={{ fontWeight: 600 }}>ราคาเดลิเวอรี</span>}>
                                                     <Input
                                                         inputMode="numeric"
                                                         placeholder="0"
@@ -325,17 +343,17 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
 
                                         <Row gutter={12}>
                                             <Col xs={24} md={12}>
-                                                <Form.Item name="category_id" label={<span style={{ fontWeight: 600 }}>เธซเธกเธงเธ”เธซเธกเธนเน</span>} rules={[{ required: true, message: 'เธเธฃเธธเธ“เธฒเน€เธฅเธทเธญเธเธซเธกเธงเธ”เธซเธกเธนเน' }]}>
+                                                <Form.Item name="category_id" label={<span style={{ fontWeight: 600 }}>หมวดหมู่</span>} rules={[{ required: true, message: 'กรุณาเลือกหมวดหมู่' }]}>
                                                     <div onClick={() => setIsCategoryModalVisible(true)} style={{ padding: '10px 16px', borderRadius: 12, border: '2px solid #e2e8f0', cursor: 'pointer', minHeight: 46, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                        <span>{selectedCategoryId ? categories.find((c) => c.id === selectedCategoryId)?.display_name : 'เน€เธฅเธทเธญเธเธซเธกเธงเธ”เธซเธกเธนเน'}</span>
+                                                        <span>{selectedCategoryId ? categories.find((c) => c.id === selectedCategoryId)?.display_name : 'เลือกหมวดหมู่'}</span>
                                                         <DownOutlined />
                                                     </div>
                                                 </Form.Item>
                                             </Col>
                                             <Col xs={24} md={12}>
-                                                <Form.Item name="unit_id" label={<span style={{ fontWeight: 600 }}>เธซเธเนเธงเธขเธชเธดเธเธเนเธฒ</span>} rules={[{ required: true, message: 'เธเธฃเธธเธ“เธฒเน€เธฅเธทเธญเธเธซเธเนเธงเธขเธชเธดเธเธเนเธฒ' }]}>
+                                                <Form.Item name="unit_id" label={<span style={{ fontWeight: 600 }}>หน่วยสินค้า</span>} rules={[{ required: true, message: 'กรุณาเลือกหน่วยสินค้า' }]}>
                                                     <div onClick={() => setIsUnitModalVisible(true)} style={{ padding: '10px 16px', borderRadius: 12, border: '2px solid #e2e8f0', cursor: 'pointer', minHeight: 46, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                        <span>{selectedUnitId ? units.find((u) => u.id === selectedUnitId)?.display_name : 'เน€เธฅเธทเธญเธเธซเธเนเธงเธขเธชเธดเธเธเนเธฒ'}</span>
+                                                        <span>{selectedUnitId ? units.find((u) => u.id === selectedUnitId)?.display_name : 'เลือกหน่วยสินค้า'}</span>
                                                         <DownOutlined />
                                                     </div>
                                                 </Form.Item>
@@ -343,14 +361,35 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                         </Row>
 
                                         <Form.Item
+                                            name="topping_group_ids"
+                                            label={<span style={{ fontWeight: 600 }}>Topping Group ที่ใช้ได้</span>}
+                                            extra="ถ้าไม่เลือกไว้ สินค้านี้จะไม่มีท็อปปิ้งให้เลือก"
+                                        >
+                                            <ModalSelector<string>
+                                                title="เลือก Topping Group"
+                                                value={toppingGroupIds}
+                                                multiple
+                                                showSearch
+                                                options={availableToppingGroups.map((group) => ({
+                                                    label: group.display_name,
+                                                    value: group.id,
+                                                    searchLabel: group.display_name,
+                                                }))}
+                                                onChange={(value) => form.setFieldValue('topping_group_ids', value)}
+                                                placeholder="ไม่กำหนด Topping Group"
+                                                style={{ minHeight: 46, borderRadius: 12, padding: '10px 16px' }}
+                                            />
+                                        </Form.Item>
+
+                                        <Form.Item
                                             name="img_url"
-                                            label={<span style={{ fontWeight: 600 }}>เธฃเธนเธเธ เธฒเธ URL</span>}
+                                            label={<span style={{ fontWeight: 600 }}>รูปภาพ URL</span>}
                                             rules={[
                                                 {
                                                     validator: async (_, value: string | undefined) => {
                                                         if (!value?.trim()) return;
                                                         if (!isSupportedImageSource(normalizeImageSource(value))) {
-                                                            throw new Error('เธฃเธญเธเธฃเธฑเธเน€เธเธเธฒเธฐ URL เธฃเธนเธเธ เธฒเธเนเธเธ http(s), data:image เนเธฅเธฐ blob');
+                                                            throw new Error('รองรับเฉพาะ URL รูปภาพแบบ http(s), data:image และ blob');
                                                         }
                                                     },
                                                 },
@@ -359,15 +398,15 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                             <Input size="large" placeholder="https://example.com/image.jpg" />
                                         </Form.Item>
 
-                                        <Form.Item name="description" label={<span style={{ fontWeight: 600 }}>เธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”เน€เธเธดเนเธกเน€เธ•เธดเธก</span>}>
-                                            <TextArea rows={4} maxLength={500} placeholder="เธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”เธชเธดเธเธเนเธฒ, เธซเธกเธฒเธขเน€เธซเธ•เธธ" />
+                                        <Form.Item name="description" label={<span style={{ fontWeight: 600 }}>รายละเอียดเพิ่มเติม</span>}>
+                                            <TextArea rows={4} maxLength={500} placeholder="รายละเอียดสินค้า, หมายเหตุ" />
                                         </Form.Item>
 
                                         <div style={{ padding: 16, background: '#f8fafc', borderRadius: 14, marginBottom: 18 }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <div>
-                                                    <Text strong>เธชเธ–เธฒเธเธฐเธเธฒเธฃเนเธเนเธเธฒเธ</Text>
-                                                    <Text type="secondary" style={{ display: 'block', fontSize: 13 }}>เน€เธเธดเธ”เน€เธเธทเนเธญเนเธซเนเนเธชเธ”เธเนเธเธซเธเนเธฒ POS</Text>
+                                                    <Text strong>สถานะการใช้งาน</Text>
+                                                    <Text type="secondary" style={{ display: 'block', fontSize: 13 }}>เปิดเพื่อให้แสดงในหน้า POS</Text>
                                                 </div>
                                                 <Form.Item name="is_active" valuePropName="checked" noStyle>
                                                     <Switch checked={isActive} />
@@ -376,9 +415,9 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                         </div>
 
                                         <div style={{ display: 'flex', gap: 12 }}>
-                                            <Button size="large" onClick={() => router.replace('/pos/products')} style={{ flex: 1 }}>เธขเธเน€เธฅเธดเธ</Button>
+                                            <Button size="large" onClick={() => router.replace('/pos/products')} style={{ flex: 1 }}>ยกเลิก</Button>
                                             <Button type="primary" htmlType="submit" size="large" icon={<SaveOutlined />} loading={submitting} style={{ flex: 2 }}>
-                                                เธเธฑเธเธ—เธถเธเธเนเธญเธกเธนเธฅ
+                                                บันทึกข้อมูล
                                             </Button>
                                         </div>
                                     </Form>
@@ -388,7 +427,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                             <Col xs={24} lg={9}>
                                 <div style={{ display: 'grid', gap: 14 }}>
                                     <Card style={{ borderRadius: 20 }}>
-                                        <Title level={5} style={{ color: '#4f46e5', marginBottom: 16 }}>เธ•เธฑเธงเธญเธขเนเธฒเธเธเธฒเธฃเนเธชเธ”เธเธเธฅ</Title>
+                                        <Title level={5} style={{ color: '#4f46e5', marginBottom: 16 }}>ตัวอย่างการแสดงผล</Title>
                                         <ProductPreview
                                             name={displayName}
                                             imageUrl={imageUrl}
@@ -403,10 +442,10 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                         <Card style={{ borderRadius: 16 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                                                 <ExclamationCircleOutlined style={{ color: '#0369a1' }} />
-                                                <Text strong>เธฃเธฒเธขเธฅเธฐเน€เธญเธตเธขเธ”เธฃเธฒเธขเธเธฒเธฃ</Text>
+                                                <Text strong>รายละเอียดรายการ</Text>
                                             </div>
-                                            <Text type="secondary" style={{ display: 'block' }}>เธชเธฃเนเธฒเธเน€เธกเธทเนเธญ: {formatDate(originalProduct?.create_date)}</Text>
-                                            <Text type="secondary" style={{ display: 'block' }}>เธญเธฑเธเน€เธ”เธ•เน€เธกเธทเนเธญ: {formatDate(originalProduct?.update_date)}</Text>
+                                            <Text type="secondary" style={{ display: 'block' }}>สร้างเมื่อ: {formatDate(originalProduct?.create_date)}</Text>
+                                            <Text type="secondary" style={{ display: 'block' }}>อัปเดตเมื่อ: {formatDate(originalProduct?.update_date)}</Text>
                                         </Card>
                                     ) : null}
 
@@ -415,8 +454,8 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                             type="warning"
                                             showIcon
                                             icon={<ShopOutlined />}
-                                            message="เธเนเธญเธกเธนเธฅเธญเนเธฒเธเธญเธดเธเธขเธฑเธเนเธกเนเธเธฃเธ"
-                                            description="เธเธฃเธธเธ“เธฒเธ•เธฃเธงเธเธชเธญเธเธซเธกเธงเธ”เธซเธกเธนเนเนเธฅเธฐเธซเธเนเธงเธขเธชเธดเธเธเนเธฒเธ—เธตเนเน€เธเธดเธ”เนเธเนเธเธฒเธเธเนเธญเธเธเธฑเธเธ—เธถเธเธชเธดเธเธเนเธฒ"
+                                            message="ข้อมูลอ้างอิงยังไม่ครบ"
+                                            description="กรุณาตรวจสอบหมวดหมู่และหน่วยสินค้าที่เปิดใช้งานก่อนบันทึกสินค้า"
                                         />
                                     ) : null}
                                 </div>
@@ -426,7 +465,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                 </PageSection>
             </PageContainer>
 
-            <Modal title="เน€เธฅเธทเธญเธเธซเธกเธงเธ”เธซเธกเธนเน" open={isCategoryModalVisible} onCancel={() => setIsCategoryModalVisible(false)} footer={null} centered width="min(400px, calc(100vw - 16px))">
+            <Modal title="เลือกหมวดหมู่" open={isCategoryModalVisible} onCancel={() => setIsCategoryModalVisible(false)} footer={null} centered width="min(400px, calc(100vw - 16px))">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
                     {activeCategories.map((cat) => (
                         <div key={cat.id} onClick={() => { form.setFieldsValue({ category_id: cat.id }); setIsCategoryModalVisible(false); }} style={{ padding: '14px 18px', border: '2px solid', borderRadius: 12, cursor: 'pointer', background: selectedCategoryId === cat.id ? '#eff6ff' : '#fff', borderColor: selectedCategoryId === cat.id ? '#3b82f6' : '#e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -437,7 +476,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                 </div>
             </Modal>
 
-            <Modal title="เน€เธฅเธทเธญเธเธซเธเนเธงเธขเธชเธดเธเธเนเธฒ" open={isUnitModalVisible} onCancel={() => setIsUnitModalVisible(false)} footer={null} centered width="min(400px, calc(100vw - 16px))">
+            <Modal title="เลือกหน่วยสินค้า" open={isUnitModalVisible} onCancel={() => setIsUnitModalVisible(false)} footer={null} centered width="min(400px, calc(100vw - 16px))">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
                     {activeUnits.map((unit) => (
                         <div key={unit.id} onClick={() => { form.setFieldsValue({ unit_id: unit.id }); setIsUnitModalVisible(false); }} style={{ padding: '14px 18px', border: '2px solid', borderRadius: 12, cursor: 'pointer', background: selectedUnitId === unit.id ? '#eff6ff' : '#fff', borderColor: selectedUnitId === unit.id ? '#3b82f6' : '#e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

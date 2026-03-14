@@ -207,6 +207,22 @@ export const PERMISSION_ROUTE_MATRIX: readonly PermissionRouteRule[] = [
     allowedRoles: ["Admin", "Manager"],
   },
   {
+    id: "api-topping-group-read-all",
+    resourceKey: "api.pos.topping-group.read",
+    description: "Read topping group master data.",
+    match: { mode: "prefix", value: "/api/pos/toppingGroup" },
+    methods: READ_METHODS,
+    allowedRoles: ALL_ROLES,
+  },
+  {
+    id: "api-topping-group-write-admin-manager",
+    resourceKey: "api.pos.topping-group.write",
+    description: "Write topping group master data.",
+    match: { mode: "prefix", value: "/api/pos/toppingGroup" },
+    methods: WRITE_METHODS,
+    allowedRoles: ["Admin", "Manager"],
+  },
+  {
     id: "api-category-read-all",
     resourceKey: "api.pos.category.read",
     description: "Read category data.",

@@ -79,8 +79,6 @@ const ToppingCard = ({
 }: ToppingCardProps) => {
     const imageSrc = normalizeImageSource(topping.img);
     const hasImage = isSupportedImageSource(imageSrc);
-    const deliveryPrice = Number(topping.price_delivery ?? topping.price ?? 0);
-
     return (
         <div
             className="topping-card"
@@ -148,6 +146,11 @@ const ToppingCard = ({
                         {topping.categories?.map((category) => (
                             <Tag key={category.id} style={{ margin: 0, border: 'none', background: '#eff6ff', color: '#1d4ed8' }}>
                                 {category.display_name}
+                            </Tag>
+                        ))}
+                        {topping.topping_groups?.map((group) => (
+                            <Tag key={group.id} style={{ margin: 0, border: 'none', background: '#f5f3ff', color: '#6d28d9' }}>
+                                กลุ่ม {group.display_name}
                             </Tag>
                         ))}
                     </Space>
@@ -361,6 +364,9 @@ export default function ToppingPage() {
             RealtimeEvents.topping.create,
             RealtimeEvents.topping.update,
             RealtimeEvents.topping.delete,
+            RealtimeEvents.toppingGroups.create,
+            RealtimeEvents.toppingGroups.update,
+            RealtimeEvents.toppingGroups.delete,
             RealtimeEvents.categories.create,
             RealtimeEvents.categories.update,
             RealtimeEvents.categories.delete,
@@ -478,6 +484,9 @@ export default function ToppingPage() {
                 actions={
                     <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchToppings({ background: toppings.length > 0 })} />
+                        <Button onClick={() => router.push('/pos/toppingGroup')}>
+                            จัดการ Topping Group
+                        </Button>
                         {canCreateTopping ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
                                 เพิ่มท็อปปิ้ง

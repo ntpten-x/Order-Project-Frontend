@@ -57,6 +57,7 @@ type MenuItem = {
     price: number;
     img_url: string | null;
     unit_display_name: string | null;
+    topping_group_ids?: string[];
 };
 
 type MenuCategory = {
@@ -160,6 +161,7 @@ function mapMenuToProduct(item: MenuItem, category: MenuCategory): Products {
         create_date: now,
         update_date: now,
         is_active: true,
+        topping_group_ids: item.topping_group_ids || [],
         category: {
             id: category.id,
             display_name: category.display_name,

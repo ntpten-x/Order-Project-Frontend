@@ -64,14 +64,18 @@ export const toOrderItemDetailInputs = (details: OrderItemDetailDraft[]): OrderI
 };
 
 export const getEligibleProductToppings = (toppings: Topping[], product?: Products | null): Topping[] => {
-    const productCategoryId = product?.category_id || product?.category?.id;
-    if (!productCategoryId) {
+    const productToppingGroupIds = [
+        ...(product?.topping_group_ids || []),
+        ...((product?.topping_groups || []).map((toppingGroup) => toppingGroup.id)),
+    ].filter((value, index, array): value is string => Boolean(value) && array.indexOf(value) === index);
+
+    if (productToppingGroupIds.length === 0) {
         return [];
     }
 
     return toppings
         .filter((topping) =>
-            (topping.categories || []).some((category) => category.id === productCategoryId)
+            (topping.topping_groups || []).some((toppingGroup) => productToppingGroupIds.includes(toppingGroup.id))
         )
         .sort((left, right) => left.display_name.localeCompare(right.display_name, "th"));
 };
