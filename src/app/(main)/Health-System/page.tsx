@@ -340,7 +340,7 @@ export default function HealthSystemPage() {
 
     if (loading && !report) {
         return (
-            <div style={{ minHeight: "100vh", background: "linear-gradient(180deg, #f4f7fb 0%, #eef3f9 100%)" }}>
+            <div style={{ minHeight: "100dvh", background: "linear-gradient(180deg, #f4f7fb 0%, #eef3f9 100%)" }}>
                 <UIPageHeader
                     title="Health System"
                     subtitle="ศูนย์ตรวจสอบความพร้อมระบบ (Admin)"
@@ -361,7 +361,7 @@ export default function HealthSystemPage() {
 
     if (!report) {
         return (
-            <div style={{ minHeight: "100vh", background: "linear-gradient(180deg, #f4f7fb 0%, #eef3f9 100%)" }}>
+            <div style={{ minHeight: "100dvh", background: "linear-gradient(180deg, #f4f7fb 0%, #eef3f9 100%)" }}>
                 <UIPageHeader
                     title="Health System"
                     subtitle="ศูนย์ตรวจสอบความพร้อมระบบ (Admin)"
@@ -386,7 +386,7 @@ export default function HealthSystemPage() {
     const perfMeta = LEVEL_META[report.performance.level];
 
     return (
-        <div style={{ minHeight: "100vh", background: "linear-gradient(180deg, #f4f7fb 0%, #eef3f9 100%)" }}>
+        <div style={{ minHeight: "100dvh", background: "linear-gradient(180deg, #f4f7fb 0%, #eef3f9 100%)" }}>
             <UIPageHeader
                 title="Health System"
                 subtitle="ภาพรวมความพร้อมของระบบแบบเรียลไทม์ (อัปเดตทุก 30 วินาที)"

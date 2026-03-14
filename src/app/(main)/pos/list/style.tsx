@@ -6,7 +6,7 @@ export const servingBoardStyles = `
 
 /* ── Base Page ── */
 .sb-page {
-  min-height: 100vh;
+  min-height: 100dvh;
   background: #101318;
   padding-bottom: 100px;
   color: #e8ecf1;

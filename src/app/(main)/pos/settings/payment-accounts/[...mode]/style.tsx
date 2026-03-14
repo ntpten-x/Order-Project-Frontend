@@ -5,7 +5,7 @@ import { posColors } from '../../../../../../theme/pos';
 
 export const pageStyles = {
     container: {
-        minHeight: '100vh',
+        minHeight: '100dvh',
         background: posColors.background,
         fontFamily: "var(--font-sans), 'Sarabun', sans-serif",
         paddingBottom: 60,

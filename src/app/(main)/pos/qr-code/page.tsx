@@ -42,23 +42,23 @@ const QR_TABLE_CACHE_KEY = 'pos:tables:qr:list:default-v1';
 const QR_TABLE_CACHE_TTL_MS = 60 * 1000;
 const pageGlobalStyles = `.qr-code-page{background:#f8fafc;min-height:100dvh;padding-bottom:96px}.qr-cards-grid{display:grid;gap:14px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}.qr-table-card{border:1px solid #e2e8f0;border-radius:18px;background:#fff;padding:16px;display:flex;flex-direction:column;gap:12px;box-shadow:0 1px 3px rgba(15,23,42,.04);transition:transform .2s ease,box-shadow .2s ease}.qr-table-card:hover{transform:translateY(-2px);box-shadow:0 10px 28px rgba(15,23,42,.08)}.qr-code-box{border:2px dashed #dbeafe;border-radius:16px;min-height:184px;display:flex;justify-content:center;align-items:center;background:linear-gradient(180deg,#fff 0%,#f8fafc 100%);padding:16px}.qr-code-box-clickable{cursor:pointer}.qr-code-box-clickable:hover{box-shadow:0 8px 24px rgba(37,99,235,.12);border-color:#60a5fa}@media (max-width:767px){.qr-code-page{padding-bottom:calc(108px + env(safe-area-inset-bottom))}.qr-cards-grid{grid-template-columns:1fr;gap:12px}}`;
 const TAKEAWAY_QR_UI = {
-    label: 'QR Code สั่งกลับ',
+    label: 'QR Code เธชเธฑเนเธเธเธฅเธฑเธ',
     exportLabel: 'Export',
     copyLinkLabel: 'Copy Link',
-    openPageLabel: 'ไปที่หน้า',
-    missingLinkWarning: 'ยังไม่มีลิงก์ลูกค้า',
-    loadError: 'ไม่สามารถโหลด Takeaway QR ได้',
-    exportError: 'ส่งออก Takeaway QR ไม่สำเร็จ',
-    openPdfSuccess: 'เปิดหน้า Takeaway QR PDF แล้ว',
+    openPageLabel: 'เนเธเธ—เธตเนเธซเธเนเธฒ',
+    missingLinkWarning: 'เธขเธฑเธเนเธกเนเธกเธตเธฅเธดเธเธเนเธฅเธนเธเธเนเธฒ',
+    loadError: 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เนเธซเธฅเธ” Takeaway QR เนเธ”เน',
+    exportError: 'เธชเนเธเธญเธญเธ Takeaway QR เนเธกเนเธชเธณเน€เธฃเนเธ',
+    openPdfSuccess: 'เน€เธเธดเธ”เธซเธเนเธฒ Takeaway QR PDF เนเธฅเนเธง',
     refreshLabel: 'Refresh',
 };
 const TABLE_QR_EXPORT_UI = {
     singleButtonLabel: 'Export',
-    singleModalTitle: 'Export QR Code โต๊ะ',
-    singleScopeDescription: 'จะส่งออกเฉพาะ QR Code ของโต๊ะที่เลือกเท่านั้น',
-    bulkButtonLabel: 'Export ทั้งหมด (โต๊ะ)',
-    bulkModalTitle: 'Export ทั้งหมด (โต๊ะ)',
-    bulkScopeDescription: 'ระบบจะส่งออก QR Code ของทุกโต๊ะตามผลการค้นหาและตัวกรองปัจจุบัน',
+    singleModalTitle: 'Export QR Code เนเธ•เนเธฐ',
+    singleScopeDescription: 'เธเธฐเธชเนเธเธญเธญเธเน€เธเธเธฒเธฐ QR Code เธเธญเธเนเธ•เนเธฐเธ—เธตเนเน€เธฅเธทเธญเธเน€เธ—เนเธฒเธเธฑเนเธ',
+    bulkButtonLabel: 'Export เธ—เธฑเนเธเธซเธกเธ” (เนเธ•เนเธฐ)',
+    bulkModalTitle: 'Export เธ—เธฑเนเธเธซเธกเธ” (เนเธ•เนเธฐ)',
+    bulkScopeDescription: 'เธฃเธฐเธเธเธเธฐเธชเนเธเธญเธญเธ QR Code เธเธญเธเธ—เธธเธเนเธ•เนเธฐเธ•เธฒเธกเธเธฅเธเธฒเธฃเธเนเธเธซเธฒเนเธฅเธฐเธ•เธฑเธงเธเธฃเธญเธเธเธฑเธเธเธธเธเธฑเธ',
 };
 
 type StatusFilter = 'all' | 'active' | 'inactive';
@@ -75,7 +75,7 @@ const formatDate = (value?: string | Date | null) => {
     if (Number.isNaN(date.getTime())) return '-';
     return new Intl.DateTimeFormat('th-TH', { dateStyle: 'medium', timeStyle: 'short' }).format(date);
 };
-const getTableStatusLabel = (status: TableStatus) => status === TableStatus.Available ? 'ว่าง' : 'ไม่ว่าง';
+const getTableStatusLabel = (status: TableStatus) => status === TableStatus.Available ? 'เธงเนเธฒเธ' : 'เนเธกเนเธงเนเธฒเธ';
 const toSafeFilename = (value: string) => value.replace(/[^\w\u0E00-\u0E7F-]+/g, '_').replace(/_+/g, '_').replace(/^_+|_+$/g, '').slice(0, 60) || 'table';
 const getCanvasId = (tableId: string) => `table-qr-export-canvas-${tableId}`;
 
@@ -85,22 +85,22 @@ function TableQrCard({ table, customerUrl, canRotate, rotating, exporting, onOpe
         <article className="qr-table-card">
             <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 }}>
                 <div style={{ minWidth: 0 }}>
-                    <Text strong style={{ fontSize: 16, color: '#0f172a' }} ellipsis={{ tooltip: table.table_name }}>โต๊ะ {table.table_name}</Text>
+                    <Text strong style={{ fontSize: 16, color: '#0f172a' }} ellipsis={{ tooltip: table.table_name }}>เนเธ•เนเธฐ {table.table_name}</Text>
                 </div>
                 <Space size={6} wrap>
                     <Tag color={table.status === TableStatus.Available ? 'green' : 'orange'} style={{ margin: 0, borderRadius: 999 }}>{getTableStatusLabel(table.status)}</Tag>
-                    <Tag color={table.is_active ? 'processing' : 'default'} style={{ margin: 0, borderRadius: 999 }}>{table.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}</Tag>
+                    <Tag color={table.is_active ? 'processing' : 'default'} style={{ margin: 0, borderRadius: 999 }}>{table.is_active ? 'เนเธเนเธเธฒเธ' : 'เธเธดเธ”เนเธเนเธเธฒเธ'}</Tag>
                 </Space>
             </div>
             <div className={`qr-code-box ${hasQrUrl ? 'qr-code-box-clickable' : ''}`} onClick={() => hasQrUrl && onPreviewQr(table)}>
-                {hasQrUrl ? <DynamicQRCode value={customerUrl} size={140} /> : <Text type="secondary">ยังไม่มี QR สำหรับโต๊ะนี้</Text>}
+                {hasQrUrl ? <DynamicQRCode value={customerUrl} size={140} /> : <Text type="secondary">เธขเธฑเธเนเธกเนเธกเธต QR เธชเธณเธซเธฃเธฑเธเนเธ•เนเธฐเธเธตเน</Text>}
             </div>
-            <Tooltip title={customerUrl || 'ยังไม่มีลิงก์ลูกค้า'}>
+            <Tooltip title={customerUrl || 'เธขเธฑเธเนเธกเนเธกเธตเธฅเธดเธเธเนเธฅเธนเธเธเนเธฒ'}>
                 <Text type="secondary" style={{ fontSize: 12, minHeight: 38, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', wordBreak: 'break-all' }}>{customerUrl || '-'}</Text>
             </Tooltip>
-            <Text type="secondary" style={{ fontSize: 12 }}>หมดอายุ: {formatDate(table.qr_code_expires_at)}</Text>
+            <Text type="secondary" style={{ fontSize: 12 }}>เธซเธกเธ”เธญเธฒเธขเธธ: {formatDate(table.qr_code_expires_at)}</Text>
             <Space size={8} wrap>
-                <Button icon={<LinkOutlined />} onClick={() => onOpen(table)} disabled={!hasQrUrl}>ไปที่หน้า</Button>
+                <Button icon={<LinkOutlined />} onClick={() => onOpen(table)} disabled={!hasQrUrl}>เนเธเธ—เธตเนเธซเธเนเธฒ</Button>
                 <Button icon={<SyncOutlined spin={rotating} />} loading={rotating} disabled={!canRotate} onClick={() => onRotate(table)}>Refresh</Button>
                 <Button icon={<DownloadOutlined />} loading={exporting} disabled={!hasQrUrl} onClick={() => onExport(table)}>{TABLE_QR_EXPORT_UI.singleButtonLabel}</Button>
             </Space>
@@ -167,7 +167,7 @@ export default function TableQrCodePage() {
     const takeawayCustomerUrl = useMemo(() => buildCustomerUrl(takeawayQr?.customer_path), [buildCustomerUrl, takeawayQr?.customer_path]);
     const takeawayLabel = useMemo(() => takeawayQr?.shop_name?.trim() || 'Takeaway', [takeawayQr?.shop_name]);
     const takeawayQrHeading = TAKEAWAY_QR_UI.label;
-    const takeawayQrSubtitle = 'สแกนคิวอาร์โค้ดนี้เพื่อสั่งอาหาร';
+    const takeawayQrSubtitle = 'เธชเนเธเธเธเธดเธงเธญเธฒเธฃเนเนเธเนเธ”เธเธตเนเน€เธเธทเนเธญเธชเธฑเนเธเธญเธฒเธซเธฒเธฃ';
     const takeawayQrDocumentTitle = useMemo(() => `${TAKEAWAY_QR_UI.label} ${takeawayLabel}`, [takeawayLabel]);
     const takeawayQrRenderKey = takeawayQr?.token || takeawayCustomerUrl || 'takeaway-qr';
 
@@ -282,7 +282,7 @@ export default function TableQrCodePage() {
             const response = await fetch(`/api/pos/tables/qr-codes?${params.toString()}`, { cache: 'no-store' });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงรายการ QR สำหรับ export ทั้งหมดได้');
+                throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธฃเธฒเธขเธเธฒเธฃ QR เธชเธณเธซเธฃเธฑเธ export เธ—เธฑเนเธเธซเธกเธ”เนเธ”เน');
             }
             const payload = await response.json();
             const items = Array.isArray(payload.data) ? payload.data as TableQrCodeListItem[] : [];
@@ -314,7 +314,7 @@ export default function TableQrCodePage() {
             const response = await fetch(`/api/pos/tables/qr-codes?${getQueryParams().toString()}`, { cache: 'no-store', signal: controller.signal });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงรายการ QR โต๊ะได้');
+                throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธฃเธฒเธขเธเธฒเธฃ QR เนเธ•เนเธฐเนเธ”เน');
             }
             const payload = await response.json();
             if (controller.signal.aborted) return;
@@ -324,7 +324,7 @@ export default function TableQrCodePage() {
             if (controller.signal.aborted) return;
             closePrintWindow(autoPrintWindowRef.current);
             autoPrintWindowRef.current = null;
-            setError(fetchError instanceof Error ? fetchError : new Error('ไม่สามารถดึงรายการ QR โต๊ะได้'));
+            setError(fetchError instanceof Error ? fetchError : new Error('เนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธ”เธถเธเธฃเธฒเธขเธเธฒเธฃ QR เนเธ•เนเธฐเนเธ”เน'));
         } finally {
             if (requestRef.current === controller) requestRef.current = null;
             if (!controller.signal.aborted) { setLoading(false); setRefreshing(false); }
@@ -344,13 +344,13 @@ export default function TableQrCodePage() {
                 const printSettings = await getPrintSettings();
                 if (!printSettings.automation.auto_print_table_qr_after_rotation) { closePrintWindow(autoPrintWindowRef.current); return; }
                 const customerUrl = buildCustomerUrl(targetTable.customer_path);
-                if (!customerUrl) throw new Error('ไม่พบลิงก์ลูกค้าสำหรับพิมพ์ QR');
+                if (!customerUrl) throw new Error('เนเธกเนเธเธเธฅเธดเธเธเนเธฅเธนเธเธเนเธฒเธชเธณเธซเธฃเธฑเธเธเธดเธกเธเน QR');
                 const qrImageDataUrl = await captureCanvasImage(getCanvasId(targetTable.id));
                 if (cancelled) return;
                 await printTableQrDocument({ tableName: targetTable.table_name, customerUrl, qrImageDataUrl, qrCodeExpiresAt: targetTable.qr_code_expires_at, settings: printSettings, targetWindow: autoPrintWindowRef.current });
             } catch (printError) {
                 closePrintWindow(autoPrintWindowRef.current);
-                message.error(printError instanceof Error ? printError.message : 'เปิดหน้าพิมพ์ QR ไม่สำเร็จ');
+                message.error(printError instanceof Error ? printError.message : 'เน€เธเธดเธ”เธซเธเนเธฒเธเธดเธกเธเน QR เนเธกเนเธชเธณเน€เธฃเนเธ');
             } finally {
                 if (!cancelled) { autoPrintWindowRef.current = null; setPendingAutoPrint(null); }
             }
@@ -361,12 +361,12 @@ export default function TableQrCodePage() {
 
     const handleOpenCustomerPage = useCallback((table: TableQrCodeListItem) => {
         const customerUrl = buildCustomerUrl(table.customer_path);
-        if (!customerUrl) return message.warning('ยังไม่มีลิงก์สำหรับโต๊ะนี้');
+        if (!customerUrl) return message.warning('เธขเธฑเธเนเธกเนเธกเธตเธฅเธดเธเธเนเธชเธณเธซเธฃเธฑเธเนเธ•เนเธฐเธเธตเน');
         window.open(customerUrl, '_blank', 'noopener,noreferrer');
     }, [buildCustomerUrl]);
 
     const handleRotateQr = useCallback(async (table: TableQrCodeListItem) => {
-        if (!canRotateQr) return void message.error('คุณไม่มีสิทธิ์ Refresh QR');
+        if (!canRotateQr) return void message.error('เธเธธเธ“เนเธกเนเธกเธตเธชเธดเธ—เธเธดเน Refresh QR');
         const cachedPrintSettings = peekPrintSettings();
         const shouldPrepareAutoPrint = !cachedPrintSettings || cachedPrintSettings.automation.auto_print_table_qr_after_rotation;
         closePrintWindow(autoPrintWindowRef.current);
@@ -376,16 +376,16 @@ export default function TableQrCodePage() {
             const response = await fetch(`/api/pos/tables/${table.id}/qr/rotate`, { method: 'POST', headers: { 'X-CSRF-Token': csrfToken || await getCsrfTokenCached() } });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || 'ไม่สามารถ Refresh QR ได้');
+                throw new Error(errorData.error || errorData.message || 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ– Refresh QR เนเธ”เน');
             }
             const payload = await response.json() as TableQrInfo;
             setTables((prev) => prev.map((row) => row.id === table.id ? { ...row, qr_code_token: payload.qr_code_token, qr_code_expires_at: payload.qr_code_expires_at, customer_path: payload.customer_path, update_date: new Date().toISOString() } : row));
             if (shouldPrepareAutoPrint && payload.customer_path) setPendingAutoPrint({ tableId: table.id, customerPath: payload.customer_path }); else { closePrintWindow(autoPrintWindowRef.current); autoPrintWindowRef.current = null; }
-            message.success(`Refresh QR ของโต๊ะ ${table.table_name} สำเร็จ`);
+            message.success(`Refresh QR เธเธญเธเนเธ•เนเธฐ ${table.table_name} เธชเธณเน€เธฃเนเธ`);
         } catch (rotateError) {
             closePrintWindow(autoPrintWindowRef.current);
             autoPrintWindowRef.current = null;
-            message.error(rotateError instanceof Error ? rotateError.message : 'ไม่สามารถ Refresh QR ได้');
+            message.error(rotateError instanceof Error ? rotateError.message : 'เนเธกเนเธชเธฒเธกเธฒเธฃเธ– Refresh QR เนเธ”เน');
         } finally {
             setRotatingId(null);
         }
@@ -450,7 +450,7 @@ export default function TableQrCodePage() {
     const handleConfirmExport = useCallback(async () => {
         if (!exportTargetTable) return;
         const customerUrl = buildCustomerUrl(exportTargetTable.customer_path);
-        if (!customerUrl) return void message.warning('ยังไม่มีลิงก์ลูกค้าสำหรับโต๊ะนี้');
+        if (!customerUrl) return void message.warning('เธขเธฑเธเนเธกเนเธกเธตเธฅเธดเธเธเนเธฅเธนเธเธเนเธฒเธชเธณเธซเธฃเธฑเธเนเธ•เนเธฐเธเธตเน');
         setExportingId(exportTargetTable.id);
         let reservedPrintWindow: Window | null = null;
         try {
@@ -468,7 +468,7 @@ export default function TableQrCodePage() {
                     printSettings,
                 });
                 downloadCanvasAsPng(exportCanvas, `table-qr-${toSafeFilename(exportTargetTable.table_name)}.png`);
-                message.success('ดาวน์โหลด PNG สำเร็จ');
+                message.success('เธ”เธฒเธงเธเนเนเธซเธฅเธ” PNG เธชเธณเน€เธฃเนเธ');
             } else {
                 const result = await openQrPrintExport({
                     items: [{
@@ -486,11 +486,11 @@ export default function TableQrCodePage() {
                 reservedPrintWindow = null;
                 /* legacy export path replaced
                     ? exportFormat === 'a4'
-                    message.success('ดาวน์โหลด PDF สำเร็จ');
+                    message.success('เธ”เธฒเธงเธเนเนเธซเธฅเธ” PDF เธชเธณเน€เธฃเนเธ');
                 } else {
                     try {
                         await printTableQrDocument({ tableName: exportTargetTable.table_name, customerUrl, qrImageDataUrl, qrCodeExpiresAt: exportTargetTable.qr_code_expires_at, settings: printSettings, targetWindow });
-                        message.success('เปิดหน้าพิมพ์ PDF แล้ว');
+                        message.success('เน€เธเธดเธ”เธซเธเนเธฒเธเธดเธกเธเน PDF เนเธฅเนเธง');
                     } catch (printError) {
                         closePrintWindow(targetWindow);
                         throw printError;
@@ -500,17 +500,17 @@ export default function TableQrCodePage() {
             */
             message.success(result === 'window'
                 ? exportFormat === 'a4'
-                    ? 'เปิดหน้าพิมพ์ A4 แล้ว'
-                    : 'เปิดหน้าพิมพ์สำหรับเครื่องพิมพ์ใบเสร็จแล้ว'
+                    ? 'เน€เธเธดเธ”เธซเธเนเธฒเธเธดเธกเธเน A4 เนเธฅเนเธง'
+                    : 'เน€เธเธดเธ”เธซเธเนเธฒเธเธดเธกเธเนเธชเธณเธซเธฃเธฑเธเน€เธเธฃเธทเนเธญเธเธเธดเธกเธเนเนเธเน€เธชเธฃเนเธเนเธฅเนเธง'
                 : exportFormat === 'a4'
-                    ? 'ดาวน์โหลด PDF A4 สำเร็จ'
-                    : 'ดาวน์โหลด PDF สำหรับเครื่องพิมพ์ใบเสร็จสำเร็จ');
+                    ? 'เธ”เธฒเธงเธเนเนเธซเธฅเธ” PDF A4 เธชเธณเน€เธฃเนเธ'
+                    : 'เธ”เธฒเธงเธเนเนเธซเธฅเธ” PDF เธชเธณเธซเธฃเธฑเธเน€เธเธฃเธทเนเธญเธเธเธดเธกเธเนเนเธเน€เธชเธฃเนเธเธชเธณเน€เธฃเนเธ');
             }
             setIsExportModalOpen(false);
             setExportTargetTable(null);
         } catch (exportError) {
             closePrintWindow(reservedPrintWindow);
-            message.error(exportError instanceof Error ? exportError.message : 'ส่งออกไฟล์ไม่สำเร็จ');
+            message.error(exportError instanceof Error ? exportError.message : 'เธชเนเธเธญเธญเธเนเธเธฅเนเนเธกเนเธชเธณเน€เธฃเนเธ');
         } finally {
             setExportingId(null);
         }
@@ -564,9 +564,9 @@ export default function TableQrCodePage() {
 
             const info = await rotateTakeawayQr();
             setTakeawayQr(info);
-            message.success('Refresh takeaway QR สำเร็จ');
+            message.success('Refresh takeaway QR เธชเธณเน€เธฃเนเธ');
         } catch (error) {
-            message.error(error instanceof Error ? error.message : 'Refresh takeaway QR ไม่สำเร็จ');
+            message.error(error instanceof Error ? error.message : 'Refresh takeaway QR เนเธกเนเธชเธณเน€เธฃเนเธ');
         } finally {
             setIsTakeawayQrRefreshing(false);
         }
@@ -580,9 +580,9 @@ export default function TableQrCodePage() {
 
         try {
             await navigator.clipboard.writeText(takeawayCustomerUrl);
-            message.success('คัดลอกลิงก์ลูกค้าแล้ว');
+            message.success('เธเธฑเธ”เธฅเธญเธเธฅเธดเธเธเนเธฅเธนเธเธเนเธฒเนเธฅเนเธง');
         } catch {
-            message.error('คัดลอกลิงก์ไม่สำเร็จ');
+            message.error('เธเธฑเธ”เธฅเธญเธเธฅเธดเธเธเนเนเธกเนเธชเธณเน€เธฃเนเธ');
         }
     }, [takeawayCustomerUrl]);
 
@@ -640,7 +640,7 @@ export default function TableQrCodePage() {
                     subtitle: takeawayQrSubtitle,
                 });
                 downloadCanvasAsPng(exportCanvas, `${filenameBase}.png`);
-                message.success('ดาวน์โหลด PNG สำเร็จ');
+                message.success('เธ”เธฒเธงเธเนเนเธซเธฅเธ” PNG เธชเธณเน€เธฃเนเธ');
             } else {
                 const result = await openQrPrintExport({
                     items: [{
@@ -660,7 +660,7 @@ export default function TableQrCodePage() {
                 });
                 reservedPrintWindow = null;
                 /* legacy takeaway export path replaced
-                    message.success('ดาวน์โหลด PDF สำเร็จ');
+                    message.success('เธ”เธฒเธงเธเนเนเธซเธฅเธ” PDF เธชเธณเน€เธฃเนเธ');
                 } else {
                     try {
                         await printTableQrDocument({
@@ -686,11 +686,11 @@ export default function TableQrCodePage() {
             */
             message.success(result === 'window'
                 ? takeawayQrExportFormat === 'a4'
-                    ? 'เปิดหน้าพิมพ์ A4 แล้ว'
-                    : 'เปิดหน้าพิมพ์สำหรับเครื่องพิมพ์ใบเสร็จแล้ว'
+                    ? 'เน€เธเธดเธ”เธซเธเนเธฒเธเธดเธกเธเน A4 เนเธฅเนเธง'
+                    : 'เน€เธเธดเธ”เธซเธเนเธฒเธเธดเธกเธเนเธชเธณเธซเธฃเธฑเธเน€เธเธฃเธทเนเธญเธเธเธดเธกเธเนเนเธเน€เธชเธฃเนเธเนเธฅเนเธง'
                 : takeawayQrExportFormat === 'a4'
-                    ? 'ดาวน์โหลด PDF A4 สำเร็จ'
-                    : 'ดาวน์โหลด PDF สำหรับเครื่องพิมพ์ใบเสร็จสำเร็จ');
+                    ? 'เธ”เธฒเธงเธเนเนเธซเธฅเธ” PDF A4 เธชเธณเน€เธฃเนเธ'
+                    : 'เธ”เธฒเธงเธเนเนเธซเธฅเธ” PDF เธชเธณเธซเธฃเธฑเธเน€เธเธฃเธทเนเธญเธเธเธดเธกเธเนเนเธเน€เธชเธฃเนเธเธชเธณเน€เธฃเนเธ');
             }
             setIsTakeawayQrExportModalOpen(false);
         } catch (error) {
@@ -704,7 +704,7 @@ export default function TableQrCodePage() {
     const handleOpenSingleTableExportModal = useCallback((target: TableQrCodeListItem) => {
         const customerUrl = buildCustomerUrl(target.customer_path);
         if (!customerUrl) {
-            message.warning('ยังไม่มีลิงก์ลูกค้าสำหรับโต๊ะนี้');
+            message.warning('เธขเธฑเธเนเธกเนเธกเธตเธฅเธดเธเธเนเธฅเธนเธเธเนเธฒเธชเธณเธซเธฃเธฑเธเนเธ•เนเธฐเธเธตเน');
             return;
         }
 
@@ -723,7 +723,7 @@ export default function TableQrCodePage() {
         if (bulkExporting) return;
 
         setBulkExporting(true);
-        setBulkExportProgress({ stage: 'กำลังเตรียมรายการ QR ทั้งหมด', current: 0, total: 0, skipped: 0 });
+        setBulkExportProgress({ stage: 'เธเธณเธฅเธฑเธเน€เธ•เธฃเธตเธขเธกเธฃเธฒเธขเธเธฒเธฃ QR เธ—เธฑเนเธเธซเธกเธ”', current: 0, total: 0, skipped: 0 });
         closePrintWindow(bulkExportWindowRef.current);
         bulkExportWindowRef.current = bulkExportFormat !== 'png' ? reservePrintWindow('Table QR Export All') : null;
 
@@ -742,7 +742,7 @@ export default function TableQrCodePage() {
 
             const skippedCount = Math.max(0, sourceTables.length - exportEntries.length);
             if (!exportEntries.length) {
-                throw new Error('ไม่พบ QR ที่พร้อมส่งออกตามตัวกรองปัจจุบัน');
+                throw new Error('เนเธกเนเธเธ QR เธ—เธตเนเธเธฃเนเธญเธกเธชเนเธเธญเธญเธเธ•เธฒเธกเธ•เธฑเธงเธเธฃเธญเธเธเธฑเธเธเธธเธเธฑเธ');
             }
 
             const setting = printSettings.documents.table_qr;
@@ -755,7 +755,7 @@ export default function TableQrCodePage() {
             for (let index = 0; index < exportEntries.length; index += 1) {
                 const entry = exportEntries[index];
                 setBulkExportProgress({
-                    stage: 'กำลังสร้างไฟล์ QR',
+                    stage: 'เธเธณเธฅเธฑเธเธชเธฃเนเธฒเธเนเธเธฅเน QR',
                     current: index + 1,
                     total: exportEntries.length,
                     skipped: skippedCount,
@@ -790,7 +790,7 @@ export default function TableQrCodePage() {
 
             if (bulkExportFormat !== 'png') {
                 setBulkExportProgress({
-                    stage: 'กำลังรวมไฟล์ PDF',
+                    stage: 'เธเธณเธฅเธฑเธเธฃเธงเธกเนเธเธฅเน PDF',
                     current: exportEntries.length,
                     total: exportEntries.length,
                     skipped: skippedCount,
@@ -807,15 +807,15 @@ export default function TableQrCodePage() {
                 message.success(
                     result === 'window'
                         ? bulkExportFormat === 'a4'
-                            ? 'เปิดหน้าพิมพ์ A4 แล้ว'
-                            : 'เปิดหน้าพิมพ์สำหรับเครื่องพิมพ์ใบเสร็จแล้ว'
+                            ? 'เน€เธเธดเธ”เธซเธเนเธฒเธเธดเธกเธเน A4 เนเธฅเนเธง'
+                            : 'เน€เธเธดเธ”เธซเธเนเธฒเธเธดเธกเธเนเธชเธณเธซเธฃเธฑเธเน€เธเธฃเธทเนเธญเธเธเธดเธกเธเนเนเธเน€เธชเธฃเนเธเนเธฅเนเธง'
                         : bulkExportFormat === 'a4'
-                            ? 'ดาวน์โหลด PDF A4 สำเร็จ'
-                            : 'ดาวน์โหลด PDF สำหรับเครื่องพิมพ์ใบเสร็จสำเร็จ'
+                            ? 'เธ”เธฒเธงเธเนเนเธซเธฅเธ” PDF A4 เธชเธณเน€เธฃเนเธ'
+                            : 'เธ”เธฒเธงเธเนเนเธซเธฅเธ” PDF เธชเธณเธซเธฃเธฑเธเน€เธเธฃเธทเนเธญเธเธเธดเธกเธเนเนเธเน€เธชเธฃเนเธเธชเธณเน€เธฃเนเธ'
                 );
             } else {
                 setBulkExportProgress({
-                    stage: 'กำลังบีบอัด ZIP',
+                    stage: 'เธเธณเธฅเธฑเธเธเธตเธเธญเธฑเธ” ZIP',
                     current: exportEntries.length,
                     total: exportEntries.length,
                     skipped: skippedCount,
@@ -825,14 +825,14 @@ export default function TableQrCodePage() {
 
             message.success(
                 skippedCount > 0
-                    ? `ส่งออก QR สำเร็จ ${exportEntries.length} รายการ และข้าม ${skippedCount} รายการที่ยังไม่มีลิงก์ลูกค้า`
-                    : `ส่งออก QR สำเร็จ ${exportEntries.length} รายการ`
+                    ? `เธชเนเธเธญเธญเธ QR เธชเธณเน€เธฃเนเธ ${exportEntries.length} เธฃเธฒเธขเธเธฒเธฃ เนเธฅเธฐเธเนเธฒเธก ${skippedCount} เธฃเธฒเธขเธเธฒเธฃเธ—เธตเนเธขเธฑเธเนเธกเนเธกเธตเธฅเธดเธเธเนเธฅเธนเธเธเนเธฒ`
+                    : `เธชเนเธเธญเธญเธ QR เธชเธณเน€เธฃเนเธ ${exportEntries.length} เธฃเธฒเธขเธเธฒเธฃ`
             );
             setIsBulkExportModalOpen(false);
         } catch (bulkExportError) {
             closePrintWindow(bulkExportWindowRef.current);
             bulkExportWindowRef.current = null;
-            message.error(bulkExportError instanceof Error ? bulkExportError.message : 'ส่งออก QR ทั้งหมดไม่สำเร็จ');
+            message.error(bulkExportError instanceof Error ? bulkExportError.message : 'เธชเนเธเธญเธญเธ QR เธ—เธฑเนเธเธซเธกเธ”เนเธกเนเธชเธณเน€เธฃเนเธ');
         } finally {
             setBulkExporting(false);
             setBulkExportProgress(null);
@@ -840,15 +840,15 @@ export default function TableQrCodePage() {
         }
     }, [bulkExportFormat, bulkExporting, buildCustomerUrl, captureBulkRenderedQr, fetchAllTablesForBulkExport, openQrPrintExport, waitForNextFrame]);
 
-    if (isChecking) return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
-    if (!isAuthorized) return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
-    if (permissionLoading) return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
+    if (isChecking) return <AccessGuardFallback message="เธเธณเธฅเธฑเธเธ•เธฃเธงเธเธชเธญเธเธชเธดเธ—เธเธดเนเธเธฒเธฃเนเธเนเธเธฒเธ..." />;
+    if (!isAuthorized) return <AccessGuardFallback message="เธเธธเธ“เนเธกเนเธกเธตเธชเธดเธ—เธเธดเนเน€เธเนเธฒเธ–เธถเธเธซเธเนเธฒเธเธตเน เธเธณเธฅเธฑเธเธเธฒเธเธฅเธฑเธ..." tone="danger" />;
+    if (permissionLoading) return <AccessGuardFallback message="เธเธณเธฅเธฑเธเนเธซเธฅเธ”เธชเธดเธ—เธเธดเนเธเธนเนเนเธเนเธเธฒเธ..." />;
 
     return (
         <div className="qr-code-page">
             <style>{pageGlobalStyles}</style>
             <UIPageHeader
-                title="QR Code สั่งอาหาร"
+                title="QR Code เธชเธฑเนเธเธญเธฒเธซเธฒเธฃ"
                 icon={<QrcodeOutlined />}
                 actions={
                     <Space size={10} wrap>
@@ -865,24 +865,24 @@ export default function TableQrCodePage() {
                         >
                             {TABLE_QR_EXPORT_UI.bulkButtonLabel}
                         </Button>
-                        <Button icon={<TableOutlined />} onClick={() => router.push('/pos/tables')}>จัดการโต๊ะ</Button>
+                        <Button icon={<TableOutlined />} onClick={() => router.push('/pos/tables')}>เธเธฑเธ”เธเธฒเธฃเนเธ•เนเธฐ</Button>
                     </Space>
                 }
             />
             <PageContainer>
                 <PageStack>
                     <SearchBar>
-                        <SearchInput placeholder="ค้นหา" value={searchText} onChange={setSearchText} />
+                        <SearchInput placeholder="เธเนเธเธซเธฒ" value={searchText} onChange={setSearchText} />
                         <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
                             <Space wrap size={10}>
-                                <ModalSelector<StatusFilter> title="สถานะการใช้งาน" value={filters.status} onChange={(value) => updateFilter('status', value)} options={[{ label: 'ทั้งหมด', value: 'all' }, { label: 'ใช้งาน', value: 'active' }, { label: 'ปิดใช้งาน', value: 'inactive' }]} style={{ minWidth: 140 }} />
-                                <ModalSelector<TableStateFilter> title="สถานะโต๊ะ" value={filters.table_state} onChange={(value) => updateFilter('table_state', value)} options={[{ label: 'ทุกสถานะ', value: 'all' }, { label: 'ว่าง', value: TableStatus.Available }, { label: 'ไม่ว่าง', value: TableStatus.Unavailable }]} style={{ minWidth: 140 }} />
-                                <ModalSelector<CreatedSort> title="เรียงลำดับ" value={createdSort} onChange={setCreatedSort} options={[{ label: 'เก่าก่อน', value: 'old' }, { label: 'ใหม่ก่อน', value: 'new' }]} style={{ minWidth: 140 }} />
+                                <ModalSelector<StatusFilter> title="เธชเธ–เธฒเธเธฐเธเธฒเธฃเนเธเนเธเธฒเธ" value={filters.status} onChange={(value) => updateFilter('status', value)} options={[{ label: 'เธ—เธฑเนเธเธซเธกเธ”', value: 'all' }, { label: 'เนเธเนเธเธฒเธ', value: 'active' }, { label: 'เธเธดเธ”เนเธเนเธเธฒเธ', value: 'inactive' }]} style={{ minWidth: 140 }} />
+                                <ModalSelector<TableStateFilter> title="เธชเธ–เธฒเธเธฐเนเธ•เนเธฐ" value={filters.table_state} onChange={(value) => updateFilter('table_state', value)} options={[{ label: 'เธ—เธธเธเธชเธ–เธฒเธเธฐ', value: 'all' }, { label: 'เธงเนเธฒเธ', value: TableStatus.Available }, { label: 'เนเธกเนเธงเนเธฒเธ', value: TableStatus.Unavailable }]} style={{ minWidth: 140 }} />
+                                <ModalSelector<CreatedSort> title="เน€เธฃเธตเธขเธเธฅเธณเธ”เธฑเธ" value={createdSort} onChange={setCreatedSort} options={[{ label: 'เน€เธเนเธฒเธเนเธญเธ', value: 'old' }, { label: 'เนเธซเธกเนเธเนเธญเธ', value: 'new' }]} style={{ minWidth: 140 }} />
                             </Space>
                         </Space>
                     </SearchBar>
-                    <PageSection title="รายการ QR โต๊ะ" extra={<Space size={8} wrap>{refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}<Text strong>{total} รายการ</Text></Space>}>
-                        {loading && tables.length === 0 ? <PageState status="loading" /> : error && tables.length === 0 ? <PageState status="error" title="โหลดรายการ QR โต๊ะไม่สำเร็จ" error={error} onRetry={() => void fetchQrCodes()} /> : tables.length === 0 ? <UIEmptyState title={debouncedSearch.trim() ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีรายการโต๊ะ'} description={debouncedSearch.trim() ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรอง' : 'เพิ่มโต๊ะในหน้าจัดการโต๊ะก่อน แล้วระบบจะสร้าง QR ให้โดยอัตโนมัติ'} /> : <Space direction="vertical" size={14} style={{ width: '100%' }}><div className="qr-cards-grid">{tables.map((table) => <TableQrCard key={table.id} table={table} customerUrl={buildCustomerUrl(table.customer_path)} canRotate={canRotateQr} rotating={rotatingId === table.id} exporting={exportingId === table.id} onOpen={handleOpenCustomerPage} onRotate={handleRotateQr} onExport={handleOpenSingleTableExportModal} onPreviewQr={setPreviewTable} />)}</div><div style={{ marginTop: 12 }}><ListPagination page={page} total={total} pageSize={pageSize} loading={loading || refreshing} onPageChange={setPage} onPageSizeChange={setPageSize} activeColor="#2563eb" /></div></Space>}
+                    <PageSection title="เธฃเธฒเธขเธเธฒเธฃ QR เนเธ•เนเธฐ" extra={<Space size={8} wrap>{refreshing ? <Tag color="processing">เธเธณเธฅเธฑเธเธญเธฑเธเน€เธ”เธ•เธเนเธญเธกเธนเธฅ</Tag> : null}<Text strong>{total} เธฃเธฒเธขเธเธฒเธฃ</Text></Space>}>
+                        {loading && tables.length === 0 ? <PageState status="loading" /> : error && tables.length === 0 ? <PageState status="error" title="เนเธซเธฅเธ”เธฃเธฒเธขเธเธฒเธฃ QR เนเธ•เนเธฐเนเธกเนเธชเธณเน€เธฃเนเธ" error={error} onRetry={() => void fetchQrCodes()} /> : tables.length === 0 ? <UIEmptyState title={debouncedSearch.trim() ? 'เนเธกเนเธเธเธเนเธญเธกเธนเธฅเธ—เธตเนเธเนเธเธซเธฒ' : 'เธขเธฑเธเนเธกเนเธกเธตเธฃเธฒเธขเธเธฒเธฃเนเธ•เนเธฐ'} description={debouncedSearch.trim() ? 'เธฅเธญเธเน€เธเธฅเธตเนเธขเธเธเธณเธเนเธเธซเธฒเธซเธฃเธทเธญเธ•เธฑเธงเธเธฃเธญเธ' : 'เน€เธเธดเนเธกเนเธ•เนเธฐเนเธเธซเธเนเธฒเธเธฑเธ”เธเธฒเธฃเนเธ•เนเธฐเธเนเธญเธ เนเธฅเนเธงเธฃเธฐเธเธเธเธฐเธชเธฃเนเธฒเธ QR เนเธซเนเนเธ”เธขเธญเธฑเธ•เนเธเธกเธฑเธ•เธด'} /> : <Space direction="vertical" size={14} style={{ width: '100%' }}><div className="qr-cards-grid">{tables.map((table) => <TableQrCard key={table.id} table={table} customerUrl={buildCustomerUrl(table.customer_path)} canRotate={canRotateQr} rotating={rotatingId === table.id} exporting={exportingId === table.id} onOpen={handleOpenCustomerPage} onRotate={handleRotateQr} onExport={handleOpenSingleTableExportModal} onPreviewQr={setPreviewTable} />)}</div><div style={{ marginTop: 12 }}><ListPagination page={page} total={total} pageSize={pageSize} loading={loading || refreshing} onPageChange={setPage} onPageSizeChange={setPageSize} activeColor="#2563eb" /></div></Space>}
                     </PageSection>
                 </PageStack>
             </PageContainer>
@@ -927,23 +927,23 @@ export default function TableQrCodePage() {
                         ) : takeawayCustomerUrl ? (
                             <DynamicQRCode key={takeawayQrRenderKey} value={takeawayCustomerUrl} size={260} />
                         ) : (
-                            <Text type="secondary">ยังไม่สามารถสร้าง QR ได้</Text>
+                            <Text type="secondary">เธขเธฑเธเนเธกเนเธชเธฒเธกเธฒเธฃเธ–เธชเธฃเนเธฒเธ QR เนเธ”เน</Text>
                         )}
                     </div>
                     {takeawayCustomerUrl ? <Text style={{ wordBreak: 'break-all' }}>{takeawayCustomerUrl}</Text> : null}
                 </div>
             </Modal>
-            <Modal title={TABLE_QR_EXPORT_UI.singleModalTitle} open={isExportModalOpen} onCancel={() => { setIsExportModalOpen(false); setExportTargetTable(null); }} onOk={() => { void handleConfirmExport(); }} okText="พิมพ์" cancelText="ยกเลิก" confirmLoading={Boolean(exportTargetTable && exportingId === exportTargetTable.id)} destroyOnClose>
+            <Modal title={TABLE_QR_EXPORT_UI.singleModalTitle} open={isExportModalOpen} onCancel={() => { setIsExportModalOpen(false); setExportTargetTable(null); }} onOk={() => { void handleConfirmExport(); }} okText="เธเธดเธกเธเน" cancelText="เธขเธเน€เธฅเธดเธ" confirmLoading={Boolean(exportTargetTable && exportingId === exportTargetTable.id)} destroyOnClose>
                 <Space direction="vertical" size={14} style={{ width: '100%' }}>
-                    <Text type="secondary">{exportTargetTable ? `โต๊ะ: ${exportTargetTable.table_name}` : 'เลือกรูปแบบไฟล์ที่ต้องการส่งออก'}</Text>
+                    <Text type="secondary">{exportTargetTable ? `เนเธ•เนเธฐ: ${exportTargetTable.table_name}` : 'เน€เธฅเธทเธญเธเธฃเธนเธเนเธเธเนเธเธฅเนเธ—เธตเนเธ•เนเธญเธเธเธฒเธฃเธชเนเธเธญเธญเธ'}</Text>
                     <Radio.Group value={exportFormat} onChange={(event) => setExportFormat(event.target.value as ExportFormat)} style={{ width: '100%' }}>
                         {false && <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                            <Radio value="pdf">PDF (เปิดหน้าพิมพ์หรือบันทึกเป็น PDF)</Radio>
-                            <Radio value="png">PNG (ดาวน์โหลดรูป QR)</Radio>
+                            <Radio value="pdf">PDF (เน€เธเธดเธ”เธซเธเนเธฒเธเธดเธกเธเนเธซเธฃเธทเธญเธเธฑเธเธ—เธถเธเน€เธเนเธ PDF)</Radio>
+                            <Radio value="png">PNG (เธ”เธฒเธงเธเนเนเธซเธฅเธ”เธฃเธนเธ QR)</Radio>
                         </Space>}
                         <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                            <Radio value="receipt">สำหรับเครื่องพิมพ์ใบเสร็จ</Radio>
-                            <Radio value="a4">สำหรับเครื่องพิมพ์ปกติ</Radio>
+                            <Radio value="receipt">เธชเธณเธซเธฃเธฑเธเน€เธเธฃเธทเนเธญเธเธเธดเธกเธเนเนเธเน€เธชเธฃเนเธ</Radio>
+                            <Radio value="a4">เธชเธณเธซเธฃเธฑเธเน€เธเธฃเธทเนเธญเธเธเธดเธกเธเนเธเธเธ•เธด</Radio>
                             <Radio value="png">PNG</Radio>
                         </Space>
                     </Radio.Group>
@@ -958,8 +958,8 @@ export default function TableQrCodePage() {
                     setBulkExportProgress(null);
                 }}
                 onOk={() => { void handleConfirmBulkExport(); }}
-                okText={bulkExportFormat === 'png' ? 'ดาวน์โหลด ZIP' : 'พิมพ์'}
-                cancelText="ยกเลิก"
+                okText={bulkExportFormat === 'png' ? 'เธ”เธฒเธงเธเนเนเธซเธฅเธ” ZIP' : 'เธเธดเธกเธเน'}
+                cancelText="เธขเธเน€เธฅเธดเธ"
                 confirmLoading={bulkExporting}
                 okButtonProps={{ disabled: loading || total === 0 }}
                 maskClosable={!bulkExporting}
@@ -970,12 +970,12 @@ export default function TableQrCodePage() {
 
                     <Radio.Group value={bulkExportFormat} onChange={(event) => setBulkExportFormat(event.target.value as ExportFormat)} style={{ width: '100%' }} disabled={bulkExporting}>
                         {false && <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                            <Radio value="pdf">PDF รวมทุกโต๊ะ (1 ไฟล์)</Radio>
-                            <Radio value="png">ZIP ของ PNG (แยกไฟล์ต่อโต๊ะ)</Radio>
+                            <Radio value="pdf">PDF เธฃเธงเธกเธ—เธธเธเนเธ•เนเธฐ (1 เนเธเธฅเน)</Radio>
+                            <Radio value="png">ZIP เธเธญเธ PNG (เนเธขเธเนเธเธฅเนเธ•เนเธญเนเธ•เนเธฐ)</Radio>
                         </Space>}
                         <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                            <Radio value="receipt">สำหรับเครื่องพิมพ์ใบเสร็จ</Radio>
-                            <Radio value="a4">สำหรับเครื่องพิมพ์ปกติ</Radio>
+                            <Radio value="receipt">เธชเธณเธซเธฃเธฑเธเน€เธเธฃเธทเนเธญเธเธเธดเธกเธเนเนเธเน€เธชเธฃเนเธ</Radio>
+                            <Radio value="a4">เธชเธณเธซเธฃเธฑเธเน€เธเธฃเธทเนเธญเธเธเธดเธกเธเนเธเธเธ•เธด</Radio>
                             <Radio value="png">PNG (ZIP)</Radio>
                         </Space>
                     </Radio.Group>
@@ -984,9 +984,9 @@ export default function TableQrCodePage() {
                             <Text strong style={{ display: 'block' }}>{bulkExportProgress.stage}</Text>
                             <Text type="secondary" style={{ display: 'block', marginTop: 4 }}>
                                 {bulkExportProgress.total > 0
-                                    ? `${bulkExportProgress.current}/${bulkExportProgress.total} รายการ`
-                                    : 'กำลังเริ่มต้น'}
-                                {bulkExportProgress.skipped > 0 ? `, ข้าม ${bulkExportProgress.skipped} รายการที่ไม่มีลิงก์ลูกค้า` : ''}
+                                    ? `${bulkExportProgress.current}/${bulkExportProgress.total} เธฃเธฒเธขเธเธฒเธฃ`
+                                    : 'เธเธณเธฅเธฑเธเน€เธฃเธดเนเธกเธ•เนเธ'}
+                                {bulkExportProgress.skipped > 0 ? `, เธเนเธฒเธก ${bulkExportProgress.skipped} เธฃเธฒเธขเธเธฒเธฃเธ—เธตเนเนเธกเนเธกเธตเธฅเธดเธเธเนเธฅเธนเธเธเนเธฒ` : ''}
                             </Text>
                         </div>
                     )}                </Space>
@@ -996,8 +996,8 @@ export default function TableQrCodePage() {
                 open={isTakeawayQrExportModalOpen}
                 onCancel={() => setIsTakeawayQrExportModalOpen(false)}
                 onOk={() => { void handleConfirmTakeawayExport(); }}
-                okText="พิมพ์"
-                cancelText="ยกเลิก"
+                okText="เธเธดเธกเธเน"
+                cancelText="เธขเธเน€เธฅเธดเธ"
                 confirmLoading={isTakeawayQrExporting}
                 destroyOnClose
             >
@@ -1008,16 +1008,16 @@ export default function TableQrCodePage() {
                             <Radio value="png">PNG</Radio>
                         </Space>}
                         <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                            <Radio value="receipt">สำหรับเครื่องพิมพ์ใบเสร็จ</Radio>
-                            <Radio value="a4">สำหรับเครื่องพิมพ์ปกติ</Radio>
+                            <Radio value="receipt">เธชเธณเธซเธฃเธฑเธเน€เธเธฃเธทเนเธญเธเธเธดเธกเธเนเนเธเน€เธชเธฃเนเธ</Radio>
+                            <Radio value="a4">เธชเธณเธซเธฃเธฑเธเน€เธเธฃเธทเนเธญเธเธเธดเธกเธเนเธเธเธ•เธด</Radio>
                             <Radio value="png">PNG</Radio>
                         </Space>
                     </Radio.Group>
                 </Space>
             </Modal>
-            <Modal title={`โต๊ะ ${previewTable?.table_name || ''}`} open={Boolean(previewTable)} onCancel={() => setPreviewTable(null)} footer={null} centered destroyOnClose styles={{ body: { padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' } }} width={400}>
+            <Modal title={`เนเธ•เนเธฐ ${previewTable?.table_name || ''}`} open={Boolean(previewTable)} onCancel={() => setPreviewTable(null)} footer={null} centered destroyOnClose styles={{ body: { padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' } }} width="min(400px, calc(100vw - 16px))">
                 {previewTable?.customer_path ? <div style={{ background: '#fff', padding: '16px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', border: '1px solid #f1f5f9', display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}><DynamicQRCode value={buildCustomerUrl(previewTable.customer_path)} size={280} /></div> : null}
-                <Text type="secondary" style={{ textAlign: 'center', marginTop: 8 }}>ให้ลูกค้าสแกน QR Code นี้เพื่อเปิดเมนูและสั่งอาหาร</Text>
+                <Text type="secondary" style={{ textAlign: 'center', marginTop: 8 }}>เนเธซเนเธฅเธนเธเธเนเธฒเธชเนเธเธ QR Code เธเธตเนเน€เธเธทเนเธญเน€เธเธดเธ”เน€เธกเธเธนเนเธฅเธฐเธชเธฑเนเธเธญเธฒเธซเธฒเธฃ</Text>
             </Modal>
             {takeawayCustomerUrl ? (
                 <div style={{ display: 'none' }}>

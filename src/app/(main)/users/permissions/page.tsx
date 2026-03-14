@@ -1159,7 +1159,7 @@ export default function PermissionsPage() {
     }
 
     return (
-        <div style={{ padding: isMobile ? 12 : 24, background: "#f6f8fb", minHeight: "100vh" }}>
+        <div style={{ padding: isMobile ? 12 : 24, background: "#f6f8fb", minHeight: "100dvh" }}>
             <Row gutter={[isMobile ? 12 : 16, isMobile ? 12 : 16]}>
                 <Col span={24}>
                     <Card bordered={false}>

@@ -74,10 +74,16 @@ export const globalStyles = `
 
     .shift-card-meta-row {
         display: flex;
-        align-items: center;
+        align-items: flex-start;
         gap: 6px;
         font-size: 13px;
         color: #64748b;
+        min-width: 0;
+    }
+
+    .shift-card-meta-row > span {
+        min-width: 0;
+        overflow-wrap: anywhere;
     }
 
     .shift-card-meta-row .meta-icon {
@@ -155,6 +161,15 @@ export const globalStyles = `
        RESPONSIVE
        ═══════════════════════════════════════════ */
     @media (max-width: 576px) {
+        .shift-history-card .ant-btn {
+            width: 100%;
+        }
+
+        .shift-history-card > div {
+            align-items: stretch !important;
+            flex-direction: column !important;
+        }
+
         .ant-picker-range-wrapper {
             flex-direction: column !important;
         }

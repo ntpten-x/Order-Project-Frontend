@@ -79,7 +79,7 @@ export const AccessGuardFallback = ({ message, tone = "secondary" }: AccessGuard
             <style jsx>{`
                 .access-guard-container {
                     display: flex;
-                    height: 100vh;
+                    height: 100dvh;
                     justify-content: center;
                     align-items: center;
                     background: #f8fafc;

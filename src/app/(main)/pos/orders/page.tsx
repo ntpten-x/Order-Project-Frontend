@@ -575,7 +575,7 @@ function POSOrdersPageContent() {
     // ── Error State ──
     if (isError) {
         return (
-            <div style={{ minHeight: '100vh', background: '#F8FAFC' }}>
+            <div style={{ minHeight: '100dvh', background: '#F8FAFC' }}>
                 <UIPageHeader
                     title="ออเดอร์"
                     subtitle="รายการออเดอร์ที่กำลังดำเนินการ"
@@ -605,7 +605,7 @@ function POSOrdersPageContent() {
 
     return (
         <div style={{ 
-            minHeight: '100vh', 
+            minHeight: '100dvh', 
             background: '#F8FAFC',
             paddingBottom: 120,
         }}>
@@ -866,7 +866,7 @@ function POSOrdersPageContent() {
                             {isFetching && !isLoading && (
                                 <div style={{
                                     position: 'fixed',
-                                    bottom: 80,
+                                    bottom: 'calc(80px + env(safe-area-inset-bottom, 0px))',
                                     left: '50%',
                                     transform: 'translateX(-50%)',
                                     background: 'rgba(30,41,59,0.9)',

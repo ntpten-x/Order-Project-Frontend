@@ -5,7 +5,7 @@ import { CSSProperties } from 'react';
 // Main Page Styles - Mobile First Design
 export const pageStyles = {
   container: {
-    minHeight: '100vh',
+    minHeight: '100dvh',
     background: '#f5f7fa',
     fontFamily: "var(--font-sans), 'Sarabun', sans-serif",
     paddingBottom: 40,

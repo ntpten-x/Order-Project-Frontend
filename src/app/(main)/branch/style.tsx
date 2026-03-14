@@ -29,7 +29,7 @@ const { useToken } = theme;
 
 export const pageStyles = {
     container: {
-        minHeight: '100vh',
+        minHeight: '100dvh',
         background: '#f8f9fc',
         paddingBottom: 40,
         width: '100%',

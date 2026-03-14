@@ -419,7 +419,7 @@ export default function UsersPage() {
         return (
             <div
                 style={{
-                    height: '100vh',
+                    height: '100dvh',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'center',
@@ -439,7 +439,7 @@ export default function UsersPage() {
     const showInitialSkeleton = !hasLoaded && isFetching;
 
     return (
-        <div style={{ minHeight: '100vh', background: '#F8FAFC', paddingBottom: 100 }}>
+        <div style={{ minHeight: '100dvh', background: '#F8FAFC', paddingBottom: 100 }}>
             <UIPageHeader
                 title="ผู้ใช้งาน"
                 subtitle={`ทั้งหมด ${totalUsers} คน`}

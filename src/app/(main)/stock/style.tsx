@@ -6,7 +6,7 @@ export default function StockPageStyle() {
   return (
     <style jsx global>{`
       .stock-order-shell {
-        min-height: 100vh;
+        min-height: 100dvh;
         background:
           radial-gradient(circle at top left, rgba(14, 165, 233, 0.08), transparent 24%),
           linear-gradient(180deg, #f8fbff 0%, #f2f6fb 100%);
@@ -123,6 +123,7 @@ export default function StockPageStyle() {
         background: #eef2ff;
         padding: 4px;
         border-radius: 16px;
+        max-width: 100%;
       }
 
       .stock-order-segmented .ant-segmented-item {
@@ -504,6 +505,21 @@ export default function StockPageStyle() {
         .stock-catalog-card-body {
           padding: 16px;
           min-height: 196px;
+        }
+
+        .stock-order-segmented,
+        .stock-order-inline-stat {
+          width: 100%;
+        }
+
+        .stock-order-segmented .ant-segmented-group {
+          width: 100%;
+        }
+
+        .stock-order-segmented .ant-segmented-item {
+          flex: 1 1 0;
+          min-width: 0;
+          justify-content: center;
         }
 
         .stock-cart-fab {

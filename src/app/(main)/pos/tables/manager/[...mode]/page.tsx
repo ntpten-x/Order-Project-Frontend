@@ -573,7 +573,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                 onCancel={() => setIsStatusModalVisible(false)}
                 footer={null}
                 centered
-                width={400}
+                width="min(400px, calc(100vw - 16px))"
                 styles={{ body: { padding: '12px 16px 24px' } }}
             >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

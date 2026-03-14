@@ -17,7 +17,7 @@ export default function ItemsPageStyle() {
       }
 
       .stock-items-page-shell {
-        min-height: 100vh;
+        min-height: 100dvh;
         background: #f8fafc;
         padding-bottom: 120px;
       }

@@ -127,7 +127,7 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
     return (
       <div
         style={{
-          height: '100vh',
+          height: '100dvh',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -148,7 +148,7 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
       <UIPageHeader title={t('branch.page.title')} />
       <PageContainer>
         <PageSection>
-          <div className="p-6 md:p-10 min-h-screen bg-gray-50">
+          <div className="p-6 md:p-10 min-h-[100dvh] bg-gray-50">
             <div className="max-w-2xl mx-auto">
               <div className="mb-6">
                 <Button

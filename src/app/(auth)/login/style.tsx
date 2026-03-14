@@ -40,8 +40,8 @@ export const LoginContainer = styled.div`
   &::before {
     content: '';
     position: absolute;
-    width: 400px;
-    height: 400px;
+    width: min(400px, 70vw);
+    height: min(400px, 70vw);
     border-radius: 50%;
     background: radial-gradient(circle, rgba(99, 102, 241, 0.3) 0%, transparent 70%);
     top: -100px;

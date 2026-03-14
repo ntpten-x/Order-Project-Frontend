@@ -1124,7 +1124,7 @@ export default function CustomerTakeawayOrderPage() {
                     ) : shouldShowUnavailableState ? (
                         <div
                             style={{
-                                minHeight: "calc(100vh - 180px)",
+                                minHeight: "calc(100dvh - 180px)",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",

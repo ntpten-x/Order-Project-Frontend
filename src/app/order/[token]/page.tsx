@@ -1074,7 +1074,7 @@ export default function CustomerTableOrderPage() {
                     ) : accessDenied ? (
                         <div
                             style={{
-                                minHeight: "calc(100vh - 180px)",
+                                minHeight: "calc(100dvh - 180px)",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",

@@ -17,7 +17,7 @@ export default function StockBuyingPageStyle() {
       }
 
       .stock-buying-shell {
-        min-height: 100vh;
+        min-height: 100dvh;
         background:
           radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 24%),
           linear-gradient(180deg, #f8fbff 0%, #f3f6fb 100%);
@@ -470,7 +470,7 @@ export default function StockBuyingPageStyle() {
         position: fixed;
         left: 16px;
         right: 16px;
-        bottom: 18px;
+        bottom: calc(18px + env(safe-area-inset-bottom));
         z-index: 40;
       }
 

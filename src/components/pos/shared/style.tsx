@@ -80,7 +80,7 @@ export const posTypography = {
 // ============================================
 export const posLayoutStyles = {
   container: {
-    minHeight: '100vh',
+    minHeight: '100dvh',
     background: posColors.background,
     display: 'flex',
     flexDirection: 'column' as CSSProperties['flexDirection'],
@@ -668,7 +668,7 @@ export const POSSharedStyles = () => (
     /* Floating Button Container */
     .pos-floating-btn-container {
       position: fixed !important;
-      bottom: 32px !important;
+      bottom: calc(32px + env(safe-area-inset-bottom, 0px)) !important;
       right: 32px !important;
       z-index: 1000 !important;
       transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);

@@ -411,7 +411,7 @@ export default function BranchPage() {
     return (
       <div
         style={{
-          height: '100vh',
+          height: '100dvh',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
@@ -431,7 +431,7 @@ export default function BranchPage() {
   const showInitialSkeleton = !hasLoaded && isFetching;
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F8FAFC', paddingBottom: 100 }}>
+    <div style={{ minHeight: '100dvh', background: '#F8FAFC', paddingBottom: 100 }}>
       <UIPageHeader
         title={t('branch.page.title')}
         subtitle={

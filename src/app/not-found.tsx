@@ -14,7 +14,7 @@ export default function NotFound() {
   return (
     <PageContainer
       style={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
         display: "flex",
         alignItems: "center",
       }}

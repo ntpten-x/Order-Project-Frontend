@@ -296,7 +296,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
 
   if (permissionLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="flex min-h-[100dvh] items-center justify-center bg-gray-50">
         <Spin size="large" />
       </div>
     );
@@ -317,7 +317,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
         <PageSection>
       <>
     <>
-    <div className="p-6 md:p-10 min-h-screen bg-gray-50 user-manage-page">
+    <div className="p-6 md:p-10 min-h-[100dvh] bg-gray-50 user-manage-page">
       <div className="max-w-2xl mx-auto">
         <div className="mb-6">
           <Button 

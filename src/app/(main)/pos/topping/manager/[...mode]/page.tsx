@@ -493,7 +493,7 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                 open={isCategoryModalVisible}
                 onCancel={() => setIsCategoryModalVisible(false)}
                 centered
-                width={400}
+                width="min(400px, calc(100vw - 16px))"
                 footer={[
                     <Button key="cancel" onClick={() => setIsCategoryModalVisible(false)} style={{ borderRadius: 10, minWidth: 80, height: 36 }}>
                         ยกเลิก

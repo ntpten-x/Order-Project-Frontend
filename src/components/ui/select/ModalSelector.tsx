@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useMemo, useState } from "react";
-import { Button, Input, Modal, Spin } from "antd";
+import { Button, Grid, Input, Modal, Spin } from "antd";
 import { CheckCircleOutlined, DownOutlined, SearchOutlined } from "@ant-design/icons";
 
 export interface ModalSelectorProps<T extends string | number = string | number> {
@@ -29,6 +29,8 @@ export const ModalSelector = <T extends string | number,>({
     loading = false,
     multiple = false
 }: ModalSelectorProps<T>) => {
+    const screens = Grid.useBreakpoint();
+    const isMobile = !screens.sm;
     const [open, setOpen] = useState(false);
     const [searchText, setSearchText] = useState("");
 
@@ -84,6 +86,8 @@ export const ModalSelector = <T extends string | number,>({
                 }}
             >
                 <div style={{ 
+                    flex: 1,
+                    minWidth: 0,
                     overflow: 'hidden', 
                     textOverflow: 'ellipsis', 
                     whiteSpace: 'nowrap', 
@@ -109,7 +113,8 @@ export const ModalSelector = <T extends string | number,>({
                 }}
                 footer={null}
                 centered
-                width={400}
+                width={isMobile ? 'calc(100vw - 16px)' : 400}
+                style={{ top: isMobile ? 8 : undefined }}
                 styles={{ body: { padding: '12px 0' } }}
             >
                 {showSearch && (

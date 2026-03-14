@@ -428,7 +428,7 @@ function ShiftHistoryDateRangeDialog({
                 style={{
                     display: 'grid',
                     gap: 16,
-                    maxHeight: isMobile ? 'calc(100vh - 176px)' : 'calc(100vh - 220px)',
+                    maxHeight: isMobile ? 'calc(100dvh - 176px)' : 'calc(100dvh - 220px)',
                     overflowY: 'auto',
                     paddingRight: isMobile ? 0 : 4,
                 }}
@@ -843,7 +843,16 @@ export default function ShiftHistoryPage() {
                                 setSearchText(val);
                             }}
                         />
-                        <Space wrap size={10}>
+                        <div
+                            style={{
+                                display: 'grid',
+                                gap: 10,
+                                gridTemplateColumns: isMobile
+                                    ? 'minmax(0, 1fr)'
+                                    : 'minmax(150px, auto) minmax(120px, auto) minmax(0, 1fr)',
+                                alignItems: 'start',
+                            }}
+                        >
                             <ModalSelector<StatusFilter>
                                 title="เลือกสถานะ"
                                 options={[
@@ -855,7 +864,7 @@ export default function ShiftHistoryPage() {
                                 onChange={(value) => {
                                     updateFilter('status', value);
                                 }}
-                                style={{ minWidth: 150 }}
+                                style={{ minWidth: isMobile ? 0 : 150, width: '100%' }}
                             />
                             <ModalSelector<CreatedSort>
                                 title="เรียงลำดับ"
@@ -865,9 +874,9 @@ export default function ShiftHistoryPage() {
                                 ]}
                                 value={createdSort}
                                 onChange={(value) => setCreatedSort(value)}
-                                style={{ minWidth: 120 }}
+                                style={{ minWidth: isMobile ? 0 : 120, width: '100%' }}
                             />
-                            <div style={{ flex: 1, minWidth: 200 }}>
+                            <div style={{ minWidth: 0, width: '100%' }}>
                                 <button
                                     type="button"
                                     onClick={() => setIsDateModalVisible(true)}
@@ -926,7 +935,7 @@ export default function ShiftHistoryPage() {
                                     />
                                 </button>
                             </div>
-                        </Space>
+                        </div>
                     </SearchBar>
 
                     <PageSection title="รายการประวัติกะ" extra={<span style={{ fontWeight: 600 }}>{total} รายการ</span>}>
