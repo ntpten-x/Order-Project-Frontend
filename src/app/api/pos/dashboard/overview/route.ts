@@ -7,12 +7,16 @@ export async function GET(request: NextRequest) {
         const searchParams = request.nextUrl.searchParams;
         const startDate = searchParams.get("startDate");
         const endDate = searchParams.get("endDate");
+        const startAt = searchParams.get("startAt");
+        const endAt = searchParams.get("endAt");
         const topLimit = searchParams.get("topLimit") || "7";
         const recentLimit = searchParams.get("recentLimit") || "8";
 
         const query = new URLSearchParams();
         if (startDate) query.set("startDate", startDate);
         if (endDate) query.set("endDate", endDate);
+        if (startAt) query.set("startAt", startAt);
+        if (endAt) query.set("endAt", endAt);
         query.set("topLimit", topLimit);
         query.set("recentLimit", recentLimit);
 

@@ -117,6 +117,75 @@ describe("dashboardService contract", () => {
         expect(data.summary.total_sales).toBe(1200);
     });
 
+    it("getOverview forwards optional startAt/endAt query params", async () => {
+        fetchMock.mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                success: true,
+                data: {
+                    summary: {
+                        period_start: "2026-02-01T02:30:00.000Z",
+                        period_end: "2026-02-14T11:45:00.000Z",
+                        total_sales: 800,
+                        total_orders: 6,
+                        total_discount: 10,
+                        average_order_value: 133.33,
+                        cash_sales: 200,
+                        qr_sales: 600,
+                        dine_in_sales: 300,
+                        takeaway_sales: 250,
+                        delivery_sales: 250,
+                    },
+                    daily_sales: [],
+                    top_items: [],
+                    recent_orders: [],
+                },
+            }),
+        });
+
+        await dashboardService.getOverview(
+            "2026-02-01",
+            "2026-02-14",
+            7,
+            8,
+            {
+                startAt: "2026-02-01T02:30:00.000Z",
+                endAt: "2026-02-14T11:45:00.000Z",
+            }
+        );
+
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/pos/dashboard/overview?startDate=2026-02-01&endDate=2026-02-14&topLimit=7&recentLimit=8&startAt=2026-02-01T02%3A30%3A00.000Z&endAt=2026-02-14T11%3A45%3A00.000Z",
+            expect.objectContaining({
+                method: "GET",
+                headers: { "Content-Type": "application/json" },
+            })
+        );
+    });
+
+    it("getSalesSummary forwards optional startAt/endAt query params", async () => {
+        fetchMock.mockResolvedValue({
+            ok: true,
+            json: async () => ({
+                success: true,
+                data: [],
+            }),
+        });
+
+        await dashboardService.getSalesSummary("2026-02-01", "2026-02-11", {
+            startAt: "2026-02-01T08:00:00.000Z",
+            endAt: "2026-02-11T18:30:00.000Z",
+        });
+
+        expect(fetchMock).toHaveBeenCalledWith(
+            "/api/pos/dashboard/sales?startDate=2026-02-01&endDate=2026-02-11&startAt=2026-02-01T08%3A00%3A00.000Z&endAt=2026-02-11T18%3A30%3A00.000Z",
+            expect.objectContaining({
+                method: "GET",
+                headers: { "Content-Type": "application/json" },
+            })
+        );
+    });
+
     it("getOrderDetail unwraps standardized backend payload", async () => {
         fetchMock.mockResolvedValue({
             ok: true,

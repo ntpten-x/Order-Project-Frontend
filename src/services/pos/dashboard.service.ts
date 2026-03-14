@@ -11,8 +11,19 @@ const DEFAULT_HEADERS = {
 };
 
 export const dashboardService = {
-    getSalesSummary: async (startDate: string, endDate: string): Promise<SalesSummary[]> => {
-        const response = await fetch(`${API_PREFIX}${API_ROUTES.POS.DASHBOARD.SALES}?startDate=${startDate}&endDate=${endDate}`, {
+    getSalesSummary: async (
+        startDate: string,
+        endDate: string,
+        options?: { startAt?: string; endAt?: string }
+    ): Promise<SalesSummary[]> => {
+        const queryParams = new URLSearchParams({
+            startDate,
+            endDate,
+        });
+        if (options?.startAt) queryParams.set("startAt", options.startAt);
+        if (options?.endAt) queryParams.set("endAt", options.endAt);
+
+        const response = await fetch(`${API_PREFIX}${API_ROUTES.POS.DASHBOARD.SALES}?${queryParams.toString()}`, {
             method: "GET",
             headers: DEFAULT_HEADERS,
         });
@@ -43,7 +54,8 @@ export const dashboardService = {
         startDate: string,
         endDate: string,
         topLimit: number = 7,
-        recentLimit: number = 8
+        recentLimit: number = 8,
+        options?: { startAt?: string; endAt?: string }
     ): Promise<DashboardOverview> => {
         const queryParams = new URLSearchParams({
             startDate,
@@ -51,6 +63,8 @@ export const dashboardService = {
             topLimit: String(topLimit),
             recentLimit: String(recentLimit),
         });
+        if (options?.startAt) queryParams.set("startAt", options.startAt);
+        if (options?.endAt) queryParams.set("endAt", options.endAt);
 
         const response = await fetch(`${API_PREFIX}${API_ROUTES.POS.DASHBOARD.OVERVIEW}?${queryParams.toString()}`, {
             method: "GET",

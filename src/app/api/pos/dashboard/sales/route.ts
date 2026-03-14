@@ -7,8 +7,16 @@ export async function GET(request: NextRequest) {
         const searchParams = request.nextUrl.searchParams;
         const startDate = searchParams.get("startDate");
         const endDate = searchParams.get("endDate");
+        const startAt = searchParams.get("startAt");
+        const endAt = searchParams.get("endAt");
 
-        const endpoint = `/pos/dashboard/sales${startDate && endDate ? `?startDate=${startDate}&endDate=${endDate}` : ''}`;
+        const query = new URLSearchParams();
+        if (startDate) query.set("startDate", startDate);
+        if (endDate) query.set("endDate", endDate);
+        if (startAt) query.set("startAt", startAt);
+        if (endAt) query.set("endAt", endAt);
+
+        const endpoint = `/pos/dashboard/sales${query.toString() ? `?${query.toString()}` : ""}`;
         const url = getProxyUrl("GET", endpoint);
         const cookie = request.headers.get("cookie");
 

@@ -67,6 +67,31 @@ describe("dashboard proxy routes", () => {
         expect(body).toEqual({ data: [{ date: "2026-02-01", total_sales: 100 }] });
     });
 
+    it("GET /api/pos/dashboard/sales forwards optional startAt/endAt filters", async () => {
+        (getProxyUrl as jest.Mock).mockReturnValue(
+            "http://backend/pos/dashboard/sales?startDate=2026-02-01&endDate=2026-02-11&startAt=2026-02-01T08%3A00%3A00.000Z&endAt=2026-02-11T18%3A30%3A00.000Z",
+        );
+        fetchMock.mockResolvedValue(
+            new Response(JSON.stringify({ success: true, data: [] }), {
+                status: 200,
+                headers: {
+                    "content-type": "application/json",
+                },
+            }),
+        );
+
+        const req = makeRequest(
+            "http://localhost/api/pos/dashboard/sales?startDate=2026-02-01&endDate=2026-02-11&startAt=2026-02-01T08%3A00%3A00.000Z&endAt=2026-02-11T18%3A30%3A00.000Z",
+            "sid=abc",
+        );
+        await GET_SALES(req);
+
+        expect(getProxyUrl).toHaveBeenCalledWith(
+            "GET",
+            "/pos/dashboard/sales?startDate=2026-02-01&endDate=2026-02-11&startAt=2026-02-01T08%3A00%3A00.000Z&endAt=2026-02-11T18%3A30%3A00.000Z",
+        );
+    });
+
     it("GET /api/pos/dashboard/orders/[id] preserves upstream payload and cache headers", async () => {
         (getProxyUrl as jest.Mock).mockReturnValue("http://backend/pos/dashboard/orders/o1");
         fetchMock.mockResolvedValue(
