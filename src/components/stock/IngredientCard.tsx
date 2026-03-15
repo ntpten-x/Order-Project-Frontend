@@ -1,18 +1,16 @@
 "use client";
 
 import React, { useMemo } from "react";
-import { Button, Card, Space, Tag, Typography } from "antd";
-import {
-  MinusOutlined,
-  PlusOutlined,
-  ShoppingCartOutlined,
-} from "@ant-design/icons";
+import { Button, Tag, Typography } from "antd";
+import { MinusOutlined, PlusOutlined, ShopOutlined } from "@ant-design/icons";
 
 import { useCart } from "../../contexts/stock/CartContext";
 import { Ingredients } from "../../types/api/stock/ingredients";
-import StockImageThumb from "./StockImageThumb";
+import { posColors, posLayoutStyles } from "../pos/shared/style";
+import Image from "../ui/image/SmartImage";
+import { resolveImageSource } from "../../utils/image/source";
 
-const { Paragraph, Title } = Typography;
+const { Text } = Typography;
 
 interface IngredientCardProps {
   ingredient: Ingredients;
@@ -31,78 +29,103 @@ export default function IngredientCard({
   );
   const quantity = cartItem?.quantity || 0;
 
-  const handleAdd = () => addToCart(ingredient);
-  const handleDecrease = () => updateQuantity(ingredient.id, quantity - 1);
-  const handleIncrease = () => updateQuantity(ingredient.id, quantity + 1);
+  const handleAdd = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    addToCart(ingredient);
+  };
+  const handleDecrease = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    updateQuantity(ingredient.id, quantity - 1);
+  };
+  const handleIncrease = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    updateQuantity(ingredient.id, quantity + 1);
+  };
 
   return (
-    <Card
-      hoverable
-      className="stock-catalog-card"
-      bordered={false}
-      data-testid={`stock-catalog-card-${ingredient.id}`}
+    <article
+      className="pos-product-card pos-fade-in"
+      style={posLayoutStyles.productCard}
+      role="button"
+      tabIndex={0}
+      aria-label={`วัตถุดิบ ${ingredient.display_name}`}
     >
-      <div className="stock-catalog-card-cover">
-        <StockImageThumb
-          src={ingredient.img_url}
-          alt={ingredient.display_name}
-          size={92}
-          borderRadius={18}
-        />
-      </div>
-
-      <div className="stock-catalog-card-body">
-        <Space size={6} wrap>
-          <Tag color="success" className="stock-catalog-tag">
-            พร้อมสั่ง
-          </Tag>
-          <Tag className="stock-catalog-tag stock-catalog-tag-muted">
-            {ingredient.unit?.display_name || "หน่วย"}
-          </Tag>
-        </Space>
-
-        <div>
-          <Title level={5} className="stock-catalog-title">
-            {ingredient.display_name}
-          </Title>
-        </div>
-
-        <Paragraph ellipsis={{ rows: 2 }} className="stock-catalog-description">
-          {ingredient.description || "ไม่มีคำอธิบายเพิ่มเติม"}
-        </Paragraph>
-
-        {quantity > 0 ? (
-          <div className="stock-catalog-stepper">
-            <Button
-              icon={<MinusOutlined />}
-              onClick={handleDecrease}
-              disabled={!orderingEnabled}
-            />
-            <div className="stock-catalog-stepper-value">
-              <span>{quantity.toLocaleString()}</span>
-              <small>{ingredient.unit?.display_name || "หน่วย"}</small>
-            </div>
-            <Button
-              type="primary"
-              icon={<PlusOutlined />}
-              onClick={handleIncrease}
-              disabled={!orderingEnabled}
-            />
-          </div>
+      <div style={posLayoutStyles.productImage} className="pos-product-image-mobile">
+        {ingredient.img_url ? (
+          <Image
+            alt={ingredient.display_name}
+            src={resolveImageSource(ingredient.img_url) || undefined}
+            fill
+            style={{ objectFit: "cover" }}
+            sizes="(max-width: 768px) 50vw, 220px"
+          />
         ) : (
-          <Button
-            type="primary"
-            icon={<ShoppingCartOutlined />}
-            className="stock-catalog-add-button"
-            onClick={handleAdd}
-            disabled={!orderingEnabled}
-            block
-            data-testid={`stock-catalog-add-${ingredient.id}`}
+          <div
+            style={{
+              width: "100%",
+              height: "100%",
+              background: `linear-gradient(135deg, ${posColors.primaryLight} 0%, #DBEAFE 100%)`,
+              display: "flex",
+              justifyContent: "center",
+              alignItems: "center",
+            }}
           >
-            เพิ่มลงรายการซื้อ
-          </Button>
+            <ShopOutlined style={{ fontSize: 48, color: posColors.primary, opacity: 0.4 }} />
+          </div>
         )}
       </div>
-    </Card>
+
+      <div style={posLayoutStyles.productInfo} className="pos-product-info-mobile">
+        <Text ellipsis style={posLayoutStyles.productName} className="pos-product-name-mobile">
+          {ingredient.display_name}
+        </Text>
+        <Tag
+          color="blue"
+          style={{
+            fontSize: 10,
+            marginBottom: 0,
+            borderRadius: 6,
+            border: "none",
+            background: posColors.primaryLight,
+            color: posColors.primary,
+          }}
+        >
+          {ingredient.category?.display_name || "ไม่มีหมวดหมู่"}
+        </Tag>
+        <div style={posLayoutStyles.productFooter} className="pos-product-footer-mobile">
+          
+          {quantity > 0 ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8, width: "100%" }}>
+              <Button
+                size="small"
+                icon={<MinusOutlined />}
+                onClick={handleDecrease}
+                disabled={!orderingEnabled}
+              />
+              <Text strong style={{ minWidth: 16, textAlign: "center" }}>{quantity}</Text>
+              <Button
+                size="small"
+                type="primary"
+                icon={<PlusOutlined />}
+                onClick={handleIncrease}
+                disabled={!orderingEnabled}
+              />
+            </div>
+          ) : (
+            <Button
+              type="primary"
+              size="small"
+              icon={<PlusOutlined />}
+              className="pos-add-button pos-add-button-mobile"
+              style={posLayoutStyles.addButton}
+              onClick={handleAdd}
+              disabled={!orderingEnabled}
+            >
+              เพิ่ม
+            </Button>
+          )}
+        </div>
+      </div>
+    </article>
   );
 }

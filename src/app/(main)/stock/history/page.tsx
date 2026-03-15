@@ -40,6 +40,9 @@ import PageSection from "../../../../components/ui/page/PageSection";
 import PageState from "../../../../components/ui/states/PageState";
 import OrderDetailModal from "../../../../components/stock/OrderDetailModal";
 import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
+import { POSSharedStyles, posLayoutStyles } from "../../../../components/pos/shared/style";
+import { POSCategoryFilterBar } from "../../../../components/pos/shared/POSCategoryFilterBar";
+import PageStack from "../../../../components/ui/page/PageStack";
 import HistoryPageStyle from "./style";
 
 const { Text } = Typography;
@@ -162,7 +165,7 @@ function HistoryOrderCard({
     <div className="stock-history-card" style={{ animationDelay: `${index * 0.04}s` }}>
       <div className="stock-history-card-head">
         <div>
-          <div className="stock-history-card-title">
+          <div className="stock-history-card-title" style={{ display: "flex", alignItems: "center", gap: 8, width: "100%" }}>
             <span className="stock-history-card-code">{getOrderCode(order.id)}</span>
             <span
               className="stock-history-status-badge"
@@ -178,6 +181,9 @@ function HistoryOrderCard({
               />
               {statusMeta.label}
             </span>
+            <span style={{ marginLeft: "auto", fontSize: 13, color: "#64748b", fontWeight: 600 }}>
+              {lineCount} รายการ
+            </span>
           </div>
           <div className="stock-history-meta-row" style={{ marginTop: 8 }}>
             <span>ผู้สร้าง: {order.ordered_by?.name || order.ordered_by?.username || "-"}</span>
@@ -185,11 +191,7 @@ function HistoryOrderCard({
           </div>
         </div>
 
-        <div className="stock-history-card-metrics" style={{ justifyContent: isMobile ? "flex-start" : "flex-end" }}>
-          <span>{lineCount} รายการ</span>
-          <span>ต้องซื้อ {required}</span>
-          <span>ซื้อจริง {actual}</span>
-        </div>
+        <div />
       </div>
 
       <div className="stock-history-card-main">
@@ -227,12 +229,12 @@ function HistoryOrderCard({
 
       <div className="stock-history-card-foot" style={{ marginTop: 14 }}>
         <div />
-        <div className="stock-history-card-actions">
-          <Button icon={<EyeOutlined />} onClick={() => onView(order)}>
+        <div className="stock-history-card-actions" style={{ display: "flex", gap: 12, width: "100%" }}>
+          <Button icon={<EyeOutlined />} onClick={() => onView(order)} style={{ flex: 1 }}>
             ดูรายละเอียด
           </Button>
           {canDeleteOrders ? (
-            <Button danger icon={<DeleteOutlined />} onClick={() => onDelete(order)}>
+            <Button danger icon={<DeleteOutlined />} onClick={() => onDelete(order)} style={{ flex: 1 }}>
               ลบ
             </Button>
           ) : null}
@@ -274,10 +276,13 @@ export default function StockHistoryPage() {
   const [pageSize, setPageSize] = useState(10);
   const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
   const [searchText, setSearchText] = useState("");
-  const [showSearch, setShowSearch] = useState(false);
   const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>("all");
 
   const deferredSearchText = useDeferredValue(searchText.trim());
+  const historyCategories = useMemo(() => [
+    { id: OrderStatus.COMPLETED, display_name: "เสร็จสิ้น" },
+    { id: OrderStatus.CANCELLED, display_name: "ยกเลิก" },
+  ], []);
 
   useEffect(() => {
     if (initRef.current) return;
@@ -292,7 +297,6 @@ export default function StockHistoryPage() {
     setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 10);
     setCreatedSort(parseCreatedSort(sortParam));
     setSearchText(qParam);
-    setShowSearch(Boolean(qParam));
     setStatusFilter(
       statusParam === OrderStatus.COMPLETED || statusParam === OrderStatus.CANCELLED
         ? statusParam
@@ -479,36 +483,14 @@ export default function StockHistoryPage() {
 
   return (
     <div className="stock-history-page-shell">
+      <POSSharedStyles />
       <HistoryPageStyle />
 
       <UIPageHeader
         title="ประวัติใบสั่งซื้อ"
-        subtitle={
-          lastSyncedAt
-            ? `อัปเดตล่าสุด ${formatDateTime(lastSyncedAt.toISOString())}`
-            : "รายการที่เสร็จสิ้นหรือยกเลิกแล้ว"
-        }
         icon={<HistoryOutlined />}
         actions={
           <div className="stock-history-header-actions">
-            <Button
-              type="text"
-              icon={<SearchOutlined />}
-              onClick={() => setShowSearch((prev) => !prev)}
-              style={{
-                borderRadius: 12,
-                width: 40,
-                height: 40,
-                color: showSearch ? "#2563eb" : undefined,
-                background: showSearch ? "#eff6ff" : undefined,
-              }}
-            />
-            <Button
-              icon={<UnorderedListOutlined />}
-              onClick={() => router.push("/stock/items")}
-            >
-              คิวงาน
-            </Button>
             <Button
               icon={refreshing ? <SyncOutlined spin /> : <ReloadOutlined />}
               onClick={() => void fetchHistory({ silent: true })}
@@ -521,125 +503,23 @@ export default function StockHistoryPage() {
       />
 
       <PageContainer maxWidth={1440}>
-        {showSearch ? (
-          <div className="stock-history-search-panel">
-            <Input
-              allowClear
-              prefix={<SearchOutlined style={{ color: "#94a3b8" }} />}
-              placeholder="ค้นหาจากเลขใบสั่งซื้อ ผู้สร้าง หรือหมายเหตุ"
-              value={searchText}
-              onChange={(event) => {
-                setPage(1);
-                setSearchText(event.target.value);
-              }}
-              variant="borderless"
-            />
-          </div>
-        ) : null}
-
-        <div className="stock-history-summary-grid">
-          <div className="stock-history-summary-card">
-            <span className="stock-history-summary-label">ผลลัพธ์ทั้งหมด</span>
-            <span className="stock-history-summary-value">{total.toLocaleString()}</span>
-            <span className="stock-history-summary-meta">ตามตัวกรองที่เลือก</span>
-          </div>
-          <div className="stock-history-summary-card">
-            <span className="stock-history-summary-label">เสร็จสิ้นบนหน้านี้</span>
-            <span className="stock-history-summary-value">{summary.completed.toLocaleString()}</span>
-            <span className="stock-history-summary-meta">นับจากรายการที่กำลังแสดง</span>
-          </div>
-          <div className="stock-history-summary-card">
-            <span className="stock-history-summary-label">ยกเลิกบนหน้านี้</span>
-            <span className="stock-history-summary-value">{summary.cancelled.toLocaleString()}</span>
-            <span className="stock-history-summary-meta">นับจากรายการที่กำลังแสดง</span>
-          </div>
-          <div className="stock-history-summary-card">
-            <span className="stock-history-summary-label">สัดส่วนซื้อจริง/แผน</span>
-            <span className="stock-history-summary-value">
-              {summary.totalRequired > 0
-                ? `${Math.round((summary.totalActual / summary.totalRequired) * 100)}%`
-                : "-"}
-            </span>
-            <span className="stock-history-summary-meta">
-              {summary.totalActual.toLocaleString()} / {summary.totalRequired.toLocaleString()}
-            </span>
-          </div>
-        </div>
-
-        <div className="stock-history-tab-row">
-          {STATUS_TABS.map((tab) => {
-            const isActive = statusFilter === tab.key;
-            const count =
-              tab.key === "all"
-                ? tabCounts.all
-                : tabCounts[tab.key as OrderStatus.COMPLETED | OrderStatus.CANCELLED];
-
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                className="stock-history-tab-btn"
-                onClick={() => {
+        <div className="stock-order-layout">
+          <main className="stock-order-main">
+            <PageStack gap={16}>
+              <POSCategoryFilterBar
+                categories={historyCategories}
+                searchQuery={searchText}
+                selectedCategory={statusFilter}
+                onSearchChange={(value) => {
                   setPage(1);
-                  setStatusFilter(tab.key);
+                  setSearchText(value);
                 }}
-                style={{
-                  background: isActive ? tab.activeBg : "#ffffff",
-                  color: isActive ? "#ffffff" : "#475569",
-                  boxShadow: isActive ? tab.activeShadow : "0 1px 4px rgba(15, 23, 42, 0.06)",
-                  border: isActive ? "none" : "1px solid #e2e8f0",
+                onSelectCategory={(categoryId) => {
+                  setPage(1);
+                  setStatusFilter((categoryId as HistoryStatusFilter) || "all");
                 }}
-              >
-                {tab.icon}
-                <span>{tab.label}</span>
-                {count > 0 ? (
-                  <span
-                    style={{
-                      padding: "2px 8px",
-                      borderRadius: 999,
-                      background: isActive ? "rgba(255,255,255,0.2)" : "#f1f5f9",
-                      color: isActive ? "#ffffff" : "#475569",
-                      fontSize: 12,
-                      fontWeight: 700,
-                    }}
-                  >
-                    {count}
-                  </span>
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
-
-        <div className="stock-history-toolbar">
-          <Segmented<CreatedSort>
-            className="stock-history-segmented"
-            value={createdSort}
-            onChange={(value) => {
-              setPage(1);
-              setCreatedSort(value);
-            }}
-            options={[
-              { label: "ล่าสุดก่อน", value: "new" },
-              { label: "เก่าก่อน", value: "old" },
-            ]}
-          />
-
-          <div className="stock-history-toolbar-right">
-            <Segmented<number>
-              className="stock-history-segmented"
-              value={pageSize}
-              onChange={(value) => {
-                setPage(1);
-                setPageSize(value);
-              }}
-              options={PAGE_SIZE_OPTIONS.map((value) => ({
-                label: `${value}/หน้า`,
-                value,
-              }))}
-            />
-          </div>
-        </div>
+                showSearch={false}
+              />
 
         <PageSection title="รายการย้อนหลัง" extra={<Text strong>{total.toLocaleString()} รายการ</Text>}>
           {refreshError ? (
@@ -688,10 +568,12 @@ export default function StockHistoryPage() {
                 ))}
               </div>
 
-              <div className="stock-history-pagination">
-                <div className="stock-history-pagination-summary">
-                  แสดง {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} จาก{" "}
-                  {total.toLocaleString()} รายการ
+              <div className="pos-pagination-container" style={{ ...posLayoutStyles.paginationContainer, position: 'relative', marginTop: 16 }}>
+                <div className="pos-pagination-total" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)' }}>
+                  <Text type="secondary" style={{ fontSize: 13 }}>
+                    แสดง {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} จาก{" "}
+                    {total.toLocaleString()} รายการ
+                  </Text>
                 </div>
                 <Pagination
                   current={page}
@@ -704,6 +586,9 @@ export default function StockHistoryPage() {
             </>
           )}
         </PageSection>
+            </PageStack>
+          </main>
+        </div>
       </PageContainer>
 
       <OrderDetailModal

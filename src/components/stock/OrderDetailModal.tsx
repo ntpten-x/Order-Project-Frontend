@@ -1,4 +1,4 @@
-﻿import React, { useMemo } from "react";
+import React, { useMemo } from "react";
 import {
     Alert,
     Button,
@@ -6,6 +6,7 @@ import {
     Col,
     Empty,
     List,
+    Grid,
     Modal,
     Row,
     Space,
@@ -26,6 +27,7 @@ interface OrderDetailModalProps {
     order: Order | null;
     open: boolean;
     onClose: () => void;
+    hideActualMetrics?: boolean;
 }
 
 function getStatusMeta(status: OrderStatus): { color: string; label: string; icon: React.ReactNode } {
@@ -49,7 +51,9 @@ function formatDateTime(value?: string): string {
     });
 }
 
-export default function OrderDetailModal({ order, open, onClose }: OrderDetailModalProps) {
+export default function OrderDetailModal({ order, open, onClose, hideActualMetrics = false }: OrderDetailModalProps) {
+    const screens = Grid.useBreakpoint();
+    const isMobile = !screens.md;
     const items = useMemo(() => order?.ordersItems ?? [], [order?.ordersItems]);
 
     const totals = useMemo(() => {
@@ -73,37 +77,45 @@ export default function OrderDetailModal({ order, open, onClose }: OrderDetailMo
             width={900}
             style={{ maxWidth: "95vw" }}
             title={
-                <Space size={8} wrap>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <Title level={5} style={{ margin: 0 }}>
                         รายละเอียดใบซื้อ #{order.id.slice(0, 8).toUpperCase()}
                     </Title>
                     <Tag color={statusMeta.color} icon={statusMeta.icon} style={{ margin: 0 }}>
                         {statusMeta.label}
                     </Tag>
-                </Space>
+                </div>
             }
         >
             <Space direction="vertical" size={16} style={{ width: "100%" }}>
-                <Row gutter={[12, 12]}>
-                    <Col xs={24} sm={8}>
-                        <Card size="small">
-                            <Text type="secondary">จำนวนที่ต้องซื้อ</Text>
-                            <Title level={4} style={{ margin: "4px 0 0" }}>{totals.required.toLocaleString()}</Title>
-                        </Card>
-                    </Col>
-                    <Col xs={24} sm={8}>
-                        <Card size="small">
-                            <Text type="secondary">จำนวนที่ซื้อจริง</Text>
-                            <Title level={4} style={{ margin: "4px 0 0", color: "#1677ff" }}>{totals.actual.toLocaleString()}</Title>
-                        </Card>
-                    </Col>
-                    <Col xs={24} sm={8}>
-                        <Card size="small">
-                            <Text type="secondary">รายการที่ตรงตามแผน</Text>
-                            <Title level={4} style={{ margin: "4px 0 0", color: "#389e0d" }}>{totals.matched.toLocaleString()}</Title>
-                        </Card>
-                    </Col>
-                </Row>
+                <Card size="small" style={{ marginBottom: 4 }}>
+                    <div style={{ display: "flex", justifyContent: "space-around", alignItems: "center", textAlign: "center", padding: isMobile ? "4px 0" : "12px 0" }}>
+                        <div style={{ flex: 1 }}>
+                            <Text type="secondary" style={{ fontSize: isMobile ? 14 : 14, display: "block", whiteSpace: "nowrap" }}>
+                                {isMobile ? "ต้องซื้อ" : "จำนวนที่ต้องซื้อ"}
+                            </Text>
+                            <Title level={isMobile ? 5 : 4} style={{ margin: 0, marginTop: 4 }}>{totals.required.toLocaleString()}</Title>
+                        </div>
+                        {!hideActualMetrics && <div style={{ width: 1, height: 28, background: "#f1f5f9" }} />}
+                        {!hideActualMetrics && (
+                            <div style={{ flex: 1 }}>
+                                <Text type="secondary" style={{ fontSize: isMobile ? 14 : 14, display: "block", whiteSpace: "nowrap" }}>
+                                    {isMobile ? "ซื้อจริง" : "จำนวนที่ซื้อจริง"}
+                                </Text>
+                                <Title level={isMobile ? 5 : 4} style={{ margin: 0, marginTop: 4, color: "#1677ff" }}>{totals.actual.toLocaleString()}</Title>
+                            </div>
+                        )}
+                        {!hideActualMetrics && <div style={{ width: 1, height: 28, background: "#f1f5f9" }} />}
+                        {!hideActualMetrics && (
+                            <div style={{ flex: 1 }}>
+                                <Text type="secondary" style={{ fontSize: isMobile ? 14 : 14, display: "block", whiteSpace: "nowrap" }}>
+                                    {isMobile ? "ตรงแผน" : "รายการที่ตรงตามแผน"}
+                                </Text>
+                                <Title level={isMobile ? 5 : 4} style={{ margin: 0, marginTop: 4, color: "#389e0d" }}>{totals.matched.toLocaleString()}</Title>
+                            </div>
+                        )}
+                    </div>
+                </Card>
 
                 <Card size="small" title="ข้อมูลใบซื้อ">
                     <Row gutter={[12, 8]}>
@@ -125,7 +137,7 @@ export default function OrderDetailModal({ order, open, onClose }: OrderDetailMo
                     ) : null}
                 </Card>
 
-                <Card size="small" title={`รายการสินค้า (${items.length})`}>
+                <Card size="small" title={`รายการสินค้า`}>
                     {items.length === 0 ? (
                         <Empty image={Empty.PRESENTED_IMAGE_SIMPLE} description="ไม่มีรายการสินค้า" />
                     ) : (
@@ -158,13 +170,15 @@ export default function OrderDetailModal({ order, open, onClose }: OrderDetailMo
                                                 <Text type="secondary" style={{ fontSize: 12 }}>
                                                     ต้องซื้อ {required.toLocaleString()} {item.ingredient?.unit?.display_name || "หน่วย"}
                                                 </Text>
-                                                <div>
-                                                    <Text style={{ fontSize: 12 }}>
-                                                        ซื้อจริง {actual.toLocaleString()} {item.ingredient?.unit?.display_name || "หน่วย"}
-                                                    </Text>
-                                                </div>
+                                                {!hideActualMetrics && (
+                                                    <div>
+                                                        <Text strong style={{ fontSize: 12, color: "#1e293b" }}>
+                                                            ซื้อจริง {actual.toLocaleString()} {item.ingredient?.unit?.display_name || "หน่วย"}
+                                                        </Text>
+                                                    </div>
+                                                )}
                                             </div>
-                                            <div>{diffTag}</div>
+                                            {!hideActualMetrics && <div>{diffTag}</div>}
                                         </div>
                                     </List.Item>
                                 );

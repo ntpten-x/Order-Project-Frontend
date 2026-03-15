@@ -36,6 +36,7 @@ import OrderDetailModal from "../../../../components/stock/OrderDetailModal";
 import PageContainer from "../../../../components/ui/page/PageContainer";
 import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import PageSection from "../../../../components/ui/page/PageSection";
+import ListPagination from "../../../../components/ui/pagination/ListPagination";
 import PageState from "../../../../components/ui/states/PageState";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
@@ -71,7 +72,7 @@ type StatusTabConfig = {
   activeShadow: string;
 };
 
-const PAGE_SIZE_OPTIONS = [8, 12, 20, 50];
+
 
 const STATUS_TABS: StatusTabConfig[] = [
   {
@@ -200,82 +201,121 @@ function StockOrderCard({
   const canMutate = canUpdateOrders && order.status === OrderStatus.PENDING;
 
   return (
-    <div className="stock-items-card" style={{ animationDelay: `${index * 0.04}s` }}>
-      <div className="stock-items-card-head">
+    <div
+      className="stock-items-card-wrapper"
+      style={{
+        background: '#ffffff',
+        borderRadius: 20,
+        border: '1px solid #E2E8F0',
+        boxShadow: '0 2px 12px rgba(15,23,42,0.04)',
+        padding: '16px 20px',
+        marginBottom: 16,
+        overflow: 'hidden',
+        transition: 'all 0.25s ease',
+        animation: 'fadeInUp 0.35s ease both',
+        animationDelay: `${index * 0.04}s`,
+        cursor: 'pointer',
+      }}
+      onClick={() => onView(order)}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
         <div>
-          <div className="stock-items-card-title">
-            <span className="stock-items-card-code">{getOrderCode(order.id)}</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
+            <span style={{ fontSize: 16, fontWeight: 700, color: '#1E293B' }}>{getOrderCode(order.id)}</span>
             <span
-              className="stock-items-status-badge"
               style={{
-                color: statusMeta.color,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 5,
+                padding: '4px 10px',
+                borderRadius: 20,
                 background: statusMeta.background,
+                color: statusMeta.color,
+                fontSize: 12,
+                fontWeight: 700,
                 border: `1px solid ${statusMeta.borderColor}`,
               }}
             >
               <span
-                className="stock-items-status-dot"
-                style={{ background: statusMeta.color }}
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: '50%',
+                  background: statusMeta.color,
+                  display: 'inline-block',
+                }}
               />
               {statusMeta.label}
             </span>
           </div>
-          <div className="stock-items-meta-row" style={{ marginTop: 8 }}>
-            <span>
-              <ClockCircleOutlined />
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, color: '#64748B', fontSize: 13 }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+              <ClockCircleOutlined style={{ fontSize: 14 }} />
               {formatDateTime(order.create_date)}
             </span>
             <span>{formatTimeSince(order.create_date)}</span>
           </div>
         </div>
 
-        <div className="stock-items-card-metrics" style={{ justifyContent: isMobile ? "flex-start" : "flex-end" }}>
-          <span>{getOrderLineCount(order)} รายการ</span>
-          <span>{getOrderQuantity(order)} หน่วย</span>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, color: '#64748B', fontSize: 13, textAlign: 'right' }}>
+          <div>
+            <span style={{ display: 'block', fontWeight: 600, color: '#0F172A' }}>{getOrderLineCount(order)} รายการ</span>
+          </div>
         </div>
       </div>
 
-      <div className="stock-items-card-main">
-        <div className="stock-items-card-main-left">
-          <div className="stock-items-meta-row">
-            <span>ผู้สร้าง: {order.ordered_by?.name || order.ordered_by?.username || "-"}</span>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16, borderTop: '1px solid #F1F5F9', paddingTop: 12 }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <div style={{ display: 'flex', gap: 12, marginBottom: 8, color: '#64748B', fontSize: 13 }}>
+            <span>ผู้สั่งซื้อ: {order.ordered_by?.name || order.ordered_by?.username || "-"}</span>
             <span>อัปเดตล่าสุด: {formatDateTime(order.update_date)}</span>
           </div>
 
-          <div className="stock-items-item-chips">
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
             {previewItems.map((item) => (
-              <Tag key={item.id} className="stock-items-item-chip">
+              <Tag 
+                key={item.id} 
+                style={{ 
+                  borderRadius: 8, 
+                  background: '#F8FAFC', 
+                  border: '1px solid #E2E8F0', 
+                  color: '#475569', 
+                  fontWeight: 500,
+                  marginRight: 0 
+                }}
+              >
                 {item.ingredient?.display_name || "-"} x{Number(item.quantity_ordered || 0)}
               </Tag>
             ))}
             {extraItems > 0 ? (
-              <Tag className="stock-items-item-chip">+{extraItems} รายการ</Tag>
+              <Tag style={{ borderRadius: 8, background: '#EFF6FF', border: '1px solid #DBEAFE', color: '#2563EB', fontWeight: 600, marginRight: 0 }}>
+                +{extraItems} รายการ
+              </Tag>
             ) : null}
           </div>
         </div>
 
-        <div className="stock-items-card-main-right">
-          <div className="stock-items-card-metrics">
-            <span>ซื้อแล้ว {order.ordersItems?.filter((item) => item.ordersDetail?.is_purchased).length || 0}</span>
-            <span>คงเหลือ {Math.max(0, getOrderLineCount(order) - (order.ordersItems?.filter((item) => item.ordersDetail?.is_purchased).length || 0))}</span>
-          </div>
-        </div>
+
       </div>
 
-      <div className="stock-items-card-foot" style={{ marginTop: 14 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, borderTop: '1px solid #F1F5F9', paddingTop: 14 }}>
         {order.remark ? (
-          <div className="stock-items-remark">
-            <span className="stock-items-remark-title">หมายเหตุ</span>
+          <div style={{ flex: 1, color: '#64748B', fontSize: 13 }}>
+            <span style={{ fontWeight: 600, color: '#475569', marginRight: 6 }}>หมายเหตุ:</span>
             {order.remark}
           </div>
         ) : (
-          <div />
+          <div style={{ flex: 1 }} />
         )}
 
-        <div className="stock-items-card-actions">
+        <div 
+          style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}
+          onClick={(e) => e.stopPropagation()} 
+        >
           <Button
             icon={<EyeOutlined />}
             onClick={() => onView(order)}
+            style={{ borderRadius: 10 }}
             data-testid={`stock-order-view-${order.id}`}
           >
             ดู
@@ -283,6 +323,7 @@ function StockOrderCard({
           <Button
             icon={<PrinterOutlined />}
             onClick={() => onPrint(order)}
+            style={{ borderRadius: 10 }}
             data-testid={`stock-order-print-${order.id}`}
           >
             พิมพ์
@@ -291,6 +332,7 @@ function StockOrderCard({
             icon={<EditOutlined />}
             onClick={() => onEdit(order)}
             disabled={!canMutate}
+            style={{ borderRadius: 10 }}
             data-testid={`stock-order-edit-${order.id}`}
           >
             แก้ไข
@@ -300,6 +342,7 @@ function StockOrderCard({
             icon={<CheckSquareOutlined />}
             onClick={() => onReceive(order)}
             disabled={!canMutate}
+            style={{ borderRadius: 10, background: '#6366F1', borderColor: '#6366F1' }}
             data-testid={`stock-order-receive-${order.id}`}
           >
             ตรวจรับ
@@ -310,6 +353,7 @@ function StockOrderCard({
               icon={<CloseCircleOutlined />}
               onClick={() => onCancel(order)}
               disabled={order.status !== OrderStatus.PENDING}
+              style={{ borderRadius: 10 }}
               data-testid={`stock-order-cancel-${order.id}`}
             >
               ยกเลิก
@@ -339,12 +383,11 @@ export default function StockOrdersQueuePage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(12);
+  const [pageSize, setPageSize] = useState(10);
   const [lastPage, setLastPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<OrderFilterStatus>(OrderStatus.PENDING);
   const [sortCreated, setSortCreated] = useState<SortCreated>("new");
   const [searchText, setSearchText] = useState("");
-  const [showSearch, setShowSearch] = useState(false);
   const debouncedSearch = useDebouncedValue(searchText.trim(), 300);
 
   const [loading, setLoading] = useState(true);
@@ -616,134 +659,26 @@ export default function StockOrdersQueuePage() {
       <ItemsPageStyle />
 
       <UIPageHeader
-        title="คิวใบสั่งซื้อสต็อก"
-        subtitle={
-          lastSyncedAt
-            ? `อัปเดตล่าสุด ${formatDateTime(lastSyncedAt.toISOString())}`
-            : `รายการทั้งหมด ${total.toLocaleString()} รายการ`
-        }
+        title="รายการใบสั่งซื้อสต็อก"
         icon={<UnorderedListOutlined />}
         actions={
           <div className="stock-items-header-actions">
-            <Button
-              type="text"
-              icon={<SearchOutlined />}
-              onClick={() => setShowSearch((prev) => !prev)}
-              style={{
-                borderRadius: 12,
-                width: 40,
-                height: 40,
-                color: showSearch ? "#2563eb" : undefined,
-                background: showSearch ? "#eff6ff" : undefined,
-              }}
-            />
-            <Button
-              icon={<HistoryOutlined />}
-              onClick={() => router.push("/stock/history")}
-            >
-              ประวัติ
-            </Button>
+
             <Button
               icon={refreshing ? <SyncOutlined spin /> : <ReloadOutlined />}
               onClick={() => void loadOrders({ silent: true })}
               loading={loading && !hasLoadedRef.current}
-            >
-              รีเฟรช
-            </Button>
+            />
           </div>
         }
       />
 
       <PageContainer maxWidth={1440}>
-        {showSearch ? (
-          <div className="stock-items-search-panel">
-            <Input
-              allowClear
-              prefix={<SearchOutlined style={{ color: "#94a3b8" }} />}
-              placeholder="ค้นหารหัสใบสั่งซื้อ ผู้สร้าง หมายเหตุ หรือชื่อวัตถุดิบ"
-              value={searchText}
-              onChange={(event) => {
-                setSearchText(event.target.value);
-                setPage(1);
-              }}
-              onClear={() => {
-                setSearchText("");
-                setPage(1);
-              }}
-              variant="borderless"
-            />
-          </div>
-        ) : null}
 
-        <div className="stock-items-summary-grid">
-          <div className="stock-items-summary-card">
-            <span className="stock-items-summary-label">เอกสารทั้งหมด</span>
-            <span className="stock-items-summary-value">{total.toLocaleString()}</span>
-            <span className="stock-items-summary-meta">ตามตัวกรองที่เลือก</span>
-          </div>
-          <div className="stock-items-summary-card">
-            <span className="stock-items-summary-label">เอกสารบนหน้านี้</span>
-            <span className="stock-items-summary-value">{orders.length.toLocaleString()}</span>
-            <span className="stock-items-summary-meta">
-              หน้า {page} จาก {Math.max(lastPage, 1)}
-            </span>
-          </div>
-          <div className="stock-items-summary-card">
-            <span className="stock-items-summary-label">รายการวัตถุดิบ</span>
-            <span className="stock-items-summary-value">{pageStats.lines.toLocaleString()}</span>
-            <span className="stock-items-summary-meta">รวมจำนวนบรรทัดในหน้านี้</span>
-          </div>
-          <div className="stock-items-summary-card">
-            <span className="stock-items-summary-label">จำนวนที่ต้องซื้อ</span>
-            <span className="stock-items-summary-value">{pageStats.quantity.toLocaleString()}</span>
-            <span className="stock-items-summary-meta">รวมทุกหน่วยในหน้านี้</span>
-          </div>
-        </div>
 
-        <div className="stock-items-tab-row">
-          {STATUS_TABS.map((tab) => {
-            const isActive = statusFilter === tab.key;
-            const count =
-              tab.key === "all"
-                ? tabCounts.all
-                : tabCounts[tab.key as OrderStatus];
 
-            return (
-              <button
-                key={tab.key}
-                type="button"
-                className="stock-items-tab-btn"
-                onClick={() => {
-                  setStatusFilter(tab.key);
-                  setPage(1);
-                }}
-                style={{
-                  background: isActive ? tab.activeBg : "#ffffff",
-                  color: isActive ? "#ffffff" : "#475569",
-                  boxShadow: isActive ? tab.activeShadow : "0 1px 4px rgba(15, 23, 42, 0.06)",
-                  border: isActive ? "none" : "1px solid #e2e8f0",
-                }}
-              >
-                {tab.icon}
-                <span>{tab.label}</span>
-                {count > 0 ? (
-                  <span
-                    style={{
-                      padding: "2px 8px",
-                      borderRadius: 999,
-                      background: isActive ? "rgba(255,255,255,0.2)" : "#f1f5f9",
-                      color: isActive ? "#ffffff" : "#475569",
-                      fontSize: 12,
-                      fontWeight: 700,
-                    }}
-                  >
-                    {count}
-                  </span>
-                ) : null}
-              </button>
-            );
-          })}
-        </div>
+
+
 
         <div className="stock-items-toolbar">
           <Segmented<SortCreated>
@@ -759,20 +694,7 @@ export default function StockOrdersQueuePage() {
             ]}
           />
 
-          <div className="stock-items-toolbar-right">
-            <Segmented<number>
-              className="stock-items-segmented"
-              value={pageSize}
-              onChange={(value) => {
-                setPageSize(value);
-                setPage(1);
-              }}
-              options={PAGE_SIZE_OPTIONS.map((value) => ({
-                label: `${value}/หน้า`,
-                value,
-              }))}
-            />
-          </div>
+
         </div>
 
         <PageSection title="รายการใบสั่งซื้อ" extra={<Text strong>{total.toLocaleString()} รายการ</Text>}>
@@ -837,17 +759,15 @@ export default function StockOrdersQueuePage() {
                 ))}
               </div>
 
-              <div className="stock-items-pagination">
-                <div className="stock-items-pagination-summary">
-                  แสดง {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} จาก{" "}
-                  {total.toLocaleString()} รายการ
-                </div>
-                <Pagination
-                  current={page}
+              <div style={{ marginTop: 12 }}>
+                <ListPagination
+                  page={page}
                   pageSize={pageSize}
                   total={total}
-                  showSizeChanger={false}
-                  onChange={(nextPage) => setPage(nextPage)}
+                  loading={loading || refreshing}
+                  onPageChange={setPage}
+                  onPageSizeChange={setPageSize}
+                  activeColor="#0e7490"
                 />
               </div>
             </>
@@ -866,6 +786,7 @@ export default function StockOrdersQueuePage() {
         open={Boolean(viewingOrder)}
         order={viewingOrder}
         onClose={() => setViewingOrder(null)}
+        hideActualMetrics={true}
       />
 
       <Modal

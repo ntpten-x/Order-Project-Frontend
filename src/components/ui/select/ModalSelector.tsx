@@ -15,6 +15,8 @@ export interface ModalSelectorProps<T extends string | number = string | number>
     showSearch?: boolean;
     loading?: boolean;
     multiple?: boolean;
+    trigger?: React.ReactNode;
+    onConfirm?: (value: T[]) => void;
 }
 
 export const ModalSelector = <T extends string | number,>({
@@ -27,7 +29,9 @@ export const ModalSelector = <T extends string | number,>({
     disabled = false,
     showSearch = false,
     loading = false,
-    multiple = false
+    multiple = false,
+    trigger,
+    onConfirm
 }: ModalSelectorProps<T>) => {
     const screens = Grid.useBreakpoint();
     const isMobile = !screens.sm;
@@ -69,40 +73,52 @@ export const ModalSelector = <T extends string | number,>({
 
     return (
         <>
-            <div
-                onClick={() => !disabled && !loading && setOpen(true)}
-                style={{
-                    padding: '8px 12px',
-                    borderRadius: 8,
-                    border: '1px solid #d9d9d9',
-                    cursor: disabled || loading ? 'not-allowed' : 'pointer',
-                    background: disabled ? '#f5f5f5' : '#fff',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    minHeight: 32,
-                    transition: 'all 0.2s',
-                    ...style
-                }}
-            >
-                <div style={{ 
-                    flex: 1,
-                    minWidth: 0,
-                    overflow: 'hidden', 
-                    textOverflow: 'ellipsis', 
-                    whiteSpace: 'nowrap', 
-                    color: (multiple ? (Array.isArray(value) && value.length > 0) : value) ? '#1f2937' : '#9ca3af',
-                    marginRight: 8,
-                    fontSize: 14
-                }}>
-                    {loading ? <Spin size="small" /> : (
-                        multiple && Array.isArray(value) && value.length > 0 
-                            ? `เลือกแล้ว ${value.length} รายการ`
-                            : (selectedOption?.label || placeholder)
-                    )}
+            {trigger ? (
+                <div
+                    onClick={() => !disabled && !loading && setOpen(true)}
+                    style={{ 
+                        cursor: disabled || loading ? 'not-allowed' : 'pointer',
+                        display: 'inline-block'
+                    }}
+                >
+                    {trigger}
                 </div>
-                <DownOutlined style={{ fontSize: 12, color: '#9ca3af' }} />
-            </div>
+            ) : (
+                <div
+                    onClick={() => !disabled && !loading && setOpen(true)}
+                    style={{
+                        padding: '8px 12px',
+                        borderRadius: 8,
+                        border: '1px solid #d9d9d9',
+                        cursor: disabled || loading ? 'not-allowed' : 'pointer',
+                        background: disabled ? '#f5f5f5' : '#fff',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        minHeight: 32,
+                        transition: 'all 0.2s',
+                        ...style
+                    }}
+                >
+                    <div style={{ 
+                        flex: 1,
+                        minWidth: 0,
+                        overflow: 'hidden', 
+                        textOverflow: 'ellipsis', 
+                        whiteSpace: 'nowrap', 
+                        color: (multiple ? (Array.isArray(value) && value.length > 0) : value) ? '#1f2937' : '#9ca3af',
+                        marginRight: 8,
+                        fontSize: 14
+                    }}>
+                        {loading ? <Spin size="small" /> : (
+                            multiple && Array.isArray(value) && value.length > 0 
+                                ? `เลือกแล้ว ${value.length} รายการ`
+                                : (selectedOption?.label || placeholder)
+                        )}
+                    </div>
+                    <DownOutlined style={{ fontSize: 12, color: '#9ca3af' }} />
+                </div>
+            )}
             
             <Modal
                 title={title}
@@ -166,7 +182,12 @@ export const ModalSelector = <T extends string | number,>({
                     <div style={{ padding: '16px', borderTop: '1px solid #f0f0f0', display: 'flex', justifyContent: 'flex-end' }}>
                         <Button 
                             type="primary" 
-                            onClick={() => setOpen(false)} 
+                            onClick={() => {
+                                setOpen(false);
+                                if (Array.isArray(value)) {
+                                    onConfirm?.(value as T[]);
+                                }
+                            }} 
                             style={{ borderRadius: 8, height: 40, minWidth: 100 }}
                         >
                             ตกลง

@@ -3,18 +3,19 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { App, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
 import {
-    ExperimentOutlined,
+    TagsOutlined,
     PlusOutlined,
     ReloadOutlined,
     EditOutlined,
     DeleteOutlined,
 } from '@ant-design/icons';
-import { IngredientsUnit } from '../../../../types/api/stock/ingredientsUnit';
+import { StockCategory } from '../../../../types/api/stock/category';
 import { useRouter } from 'next/navigation';
 import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
 import { useSocket } from '../../../../hooks/useSocket';
 import { authService } from '../../../../services/auth.service';
 import { readCache, writeCache } from '../../../../utils/pos/cache';
+import StockCategoryPageStyle, { pageStyles, globalStyles } from './style';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 import PageContainer from '../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../components/ui/page/PageSection';
@@ -32,27 +33,26 @@ import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissio
 import { useListState } from '../../../../hooks/pos/useListState';
 import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
 import { useAuth } from '../../../../contexts/AuthContext';
-import { ingredientsUnitService } from '../../../../services/stock/ingredientsUnit.service';
-import IngredientsUnitPageStyle, { pageStyles, globalStyles } from './style';
+import { stockCategoryService } from '../../../../services/stock/category.service';
 
 const { Text } = Typography;
 
 type StatusFilter = 'all' | 'active' | 'inactive';
-type UnitCachePayload = {
-    items: IngredientsUnit[];
+type CategoryCachePayload = {
+    items: StockCategory[];
     total: number;
 };
 
-const UNIT_CACHE_KEY = 'stock:ingredients-unit:list:default-v1';
-const UNIT_CACHE_TTL_MS = 60 * 1000;
+const CATEGORY_CACHE_KEY = 'stock:category:list:default-v1';
+const CATEGORY_CACHE_TTL_MS = 60 * 1000;
 
-interface UnitCardProps {
-    unit: IngredientsUnit;
+interface CategoryCardProps {
+    category: StockCategory;
     canUpdate: boolean;
     canDelete: boolean;
-    onEdit: (unit: IngredientsUnit) => void;
-    onDelete: (unit: IngredientsUnit) => void;
-    onToggleActive: (unit: IngredientsUnit, next: boolean) => void;
+    onEdit: (category: StockCategory) => void;
+    onDelete: (category: StockCategory) => void;
+    onToggleActive: (category: StockCategory, next: boolean) => void;
     updatingStatusId: string | null;
     deletingId: string | null;
 }
@@ -67,8 +67,8 @@ const formatDate = (raw?: string | Date) => {
     }).format(date);
 };
 
-const UnitCard = ({
-    unit,
+const CategoryCard = ({
+    category,
     onEdit,
     onDelete,
     onToggleActive,
@@ -76,68 +76,68 @@ const UnitCard = ({
     deletingId,
     canUpdate,
     canDelete,
-}: UnitCardProps) => {
+}: CategoryCardProps) => {
     return (
         <div
-            className="stock-ingredients-unit-card"
+            className="stock-category-card"
             style={{
-                ...pageStyles.unitCard(unit.is_active),
+                ...pageStyles.categoryCard(category.is_active),
                 borderRadius: 16,
                 cursor: canUpdate ? 'pointer' : 'default',
             }}
             onClick={() => {
                 if (!canUpdate) return;
-                onEdit(unit);
+                onEdit(category);
             }}
         >
-            <div style={pageStyles.unitCardInner}>
+            <div style={pageStyles.categoryCardInner}>
                 <div
                     style={{
                         width: 52,
                         height: 52,
                         borderRadius: 14,
-                        background: unit.is_active
-                            ? 'linear-gradient(135deg, #cffafe 0%, #a5f3fc 100%)'
+                        background: category.is_active
+                            ? 'linear-gradient(135deg, #ccfbf1 0%, #99f6e4 100%)'
                             : '#f1f5f9',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         flexShrink: 0,
-                        boxShadow: unit.is_active ? '0 4px 10px rgba(14, 116, 144, 0.18)' : 'none',
+                        boxShadow: category.is_active ? '0 4px 10px rgba(15, 118, 110, 0.18)' : 'none',
                     }}
                 >
-                    <ExperimentOutlined
+                    <TagsOutlined
                         style={{
                             fontSize: 22,
-                            color: unit.is_active ? '#0e7490' : '#94a3b8',
+                            color: category.is_active ? '#0f766e' : '#94a3b8',
                         }}
                     />
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
-                        <Text strong style={{ fontSize: 16, color: '#0f172a' }} ellipsis={{ tooltip: unit.display_name }}>
-                            {unit.display_name}
+                        <Text strong style={{ fontSize: 16, color: '#0f172a' }} ellipsis={{ tooltip: category.display_name }}>
+                            {category.display_name}
                         </Text>
-                        <Tag color={unit.is_active ? 'green' : 'default'} style={{ borderRadius: 999 }}>
-                            {unit.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}
+                        <Tag color={category.is_active ? 'green' : 'default'} style={{ borderRadius: 999 }}>
+                            {category.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}
                         </Tag>
                     </div>
                     <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
-                        อัปเดตล่าสุด {formatDate(unit.update_date || unit.create_date)}
+                        อัปเดตล่าสุด {formatDate(category.update_date || category.create_date)}
                     </Text>
                 </div>
 
                 <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                     <Switch
                         size="small"
-                        checked={unit.is_active}
-                        loading={updatingStatusId === unit.id}
-                        disabled={!canUpdate || deletingId === unit.id}
+                        checked={category.is_active}
+                        loading={updatingStatusId === category.id}
+                        disabled={!canUpdate || deletingId === category.id}
                         onClick={(checked, event) => {
                             event?.stopPropagation();
                             if (!canUpdate) return;
-                            onToggleActive(unit, checked);
+                            onToggleActive(category, checked);
                         }}
                     />
                     {canUpdate ? (
@@ -146,12 +146,12 @@ const UnitCard = ({
                             icon={<EditOutlined />}
                             onClick={(e) => {
                                 e.stopPropagation();
-                                onEdit(unit);
+                                onEdit(category);
                             }}
                             style={{
                                 borderRadius: 10,
-                                color: '#0e7490',
-                                background: '#ecfeff',
+                                color: '#0369a1',
+                                background: '#e0f2fe',
                                 width: 36,
                                 height: 36,
                             }}
@@ -161,11 +161,11 @@ const UnitCard = ({
                         <Button
                             type="text"
                             danger
-                            loading={deletingId === unit.id}
-                            icon={deletingId === unit.id ? undefined : <DeleteOutlined />}
+                            loading={deletingId === category.id}
+                            icon={deletingId === category.id ? undefined : <DeleteOutlined />}
                             onClick={(e) => {
                                 e.stopPropagation();
-                                onDelete(unit);
+                                onDelete(category);
                             }}
                             style={{
                                 borderRadius: 10,
@@ -181,10 +181,10 @@ const UnitCard = ({
     );
 };
 
-export default function IngredientsUnitPage() {
+export default function StockCategoryPage() {
     const { message: messageApi } = App.useApp();
     const router = useRouter();
-    const [units, setUnits] = useState<IngredientsUnit[]>([]);
+    const [categories, setCategories] = useState<StockCategory[]>([]);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<Error | null>(null);
@@ -222,10 +222,10 @@ export default function IngredientsUnitPage() {
     const { socket } = useSocket();
     const { user, loading: authLoading } = useAuth();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canCreateUnit = can('stock.ingredientsUnit.page', 'create');
-    const canUpdateUnit = can('stock.ingredientsUnit.page', 'update');
-    const canDeleteUnit = can('stock.ingredientsUnit.page', 'delete');
-    const canView = can('stock.ingredientsUnit.page', 'view');
+    const canCreateCategory = can('stock.category.page', 'create');
+    const canUpdateCategory = can('stock.category.page', 'update');
+    const canDeleteCategory = can('stock.category.page', 'delete');
+    const canView = can('stock.category.page', 'view');
 
     const isDefaultListView = useMemo(
         () =>
@@ -266,10 +266,10 @@ export default function IngredientsUnitPage() {
         }
 
         cacheHydratedRef.current = true;
-        const cached = readCache<UnitCachePayload>(UNIT_CACHE_KEY, UNIT_CACHE_TTL_MS);
+        const cached = readCache<CategoryCachePayload>(CATEGORY_CACHE_KEY, CATEGORY_CACHE_TTL_MS);
         if (!cached) return;
 
-        setUnits(cached.items || []);
+        setCategories(cached.items || []);
         setTotal(cached.total || 0);
         setHasCachedSnapshot(true);
         setLoading(false);
@@ -277,13 +277,13 @@ export default function IngredientsUnitPage() {
 
     useEffect(() => {
         if (!isDefaultListView || loading) return;
-        writeCache<UnitCachePayload>(UNIT_CACHE_KEY, {
-            items: units,
+        writeCache<CategoryCachePayload>(CATEGORY_CACHE_KEY, {
+            items: categories,
             total,
         });
-    }, [units, isDefaultListView, loading, total]);
+    }, [categories, isDefaultListView, loading, total]);
 
-    const fetchUnits = useCallback(
+    const fetchCategories = useCallback(
         async (options?: { background?: boolean }) => {
             if (!canView) return;
 
@@ -301,17 +301,17 @@ export default function IngredientsUnitPage() {
 
             try {
                 const params = getQueryParams();
-                const payload = await ingredientsUnitService.findAllPaginated(undefined, params, {
+                const payload = await stockCategoryService.findAllPaginated(undefined, params, {
                     signal: controller.signal,
                 });
                 
                 if (controller.signal.aborted) return;
 
-                setUnits(Array.isArray(payload.data) ? payload.data : []);
+                setCategories(Array.isArray(payload.data) ? payload.data : []);
                 setTotal(Number(payload.total || 0));
             } catch (fetchError) {
                 if ((fetchError as Error)?.name === 'AbortError') return;
-                setError(fetchError instanceof Error ? fetchError : new Error('ไม่สามารถดึงข้อมูลหน่วยนับได้'));
+                setError(fetchError instanceof Error ? fetchError : new Error('ไม่สามารถดึงข้อมูลหมวดหมู่ได้'));
             } finally {
                 if (requestRef.current === controller) {
                     requestRef.current = null;
@@ -327,70 +327,70 @@ export default function IngredientsUnitPage() {
 
     useEffect(() => {
         if (isUrlReady && user && canView) {
-            void fetchUnits({ background: hasCachedSnapshot });
+            void fetchCategories({ background: hasCachedSnapshot });
         }
-    }, [fetchUnits, hasCachedSnapshot, user, canView, isUrlReady]);
+    }, [fetchCategories, hasCachedSnapshot, user, canView, isUrlReady]);
 
     useRealtimeRefresh({
         socket,
         events: [
-            RealtimeEvents.ingredientsUnit.create,
-            RealtimeEvents.ingredientsUnit.update,
-            RealtimeEvents.ingredientsUnit.delete,
+            RealtimeEvents.stockCategories.create,
+            RealtimeEvents.stockCategories.update,
+            RealtimeEvents.stockCategories.delete,
         ],
         enabled: Boolean(canView && isUrlReady),
         debounceMs: 250,
         onRefresh: () => {
-            void fetchUnits({ background: true });
+            void fetchCategories({ background: true });
         },
     });
 
     const handleAdd = () => {
-        if (!canCreateUnit) {
-            messageApi.warning('คุณไม่มีสิทธิ์เพิ่มหน่วยนับ');
+        if (!canCreateCategory) {
+            messageApi.warning('คุณไม่มีสิทธิ์เพิ่มหมวดหมู่');
             return;
         }
-        showLoading('กำลังเปิดหน้าจัดการหน่วยนับ...');
-        router.push('/stock/ingredientsUnit/manage/add');
+        showLoading('กำลังเปิดหน้าจัดการหมวดหมู่...');
+        router.push('/stock/category/manage/add');
     };
 
-    const handleEdit = (unit: IngredientsUnit) => {
-        if (!canUpdateUnit) {
-            messageApi.warning('คุณไม่มีสิทธิ์แก้ไขหน่วยนับ');
+    const handleEdit = (category: StockCategory) => {
+        if (!canUpdateCategory) {
+            messageApi.warning('คุณไม่มีสิทธิ์แก้ไขหมวดหมู่');
             return;
         }
-        showLoading('กำลังเปิดหน้าแก้ไขหน่วยนับ...');
-        router.push(`/stock/ingredientsUnit/manage/edit/${unit.id}`);
+        showLoading('กำลังเปิดหน้าแก้ไขหมวดหมู่...');
+        router.push(`/stock/category/manage/edit/${category.id}`);
     };
 
-    const handleDelete = (unit: IngredientsUnit) => {
-        if (!canDeleteUnit) {
-            messageApi.warning('คุณไม่มีสิทธิ์ลบหน่วยนับ');
+    const handleDelete = (category: StockCategory) => {
+        if (!canDeleteCategory) {
+            messageApi.warning('คุณไม่มีสิทธิ์ลบหมวดหมู่');
             return;
         }
         Modal.confirm({
-            title: 'ยืนยันการลบหน่วยนับ',
-            content: `คุณต้องการลบหน่วยนับ ${unit.display_name} หรือไม่?`,
+            title: 'ยืนยันการลบหมวดหมู่',
+            content: `คุณต้องการลบหมวดหมู่ ${category.display_name} หรือไม่?`,
             okText: 'ลบ',
             okType: 'danger',
             cancelText: 'ยกเลิก',
             centered: true,
             icon: <DeleteOutlined style={{ color: '#EF4444' }} />,
             onOk: async () => {
-                setDeletingId(unit.id);
+                setDeletingId(category.id);
                 try {
-                    await ingredientsUnitService.delete(unit.id, undefined, csrfToken);
-                    const shouldMoveToPreviousPage = page > 1 && units.length === 1;
-                    setUnits((prev) => prev.filter((item) => item.id !== unit.id));
+                    await stockCategoryService.delete(category.id, undefined, csrfToken);
+                    const shouldMoveToPreviousPage = page > 1 && categories.length === 1;
+                    setCategories((prev) => prev.filter((item) => item.id !== category.id));
                     setTotal((prev) => Math.max(prev - 1, 0));
                     if (shouldMoveToPreviousPage) {
                         setPage(page - 1);
                     } else {
-                        void fetchUnits({ background: true });
+                        void fetchCategories({ background: true });
                     }
-                    messageApi.success(`ลบหน่วยนับ "${unit.display_name}" สำเร็จ`);
+                    messageApi.success(`ลบหมวดหมู่ "${category.display_name}" สำเร็จ`);
                 } catch (deleteError) {
-                    messageApi.error(deleteError instanceof Error ? deleteError.message : 'ไม่สามารถลบหน่วยนับได้');
+                    messageApi.error(deleteError instanceof Error ? deleteError.message : 'ไม่สามารถลบหมวดหมู่ได้');
                 } finally {
                     setDeletingId(null);
                 }
@@ -398,23 +398,23 @@ export default function IngredientsUnitPage() {
         });
     };
 
-    const handleToggleActive = async (unit: IngredientsUnit, next: boolean) => {
-        if (!canUpdateUnit) {
-            messageApi.warning('คุณไม่มีสิทธิ์เปลี่ยนสถานะหน่วยนับ');
+    const handleToggleActive = async (category: StockCategory, next: boolean) => {
+        if (!canUpdateCategory) {
+            messageApi.warning('คุณไม่มีสิทธิ์เปลี่ยนสถานะหมวดหมู่');
             return;
         }
-        setUpdatingStatusId(unit.id);
+        setUpdatingStatusId(category.id);
         try {
-            const updated = await ingredientsUnitService.update(
-                unit.id,
-                { display_name: unit.display_name, is_active: next },
+            const updated = await stockCategoryService.update(
+                category.id,
+                { display_name: category.display_name, is_active: next },
                 undefined,
                 csrfToken
             );
-            setUnits((prev) => prev.map((item) => (item.id === unit.id ? updated : item)));
-            messageApi.success(next ? 'เปิดใช้งานหน่วยนับแล้ว' : 'ปิดใช้งานหน่วยนับแล้ว');
+            setCategories((prev) => prev.map((item) => (item.id === category.id ? updated : item)));
+            messageApi.success(next ? 'เปิดใช้งานหมวดหมู่แล้ว' : 'ปิดใช้งานหมวดหมู่แล้ว');
         } catch (toggleError) {
-            messageApi.error(toggleError instanceof Error ? toggleError.message : 'ไม่สามารถเปลี่ยนสถานะหน่วยนับได้');
+            messageApi.error(toggleError instanceof Error ? toggleError.message : 'ไม่สามารถเปลี่ยนสถานะหมวดหมู่ได้');
         } finally {
             setUpdatingStatusId(null);
         }
@@ -429,19 +429,19 @@ export default function IngredientsUnitPage() {
     }
 
     return (
-        <div className="ingredients-unit-page" style={pageStyles.container}>
-            <IngredientsUnitPageStyle />
+        <div className="category-page" style={pageStyles.container}>
+            <StockCategoryPageStyle />
             <style>{globalStyles}</style>
 
             <UIPageHeader
-                title="หน่วยนับวัตถุดิบ"
-                icon={<ExperimentOutlined />}
+                title="หมวดหมู่วัตถุดิบ"
+                icon={<TagsOutlined />}
                 actions={
                     <Space size={10} wrap>
-                        <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchUnits({ background: units.length > 0 })} />
-                        {canCreateUnit ? (
+                        <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchCategories({ background: categories.length > 0 })} />
+                        {canCreateCategory ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                เพิ่มหน่วยนับ
+                                เพิ่มหมวดหมู่
                             </Button>
                         ) : null}
                     </Space>
@@ -484,7 +484,7 @@ export default function IngredientsUnitPage() {
                     </SearchBar>
 
                     <PageSection
-                        title="รายการหน่วยนับ"
+                        title="รายการหมวดหมู่"
                         extra={
                             <Space size={8} wrap>
                                 {refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}
@@ -492,30 +492,30 @@ export default function IngredientsUnitPage() {
                             </Space>
                         }
                     >
-                        {loading && units.length === 0 ? (
+                        {loading && categories.length === 0 ? (
                             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 180, width: "100%" }}>
                                 <ReloadOutlined spin style={{ fontSize: 32, color: "rgba(0,0,0,0.45)" }} />
                             </div>
-                        ) : error && units.length === 0 ? (
+                        ) : error && categories.length === 0 ? (
                             <PageState
                                 status="error"
-                                title="โหลดข้อมูลหน่วยนับไม่สำเร็จ"
+                                title="โหลดข้อมูลหมวดหมู่ไม่สำเร็จ"
                                 error={error}
-                                onRetry={() => void fetchUnits()}
+                                onRetry={() => void fetchCategories()}
                             />
-                        ) : units.length > 0 ? (
+                        ) : categories.length > 0 ? (
                             <Space direction="vertical" size={16} style={{ width: '100%' }}>
-                                {units.map((unit) => (
-                                    <UnitCard
-                                        key={unit.id}
-                                        unit={unit}
+                                {categories.map((category) => (
+                                    <CategoryCard
+                                        key={category.id}
+                                        category={category}
                                         onEdit={handleEdit}
                                         onDelete={handleDelete}
                                         onToggleActive={handleToggleActive}
                                         updatingStatusId={updatingStatusId}
                                         deletingId={deletingId}
-                                        canUpdate={canUpdateUnit}
-                                        canDelete={canDeleteUnit}
+                                        canUpdate={canUpdateCategory}
+                                        canDelete={canDeleteCategory}
                                     />
                                 ))}
 
@@ -527,17 +527,17 @@ export default function IngredientsUnitPage() {
                                         loading={loading || refreshing}
                                         onPageChange={setPage}
                                         onPageSizeChange={setPageSize}
-                                        activeColor="#0e7490"
+                                        activeColor="#0369a1"
                                     />
                                 </div>
                             </Space>
                         ) : (
                             <UIEmptyState
-                                title={debouncedSearch.trim() ? "ไม่พบหน่วยนับตามคำค้น" : "ยังไม่มีหน่วยนับวัตถุดิบ"}
+                                title={debouncedSearch.trim() ? 'ไม่พบหมวดหมู่ตามคำค้น' : 'ยังไม่มีหมวดหมู่'}
                                 description={
                                     debouncedSearch.trim()
-                                        ? "ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ"
-                                        : "เพิ่มหน่วยนับแรกเพื่อให้ทีมงานเลือกใช้งานได้ถูกต้อง"
+                                        ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ'
+                                        : 'เพิ่มหมวดหมู่แรกเพื่อเริ่มใช้งานเมนูแสตควัตถุดิบ'
                                 }
                             />
                         )}

@@ -1,12 +1,12 @@
 import { getProxyUrl } from "../../lib/proxy-utils";
-import { Ingredients } from "../../types/api/stock/ingredients";
+import { StockCategory } from "../../types/api/stock/category";
 import {
     normalizeBackendPaginated,
     throwBackendHttpError,
     unwrapBackendData,
 } from "../../utils/api/backendResponse";
 
-const BASE_PATH = "/stock/ingredients";
+const BASE_PATH = "/stock/category";
 
 function getDetailPath(id: string): string {
     return typeof window !== "undefined" ? `${BASE_PATH}/getById/${id}` : `${BASE_PATH}/${id}`;
@@ -31,12 +31,12 @@ const getHeaders = (cookie?: string, contentType: string = "application/json"): 
     return headers;
 };
 
-export const ingredientsService = {
+export const stockCategoryService = {
     findAllPaginated: async (
         cookie?: string,
         searchParams?: URLSearchParams,
         options?: { signal?: AbortSignal }
-    ): Promise<{ data: Ingredients[]; total: number; page: number; last_page: number }> => {
+    ): Promise<{ data: StockCategory[]; total: number; page: number; last_page: number }> => {
         let url = getProxyUrl("GET", BASE_PATH);
         if (searchParams) {
             url += `?${searchParams.toString()}`;
@@ -51,13 +51,13 @@ export const ingredientsService = {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "โหลดรายการวัตถุดิบไม่สำเร็จ");
+            throwBackendHttpError(response, errorData, "โหลดหมวดหมู่วัตถุดิบไม่สำเร็จ");
         }
 
-        return normalizeBackendPaginated<Ingredients>(await response.json());
+        return normalizeBackendPaginated<StockCategory>(await response.json());
     },
 
-    findAll: async (cookie?: string, searchParams?: URLSearchParams): Promise<Ingredients[]> => {
+    findAll: async (cookie?: string, searchParams?: URLSearchParams): Promise<StockCategory[]> => {
         let url = getProxyUrl("GET", BASE_PATH);
         if (searchParams) {
             url += `?${searchParams.toString()}`;
@@ -71,13 +71,13 @@ export const ingredientsService = {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "โหลดรายการวัตถุดิบไม่สำเร็จ");
+            throwBackendHttpError(response, errorData, "โหลดหมวดหมู่วัตถุดิบไม่สำเร็จ");
         }
 
-        return unwrapBackendData(await response.json()) as Ingredients[];
+        return unwrapBackendData(await response.json()) as StockCategory[];
     },
 
-    findOne: async (id: string, cookie?: string, options?: { signal?: AbortSignal }): Promise<Ingredients> => {
+    findOne: async (id: string, cookie?: string, options?: { signal?: AbortSignal }): Promise<StockCategory> => {
         const url = getProxyUrl("GET", getDetailPath(id));
 
         const response = await fetch(url!, {
@@ -89,13 +89,13 @@ export const ingredientsService = {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "โหลดข้อมูลวัตถุดิบไม่สำเร็จ");
+            throwBackendHttpError(response, errorData, "โหลดข้อมูลหมวดหมู่วัตถุดิบไม่สำเร็จ");
         }
 
-        return unwrapBackendData(await response.json()) as Ingredients;
+        return unwrapBackendData(await response.json()) as StockCategory;
     },
 
-    create: async (data: Partial<Ingredients>, cookie?: string, csrfToken?: string): Promise<Ingredients> => {
+    create: async (data: Partial<StockCategory>, cookie?: string, csrfToken?: string): Promise<StockCategory> => {
         const url = getProxyUrl("POST", getCreatePath());
         const headers = getHeaders(cookie) as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
@@ -109,18 +109,18 @@ export const ingredientsService = {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "สร้างวัตถุดิบไม่สำเร็จ");
+            throwBackendHttpError(response, errorData, "สร้างหมวดหมู่วัตถุดิบไม่สำเร็จ");
         }
 
-        return unwrapBackendData(await response.json()) as Ingredients;
+        return unwrapBackendData(await response.json()) as StockCategory;
     },
 
     update: async (
         id: string,
-        data: Partial<Ingredients>,
+        data: Partial<StockCategory>,
         cookie?: string,
         csrfToken?: string
-    ): Promise<Ingredients> => {
+    ): Promise<StockCategory> => {
         const url = getProxyUrl("PUT", getUpdatePath(id));
         const headers = getHeaders(cookie) as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
@@ -134,10 +134,10 @@ export const ingredientsService = {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "บันทึกการแก้ไขวัตถุดิบไม่สำเร็จ");
+            throwBackendHttpError(response, errorData, "บันทึกหมวดหมู่วัตถุดิบไม่สำเร็จ");
         }
 
-        return unwrapBackendData(await response.json()) as Ingredients;
+        return unwrapBackendData(await response.json()) as StockCategory;
     },
 
     delete: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
@@ -153,7 +153,7 @@ export const ingredientsService = {
 
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "ลบวัตถุดิบไม่สำเร็จ");
+            throwBackendHttpError(response, errorData, "ลบหมวดหมู่วัตถุดิบไม่สำเร็จ");
         }
     },
 };

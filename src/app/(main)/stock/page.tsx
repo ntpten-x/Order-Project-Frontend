@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   App,
   Alert,
@@ -12,6 +12,7 @@ import {
   Pagination,
   Segmented,
   Typography,
+  Spin,
 } from "antd";
 import {
   ReloadOutlined,
@@ -35,6 +36,10 @@ import { useEffectivePermissions } from "../../../hooks/useEffectivePermissions"
 import { ingredientsService } from "../../../services/stock/ingredients.service";
 import { Ingredients } from "../../../types/api/stock/ingredients";
 import { useDebouncedValue } from "../../../utils/useDebouncedValue";
+import { StockCategory } from "../../../types/api/stock/category";
+import { stockCategoryService } from "../../../services/stock/category.service";
+import { POSCategoryFilterBar } from "../../../components/pos/shared/POSCategoryFilterBar";
+import { POSSharedStyles, posLayoutStyles } from "../../../components/pos/shared/style";
 import StockPageStyle from "./style";
 
 const { Text, Title } = Typography;
@@ -70,6 +75,10 @@ export default function StockShoppingPage() {
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebouncedValue(searchText.trim(), 250);
 
+  const [categories, setCategories] = useState<StockCategory[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | undefined>(undefined);
+  const [isFilterPending, startFilterTransition] = useTransition();
+
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<unknown>(null);
@@ -77,6 +86,18 @@ export default function StockShoppingPage() {
 
   const abortRef = useRef<AbortController | null>(null);
   const hasLoadedRef = useRef(false);
+
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const data = await stockCategoryService.findAll();
+        setCategories(data);
+      } catch (error) {
+        console.error("Failed to load categories", error);
+      }
+    };
+    void loadCategories();
+  }, []);
 
   const loadIngredients = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -99,6 +120,7 @@ export default function StockShoppingPage() {
         sort_created: sortCreated,
       });
       if (debouncedSearch) params.set("q", debouncedSearch);
+      if (selectedCategory) params.set("category_id", selectedCategory);
 
       try {
         const payload = await ingredientsService.findAllPaginated(undefined, params, {
@@ -129,7 +151,7 @@ export default function StockShoppingPage() {
         }
       }
     },
-    [debouncedSearch, messageApi, page, pageSize, sortCreated]
+    [debouncedSearch, messageApi, page, pageSize, sortCreated, selectedCategory]
   );
 
   useEffect(() => {
@@ -154,24 +176,18 @@ export default function StockShoppingPage() {
 
   return (
     <div className="stock-order-shell" data-testid="stock-catalog-page">
+      <POSSharedStyles />
       <StockPageStyle />
 
       <UIPageHeader
-        title="จัดรายการซื้อวัตถุดิบ"
-        subtitle={
-          lastSyncedAt
-            ? `อัปเดตล่าสุด ${formatDateTime(lastSyncedAt.toISOString())}`
-            : "เลือกวัตถุดิบลงตะกร้า แล้วเปิดตะกร้าเพื่อยืนยันการสร้างใบซื้อ"
-        }
+        title="รายการวัตถุดิบ"
         icon={<ShoppingOutlined />}
         actions={
           <Button
             icon={<ReloadOutlined />}
             onClick={() => void loadIngredients({ silent: true })}
             loading={refreshing}
-          >
-            รีเฟรช
-          </Button>
+          />
         }
       />
 
@@ -190,10 +206,29 @@ export default function StockShoppingPage() {
                 />
               ) : null}
 
-              <PageSection title="ค้นหาและเลือกวัตถุดิบ">
+              <POSCategoryFilterBar
+                categories={categories}
+                searchQuery={searchText}
+                selectedCategory={selectedCategory}
+                isPending={isFilterPending}
+                onSearchChange={(value) => {
+                  setSearchText(value);
+                  setPage(1);
+                }}
+                onSelectCategory={(categoryId) => {
+                  startFilterTransition(() => {
+                    setSelectedCategory(categoryId);
+                    setPage(1);
+                  });
+                }}
+              />
+
+              <>
 
                 {loading && !hasLoadedRef.current ? (
-                  <PageState status="loading" title="กำลังโหลดวัตถุดิบ" />
+                  <div style={{ display: "flex", justifyContent: "center", padding: "80px 0" }}>
+                    <Spin size="large" />
+                  </div>
                 ) : error ? (
                   <PageState
                     status="error"
@@ -216,24 +251,21 @@ export default function StockShoppingPage() {
                   </div>
                 ) : (
                   <>
-                    <List
-                      className="stock-order-grid"
-                      data-testid="stock-catalog-list"
-                      grid={{ gutter: 16, xs: 1, sm: 2, lg: 2, xl: 3, xxl: 3 }}
-                      dataSource={ingredients}
-                      renderItem={(ingredient) => (
-                        <List.Item key={ingredient.id}>
-                          <IngredientCard
-                            ingredient={ingredient}
-                            orderingEnabled={canCreateOrders}
-                          />
-                        </List.Item>
-                      )}
-                    />
+                    <div style={posLayoutStyles.productGrid} className="pos-product-grid pos-product-grid-mobile">
+                      {ingredients.map((ingredient) => (
+                        <IngredientCard
+                          key={ingredient.id}
+                          ingredient={ingredient}
+                          orderingEnabled={canCreateOrders}
+                        />
+                      ))}
+                    </div>
 
-                    <div className="stock-order-pagination">
-                      <div className="stock-order-pagination-summary">
-                        แสดง {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} จาก {total.toLocaleString()} รายการ
+                    <div className="pos-pagination-container" style={{ ...posLayoutStyles.paginationContainer, position: 'relative' }}>
+                      <div className="pos-pagination-total" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)' }}>
+                        <Text type="secondary" style={{ fontSize: 13 }}>
+                          ทั้งหมด {total.toLocaleString()} รายการ
+                        </Text>
                       </div>
                       <Pagination
                         current={page}
@@ -245,7 +277,7 @@ export default function StockShoppingPage() {
                     </div>
                   </>
                 )}
-              </PageSection>
+              </>
             </PageStack>
           </main>
 

@@ -522,6 +522,10 @@ export default function StockPageStyle() {
           justify-content: center;
         }
 
+        .stock-cart-fab-wrap {
+          bottom: calc(108px + env(safe-area-inset-bottom));
+        }
+
         .stock-cart-fab {
           width: 56px !important;
           height: 56px !important;

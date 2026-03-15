@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Alert, App, Button, Card, Col, Form, Input, Row, Spin, Switch, Typography } from "antd";
+import { Alert, App, Button, Card, Col, Form, Input, Modal, Row, Spin, Switch, Typography } from "antd";
 import {
+    AppstoreOutlined,
+    CheckCircleOutlined,
     DeleteOutlined,
-    InfoCircleOutlined,
-    PictureOutlined,
+    DownOutlined,
+    ExclamationCircleOutlined,
     SaveOutlined,
-    ShoppingOutlined,
-    TagsOutlined,
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { AccessGuardFallback } from "../../../../../../components/pos/AccessGuard";
@@ -20,12 +20,14 @@ import { ModalSelector } from "../../../../../../components/ui/select/ModalSelec
 import { useAuth } from "../../../../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
 import { authService } from "../../../../../../services/auth.service";
+import { stockCategoryService } from "../../../../../../services/stock/category.service";
 import { ingredientsService } from "../../../../../../services/stock/ingredients.service";
 import { ingredientsUnitService } from "../../../../../../services/stock/ingredientsUnit.service";
+import { StockCategory } from "../../../../../../types/api/stock/category";
 import { Ingredients } from "../../../../../../types/api/stock/ingredients";
 import { IngredientsUnit } from "../../../../../../types/api/stock/ingredientsUnit";
 import { isSupportedImageSource, normalizeImageSource } from "../../../../../../utils/image/source";
-import IngredientsManageStyle, { pageStyles } from "./style";
+import { pageStyles, ManagePageStyles, IngredientPreview } from "./style";
 
 const { TextArea } = Input;
 const { Title, Text, Paragraph } = Typography;
@@ -37,8 +39,23 @@ type IngredientFormValues = {
     description?: string;
     img_url?: string;
     unit_id: string;
+    category_id?: string;
     is_active: boolean;
 };
+
+function getCategoryLoadErrorMessage(error: unknown): string {
+    const fallback = "โหลดหมวดหมู่วัตถุดิบไม่สำเร็จ แต่ยังสามารถบันทึกวัตถุดิบโดยไม่เลือกหมวดหมู่ได้";
+    if (!(error instanceof Error) || !error.message.trim()) {
+        return fallback;
+    }
+
+    const message = error.message.trim();
+    if (message.includes("Can't find /stock/category") || message.includes("404")) {
+        return fallback;
+    }
+
+    return `${fallback} (${message})`;
+}
 
 const selectorStyle: React.CSSProperties = {
     minHeight: 48,
@@ -73,6 +90,8 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
     const canCreate = can("stock.ingredients.page", "create");
     const canUpdate = can("stock.ingredients.page", "update");
     const canDelete = can("stock.ingredients.page", "delete");
+    const canViewCategory = can("stock.category.page", "view");
+    const canCreateCategory = can("stock.category.page", "create");
     const canAccessPage = isEdit ? canUpdate : isAdd ? canCreate : false;
 
     const [csrfToken, setCsrfToken] = useState("");
@@ -80,13 +99,18 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
     const [submitting, setSubmitting] = useState(false);
     const [deleting, setDeleting] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [categoryLoadError, setCategoryLoadError] = useState<string | null>(null);
     const [units, setUnits] = useState<IngredientsUnit[]>([]);
+    const [categories, setCategories] = useState<StockCategory[]>([]);
     const [originalIngredient, setOriginalIngredient] = useState<Ingredients | null>(null);
+    const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
+    const [isUnitModalVisible, setIsUnitModalVisible] = useState(false);
 
     const displayName = Form.useWatch("display_name", form) || "";
     const imageUrl = Form.useWatch("img_url", form) || "";
     const description = Form.useWatch("description", form) || "";
     const selectedUnitId = Form.useWatch("unit_id", form);
+    const selectedCategoryId = Form.useWatch("category_id", form);
     const isActive = Form.useWatch("is_active", form);
 
     const title = useMemo(() => (isEdit ? "แก้ไขวัตถุดิบ" : "เพิ่มวัตถุดิบ"), [isEdit]);
@@ -127,12 +151,16 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
         try {
             setLoading(true);
             setError(null);
+            setCategoryLoadError(null);
 
             const unitParams = new URLSearchParams();
             unitParams.set("sort_created", "new");
+            const categoryParams = new URLSearchParams();
+            categoryParams.set("sort_created", "new");
 
-            const [unitsData, ingredientData] = await Promise.all([
+            const [unitsResult, categoriesResult, ingredientResult] = await Promise.allSettled([
                 ingredientsUnitService.findAll(undefined, unitParams),
+                canViewCategory ? stockCategoryService.findAll(undefined, categoryParams) : Promise.resolve([]),
                 isEdit && id
                     ? ingredientsService.findOne(id, undefined, { signal: controller.signal })
                     : Promise.resolve(null),
@@ -140,7 +168,27 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
 
             if (requestRef.current !== controller) return;
 
+            if (unitsResult.status === "rejected") {
+                throw unitsResult.reason;
+            }
+
+            if (ingredientResult.status === "rejected") {
+                throw ingredientResult.reason;
+            }
+
+            const unitsData = unitsResult.value;
+            const ingredientData = ingredientResult.value;
+            const categoriesData =
+                categoriesResult.status === "fulfilled" && Array.isArray(categoriesResult.value)
+                    ? categoriesResult.value
+                    : [];
+
+            if (canViewCategory && categoriesResult.status === "rejected") {
+                setCategoryLoadError(getCategoryLoadErrorMessage(categoriesResult.reason));
+            }
+
             setUnits(Array.isArray(unitsData) ? unitsData : []);
+            setCategories(Array.isArray(categoriesData) ? categoriesData : []);
 
             if (ingredientData) {
                 form.setFieldsValue({
@@ -148,6 +196,7 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                     description: ingredientData.description || "",
                     img_url: ingredientData.img_url || "",
                     unit_id: ingredientData.unit_id,
+                    category_id: ingredientData.category_id || undefined,
                     is_active: ingredientData.is_active,
                 });
                 setOriginalIngredient(ingredientData);
@@ -155,6 +204,7 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                 form.setFieldsValue({
                     description: "",
                     img_url: "",
+                    category_id: undefined,
                     is_active: true,
                 });
                 setOriginalIngredient(null);
@@ -176,7 +226,7 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                 setLoading(false);
             }
         }
-    }, [canAccessPage, form, id, isEdit, isValidMode, messageApi, router]);
+    }, [canAccessPage, canViewCategory, form, id, isEdit, isValidMode, messageApi, router]);
 
     useEffect(() => {
         void fetchPageData();
@@ -189,6 +239,10 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
         () => units.find((unit) => unit.id === selectedUnitId) || null,
         [selectedUnitId, units]
     );
+    const selectedCategory = useMemo(
+        () => categories.find((category) => category.id === selectedCategoryId) || null,
+        [categories, selectedCategoryId]
+    );
 
     const unitOptions = useMemo(
         () =>
@@ -200,6 +254,17 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                     searchLabel: unit.display_name,
                 })),
         [selectedUnitId, units]
+    );
+    const categoryOptions = useMemo(
+        () =>
+            categories
+                .filter((category) => category.is_active || category.id === selectedCategoryId)
+                .map((category) => ({
+                    label: category.is_active ? category.display_name : `${category.display_name} (ปิดใช้งาน)`,
+                    value: category.id,
+                    searchLabel: category.display_name,
+                })),
+        [categories, selectedCategoryId]
     );
 
     const hasAvailableUnits = unitOptions.length > 0;
@@ -220,6 +285,7 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                 description: values.description?.trim() || "",
                 img_url: normalizeImageSource(values.img_url) || null,
                 unit_id: values.unit_id,
+                category_id: values.category_id?.trim() || null,
                 is_active: Boolean(values.is_active),
             };
 
@@ -278,9 +344,9 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
     }
 
     return (
-        <div className="stock-ingredients-manage-page" style={pageStyles.container}>
-            <IngredientsManageStyle />
-
+        <div style={pageStyles.container}>
+            <ManagePageStyles />
+            
             <UIPageHeader
                 title={title}
                 onBack={() => router.replace("/stock/ingredients")}
@@ -293,50 +359,29 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                 }
             />
 
-            <PageContainer maxWidth={1140}>
+            <PageContainer maxWidth={1040}>
                 <PageSection style={{ background: "transparent", border: "none" }}>
                     {loading ? (
-                        <div style={pageStyles.loadingWrap}>
+                        <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
                             <Spin size="large" />
                         </div>
                     ) : (
                         <Row gutter={[20, 20]}>
                             <Col xs={24} lg={15}>
-                                <Card bordered={false} className="stock-ingredient-card stock-ingredient-main-card">
-                                    <div className="stock-ingredient-card-header">
-                                        <ShoppingOutlined className="stock-ingredient-card-icon" />
-                                        <Title level={5} style={{ margin: 0 }}>
-                                            ข้อมูลวัตถุดิบ
-                                        </Title>
+                                <Card bordered={false} style={{ borderRadius: 20 }}>
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
+                                        <AppstoreOutlined style={{ fontSize: 20, color: '#0e7490' }} />
+                                        <Title level={5} style={{ margin: 0 }}>ข้อมูลวัตถุดิบ</Title>
                                     </div>
 
-                                    {error ? (
-                                        <Alert
-                                            type="error"
-                                            showIcon
-                                            style={{ marginBottom: 20 }}
-                                            message={error}
-                                        />
-                                    ) : null}
-
+                                    {error ? <Alert type="error" showIcon style={{ marginBottom: 20 }} message={error} /> : null}
                                     {!hasAvailableUnits ? (
                                         <Alert
                                             type="warning"
                                             showIcon
                                             style={{ marginBottom: 20 }}
                                             message="ยังไม่มีหน่วยนับวัตถุดิบให้เลือก"
-                                            description={
-                                                <div className="stock-ingredient-inline-action">
-                                                    สร้างหน่วยนับก่อนเพื่อให้สามารถบันทึกวัตถุดิบได้
-                                                    <Button
-                                                        type="link"
-                                                        onClick={() => router.push("/stock/ingredientsUnit/manage/add")}
-                                                        style={{ paddingInline: 0 }}
-                                                    >
-                                                        ไปหน้าเพิ่มหน่วยนับ
-                                                    </Button>
-                                                </div>
-                                            }
+                                            description="กรุณาสร้างหน่วยนับก่อนเพื่อให้สามารถบันทึกวัตถุดิบได้"
                                         />
                                     ) : null}
 
@@ -345,125 +390,75 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                                         layout="vertical"
                                         requiredMark={false}
                                         autoComplete="off"
-                                        initialValues={{ description: "", img_url: "", is_active: true }}
+                                        initialValues={{ description: "", img_url: "", category_id: undefined, is_active: true }}
                                         onFinish={(values) => void onFinish(values)}
                                     >
-                                        <Row gutter={[16, 0]}>
+                                        <Form.Item
+                                            name="display_name"
+                                            label={<span style={{ fontWeight: 600 }}>ชื่อวัตถุดิบ</span>}
+                                            rules={[
+                                                { required: true, message: "กรุณากรอกชื่อวัตถุดิบ" },
+                                                { max: 100, message: "ความยาวต้องไม่เกิน 100 ตัวอักษร" },
+                                            ]}
+                                        >
+                                            <Input size="large" maxLength={100} placeholder="เช่น น้ำตาลทราย" />
+                                        </Form.Item>
+
+                                        <Row gutter={12}>
                                             <Col xs={24} md={12}>
-                                                <Form.Item
-                                                    name="display_name"
-                                                    label={<span style={{ fontWeight: 600 }}>ชื่อวัตถุดิบ</span>}
-                                                    extra="ใช้ชื่อที่ทีมงานเข้าใจตรงกัน เช่น น้ำตาลทราย นมสด หรือ แป้งเค้ก"
-                                                    rules={[
-                                                        { required: true, message: "กรุณากรอกชื่อวัตถุดิบ" },
-                                                        { max: 100, message: "ความยาวต้องไม่เกิน 100 ตัวอักษร" },
-                                                    ]}
-                                                >
-                                                    <Input
-                                                        size="large"
-                                                        maxLength={100}
-                                                        placeholder="เช่น น้ำตาลทราย"
-                                                        onBlur={() => {
-                                                            const value = form.getFieldValue("display_name");
-                                                            if (typeof value === "string") {
-                                                                form.setFieldValue("display_name", value.trim());
-                                                            }
-                                                        }}
-                                                    />
-                                                </Form.Item>
-                                            </Col>
-
-                                            <Col xs={24} md={12}>
-                                                <Form.Item
-                                                    name="unit_id"
-                                                    label={<span style={{ fontWeight: 600 }}>หน่วยนับ</span>}
-                                                    extra="เลือกหน่วยที่ใช้จริงในการสั่งซื้อ รับเข้า และคุมสต็อก"
-                                                    rules={[{ required: true, message: "กรุณาเลือกหน่วยนับ" }]}
-                                                >
-                                                    <ModalSelector
-                                                        title="เลือกหน่วยนับวัตถุดิบ"
-                                                        value={selectedUnitId}
-                                                        onChange={(value) => form.setFieldValue("unit_id", value)}
-                                                        options={unitOptions}
-                                                        placeholder="เลือกหน่วยนับ"
-                                                        showSearch
-                                                        disabled={!hasAvailableUnits}
-                                                        style={selectorStyle}
-                                                    />
-                                                </Form.Item>
-                                            </Col>
-
-                                            <Col xs={24}>
-                                                <Form.Item
-                                                    name="img_url"
-                                                    label={<span style={{ fontWeight: 600 }}>รูปภาพ</span>}
-                                                    extra="รองรับ URL แบบ http, https, data:image, blob หรือ path ภายในระบบ"
-                                                    rules={[
-                                                        {
-                                                            validator: async (_, value: string | undefined) => {
-                                                                if (!value?.trim()) return;
-                                                                const normalized = normalizeImageSource(value);
-                                                                if (!isSupportedImageSource(normalized)) {
-                                                                    throw new Error(
-                                                                        "รองรับเฉพาะ URL รูปภาพแบบ http(s), data:image, blob หรือ path ภายในระบบ"
-                                                                    );
-                                                                }
-                                                            },
-                                                        },
-                                                    ]}
-                                                >
-                                                    <Input
-                                                        size="large"
-                                                        placeholder="https://example.com/image.jpg"
-                                                    />
-                                                </Form.Item>
-                                            </Col>
-
-                                            <Col xs={24}>
-                                                <Form.Item
-                                                    name="description"
-                                                    label={<span style={{ fontWeight: 600 }}>รายละเอียดเพิ่มเติม</span>}
-                                                    extra="ใช้ระบุข้อมูลที่ช่วยให้ค้นหาและใช้งานได้ง่ายขึ้น เช่น ยี่ห้อ ประเภท หรือหมายเหตุ"
-                                                >
-                                                    <TextArea
-                                                        rows={5}
-                                                        placeholder="เช่น ใช้สำหรับเมนูเบเกอรี่ หรือซื้อจากผู้ขายประจำ"
-                                                    />
-                                                </Form.Item>
-                                            </Col>
-
-                                            <Col xs={24}>
-                                                <div className="stock-ingredient-switch-panel">
-                                                    <div>
-                                                        <Text strong>สถานะการใช้งาน</Text>
-                                                        <Text type="secondary" className="stock-ingredient-muted-text">
-                                                            ปิดการใช้งานเมื่อต้องการเก็บประวัติไว้ แต่ไม่ให้เลือกใช้ต่อ
-                                                        </Text>
+                                                <Form.Item name="unit_id" label={<span style={{ fontWeight: 600 }}>หน่วยนับ</span>} rules={[{ required: true, message: "กรุณาเลือกหน่วยนับ" }]}>
+                                                    <div onClick={() => setIsUnitModalVisible(true)} style={{ padding: '10px 16px', borderRadius: 12, border: '2px solid #e2e8f0', cursor: 'pointer', minHeight: 46, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <span>{selectedUnitId ? units.find((u) => u.id === selectedUnitId)?.display_name : 'เลือกหน่วยนับ'}</span>
+                                                        <DownOutlined />
                                                     </div>
-                                                    <Form.Item name="is_active" valuePropName="checked" noStyle>
-                                                        <Switch checked={Boolean(isActive)} />
-                                                    </Form.Item>
-                                                </div>
+                                                </Form.Item>
+                                            </Col>
+                                            <Col xs={24} md={12}>
+                                                <Form.Item name="category_id" label={<span style={{ fontWeight: 600 }}>หมวดหมู่</span>}>
+                                                    <div onClick={() => setIsCategoryModalVisible(true)} style={{ padding: '10px 16px', borderRadius: 12, border: '2px solid #e2e8f0', cursor: 'pointer', minHeight: 46, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <span>{selectedCategoryId ? categories.find((c) => c.id === selectedCategoryId)?.display_name : 'เลือกหมวดหมู่'}</span>
+                                                        <DownOutlined />
+                                                    </div>
+                                                </Form.Item>
                                             </Col>
                                         </Row>
 
-                                        <div className="stock-ingredient-form-actions">
-                                            <Button
-                                                size="large"
-                                                onClick={() => router.replace("/stock/ingredients")}
-                                                className="stock-ingredient-action-button"
-                                            >
-                                                ยกเลิก
-                                            </Button>
-                                            <Button
-                                                type="primary"
-                                                htmlType="submit"
-                                                size="large"
-                                                icon={<SaveOutlined />}
-                                                loading={submitting}
-                                                disabled={!hasAvailableUnits}
-                                                className="stock-ingredient-action-button stock-ingredient-action-button-primary"
-                                            >
+                                        <Form.Item
+                                            name="img_url"
+                                            label={<span style={{ fontWeight: 600 }}>รูปภาพ URL</span>}
+                                            rules={[
+                                                {
+                                                    validator: async (_, value: string | undefined) => {
+                                                        if (!value?.trim()) return;
+                                                        if (!isSupportedImageSource(normalizeImageSource(value))) {
+                                                            throw new Error("รองรับเฉพาะ URL รูปภาพแบบ http(s), data:image และ blob");
+                                                        }
+                                                    },
+                                                },
+                                            ]}
+                                        >
+                                            <Input size="large" placeholder="https://example.com/image.jpg" />
+                                        </Form.Item>
+
+                                        <Form.Item name="description" label={<span style={{ fontWeight: 600 }}>รายละเอียดเพิ่มเติม</span>}>
+                                            <TextArea rows={4} maxLength={500} placeholder="รายละเอียดสินค้า, หมายเหตุ" />
+                                        </Form.Item>
+
+                                        <div style={{ padding: 16, background: '#f8fafc', borderRadius: 14, marginBottom: 18 }}>
+                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                <div>
+                                                    <Text strong>สถานะการใช้งาน</Text>
+                                                    <Text type="secondary" style={{ display: 'block', fontSize: 13 }}>เปิดใช้งานเพื่อเรียกใช้งานในแสตคหม้อต้ม</Text>
+                                                </div>
+                                                <Form.Item name="is_active" valuePropName="checked" noStyle>
+                                                    <Switch checked={Boolean(isActive)} />
+                                                </Form.Item>
+                                            </div>
+                                        </div>
+
+                                        <div style={{ display: 'flex', gap: 12 }}>
+                                            <Button size="large" onClick={() => router.replace('/stock/ingredients')} style={{ flex: 1 }}>ยกเลิก</Button>
+                                            <Button type="primary" htmlType="submit" size="large" icon={<SaveOutlined />} loading={submitting} disabled={!hasAvailableUnits} style={{ flex: 2 }}>
                                                 บันทึกข้อมูล
                                             </Button>
                                         </div>
@@ -472,65 +467,25 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                             </Col>
 
                             <Col xs={24} lg={9}>
-                                <div className="stock-ingredient-side-grid">
-                                    <Card className="stock-ingredient-card stock-ingredient-side-card">
-                                        <div className="stock-ingredient-card-header">
-                                            <PictureOutlined className="stock-ingredient-side-icon" />
-                                            <Text strong>ตัวอย่างการแสดงผล</Text>
-                                        </div>
-
-                                        <div className="stock-ingredient-preview-row">
-                                            <StockImageThumb
-                                                src={isSupportedImageSource(normalizedImageUrl) ? normalizedImageUrl : null}
-                                                alt={displayName.trim() || "ingredient preview"}
-                                                size={84}
-                                                borderRadius={18}
-                                            />
-                                            <div style={{ minWidth: 0 }}>
-                                                <Title level={4} className="stock-ingredient-preview-title">
-                                                    {displayName.trim() || "ชื่อวัตถุดิบ"}
-                                                </Title>
-                                                <Text type="secondary" className="stock-ingredient-detail-line">
-                                                    หน่วยนับ: {selectedUnit?.display_name || "-"}
-                                                </Text>
-                                                <Text type="secondary" className="stock-ingredient-detail-line">
-                                                    สถานะ: {isActive === false ? "ปิดใช้งาน" : "ใช้งาน"}
-                                                </Text>
-                                            </div>
-                                        </div>
-
-                                        {description.trim() ? (
-                                            <Paragraph className="stock-ingredient-preview-description">
-                                                {description.trim()}
-                                            </Paragraph>
-                                        ) : null}
-                                    </Card>
-
-                                    <Card className="stock-ingredient-card stock-ingredient-side-card">
-                                        <div className="stock-ingredient-card-header">
-                                            <TagsOutlined className="stock-ingredient-side-icon" />
-                                            <Text strong>คำแนะนำ</Text>
-                                        </div>
-                                        <Paragraph className="stock-ingredient-help-text">
-                                            เลือกหน่วยนับให้ตรงกับการรับเข้าจริง เพื่อให้รายงานสต็อกและการสั่งซื้ออ่านง่าย
-                                        </Paragraph>
-                                        <Paragraph className="stock-ingredient-help-text" style={{ marginBottom: 0 }}>
-                                            หากมีรูปภาพ แนะนำให้ใช้ภาพที่มองเห็นสินค้าได้ชัด เพื่อช่วยตรวจสอบรายการได้เร็วขึ้น
-                                        </Paragraph>
+                                <div style={{ display: 'grid', gap: 14 }}>
+                                    <Card style={{ borderRadius: 20 }}>
+                                        <Title level={5} style={{ color: '#0e7490', marginBottom: 16 }}>ตัวอย่างการแสดงผล</Title>
+                                        <IngredientPreview
+                                            name={displayName}
+                                            imageUrl={imageUrl}
+                                            category={categories.find((c) => c.id === selectedCategoryId)?.display_name}
+                                            unit={units.find((u) => u.id === selectedUnitId)?.display_name}
+                                            isActive={isActive}
+                                        />
                                     </Card>
 
                                     {isEdit && originalIngredient ? (
-                                        <Card className="stock-ingredient-card stock-ingredient-side-card">
-                                            <div className="stock-ingredient-card-header">
-                                                <InfoCircleOutlined className="stock-ingredient-side-icon" />
+                                        <Card style={{ borderRadius: 16 }}>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
+                                                <ExclamationCircleOutlined style={{ color: '#0e7490' }} />
                                                 <Text strong>รายละเอียด</Text>
                                             </div>
-                                            <Text type="secondary" className="stock-ingredient-detail-line">
-                                                รหัสรายการ: {originalIngredient.id}
-                                            </Text>
-                                            <Text type="secondary" className="stock-ingredient-detail-line">
-                                                สร้างเมื่อ: {formatDate(originalIngredient.create_date)}
-                                            </Text>
+                                            <Text type="secondary" style={{ display: 'block' }}>สร้างเมื่อ: {formatDate(originalIngredient.create_date)}</Text>
                                         </Card>
                                     ) : null}
                                 </div>
@@ -539,6 +494,28 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                     )}
                 </PageSection>
             </PageContainer>
+            
+            <Modal title="เลือกหมวดหมู่" open={isCategoryModalVisible} onCancel={() => setIsCategoryModalVisible(false)} footer={null} centered width="min(400px, calc(100vw - 16px))">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
+                    {categories.filter(c => c.is_active).map((cat) => (
+                        <div key={cat.id} onClick={() => { form.setFieldsValue({ category_id: cat.id }); setIsCategoryModalVisible(false); }} style={{ padding: '14px 18px', border: '2px solid', borderRadius: 12, cursor: 'pointer', background: selectedCategoryId === cat.id ? '#ecfeff' : '#fff', borderColor: selectedCategoryId === cat.id ? '#0e7490' : '#e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>{cat.display_name}</span>
+                            {selectedCategoryId === cat.id ? <CheckCircleOutlined style={{ color: '#0e7490' }} /> : null}
+                        </div>
+                    ))}
+                </div>
+            </Modal>
+
+            <Modal title="เลือกหน่วยนับ" open={isUnitModalVisible} onCancel={() => setIsUnitModalVisible(false)} footer={null} centered width="min(400px, calc(100vw - 16px))">
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
+                    {units.filter(u => u.is_active).map((unit) => (
+                        <div key={unit.id} onClick={() => { form.setFieldsValue({ unit_id: unit.id }); setIsUnitModalVisible(false); }} style={{ padding: '14px 18px', border: '2px solid', borderRadius: 12, cursor: 'pointer', background: selectedUnitId === unit.id ? '#ecfeff' : '#fff', borderColor: selectedUnitId === unit.id ? '#0e7490' : '#e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                            <span>{unit.display_name}</span>
+                            {selectedUnitId === unit.id ? <CheckCircleOutlined style={{ color: '#0e7490' }} /> : null}
+                        </div>
+                    ))}
+                </div>
+            </Modal>
         </div>
     );
 }

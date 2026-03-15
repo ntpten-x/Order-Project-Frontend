@@ -126,6 +126,7 @@ const MENU_NAV_LABEL_BY_RESOURCE_KEY: Record<string, string> = {
     "menu.stock.orders": "รายการ",
     "menu.stock.history": "ประวัติ",
     "menu.stock.ingredients": "วัตถุดิบ",
+    "menu.stock.category": "หมวดหมู่วัตถุดิบ",
     "menu.stock.ingredientsUnit": "หน่วยวัตถุดิบ",
     "menu.users.home": "ผู้ใช้",
     "menu.branch.home": "สาขา",

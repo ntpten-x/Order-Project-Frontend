@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React, { useCallback, useEffect, useState } from "react";
 import { usePathname, useRouter } from "next/navigation";
@@ -10,6 +10,7 @@ import {
   HomeOutlined,
   InfoCircleOutlined,
   ShoppingOutlined,
+  TagsOutlined,
   UnorderedListOutlined,
 } from "@ant-design/icons";
 
@@ -111,6 +112,13 @@ const StockBottomNavigation = () => {
       path: "/stock/ingredients",
     },
     {
+      key: "category",
+      visibilityKey: "menu.stock.category",
+      label: "หมวดหมู่",
+      icon: <TagsOutlined />,
+      path: "/stock/category",
+    },
+    {
       key: "ingredientsUnit",
       visibilityKey: "menu.stock.ingredientsUnit",
       label: "หน่วย",
@@ -121,6 +129,9 @@ const StockBottomNavigation = () => {
 
   const isActivePath = (itemPath: string) => {
     if (itemPath === "/") return pathname === "/";
+    if (itemPath === "/stock") {
+      return pathname === "/stock" || pathname === "/stock/" || pathname.startsWith("/stock/buying");
+    }
     return pathname === itemPath || pathname.startsWith(itemPath + "/");
   };
 
