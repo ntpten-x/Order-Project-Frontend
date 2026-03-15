@@ -362,11 +362,11 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
 
                                         <Form.Item
                                             name="topping_group_ids"
-                                            label={<span style={{ fontWeight: 600 }}>Topping Group ที่ใช้ได้</span>}
+                                            label={<span style={{ fontWeight: 600 }}>กลุ่มท็อปปิ้งที่ใช้ได้</span>}
                                             extra="ถ้าไม่เลือกไว้ สินค้านี้จะไม่มีท็อปปิ้งให้เลือก"
                                         >
                                             <ModalSelector<string>
-                                                title="เลือก Topping Group"
+                                                title="เลือกกลุ่มท็อปปิ้ง"
                                                 value={toppingGroupIds}
                                                 multiple
                                                 showSearch
@@ -376,7 +376,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                                     searchLabel: group.display_name,
                                                 }))}
                                                 onChange={(value) => form.setFieldValue('topping_group_ids', value)}
-                                                placeholder="ไม่กำหนด Topping Group"
+                                                placeholder="ไม่กำหนดกลุ่มท็อปปิ้ง"
                                                 style={{ minHeight: 46, borderRadius: 12, padding: '10px 16px' }}
                                             />
                                         </Form.Item>
@@ -442,7 +442,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                         <Card style={{ borderRadius: 16 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                                                 <ExclamationCircleOutlined style={{ color: '#0369a1' }} />
-                                                <Text strong>รายละเอียดรายการ</Text>
+                                                <Text strong>รายละเอียด</Text>
                                             </div>
                                             <Text type="secondary" style={{ display: 'block' }}>สร้างเมื่อ: {formatDate(originalProduct?.create_date)}</Text>
                                             <Text type="secondary" style={{ display: 'block' }}>อัปเดตเมื่อ: {formatDate(originalProduct?.update_date)}</Text>

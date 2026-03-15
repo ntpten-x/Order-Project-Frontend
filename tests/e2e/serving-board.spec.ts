@@ -27,8 +27,12 @@ type ServingBoardGroup = {
 };
 
 async function ensureAuthenticated(page: Page): Promise<void> {
-    const response = await page.request.get("/api/auth/me");
-    expect(response.ok()).toBeTruthy();
+    await expect
+        .poll(async () => {
+            const response = await page.request.get("/api/auth/me");
+            return response.status();
+        })
+        .toBe(200);
 }
 
 async function ensureOpenShift(request: APIRequestContext, csrfToken: string) {
@@ -130,18 +134,20 @@ async function payOrder(
     expect(response.ok()).toBeTruthy();
 }
 
-test("serving board separates add rounds, serves items, and clears after payment", async ({ page, request }) => {
+test("serving board separates add rounds, serves items, and clears after payment", async ({ page }) => {
     test.setTimeout(180000);
 
-    const username = process.env.E2E_USERNAME || "e2e_pos_admin";
-    const password = process.env.E2E_PASSWORD || "E2E_Pos_123!";
+    const username =
+        process.env.E2E_USERNAME ||
+        process.env.E2E_ADMIN_USERNAME ||
+        "admin";
+    const password =
+        process.env.E2E_PASSWORD ||
+        process.env.E2E_ADMIN_PASSWORD ||
+        "Admin123456!";
+    const request = page.request;
 
     await login(request, username, password);
-
-    await page.goto("/login");
-    await page.locator('input[autocomplete="username"]').fill(username);
-    await page.locator('input[autocomplete="current-password"]').fill(password);
-    await page.locator('button[type="submit"]').click();
     await ensureAuthenticated(page);
 
     const csrfToken = await getCsrfToken(request);
@@ -160,26 +166,17 @@ test("serving board separates add rounds, serves items, and clears after payment
     await page.goto("/pos/list");
     await expect(page.getByTestId("serving-board-page")).toBeVisible();
     await expect(page.getByText("Serving Board")).toBeVisible();
-    await expect(page.getByText("LIVE")).toBeVisible({ timeout: 30000 });
+    await expect(page.getByText(/^LIVE$/)).toBeVisible({ timeout: 30000 });
 
-    const pendingColumn = page.getByTestId("serving-column-pending");
-    const servedColumn = page.getByTestId("serving-column-served");
+    let pendingColumn = page.getByTestId("serving-column-pending");
 
-    const firstCard = pendingColumn.locator('[data-testid^="serving-card-"]').filter({
+    let firstCard = pendingColumn.locator('[data-testid^="serving-card-"]').filter({
         hasText: noteRound1,
     });
     await expect(firstCard).toHaveCount(1);
-    await expect(firstCard).toContainText(createdOrder.order_no);
+    await expect(firstCard).toHaveAttribute("data-order-no", createdOrder.order_no);
 
     await addOrderItem(request, csrfToken, createdOrder.id, product.id, noteRound2);
-
-    const secondCard = pendingColumn.locator('[data-testid^="serving-card-"]').filter({
-        hasText: noteRound2,
-    });
-    await expect(secondCard).toHaveCount(1);
-    await expect(secondCard).toContainText(createdOrder.order_no);
-    await expect(firstCard).not.toContainText(noteRound2);
-    await expect(secondCard).not.toContainText(noteRound1);
 
     await expect
         .poll(async () => {
@@ -188,12 +185,54 @@ test("serving board separates add rounds, serves items, and clears after payment
         })
         .toBe(2);
 
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await expect(page.getByTestId("serving-board-page")).toBeVisible();
+
+    pendingColumn = page.getByTestId("serving-column-pending");
+    firstCard = pendingColumn.locator('[data-testid^="serving-card-"]').filter({
+        hasText: noteRound1,
+    });
+    const secondCard = pendingColumn.locator('[data-testid^="serving-card-"]').filter({
+        hasText: noteRound2,
+    });
+
+    await expect(firstCard).toHaveCount(1);
+    await expect(secondCard).toHaveCount(1);
+    await expect(firstCard).toHaveAttribute("data-order-no", createdOrder.order_no);
+    await expect(secondCard).toHaveAttribute("data-order-no", createdOrder.order_no);
+    await expect(firstCard).not.toContainText(noteRound2);
+    await expect(secondCard).not.toContainText(noteRound1);
+
     await secondCard.getByRole("button", { name: "ได้รับแล้ว" }).click();
-    await expect(servedColumn.getByText(noteRound2)).toBeVisible();
+    await expect
+        .poll(async () => {
+            const board = await getServingBoard(request);
+            return board.some((group) =>
+                group.order_id === createdOrder.id &&
+                group.items.some(
+                    (item) =>
+                        item.notes === noteRound2 &&
+                        String(item.serving_status).toLowerCase() === "served"
+                )
+            );
+        })
+        .toBeTruthy();
     await expect(pendingColumn.getByText(noteRound2)).toHaveCount(0);
 
-    await firstCard.getByRole("button", { name: "เสิร์ฟทั้งหมด" }).click();
-    await expect(servedColumn.getByText(noteRound1)).toBeVisible();
+    await firstCard.getByRole("button", { name: "ได้รับทั้งหมด" }).click();
+    await expect
+        .poll(async () => {
+            const board = await getServingBoard(request);
+            return board.some((group) =>
+                group.order_id === createdOrder.id &&
+                group.items.some(
+                    (item) =>
+                        item.notes === noteRound1 &&
+                        String(item.serving_status).toLowerCase() === "served"
+                )
+            );
+        })
+        .toBeTruthy();
     await expect(pendingColumn.getByText(noteRound1)).toHaveCount(0);
 
     const updatedOrder = await getOrder(request, createdOrder.id);

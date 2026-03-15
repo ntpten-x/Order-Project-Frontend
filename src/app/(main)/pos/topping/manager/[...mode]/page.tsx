@@ -440,11 +440,11 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
 
                                         <Form.Item
                                             name="topping_group_ids"
-                                            label="Topping Group ที่สังกัด"
+                                            label="กลุ่มท็อปปิ้งที่สังกัด"
                                             extra="เลือกกลุ่มที่ท็อปปิ้งนี้สามารถแสดงได้ร่วมกับสินค้า"
                                         >
                                             <ModalSelector<string>
-                                                title="เลือก Topping Group"
+                                                title="เลือกกลุ่มท็อปปิ้ง"
                                                 value={toppingGroupIds}
                                                 multiple
                                                 showSearch
@@ -454,7 +454,7 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                                                     searchLabel: group.display_name,
                                                 }))}
                                                 onChange={(value) => form.setFieldValue('topping_group_ids', value)}
-                                                placeholder="ไม่กำหนด Topping Group"
+                                                placeholder="ไม่กำหนดกลุ่มท็อปปิ้ง"
                                                 style={{ minHeight: 46, borderRadius: 12, padding: '10px 16px' }}
                                             />
                                         </Form.Item>

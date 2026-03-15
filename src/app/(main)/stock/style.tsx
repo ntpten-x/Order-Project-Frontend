@@ -15,7 +15,7 @@ export default function StockPageStyle() {
 
       .stock-order-layout {
         display: grid;
-        grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.85fr);
+        grid-template-columns: 1fr;
         gap: 20px;
         align-items: start;
       }

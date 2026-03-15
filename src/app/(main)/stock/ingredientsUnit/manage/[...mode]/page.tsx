@@ -351,7 +351,7 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
                                         <Card className="stock-manage-card stock-manage-side-card">
                                             <div className="stock-manage-card-header">
                                                 <InfoCircleOutlined className="stock-manage-side-icon" />
-                                                <Text strong>รายละเอียดรายการ</Text>
+                                                <Text strong>รายละเอียด</Text>
                                             </div>
                                             <Text type="secondary" className="stock-manage-detail-line">
                                                 รหัสรายการ: {originalUnit.id}

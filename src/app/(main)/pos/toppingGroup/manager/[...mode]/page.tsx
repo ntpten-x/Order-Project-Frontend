@@ -54,7 +54,7 @@ export default function ToppingGroupManagePage({ params }: { params: { mode: str
     const canUpdate = can('topping.page', 'update');
     const canDelete = can('topping.page', 'delete');
 
-    const title = useMemo(() => (isEdit ? 'แก้ไข Topping Group' : 'เพิ่ม Topping Group'), [isEdit]);
+    const title = useMemo(() => (isEdit ? 'แก้ไขกลุ่มท็อปปิ้ง' : 'เพิ่มกลุ่มท็อปปิ้ง'), [isEdit]);
 
     useEffect(() => {
         if (!isValidMode || (mode === 'edit' && !id)) {
@@ -70,12 +70,12 @@ export default function ToppingGroupManagePage({ params }: { params: { mode: str
     useEffect(() => {
         if (isChecking || permissionLoading || !isAuthorized) return;
         if (mode === 'add' && !canCreate) {
-            message.warning('คุณไม่มีสิทธิ์เพิ่ม Topping Group');
+            message.warning('คุณไม่มีสิทธิ์เพิ่มกลุ่มท็อปปิ้ง');
             router.replace('/pos/toppingGroup');
             return;
         }
         if (mode === 'edit' && !canUpdate) {
-            message.warning('คุณไม่มีสิทธิ์แก้ไข Topping Group');
+            message.warning('คุณไม่มีสิทธิ์แก้ไขกลุ่มท็อปปิ้ง');
             router.replace('/pos/toppingGroup');
         }
     }, [canCreate, canUpdate, isAuthorized, isChecking, mode, permissionLoading, router]);
@@ -85,7 +85,7 @@ export default function ToppingGroupManagePage({ params }: { params: { mode: str
         setLoading(true);
         try {
             const response = await fetch(`/api/pos/toppingGroup/getById/${id}`, { cache: 'no-store' });
-            if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูล Topping Group ได้');
+            if (!response.ok) throw new Error('ไม่สามารถดึงข้อมูลกลุ่มท็อปปิ้งได้');
             const data = await response.json();
             form.setFieldsValue({
                 display_name: data.display_name,
@@ -96,7 +96,7 @@ export default function ToppingGroupManagePage({ params }: { params: { mode: str
             setOriginalToppingGroup(data);
         } catch (error) {
             console.error(error);
-            message.error('ไม่สามารถดึงข้อมูล Topping Group ได้');
+            message.error('ไม่สามารถดึงข้อมูลกลุ่มท็อปปิ้งได้');
             router.replace('/pos/toppingGroup');
         } finally {
             setLoading(false);
@@ -128,7 +128,7 @@ export default function ToppingGroupManagePage({ params }: { params: { mode: str
 
     const handleSubmit = async (values: ToppingGroupFormValues) => {
         if (isEdit ? !canUpdate : !canCreate) {
-            message.warning(isEdit ? 'คุณไม่มีสิทธิ์แก้ไข Topping Group' : 'คุณไม่มีสิทธิ์เพิ่ม Topping Group');
+            message.warning(isEdit ? 'คุณไม่มีสิทธิ์แก้ไขกลุ่มท็อปปิ้ง' : 'คุณไม่มีสิทธิ์เพิ่มกลุ่มท็อปปิ้ง');
             return;
         }
 
@@ -151,14 +151,14 @@ export default function ToppingGroupManagePage({ params }: { params: { mode: str
 
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || 'ไม่สามารถบันทึก Topping Group ได้');
+                throw new Error(errorData.error || errorData.message || 'ไม่สามารถบันทึกกลุ่มท็อปปิ้งได้');
             }
 
-            message.success(isEdit ? 'อัปเดต Topping Group สำเร็จ' : 'สร้าง Topping Group สำเร็จ');
+            message.success(isEdit ? 'อัปเดตกลุ่มท็อปปิ้งสำเร็จ' : 'สร้างกลุ่มท็อปปิ้งสำเร็จ');
             router.replace('/pos/toppingGroup');
         } catch (error) {
             console.error(error);
-            message.error(error instanceof Error ? error.message : 'ไม่สามารถบันทึก Topping Group ได้');
+            message.error(error instanceof Error ? error.message : 'ไม่สามารถบันทึกกลุ่มท็อปปิ้งได้');
         } finally {
             setSubmitting(false);
         }
@@ -167,8 +167,8 @@ export default function ToppingGroupManagePage({ params }: { params: { mode: str
     const handleDelete = () => {
         if (!id || !canDelete) return;
         Modal.confirm({
-            title: 'ยืนยันการลบ Topping Group',
-            content: `คุณต้องการลบ Topping Group ${displayName || '-'} หรือไม่?`,
+            title: 'ยืนยันการลบกลุ่มท็อปปิ้ง',
+            content: `คุณต้องการลบกลุ่มท็อปปิ้ง ${displayName || '-'} หรือไม่?`,
             okText: 'ลบ',
             cancelText: 'ยกเลิก',
             okType: 'danger',
@@ -183,13 +183,13 @@ export default function ToppingGroupManagePage({ params }: { params: { mode: str
                     });
                     if (!response.ok) {
                         const errorData = await response.json().catch(() => ({}));
-                        throw new Error(errorData.error || errorData.message || 'ไม่สามารถลบ Topping Group ได้');
+                        throw new Error(errorData.error || errorData.message || 'ไม่สามารถลบกลุ่มท็อปปิ้งได้');
                     }
-                    message.success('ลบ Topping Group สำเร็จ');
+                    message.success('ลบกลุ่มท็อปปิ้งสำเร็จ');
                     router.replace('/pos/toppingGroup');
                 } catch (error) {
                     console.error(error);
-                    message.error(error instanceof Error ? error.message : 'ไม่สามารถลบ Topping Group ได้');
+                    message.error(error instanceof Error ? error.message : 'ไม่สามารถลบกลุ่มท็อปปิ้งได้');
                 }
             },
         });
@@ -222,7 +222,7 @@ export default function ToppingGroupManagePage({ params }: { params: { mode: str
                                 <Card bordered={false} style={{ borderRadius: 20 }}>
                                     <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
                                         <AppstoreOutlined style={{ fontSize: 20, color: '#6d28d9' }} />
-                                        <Title level={5} style={{ margin: 0 }}>ข้อมูล Topping Group</Title>
+                                        <Title level={5} style={{ margin: 0 }}>ข้อมูลกลุ่มท็อปปิ้ง</Title>
                                     </div>
 
                                     <Form<ToppingGroupFormValues>
@@ -237,10 +237,10 @@ export default function ToppingGroupManagePage({ params }: { params: { mode: str
                                     >
                                         <Form.Item
                                             name="display_name"
-                                            label={<span style={{ fontWeight: 600 }}>ชื่อ Topping Group</span>}
+                                            label={<span style={{ fontWeight: 600 }}>ชื่อกลุ่มท็อปปิ้ง</span>}
                                             validateTrigger={['onBlur', 'onSubmit']}
                                             rules={[
-                                                { required: true, message: 'กรุณากรอกชื่อ Topping Group' },
+                                                { required: true, message: 'กรุณากรอกชื่อกลุ่มท็อปปิ้ง' },
                                                 { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' },
                                                 {
                                                     validator: async (_, value: string) => {
@@ -259,7 +259,7 @@ export default function ToppingGroupManagePage({ params }: { params: { mode: str
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <div>
                                                     <Text strong>สถานะการใช้งาน</Text>
-                                                    <Text type="secondary" style={{ display: 'block', fontSize: 13 }}>เปิดเพื่อให้เลือกใช้งานใน product และ topping</Text>
+                                                    <Text type="secondary" style={{ display: 'block', fontSize: 13 }}>เปิดเพื่อให้เลือกใช้งานใน Product และ Topping</Text>
                                                 </div>
                                                 <Form.Item name="is_active" valuePropName="checked" noStyle>
                                                     <Switch checked={isActive} />
@@ -284,11 +284,11 @@ export default function ToppingGroupManagePage({ params }: { params: { mode: str
                                             <TagsOutlined style={{ color: '#6d28d9' }} />
                                             <Text strong>ตัวอย่างการแสดงผล</Text>
                                         </div>
-                                        <Title level={4} style={{ marginBottom: 8 }}>{displayName || 'ชื่อ Topping Group'}</Title>
+                                        <Title level={4} style={{ marginBottom: 8 }}>{displayName || 'ชื่อกลุ่มท็อปปิ้ง'}</Title>
                                         <Alert
                                             type={isActive ? 'success' : 'warning'}
                                             showIcon
-                                            message={isActive ? 'Topping Group นี้พร้อมใช้งาน' : 'Topping Group นี้ถูกปิดใช้งาน'}
+                                            message={isActive ? 'กลุ่มท็อปปิ้งนี้พร้อมใช้งาน' : 'กลุ่มท็อปปิ้งนี้ถูกปิดใช้งาน'}
                                         />
                                     </Card>
 
@@ -296,7 +296,7 @@ export default function ToppingGroupManagePage({ params }: { params: { mode: str
                                         <Card style={{ borderRadius: 16 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                                                 <ExclamationCircleOutlined style={{ color: '#0369a1' }} />
-                                                <Text strong>รายละเอียดรายการ</Text>
+                                                <Text strong>รายละเอียด</Text>
                                             </div>
                                             <Text type="secondary" style={{ display: 'block' }}>สร้างเมื่อ: {formatDate(originalToppingGroup?.create_date)}</Text>
                                             <Text type="secondary" style={{ display: 'block' }}>อัปเดตเมื่อ: {formatDate(originalToppingGroup?.update_date)}</Text>

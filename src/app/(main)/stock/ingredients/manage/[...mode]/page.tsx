@@ -523,7 +523,7 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                                         <Card className="stock-ingredient-card stock-ingredient-side-card">
                                             <div className="stock-ingredient-card-header">
                                                 <InfoCircleOutlined className="stock-ingredient-side-icon" />
-                                                <Text strong>รายละเอียดรายการ</Text>
+                                                <Text strong>รายละเอียด</Text>
                                             </div>
                                             <Text type="secondary" className="stock-ingredient-detail-line">
                                                 รหัสรายการ: {originalIngredient.id}

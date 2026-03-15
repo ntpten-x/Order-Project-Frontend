@@ -53,7 +53,7 @@ export default function LandingPage() {
             enabled: canSeeMenu("menu.module.print-setting"),
         },
         {
-            title: "ตั้งค่าและสิทธิ์ผู้ใช้",
+            title: "จัดการผู้ใช้",
             icon: SettingOutlined,
             iconColor: "#10b981",
             path: "/users",

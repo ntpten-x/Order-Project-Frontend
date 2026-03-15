@@ -485,7 +485,7 @@ export default function ToppingPage() {
                     <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchToppings({ background: toppings.length > 0 })} />
                         <Button onClick={() => router.push('/pos/toppingGroup')}>
-                            จัดการ Topping Group
+                            จัดการกลุ่มท็อปปิ้ง
                         </Button>
                         {canCreateTopping ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>

@@ -92,25 +92,38 @@ const ToppingGroupCard = ({
             <div style={pageStyles.categoryCardInner}>
                 <div
                     style={{
-                        width: 52,
-                        height: 52,
+                        width: 64,
+                        height: 64,
                         borderRadius: 14,
-                        background: toppingGroup.is_active
-                            ? 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)'
-                            : '#f1f5f9',
+                        border: '1px solid #F1F5F9',
+                        overflow: 'hidden',
+                        position: 'relative',
+                        background: '#F8FAFC',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                         flexShrink: 0,
-                        boxShadow: toppingGroup.is_active ? '0 4px 10px rgba(109, 40, 217, 0.18)' : 'none',
                     }}
                 >
-                    <TagsOutlined
+                    <div
                         style={{
-                            fontSize: 22,
-                            color: toppingGroup.is_active ? '#6d28d9' : '#94a3b8',
+                            width: '100%',
+                            height: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            background: toppingGroup.is_active
+                                ? 'linear-gradient(135deg, #ede9fe 0%, #ddd6fe 100%)'
+                                : 'linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%)',
                         }}
-                    />
+                    >
+                        <TagsOutlined
+                            style={{
+                                fontSize: 24,
+                                color: toppingGroup.is_active ? '#6d28d9' : '#64748b',
+                            }}
+                        />
+                    </div>
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
@@ -288,7 +301,7 @@ export default function ToppingGroupPage() {
                 });
                 if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
-                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูล Topping Group ได้');
+                    throw new Error(errorData.error || errorData.message || 'ไม่สามารถดึงข้อมูลกลุ่มท็อปปิ้งได้');
                 }
 
                 const payload = await response.json();
@@ -298,7 +311,7 @@ export default function ToppingGroupPage() {
                 setTotal(payload.total || 0);
             } catch (fetchError) {
                 if (controller.signal.aborted) return;
-                setError(fetchError instanceof Error ? fetchError : new Error('ไม่สามารถดึงข้อมูล Topping Group ได้'));
+                setError(fetchError instanceof Error ? fetchError : new Error('ไม่สามารถดึงข้อมูลกลุ่มท็อปปิ้งได้'));
             } finally {
                 if (requestRef.current === controller) {
                     requestRef.current = null;
@@ -334,30 +347,30 @@ export default function ToppingGroupPage() {
 
     const handleAdd = () => {
         if (!canCreateToppingGroup) {
-            message.error('คุณไม่มีสิทธิ์เพิ่ม Topping Group');
+            message.error('คุณไม่มีสิทธิ์เพิ่มกลุ่มท็อปปิ้ง');
             return;
         }
-        showLoading('กำลังเปิดหน้าจัดการ Topping Group...');
+        showLoading('กำลังเปิดหน้าจัดการกลุ่มท็อปปิ้ง...');
         router.push('/pos/toppingGroup/manager/add');
     };
 
     const handleEdit = (toppingGroup: ToppingGroup) => {
         if (!canUpdateToppingGroup) {
-            message.error('คุณไม่มีสิทธิ์แก้ไข Topping Group');
+            message.error('คุณไม่มีสิทธิ์แก้ไขกลุ่มท็อปปิ้ง');
             return;
         }
-        showLoading('กำลังเปิดข้อมูล Topping Group...');
+        showLoading('กำลังเปิดข้อมูลกลุ่มท็อปปิ้ง...');
         router.push(`/pos/toppingGroup/manager/edit/${toppingGroup.id}`);
     };
 
     const handleDelete = (toppingGroup: ToppingGroup) => {
         if (!canDeleteToppingGroup) {
-            message.error('คุณไม่มีสิทธิ์ลบ Topping Group');
+            message.error('คุณไม่มีสิทธิ์ลบกลุ่มท็อปปิ้ง');
             return;
         }
 
         Modal.confirm({
-            title: 'ลบ Topping Group',
+            title: 'ลบกลุ่มท็อปปิ้ง',
             content: `ต้องการลบ ${toppingGroup.display_name} ใช่หรือไม่?`,
             okText: 'ลบ',
             cancelText: 'ยกเลิก',
@@ -373,12 +386,12 @@ export default function ToppingGroupPage() {
                     });
                     if (!response.ok) {
                         const errorData = await response.json().catch(() => ({}));
-                        throw new Error(errorData.error || errorData.message || 'ไม่สามารถลบ Topping Group ได้');
+                        throw new Error(errorData.error || errorData.message || 'ไม่สามารถลบกลุ่มท็อปปิ้งได้');
                     }
-                    message.success('ลบ Topping Group สำเร็จ');
+                    message.success('ลบกลุ่มท็อปปิ้งสำเร็จ');
                     void fetchToppingGroups({ background: toppingGroups.length > 0 });
                 } catch (deleteError) {
-                    message.error(deleteError instanceof Error ? deleteError.message : 'ไม่สามารถลบ Topping Group ได้');
+                    message.error(deleteError instanceof Error ? deleteError.message : 'ไม่สามารถลบกลุ่มท็อปปิ้งได้');
                 } finally {
                     setDeletingId(null);
                 }
@@ -388,7 +401,7 @@ export default function ToppingGroupPage() {
 
     const handleToggleActive = async (toppingGroup: ToppingGroup, next: boolean) => {
         if (!canUpdateToppingGroup) {
-            message.error('คุณไม่มีสิทธิ์แก้ไข Topping Group');
+            message.error('คุณไม่มีสิทธิ์แก้ไขกลุ่มท็อปปิ้ง');
             return;
         }
 
@@ -408,15 +421,15 @@ export default function ToppingGroupPage() {
             });
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({}));
-                throw new Error(errorData.error || errorData.message || 'ไม่สามารถอัปเดตสถานะ Topping Group ได้');
+                throw new Error(errorData.error || errorData.message || 'ไม่สามารถอัปเดตสถานะกลุ่มท็อปปิ้งได้');
             }
 
             setToppingGroups((current) =>
                 current.map((item) => (item.id === toppingGroup.id ? { ...item, is_active: next } : item))
             );
-            message.success(next ? 'เปิดใช้งาน Topping Group แล้ว' : 'ปิดใช้งาน Topping Group แล้ว');
+            message.success(next ? 'เปิดใช้งานกลุ่มท็อปปิ้งแล้ว' : 'ปิดใช้งานกลุ่มท็อปปิ้งแล้ว');
         } catch (toggleError) {
-            message.error(toggleError instanceof Error ? toggleError.message : 'ไม่สามารถเปลี่ยนสถานะ Topping Group ได้');
+            message.error(toggleError instanceof Error ? toggleError.message : 'ไม่สามารถเปลี่ยนสถานะกลุ่มท็อปปิ้งได้');
         } finally {
             setUpdatingStatusId(null);
         }
@@ -431,7 +444,7 @@ export default function ToppingGroupPage() {
             <style>{globalStyles}</style>
 
             <UIPageHeader
-                title="Topping Group"
+                title="กลุ่มท็อปปิ้ง"
                 icon={<TagsOutlined />}
                 actions={
                     <Space size={10} wrap>
@@ -442,7 +455,7 @@ export default function ToppingGroupPage() {
                         />
                         {canCreateToppingGroup ? (
                             <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                เพิ่ม Topping Group
+                                เพิ่มกลุ่มท็อปปิ้ง
                             </Button>
                         ) : null}
                     </Space>
@@ -452,7 +465,7 @@ export default function ToppingGroupPage() {
             <PageContainer>
                 <PageStack>
                     <SearchBar>
-                        <SearchInput placeholder="ค้นหา Topping Group" value={searchText} onChange={setSearchText} />
+                        <SearchInput placeholder="ค้นหา" value={searchText} onChange={setSearchText} />
                         <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
                             <Space wrap size={10}>
                                 <ModalSelector<StatusFilter>
@@ -480,61 +493,56 @@ export default function ToppingGroupPage() {
                         </Space>
                     </SearchBar>
 
-                    <PageSection>
-                        {loading ? (
-                            <PageState status="loading" title="กำลังโหลด Topping Group..." />
-                        ) : error ? (
-                            <PageState
-                                status="error"
-                                error={error}
-                                onRetry={() => void fetchToppingGroups({ background: false })}
-                            />
-                        ) : toppingGroups.length === 0 ? (
-                            <UIEmptyState
-                                image={<TagsOutlined style={{ fontSize: 48, color: '#8b5cf6' }} />}
-                                title={debouncedSearch ? 'ไม่พบ Topping Group ที่ค้นหา' : 'ยังไม่มี Topping Group'}
-                                description={
-                                    debouncedSearch
-                                        ? 'ลองเปลี่ยนคำค้นหาหรือเงื่อนไขตัวกรอง'
-                                        : 'สร้าง Topping Group เพื่อใช้กำหนดว่าสินค้าเห็นท็อปปิ้งชุดใดได้บ้าง'
-                                }
-                                action={
-                                    canCreateToppingGroup ? (
-                                        <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
-                                            เพิ่ม Topping Group
-                                        </Button>
-                                    ) : undefined
-                                }
-                            />
-                        ) : (
-                            <>
-                                <div style={{ display: 'grid', gap: 12 }}>
-                                    {toppingGroups.map((item) => (
-                                        <ToppingGroupCard
-                                            key={item.id}
-                                            toppingGroup={item}
-                                            canUpdate={canUpdateToppingGroup}
-                                            canDelete={canDeleteToppingGroup}
-                                            onEdit={handleEdit}
-                                            onDelete={handleDelete}
-                                            onToggleActive={handleToggleActive}
-                                            updatingStatusId={updatingStatusId}
-                                            deletingId={deletingId}
-                                        />
-                                    ))}
-                                </div>
+                    <PageSection
+                        title="รายการกลุ่มท็อปปิ้ง"
+                        extra={
+                            <Space size={8} wrap>
+                                {refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}
+                                <span style={{ fontWeight: 600 }}>{total} รายการ</span>
+                            </Space>
+                        }
+                    >
+                        {loading && toppingGroups.length === 0 ? (
+                            <PageState status="loading" title="กำลังโหลดข้อมูลกลุ่มท็อปปิ้ง..." />
+                        ) : error && toppingGroups.length === 0 ? (
+                            <PageState status="error" title="โหลดข้อมูลกลุ่มท็อปปิ้งไม่สำเร็จ" error={error} onRetry={() => void fetchToppingGroups()} />
+                        ) : toppingGroups.length > 0 ? (
+                            <Space direction="vertical" size={16} style={{ width: '100%' }}>
+                                {toppingGroups.map((item) => (
+                                    <ToppingGroupCard
+                                        key={item.id}
+                                        toppingGroup={item}
+                                        canUpdate={canUpdateToppingGroup}
+                                        canDelete={canDeleteToppingGroup}
+                                        onEdit={handleEdit}
+                                        onDelete={handleDelete}
+                                        onToggleActive={handleToggleActive}
+                                        updatingStatusId={updatingStatusId}
+                                        deletingId={deletingId}
+                                    />
+                                ))}
 
-                                <ListPagination
-                                    page={page}
-                                    pageSize={pageSize}
-                                    total={total}
-                                    loading={loading || refreshing}
-                                    onPageChange={setPage}
-                                    onPageSizeChange={setPageSize}
-                                    sortCreated={createdSort}
-                                    onSortCreatedChange={setCreatedSort}
-                                />
-                            </>
+                                <div style={{ marginTop: 12 }}>
+                                    <ListPagination
+                                        page={page}
+                                        pageSize={pageSize}
+                                        total={total}
+                                        loading={loading || refreshing}
+                                        onPageChange={setPage}
+                                        onPageSizeChange={setPageSize}
+                                        activeColor="#8b5cf6"
+                                    />
+                                </div>
+                            </Space>
+                        ) : (
+                            <UIEmptyState
+                                title={debouncedSearch.trim() ? 'ไม่พบกลุ่มท็อปปิ้งตามคำค้น' : 'ยังไม่มีกลุ่มท็อปปิ้ง'}
+                                description={
+                                    debouncedSearch.trim()
+                                        ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ'
+                                        : 'เพิ่มกลุ่มท็อปปิ้งรายการแรกเพื่อกำหนดกลุ่มใช้งานท็อปปิ้งได้รวดเร็ว'
+                                }
+                            />
                         )}
                     </PageSection>
                 </PageStack>

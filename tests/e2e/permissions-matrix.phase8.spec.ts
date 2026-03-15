@@ -47,14 +47,70 @@ async function login(
   return { id: id as string };
 }
 
+async function createAdminApprover(
+  context: APIRequestContext,
+  csrfToken: string
+): Promise<{ id: string; username: string; password: string }> {
+  const rolesResponse = await context.get("/api/roles/getAll");
+  expect(rolesResponse.ok()).toBeTruthy();
+  const rolesPayload = (await readJson(rolesResponse)) as Array<JsonRecord>;
+  const adminRole = rolesPayload.find(
+    (row) => String(row.roles_name || "").toLowerCase() === "admin"
+  );
+  expect(typeof adminRole?.id).toBe("string");
+
+  const branchesResponse = await context.get("/api/branches?page=1&limit=5");
+  expect(branchesResponse.ok()).toBeTruthy();
+  const branchesPayload = await readJson(branchesResponse);
+  const branches = Array.isArray((branchesPayload as JsonRecord).data)
+    ? ((branchesPayload as JsonRecord).data as JsonRecord[])
+    : [];
+  expect(branches.length).toBeGreaterThan(0);
+  const branchId = String(branches[0]?.id || "");
+  expect(branchId).toBeTruthy();
+
+  const suffix = `${Date.now()}_${Math.random().toString(16).slice(2, 8)}`;
+  const username = `appr_${suffix}`.slice(0, 20);
+  const password = `Appr_${suffix}!`.slice(0, 24);
+
+  const createResponse = await context.post("/api/users", {
+    headers: {
+      "X-CSRF-Token": csrfToken,
+    },
+    data: {
+      username,
+      name: `Approver ${suffix}`,
+      password,
+      roles_id: adminRole?.id,
+      branch_id: branchId,
+      is_use: true,
+      is_active: true,
+    },
+  });
+  expect([200, 201]).toContain(createResponse.status());
+
+  const createdPayload = unwrapData(await readJson(createResponse));
+  const id = String(createdPayload.id || "");
+  expect(id).toBeTruthy();
+
+  return { id, username, password };
+}
+
 test.describe("Permission Matrix Phase 8", () => {
   test("proxy returns real backend 401/403/409 for approval workflow", async ({ baseURL }) => {
-    const requesterUsername = process.env.E2E_USERNAME_REQUESTER || process.env.E2E_USERNAME || "e2e_pos_admin";
-    const requesterPassword = process.env.E2E_PASSWORD_REQUESTER || process.env.E2E_PASSWORD || "E2E_Pos_123!";
-    const approverUsername = process.env.E2E_USERNAME_APPROVER || "e2e_pos_admin_approver";
-    const approverPassword = process.env.E2E_PASSWORD_APPROVER || "E2E_Pos_Approver_123!";
-
-    expect(requesterUsername.toLowerCase()).not.toBe(approverUsername.toLowerCase());
+    const requesterUsername =
+      process.env.E2E_USERNAME_REQUESTER ||
+      process.env.E2E_USERNAME ||
+      process.env.E2E_ADMIN_USERNAME ||
+      "admin";
+    const requesterPassword =
+      process.env.E2E_PASSWORD_REQUESTER ||
+      process.env.E2E_PASSWORD ||
+      process.env.E2E_ADMIN_PASSWORD ||
+      "Admin123456!";
+    let approverUsername = process.env.E2E_USERNAME_APPROVER || "";
+    let approverPassword = process.env.E2E_PASSWORD_APPROVER || "";
+    let createdApproverUserId = "";
 
     const anonymousContext = await playwrightRequest.newContext({ baseURL });
     const requesterContext = await playwrightRequest.newContext({ baseURL });
@@ -66,6 +122,15 @@ test.describe("Permission Matrix Phase 8", () => {
 
       const requester = await login(requesterContext, requesterUsername, requesterPassword);
       const requesterCsrf = await getCsrfToken(requesterContext);
+
+      if (!approverUsername || !approverPassword) {
+        const createdApprover = await createAdminApprover(requesterContext, requesterCsrf);
+        createdApproverUserId = createdApprover.id;
+        approverUsername = createdApprover.username;
+        approverPassword = createdApprover.password;
+      }
+
+      expect(requesterUsername.toLowerCase()).not.toBe(approverUsername.toLowerCase());
 
       const submitResponse = await requesterContext.put(`/api/permissions/users/${requester.id}`, {
         headers: {
@@ -138,6 +203,18 @@ test.describe("Permission Matrix Phase 8", () => {
       );
       expect(approveAgainResponse.status()).toBe(409);
     } finally {
+      if (createdApproverUserId) {
+        try {
+          const cleanupCsrf = await getCsrfToken(requesterContext);
+          await requesterContext.delete(`/api/users/${createdApproverUserId}`, {
+            headers: {
+              "X-CSRF-Token": cleanupCsrf,
+            },
+          });
+        } catch {
+          // Best-effort cleanup for ephemeral e2e approver account.
+        }
+      }
       await Promise.all([
         anonymousContext.dispose(),
         requesterContext.dispose(),

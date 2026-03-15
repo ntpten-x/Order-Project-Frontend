@@ -339,7 +339,7 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
                                         <Card style={{ borderRadius: 16 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                                                 <ExclamationCircleOutlined style={{ color: '#0369a1' }} />
-                                                <Text strong>รายละเอียดรายการ</Text>
+                                                <Text strong>รายละเอียด</Text>
                                             </div>
                                             <Text type="secondary" style={{ display: 'block' }}>สร้างเมื่อ: {formatDate(originalDiscount?.create_date)}</Text>
                                         </Card>
