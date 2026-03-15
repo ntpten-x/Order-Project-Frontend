@@ -63,6 +63,7 @@ type OrderFilterStatus = "all" | OrderStatus;
 type SortCreated = "old" | "new";
 type StockOrderPrintMode = "a4" | "receipt";
 type ReceiptPaperPreset = Extract<PrintPreset, "thermal_58mm" | "thermal_80mm">;
+const ITEMS_PAGE_STATUS = OrderStatus.PENDING;
 
 type StatusTabConfig = {
   key: OrderFilterStatus;
@@ -385,7 +386,7 @@ export default function StockOrdersQueuePage() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
   const [lastPage, setLastPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<OrderFilterStatus>(OrderStatus.PENDING);
+  const statusFilter: OrderFilterStatus = ITEMS_PAGE_STATUS;
   const [sortCreated, setSortCreated] = useState<SortCreated>("new");
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebouncedValue(searchText.trim(), 300);
@@ -433,7 +434,7 @@ export default function StockOrdersQueuePage() {
         limit: String(pageSize),
         sort_created: sortCreated,
       });
-      if (statusFilter !== "all") params.set("status", statusFilter);
+      params.set("status", ITEMS_PAGE_STATUS);
       if (debouncedSearch) params.set("q", debouncedSearch);
 
       try {
@@ -447,7 +448,11 @@ export default function StockOrdersQueuePage() {
         }
 
         hasLoadedRef.current = true;
-        setOrders(payload.data);
+        setOrders(
+          (Array.isArray(payload.data) ? payload.data : []).filter(
+            (order) => order.status === ITEMS_PAGE_STATUS
+          )
+        );
         setTotal(payload.total);
         setLastPage(payload.last_page);
         setLastSyncedAt(new Date());
@@ -469,7 +474,7 @@ export default function StockOrdersQueuePage() {
         }
       }
     },
-    [debouncedSearch, page, pageSize, sortCreated, statusFilter]
+    [debouncedSearch, page, pageSize, sortCreated]
   );
 
   useEffect(() => {

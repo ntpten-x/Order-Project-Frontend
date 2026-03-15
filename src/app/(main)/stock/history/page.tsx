@@ -49,6 +49,8 @@ const { Text } = Typography;
 
 type CreatedSort = "old" | "new";
 type HistoryStatusFilter = "all" | OrderStatus.COMPLETED | OrderStatus.CANCELLED;
+const HISTORY_PAGE_STATUSES = [OrderStatus.COMPLETED, OrderStatus.CANCELLED] as const;
+const HISTORY_PAGE_STATUS_QUERY = HISTORY_PAGE_STATUSES.join(",");
 
 type StatusTabConfig = {
   key: HistoryStatusFilter;
@@ -338,7 +340,7 @@ export default function StockHistoryPage() {
         setError(null);
 
         const params = new URLSearchParams();
-        params.set("status", statusFilter === "all" ? "completed,cancelled" : statusFilter);
+        params.set("status", statusFilter === "all" ? HISTORY_PAGE_STATUS_QUERY : statusFilter);
         params.set("page", String(page));
         params.set("limit", String(pageSize));
         params.set("sort_created", createdSort);
@@ -350,7 +352,13 @@ export default function StockHistoryPage() {
 
         if (requestRef.current !== controller) return;
 
-        setOrders(Array.isArray(payload.data) ? payload.data : []);
+        setOrders(
+          (Array.isArray(payload.data) ? payload.data : []).filter((order) =>
+            HISTORY_PAGE_STATUSES.includes(
+              order.status as (typeof HISTORY_PAGE_STATUSES)[number]
+            )
+          )
+        );
         setTotal(Number(payload.total || 0));
         setLastSyncedAt(new Date());
         setRefreshError(null);
