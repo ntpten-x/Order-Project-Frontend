@@ -10,7 +10,6 @@ import {
     PlusOutlined, 
     CloseCircleOutlined,
     EditOutlined, 
-    InfoCircleOutlined,
     ReloadOutlined,
     ShoppingOutlined,
     RocketOutlined,

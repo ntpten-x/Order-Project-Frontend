@@ -108,8 +108,8 @@ test("phase7 POS browser flow + API flow (cancel/pay/dashboard)", async ({ page 
     data: {
       order_type: "TakeAway",
       items: [
-        { product_id: product.id, quantity: 1 },
-        { product_id: product.id, quantity: 1 },
+        { product_id: product!.id, quantity: 1 },
+        { product_id: product!.id, quantity: 1 },
       ],
     },
   });
@@ -143,7 +143,7 @@ test("phase7 POS browser flow + API flow (cancel/pay/dashboard)", async ({ page 
     headers: { "x-csrf-token": csrfToken as string },
     data: {
       order_id: orderId,
-      payment_method_id: paymentMethod.id,
+      payment_method_id: paymentMethod!.id,
       amount: totalAmount,
       amount_received: totalAmount,
       status: "Success",

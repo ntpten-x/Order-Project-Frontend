@@ -4,8 +4,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   App,
   Button,
-  Flex,
   Grid,
+  Pagination,
   Skeleton,
   Space,
   Spin,
@@ -21,6 +21,7 @@ import {
   ReloadOutlined,
   SwapOutlined,
 } from '@ant-design/icons';
+import { posLayoutStyles } from '../../../components/pos/shared/style';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Branch } from '../../../types/api/branch';
 import { useGlobalLoading } from '../../../contexts/pos/GlobalLoadingContext';
@@ -39,7 +40,7 @@ import PageStack from '../../../components/ui/page/PageStack';
 import UIEmptyState from '../../../components/ui/states/EmptyState';
 import UIPageHeader from '../../../components/ui/page/PageHeader';
 import { AccessGuardFallback } from '../../../components/pos/AccessGuard';
-import ListPagination, { type CreatedSort } from '../../../components/ui/pagination/ListPagination';
+import { type CreatedSort } from '../../../components/ui/pagination/ListPagination';
 import { StatsGroup } from '../../../components/ui/card/StatsGroup';
 import { SearchInput } from '../../../components/ui/input/SearchInput';
 import { SearchBar } from '../../../components/ui/page/SearchBar';
@@ -457,15 +458,14 @@ export default function BranchPage() {
         title={t('branch.page.title')}
         subtitle={
           <Space size={8} wrap>
-            <span>{t('branch.page.subtitle', { count: totalBranches })}</span>
             <Tag style={{ marginInlineEnd: 0 }} color="blue">
               {t('branch.page.currentBranch', { name: currentBranchLabel })}
             </Tag>
-            {canSwitchBranch ? (
+            {/* {canSwitchBranch ? (
               <Tag style={{ marginInlineEnd: 0 }} color="default">
                 {t('branch.page.assignedBranch', { name: assignedBranchLabel })}
               </Tag>
-            ) : null}
+            ) : null} */}
           </Space>
         }
         icon={<BranchesOutlined style={{ fontSize: 20 }} />}
@@ -492,8 +492,8 @@ export default function BranchPage() {
           />
 
           <PageSection title={t('branch.section.filtersTitle')}>
-            <SearchBar bodyStyle={{ padding: 12 }}>
-              <div style={{ flex: '1 1 320px' }} data-testid="branch-search">
+            <SearchBar bodyStyle={{ padding: '12px' }}>
+              <div style={{ width: '100%' }} data-testid="branch-search">
                 <SearchInput
                   placeholder={t('branch.search.placeholder')}
                   value={searchQuery}
@@ -503,24 +503,22 @@ export default function BranchPage() {
                   }}
                 />
               </div>
-              <Flex gap={10} wrap="wrap">
-                <div style={{ flex: isMobile ? '1 1 100%' : '1 1 220px' }}>
-                  <ModalSelector<FilterType>
-                    title={t('branch.search.filter.title')}
-                    value={filter}
-                    options={[
-                      { label: t('branch.search.filter.all'), value: 'all' },
-                      { label: t('branch.search.filter.active'), value: 'active' },
-                      { label: t('branch.search.filter.inactive'), value: 'inactive' },
-                    ]}
-                    onChange={(value) => {
-                      setPage(1);
-                      setFilter(value);
-                    }}
-                    placeholder={t('branch.search.filter.placeholder')}
-                  />
-                </div>
-              </Flex>
+              <div style={{ width: isMobile ? '100%' : '220px' }}>
+                <ModalSelector<FilterType>
+                  title={t('branch.search.filter.title')}
+                  value={filter}
+                  options={[
+                    { label: t('branch.search.filter.all'), value: 'all' },
+                    { label: t('branch.search.filter.active'), value: 'active' },
+                    { label: t('branch.search.filter.inactive'), value: 'inactive' },
+                  ]}
+                  onChange={(value) => {
+                    setPage(1);
+                    setFilter(Array.isArray(value) ? value[0] : value);
+                  }}
+                  placeholder={t('branch.search.filter.placeholder')}
+                />
+              </div>
             </SearchBar>
           </PageSection>
 
@@ -587,22 +585,36 @@ export default function BranchPage() {
               </div>
             )}
 
-            <ListPagination
-              page={page}
-              pageSize={pageSize}
-              total={totalBranches}
-              loading={isFetching}
-              onPageChange={setPage}
-              onPageSizeChange={(size) => {
-                setPage(1);
-                setPageSize(size);
+            <div
+              className="pos-pagination-container"
+              style={{
+                ...posLayoutStyles.paginationContainer,
+                position: "relative",
+                marginTop: 16,
               }}
-              sortCreated={createdSort}
-              onSortCreatedChange={(next) => {
-                setPage(1);
-                setCreatedSort(next);
-              }}
-            />
+            >
+              <div
+                className="pos-pagination-total"
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                }}
+              >
+                <Text type="secondary" style={{ fontSize: 13 }}>
+                  แสดง {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, totalBranches)} จาก{" "}
+                  {totalBranches.toLocaleString()} รายการ
+                </Text>
+              </div>
+              <Pagination
+                current={page}
+                pageSize={pageSize}
+                total={totalBranches}
+                showSizeChanger={false}
+                onChange={(nextPage) => setPage(nextPage)}
+              />
+            </div>
           </PageSection>
         </PageStack>
       </PageContainer>

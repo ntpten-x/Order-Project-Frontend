@@ -81,10 +81,6 @@ export function buildStockOrderPrintHtml(params: {
   const statusLabel = resolveStatusLabel(order.status);
   const safeRemark = escapeHtml(order.remark?.trim() || "-");
   const totalItems = order.ordersItems?.length || 0;
-  const totalQty = (order.ordersItems || []).reduce(
-    (sum, item) => sum + Number(item.quantity_ordered || 0),
-    0
-  );
 
   const rows = (order.ordersItems || [])
     .map((item, index) => {

@@ -14,6 +14,7 @@ export interface SearchInputProps {
     style?: React.CSSProperties;
     size?: 'small' | 'middle' | 'large';
     allowClear?: boolean;
+    dataTestId?: string;
 }
 
 export const SearchInput = ({ 
@@ -23,7 +24,8 @@ export const SearchInput = ({
     placeholder = "ค้นหา...", 
     style,
     size = 'large',
-    allowClear = true
+    allowClear = true,
+    dataTestId
 }: SearchInputProps) => {
     const { token } = useToken();
 
@@ -56,6 +58,7 @@ export const SearchInput = ({
             }
             value={value}
             onChange={(e: React.ChangeEvent<HTMLInputElement>) => onChange(e.target.value)}
+            data-testid={dataTestId}
             style={{
                 borderRadius: 12,
                 fontSize: 15,

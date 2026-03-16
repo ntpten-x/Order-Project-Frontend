@@ -317,7 +317,7 @@ export default function UserManagePage({ params }: { params: { mode: string[] } 
         <PageSection>
       <>
     <>
-    <div className="p-6 md:p-10 min-h-[100dvh] bg-gray-50 user-manage-page">
+    <div className="p-6 md:p-10 min-h-[100dvh] bg-gray-50 user-manage-page" data-testid="users-manage-page">
       <div className="max-w-2xl mx-auto">
         <div className="mb-6">
           <Button 

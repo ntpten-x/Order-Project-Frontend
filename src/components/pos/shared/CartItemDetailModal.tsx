@@ -20,7 +20,6 @@ import type { Topping } from "../../../types/api/pos/topping";
 import { formatPrice } from "../../../utils/products/productDisplay.utils";
 import { ModalSelector } from "../../ui/select/ModalSelector";
 import SmartAvatar from "../../ui/image/SmartAvatar";
-import { resolveImageSource } from "../../../utils/image/source";
 
 const { Text } = Typography;
 
@@ -222,7 +221,7 @@ export function CartItemDetailModal({
           </div>
           <ModalSelector<string>
             value={selectedToppingIds}
-            onChange={(value) => setSelectedToppingIds(value)}
+            onChange={(value) => setSelectedToppingIds(Array.isArray(value) ? value : [value])}
             title="เลือกท็อปปิ้ง"
             placeholder={availableToppings.length > 0 ? "เลือก" : "ไม่มีท็อปปิ้ง"}
             disabled={selectableToppings.length === 0}

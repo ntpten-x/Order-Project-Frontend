@@ -294,6 +294,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
         void printReceiptDocument({
             order,
             shopProfile: {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 ...(shopProfile as any),
                 branch_name: user?.branch?.branch_name,
                 branch_phone: user?.branch?.phone,

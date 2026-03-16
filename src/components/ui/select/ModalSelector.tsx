@@ -4,20 +4,29 @@ import React, { useMemo, useState } from "react";
 import { Button, Grid, Input, Modal, Spin } from "antd";
 import { CheckCircleOutlined, DownOutlined, SearchOutlined } from "@ant-design/icons";
 
-export interface ModalSelectorProps<T extends string | number = string | number> {
-    value?: T | T[];
+export type ModalSelectorProps<T extends string | number = string | number> = {
     options: { label: React.ReactNode; value: T; searchLabel?: string }[];
-    onChange: (value: any) => void;
     title: string;
     placeholder?: string;
     style?: React.CSSProperties;
     disabled?: boolean;
     showSearch?: boolean;
     loading?: boolean;
-    multiple?: boolean;
     trigger?: React.ReactNode;
-    onConfirm?: (value: T[]) => void;
-}
+} & (
+    | {
+        multiple: true;
+        value?: T[];
+        onChange: (value: T[]) => void;
+        onConfirm?: (value: T[]) => void;
+      }
+    | {
+        multiple?: false;
+        value?: T;
+        onChange: (value: T) => void;
+        onConfirm?: never;
+      }
+);
 
 export const ModalSelector = <T extends string | number,>({
     value,
@@ -63,9 +72,9 @@ export const ModalSelector = <T extends string | number,>({
             const nextArray = currentArray.includes(val)
                 ? currentArray.filter(v => v !== val)
                 : [...currentArray, val];
-            onChange(nextArray);
+            (onChange as (value: T[]) => void)(nextArray);
         } else {
-            onChange(val);
+            (onChange as (value: T) => void)(val);
             setOpen(false);
             setSearchText("");
         }

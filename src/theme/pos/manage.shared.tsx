@@ -10,7 +10,7 @@ import {
     EditOutlined,
 } from "@ant-design/icons";
 
-const { Text, Title } = Typography;
+const { Title } = Typography;
 
 type ManageStyleOptions = {
     focusColor: string;

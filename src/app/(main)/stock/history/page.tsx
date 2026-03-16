@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { App, Button, Modal, Pagination, Segmented, Skeleton, Tag, Typography } from "antd";
 import {
   DeleteOutlined,
@@ -14,7 +14,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
 import OrderDetailModal from "../../../../components/stock/OrderDetailModal";
 import { POSSharedStyles, posLayoutStyles } from "../../../../components/pos/shared/style";
-import { POSCategoryFilterBar } from "../../../../components/pos/shared/POSCategoryFilterBar";
 import PageContainer from "../../../../components/ui/page/PageContainer";
 import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import PageSection from "../../../../components/ui/page/PageSection";
@@ -222,14 +221,6 @@ export default function StockHistoryPage() {
   const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>("all");
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebouncedValue(searchText.trim(), 250);
-
-  const historyCategories = useMemo(
-    () => [
-      { id: OrderStatus.COMPLETED, display_name: "เสร็จสิ้น" },
-      { id: OrderStatus.CANCELLED, display_name: "ยกเลิก" },
-    ],
-    []
-  );
 
   useEffect(() => {
     if (initRef.current) return;
@@ -487,8 +478,8 @@ export default function StockHistoryPage() {
                   }}
                   options={[
                     { label: "ทั้งหมด", value: "all" },
-                    { label: "เสร็จสิ้น", value: "COMPLETED" },
-                    { label: "ยกเลิก", value: "CANCELLED" },
+                    { label: "เสร็จสิ้น", value: OrderStatus.COMPLETED },
+                    { label: "ยกเลิก", value: OrderStatus.CANCELLED },
                   ]}
                   style={{ borderRadius: 12 }}
                 />
@@ -592,3 +583,4 @@ export default function StockHistoryPage() {
     </div>
   );
 }
+

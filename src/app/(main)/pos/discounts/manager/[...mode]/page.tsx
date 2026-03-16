@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Card, Col, Form, Input, InputNumber, Modal, Radio, Row, Spin, Switch, Typography, message } from 'antd';
+import { Alert, Button, Card, Col, Form, Input, Modal, Radio, Row, Spin, Switch, Typography, message } from 'antd';
 import { AppstoreOutlined, DeleteOutlined, DollarOutlined, ExclamationCircleOutlined, PercentageOutlined, SaveOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import PageContainer from '../../../../../../components/ui/page/PageContainer';
@@ -277,7 +277,7 @@ export default function DiscountManagePage({ params }: { params: { mode: string[
                                             rules={[
                                                 { required: true, message: 'กรุณากรอกมูลค่าส่วนลด' },
                                                 {
-                                                    validator: async (_, value: any) => {
+                                                    validator: async (_, value: unknown) => {
                                                         if (value === undefined || value === null || value === '') return;
                                                         const num = Number(value);
                                                         if (Number.isNaN(num) || num < 0) throw new Error('มูลค่าต้องไม่ติดลบ');

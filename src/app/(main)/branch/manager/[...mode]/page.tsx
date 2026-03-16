@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeftOutlined, DeleteOutlined, SaveOutlined } from '@ant-design/icons';
+import { DeleteOutlined, SaveOutlined } from '@ant-design/icons';
 import { App, Button, Card, Col, Form, Input, Row, Spin, Switch, Typography } from 'antd';
 import { useRouter } from 'next/navigation';
 import { branchService } from '../../../../../services/branch.service';
@@ -173,20 +173,12 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
 
   return (
     <div data-testid="branch-manage-page">
-      <UIPageHeader title={t('branch.page.title')} />
+      <UIPageHeader title={t('branch.page.title')} onBack={handleBack} />
       <PageContainer>
         <PageSection>
           <div className="p-6 md:p-10 min-h-[100dvh] bg-gray-50">
             <div className="max-w-2xl mx-auto">
               <div className="mb-6">
-                <Button
-                  type="text"
-                  icon={<ArrowLeftOutlined />}
-                  onClick={handleBack}
-                  className="mb-2 pl-0 hover:bg-transparent hover:text-blue-600"
-                >
-                  {t('branch.form.back')}
-                </Button>
                 <div className="flex justify-between items-center gap-3">
                   <div>
                     <Title level={2} style={{ margin: 0 }}>

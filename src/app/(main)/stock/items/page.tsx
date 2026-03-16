@@ -30,7 +30,6 @@ import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
 import EditOrderModal from "../../../../components/stock/EditOrderModal";
 import OrderDetailModal from "../../../../components/stock/OrderDetailModal";
 import { SearchInput } from "../../../../components/ui/input/SearchInput";
-import ListPagination from "../../../../components/ui/pagination/ListPagination";
 import PageContainer from "../../../../components/ui/page/PageContainer";
 import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import PageSection from "../../../../components/ui/page/PageSection";
@@ -375,7 +374,7 @@ export default function StockOrdersQueuePage() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const pageSize = 10;
   const [sortCreated, setSortCreated] = useState<SortCreated>("new");
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebouncedValue(searchText.trim(), 250);

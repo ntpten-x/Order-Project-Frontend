@@ -22,7 +22,6 @@ import {
   PlusOutlined,
   ShoppingCartOutlined,
 } from "@ant-design/icons";
-import { useRouter } from "next/navigation";
 import { useEffectivePermissions } from "../../hooks/useEffectivePermissions";
 import { authService } from "../../services/auth.service";
 import { ordersService } from "../../services/stock/orders.service";
@@ -34,7 +33,6 @@ import { posColors, posComponentStyles } from "../pos/shared/style";
 const { Text, Title } = Typography;
 
 export default function CartDrawer() {
-  const router = useRouter();
   const { user } = useAuth();
   const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
   const canCreateOrders = can("stock.orders.page", "create");

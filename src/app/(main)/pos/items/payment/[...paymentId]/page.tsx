@@ -453,6 +453,7 @@ export default function POSPaymentPage() {
                                 order: printableOrder,
                                 settings: printSettings,
                                 shopProfile: {
+                                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
                                     ...(shopProfile as any),
                                     branch_name: user?.branch?.branch_name,
                                     branch_phone: user?.branch?.phone,
