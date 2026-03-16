@@ -535,7 +535,7 @@ export default function StockBuyingPage() {
 
             {order?.remark ? (
               <div className="stock-buying-note">
-                <Text strong>หมายเหตุใบซื้อ</Text>
+                <Text strong>หมายเหตุใบสั่งซื้อ</Text>
                 <Text type="secondary">{order.remark}</Text>
               </div>
             ) : null}

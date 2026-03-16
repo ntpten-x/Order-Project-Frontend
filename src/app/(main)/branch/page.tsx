@@ -213,6 +213,8 @@ export default function BranchPage() {
   const [pageSize, setPageSize] = useState(20);
   const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
   const [totalBranches, setTotalBranches] = useState(0);
+  const [activeBranchCount, setActiveBranchCount] = useState(0);
+  const [inactiveBranchCount, setInactiveBranchCount] = useState(0);
   const [isFetching, setIsFetching] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [currentBranchLabelOverride, setCurrentBranchLabelOverride] = useState<string | null>(null);
@@ -258,6 +260,16 @@ export default function BranchPage() {
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }, [router, pathname, page, pageSize, debouncedSearch, filter, createdSort]);
 
+  const buildStatsParams = useCallback((active: boolean) => {
+    const params = new URLSearchParams();
+    params.set('page', '1');
+    params.set('limit', '1');
+    params.set('active', active ? 'true' : 'false');
+    if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+    params.set('sort_created', createdSort);
+    return params;
+  }, [createdSort, debouncedSearch]);
+
   const fetchBranches = useCallback(async (nextPage: number = page, nextPageSize: number = pageSize) => {
     setIsFetching(true);
     try {
@@ -270,9 +282,15 @@ export default function BranchPage() {
         if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
         params.set('sort_created', createdSort);
 
-        const result = await branchService.getAllPaginated(undefined, params);
+        const [result, activeResult, inactiveResult] = await Promise.all([
+          branchService.getAllPaginated(undefined, params),
+          branchService.getAllPaginated(undefined, buildStatsParams(true)),
+          branchService.getAllPaginated(undefined, buildStatsParams(false)),
+        ]);
         setBranches(result.data);
         setTotalBranches(result.total);
+        setActiveBranchCount(activeResult.total);
+        setInactiveBranchCount(inactiveResult.total);
         setPage(result.page);
         setPageSize(nextPageSize);
         setHasLoaded(true);
@@ -280,7 +298,7 @@ export default function BranchPage() {
     } finally {
       setIsFetching(false);
     }
-  }, [execute, filter, page, pageSize, debouncedSearch, createdSort]);
+  }, [buildStatsParams, execute, filter, page, pageSize, debouncedSearch, createdSort]);
 
   useRealtimeRefresh({
     socket,
@@ -345,6 +363,11 @@ export default function BranchPage() {
         try {
           const csrfToken = await getCsrfTokenCached();
           await branchService.delete(branch.id, undefined, csrfToken);
+          if (activeBranchId === branch.id) {
+            await fetch('/api/auth/active-branch', { method: 'DELETE', credentials: 'include' });
+            setActiveBranchId(null);
+            window.dispatchEvent(new CustomEvent('active-branch-changed', { detail: { activeBranchId: null } }));
+          }
           messageApi.success(t('branch.delete.success', { name: branch.branch_name }));
           await fetchBranches();
         } catch {
@@ -370,8 +393,6 @@ export default function BranchPage() {
     }, t('branch.switch.loading'));
   };
 
-  const activeBranches = branches.filter((item) => item.is_active !== false).length;
-  const inactiveBranches = Math.max(branches.length - activeBranches, 0);
   const assignedBranchId = user?.branch?.id || user?.branch_id || null;
   const assignedBranchLabel = user?.branch
     ? `${user.branch.branch_name} (${user.branch.branch_code})`
@@ -431,7 +452,7 @@ export default function BranchPage() {
   const showInitialSkeleton = !hasLoaded && isFetching;
 
   return (
-    <div style={{ minHeight: '100dvh', background: '#F8FAFC', paddingBottom: 100 }}>
+    <div style={{ minHeight: '100dvh', background: '#F8FAFC', paddingBottom: 100 }} data-testid="branch-page">
       <UIPageHeader
         title={t('branch.page.title')}
         subtitle={
@@ -450,9 +471,9 @@ export default function BranchPage() {
         icon={<BranchesOutlined style={{ fontSize: 20 }} />}
         actions={
           <Space size={8} wrap>
-            <Button icon={<ReloadOutlined />} onClick={() => { void fetchBranches(); }} loading={isFetching} />
+            <Button icon={<ReloadOutlined />} onClick={() => { void fetchBranches(); }} loading={isFetching} data-testid="branch-refresh" />
             {canCreateBranches ? (
-              <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+              <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} data-testid="branch-add">
                 {!isMobile ? t('branch.actions.add') : ''}
               </Button>
             ) : null}
@@ -465,21 +486,23 @@ export default function BranchPage() {
           <StatsGroup
             stats={[
               { label: t('branch.stats.total'), value: totalBranches },
-              { label: t('branch.stats.active'), value: activeBranches, color: '#0f766e' },
-              { label: t('branch.stats.inactive'), value: inactiveBranches, color: '#b91c1c' },
+              { label: t('branch.stats.active'), value: activeBranchCount, color: '#0f766e' },
+              { label: t('branch.stats.inactive'), value: inactiveBranchCount, color: '#b91c1c' },
             ]}
           />
 
           <PageSection title={t('branch.section.filtersTitle')}>
             <SearchBar bodyStyle={{ padding: 12 }}>
-              <SearchInput
-                placeholder={t('branch.search.placeholder')}
-                value={searchQuery}
-                onChange={(value) => {
-                  setPage(1);
-                  setSearchQuery(value);
-                }}
-              />
+              <div style={{ flex: '1 1 320px' }} data-testid="branch-search">
+                <SearchInput
+                  placeholder={t('branch.search.placeholder')}
+                  value={searchQuery}
+                  onChange={(value) => {
+                    setPage(1);
+                    setSearchQuery(value);
+                  }}
+                />
+              </div>
               <Flex gap={10} wrap="wrap">
                 <div style={{ flex: isMobile ? '1 1 100%' : '1 1 220px' }}>
                   <ModalSelector<FilterType>

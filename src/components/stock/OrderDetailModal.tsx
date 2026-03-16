@@ -93,7 +93,7 @@ export default function OrderDetailModal({ order, open, onClose, hideActualMetri
                     <div style={{ display: "flex", justifyContent: "space-around", alignItems: "center", textAlign: "center", padding: isMobile ? "4px 0" : "12px 0" }}>
                         <div style={{ flex: 1 }}>
                             <Text type="secondary" style={{ fontSize: isMobile ? 14 : 14, display: "block", whiteSpace: "nowrap" }}>
-                                {isMobile ? "ต้องซื้อ" : "จำนวนที่ต้องซื้อ"}
+                                {isMobile ? "ต้องซื้อ" : "รายการที่ต้องซื้อ"}
                             </Text>
                             <Title level={isMobile ? 5 : 4} style={{ margin: 0, marginTop: 4 }}>{totals.required.toLocaleString()}</Title>
                         </div>
@@ -101,7 +101,7 @@ export default function OrderDetailModal({ order, open, onClose, hideActualMetri
                         {!hideActualMetrics && (
                             <div style={{ flex: 1 }}>
                                 <Text type="secondary" style={{ fontSize: isMobile ? 14 : 14, display: "block", whiteSpace: "nowrap" }}>
-                                    {isMobile ? "ซื้อจริง" : "จำนวนที่ซื้อจริง"}
+                                    {isMobile ? "ซื้อจริง" : "รายการที่ซื้อจริง"}
                                 </Text>
                                 <Title level={isMobile ? 5 : 4} style={{ margin: 0, marginTop: 4, color: "#1677ff" }}>{totals.actual.toLocaleString()}</Title>
                             </div>
@@ -134,7 +134,17 @@ export default function OrderDetailModal({ order, open, onClose, hideActualMetri
                         </Col>
                     </Row>
                     {order.remark ? (
-                        <Alert style={{ marginTop: 12 }} type="info" message={order.remark} showIcon />
+                        <Alert
+                            style={{ marginTop: 12 }}
+                            type="info"
+                            message={
+                                <div>
+                                    <Text strong style={{ marginRight: 6 }}>หมายเหตุ :</Text>
+                                    {order.remark}
+                                </div>
+                            }
+                            showIcon
+                        />
                     ) : null}
                 </Card>
 

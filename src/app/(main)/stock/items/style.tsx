@@ -24,6 +24,7 @@ export default function ItemsPageStyle() {
       .stock-items-toolbar {
         display: flex;
         align-items: center;
+        justify-content: space-between;
         gap: 12px;
         padding: 12px;
         margin-bottom: 16px;

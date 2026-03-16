@@ -127,7 +127,6 @@ export function buildStockOrderPrintHtml(params: {
       </section>
       <section class="summary-box">
         <div class="meta-line"><span>จำนวนรายการ</span><strong>${totalItems.toLocaleString()} รายการ</strong></div>
-        <div class="meta-line"><span>จำนวนรวม</span><strong>${totalQty.toLocaleString()} หน่วย</strong></div>
       </section>
       <section class="section">
         <div class="section-title">หมายเหตุ</div>
@@ -155,7 +154,6 @@ export function buildStockOrderPrintHtml(params: {
       <section class="summary-box">
         <div class="meta-line"><span>สถานะ</span><strong>${escapeHtml(statusLabel)}</strong></div>
         <div class="meta-line"><span>จำนวนรายการ</span><strong>${totalItems.toLocaleString()} รายการ</strong></div>
-        <div class="meta-line"><span>จำนวนรวม</span><strong>${totalQty.toLocaleString()} หน่วย</strong></div>
       </section>
       <section class="section">
         <div class="section-title">หมายเหตุ</div>

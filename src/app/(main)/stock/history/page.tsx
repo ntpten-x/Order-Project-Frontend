@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { App, Button, Modal, Pagination, Skeleton, Tag, Typography } from "antd";
+import { App, Button, Modal, Pagination, Segmented, Skeleton, Tag, Typography } from "antd";
 import {
   DeleteOutlined,
   EyeOutlined,
@@ -27,6 +27,8 @@ import { authService } from "../../../../services/auth.service";
 import { ordersService } from "../../../../services/stock/orders.service";
 import { Order, OrderStatus } from "../../../../types/api/stock/orders";
 import { LegacyRealtimeEvents, RealtimeEvents } from "../../../../utils/realtimeEvents";
+import { useDebouncedValue } from "../../../../utils/useDebouncedValue";
+import { SearchInput } from "../../../../components/ui/input/SearchInput";
 import HistoryPageStyle from "./style";
 
 const { Text } = Typography;
@@ -218,6 +220,8 @@ export default function StockHistoryPage() {
 
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<HistoryStatusFilter>("all");
+  const [searchText, setSearchText] = useState("");
+  const debouncedSearch = useDebouncedValue(searchText.trim(), 250);
 
   const historyCategories = useMemo(
     () => [
@@ -280,10 +284,11 @@ export default function StockHistoryPage() {
     const params = new URLSearchParams();
     if (page > 1) params.set("page", String(page));
     if (statusFilter !== "all") params.set("status", statusFilter);
+    if (debouncedSearch) params.set("q", debouncedSearch);
 
     const query = params.toString();
     router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-  }, [page, pathname, router, statusFilter]);
+  }, [page, pathname, router, statusFilter, debouncedSearch]);
 
   const fetchHistory = useCallback(
     async ({ silent = false }: { silent?: boolean } = {}) => {
@@ -307,6 +312,7 @@ export default function StockHistoryPage() {
         params.set("page", String(page));
         params.set("limit", String(PAGE_SIZE));
         params.set("sort_created", CREATED_SORT);
+        if (debouncedSearch) params.set("q", debouncedSearch);
 
         const payload = await ordersService.getAllOrders(undefined, params, {
           signal: controller.signal,
@@ -352,7 +358,7 @@ export default function StockHistoryPage() {
         }
       }
     },
-    [canViewOrders, page, statusFilter]
+    [canViewOrders, page, statusFilter, debouncedSearch]
   );
 
   useEffect(() => {
@@ -459,17 +465,45 @@ export default function StockHistoryPage() {
         <div className="stock-order-layout">
           <main className="stock-order-main">
             <PageStack gap={16}>
-              <POSCategoryFilterBar
-                categories={historyCategories}
-                searchQuery=""
-                selectedCategory={statusFilter === "all" ? undefined : statusFilter}
-                onSearchChange={() => {}}
-                onSelectCategory={(categoryId) => {
-                  setPage(1);
-                  setStatusFilter((categoryId as HistoryStatusFilter | undefined) ?? "all");
+              <div
+                className="stock-history-toolbar"
+                style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: 16,
+                  background: "#fff",
+                  borderRadius: 16,
+                  padding: "12px 16px",
+                  boxShadow: "0 4px 12px rgba(15,23,42,0.03)",
+                  flexWrap: "wrap",
                 }}
-                showSearch={false}
-              />
+              >
+                <Segmented<HistoryStatusFilter>
+                  value={statusFilter}
+                  onChange={(value) => {
+                    setStatusFilter(value);
+                    setPage(1);
+                  }}
+                  options={[
+                    { label: "ทั้งหมด", value: "all" },
+                    { label: "เสร็จสิ้น", value: "COMPLETED" },
+                    { label: "ยกเลิก", value: "CANCELLED" },
+                  ]}
+                  style={{ borderRadius: 12 }}
+                />
+
+                <div style={{ width: "100%", maxWidth: 360 }} data-testid="stock-history-search">
+                  <SearchInput
+                    placeholder="ค้นหาใบสั่งซื้อ..."
+                    value={searchText}
+                    onChange={(value) => {
+                      setSearchText(value);
+                      setPage(1);
+                    }}
+                  />
+                </div>
+              </div>
 
               <PageSection
                 title="รายการย้อนหลัง"

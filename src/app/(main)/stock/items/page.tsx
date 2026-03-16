@@ -17,6 +17,7 @@ import {
   App,
   Button,
   Modal,
+  Pagination,
   Radio,
   Segmented,
   Skeleton,
@@ -34,6 +35,7 @@ import PageContainer from "../../../../components/ui/page/PageContainer";
 import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import PageSection from "../../../../components/ui/page/PageSection";
 import PageState from "../../../../components/ui/states/PageState";
+import { posLayoutStyles } from "../../../../components/pos/shared/style";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
 import { useSocket } from "../../../../hooks/useSocket";
@@ -287,24 +289,21 @@ function StockOrderCard({
       <div
         style={{
           display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
+          flexDirection: "column",
           gap: 12,
           borderTop: "1px solid #F1F5F9",
           paddingTop: 14,
         }}
       >
         {order.remark ? (
-          <div style={{ flex: 1, color: "#64748B", fontSize: 13 }}>
+          <div style={{ color: "#64748B", fontSize: 13, marginBottom: 4 }}>
             <span style={{ fontWeight: 600, color: "#475569", marginRight: 6 }}>หมายเหตุ:</span>
             {order.remark}
           </div>
-        ) : (
-          <div style={{ flex: 1 }} />
-        )}
+        ) : null}
 
         <div
-          style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}
+          style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-start" }}
           onClick={(event) => event.stopPropagation()}
         >
           <Button
@@ -653,16 +652,6 @@ export default function StockOrdersQueuePage() {
 
       <PageContainer maxWidth={1440}>
         <div className="stock-items-toolbar">
-          <div style={{ width: "100%", maxWidth: 420 }} data-testid="stock-orders-search">
-            <SearchInput
-              placeholder="ค้นหาใบสั่งซื้อ"
-              value={searchText}
-              onChange={(value) => {
-                setSearchText(value);
-                setPage(1);
-              }}
-            />
-          </div>
           <Segmented<SortCreated>
             className="stock-items-segmented"
             value={sortCreated}
@@ -675,6 +664,16 @@ export default function StockOrdersQueuePage() {
               { label: "เก่าก่อน", value: "old" },
             ]}
           />
+          <div style={{ width: "100%", maxWidth: 420 }} data-testid="stock-orders-search">
+            <SearchInput
+              placeholder="ค้นหาใบสั่งซื้อ"
+              value={searchText}
+              onChange={(value) => {
+                setSearchText(value);
+                setPage(1);
+              }}
+            />
+          </div>
         </div>
 
         <PageSection title="รายการใบสั่งซื้อ" extra={<Text strong>{total.toLocaleString()} รายการ</Text>}>
@@ -734,15 +733,34 @@ export default function StockOrdersQueuePage() {
                 ))}
               </div>
 
-              <div style={{ marginTop: 12 }}>
-                <ListPagination
-                  page={page}
+              <div
+                className="pos-pagination-container"
+                style={{
+                  ...posLayoutStyles.paginationContainer,
+                  position: "relative",
+                  marginTop: 16,
+                }}
+              >
+                <div
+                  className="pos-pagination-total"
+                  style={{
+                    position: "absolute",
+                    left: 0,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                  }}
+                >
+                  <Text type="secondary" style={{ fontSize: 13 }}>
+                    แสดง {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, total)} จาก{" "}
+                    {total.toLocaleString()} รายการ
+                  </Text>
+                </div>
+                <Pagination
+                  current={page}
                   pageSize={pageSize}
                   total={total}
-                  loading={loading || refreshing}
-                  onPageChange={setPage}
-                  onPageSizeChange={setPageSize}
-                  activeColor="#0e7490"
+                  showSizeChanger={false}
+                  onChange={(nextPage) => setPage(nextPage)}
                 />
               </div>
             </>
@@ -786,8 +804,8 @@ export default function StockOrdersQueuePage() {
             onChange={(event) => setPrintMode(event.target.value as StockOrderPrintMode)}
           >
             <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <Radio value="a4">สำหรับเครื่องพิมพ์ปกติ</Radio>
               <Radio value="receipt">สำหรับเครื่องพิมพ์ใบเสร็จ</Radio>
-              <Radio value="a4">สำหรับเครื่องพิมพ์ทั่วไป (A4)</Radio>
             </div>
           </Radio.Group>
 

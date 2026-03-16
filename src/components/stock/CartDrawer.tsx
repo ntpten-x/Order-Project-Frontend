@@ -23,32 +23,33 @@ import {
   ShoppingCartOutlined,
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
-
-import { useAuth } from "../../contexts/AuthContext";
-import { useCart } from "../../contexts/stock/CartContext";
 import { useEffectivePermissions } from "../../hooks/useEffectivePermissions";
 import { authService } from "../../services/auth.service";
 import { ordersService } from "../../services/stock/orders.service";
+import { useAuth } from "../../contexts/AuthContext";
+import { useCart } from "../../contexts/stock/CartContext";
 import StockImageThumb from "./StockImageThumb";
-
 import { posColors, posComponentStyles } from "../pos/shared/style";
 
 const { Text, Title } = Typography;
 
 export default function CartDrawer() {
   const router = useRouter();
-  const screens = Grid.useBreakpoint();
-  const isMobile = !screens.md;
-
   const { user } = useAuth();
   const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
   const canCreateOrders = can("stock.orders.page", "create");
+  const screens = Grid.useBreakpoint();
+  const isMobile = !screens.md;
+
+
   const { items, clearCart, itemCount, updateQuantity } = useCart();
 
   const [open, setOpen] = useState(false);
   const [csrfToken, setCsrfToken] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [remark, setRemark] = useState("");
+
+
   const [isCheckout, setIsCheckout] = useState(false);
 
   useEffect(() => {
@@ -127,13 +128,79 @@ export default function CartDrawer() {
       clearCart();
       setRemark("");
       setOpen(false);
-      router.push("/stock/items");
     } catch (error: unknown) {
       message.error((error as Error)?.message || "สร้างใบซื้อไม่สำเร็จ");
     } finally {
       setSubmitting(false);
     }
   };
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
   const confirmClearCart = () => {
     Modal.confirm({
@@ -179,7 +246,7 @@ export default function CartDrawer() {
           isCheckout ? (
             <div style={{ ...posComponentStyles.modalTitleRow, color: "#fff" }}>
               <ShoppingCartOutlined style={{ fontSize: 20 }} />
-              <span style={{ fontWeight: 700, fontSize: 18 }}>สรุปรายการออเดอร์</span>
+              <span style={{ fontWeight: 700, fontSize: 18 }}>สรุปรายการสั่งซื้อ</span>
             </div>
           ) : (
             <div style={posComponentStyles.drawerTitleRow}>
@@ -245,7 +312,7 @@ export default function CartDrawer() {
                 }}
                 data-testid="stock-cart-submit"
               >
-                ยืนยันการตั้งใบสั่งซื้อ
+                ยืนยันการสั่งซื้อ
               </Button>
             </div>
           ) : (
@@ -258,15 +325,6 @@ export default function CartDrawer() {
                   {itemCount} รายการ
                 </Text>
               </div>
-              <Input.TextArea
-                rows={3}
-                placeholder="หมายเหตุรวมของใบซื้อ..."
-                value={remark}
-                onChange={(event) => setRemark(event.target.value)}
-                maxLength={600}
-                style={{ borderRadius: 12 }}
-                data-testid="stock-cart-remark"
-              />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 8 }}>
                 <Button
                   size="large"
@@ -287,25 +345,6 @@ export default function CartDrawer() {
                   ตรวจสอบใบสั่งซื้อ
                 </Button>
               </div>
-              <Button
-                type="primary"
-                block
-                size="large"
-                loading={submitting}
-                disabled={items.length === 0 || !canCreateOrders}
-                onClick={() => void createOrder()}
-                style={{
-                  background: `linear-gradient(135deg, ${posColors.success} 0%, #059669 100%)`,
-                  border: "none",
-                  height: 56,
-                  fontWeight: 700,
-                  fontSize: 18,
-                  borderRadius: 14,
-                }}
-                data-testid="stock-cart-submit"
-              >
-                ยืนยันการตั้งใบสั่งซื้อ
-              </Button>
             </div>
           )
         }
