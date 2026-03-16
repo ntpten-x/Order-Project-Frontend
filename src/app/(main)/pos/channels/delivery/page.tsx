@@ -400,7 +400,7 @@ function DeliveryContent({ canCreateOrder }: { canCreateOrder: boolean }) {
     return (
         <React.Fragment>
             <style dangerouslySetInnerHTML={{ __html: STYLES }} />
-            <div style={{ width: '100%', overflowX: 'hidden', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+            <div style={{ width: '100%', overflowX: 'hidden', display: 'flex', flexDirection: 'column', minHeight: '100dvh' }}>
                 <UIPageHeader
                     title="เดลิเวอรี่"
                     icon={<RocketOutlined style={{ fontSize: 18, color: "#7C3AED" }} />}

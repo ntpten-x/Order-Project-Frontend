@@ -8,7 +8,6 @@ import { Ingredients } from "../../types/api/stock/ingredients";
 interface CartItem {
   ingredient: Ingredients;
   quantity: number;
-  note?: string;
 }
 
 interface CartContextType {
@@ -16,7 +15,6 @@ interface CartContextType {
   addToCart: (ingredient: Ingredients) => void;
   removeFromCart: (ingredientId: string) => void;
   updateQuantity: (ingredientId: string, quantity: number) => void;
-  updateItemNote: (ingredientId: string, note: string) => void;
   clearCart: () => void;
   itemCount: number;
 }
@@ -133,14 +131,6 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
     [removeFromCart]
   );
 
-  const updateItemNote = useCallback((ingredientId: string, note: string) => {
-    setItems((prev) =>
-      prev.map((item) =>
-        item.ingredient.id === ingredientId ? { ...item, note } : item
-      )
-    );
-  }, []);
-
   const clearCart = useCallback(() => {
     setItems([]);
   }, []);
@@ -156,11 +146,10 @@ export const CartProvider = ({ children }: { children: React.ReactNode }) => {
       addToCart,
       removeFromCart,
       updateQuantity,
-      updateItemNote,
       clearCart,
       itemCount,
     }),
-    [addToCart, clearCart, itemCount, items, removeFromCart, updateItemNote, updateQuantity]
+    [addToCart, clearCart, itemCount, items, removeFromCart, updateQuantity]
   );
 
   return <CartContext.Provider value={value}>{children}</CartContext.Provider>;

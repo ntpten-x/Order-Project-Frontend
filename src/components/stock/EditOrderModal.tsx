@@ -1,4 +1,4 @@
-﻿import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
     Alert,
     Button,
@@ -99,10 +99,10 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
 
     const [ingredients, setIngredients] = useState<Ingredients[]>([]);
     const [items, setItems] = useState<EditableItem[]>([]);
-    const [selectedIngredient, setSelectedIngredient] = useState<string | undefined>();
     const [saving, setSaving] = useState(false);
     const [loadingIngredients, setLoadingIngredients] = useState(false);
     const [csrfToken, setCsrfToken] = useState("");
+    const [selectedTempIds, setSelectedTempIds] = useState<string[]>([]);
 
     useEffect(() => {
         if (!open) return;
@@ -136,6 +136,17 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
         };
     }, [open]);
 
+    const ensureCsrfToken = async (): Promise<string> => {
+        if (csrfToken) return csrfToken;
+
+        const token = await authService.getCsrfToken();
+        if (token) {
+            setCsrfToken(token);
+        }
+
+        return token;
+    };
+
     const availableIngredients = useMemo(() => {
         const selectedIds = new Set(items.map((item) => item.ingredient_id));
         return ingredients.filter((ingredient) => !selectedIds.has(ingredient.id));
@@ -144,24 +155,6 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
     const totalQuantity = useMemo(() => {
         return items.reduce((sum, item) => sum + Number(item.quantity_ordered || 0), 0);
     }, [items]);
-
-    const addIngredient = () => {
-        if (!selectedIngredient || !isPending) return;
-        const ingredient = ingredients.find((item) => item.id === selectedIngredient);
-        if (!ingredient) return;
-
-        setItems((prev) => [
-            ...prev,
-            {
-                ingredient_id: ingredient.id,
-                quantity_ordered: 1,
-                display_name: ingredient.display_name,
-                unit_label: ingredient.unit?.display_name || "หน่วย",
-                img_url: ingredient.img_url,
-            },
-        ]);
-        setSelectedIngredient(undefined);
-    };
 
     const removeItem = (ingredientId: string) => {
         if (!isPending) return;
@@ -197,6 +190,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
 
         setSaving(true);
         try {
+            const token = await ensureCsrfToken();
             await ordersService.updateOrder(
                 order.id,
                 items.map((item) => ({
@@ -204,7 +198,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                     quantity_ordered: item.quantity_ordered,
                 })),
                 undefined,
-                csrfToken
+                token
             );
             message.success("บันทึกการแก้ไขใบซื้อเรียบร้อย");
             onSuccess();
@@ -224,23 +218,24 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
             width={980}
             style={{ maxWidth: "96vw", top: isMobile ? 8 : 24 }}
             styles={{ body: { padding: isMobile ? 12 : 16 } }}
+            data-testid="stock-order-edit-modal"
             title={
-                <Space direction="vertical" size={2} style={{ width: "100%" }}>
-                    <Space size={8} wrap>
-                        <Title level={5} style={{ margin: 0 }}>
-                            แก้ไขใบซื้อ #{order?.id.slice(0, 8).toUpperCase() || "-"}
-                        </Title>
-                        <Tag color={isPending ? "gold" : "default"} style={{ margin: 0 }}>
-                            {isPending ? "รอดำเนินการ" : "แก้ไขไม่ได้"}
-                        </Tag>
-                    </Space>
-                    <Text type="secondary" style={{ fontSize: 12 }}>
-                        ปรับรายการวัตถุดิบและจำนวนที่ต้องซื้อให้อัปเดตล่าสุด
-                    </Text>
-                </Space>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <Title level={5} style={{ margin: 0 }}>
+                        แก้ไขใบซื้อ #{order?.id.slice(0, 8).toUpperCase() || "-"}
+                    </Title>
+                    <Tag color={isPending ? "gold" : "default"} style={{ margin: 0 }}>
+                        {isPending ? "รอดำเนินการ" : "แก้ไขไม่ได้"}
+                    </Tag>
+                </div>
             }
         >
             <Space direction="vertical" size={12} style={{ width: "100%" }}>
+                <style>{`
+                    .qty-input-center input {
+                        text-align: center !important;
+                    }
+                `}</style>
                 {!isPending ? (
                     <Alert
                         type="warning"
@@ -251,14 +246,14 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                 ) : null}
 
                 <Row gutter={[12, 12]}>
-                    <Col xs={24} lg={9}>
+                    <Col span={24}>
                         <Space direction="vertical" size={12} style={{ width: "100%" }}>
                             <Card size="small" styles={{ body: { padding: isMobile ? 12 : 14 } }}>
                                 <Text strong style={{ display: "block", marginBottom: 8 }}>
                                     สรุปใบซื้อ
                                 </Text>
                                 <Row gutter={[8, 8]}>
-                                    <Col xs={8} lg={24}>
+                                    <Col xs={12} lg={12}>
                                         <Card size="small" styles={{ body: { padding: 10 } }}>
                                             <Text type="secondary" style={{ fontSize: 12 }}>
                                                 จำนวนรายการ
@@ -268,7 +263,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                                             </Title>
                                         </Card>
                                     </Col>
-                                    <Col xs={8} lg={24}>
+                                    <Col xs={12} lg={12}>
                                         <Card size="small" styles={{ body: { padding: 10 } }}>
                                             <Text type="secondary" style={{ fontSize: 12 }}>
                                                 รวมจำนวน
@@ -278,86 +273,84 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                                             </Title>
                                         </Card>
                                     </Col>
-                                    <Col xs={8} lg={24}>
-                                        <Card size="small" styles={{ body: { padding: 10 } }}>
-                                            <Text type="secondary" style={{ fontSize: 12 }}>
-                                                เพิ่มได้อีก
-                                            </Text>
-                                            <Title level={4} style={{ margin: "4px 0 0" }}>
-                                                {availableIngredients.length.toLocaleString()}
-                                            </Title>
-                                        </Card>
-                                    </Col>
                                 </Row>
 
-                                <Divider style={{ margin: "12px 0" }} />
+                                <Divider style={{ margin: "16px 0 12px" }} />
 
-                                <Space direction="vertical" size={1}>
-                                    <Text type="secondary" style={{ fontSize: 12 }}>
-                                        ผู้สร้างใบซื้อ
-                                    </Text>
-                                    <Text>{order?.ordered_by?.name || order?.ordered_by?.username || "-"}</Text>
-                                    <Text type="secondary" style={{ fontSize: 12, marginTop: 6 }}>
-                                        วันที่สร้าง
-                                    </Text>
-                                    <Text>{formatDateTime(order?.create_date)}</Text>
-                                </Space>
-                            </Card>
-
-                            <Card
-                                size="small"
-                                title="เพิ่มวัตถุดิบเข้ารายการ"
-                                styles={{ body: { padding: isMobile ? 12 : 14 } }}
-                            >
-                                <Space direction="vertical" size={10} style={{ width: "100%" }}>
-                                    <ModalSelector
-                                        title="เลือกวัตถุดิบ"
-                                        placeholder="เลือกวัตถุดิบ"
-                                        value={selectedIngredient}
-                                        onChange={(value) => setSelectedIngredient(value)}
-                                        loading={loadingIngredients}
-                                        options={availableIngredients.map((item) => ({
-                                            value: item.id,
-                                            label: (
-                                                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                                                    <StockImageThumb
-                                                        src={item.img_url}
-                                                        alt={item.display_name}
-                                                        size={24}
-                                                        borderRadius={6}
-                                                    />
-                                                    <span style={{ lineHeight: 1.3 }}>
-                                                        {item.display_name} ({item.unit?.display_name || "หน่วย"})
-                                                    </span>
-                                                </div>
-                                            ),
-                                            searchLabel: item.display_name,
-                                        }))}
-                                        showSearch
-                                        style={{ width: "100%" }}
-                                    />
-                                    <Button
-                                        type="primary"
-                                        icon={<PlusOutlined />}
-                                        onClick={addIngredient}
-                                        disabled={!selectedIngredient || !isPending}
-                                        block
-                                        style={{ height: 40, fontWeight: 600 }}
-                                    >
-                                        เพิ่มเข้ารายการ
-                                    </Button>
-                                    <Text type="secondary" style={{ fontSize: 12 }}>
-                                        เลือกวัตถุดิบจากรายการที่ยังไม่ถูกเพิ่มในใบซื้อนี้
-                                    </Text>
-                                </Space>
+                                <Row gutter={[12, 12]}>
+                                    <Col span={12}>
+                                        <Text type="secondary" style={{ fontSize: 12, display: "block" }}>
+                                            ผู้สร้างใบซื้อ
+                                        </Text>
+                                        <Text style={{ fontWeight: 500 }}>
+                                            {order?.ordered_by?.name || order?.ordered_by?.username || "-"}
+                                        </Text>
+                                    </Col>
+                                    <Col span={12}>
+                                        <Text type="secondary" style={{ fontSize: 12, display: "block" }}>
+                                            วันที่สร้าง
+                                        </Text>
+                                        <Text style={{ fontWeight: 500 }}>
+                                            {formatDateTime(order?.create_date)}
+                                        </Text>
+                                    </Col>
+                                </Row>
                             </Card>
                         </Space>
                     </Col>
 
-                    <Col xs={24} lg={15}>
+                    <Col span={24}>
                         <Card
                             size="small"
-                            title={`รายการที่ต้องซื้อ (${items.length})`}
+                            title={`รายการที่ต้องซื้อ`}
+                            extra={isPending && (
+                                <ModalSelector
+                                    title="เลือกวัตถุดิบ"
+                                    placeholder="ค้นหาวัตถุดิบ..."
+                                    multiple={true}
+                                    value={selectedTempIds}
+                                    onChange={(values) => setSelectedTempIds(values)}
+                                    onConfirm={(values: string[]) => {
+                                        const newItems: EditableItem[] = [];
+                                        values.forEach((id) => {
+                                            const btnIngredient = ingredients.find((m) => m.id === id);
+                                            if (!btnIngredient) return;
+                                            
+                                            if (items.some((it) => it.ingredient_id === id)) return;
+
+                                            newItems.push({
+                                                ingredient_id: btnIngredient.id,
+                                                quantity_ordered: 1,
+                                                display_name: btnIngredient.display_name,
+                                                unit_label: btnIngredient.unit?.display_name || "หน่วย",
+                                                img_url: btnIngredient.img_url,
+                                            });
+                                        });
+
+                                        if (newItems.length > 0) {
+                                            setItems((prev) => [...prev, ...newItems]);
+                                        }
+                                        setSelectedTempIds([]);
+                                    }}
+                                    loading={loadingIngredients}
+                                    options={availableIngredients.map((item) => ({
+                                        value: item.id,
+                                        label: (
+                                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                                                <StockImageThumb src={item.img_url} alt={item.display_name} size={24} borderRadius={6} />
+                                                <span>{item.display_name} ({item.unit?.display_name || "หน่วย"})</span>
+                                            </div>
+                                        ),
+                                        searchLabel: item.display_name,
+                                    }))}
+                                    showSearch
+                                    trigger={
+                                        <Button type="primary" size="small" icon={<PlusOutlined />} style={{ borderRadius: 6 }} data-testid="stock-order-edit-add-item">
+                                            เพิ่ม
+                                        </Button>
+                                    }
+                                />
+                            )}
                             styles={{ body: { padding: isMobile ? 10 : 12 } }}
                         >
                             {items.length === 0 ? (
@@ -421,6 +414,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                                                                     icon={<DeleteOutlined />}
                                                                     onClick={() => removeItem(item.ingredient_id)}
                                                                     disabled={!isPending}
+                                                                    data-testid={`stock-order-edit-remove-${item.ingredient_id}`}
                                                                 >
                                                                     {!isMobile ? "ลบ" : undefined}
                                                                 </Button>
@@ -438,13 +432,24 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                                                                 justifyContent: "space-between",
                                                             }}
                                                         >
-                                                            <Space.Compact>
+                                                            <Space.Compact style={{ borderRadius: 8, overflow: 'hidden' }}>
                                                                 <Button
-                                                                    icon={<MinusOutlined />}
+                                                                    icon={<MinusOutlined style={{ fontSize: 13 }} />}
                                                                     onClick={() => changeQuantityBy(item.ingredient_id, -1)}
                                                                     disabled={!isPending || item.quantity_ordered <= 1}
+                                                                    style={{ 
+                                                                        borderColor: '#fca5a5', 
+                                                                        color: '#ef4444', 
+                                                                        backgroundColor: '#fef2f2',
+                                                                        width: 32,
+                                                                        height: 32,
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center'
+                                                                    }}
                                                                 />
                                                                 <InputNumber
+                                                                    className="qty-input-center"
                                                                     min={1}
                                                                     controls={false}
                                                                     value={item.quantity_ordered}
@@ -455,13 +460,24 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                                                                     parser={(value) =>
                                                                         value?.replace(/[^0-9]/g, "") as unknown as number
                                                                     }
-                                                                    style={{ width: isMobile ? 76 : 90 }}
+                                                                    style={{ width: 56, height: 32 }}
                                                                     disabled={!isPending}
+                                                                    data-testid={`stock-order-edit-qty-${item.ingredient_id}`}
                                                                 />
                                                                 <Button
-                                                                    icon={<PlusOutlined />}
+                                                                    icon={<PlusOutlined style={{ fontSize: 13 }} />}
                                                                     onClick={() => changeQuantityBy(item.ingredient_id, 1)}
                                                                     disabled={!isPending}
+                                                                    style={{ 
+                                                                        borderColor: '#a7f3d0', 
+                                                                        color: '#10b981', 
+                                                                        backgroundColor: '#ecfdf5',
+                                                                        width: 32,
+                                                                        height: 32,
+                                                                        display: 'flex',
+                                                                        alignItems: 'center',
+                                                                        justifyContent: 'center'
+                                                                    }}
                                                                 />
                                                             </Space.Compact>
 
@@ -506,6 +522,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                             loading={saving}
                             disabled={!isPending || items.length === 0}
                             style={{ flex: isMobile ? 1 : undefined }}
+                            data-testid="stock-order-edit-save"
                         >
                             บันทึกการแก้ไข
                         </Button>

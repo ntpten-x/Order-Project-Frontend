@@ -19,7 +19,6 @@ export const pageStyles = {
         transition: "all 0.2s ease",
         background: "#ffffff",
         opacity: isActive ? 1 : 0.72,
-        cursor: "pointer",
     }),
     unitCardInner: {
         padding: 16,
@@ -28,46 +27,3 @@ export const pageStyles = {
         gap: 12,
     } as CSSProperties,
 };
-
-export const globalStyles = `
-  .stock-ingredients-unit-list-page .stock-ingredients-unit-card {
-    animation: fadeSlideIn 0.3s ease both;
-  }
-
-  .stock-ingredients-unit-list-page .stock-ingredients-unit-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08) !important;
-  }
-
-  .stock-ingredients-unit-list-page *::-webkit-scrollbar {
-    width: 5px;
-    height: 5px;
-  }
-
-  .stock-ingredients-unit-list-page *::-webkit-scrollbar-track {
-    background: transparent;
-  }
-
-  .stock-ingredients-unit-list-page *::-webkit-scrollbar-thumb {
-    background: #cbd5e1;
-    border-radius: 3px;
-  }
-`;
-
-export default function IngredientsUnitPageStyle() {
-    return (
-        <style jsx global>{`
-            @media (max-width: 768px) {
-                .stock-ingredients-unit-list-page .stock-ingredients-unit-card > div {
-                    align-items: flex-start;
-                }
-            }
-
-            @media (max-width: 640px) {
-                .stock-ingredients-unit-list-page .stock-ingredients-unit-card > div {
-                    flex-direction: column;
-                }
-            }
-        `}</style>
-    );
-}

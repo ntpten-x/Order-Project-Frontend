@@ -4,8 +4,8 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   App,
   Button,
-  Flex,
   Grid,
+  Pagination,
   Skeleton,
   Space,
   Spin,
@@ -21,6 +21,7 @@ import {
   ReloadOutlined,
   SwapOutlined,
 } from '@ant-design/icons';
+import { posLayoutStyles } from '../../../components/pos/shared/style';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Branch } from '../../../types/api/branch';
 import { useGlobalLoading } from '../../../contexts/pos/GlobalLoadingContext';
@@ -39,7 +40,7 @@ import PageStack from '../../../components/ui/page/PageStack';
 import UIEmptyState from '../../../components/ui/states/EmptyState';
 import UIPageHeader from '../../../components/ui/page/PageHeader';
 import { AccessGuardFallback } from '../../../components/pos/AccessGuard';
-import ListPagination, { type CreatedSort } from '../../../components/ui/pagination/ListPagination';
+import { type CreatedSort } from '../../../components/ui/pagination/ListPagination';
 import { StatsGroup } from '../../../components/ui/card/StatsGroup';
 import { SearchInput } from '../../../components/ui/input/SearchInput';
 import { SearchBar } from '../../../components/ui/page/SearchBar';
@@ -213,6 +214,8 @@ export default function BranchPage() {
   const [pageSize, setPageSize] = useState(20);
   const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
   const [totalBranches, setTotalBranches] = useState(0);
+  const [activeBranchCount, setActiveBranchCount] = useState(0);
+  const [inactiveBranchCount, setInactiveBranchCount] = useState(0);
   const [isFetching, setIsFetching] = useState(false);
   const [hasLoaded, setHasLoaded] = useState(false);
   const [currentBranchLabelOverride, setCurrentBranchLabelOverride] = useState<string | null>(null);
@@ -258,6 +261,16 @@ export default function BranchPage() {
     router.replace(`${pathname}?${params.toString()}`, { scroll: false });
   }, [router, pathname, page, pageSize, debouncedSearch, filter, createdSort]);
 
+  const buildStatsParams = useCallback((active: boolean) => {
+    const params = new URLSearchParams();
+    params.set('page', '1');
+    params.set('limit', '1');
+    params.set('active', active ? 'true' : 'false');
+    if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+    params.set('sort_created', createdSort);
+    return params;
+  }, [createdSort, debouncedSearch]);
+
   const fetchBranches = useCallback(async (nextPage: number = page, nextPageSize: number = pageSize) => {
     setIsFetching(true);
     try {
@@ -270,9 +283,15 @@ export default function BranchPage() {
         if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
         params.set('sort_created', createdSort);
 
-        const result = await branchService.getAllPaginated(undefined, params);
+        const [result, activeResult, inactiveResult] = await Promise.all([
+          branchService.getAllPaginated(undefined, params),
+          branchService.getAllPaginated(undefined, buildStatsParams(true)),
+          branchService.getAllPaginated(undefined, buildStatsParams(false)),
+        ]);
         setBranches(result.data);
         setTotalBranches(result.total);
+        setActiveBranchCount(activeResult.total);
+        setInactiveBranchCount(inactiveResult.total);
         setPage(result.page);
         setPageSize(nextPageSize);
         setHasLoaded(true);
@@ -280,7 +299,7 @@ export default function BranchPage() {
     } finally {
       setIsFetching(false);
     }
-  }, [execute, filter, page, pageSize, debouncedSearch, createdSort]);
+  }, [buildStatsParams, execute, filter, page, pageSize, debouncedSearch, createdSort]);
 
   useRealtimeRefresh({
     socket,
@@ -345,6 +364,11 @@ export default function BranchPage() {
         try {
           const csrfToken = await getCsrfTokenCached();
           await branchService.delete(branch.id, undefined, csrfToken);
+          if (activeBranchId === branch.id) {
+            await fetch('/api/auth/active-branch', { method: 'DELETE', credentials: 'include' });
+            setActiveBranchId(null);
+            window.dispatchEvent(new CustomEvent('active-branch-changed', { detail: { activeBranchId: null } }));
+          }
           messageApi.success(t('branch.delete.success', { name: branch.branch_name }));
           await fetchBranches();
         } catch {
@@ -370,8 +394,6 @@ export default function BranchPage() {
     }, t('branch.switch.loading'));
   };
 
-  const activeBranches = branches.filter((item) => item.is_active !== false).length;
-  const inactiveBranches = Math.max(branches.length - activeBranches, 0);
   const assignedBranchId = user?.branch?.id || user?.branch_id || null;
   const assignedBranchLabel = user?.branch
     ? `${user.branch.branch_name} (${user.branch.branch_code})`
@@ -411,7 +433,7 @@ export default function BranchPage() {
     return (
       <div
         style={{
-          height: '100vh',
+          height: '100dvh',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'center',
@@ -431,28 +453,27 @@ export default function BranchPage() {
   const showInitialSkeleton = !hasLoaded && isFetching;
 
   return (
-    <div style={{ minHeight: '100vh', background: '#F8FAFC', paddingBottom: 100 }}>
+    <div style={{ minHeight: '100dvh', background: '#F8FAFC', paddingBottom: 100 }} data-testid="branch-page">
       <UIPageHeader
         title={t('branch.page.title')}
         subtitle={
           <Space size={8} wrap>
-            <span>{t('branch.page.subtitle', { count: totalBranches })}</span>
             <Tag style={{ marginInlineEnd: 0 }} color="blue">
               {t('branch.page.currentBranch', { name: currentBranchLabel })}
             </Tag>
-            {canSwitchBranch ? (
+            {/* {canSwitchBranch ? (
               <Tag style={{ marginInlineEnd: 0 }} color="default">
                 {t('branch.page.assignedBranch', { name: assignedBranchLabel })}
               </Tag>
-            ) : null}
+            ) : null} */}
           </Space>
         }
         icon={<BranchesOutlined style={{ fontSize: 20 }} />}
         actions={
           <Space size={8} wrap>
-            <Button icon={<ReloadOutlined />} onClick={() => { void fetchBranches(); }} loading={isFetching} />
+            <Button icon={<ReloadOutlined />} onClick={() => { void fetchBranches(); }} loading={isFetching} data-testid="branch-refresh" />
             {canCreateBranches ? (
-              <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+              <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} data-testid="branch-add">
                 {!isMobile ? t('branch.actions.add') : ''}
               </Button>
             ) : null}
@@ -465,39 +486,39 @@ export default function BranchPage() {
           <StatsGroup
             stats={[
               { label: t('branch.stats.total'), value: totalBranches },
-              { label: t('branch.stats.active'), value: activeBranches, color: '#0f766e' },
-              { label: t('branch.stats.inactive'), value: inactiveBranches, color: '#b91c1c' },
+              { label: t('branch.stats.active'), value: activeBranchCount, color: '#0f766e' },
+              { label: t('branch.stats.inactive'), value: inactiveBranchCount, color: '#b91c1c' },
             ]}
           />
 
           <PageSection title={t('branch.section.filtersTitle')}>
-            <SearchBar bodyStyle={{ padding: 12 }}>
-              <SearchInput
-                placeholder={t('branch.search.placeholder')}
-                value={searchQuery}
-                onChange={(value) => {
-                  setPage(1);
-                  setSearchQuery(value);
-                }}
-              />
-              <Flex gap={10} wrap="wrap">
-                <div style={{ flex: isMobile ? '1 1 100%' : '1 1 220px' }}>
-                  <ModalSelector<FilterType>
-                    title={t('branch.search.filter.title')}
-                    value={filter}
-                    options={[
-                      { label: t('branch.search.filter.all'), value: 'all' },
-                      { label: t('branch.search.filter.active'), value: 'active' },
-                      { label: t('branch.search.filter.inactive'), value: 'inactive' },
-                    ]}
-                    onChange={(value) => {
-                      setPage(1);
-                      setFilter(value);
-                    }}
-                    placeholder={t('branch.search.filter.placeholder')}
-                  />
-                </div>
-              </Flex>
+            <SearchBar bodyStyle={{ padding: '12px' }}>
+              <div style={{ width: '100%' }} data-testid="branch-search">
+                <SearchInput
+                  placeholder={t('branch.search.placeholder')}
+                  value={searchQuery}
+                  onChange={(value) => {
+                    setPage(1);
+                    setSearchQuery(value);
+                  }}
+                />
+              </div>
+              <div style={{ width: isMobile ? '100%' : '220px' }}>
+                <ModalSelector<FilterType>
+                  title={t('branch.search.filter.title')}
+                  value={filter}
+                  options={[
+                    { label: t('branch.search.filter.all'), value: 'all' },
+                    { label: t('branch.search.filter.active'), value: 'active' },
+                    { label: t('branch.search.filter.inactive'), value: 'inactive' },
+                  ]}
+                  onChange={(value) => {
+                    setPage(1);
+                    setFilter(Array.isArray(value) ? value[0] : value);
+                  }}
+                  placeholder={t('branch.search.filter.placeholder')}
+                />
+              </div>
             </SearchBar>
           </PageSection>
 
@@ -564,22 +585,36 @@ export default function BranchPage() {
               </div>
             )}
 
-            <ListPagination
-              page={page}
-              pageSize={pageSize}
-              total={totalBranches}
-              loading={isFetching}
-              onPageChange={setPage}
-              onPageSizeChange={(size) => {
-                setPage(1);
-                setPageSize(size);
+            <div
+              className="pos-pagination-container"
+              style={{
+                ...posLayoutStyles.paginationContainer,
+                position: "relative",
+                marginTop: 16,
               }}
-              sortCreated={createdSort}
-              onSortCreatedChange={(next) => {
-                setPage(1);
-                setCreatedSort(next);
-              }}
-            />
+            >
+              <div
+                className="pos-pagination-total"
+                style={{
+                  position: "absolute",
+                  left: 0,
+                  top: "50%",
+                  transform: "translateY(-50%)",
+                }}
+              >
+                <Text type="secondary" style={{ fontSize: 13 }}>
+                  แสดง {(page - 1) * pageSize + 1}-{Math.min(page * pageSize, totalBranches)} จาก{" "}
+                  {totalBranches.toLocaleString()} รายการ
+                </Text>
+              </div>
+              <Pagination
+                current={page}
+                pageSize={pageSize}
+                total={totalBranches}
+                showSizeChanger={false}
+                onChange={(nextPage) => setPage(nextPage)}
+              />
+            </div>
           </PageSection>
         </PageStack>
       </PageContainer>

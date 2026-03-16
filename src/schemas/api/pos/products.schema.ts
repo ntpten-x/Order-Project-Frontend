@@ -16,6 +16,14 @@ const UnitRelationSchema = z
     .partial()
     .nullable();
 
+const ToppingGroupRelationSchema = z
+    .object({
+        id: z.string().optional(),
+        display_name: z.string().optional().nullable(),
+    })
+    .partial()
+    .nullable();
+
 export const ProductSchema = z.object({
     id: z.string(),
     display_name: z.string(),
@@ -30,9 +38,14 @@ export const ProductSchema = z.object({
     is_active: z.boolean().optional().default(true),
     category: CategoryRelationSchema.optional(),
     unit: UnitRelationSchema.optional(),
+    topping_groups: z.array(ToppingGroupRelationSchema).optional(),
 }).transform((value) => ({
     ...value,
     price_delivery: value.price_delivery ?? value.price,
+    topping_groups: (value.topping_groups || []).filter(Boolean),
+    topping_group_ids: (value.topping_groups || [])
+        .map((toppingGroup) => toppingGroup?.id)
+        .filter((id): id is string => typeof id === "string" && id.length > 0),
 }));
 
 export const ProductsResponseSchema = z.object({

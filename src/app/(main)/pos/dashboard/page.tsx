@@ -444,8 +444,8 @@ function DashboardDateRangeDialog({
           display: "grid",
           gap: 16,
           maxHeight: isMobile
-            ? "calc(100vh - 176px)"
-            : "calc(100vh - 220px)",
+            ? "calc(100dvh - 176px)"
+            : "calc(100dvh - 220px)",
           overflowY: "auto",
           paddingRight: isMobile ? 0 : 4,
         }}
@@ -1228,7 +1228,7 @@ export default function DashboardPage() {
     return (
       <div
         style={{
-          minHeight: "100vh",
+          minHeight: "100dvh",
           background: "#F8FAFC",
           display: "flex",
           alignItems: "center",
@@ -1251,7 +1251,7 @@ export default function DashboardPage() {
 
   return (
     <div
-      style={{ minHeight: "100vh", background: "#F8FAFC", paddingBottom: 100 }}
+      style={{ minHeight: "100dvh", background: "#F8FAFC", paddingBottom: 100 }}
     >
       <UIPageHeader
         title={t("dashboard.title")}
@@ -1572,6 +1572,7 @@ export default function DashboardPage() {
                 </Col>
                 <Col xs={24} lg={12}>
                   <PageSection title={t("dashboard.dailySales")}>
+                    <div style={{ width: "100%", overflowX: "auto" }}>
                     <Table
                       size="small"
                       pagination={false}
@@ -1607,6 +1608,7 @@ export default function DashboardPage() {
                         },
                       ]}
                     />
+                    </div>
                   </PageSection>
                 </Col>
               </Row>

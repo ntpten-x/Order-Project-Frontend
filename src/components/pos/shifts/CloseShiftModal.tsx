@@ -249,7 +249,7 @@ export default function CloseShiftModal({
                         shopProfile: {
                             branch_name: user?.branch?.branch_name,
                             branch_phone: user?.branch?.phone,
-                        } as any,
+                        } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
                         targetWindow: reservedPrintWindow,
                     });
                 } catch (printError) {

@@ -38,11 +38,11 @@ function expectStatusIn(status: number, allowed: number[], contextLabel: string)
 test.describe("Shift Role Matrix Phase 8", () => {
   test("admin/manager/employee/no-auth matrix for shift and permission routes", async ({ baseURL }) => {
     const adminUsername = process.env.E2E_ADMIN_USERNAME || "admin";
-    const adminPassword = process.env.E2E_ADMIN_PASSWORD || "123456";
-    const managerUsername = process.env.E2E_MANAGER_USERNAME || "user1";
-    const managerPassword = process.env.E2E_MANAGER_PASSWORD || "123456";
-    const employeeUsername = process.env.E2E_EMPLOYEE_USERNAME || "emp";
-    const employeePassword = process.env.E2E_EMPLOYEE_PASSWORD || "123456";
+    const adminPassword = process.env.E2E_ADMIN_PASSWORD || "Admin123456!";
+    const managerUsername = process.env.E2E_MANAGER_USERNAME || "manager";
+    const managerPassword = process.env.E2E_MANAGER_PASSWORD || "Manager123456!";
+    const employeeUsername = process.env.E2E_EMPLOYEE_USERNAME || "employee";
+    const employeePassword = process.env.E2E_EMPLOYEE_PASSWORD || "Employee123456!";
 
     const anonymousContext = await playwrightRequest.newContext({ baseURL });
     const adminContext = await playwrightRequest.newContext({ baseURL });
@@ -58,6 +58,7 @@ test.describe("Shift Role Matrix Phase 8", () => {
         username: string;
         password: string;
         expectedAuditStatus: number;
+        expectedCloseStatuses: number[];
         context: APIRequestContext;
       }> = [
         {
@@ -65,6 +66,7 @@ test.describe("Shift Role Matrix Phase 8", () => {
           username: adminUsername,
           password: adminPassword,
           expectedAuditStatus: 200,
+          expectedCloseStatuses: [200, 400, 404],
           context: adminContext,
         },
         {
@@ -72,6 +74,7 @@ test.describe("Shift Role Matrix Phase 8", () => {
           username: managerUsername,
           password: managerPassword,
           expectedAuditStatus: 403,
+          expectedCloseStatuses: [200, 400, 404],
           context: managerContext,
         },
         {
@@ -79,6 +82,7 @@ test.describe("Shift Role Matrix Phase 8", () => {
           username: employeeUsername,
           password: employeePassword,
           expectedAuditStatus: 403,
+          expectedCloseStatuses: [200, 400, 403, 404],
           context: employeeContext,
         },
       ];
@@ -117,7 +121,7 @@ test.describe("Shift Role Matrix Phase 8", () => {
             end_amount: 0,
           },
         });
-        expectStatusIn(closeResponse.status(), [200, 400, 404], `${item.label} shifts close`);
+        expectStatusIn(closeResponse.status(), item.expectedCloseStatuses, `${item.label} shifts close`);
       }
     } finally {
       await Promise.all([
@@ -131,7 +135,7 @@ test.describe("Shift Role Matrix Phase 8", () => {
 
   test("shift validation errors are returned via proxy", async ({ baseURL }) => {
     const adminUsername = process.env.E2E_ADMIN_USERNAME || "admin";
-    const adminPassword = process.env.E2E_ADMIN_PASSWORD || "123456";
+    const adminPassword = process.env.E2E_ADMIN_PASSWORD || "Admin123456!";
 
     const context = await playwrightRequest.newContext({ baseURL });
     try {

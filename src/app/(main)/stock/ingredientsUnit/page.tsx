@@ -1,75 +1,89 @@
-"use client";
+'use client';
 
-import React, { useCallback, useDeferredValue, useEffect, useRef, useState } from "react";
-import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { App, Button, Modal, Space, Switch, Tag, Typography } from "antd";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { App, Modal, Typography, Button, Space, Tag, Switch } from 'antd';
 import {
-    DeleteOutlined,
-    EditOutlined,
     ExperimentOutlined,
     PlusOutlined,
     ReloadOutlined,
-} from "@ant-design/icons";
-import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
-import PageContainer from "../../../../components/ui/page/PageContainer";
-import PageSection from "../../../../components/ui/page/PageSection";
-import PageStack from "../../../../components/ui/page/PageStack";
-import UIPageHeader from "../../../../components/ui/page/PageHeader";
-import { SearchBar } from "../../../../components/ui/page/SearchBar";
-import { SearchInput } from "../../../../components/ui/input/SearchInput";
-import ListPagination, { type CreatedSort } from "../../../../components/ui/pagination/ListPagination";
-import { ModalSelector } from "../../../../components/ui/select/ModalSelector";
-import UIEmptyState from "../../../../components/ui/states/EmptyState";
-import PageState from "../../../../components/ui/states/PageState";
-import { useAuth } from "../../../../contexts/AuthContext";
-import { useSocket } from "../../../../hooks/useSocket";
-import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
-import { DEFAULT_CREATED_SORT, parseCreatedSort } from "../../../../lib/list-sort";
-import { authService } from "../../../../services/auth.service";
-import { ingredientsUnitService } from "../../../../services/stock/ingredientsUnit.service";
-import { IngredientsUnit } from "../../../../types/api/stock/ingredientsUnit";
-import { RealtimeEvents } from "../../../../utils/realtimeEvents";
-import IngredientsUnitPageStyle, { globalStyles, pageStyles } from "./style";
+    EditOutlined,
+    DeleteOutlined,
+} from '@ant-design/icons';
+import { IngredientsUnit } from '../../../../types/api/stock/ingredientsUnit';
+import { useRouter } from 'next/navigation';
+import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext';
+import { useSocket } from '../../../../hooks/useSocket';
+import { authService } from '../../../../services/auth.service';
+import { readCache, writeCache } from '../../../../utils/pos/cache';
+import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
+import PageContainer from '../../../../components/ui/page/PageContainer';
+import PageSection from '../../../../components/ui/page/PageSection';
+import PageStack from '../../../../components/ui/page/PageStack';
+import UIPageHeader from '../../../../components/ui/page/PageHeader';
+import UIEmptyState from '../../../../components/ui/states/EmptyState';
+import PageState from '../../../../components/ui/states/PageState';
+import ListPagination, { type CreatedSort } from '../../../../components/ui/pagination/ListPagination';
+import { RealtimeEvents } from '../../../../utils/realtimeEvents';
+import { DEFAULT_CREATED_SORT } from '../../../../lib/list-sort';
+import { ModalSelector } from '../../../../components/ui/select/ModalSelector';
+import { SearchBar } from '../../../../components/ui/page/SearchBar';
+import { SearchInput } from '../../../../components/ui/input/SearchInput';
+import { useEffectivePermissions } from '../../../../hooks/useEffectivePermissions';
+import { useListState } from '../../../../hooks/pos/useListState';
+import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
+import { useAuth } from '../../../../contexts/AuthContext';
+import { ingredientsUnitService } from '../../../../services/stock/ingredientsUnit.service';
+import { pageStyles } from './style';
 
 const { Text } = Typography;
 
-type StatusFilter = "all" | "active" | "inactive";
-
-const formatDate = (raw?: string | Date) => {
-    if (!raw) return "-";
-    const date = new Date(raw);
-    if (Number.isNaN(date.getTime())) return "-";
-    return new Intl.DateTimeFormat("th-TH", {
-        dateStyle: "medium",
-        timeStyle: "short",
-    }).format(date);
+type StatusFilter = 'all' | 'active' | 'inactive';
+type UnitCachePayload = {
+    items: IngredientsUnit[];
+    total: number;
 };
 
-type UnitCardProps = {
+const UNIT_CACHE_KEY = 'stock:ingredients-unit:list:default-v1';
+const UNIT_CACHE_TTL_MS = 60 * 1000;
+
+interface UnitCardProps {
     unit: IngredientsUnit;
     canUpdate: boolean;
     canDelete: boolean;
-    updatingStatusId: string | null;
-    deletingId: string | null;
     onEdit: (unit: IngredientsUnit) => void;
     onDelete: (unit: IngredientsUnit) => void;
     onToggleActive: (unit: IngredientsUnit, next: boolean) => void;
+    updatingStatusId: string | null;
+    deletingId: string | null;
+}
+
+const formatDate = (raw?: string | Date) => {
+    if (!raw) return '-';
+    const date = new Date(raw);
+    if (Number.isNaN(date.getTime())) return '-';
+    return new Intl.DateTimeFormat('th-TH', {
+        dateStyle: 'medium',
+        timeStyle: 'short',
+    }).format(date);
 };
 
 const UnitCard = ({
     unit,
-    canUpdate,
-    canDelete,
-    updatingStatusId,
-    deletingId,
     onEdit,
     onDelete,
     onToggleActive,
+    updatingStatusId,
+    deletingId,
+    canUpdate,
+    canDelete,
 }: UnitCardProps) => {
     return (
         <div
             className="stock-ingredients-unit-card"
-            style={pageStyles.unitCard(unit.is_active)}
+            style={{
+                ...pageStyles.unitCard(unit.is_active),
+                cursor: canUpdate ? 'pointer' : 'default',
+            }}
             onClick={() => {
                 if (!canUpdate) return;
                 onEdit(unit);
@@ -82,38 +96,38 @@ const UnitCard = ({
                         height: 52,
                         borderRadius: 14,
                         background: unit.is_active
-                            ? "linear-gradient(135deg, #ccfbf1 0%, #99f6e4 100%)"
-                            : "#f1f5f9",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
+                            ? 'linear-gradient(135deg, #cffafe 0%, #a5f3fc 100%)'
+                            : '#f1f5f9',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
                         flexShrink: 0,
-                        boxShadow: unit.is_active ? "0 4px 10px rgba(15, 118, 110, 0.18)" : "none",
+                        boxShadow: unit.is_active ? '0 4px 10px rgba(14, 116, 144, 0.18)' : 'none',
                     }}
                 >
                     <ExperimentOutlined
                         style={{
                             fontSize: 22,
-                            color: unit.is_active ? "#0f766e" : "#94a3b8",
+                            color: unit.is_active ? '#0e7490' : '#94a3b8',
                         }}
                     />
                 </div>
 
                 <div style={{ flex: 1, minWidth: 0, paddingRight: 8 }}>
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4, flexWrap: "wrap" }}>
-                        <Text strong style={{ fontSize: 16, color: "#0f172a" }} ellipsis={{ tooltip: unit.display_name }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4, flexWrap: 'wrap' }}>
+                        <Text strong style={{ fontSize: 16, color: '#0f172a' }} ellipsis={{ tooltip: unit.display_name }}>
                             {unit.display_name}
                         </Text>
-                        <Tag color={unit.is_active ? "green" : "default"} style={{ borderRadius: 999 }}>
-                            {unit.is_active ? "ใช้งาน" : "ปิดใช้งาน"}
+                        <Tag color={unit.is_active ? 'green' : 'default'} style={{ borderRadius: 999 }}>
+                            {unit.is_active ? 'ใช้งาน' : 'ปิดใช้งาน'}
                         </Tag>
                     </div>
-                    <Text type="secondary" style={{ fontSize: 12, display: "block", marginTop: 4 }}>
-                        สร้างเมื่อ {formatDate(unit.create_date)}
+                    <Text type="secondary" style={{ fontSize: 12, display: 'block', marginTop: 4 }}>
+                        อัปเดตล่าสุด {formatDate(unit.update_date || unit.create_date)}
                     </Text>
                 </div>
 
-                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                     <Switch
                         size="small"
                         checked={unit.is_active}
@@ -129,14 +143,14 @@ const UnitCard = ({
                         <Button
                             type="text"
                             icon={<EditOutlined />}
-                            onClick={(event) => {
-                                event.stopPropagation();
+                            onClick={(e) => {
+                                e.stopPropagation();
                                 onEdit(unit);
                             }}
                             style={{
                                 borderRadius: 10,
-                                color: "#0f766e",
-                                background: "#ecfdf5",
+                                color: '#0e7490',
+                                background: '#ecfeff',
                                 width: 36,
                                 height: 36,
                             }}
@@ -148,13 +162,13 @@ const UnitCard = ({
                             danger
                             loading={deletingId === unit.id}
                             icon={deletingId === unit.id ? undefined : <DeleteOutlined />}
-                            onClick={(event) => {
-                                event.stopPropagation();
+                            onClick={(e) => {
+                                e.stopPropagation();
                                 onDelete(unit);
                             }}
                             style={{
                                 borderRadius: 10,
-                                background: "#fef2f2",
+                                background: '#fef2f2',
                                 width: 36,
                                 height: 36,
                             }}
@@ -169,69 +183,58 @@ const UnitCard = ({
 export default function IngredientsUnitPage() {
     const { message: messageApi } = App.useApp();
     const router = useRouter();
-    const pathname = usePathname();
-    const searchParams = useSearchParams();
-    const initRef = useRef(false);
-    const hasLoadedRef = useRef(false);
-    const requestRef = useRef<AbortController | null>(null);
-
-    const { socket } = useSocket();
-    const { user, loading: authLoading } = useAuth();
-    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-
-    const canView = can("stock.ingredients_unit.page", "view");
-    const canCreate = can("stock.ingredients_unit.page", "create");
-    const canUpdate = can("stock.ingredients_unit.page", "update");
-    const canDelete = can("stock.ingredients_unit.page", "delete");
-
-    const [csrfToken, setCsrfToken] = useState("");
     const [units, setUnits] = useState<IngredientsUnit[]>([]);
-    const [totalUnits, setTotalUnits] = useState(0);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState<Error | null>(null);
     const [updatingStatusId, setUpdatingStatusId] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
+    const [hasCachedSnapshot, setHasCachedSnapshot] = useState(false);
+    const [csrfToken, setCsrfToken] = useState<string>("");
+    const requestRef = useRef<AbortController | null>(null);
+    const cacheHydratedRef = useRef(false);
+    
+    const {
+        page,
+        setPage,
+        pageSize,
+        setPageSize,
+        total,
+        setTotal,
+        searchText,
+        setSearchText,
+        debouncedSearch,
+        createdSort,
+        setCreatedSort,
+        filters,
+        updateFilter,
+        getQueryParams,
+        isUrlReady,
+    } = useListState({
+        defaultPageSize: 10,
+        defaultFilters: {
+            status: 'all' as StatusFilter,
+        },
+    });
 
-    const [page, setPage] = useState(1);
-    const [pageSize, setPageSize] = useState(20);
-    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
-    const [searchText, setSearchText] = useState("");
-    const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+    const { showLoading } = useGlobalLoading();
+    const { socket } = useSocket();
+    const { user, loading: authLoading } = useAuth();
+    const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
+    const canCreateUnit = can('stock.ingredients_unit.page', 'create');
+    const canUpdateUnit = can('stock.ingredients_unit.page', 'update');
+    const canDeleteUnit = can('stock.ingredients_unit.page', 'delete');
+    const canView = can('stock.ingredients_unit.page', 'view');
 
-    const deferredSearchText = useDeferredValue(searchText.trim());
-
-    useEffect(() => {
-        if (initRef.current) return;
-
-        const pageParam = Number(searchParams.get("page") || "1");
-        const limitParam = Number(searchParams.get("limit") || "20");
-        const sortParam = searchParams.get("sort_created");
-        const qParam = searchParams.get("q") || "";
-        const statusParam = searchParams.get("status");
-
-        setPage(Number.isFinite(pageParam) && pageParam > 0 ? pageParam : 1);
-        setPageSize(Number.isFinite(limitParam) && limitParam > 0 ? limitParam : 20);
-        setCreatedSort(parseCreatedSort(sortParam));
-        setSearchText(qParam);
-        setStatusFilter(statusParam === "active" || statusParam === "inactive" ? statusParam : "all");
-
-        initRef.current = true;
-    }, [searchParams]);
-
-    useEffect(() => {
-        if (!initRef.current) return;
-
-        const params = new URLSearchParams();
-        if (page > 1) params.set("page", String(page));
-        if (pageSize !== 20) params.set("limit", String(pageSize));
-        if (deferredSearchText) params.set("q", deferredSearchText);
-        if (statusFilter !== "all") params.set("status", statusFilter);
-        if (createdSort !== DEFAULT_CREATED_SORT) params.set("sort_created", createdSort);
-
-        const query = params.toString();
-        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-    }, [createdSort, deferredSearchText, page, pageSize, pathname, router, statusFilter]);
+    const isDefaultListView = useMemo(
+        () =>
+            page === 1 &&
+            pageSize === 10 &&
+            createdSort === DEFAULT_CREATED_SORT &&
+            !debouncedSearch.trim() &&
+            filters.status === 'all',
+        [createdSort, debouncedSearch, filters.status, page, pageSize]
+    );
 
     useEffect(() => {
         let mounted = true;
@@ -241,7 +244,7 @@ export default function IngredientsUnitPage() {
                 const token = await authService.getCsrfToken();
                 if (mounted) setCsrfToken(token);
             } catch {
-                if (mounted) messageApi.error("โหลดโทเค็นความปลอดภัยไม่สำเร็จ");
+                if (mounted) messageApi.error('โหลดโทเค็นความปลอดภัยไม่สำเร็จ');
             }
         };
         void run();
@@ -250,42 +253,64 @@ export default function IngredientsUnitPage() {
         };
     }, [messageApi, user?.id]);
 
+    useEffect(() => {
+        return () => {
+            requestRef.current?.abort();
+        };
+    }, []);
+
+    useEffect(() => {
+        if (!isUrlReady || !user || !canView || !isDefaultListView || cacheHydratedRef.current) {
+            return;
+        }
+
+        cacheHydratedRef.current = true;
+        const cached = readCache<UnitCachePayload>(UNIT_CACHE_KEY, UNIT_CACHE_TTL_MS);
+        if (!cached) return;
+
+        setUnits(cached.items || []);
+        setTotal(cached.total || 0);
+        setHasCachedSnapshot(true);
+        setLoading(false);
+    }, [user, canView, isDefaultListView, isUrlReady, setTotal]);
+
+    useEffect(() => {
+        if (!isDefaultListView || loading) return;
+        writeCache<UnitCachePayload>(UNIT_CACHE_KEY, {
+            items: units,
+            total,
+        });
+    }, [units, isDefaultListView, loading, total]);
+
     const fetchUnits = useCallback(
-        async ({ background = false }: { background?: boolean } = {}) => {
+        async (options?: { background?: boolean }) => {
             if (!canView) return;
 
             requestRef.current?.abort();
             const controller = new AbortController();
             requestRef.current = controller;
+            const background = options?.background === true;
+
+            if (background) {
+                setRefreshing(true);
+            } else {
+                setLoading(true);
+            }
+            setError(null);
 
             try {
-                if (background) {
-                    setRefreshing(true);
-                } else {
-                    setLoading(true);
-                }
-                setError(null);
-
-                const params = new URLSearchParams();
-                params.set("page", String(page));
-                params.set("limit", String(pageSize));
-                params.set("sort_created", createdSort);
-                if (deferredSearchText) params.set("q", deferredSearchText);
-                if (statusFilter !== "all") params.set("status", statusFilter);
-
+                const params = getQueryParams();
                 const payload = await ingredientsUnitService.findAllPaginated(undefined, params, {
                     signal: controller.signal,
                 });
-
-                if (requestRef.current !== controller) return;
+                
+                if (controller.signal.aborted) return;
 
                 setUnits(Array.isArray(payload.data) ? payload.data : []);
-                setTotalUnits(Number(payload.total || 0));
-                hasLoadedRef.current = true;
-            } catch (err) {
-                if ((err as Error)?.name === "AbortError") return;
-                if (requestRef.current !== controller) return;
-                setError(err instanceof Error ? err : new Error("โหลดรายการหน่วยนับไม่สำเร็จ"));
+                setTotal(Number(payload.total || 0));
+            } catch (fetchError) {
+                if ((fetchError as Error)?.name === 'AbortError') return;
+                setError(fetchError instanceof Error ? fetchError : new Error('ไม่สามารถดึงข้อมูลหน่วยนับได้'));
             } finally {
                 if (requestRef.current === controller) {
                     requestRef.current = null;
@@ -296,80 +321,75 @@ export default function IngredientsUnitPage() {
                 }
             }
         },
-        [canView, createdSort, deferredSearchText, page, pageSize, statusFilter]
+        [getQueryParams, canView, setTotal]
     );
 
     useEffect(() => {
-        if (!initRef.current || !canView) return;
-        void fetchUnits({ background: hasLoadedRef.current });
-        return () => {
-            requestRef.current?.abort();
-        };
-    }, [canView, fetchUnits]);
+        if (isUrlReady && user && canView) {
+            void fetchUnits({ background: hasCachedSnapshot });
+        }
+    }, [fetchUnits, hasCachedSnapshot, user, canView, isUrlReady]);
 
-    useEffect(() => {
-        if (!socket || !canView) return;
-
-        const refresh = () => {
+    useRealtimeRefresh({
+        socket,
+        events: [
+            RealtimeEvents.ingredientsUnit.create,
+            RealtimeEvents.ingredientsUnit.update,
+            RealtimeEvents.ingredientsUnit.delete,
+        ],
+        enabled: Boolean(canView && isUrlReady),
+        debounceMs: 250,
+        onRefresh: () => {
             void fetchUnits({ background: true });
-        };
-
-        socket.on(RealtimeEvents.ingredientsUnit.create, refresh);
-        socket.on(RealtimeEvents.ingredientsUnit.update, refresh);
-        socket.on(RealtimeEvents.ingredientsUnit.delete, refresh);
-
-        return () => {
-            socket.off(RealtimeEvents.ingredientsUnit.create, refresh);
-            socket.off(RealtimeEvents.ingredientsUnit.update, refresh);
-            socket.off(RealtimeEvents.ingredientsUnit.delete, refresh);
-        };
-    }, [canView, fetchUnits, socket]);
+        },
+    });
 
     const handleAdd = () => {
-        if (!canCreate) {
-            messageApi.warning("คุณไม่มีสิทธิ์เพิ่มหน่วยนับวัตถุดิบ");
+        if (!canCreateUnit) {
+            messageApi.warning('คุณไม่มีสิทธิ์เพิ่มหน่วยนับ');
             return;
         }
-        router.push("/stock/ingredientsUnit/manage/add");
+        showLoading('กำลังเปิดหน้าจัดการหน่วยนับ...');
+        router.push('/stock/ingredientsUnit/manage/add');
     };
 
     const handleEdit = (unit: IngredientsUnit) => {
-        if (!canUpdate) {
-            messageApi.warning("คุณไม่มีสิทธิ์แก้ไขหน่วยนับวัตถุดิบ");
+        if (!canUpdateUnit) {
+            messageApi.warning('คุณไม่มีสิทธิ์แก้ไขหน่วยนับ');
             return;
         }
+        showLoading('กำลังเปิดหน้าแก้ไขหน่วยนับ...');
         router.push(`/stock/ingredientsUnit/manage/edit/${unit.id}`);
     };
 
     const handleDelete = (unit: IngredientsUnit) => {
-        if (!canDelete) {
-            messageApi.warning("คุณไม่มีสิทธิ์ลบหน่วยนับวัตถุดิบ");
+        if (!canDeleteUnit) {
+            messageApi.warning('คุณไม่มีสิทธิ์ลบหน่วยนับ');
             return;
         }
-
         Modal.confirm({
-            title: "ยืนยันการลบหน่วยนับวัตถุดิบ",
-            content: `ต้องการลบหน่วยนับ ${unit.display_name} หรือไม่?`,
-            okText: "ลบ",
-            okType: "danger",
-            cancelText: "ยกเลิก",
+            title: 'ยืนยันการลบหน่วยนับ',
+            content: `คุณต้องการลบหน่วยนับ ${unit.display_name} หรือไม่?`,
+            okText: 'ลบ',
+            okType: 'danger',
+            cancelText: 'ยกเลิก',
             centered: true,
-            icon: <DeleteOutlined style={{ color: "#ef4444" }} />,
+            icon: <DeleteOutlined style={{ color: '#EF4444' }} />,
             onOk: async () => {
                 setDeletingId(unit.id);
                 try {
                     await ingredientsUnitService.delete(unit.id, undefined, csrfToken);
                     const shouldMoveToPreviousPage = page > 1 && units.length === 1;
                     setUnits((prev) => prev.filter((item) => item.id !== unit.id));
-                    setTotalUnits((prev) => Math.max(prev - 1, 0));
+                    setTotal((prev) => Math.max(prev - 1, 0));
                     if (shouldMoveToPreviousPage) {
                         setPage(page - 1);
                     } else {
                         void fetchUnits({ background: true });
                     }
                     messageApi.success(`ลบหน่วยนับ "${unit.display_name}" สำเร็จ`);
-                } catch (err) {
-                    messageApi.error(err instanceof Error ? err.message : "ลบหน่วยนับวัตถุดิบไม่สำเร็จ");
+                } catch (deleteError) {
+                    messageApi.error(deleteError instanceof Error ? deleteError.message : 'ไม่สามารถลบหน่วยนับได้');
                 } finally {
                     setDeletingId(null);
                 }
@@ -378,56 +398,50 @@ export default function IngredientsUnitPage() {
     };
 
     const handleToggleActive = async (unit: IngredientsUnit, next: boolean) => {
-        if (!canUpdate) {
-            messageApi.warning("คุณไม่มีสิทธิ์เปลี่ยนสถานะหน่วยนับวัตถุดิบ");
+        if (!canUpdateUnit) {
+            messageApi.warning('คุณไม่มีสิทธิ์เปลี่ยนสถานะหน่วยนับ');
             return;
         }
-
         setUpdatingStatusId(unit.id);
         try {
             const updated = await ingredientsUnitService.update(
                 unit.id,
-                {
-                    display_name: unit.display_name,
-                    is_active: next,
-                },
+                { display_name: unit.display_name, is_active: next },
                 undefined,
                 csrfToken
             );
             setUnits((prev) => prev.map((item) => (item.id === unit.id ? updated : item)));
-            messageApi.success(next ? "เปิดใช้งานหน่วยนับแล้ว" : "ปิดใช้งานหน่วยนับแล้ว");
-        } catch (err) {
-            messageApi.error(err instanceof Error ? err.message : "เปลี่ยนสถานะหน่วยนับไม่สำเร็จ");
+            messageApi.success(next ? 'เปิดใช้งานหน่วยนับแล้ว' : 'ปิดใช้งานหน่วยนับแล้ว');
+        } catch (toggleError) {
+            messageApi.error(toggleError instanceof Error ? toggleError.message : 'ไม่สามารถเปลี่ยนสถานะหน่วยนับได้');
         } finally {
             setUpdatingStatusId(null);
         }
     };
 
     if (authLoading || permissionLoading) {
-        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
+        return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
     }
 
     if (!user || !canView) {
-        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้าหน่วยนับวัตถุดิบ" tone="danger" />;
+        return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้" tone="danger" />;
     }
 
     return (
-        <div className="stock-ingredients-unit-list-page" style={pageStyles.container}>
-            <IngredientsUnitPageStyle />
-            <style>{globalStyles}</style>
-
+        <div style={pageStyles.container} data-testid="stock-ingredients-unit-page">
             <UIPageHeader
                 title="หน่วยนับวัตถุดิบ"
                 icon={<ExperimentOutlined />}
                 actions={
                     <Space size={10} wrap>
-                        <Button
-                            icon={<ReloadOutlined />}
-                            loading={refreshing}
-                            onClick={() => void fetchUnits({ background: units.length > 0 })}
-                        />
-                        {canCreate ? (
-                            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                        <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchUnits({ background: units.length > 0 })} />
+                        {canCreateUnit ? (
+                            <Button
+                                type="primary"
+                                icon={<PlusOutlined />}
+                                onClick={handleAdd}
+                                data-testid="stock-ingredients-unit-add"
+                            >
                                 เพิ่มหน่วยนับ
                             </Button>
                         ) : null}
@@ -438,37 +452,34 @@ export default function IngredientsUnitPage() {
             <PageContainer>
                 <PageStack>
                     <SearchBar>
-                        <SearchInput placeholder="ค้นหาหน่วยนับ" value={searchText} onChange={(value) => {
-                            setPage(1);
-                            setSearchText(value);
-                        }} />
-                        <Space wrap size={10} style={{ justifyContent: "space-between", width: "100%" }}>
+                        <div data-testid="stock-ingredients-unit-search">
+                            <SearchInput
+                                placeholder="ค้นหา"
+                                value={searchText}
+                                onChange={setSearchText}
+                            />
+                        </div>
+                        <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
                             <Space wrap size={10}>
                                 <ModalSelector<StatusFilter>
                                     title="เลือกสถานะ"
                                     options={[
-                                        { label: "ทั้งหมด", value: "all" },
-                                        { label: "ใช้งาน", value: "active" },
-                                        { label: "ปิดใช้งาน", value: "inactive" },
+                                        { label: 'ทั้งหมด', value: 'all' },
+                                        { label: 'ใช้งาน', value: 'active' },
+                                        { label: 'ปิดใช้งาน', value: 'inactive' },
                                     ]}
-                                    value={statusFilter}
-                                    onChange={(value) => {
-                                        setPage(1);
-                                        setStatusFilter(value);
-                                    }}
+                                    value={filters.status}
+                                    onChange={(value) => updateFilter('status', value)}
                                     style={{ minWidth: 120 }}
                                 />
                                 <ModalSelector<CreatedSort>
                                     title="เรียงลำดับ"
                                     options={[
-                                        { label: "เก่าก่อน", value: "old" },
-                                        { label: "ใหม่ก่อน", value: "new" },
+                                        { label: 'เก่าก่อน', value: 'old' },
+                                        { label: 'ใหม่ก่อน', value: 'new' },
                                     ]}
                                     value={createdSort}
-                                    onChange={(value) => {
-                                        setPage(1);
-                                        setCreatedSort(value);
-                                    }}
+                                    onChange={setCreatedSort}
                                     style={{ minWidth: 120 }}
                                 />
                             </Space>
@@ -476,36 +487,38 @@ export default function IngredientsUnitPage() {
                     </SearchBar>
 
                     <PageSection
-                        title="รายการหน่วยนับวัตถุดิบ"
+                        title="รายการหน่วยนับ"
                         extra={
                             <Space size={8} wrap>
                                 {refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}
-                                <span style={{ fontWeight: 600 }}>{totalUnits} รายการ</span>
+                                <span style={{ fontWeight: 600 }}>{total} รายการ</span>
                             </Space>
                         }
                     >
                         {loading && units.length === 0 ? (
-                            <PageState status="loading" title="กำลังโหลดรายการหน่วยนับวัตถุดิบ..." />
+                            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: 180, width: "100%" }}>
+                                <ReloadOutlined spin style={{ fontSize: 32, color: "rgba(0,0,0,0.45)" }} />
+                            </div>
                         ) : error && units.length === 0 ? (
                             <PageState
                                 status="error"
-                                title="โหลดรายการหน่วยนับวัตถุดิบไม่สำเร็จ"
+                                title="โหลดข้อมูลหน่วยนับไม่สำเร็จ"
                                 error={error}
                                 onRetry={() => void fetchUnits()}
                             />
                         ) : units.length > 0 ? (
-                            <Space direction="vertical" size={16} style={{ width: "100%" }}>
+                            <Space direction="vertical" size={16} style={{ width: '100%' }}>
                                 {units.map((unit) => (
                                     <UnitCard
                                         key={unit.id}
                                         unit={unit}
-                                        canUpdate={canUpdate}
-                                        canDelete={canDelete}
-                                        updatingStatusId={updatingStatusId}
-                                        deletingId={deletingId}
                                         onEdit={handleEdit}
                                         onDelete={handleDelete}
                                         onToggleActive={handleToggleActive}
+                                        updatingStatusId={updatingStatusId}
+                                        deletingId={deletingId}
+                                        canUpdate={canUpdateUnit}
+                                        canDelete={canDeleteUnit}
                                     />
                                 ))}
 
@@ -513,19 +526,19 @@ export default function IngredientsUnitPage() {
                                     <ListPagination
                                         page={page}
                                         pageSize={pageSize}
-                                        total={totalUnits}
+                                        total={total}
                                         loading={loading || refreshing}
                                         onPageChange={setPage}
                                         onPageSizeChange={setPageSize}
-                                        activeColor="#0f766e"
+                                        activeColor="#0e7490"
                                     />
                                 </div>
                             </Space>
                         ) : (
                             <UIEmptyState
-                                title={deferredSearchText ? "ไม่พบหน่วยนับตามคำค้น" : "ยังไม่มีหน่วยนับวัตถุดิบ"}
+                                title={debouncedSearch.trim() ? "ไม่พบหน่วยนับตามคำค้น" : "ยังไม่มีหน่วยนับวัตถุดิบ"}
                                 description={
-                                    deferredSearchText
+                                    debouncedSearch.trim()
                                         ? "ลองเปลี่ยนคำค้นหาหรือตัวกรองสถานะ"
                                         : "เพิ่มหน่วยนับแรกเพื่อให้ทีมงานเลือกใช้งานได้ถูกต้อง"
                                 }

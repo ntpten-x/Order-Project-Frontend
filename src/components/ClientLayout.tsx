@@ -46,7 +46,10 @@ const ClientLayout: React.FC<ClientLayoutProps> = ({ children }) => {
         paddingBottom: bottomNavOffset
           ? `calc(${bottomNavOffset}px + env(safe-area-inset-bottom))`
           : 0,
-        minHeight: "100vh",
+        minHeight: "100dvh",
+        width: "100%",
+        maxWidth: "100%",
+        overflowX: "hidden",
         background: isHeaderlessPage ? token.colorBgContainer : token.colorBgLayout,
         transition: "all 0.3s ease"
       }}

@@ -275,7 +275,7 @@ export default function ProductsUnitManagePage({ params }: { params: { mode: str
                                         <Card style={{ borderRadius: 16 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                                                 <ExclamationCircleOutlined style={{ color: '#0369a1' }} />
-                                                <Text strong>รายละเอียดรายการ</Text>
+                                                <Text strong>รายละเอียด</Text>
                                             </div>
                                             <Text type="secondary" style={{ display: 'block' }}>สร้างเมื่อ: {formatDate(originalUnit?.create_date)}</Text>
                                             <Text type="secondary" style={{ display: 'block' }}>อัปเดตเมื่อ: {formatDate(originalUnit?.update_date)}</Text>

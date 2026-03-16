@@ -3,9 +3,9 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Alert, App, Button, Card, Col, Form, Input, Row, Spin, Switch, Typography } from "antd";
 import {
+    AppstoreOutlined,
     DeleteOutlined,
-    ExperimentOutlined,
-    InfoCircleOutlined,
+    ExclamationCircleOutlined,
     SaveOutlined,
     UnorderedListOutlined,
 } from "@ant-design/icons";
@@ -21,7 +21,7 @@ import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
 import { AccessGuardFallback } from "../../../../../../components/pos/AccessGuard";
 import IngredientsUnitManageStyle, { pageStyles } from "./style";
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
 type ManageMode = "add" | "edit";
 
@@ -206,7 +206,11 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
     }
 
     return (
-        <div className="stock-ingredients-unit-manage-page" style={pageStyles.container}>
+        <div
+            className="stock-ingredients-unit-manage-page"
+            style={pageStyles.container}
+            data-testid="stock-ingredients-unit-manage-page"
+        >
             <IngredientsUnitManageStyle />
 
             <UIPageHeader
@@ -230,12 +234,10 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
                     ) : (
                         <Row gutter={[20, 20]}>
                             <Col xs={24} lg={15}>
-                                <Card bordered={false} className="stock-manage-card stock-manage-main-card">
-                                    <div className="stock-manage-card-header">
-                                        <ExperimentOutlined className="stock-manage-card-icon" />
-                                        <Title level={5} style={{ margin: 0 }}>
-                                            ข้อมูลหน่วยนับ
-                                        </Title>
+                                <Card bordered={false} style={{ borderRadius: 20 }}>
+                                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+                                        <AppstoreOutlined style={{ fontSize: 20, color: "#0e7490" }} />
+                                        <Title level={5} style={{ margin: 0 }}>ข้อมูลหน่วยนับ</Title>
                                     </div>
 
                                     {error ? (
@@ -257,7 +259,7 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
                                         <Form.Item
                                             name="display_name"
                                             label={<span style={{ fontWeight: 600 }}>ชื่อหน่วยนับ</span>}
-                                            extra="ใช้ชื่อสั้น ชัดเจน เช่น กิโลกรัม กรัม ลิตร หรือ แพ็ก"
+                                            validateTrigger={["onBlur", "onSubmit"]}
                                             rules={[
                                                 { required: true, message: "กรุณากรอกชื่อหน่วยนับ" },
                                                 { max: 100, message: "ความยาวต้องไม่เกิน 100 ตัวอักษร" },
@@ -266,44 +268,26 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
                                             <Input
                                                 size="large"
                                                 maxLength={100}
-                                                placeholder="เช่น กิโลกรัม"
-                                                onBlur={() => {
-                                                    const value = form.getFieldValue("display_name");
-                                                    if (typeof value === "string") {
-                                                        form.setFieldValue("display_name", value.trim());
-                                                    }
-                                                }}
+                                                placeholder="เช่น กิโลกรัม, แพ็ก, กล่อง..."
+                                                data-testid="stock-ingredients-unit-display-name-input"
                                             />
                                         </Form.Item>
 
-                                        <div className="stock-manage-switch-panel">
-                                            <div>
-                                                <Text strong>สถานะการใช้งาน</Text>
-                                                <Text type="secondary" className="stock-manage-muted-text">
-                                                    เปิดไว้เมื่อยังต้องการให้หน่วยนี้แสดงในฟอร์มเลือกวัตถุดิบ
-                                                </Text>
+                                        <div style={{ padding: 16, background: "#f8fafc", borderRadius: 14, marginBottom: 18 }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                <div>
+                                                    <Text strong>สถานะการใช้งาน</Text>
+                                                    <Text type="secondary" style={{ display: "block", fontSize: 13 }}>เปิดไว้เมื่อยังต้องการให้หน่วยนี้แสดงในฟอร์มเลือกวัตถุดิบ</Text>
+                                                </div>
+                                                <Form.Item name="is_active" valuePropName="checked" noStyle>
+                                                    <Switch checked={Boolean(isActive)} />
+                                                </Form.Item>
                                             </div>
-                                            <Form.Item name="is_active" valuePropName="checked" noStyle>
-                                                <Switch checked={Boolean(isActive)} />
-                                            </Form.Item>
                                         </div>
 
-                                        <div className="stock-manage-form-actions">
-                                            <Button
-                                                size="large"
-                                                onClick={() => router.replace("/stock/ingredientsUnit")}
-                                                className="stock-manage-action-button"
-                                            >
-                                                ยกเลิก
-                                            </Button>
-                                            <Button
-                                                type="primary"
-                                                htmlType="submit"
-                                                size="large"
-                                                icon={<SaveOutlined />}
-                                                loading={submitting}
-                                                className="stock-manage-action-button stock-manage-action-button-primary"
-                                            >
+                                        <div style={{ display: "flex", gap: 12 }}>
+                                            <Button size="large" onClick={() => router.replace("/stock/ingredientsUnit")} style={{ flex: 1 }}>ยกเลิก</Button>
+                                            <Button type="primary" htmlType="submit" size="large" icon={<SaveOutlined />} loading={submitting} style={{ flex: 2 }}>
                                                 บันทึกข้อมูล
                                             </Button>
                                         </div>
@@ -312,53 +296,27 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
                             </Col>
 
                             <Col xs={24} lg={9}>
-                                <div className="stock-manage-side-grid">
-                                    <Card className="stock-manage-card stock-manage-side-card">
-                                        <div className="stock-manage-card-header">
-                                            <UnorderedListOutlined className="stock-manage-side-icon" />
+                                <div style={{ display: "grid", gap: 14 }}>
+                                    <Card style={{ borderRadius: 20 }}>
+                                        <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                                            <UnorderedListOutlined style={{ color: "#0e7490" }} />
                                             <Text strong>ตัวอย่างการแสดงผล</Text>
                                         </div>
-
-                                        <Title level={4} className="stock-manage-preview-title">
-                                            {displayName.trim() || "ชื่อหน่วยนับ"}
-                                        </Title>
-
+                                        <Title level={4} style={{ marginBottom: 8 }}>{displayName.trim() || "ชื่อหน่วยนับ"}</Title>
                                         <Alert
                                             type={isActive === false ? "warning" : "success"}
                                             showIcon
-                                            message={
-                                                isActive === false
-                                                    ? "หน่วยนับนี้ถูกปิดใช้งาน"
-                                                    : "หน่วยนับนี้พร้อมให้เลือกใช้งาน"
-                                            }
+                                            message={isActive === false ? "หน่วยนับนี้ถูกปิดใช้งาน" : "หน่วยนับนี้พร้อมให้เลือกใช้งาน"}
                                         />
                                     </Card>
 
-                                    <Card className="stock-manage-card stock-manage-side-card">
-                                        <div className="stock-manage-card-header">
-                                            <InfoCircleOutlined className="stock-manage-side-icon" />
-                                            <Text strong>คำแนะนำ</Text>
-                                        </div>
-                                        <Paragraph className="stock-manage-help-text">
-                                            ตั้งชื่อให้ตรงกับการใช้งานจริงของคลัง เพื่อให้ทีมงานค้นหาและเลือกได้เร็วขึ้น
-                                        </Paragraph>
-                                        <Paragraph className="stock-manage-help-text" style={{ marginBottom: 0 }}>
-                                            หากเลิกใช้หน่วยนี้ชั่วคราว แนะนำให้ปิดการใช้งานแทนการลบ เพื่อไม่ให้กระทบข้อมูลเดิม
-                                        </Paragraph>
-                                    </Card>
-
                                     {isEdit && originalUnit ? (
-                                        <Card className="stock-manage-card stock-manage-side-card">
-                                            <div className="stock-manage-card-header">
-                                                <InfoCircleOutlined className="stock-manage-side-icon" />
-                                                <Text strong>รายละเอียดรายการ</Text>
+                                        <Card style={{ borderRadius: 16 }}>
+                                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                                                <ExclamationCircleOutlined style={{ color: "#0e7490" }} />
+                                                <Text strong>รายละเอียด</Text>
                                             </div>
-                                            <Text type="secondary" className="stock-manage-detail-line">
-                                                รหัสรายการ: {originalUnit.id}
-                                            </Text>
-                                            <Text type="secondary" className="stock-manage-detail-line">
-                                                สร้างเมื่อ: {formatDate(originalUnit.create_date)}
-                                            </Text>
+                                            <Text type="secondary" style={{ display: "block" }}>สร้างเมื่อ: {formatDate(originalUnit.create_date)}</Text>
                                         </Card>
                                     ) : null}
                                 </div>

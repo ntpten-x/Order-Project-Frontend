@@ -3,7 +3,7 @@ import { getProxyUrl } from "../../lib/proxy-utils";
 import { normalizeBackendPaginated, unwrapBackendData } from "../../utils/api/backendResponse";
 
 const BASE_PATH = "/pos/topping";
-type ToppingMutationPayload = Partial<Topping> & { category_ids?: string[] };
+type ToppingMutationPayload = Partial<Topping> & { category_ids?: string[]; topping_group_ids?: string[] };
 
 export const toppingService = {
     findAllPaginated: async (

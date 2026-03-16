@@ -5,7 +5,6 @@ import { usePathname, useRouter } from "next/navigation";
 import {
   AppstoreOutlined,
   CarOutlined,
-  ControlOutlined,
   CreditCardOutlined,
   EllipsisOutlined,
   FileTextOutlined,
@@ -19,6 +18,8 @@ import {
   HistoryOutlined,
   ShopOutlined,
   SettingOutlined,
+  FileAddOutlined,
+  MinusCircleOutlined,
 } from "@ant-design/icons";
 import { Badge, Button, Drawer, List } from "antd";
 
@@ -153,6 +154,20 @@ const POSBottomNavigation = () => {
         path: "/pos/products",
       },
       {
+        key: "topping",
+        visibilityKey: "menu.pos.topping",
+        label: "ท็อปปิ้ง",
+        icon: <TagsOutlined />,
+        path: "/pos/topping",
+      },
+      {
+        key: "toppingGroup",
+        visibilityKey: "menu.pos.toppingGroup",
+        label: "กลุ่มท็อปปิ้ง",
+        icon: <FileAddOutlined />,
+        path: "/pos/toppingGroup",
+      },
+      {
         key: "category",
         visibilityKey: "menu.pos.category",
         label: "หมวดหมู่",
@@ -167,17 +182,10 @@ const POSBottomNavigation = () => {
         path: "/pos/productsUnit",
       },
       {
-        key: "topping",
-        visibilityKey: "menu.pos.topping",
-        label: "ท็อปปิ้ง",
-        icon: <ControlOutlined />,
-        path: "/pos/topping",
-      },
-      {
         key: "discounts",
         visibilityKey: "menu.pos.discounts",
         label: "ส่วนลด",
-        icon: <TagsOutlined />,
+        icon: <MinusCircleOutlined />,
         path: "/pos/discounts",
       },
       {

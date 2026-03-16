@@ -10,7 +10,7 @@ import {
     EditOutlined,
 } from "@ant-design/icons";
 
-const { Text, Title } = Typography;
+const { Title } = Typography;
 
 type ManageStyleOptions = {
     focusColor: string;
@@ -29,7 +29,7 @@ export const createManagePageStyles = ({
         container: {
             paddingBottom: 100,
             backgroundColor: "#f8f9fc",
-            minHeight: "100vh",
+            minHeight: "100dvh",
             height: "100dvh",
             overflowX: "hidden" as const,
             overflowY: "auto" as const,

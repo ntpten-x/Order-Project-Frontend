@@ -15,9 +15,11 @@ type POSCategoryFilterBarProps = {
   selectedCategory?: string;
   categories: CategoryOption[];
   isPending?: boolean;
+  searchInputTestId?: string;
   searchInputRef?: React.Ref<InputRef>;
   onSearchChange: (value: string) => void;
   onSelectCategory: (categoryId?: string) => void;
+  showSearch?: boolean;
 };
 
 export function POSCategoryFilterBar({
@@ -25,55 +27,63 @@ export function POSCategoryFilterBar({
   selectedCategory,
   categories,
   isPending = false,
+  searchInputTestId,
   searchInputRef,
   onSearchChange,
   onSelectCategory,
+  showSearch = true,
 }: POSCategoryFilterBarProps) {
   return (
     <nav
-      style={posLayoutStyles.categoryBar}
+      style={{ ...posLayoutStyles.categoryBar, padding: showSearch ? "14px 24px" : "10px 24px" }}
       className="pos-category-bar pos-category-bar-mobile"
       role="navigation"
       aria-busy={isPending}
       aria-label="ตัวกรองหมวดหมู่"
     >
-      <div style={{ maxWidth: 1400, margin: "0 auto", display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ maxWidth: 1400, margin: "0 auto", display: "flex", flexDirection: "column", gap: showSearch ? 12 : 0 }}>
         {/* Controlled by the parent so the input always reflects the URL-backed search state. */}
-        <Input
-          ref={searchInputRef}
-          value={searchQuery}
-          allowClear
-          prefix={<SearchOutlined style={{ color: "#94a3b8" }} />}
-          placeholder="ค้นหาสินค้า..."
-          aria-label="ค้นหาสินค้า"
-          onChange={(e) => onSearchChange(e.target.value)}
-          className="pos-product-search"
-          style={{ borderRadius: 16, height: 44 }}
-        />
+        {showSearch && (
+          <Input
+            ref={searchInputRef}
+            value={searchQuery}
+            allowClear
+            prefix={<SearchOutlined style={{ color: "#94a3b8" }} />}
+            placeholder="ค้นหาสินค้า..."
+            aria-label="ค้นหาสินค้า"
+            onChange={(e) => onSearchChange(e.target.value)}
+            className="pos-product-search"
+            style={{ borderRadius: 16, height: 44 }}
+            data-testid={searchInputTestId}
+          />
+        )}
 
-        <div
-          style={{
-            minHeight: 20,
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "flex-end",
-            color: "#64748B",
-            fontSize: 12,
-          }}
-        >
-          {isPending ? (
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <Spin size="small" />
-              Updating products...
-            </span>
-          ) : null}
-        </div>
+        {(showSearch || isPending) && (
+          <div
+            style={{
+              minHeight: 20,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "flex-end",
+              color: "#64748B",
+              fontSize: 12,
+            }}
+          >
+            {isPending ? (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <Spin size="small" />
+                Updating products...
+              </span>
+            ) : null}
+          </div>
+        )}
 
         <div
           style={{
             ...posLayoutStyles.categoryScroll,
             opacity: isPending ? 0.72 : 1,
             transition: "opacity 0.18s ease",
+            alignItems: "center",
           }}
           className="pos-category-scroll-row"
         >

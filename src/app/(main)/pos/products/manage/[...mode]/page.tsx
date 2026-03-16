@@ -1,18 +1,20 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Card, Col, Form, Input, InputNumber, Modal, Row, Spin, Switch, Typography, message } from 'antd';
+import { Alert, Button, Card, Col, Form, Input, Modal, Row, Spin, Switch, Typography, message } from 'antd';
 import { AppstoreOutlined, CheckCircleOutlined, DeleteOutlined, DownOutlined, ExclamationCircleOutlined, SaveOutlined, ShopOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 import PageContainer from '../../../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../../../components/ui/page/PageSection';
 import UIPageHeader from '../../../../../../components/ui/page/PageHeader';
+import { ModalSelector } from '../../../../../../components/ui/select/ModalSelector';
 import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuard';
 import { useEffectivePermissions } from '../../../../../../hooks/useEffectivePermissions';
 import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
 import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
 import { Category } from '../../../../../../types/api/pos/category';
 import { Products } from '../../../../../../types/api/pos/products';
+import { ToppingGroup } from '../../../../../../types/api/pos/toppingGroup';
 import { ProductsUnit } from '../../../../../../types/api/pos/productsUnit';
 import { isSupportedImageSource, normalizeImageSource } from '../../../../../../utils/image/source';
 import { pageStyles, ProductPreview } from './style';
@@ -28,6 +30,7 @@ type ProductFormValues = {
     price: number;
     price_delivery?: number;
     category_id: string;
+    topping_group_ids?: string[];
     unit_id: string;
     is_active?: boolean;
 };
@@ -56,6 +59,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     const [loading, setLoading] = useState(false);
     const [submitting, setSubmitting] = useState(false);
     const [categories, setCategories] = useState<Category[]>([]);
+    const [toppingGroups, setToppingGroups] = useState<ToppingGroup[]>([]);
     const [units, setUnits] = useState<ProductsUnit[]>([]);
     const [csrfToken, setCsrfToken] = useState('');
     const [originalProduct, setOriginalProduct] = useState<Products | null>(null);
@@ -75,6 +79,8 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     const canDelete = can('products.page', 'delete');
 
     const selectedCategoryId = Form.useWatch('category_id', form);
+    const watchedToppingGroupIds = Form.useWatch('topping_group_ids', form);
+    const toppingGroupIds = useMemo(() => watchedToppingGroupIds ?? [], [watchedToppingGroupIds]);
     const selectedUnitId = Form.useWatch('unit_id', form);
     const displayName = Form.useWatch('display_name', form);
     const imageUrl = Form.useWatch('img_url', form);
@@ -83,6 +89,10 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     const isActive = Form.useWatch('is_active', form) ?? true;
 
     const activeCategories = useMemo(() => categories.filter((item) => item.is_active), [categories]);
+    const availableToppingGroups = useMemo(
+        () => toppingGroups.filter((item) => item.is_active || toppingGroupIds.includes(item.id)),
+        [toppingGroupIds, toppingGroups]
+    );
     const activeUnits = useMemo(() => units.filter((item) => item.is_active), [units]);
 
     useEffect(() => {
@@ -119,6 +129,11 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
         if (response.ok) setUnits(parseListResponse<ProductsUnit>(await response.json()));
     }, []);
 
+    const fetchToppingGroups = useCallback(async () => {
+        const response = await fetch('/api/pos/toppingGroup', { cache: 'no-store' });
+        if (response.ok) setToppingGroups(parseListResponse<ToppingGroup>(await response.json()));
+    }, []);
+
     const fetchProduct = useCallback(async () => {
         if (!id) return;
         setLoading(true);
@@ -133,6 +148,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                 price: Number(data.price || 0),
                 price_delivery: Number(data.price_delivery ?? data.price ?? 0),
                 category_id: data.category_id,
+                topping_group_ids: (data.topping_groups || []).map((group: ToppingGroup) => group.id),
                 unit_id: data.unit_id,
                 is_active: data.is_active,
             });
@@ -150,9 +166,10 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
     useEffect(() => {
         if (!isAuthorized || permissionLoading) return;
         void fetchCategories();
+        void fetchToppingGroups();
         void fetchUnits();
         if (isEdit) void fetchProduct();
-    }, [fetchCategories, fetchProduct, fetchUnits, isAuthorized, isEdit, permissionLoading]);
+    }, [fetchCategories, fetchProduct, fetchToppingGroups, fetchUnits, isAuthorized, isEdit, permissionLoading]);
 
     const checkNameConflict = useCallback(async (rawValue: string) => {
         const value = rawValue.trim();
@@ -183,6 +200,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                 price: Number(values.price || 0),
                 price_delivery: values.price_delivery === undefined || values.price_delivery === null ? Number(values.price || 0) : Number(values.price_delivery),
                 category_id: values.category_id,
+                topping_group_ids: values.topping_group_ids || [],
                 unit_id: values.unit_id,
                 is_active: values.is_active,
             };
@@ -269,7 +287,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                         form={form}
                                         layout="vertical"
                                         onFinish={handleSubmit}
-                                        initialValues={{ is_active: true, price: 0, price_delivery: 0 }}
+                                        initialValues={{ is_active: true, price: 0, price_delivery: 0, topping_group_ids: [] }}
                                         onValuesChange={(changed) => {
                                             if (!isEdit && changed.price !== undefined && !form.isFieldTouched('price_delivery')) {
                                                 form.setFieldsValue({ price_delivery: changed.price });
@@ -282,7 +300,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                             validateTrigger={['onBlur', 'onSubmit']}
                                             rules={[
                                                 { required: true, message: 'กรุณากรอกชื่อสินค้า' },
-                                                { max: 100, message: 'ความยาวต้องไม่เกิน 100 ตัวอักษร' },
+                                                { max: 100, message: 'ชื่อต้องไม่เกิน 100 ตัวอักษร' },
                                                 {
                                                     validator: async (_, value: string) => {
                                                         if (!value?.trim()) return;
@@ -341,6 +359,27 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                                 </Form.Item>
                                             </Col>
                                         </Row>
+
+                                        <Form.Item
+                                            name="topping_group_ids"
+                                            label={<span style={{ fontWeight: 600 }}>กลุ่มท็อปปิ้งที่ใช้ได้</span>}
+                                            extra="ถ้าไม่เลือกไว้ สินค้านี้จะไม่มีท็อปปิ้งให้เลือก"
+                                        >
+                                            <ModalSelector<string>
+                                                title="เลือกกลุ่มท็อปปิ้ง"
+                                                value={toppingGroupIds}
+                                                multiple
+                                                showSearch
+                                                options={availableToppingGroups.map((group) => ({
+                                                    label: group.display_name,
+                                                    value: group.id,
+                                                    searchLabel: group.display_name,
+                                                }))}
+                                                onChange={(value) => form.setFieldValue('topping_group_ids', value)}
+                                                placeholder="ไม่กำหนดกลุ่มท็อปปิ้ง"
+                                                style={{ minHeight: 46, borderRadius: 12, padding: '10px 16px' }}
+                                            />
+                                        </Form.Item>
 
                                         <Form.Item
                                             name="img_url"
@@ -403,7 +442,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                                         <Card style={{ borderRadius: 16 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                                                 <ExclamationCircleOutlined style={{ color: '#0369a1' }} />
-                                                <Text strong>รายละเอียดรายการ</Text>
+                                                <Text strong>รายละเอียด</Text>
                                             </div>
                                             <Text type="secondary" style={{ display: 'block' }}>สร้างเมื่อ: {formatDate(originalProduct?.create_date)}</Text>
                                             <Text type="secondary" style={{ display: 'block' }}>อัปเดตเมื่อ: {formatDate(originalProduct?.update_date)}</Text>
@@ -426,7 +465,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                 </PageSection>
             </PageContainer>
 
-            <Modal title="เลือกหมวดหมู่" open={isCategoryModalVisible} onCancel={() => setIsCategoryModalVisible(false)} footer={null} centered width={400}>
+            <Modal title="เลือกหมวดหมู่" open={isCategoryModalVisible} onCancel={() => setIsCategoryModalVisible(false)} footer={null} centered width="min(400px, calc(100vw - 16px))">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
                     {activeCategories.map((cat) => (
                         <div key={cat.id} onClick={() => { form.setFieldsValue({ category_id: cat.id }); setIsCategoryModalVisible(false); }} style={{ padding: '14px 18px', border: '2px solid', borderRadius: 12, cursor: 'pointer', background: selectedCategoryId === cat.id ? '#eff6ff' : '#fff', borderColor: selectedCategoryId === cat.id ? '#3b82f6' : '#e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -437,7 +476,7 @@ export default function ProductsManagePage({ params }: { params: { mode: string[
                 </div>
             </Modal>
 
-            <Modal title="เลือกหน่วยสินค้า" open={isUnitModalVisible} onCancel={() => setIsUnitModalVisible(false)} footer={null} centered width={400}>
+            <Modal title="เลือกหน่วยสินค้า" open={isUnitModalVisible} onCancel={() => setIsUnitModalVisible(false)} footer={null} centered width="min(400px, calc(100vw - 16px))">
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
                     {activeUnits.map((unit) => (
                         <div key={unit.id} onClick={() => { form.setFieldsValue({ unit_id: unit.id }); setIsUnitModalVisible(false); }} style={{ padding: '14px 18px', border: '2px solid', borderRadius: 12, cursor: 'pointer', background: selectedUnitId === unit.id ? '#eff6ff' : '#fff', borderColor: selectedUnitId === unit.id ? '#3b82f6' : '#e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

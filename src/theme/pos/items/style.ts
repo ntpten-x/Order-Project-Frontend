@@ -81,7 +81,7 @@ export const itemsResponsiveStyles = `
     
     /* Mobile Layout Container */
     .payment-page-container {
-        min-height: 100vh;
+        min-height: 100dvh;
         background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
         padding-bottom: 120px; /* Space for sticky footer */
     }
@@ -329,12 +329,12 @@ export const itemsResponsiveStyles = `
     /* Sticky Footer - Mobile */
     .payment-sticky-footer-mobile {
         position: fixed;
-        bottom: 0;
+        bottom: env(safe-area-inset-bottom, 0px);
         left: 0;
         right: 0;
         background: #fff;
         padding: 16px;
-        padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+        padding-bottom: 16px;
         box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
         z-index: 1000;
         border-top: 1px solid #e2e8f0;
@@ -671,7 +671,7 @@ export const itemsResponsiveStyles = `
     
     /* Mobile Layout Container */
     .delivery-page-container {
-        min-height: 100vh;
+        min-height: 100dvh;
         background: linear-gradient(180deg, #fdf2f8 0%, #fce7f3 100%);
         padding-bottom: 40px; /* Space for content */
     }
@@ -836,12 +836,12 @@ export const itemsResponsiveStyles = `
     /* Sticky Footer - Delivery */
     .delivery-sticky-footer {
         position: fixed;
-        bottom: 0;
+        bottom: env(safe-area-inset-bottom, 0px);
         left: 0;
         right: 0;
         background: #fff;
         padding: 16px;
-        padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+        padding-bottom: 16px;
         box-shadow: 0 -6px 24px rgba(236, 72, 153, 0.15);
         z-index: 1000;
         border-top: 1px solid #fce7f3;

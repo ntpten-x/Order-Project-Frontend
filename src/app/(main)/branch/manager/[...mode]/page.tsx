@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { ArrowLeftOutlined, DeleteOutlined, SaveOutlined } from '@ant-design/icons';
+import { DeleteOutlined, SaveOutlined } from '@ant-design/icons';
 import { App, Button, Card, Col, Form, Input, Row, Spin, Switch, Typography } from 'antd';
 import { useRouter } from 'next/navigation';
 import { branchService } from '../../../../../services/branch.service';
@@ -20,11 +20,17 @@ const { Title, Text } = Typography;
 
 type BranchFormValues = CreateBranchInput & { is_active: boolean };
 
+function normalizeOptionalText(value: string | null | undefined): string | undefined {
+  const normalized = typeof value === 'string' ? value.trim() : '';
+  return normalized || undefined;
+}
+
 export default function BranchManagePage({ params }: { params: { mode: string[] } }) {
   const router = useRouter();
   const [form] = Form.useForm<BranchFormValues>();
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
   const { user, loading: authLoading } = useAuth();
   const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
   const canCreateBranches = can('branches.page', 'create');
@@ -46,9 +52,9 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
       form.setFieldsValue({
         branch_name: data.branch_name,
         branch_code: data.branch_code,
-        address: data.address,
-        phone: data.phone,
-        tax_id: data.tax_id,
+        address: data.address ?? undefined,
+        phone: data.phone ?? undefined,
+        tax_id: data.tax_id ?? undefined,
         is_active: data.is_active,
       });
     } catch (error) {
@@ -77,15 +83,33 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
     }
   }, [authLoading, permissionLoading, user, hasPageAccess, isEdit, fetchBranch, messageApi]);
 
+  useEffect(() => {
+    if (!user) return;
+    fetch('/api/auth/active-branch', { credentials: 'include', cache: 'no-store' })
+      .then((res) => res.json().catch(() => null))
+      .then((data: { active_branch_id?: string | null } | null) => {
+        setActiveBranchId(typeof data?.active_branch_id === 'string' ? data.active_branch_id : null);
+      })
+      .catch(() => {
+        setActiveBranchId(null);
+      });
+  }, [user]);
+
   const onFinish = async (values: BranchFormValues) => {
     setSubmitting(true);
     try {
       const csrfToken = await getCsrfTokenCached();
+      const payload: BranchFormValues = {
+        ...values,
+        address: normalizeOptionalText(values.address),
+        phone: normalizeOptionalText(values.phone),
+        tax_id: normalizeOptionalText(values.tax_id),
+      };
       if (isEdit && id) {
-        await branchService.update(id, values, undefined, csrfToken);
+        await branchService.update(id, payload, undefined, csrfToken);
         messageApi.success(t('branch.form.updateSuccess'));
       } else {
-        await branchService.create(values, undefined, csrfToken);
+        await branchService.create(payload, undefined, csrfToken);
         messageApi.success(t('branch.form.createSuccess'));
       }
       router.push('/branch');
@@ -112,6 +136,10 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
         try {
           const csrfToken = await getCsrfTokenCached();
           await branchService.delete(id, undefined, csrfToken);
+          if (activeBranchId === id) {
+            await fetch('/api/auth/active-branch', { method: 'DELETE', credentials: 'include' });
+            window.dispatchEvent(new CustomEvent('active-branch-changed', { detail: { activeBranchId: null } }));
+          }
           messageApi.success(t('branch.form.deleteSuccess'));
           router.push('/branch');
         } catch {
@@ -127,7 +155,7 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
     return (
       <div
         style={{
-          height: '100vh',
+          height: '100dvh',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -144,21 +172,13 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
   }
 
   return (
-    <>
-      <UIPageHeader title={t('branch.page.title')} />
+    <div data-testid="branch-manage-page">
+      <UIPageHeader title={t('branch.page.title')} onBack={handleBack} />
       <PageContainer>
         <PageSection>
-          <div className="p-6 md:p-10 min-h-screen bg-gray-50">
+          <div className="p-6 md:p-10 min-h-[100dvh] bg-gray-50">
             <div className="max-w-2xl mx-auto">
               <div className="mb-6">
-                <Button
-                  type="text"
-                  icon={<ArrowLeftOutlined />}
-                  onClick={handleBack}
-                  className="mb-2 pl-0 hover:bg-transparent hover:text-blue-600"
-                >
-                  {t('branch.form.back')}
-                </Button>
                 <div className="flex justify-between items-center gap-3">
                   <div>
                     <Title level={2} style={{ margin: 0 }}>
@@ -167,7 +187,7 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
                     <Text type="secondary">{t('branch.form.subtitle')}</Text>
                   </div>
                   {isEdit && canDeleteBranches ? (
-                    <Button danger icon={<DeleteOutlined />} onClick={handleDelete}>
+                    <Button danger icon={<DeleteOutlined />} onClick={handleDelete} data-testid="branch-delete">
                       {t('branch.delete.ok')}
                     </Button>
                   ) : null}
@@ -190,7 +210,7 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
                         label={t('branch.form.fields.nameLabel')}
                         rules={[{ required: true, message: t('branch.form.fields.nameRequired') }]}
                       >
-                        <Input size="large" placeholder={t('branch.form.fields.namePlaceholder')} maxLength={100} />
+                        <Input size="large" placeholder={t('branch.form.fields.namePlaceholder')} maxLength={100} data-testid="branch-name-input" />
                       </Form.Item>
                     </Col>
                     <Col xs={24} md={12}>
@@ -202,24 +222,24 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
                           { pattern: /^[A-Za-z0-9]+$/, message: t('branch.form.fields.codePattern') },
                         ]}
                       >
-                        <Input size="large" placeholder={t('branch.form.fields.codePlaceholder')} maxLength={20} />
+                        <Input size="large" placeholder={t('branch.form.fields.codePlaceholder')} maxLength={20} data-testid="branch-code-input" />
                       </Form.Item>
                     </Col>
                   </Row>
 
                   <Form.Item name="address" label={t('branch.form.fields.addressLabel')}>
-                    <TextArea rows={3} placeholder={t('branch.form.fields.addressPlaceholder')} style={{ borderRadius: 12 }} />
+                    <TextArea rows={3} placeholder={t('branch.form.fields.addressPlaceholder')} style={{ borderRadius: 12 }} data-testid="branch-address-input" />
                   </Form.Item>
 
                   <Row gutter={16}>
                     <Col xs={24} md={12}>
                       <Form.Item name="phone" label={t('branch.form.fields.phoneLabel')}>
-                        <Input size="large" placeholder={t('branch.form.fields.phonePlaceholder')} maxLength={20} />
+                        <Input size="large" placeholder={t('branch.form.fields.phonePlaceholder')} maxLength={20} data-testid="branch-phone-input" />
                       </Form.Item>
                     </Col>
                     <Col xs={24} md={12}>
                       <Form.Item name="tax_id" label={t('branch.form.fields.taxIdLabel')}>
-                        <Input size="large" placeholder={t('branch.form.fields.taxIdPlaceholder')} maxLength={50} />
+                        <Input size="large" placeholder={t('branch.form.fields.taxIdPlaceholder')} maxLength={50} data-testid="branch-tax-id-input" />
                       </Form.Item>
                     </Col>
                   </Row>
@@ -239,6 +259,7 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
                       size="large"
                       icon={<SaveOutlined />}
                       style={{ borderRadius: 12, minWidth: 140 }}
+                      data-testid="branch-submit"
                     >
                       {isEdit ? t('branch.form.submitEdit') : t('branch.form.submitCreate')}
                     </Button>
@@ -249,6 +270,6 @@ export default function BranchManagePage({ params }: { params: { mode: string[] 
           </div>
         </PageSection>
       </PageContainer>
-    </>
+    </div>
   );
 }

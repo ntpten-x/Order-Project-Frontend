@@ -30,7 +30,7 @@ export default function DiscountSelectionModal({
             onCancel={onCancel}
             footer={null}
             centered
-            width={400}
+            width="min(400px, calc(100vw - 16px))"
             zIndex={10001}
         >
             <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: "60vh", overflowY: "auto" }}>

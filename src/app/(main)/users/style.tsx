@@ -18,7 +18,7 @@ const { Title, Text } = Typography;
 
 export const pageStyles = {
     container: {
-        minHeight: '100vh',
+        minHeight: '100dvh',
         background: '#f8f9fc',
         paddingBottom: 40,
     } as CSSProperties,

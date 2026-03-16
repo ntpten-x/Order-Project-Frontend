@@ -4,4 +4,5 @@ export interface IngredientsUnit {
     display_name: string;
     is_active: boolean;
     create_date?: string;
+    update_date?: string;
 }

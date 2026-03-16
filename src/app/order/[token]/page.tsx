@@ -57,6 +57,7 @@ type MenuItem = {
     price: number;
     img_url: string | null;
     unit_display_name: string | null;
+    topping_group_ids?: string[];
 };
 
 type MenuCategory = {
@@ -160,6 +161,7 @@ function mapMenuToProduct(item: MenuItem, category: MenuCategory): Products {
         create_date: now,
         update_date: now,
         is_active: true,
+        topping_group_ids: item.topping_group_ids || [],
         category: {
             id: category.id,
             display_name: category.display_name,
@@ -613,6 +615,52 @@ export default function CustomerTableOrderPage() {
         setCheckoutVisible(false);
     }, [isOrderLocked]);
 
+    const syncLockedOrderState = React.useCallback(async () => {
+        setCartVisible(false);
+        setCheckoutVisible(false);
+        setCartItems([]);
+        await loadBootstrap();
+        await refreshActiveOrder();
+    }, [loadBootstrap, refreshActiveOrder]);
+
+    const showLockedOrderNotice = React.useCallback(() => {
+        let synced = false;
+        const syncOnce = () => {
+            if (synced) return;
+            synced = true;
+            void syncLockedOrderState();
+        };
+
+        modal.info({
+            title: <span style={{ fontSize: 18, fontWeight: 700 }}>ไม่สามารถสั่งรายการเพิ่มได้</span>,
+            icon: <LockOutlined style={{ color: posColors.primary }} />,
+            content: (
+                <div style={{ marginTop: 8 }}>
+                    <Text style={{ fontSize: 15, color: posColors.textSecondary }}>
+                        ไม่สามารถสั่งรายการเพิ่มได้ เนื่องจากบิลโต๊ะนี้ถูกล็อกแล้ว และอยู่ระหว่างการรอชำระเงิน
+                    </Text>
+                    <Text style={{ display: "block", marginTop: 8, fontSize: 13, color: "#94a3b8" }}>
+                        เมื่อปิดข้อความนี้ ระบบจะอัปเดตสถานะบิลให้อัตโนมัติ
+                    </Text>
+                </div>
+            ),
+            okText: "ตกลง",
+            centered: true,
+            maskClosable: true,
+            afterClose: syncOnce,
+            onOk: syncOnce,
+            okButtonProps: {
+                size: "large",
+                style: {
+                    borderRadius: 10,
+                    height: 44,
+                    minWidth: 100,
+                    fontWeight: 600,
+                },
+            },
+        });
+    }, [modal, syncLockedOrderState]);
+
     const getProductUnitPrice = React.useCallback((product: Products) => Number(product.price || 0), []);
 
     const getCartItemLineTotal = React.useCallback((item: CartItem) => {
@@ -662,29 +710,7 @@ export default function CustomerTableOrderPage() {
     const addToCart = React.useCallback(
         (product: Products) => {
             if (isOrderLocked) {
-                modal.info({
-                    title: <span style={{ fontSize: 18, fontWeight: 700 }}>ไม่สามารถเพิ่มรายการได้</span>,
-                    icon: <LockOutlined style={{ color: posColors.primary }} />,
-                    content: (
-                        <div style={{ marginTop: 8 }}>
-                            <Text style={{ fontSize: 15, color: posColors.textSecondary }}>
-                                บิลนี้ถูกล็อกแล้ว เนื่องจากอยู่ระหว่างการรอชำระเงิน
-                            </Text>
-                        </div>
-                    ),
-                    okText: "ตกลง",
-                    centered: true,
-                    maskClosable: true,
-                    okButtonProps: {
-                        size: "large",
-                        style: { 
-                            borderRadius: 10,
-                            height: 44,
-                            minWidth: 100,
-                            fontWeight: 600
-                        }
-                    }
-                });
+                showLockedOrderNotice();
                 return;
             }
             setCartItems((prev) => {
@@ -710,7 +736,7 @@ export default function CustomerTableOrderPage() {
             });
             message.success(`เพิ่ม ${product.display_name} ลงตะกร้าเรียบร้อยแล้ว`);
         },
-        [isOrderLocked, message, modal]
+        [isOrderLocked, message, showLockedOrderNotice]
     );
 
     const updateQuantity = React.useCallback((cartItemId: string, quantity: number) => {
@@ -815,11 +841,11 @@ export default function CustomerTableOrderPage() {
             return;
         }
         if (isOrderLocked) {
-            message.error("บิลนี้ถูกล็อกแล้ว กรุณาเรียกพนักงาน");
+            showLockedOrderNotice();
             return;
         }
         setCheckoutVisible(true);
-    }, [cartItems.length, isOrderLocked, message]);
+    }, [cartItems.length, isOrderLocked, message, showLockedOrderNotice]);
 
     const submitOrder = React.useCallback(async () => {
         if (!bootstrap) return;
@@ -828,7 +854,7 @@ export default function CustomerTableOrderPage() {
             return;
         }
         if (isOrderLocked) {
-            message.error("บิลนี้ถูกล็อกแล้ว กรุณาเรียกพนักงาน");
+            showLockedOrderNotice();
             return;
         }
 
@@ -885,7 +911,7 @@ export default function CustomerTableOrderPage() {
         } finally {
             setIsSubmitting(false);
         }
-    }, [bootstrap, cartItems, getOrCreateSubmitIdempotencyKey, isOrderLocked, message, refreshActiveOrder, token]);
+    }, [bootstrap, cartItems, getOrCreateSubmitIdempotencyKey, isOrderLocked, message, refreshActiveOrder, showLockedOrderNotice, token]);
 
     const handleConfirmOrder = React.useCallback(async () => {
         await submitOrder();
@@ -1074,7 +1100,7 @@ export default function CustomerTableOrderPage() {
                     ) : accessDenied ? (
                         <div
                             style={{
-                                minHeight: "calc(100vh - 180px)",
+                                minHeight: "calc(100dvh - 180px)",
                                 display: "flex",
                                 alignItems: "center",
                                 justifyContent: "center",

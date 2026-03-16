@@ -1,16 +1,20 @@
 "use client";
 
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   App,
   Button,
+  Card,
+  Col,
+  Divider,
   Empty,
-  Input,
   InputNumber,
   Modal,
   Progress,
+  Row,
   Space,
+  Spin,
   Switch,
   Tag,
   Typography,
@@ -19,12 +23,9 @@ import {
   ArrowLeftOutlined,
   CheckCircleOutlined,
   CheckSquareOutlined,
-  DownOutlined,
   MinusOutlined,
   PlusOutlined,
   ReloadOutlined,
-  SearchOutlined,
-  UpOutlined,
 } from "@ant-design/icons";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -48,7 +49,6 @@ const { Text, Title } = Typography;
 interface PurchaseItemState {
   ingredient_id: string;
   display_name: string;
-  description?: string;
   unit_label: string;
   img_url?: string | null;
   ordered_quantity: number;
@@ -56,14 +56,38 @@ interface PurchaseItemState {
   is_purchased: boolean;
 }
 
-function formatDateTime(value?: string): string {
-  if (!value) return "-";
-  return new Date(value).toLocaleString("th-TH", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+function areItemsEqual(left: PurchaseItemState[], right: PurchaseItemState[]): boolean {
+  if (left.length !== right.length) return false;
+
+  return left.every((item, index) => {
+    const other = right[index];
+    return (
+      other &&
+      item.ingredient_id === other.ingredient_id &&
+      item.ordered_quantity === other.ordered_quantity &&
+      item.actual_quantity === other.actual_quantity &&
+      item.is_purchased === other.is_purchased
+    );
+  });
+}
+
+function mergeDraftItems(
+  serverItems: PurchaseItemState[],
+  draftItems: PurchaseItemState[]
+): PurchaseItemState[] {
+  const draftByIngredient = new Map(
+    draftItems.map((item) => [item.ingredient_id, item] as const)
+  );
+
+  return serverItems.map((serverItem) => {
+    const draftItem = draftByIngredient.get(serverItem.ingredient_id);
+    if (!draftItem) return serverItem;
+
+    return {
+      ...serverItem,
+      actual_quantity: draftItem.actual_quantity,
+      is_purchased: draftItem.is_purchased,
+    };
   });
 }
 
@@ -73,35 +97,16 @@ function getOrderCode(id?: string): string {
 
 function buildItems(order: Order | null): PurchaseItemState[] {
   if (!order?.ordersItems) return [];
+
   return order.ordersItems.map((item) => ({
     ingredient_id: item.ingredient_id,
     display_name: item.ingredient?.display_name || "-",
-    description: item.ingredient?.description || "",
     unit_label: item.ingredient?.unit?.display_name || "หน่วย",
     img_url: item.ingredient?.img_url,
     ordered_quantity: Number(item.quantity_ordered || 0),
     actual_quantity: Number(item.ordersDetail?.actual_quantity ?? item.quantity_ordered ?? 0),
     is_purchased: Boolean(item.ordersDetail?.is_purchased),
   }));
-}
-
-function areItemStatesEqual(left: PurchaseItemState[], right: PurchaseItemState[]): boolean {
-  if (left.length !== right.length) return false;
-  return left.every((item, index) => {
-    const compare = right[index];
-    return (
-      item.ingredient_id === compare?.ingredient_id &&
-      item.actual_quantity === compare?.actual_quantity &&
-      item.ordered_quantity === compare?.ordered_quantity &&
-      item.is_purchased === compare?.is_purchased
-    );
-  });
-}
-
-function matchesItem(item: PurchaseItemState, search: string): boolean {
-  if (!search) return true;
-  const haystacks = [item.display_name, item.description || "", item.unit_label];
-  return haystacks.some((value) => value.toLowerCase().includes(search));
 }
 
 function getDiffMeta(item: PurchaseItemState): {
@@ -155,6 +160,9 @@ export default function StockBuyingPage() {
   const requestRef = useRef<AbortController | null>(null);
   const refreshTimerRef = useRef<number | null>(null);
   const hasLoadedRef = useRef(false);
+  const itemsRef = useRef<PurchaseItemState[]>([]);
+  const serverItemsRef = useRef<PurchaseItemState[]>([]);
+  const hasDraftChangesRef = useRef(false);
 
   const { user, loading: authLoading } = useAuth();
   const { socket } = useSocket();
@@ -173,14 +181,23 @@ export default function StockBuyingPage() {
   const [csrfToken, setCsrfToken] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
-  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
-  const [searchText, setSearchText] = useState("");
-  const [statsExpanded, setStatsExpanded] = useState(true);
+  const [hasDraftChanges, setHasDraftChanges] = useState(false);
 
   const isEditable = canUpdateOrders && order?.status === OrderStatus.PENDING;
 
+  const syncDraftState = useCallback((nextItems: PurchaseItemState[]) => {
+    itemsRef.current = nextItems;
+    const nextHasDraftChanges = !areItemsEqual(nextItems, serverItemsRef.current);
+    hasDraftChangesRef.current = nextHasDraftChanges;
+    setHasDraftChanges(nextHasDraftChanges);
+    setItems(nextItems);
+  }, []);
+
   const fetchOrder = useCallback(
-    async ({ silent = false }: { silent?: boolean } = {}) => {
+    async ({
+      silent = false,
+      preserveDraft = false,
+    }: { silent?: boolean; preserveDraft?: boolean } = {}) => {
       if (!orderId || !canViewOrders) return;
 
       requestRef.current?.abort();
@@ -201,10 +218,16 @@ export default function StockBuyingPage() {
 
         if (requestRef.current !== controller) return;
 
+        const nextServerItems = buildItems(payload);
+        serverItemsRef.current = nextServerItems;
         setOrder(payload);
-        setItems(buildItems(payload));
-        setLastSyncedAt(new Date());
-        setRefreshError(null);
+        if (preserveDraft && hasDraftChangesRef.current && payload.status === OrderStatus.PENDING) {
+          syncDraftState(mergeDraftItems(nextServerItems, itemsRef.current));
+          setRefreshError("ข้อมูลใบสั่งซื้อถูกอัปเดตจากระบบระหว่างที่กำลังแก้ไข ร่างที่กรอกไว้ยังถูกเก็บไว้ กรุณาตรวจสอบก่อนยืนยัน");
+        } else {
+          syncDraftState(nextServerItems);
+          setRefreshError(null);
+        }
         hasLoadedRef.current = true;
       } catch (caughtError) {
         if ((caughtError as Error)?.name === "AbortError") return;
@@ -227,7 +250,7 @@ export default function StockBuyingPage() {
         }
       }
     },
-    [canViewOrders, orderId]
+    [canViewOrders, orderId, syncDraftState]
   );
 
   useEffect(() => {
@@ -251,6 +274,17 @@ export default function StockBuyingPage() {
     };
   }, [canUpdateOrders, messageApi, user?.id]);
 
+  const ensureCsrfToken = useCallback(async (): Promise<string> => {
+    if (csrfToken) return csrfToken;
+
+    const token = await authService.getCsrfToken();
+    if (token) {
+      setCsrfToken(token);
+    }
+
+    return token;
+  }, [csrfToken]);
+
   useEffect(() => {
     if (!orderId || !canViewOrders) return;
     void fetchOrder({ silent: hasLoadedRef.current });
@@ -270,7 +304,7 @@ export default function StockBuyingPage() {
 
       if (refreshTimerRef.current) window.clearTimeout(refreshTimerRef.current);
       refreshTimerRef.current = window.setTimeout(() => {
-        void fetchOrder({ silent: true });
+        void fetchOrder({ silent: true, preserveDraft: true });
       }, 220);
     };
 
@@ -290,8 +324,9 @@ export default function StockBuyingPage() {
 
   const setPurchased = (ingredientId: string, checked: boolean) => {
     if (!isEditable) return;
-    setItems((prev) =>
-      prev.map((item) =>
+
+    syncDraftState(
+      itemsRef.current.map((item) =>
         item.ingredient_id === ingredientId
           ? {
               ...item,
@@ -305,9 +340,10 @@ export default function StockBuyingPage() {
 
   const setActualQuantity = (ingredientId: string, value: number | null) => {
     if (!isEditable) return;
+
     const qty = Math.max(0, Math.trunc(Number(value || 0)));
-    setItems((prev) =>
-      prev.map((item) =>
+    syncDraftState(
+      itemsRef.current.map((item) =>
         item.ingredient_id === ingredientId
           ? {
               ...item,
@@ -327,8 +363,9 @@ export default function StockBuyingPage() {
 
   const setMatchRequired = (ingredientId: string) => {
     if (!isEditable) return;
-    setItems((prev) =>
-      prev.map((item) =>
+
+    syncDraftState(
+      itemsRef.current.map((item) =>
         item.ingredient_id === ingredientId
           ? { ...item, actual_quantity: item.ordered_quantity, is_purchased: true }
           : item
@@ -338,8 +375,9 @@ export default function StockBuyingPage() {
 
   const markAllAsPurchased = () => {
     if (!isEditable) return;
-    setItems((prev) =>
-      prev.map((item) => ({
+
+    syncDraftState(
+      itemsRef.current.map((item) => ({
         ...item,
         is_purchased: true,
         actual_quantity: item.ordered_quantity,
@@ -348,7 +386,6 @@ export default function StockBuyingPage() {
   };
 
   const totals = useMemo(() => {
-    const required = items.reduce((acc, item) => acc + item.ordered_quantity, 0);
     const actual = items.reduce((acc, item) => acc + (item.is_purchased ? item.actual_quantity : 0), 0);
     const matched = items.filter(
       (item) => item.is_purchased && item.actual_quantity === item.ordered_quantity
@@ -360,39 +397,21 @@ export default function StockBuyingPage() {
       (item) => item.is_purchased && item.actual_quantity > item.ordered_quantity
     ).length;
     const selected = items.filter((item) => item.is_purchased).length;
-    return { required, actual, matched, missing, over, selected };
-  }, [items]);
 
-  const baselineItems = useMemo(() => buildItems(order), [order]);
-  const hasChanges = useMemo(() => !areItemStatesEqual(items, baselineItems), [baselineItems, items]);
+    return { actual, matched, missing, over, selected };
+  }, [items]);
 
   const completionPercent = useMemo(() => {
     if (items.length === 0) return 0;
     return Math.round((totals.selected / items.length) * 100);
   }, [items.length, totals.selected]);
 
-  const deferredSearchText = useDeferredValue(searchText.trim().toLowerCase());
-
-  const visibleItems = useMemo(
-    () => items.filter((item) => matchesItem(item, deferredSearchText)),
-    [deferredSearchText, items]
-  );
-
-  const summaryCards = useMemo(
-    () => [
-      { label: "ทั้งหมด", value: items.length, color: "#6366f1" },
-      { label: "ยืนยันแล้ว", value: totals.selected, color: "#2563eb" },
-      { label: "ตรงแผน", value: totals.matched, color: "#16a34a" },
-      { label: "ต่างจากแผน", value: totals.missing + totals.over, color: "#f59e0b" },
-    ],
-    [items.length, totals.matched, totals.missing, totals.over, totals.selected]
-  );
-
   const confirmPurchase = async () => {
     if (!orderId || !isEditable) return;
 
     setConfirming(true);
     try {
+      const token = await ensureCsrfToken();
       await ordersService.confirmPurchase(
         orderId,
         items.map((item) => ({
@@ -401,7 +420,7 @@ export default function StockBuyingPage() {
           is_purchased: item.is_purchased,
         })),
         undefined,
-        csrfToken
+        token
       );
 
       messageApi.success("บันทึกผลการซื้อเรียบร้อย");
@@ -463,52 +482,46 @@ export default function StockBuyingPage() {
       <PageContainer maxWidth={1440}>
         <section className="stock-buying-hero">
           <div className="stock-buying-hero-panel">
-            <div className="stock-buying-hero-top">
-              <div className="stock-buying-title-wrap">
+            <div className="stock-buying-hero-header">
+              <div className="stock-buying-hero-header-left">
                 <Button
                   type="text"
                   icon={<ArrowLeftOutlined />}
                   onClick={() => router.push("/stock/items")}
                   className="stock-buying-hero-icon-btn"
                 />
-
-                <div className="stock-buying-title-copy">
-                  <div className="stock-buying-title-line">
-                    <div className="stock-buying-title-icon">
-                      <CheckSquareOutlined />
-                    </div>
-                    <div>
-                      <Text className="stock-buying-eyebrow">ตรวจรับหลังซื้อ</Text>
-                      <Title level={3} className="stock-buying-title">
-                        {order ? getOrderCode(order.id) : "กำลังโหลดใบซื้อ"}
-                      </Title>
-                    </div>
-                    <Tag
-                      className={`stock-buying-mode-tag ${isEditable ? "editable" : "readonly"}`}
-                    >
-                      {isEditable ? "พร้อมตรวจรับ" : "โหมดอ่านอย่างเดียว"}
-                    </Tag>
-                  </div>
-                  <Text className="stock-buying-subtitle">
-                    {order
-                      ? `สร้างเมื่อ ${formatDateTime(order.create_date)} และอัปเดตล่าสุด ${
-                          lastSyncedAt ? formatDateTime(lastSyncedAt.toISOString()) : "-"
-                        }`
-                      : "ตรวจและยืนยันจำนวนจริงของวัตถุดิบในใบซื้อ"}
-                  </Text>
+                <div className="stock-buying-title-icon">
+                  <CheckSquareOutlined />
+                </div>
+                <div className="stock-buying-title-group">
+                  <Title level={4} className="stock-buying-title">
+                    {order ? getOrderCode(order.id) : "กำลังโหลด..."}
+                  </Title>
+                  {order?.create_date ? (
+                    <Text type="secondary" className="stock-buying-subtitle">
+                      {new Date(order.create_date).toLocaleDateString("th-TH", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                    </Text>
+                  ) : null}
                 </div>
               </div>
 
-              <div className="stock-buying-hero-actions">
+              <div className="stock-buying-hero-header-right">
                 <Button
                   icon={<ReloadOutlined />}
-                  onClick={() => void fetchOrder({ silent: true })}
+                  onClick={() => void fetchOrder({ silent: true, preserveDraft: false })}
                   loading={refreshing}
                   className="stock-buying-hero-btn"
+                  data-testid="stock-buying-refresh"
                 >
                   รีเฟรช
                 </Button>
+
                 <Button
+                  type="primary"
                   icon={<CheckCircleOutlined />}
                   onClick={markAllAsPurchased}
                   disabled={!isEditable || items.length === 0}
@@ -520,57 +533,9 @@ export default function StockBuyingPage() {
               </div>
             </div>
 
-            <button
-              type="button"
-              className="stock-buying-stats-toggle"
-              onClick={() => setStatsExpanded((prev) => !prev)}
-            >
-              <div>
-                <Text className="stock-buying-stats-toggle-label">ภาพรวมคำสั่งซื้อ</Text>
-                <div className="stock-buying-stats-toggle-value">
-                  ตรวจแล้ว {totals.selected.toLocaleString()}/{items.length.toLocaleString()} รายการ
-                </div>
-              </div>
-              <span className="stock-buying-stats-toggle-icon">
-                {statsExpanded ? <UpOutlined /> : <DownOutlined />}
-              </span>
-            </button>
-
-            {statsExpanded ? (
-              <div className="stock-buying-stats-row">
-                {summaryCards.map((stat) => (
-                  <div key={stat.label} className="stock-buying-stat-card">
-                    <span className="stock-buying-stat-value" style={{ color: stat.color }}>
-                      {stat.value.toLocaleString()}
-                    </span>
-                    <span className="stock-buying-stat-label">{stat.label}</span>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            <div className="stock-buying-hero-toolbar">
-              <div className="stock-buying-search">
-                <Input
-                  allowClear
-                  prefix={<SearchOutlined className="stock-buying-search-icon" />}
-                  placeholder="ค้นหาวัตถุดิบ ชื่อ หรือคำอธิบาย"
-                  value={searchText}
-                  onChange={(event) => setSearchText(event.target.value)}
-                  className="stock-buying-search-input"
-                />
-              </div>
-
-              <div className="stock-buying-hero-meta">
-                <span>{completionPercent}% ตรวจแล้ว</span>
-                <span>ซื้อจริง {totals.actual.toLocaleString()} / {totals.required.toLocaleString()}</span>
-                {hasChanges ? <span>มีรายการยังไม่ยืนยัน</span> : <span>ข้อมูลตรงกับล่าสุด</span>}
-              </div>
-            </div>
-
             {order?.remark ? (
               <div className="stock-buying-note">
-                <Text strong>หมายเหตุใบซื้อ</Text>
+                <Text strong>หมายเหตุใบสั่งซื้อ</Text>
                 <Text type="secondary">{order.remark}</Text>
               </div>
             ) : null}
@@ -578,8 +543,16 @@ export default function StockBuyingPage() {
         </section>
 
         {loading && !order ? (
-          <PageSection>
-            <PageState status="loading" title="กำลังโหลดข้อมูลใบซื้อ" />
+          <PageSection
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              padding: "120px 0",
+              background: "transparent",
+              border: "none",
+            }}
+          >
+            <Spin size="large" />
           </PageSection>
         ) : error && !order ? (
           <PageSection>
@@ -602,15 +575,16 @@ export default function StockBuyingPage() {
             <PageState status="empty" title="ไม่พบข้อมูลใบซื้อ" />
           </PageSection>
         ) : (
-          <section className="stock-buying-layout">
-            <div className="stock-buying-main">
+          <Row gutter={[24, 24]} className="stock-buying-layout" style={{ marginTop: 16 }}>
+            <Col xs={24} lg={16}>
               {refreshError ? (
                 <Alert
                   type="warning"
                   showIcon
                   message="ซิงก์ข้อมูลล่าสุดไม่สำเร็จ"
                   description={refreshError}
-                  style={{ marginBottom: 16 }}
+                  style={{ marginBottom: 16, borderRadius: 16 }}
+                  data-testid="stock-buying-refresh-alert"
                 />
               ) : null}
 
@@ -618,27 +592,56 @@ export default function StockBuyingPage() {
                 <Alert
                   type="info"
                   showIcon
-                  message="ใบซื้อนี้ไม่อยู่ในสถานะรอตรวจรับ"
+                  message="ใบซื้อนี้ไม่ได้อยู่ในสถานะรอตรวจรับ"
                   description="ยังดูรายละเอียดได้ตามปกติ แต่ไม่สามารถแก้จำนวนหรือยืนยันผลการซื้อซ้ำได้"
-                  style={{ marginBottom: 16 }}
+                  style={{ marginBottom: 16, borderRadius: 16 }}
                 />
               ) : null}
 
-              <section className="stock-buying-section-card">
-                <div className="stock-buying-section-head">
+              {hasDraftChanges && isEditable ? (
+                <Alert
+                  type="info"
+                  showIcon
+                  message="มีการแก้ไขค้างอยู่"
+                  description="ระบบจะเก็บร่างที่กำลังกรอกไว้ระหว่างการอัปเดตแบบเรียลไทม์ ถ้าต้องการข้อมูลล่าสุดจากเซิร์ฟเวอร์ให้กดรีเฟรช"
+                  style={{ marginBottom: 16, borderRadius: 16 }}
+                  data-testid="stock-buying-draft-warning"
+                />
+              ) : null}
+
+              <Card
+                bordered={false}
+                style={{ borderRadius: 24, boxShadow: "0 10px 30px rgba(0,0,0,0.02)" }}
+                bodyStyle={{ padding: "20px" }}
+              >
+                <div
+                  className="stock-buying-section-head"
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    marginBottom: 20,
+                  }}
+                >
                   <div>
-                    <Title level={4} className="stock-buying-section-title">
+                    <Title
+                      level={4}
+                      className="stock-buying-section-title"
+                      style={{ margin: 0, color: "#1e293b" }}
+                    >
                       รายการวัตถุดิบ
                     </Title>
-                    <Text type="secondary">
-                      {deferredSearchText
-                        ? `แสดง ${visibleItems.length.toLocaleString()} จาก ${items.length.toLocaleString()} รายการ`
-                        : `${items.length.toLocaleString()} รายการในใบซื้อ`}
+                    <Text type="secondary" style={{ fontSize: 13 }}>
+                      {items.length.toLocaleString()} รายการในใบซื้อ
                     </Text>
                   </div>
-                  <div className="stock-buying-section-meta">
-                    <Tag color="blue">{totals.selected.toLocaleString()} ยืนยันแล้ว</Tag>
-                    <Tag color="gold">{(totals.missing + totals.over).toLocaleString()} ต่างจากแผน</Tag>
+                  <div className="stock-buying-section-meta" style={{ display: "flex", gap: 8 }}>
+                    <Tag color="cyan" style={{ borderRadius: 8, margin: 0 }}>
+                      {totals.selected.toLocaleString()} ยืนยันแล้ว
+                    </Tag>
+                    <Tag color="warning" style={{ borderRadius: 8, margin: 0 }}>
+                      {(totals.missing + totals.over).toLocaleString()} ต่างจากแผน
+                    </Tag>
                   </div>
                 </div>
 
@@ -649,115 +652,125 @@ export default function StockBuyingPage() {
                       description="ไม่มีรายการวัตถุดิบในใบซื้อ"
                     />
                   </div>
-                ) : visibleItems.length === 0 ? (
-                  <div className="stock-buying-empty">
-                    <Empty
-                      image={Empty.PRESENTED_IMAGE_SIMPLE}
-                      description="ไม่พบรายการที่ค้นหา"
-                    />
-                  </div>
                 ) : (
-                  <div className="stock-buying-list">
-                    {visibleItems.map((item) => {
+                  <div className="stock-buying-list" style={{ display: "grid", gap: 16 }}>
+                    {items.map((item) => {
                       const diffMeta = getDiffMeta(item);
 
                       return (
                         <article
                           key={item.ingredient_id}
-                          className="stock-buying-item-card"
+                          className="stock-buying-item-card-v3"
                           data-testid={`stock-buying-item-${item.ingredient_id}`}
                         >
-                          <div className="stock-buying-item-head">
-                            <div className="stock-buying-item-identity">
+                          <div
+                            className="stock-buying-item-status-bar"
+                            style={{ background: diffMeta.color }}
+                          />
+
+                          <div className="item-v3-header">
+                            <div className="item-v3-identity">
                               <StockImageThumb
                                 src={item.img_url}
                                 alt={item.display_name}
-                                size={68}
-                                borderRadius={18}
+                                size={54}
+                                borderRadius={16}
                               />
-                              <div className="stock-buying-item-copy">
-                                <div className="stock-buying-item-title-row">
-                                  <Text strong>{item.display_name}</Text>
-                                  <span
-                                    className="stock-buying-item-status"
+                              <div className="item-v3-copy">
+                                <div className="item-v3-title-row">
+                                  <Text strong style={{ fontSize: 16 }}>
+                                    {item.display_name}
+                                  </Text>
+                                  <Tag
                                     style={{
                                       color: diffMeta.color,
                                       background: diffMeta.background,
-                                      borderColor: diffMeta.borderColor,
+                                      border: `1px solid ${diffMeta.borderColor}`,
+                                      borderRadius: 8,
+                                      margin: 0,
+                                      fontSize: 11,
                                     }}
                                   >
                                     {diffMeta.label}
-                                  </span>
+                                  </Tag>
                                 </div>
-                                <Text type="secondary">
-                                  ต้องซื้อ {item.ordered_quantity.toLocaleString()} {item.unit_label}
-                                </Text>
-                                {item.description ? (
-                                  <Text type="secondary" className="stock-buying-item-description">
-                                    {item.description}
-                                  </Text>
-                                ) : null}
                               </div>
                             </div>
-
-                            <div className="stock-buying-item-toggle">
+                            <div className="item-v3-toggle">
                               <Switch
+                                size="small"
                                 checked={item.is_purchased}
-                                checkedChildren="ซื้อแล้ว"
-                                unCheckedChildren="ยังไม่ซื้อ"
                                 onChange={(checked) => setPurchased(item.ingredient_id, checked)}
                                 disabled={!isEditable}
                               />
                             </div>
                           </div>
 
-                          <div className="stock-buying-item-stats">
-                            <span>สั่งซื้อ {item.ordered_quantity.toLocaleString()} {item.unit_label}</span>
-                            <span>
-                              ซื้อจริง {item.is_purchased ? item.actual_quantity.toLocaleString() : "0"}{" "}
-                              {item.unit_label}
-                            </span>
-                          </div>
+                          <Divider dashed style={{ margin: "14px 0" }} />
 
-                          <div className="stock-buying-item-controls">
-                            <div className="stock-buying-item-quick-actions">
+                          <div className="item-v3-body">
+                            <div className="item-v3-stats">
+                              <div className="item-v3-stat-box">
+                                <span className="item-v3-stat-label">สั่งซื้อ</span>
+                                <span className="item-v3-stat-value">
+                                  {item.ordered_quantity.toLocaleString()}{" "}
+                                  <Text type="secondary" style={{ fontSize: 13 }}>
+                                    {item.unit_label}
+                                  </Text>
+                                </span>
+                              </div>
+                              <div className={`item-v3-stat-box ${item.is_purchased ? "active" : ""}`}>
+                                <span className="item-v3-stat-label">ซื้อจริง</span>
+                                <span className="item-v3-stat-value">
+                                  {item.is_purchased ? item.actual_quantity.toLocaleString() : "0"}{" "}
+                                  <Text type="secondary" style={{ fontSize: 13 }}>
+                                    {item.unit_label}
+                                  </Text>
+                                </span>
+                              </div>
+                            </div>
+
+                            <div className="item-v3-quick-actions">
                               <Button
+                                className="btn-match"
                                 onClick={() => setMatchRequired(item.ingredient_id)}
                                 disabled={!isEditable}
                               >
                                 เท่าที่สั่ง
                               </Button>
                               <Button
+                                className="btn-skip"
                                 onClick={() => setActualQuantity(item.ingredient_id, 0)}
                                 disabled={!isEditable}
                               >
                                 ไม่ได้ซื้อ
                               </Button>
                             </div>
+                          </div>
 
-                            <div className="stock-buying-qty-box">
-                              <Text type="secondary">จำนวนที่ซื้อจริง</Text>
-                              <Space.Compact block>
-                                <Button
-                                  icon={<MinusOutlined />}
-                                  onClick={() => nudgeQuantity(item.ingredient_id, -1)}
-                                  disabled={!isEditable}
-                                />
-                                <InputNumber
-                                  min={0}
-                                  value={item.actual_quantity}
-                                  onChange={(value) => setActualQuantity(item.ingredient_id, value)}
-                                  disabled={!isEditable}
-                                  controls={false}
-                                  style={{ width: "100%" }}
-                                />
-                                <Button
-                                  icon={<PlusOutlined />}
-                                  onClick={() => nudgeQuantity(item.ingredient_id, 1)}
-                                  disabled={!isEditable}
-                                />
-                              </Space.Compact>
-                              <Text type="secondary">หน่วย: {item.unit_label}</Text>
+                          <div className="item-v3-footer">
+                            <div className="item-v3-qty-box">
+                              <Button
+                                className="btn-minus"
+                                icon={<MinusOutlined />}
+                                onClick={() => nudgeQuantity(item.ingredient_id, -1)}
+                                disabled={!isEditable}
+                              />
+                              <InputNumber
+                                min={0}
+                                value={item.actual_quantity}
+                                onChange={(value) => setActualQuantity(item.ingredient_id, value)}
+                                disabled={!isEditable}
+                                controls={false}
+                                bordered={false}
+                                data-testid={`stock-buying-qty-${item.ingredient_id}`}
+                              />
+                              <Button
+                                className="btn-plus"
+                                icon={<PlusOutlined />}
+                                onClick={() => nudgeQuantity(item.ingredient_id, 1)}
+                                disabled={!isEditable}
+                              />
                             </div>
                           </div>
                         </article>
@@ -765,147 +778,305 @@ export default function StockBuyingPage() {
                     })}
                   </div>
                 )}
-              </section>
-            </div>
+              </Card>
+            </Col>
 
-            <aside className="stock-buying-aside">
-              <div className="stock-buying-summary-card">
-                <div className="stock-buying-summary-block">
-                  <Text type="secondary">สรุปการตรวจรับ</Text>
-                  <Title level={4} className="stock-buying-summary-code">
-                    {getOrderCode(order.id)}
+            <Col xs={24} lg={8}>
+              <div className="stock-buying-sidebar-sticky">
+                <Card
+                  style={{
+                    borderRadius: 24,
+                    boxShadow: "0 16px 40px rgba(15, 23, 42, 0.04)",
+                    border: "1px solid rgba(226, 232, 240, 0.6)",
+                  }}
+                  bodyStyle={{ padding: "24px" }}
+                >
+                  <Title level={5} style={{ marginBottom: 20, color: "#334155" }}>
+                    สรุปความคืบหน้า
                   </Title>
-                  <Text type="secondary">สร้างเมื่อ {formatDateTime(order.create_date)}</Text>
-                </div>
 
-                <div className="stock-buying-summary-block">
-                  <div className="stock-buying-summary-row">
-                    <Text>รายการที่ตรวจแล้ว</Text>
-                    <Text strong>
-                      {totals.selected.toLocaleString()}/{items.length.toLocaleString()}
+                  <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
+                    <Progress
+                      type="circle"
+                      percent={completionPercent}
+                      width={130}
+                      strokeWidth={10}
+                      strokeColor={{ "0%": "#10b981", "100%": "#2563eb" }}
+                      format={(percent) => (
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                          }}
+                        >
+                          <span style={{ fontSize: 22, fontWeight: 800, color: "#1e293b" }}>
+                            {percent}%
+                          </span>
+                          <span style={{ fontSize: 11, color: "#64748b", fontWeight: 500 }}>
+                            ตรวจแล้ว
+                          </span>
+                        </div>
+                      )}
+                    />
+                  </div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 12,
+                      marginBottom: 24,
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: "#f8fafc",
+                        padding: "14px 12px",
+                        borderRadius: 16,
+                        textAlign: "center",
+                        border: "1px solid #f1f5f9",
+                      }}
+                    >
+                      <Text type="secondary" style={{ fontSize: 13, fontWeight: 500 }}>
+                        ทั้งหมด
+                      </Text>
+                      <Title level={4} style={{ margin: "4px 0 0", color: "#0f172a" }}>
+                        {items.length}
+                      </Title>
+                    </div>
+                    <div
+                      style={{
+                        background: "#ecfdf5",
+                        padding: "14px 12px",
+                        borderRadius: 16,
+                        textAlign: "center",
+                      }}
+                    >
+                      <Text type="success" style={{ fontSize: 13, fontWeight: 500 }}>
+                        ยืนยันแล้ว
+                      </Text>
+                      <Title level={4} style={{ margin: "4px 0 0", color: "#047857" }}>
+                        {totals.selected}
+                      </Title>
+                    </div>
+                    <div
+                      style={{
+                        background: "#fffbeb",
+                        padding: "14px 12px",
+                        borderRadius: 16,
+                        textAlign: "center",
+                      }}
+                    >
+                      <Text style={{ fontSize: 13, color: "#d97706", fontWeight: 500 }}>
+                        ตรงแผน
+                      </Text>
+                      <Title level={4} style={{ margin: "4px 0 0", color: "#b45309" }}>
+                        {totals.matched}
+                      </Title>
+                    </div>
+                    <div
+                      style={{
+                        background: "#fef2f2",
+                        padding: "14px 12px",
+                        borderRadius: 16,
+                        textAlign: "center",
+                      }}
+                    >
+                      <Text type="danger" style={{ fontSize: 13, fontWeight: 500 }}>
+                        ต่างจากแผน
+                      </Text>
+                      <Title level={4} style={{ margin: "4px 0 0", color: "#dc2626" }}>
+                        {totals.missing + totals.over}
+                      </Title>
+                    </div>
+                  </div>
+
+                  <div
+                    style={{
+                      background: "#f8fafc",
+                      padding: 14,
+                      borderRadius: 16,
+                      marginBottom: 24,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Text style={{ color: "#64748b", fontSize: 13, fontWeight: 500 }}>
+                      จำนวนที่ตรวจรับ
                     </Text>
+                    <Title level={4} style={{ margin: 0, color: "#0f172a" }}>
+                      {totals.actual.toLocaleString()}{" "}
+                      <span style={{ fontSize: 13, fontWeight: 400, color: "#64748b" }}>
+                        หน่วย
+                      </span>
+                    </Title>
                   </div>
-                  <Progress
-                    percent={completionPercent}
-                    showInfo={false}
-                    strokeColor="#2563eb"
-                    trailColor="#dbeafe"
-                  />
-                </div>
 
-                <div className="stock-buying-summary-grid">
-                  <div>
-                    <Text type="secondary">ต้องซื้อ</Text>
-                    <Title level={5}>{totals.required.toLocaleString()}</Title>
-                  </div>
-                  <div>
-                    <Text type="secondary">ซื้อจริง</Text>
-                    <Title level={5}>{totals.actual.toLocaleString()}</Title>
-                  </div>
-                  <div>
-                    <Text type="secondary">ครบตามแผน</Text>
-                    <Title level={5}>{totals.matched.toLocaleString()}</Title>
-                  </div>
-                  <div>
-                    <Text type="secondary">ต้องทวนอีกครั้ง</Text>
-                    <Title level={5}>{(totals.missing + totals.over).toLocaleString()}</Title>
-                  </div>
-                </div>
+                  <Divider style={{ margin: "16px 0" }} />
 
-                <div className="stock-buying-pill-row">
-                  <Tag color={totals.missing > 0 ? "warning" : "default"}>
-                    ซื้อน้อยกว่า {totals.missing.toLocaleString()}
-                  </Tag>
-                  <Tag color={totals.over > 0 ? "processing" : "default"}>
-                    ซื้อมากกว่า {totals.over.toLocaleString()}
-                  </Tag>
-                  <Tag color={hasChanges ? "blue" : "default"}>
-                    {hasChanges ? "มีการแก้ไขยังไม่ยืนยัน" : "ข้อมูลตรงกับล่าสุด"}
-                  </Tag>
-                </div>
-
-                <Alert
-                  type="info"
-                  showIcon
-                  message="วิธีใช้งาน"
-                  description="เปิดสวิตช์เมื่อซื้อแล้ว กด 'เท่าที่สั่ง' เพื่อกรอกเร็ว หรือปรับจำนวนจริงทีละรายการก่อนยืนยัน"
-                />
+                  <Button
+                    type="primary"
+                    size="large"
+                    block
+                    icon={<CheckCircleOutlined style={{ fontSize: 17 }} />}
+                    onClick={() => setConfirmModalOpen(true)}
+                    disabled={!isEditable || items.length === 0}
+                    data-testid="stock-buying-confirm-open"
+                    style={{
+                      height: 50,
+                      borderRadius: 16,
+                      fontWeight: 700,
+                      fontSize: 15,
+                      background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
+                      border: "none",
+                      boxShadow: "0 8px 16px rgba(37, 99, 235, 0.15)",
+                    }}
+                  >
+                    ยืนยันการตรวจรับ
+                  </Button>
+                </Card>
               </div>
-            </aside>
-          </section>
+            </Col>
+          </Row>
         )}
       </PageContainer>
-
-      {order && isEditable ? (
-        <div className="stock-buying-footer">
-          <div className="stock-buying-footer-card">
-            <div>
-              <Text type="secondary">พร้อมยืนยันผลการซื้อ</Text>
-              <div className="stock-buying-footer-main">
-                ซื้อจริง {totals.actual.toLocaleString()} จาก {totals.required.toLocaleString()} หน่วย
-              </div>
-            </div>
-            <Button
-              type="primary"
-              size="large"
-              icon={<CheckCircleOutlined />}
-              onClick={() => setConfirmModalOpen(true)}
-              disabled={items.length === 0}
-              data-testid="stock-buying-confirm-open"
-            >
-              ยืนยันผลการซื้อ
-            </Button>
-          </div>
-        </div>
-      ) : null}
 
       <Modal
         open={confirmModalOpen}
         onCancel={() => setConfirmModalOpen(false)}
         onOk={() => void confirmPurchase()}
         confirmLoading={confirming}
-        okText="ยืนยัน"
+        okText="ยืนยันการตรวจรับ"
         cancelText="กลับไปแก้ไข"
-        title="ยืนยันการบันทึกผลการซื้อ"
+        title={
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <CheckCircleOutlined style={{ color: "#2563eb" }} />
+            <span>สรุปผลการตรวจรับใบซื้อ {order ? getOrderCode(order.id) : ""}</span>
+          </div>
+        }
         destroyOnClose
-        okButtonProps={{ "data-testid": "stock-buying-confirm-submit" }}
+        width={680}
+        okButtonProps={{
+          "data-testid": "stock-buying-confirm-submit",
+          style: { borderRadius: 12, height: 40, fontWeight: 600 },
+        }}
+        cancelButtonProps={{
+          style: { borderRadius: 12, height: 40 },
+        }}
       >
-        <Space direction="vertical" size={12} style={{ width: "100%" }}>
-          <Alert
-            type="warning"
-            showIcon
-            message="เมื่อยืนยันแล้ว ใบซื้อจะถูกปิดงาน"
-            description="ระบบจะบันทึกทุกบรรทัดที่ยังไม่เลือกเป็นไม่ได้ซื้อ และเปลี่ยนสถานะใบซื้อเป็นเสร็จสิ้น"
-          />
-
+        <Space direction="vertical" size={16} style={{ width: "100%", marginTop: 12 }}>
           <div className="stock-buying-modal-summary">
-            <div>
-              <Text type="secondary">รายการทั้งหมด</Text>
-              <div>{items.length.toLocaleString()} รายการ</div>
+            <div style={{ background: "#f8fafc", padding: 14, borderRadius: 16, textAlign: "center" }}>
+              <Text type="secondary" style={{ fontSize: 13 }}>
+                รายการทั้งหมด
+              </Text>
+              <Title level={4} style={{ margin: "4px 0 0" }}>
+                {items.length.toLocaleString()} รายการ
+              </Title>
             </div>
-            <div>
-              <Text type="secondary">ยืนยันแล้ว</Text>
-              <div>{totals.selected.toLocaleString()} รายการ</div>
+            <div style={{ background: "#ecfdf5", padding: 14, borderRadius: 16, textAlign: "center" }}>
+              <Text type="success" style={{ fontSize: 13 }}>
+                ซื้อสำเร็จ
+              </Text>
+              <Title level={4} style={{ margin: "4px 0 0", color: "#065f46" }}>
+                {totals.selected.toLocaleString()} รายการ
+              </Title>
             </div>
-            <div>
-              <Text type="secondary">ซื้อจริง</Text>
-              <div>{totals.actual.toLocaleString()} หน่วย</div>
+            <div style={{ background: "#eff6ff", padding: 14, borderRadius: 16, textAlign: "center" }}>
+              <Text style={{ fontSize: 13, color: "#1d4ed8" }}>
+                จำนวนซื้อจริง
+              </Text>
+              <Title level={4} style={{ margin: "4px 0 0", color: "#1e3a8a" }}>
+                {totals.actual.toLocaleString()} หน่วย
+              </Title>
             </div>
           </div>
 
-          <div className="stock-buying-modal-list">
-            {items.slice(0, 6).map((item) => (
-              <div key={item.ingredient_id} className="stock-buying-modal-item">
-                <span>{item.display_name}</span>
-                <strong>
-                  {item.is_purchased ? item.actual_quantity.toLocaleString() : "0"} /{" "}
-                  {item.ordered_quantity.toLocaleString()}
-                </strong>
+          <div style={{ marginTop: 8 }}>
+            <div style={{ paddingBottom: 12 }}>
+              <Text strong style={{ fontSize: 15 }}>
+                รายละเอียดวัตถุดิบ
+              </Text>
+            </div>
+
+            <div
+              className="stock-buying-modal-list"
+              style={{
+                maxHeight: 380,
+                overflowY: "auto",
+                border: "1px solid #e2e8f0",
+                borderRadius: 18,
+                padding: "12px 16px",
+              }}
+            >
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1.5fr 0.8fr 0.8fr 0.9fr",
+                  gap: 12,
+                  paddingBottom: 10,
+                  borderBottom: "1px solid #e2e8f0",
+                  marginBottom: 8,
+                  fontWeight: 700,
+                  color: "#1e293b",
+                  fontSize: 13,
+                }}
+              >
+                <span>วัตถุดิบ</span>
+                <span>สั่ง</span>
+                <span>ซื้อจริง</span>
+                <span>สถานะ</span>
               </div>
-            ))}
-            {items.length > 6 ? (
-              <Text type="secondary">และอีก {items.length - 6} รายการ</Text>
-            ) : null}
+
+              {items.map((item) => {
+                const diffMeta = getDiffMeta(item);
+
+                return (
+                  <div
+                    key={item.ingredient_id}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1.5fr 0.8fr 0.8fr 0.9fr",
+                      gap: 12,
+                      alignItems: "center",
+                      padding: "10px 0",
+                      borderBottom: "1px solid #f1f5f9",
+                    }}
+                  >
+                    <Text strong style={{ fontSize: 14, color: "#0f172a" }}>
+                      {item.display_name}
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: 14 }}>
+                      {item.ordered_quantity}
+                    </Text>
+                    <Text
+                      strong={item.is_purchased}
+                      style={{
+                        fontSize: 14,
+                        color: item.is_purchased ? "#0f172a" : "#94a3b8",
+                      }}
+                    >
+                      {item.is_purchased ? item.actual_quantity : 0}
+                    </Text>
+                    <div style={{ display: "flex", alignItems: "center" }}>
+                      <Tag
+                        style={{
+                          color: diffMeta.color,
+                          background: diffMeta.background,
+                          border: `1px solid ${diffMeta.borderColor}`,
+                          borderRadius: 6,
+                          margin: 0,
+                        }}
+                      >
+                        {diffMeta.label}
+                      </Tag>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         </Space>
       </Modal>

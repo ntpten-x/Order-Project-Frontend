@@ -551,7 +551,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                                         <Card style={{ borderRadius: 16 }}>
                                             <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
                                                 <ExclamationCircleOutlined style={{ color: '#0369a1' }} />
-                                                <Text strong>รายละเอียดรายการ</Text>
+                                                <Text strong>รายละเอียด</Text>
                                             </div>
                                             <div style={{ display: 'grid', gap: 8 }}>
                                                 <Text type="secondary">สร้างเมื่อ: {formatDate(originalTable?.create_date)}</Text>
@@ -573,7 +573,7 @@ export default function TablesManagePage({ params }: { params: { mode: string[] 
                 onCancel={() => setIsStatusModalVisible(false)}
                 footer={null}
                 centered
-                width={400}
+                width="min(400px, calc(100vw - 16px))"
                 styles={{ body: { padding: '12px 16px 24px' } }}
             >
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>

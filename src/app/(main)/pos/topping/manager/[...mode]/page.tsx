@@ -1,19 +1,21 @@
 'use client';
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Alert, Button, Card, Col, Form, Input, InputNumber, Modal, Row, Select, Spin, Switch, Tag, Typography, message } from 'antd';
+import { Alert, Button, Card, Col, Form, Input, Modal, Row, Spin, Switch, Tag, Typography, message } from 'antd';
 import { AppstoreOutlined, CheckCircleOutlined, DeleteOutlined, DownOutlined, SaveOutlined } from '@ant-design/icons';
 import { useRouter } from 'next/navigation';
 
 import PageContainer from '../../../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../../../components/ui/page/PageSection';
 import UIPageHeader from '../../../../../../components/ui/page/PageHeader';
+import { ModalSelector } from '../../../../../../components/ui/select/ModalSelector';
 import { AccessGuardFallback } from '../../../../../../components/pos/AccessGuard';
 import { useEffectivePermissions } from '../../../../../../hooks/useEffectivePermissions';
 import { useRoleGuard } from '../../../../../../utils/pos/accessControl';
 import { getCsrfTokenCached } from '../../../../../../utils/pos/csrf';
 import { Category } from '../../../../../../types/api/pos/category';
 import { Topping } from '../../../../../../types/api/pos/topping';
+import { ToppingGroup } from '../../../../../../types/api/pos/toppingGroup';
 import { isSupportedImageSource, normalizeImageSource } from '../../../../../../utils/image/source';
 import { pageStyles, ManagePageStyles, ToppingPreview, ActionButtons } from './style';
 
@@ -26,6 +28,7 @@ type ToppingFormValues = {
     price_delivery?: number;
     img?: string;
     category_ids: string[];
+    topping_group_ids?: string[];
     is_active?: boolean;
 };
 
@@ -54,6 +57,7 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
     const [submitting, setSubmitting] = useState(false);
     const [csrfToken, setCsrfToken] = useState('');
     const [categories, setCategories] = useState<Category[]>([]);
+    const [toppingGroups, setToppingGroups] = useState<ToppingGroup[]>([]);
     const [isCategoryModalVisible, setIsCategoryModalVisible] = useState(false);
     const [tempCategoryIds, setTempCategoryIds] = useState<string[]>([]);
     const [originalTopping, setOriginalTopping] = useState<Topping | null>(null);
@@ -75,7 +79,10 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
     const priceDelivery = Form.useWatch('price_delivery', form);
     const imgUrl = Form.useWatch('img', form);
     const isActive = Form.useWatch('is_active', form) ?? true;
-    const categoryIds = Form.useWatch('category_ids', form) || [];
+    const watchedCategoryIds = Form.useWatch('category_ids', form);
+    const categoryIds = useMemo(() => watchedCategoryIds ?? [], [watchedCategoryIds]);
+    const watchedToppingGroupIds = Form.useWatch('topping_group_ids', form);
+    const toppingGroupIds = useMemo(() => watchedToppingGroupIds ?? [], [watchedToppingGroupIds]);
 
     const selectedCategories = useMemo(
         () => categories.filter((category) => categoryIds.includes(category.id)),
@@ -85,6 +92,10 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
     const hasSelectableCategories = useMemo(
         () => categories.some((category) => category.is_active) || selectedCategories.length > 0,
         [categories, selectedCategories.length]
+    );
+    const availableToppingGroups = useMemo(
+        () => toppingGroups.filter((group) => group.is_active || toppingGroupIds.includes(group.id)),
+        [toppingGroupIds, toppingGroups]
     );
 
     useEffect(() => {
@@ -118,6 +129,13 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
         }
     }, []);
 
+    const fetchToppingGroups = useCallback(async () => {
+        const response = await fetch('/api/pos/toppingGroup', { cache: 'no-store' });
+        if (response.ok) {
+            setToppingGroups(parseListResponse<ToppingGroup>(await response.json()));
+        }
+    }, []);
+
     const fetchTopping = useCallback(async () => {
         if (!id) return;
         setLoading(true);
@@ -131,6 +149,7 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                 price_delivery: Number(data.price_delivery ?? data.price ?? 0),
                 img: data.img || '',
                 category_ids: (data.categories || []).map((category: Category) => category.id),
+                topping_group_ids: (data.topping_groups || []).map((group: ToppingGroup) => group.id),
                 is_active: data.is_active,
             });
             setOriginalTopping(data);
@@ -146,10 +165,11 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
     useEffect(() => {
         if (!isAuthorized || permissionLoading) return;
         void fetchCategories();
+        void fetchToppingGroups();
         if (isEdit) {
             void fetchTopping();
         }
-    }, [fetchCategories, fetchTopping, isAuthorized, isEdit, permissionLoading]);
+    }, [fetchCategories, fetchTopping, fetchToppingGroups, isAuthorized, isEdit, permissionLoading]);
 
     const checkNameConflict = useCallback(async (rawValue: string) => {
         const value = rawValue.trim();
@@ -183,6 +203,7 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                     : Number(values.price_delivery),
                 img: normalizeImageSource(values.img) || null,
                 category_ids: values.category_ids,
+                topping_group_ids: values.topping_group_ids || [],
                 is_active: values.is_active,
             };
             const response = await fetch(isEdit ? `/api/pos/topping/update/${id}` : '/api/pos/topping/create', {
@@ -273,7 +294,7 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                                         form={form}
                                         layout="vertical"
                                         onFinish={handleSubmit}
-                                        initialValues={{ is_active: true, price: 0, price_delivery: 0, img: '', category_ids: [] }}
+                                        initialValues={{ is_active: true, price: 0, price_delivery: 0, img: '', category_ids: [], topping_group_ids: [] }}
                                         onValuesChange={(changed) => {
                                             if (!isEdit && changed.price !== undefined && !form.isFieldTouched('price_delivery')) {
                                                 form.setFieldsValue({ price_delivery: changed.price });
@@ -417,6 +438,27 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                                             </div>
                                         </Form.Item>
 
+                                        <Form.Item
+                                            name="topping_group_ids"
+                                            label="กลุ่มท็อปปิ้งที่สังกัด"
+                                            extra="เลือกกลุ่มที่ท็อปปิ้งนี้สามารถแสดงได้ร่วมกับสินค้า"
+                                        >
+                                            <ModalSelector<string>
+                                                title="เลือกกลุ่มท็อปปิ้ง"
+                                                value={toppingGroupIds}
+                                                multiple
+                                                showSearch
+                                                options={availableToppingGroups.map((group) => ({
+                                                    label: group.display_name,
+                                                    value: group.id,
+                                                    searchLabel: group.display_name,
+                                                }))}
+                                                onChange={(value) => form.setFieldValue('topping_group_ids', value)}
+                                                placeholder="ไม่กำหนดกลุ่มท็อปปิ้ง"
+                                                style={{ minHeight: 46, borderRadius: 12, padding: '10px 16px' }}
+                                            />
+                                        </Form.Item>
+
                                         <div style={{ padding: 16, background: '#f8fafc', borderRadius: 16, marginBottom: 24, border: '1px solid #f1f5f9' }}>
                                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                                 <div>
@@ -493,7 +535,7 @@ export default function ToppingManagePage({ params }: { params: { mode: string[]
                 open={isCategoryModalVisible}
                 onCancel={() => setIsCategoryModalVisible(false)}
                 centered
-                width={400}
+                width="min(400px, calc(100vw - 16px))"
                 footer={[
                     <Button key="cancel" onClick={() => setIsCategoryModalVisible(false)} style={{ borderRadius: 10, minWidth: 80, height: 36 }}>
                         ยกเลิก

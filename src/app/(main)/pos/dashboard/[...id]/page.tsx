@@ -294,6 +294,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
         void printReceiptDocument({
             order,
             shopProfile: {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 ...(shopProfile as any),
                 branch_name: user?.branch?.branch_name,
                 branch_phone: user?.branch?.phone,
@@ -308,7 +309,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
 
     if (authLoading || permissionLoading) {
         return (
-            <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F8FAFC" }}>
+            <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F8FAFC" }}>
                 <Spin size="large" />
             </div>
         );
@@ -325,7 +326,7 @@ export default function DashboardOrderDetailPage({ params }: Props) {
 
     if (loading) {
         return (
-            <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F8FAFC" }}>
+            <div style={{ minHeight: "100dvh", display: "flex", alignItems: "center", justifyContent: "center", background: "#F8FAFC" }}>
                 <Spin size="large" />
             </div>
         );

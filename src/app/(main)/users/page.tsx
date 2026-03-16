@@ -227,6 +227,8 @@ export default function UsersPage() {
     const [pageSize, setPageSize] = useState(20);
     const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
     const [totalUsers, setTotalUsers] = useState(0);
+    const [activeUsersTotal, setActiveUsersTotal] = useState(0);
+    const [inactiveUsersTotal, setInactiveUsersTotal] = useState(0);
 
     const debouncedSearch = useDebouncedValue(searchValue, 300);
 
@@ -275,6 +277,20 @@ export default function UsersPage() {
     // Backend policy: delete is admin-only even if permissions are mistakenly widened.
     const canDeleteUsersEffective = Boolean(isAdminUser && canDeleteUsers);
 
+    const buildStatsParams = useCallback(
+        (status: Exclude<StatusFilter, 'all'>) => {
+            const params = new URLSearchParams();
+            params.set('page', '1');
+            params.set('limit', '1');
+            params.set('status', status);
+            if (debouncedSearch.trim()) params.set('q', debouncedSearch.trim());
+            if (roleFilter !== 'all') params.set('role', roleFilter);
+            params.set('sort_created', createdSort);
+            return params;
+        },
+        [debouncedSearch, roleFilter, createdSort]
+    );
+
     const fetchUsers = useCallback(async (nextPage: number = page, nextPageSize: number = pageSize) => {
         setIsFetching(true);
         try {
@@ -286,9 +302,15 @@ export default function UsersPage() {
                 if (statusFilter !== 'all') params.set('status', statusFilter);
                 if (roleFilter !== 'all') params.set('role', roleFilter);
                 params.set('sort_created', createdSort);
-                const data = await userService.getAllUsersPaginated(undefined, params);
+                const [data, activeSummary, inactiveSummary] = await Promise.all([
+                    userService.getAllUsersPaginated(undefined, params),
+                    userService.getAllUsersPaginated(undefined, buildStatsParams('active')),
+                    userService.getAllUsersPaginated(undefined, buildStatsParams('inactive')),
+                ]);
                 setUsers(data.data);
                 setTotalUsers(data.total);
+                setActiveUsersTotal(activeSummary.total);
+                setInactiveUsersTotal(inactiveSummary.total);
                 setPage(data.page);
                 setPageSize(nextPageSize);
                 setHasLoaded(true);
@@ -296,7 +318,7 @@ export default function UsersPage() {
         } finally {
             setIsFetching(false);
         }
-    }, [execute, page, pageSize, debouncedSearch, roleFilter, statusFilter, createdSort]);
+    }, [buildStatsParams, createdSort, debouncedSearch, execute, page, pageSize, roleFilter, statusFilter]);
 
     useEffect(() => {
         // Warm CSRF cache for faster first mutation.
@@ -356,10 +378,8 @@ export default function UsersPage() {
     }, [users]);
 
     const stats = useMemo(() => {
-        const activeUsers = users.filter((item) => item.is_active).length;
-        const inactiveUsers = Math.max(users.length - activeUsers, 0);
-        return { total: totalUsers, active: activeUsers, inactive: inactiveUsers };
-    }, [users, totalUsers]);
+        return { total: totalUsers, active: activeUsersTotal, inactive: inactiveUsersTotal };
+    }, [activeUsersTotal, inactiveUsersTotal, totalUsers]);
 
     const filteredUsers = useMemo(() => {
         return users;
@@ -419,7 +439,7 @@ export default function UsersPage() {
         return (
             <div
                 style={{
-                    height: '100vh',
+                    height: '100dvh',
                     display: 'flex',
                     flexDirection: 'column',
                     justifyContent: 'center',
@@ -439,21 +459,21 @@ export default function UsersPage() {
     const showInitialSkeleton = !hasLoaded && isFetching;
 
     return (
-        <div style={{ minHeight: '100vh', background: '#F8FAFC', paddingBottom: 100 }}>
+        <div style={{ minHeight: '100dvh', background: '#F8FAFC', paddingBottom: 100 }} data-testid="users-page">
             <UIPageHeader
                 title="ผู้ใช้งาน"
                 subtitle={`ทั้งหมด ${totalUsers} คน`}
                 icon={<TeamOutlined style={{ fontSize: 20 }} />}
                 actions={
                     <Space size={8} wrap>
-                        <Button icon={<ReloadOutlined />} onClick={() => { void fetchUsers(); }} loading={isFetching} />
+                        <Button icon={<ReloadOutlined />} onClick={() => { void fetchUsers(); }} loading={isFetching} data-testid="users-refresh" />
                         {isAdminUser ? (
                             <Button icon={<SafetyCertificateOutlined />} onClick={handleGoPermissions}>
                                 {!isMobile ? 'จัดการสิทธิ์' : ''}
                             </Button>
                         ) : null}
                         {canCreateUsers ? (
-                            <Button type="primary" icon={<UserAddOutlined />} onClick={handleAdd}>
+                            <Button type="primary" icon={<UserAddOutlined />} onClick={handleAdd} data-testid="users-add">
                                 {!isMobile ? 'เพิ่มผู้ใช้' : ''}
                             </Button>
                         ) : null}
@@ -474,12 +494,13 @@ export default function UsersPage() {
                     <PageSection title="ค้นหาและตัวกรอง">
                         <SearchBar bodyStyle={{ padding: 12 }}>
                             <SearchInput
-                                placeholder="ค้นหาจากชื่อผู้ใช้, username, บทบาท หรือสาขา..."
+                                placeholder="ค้นหา"
                                 value={searchValue}
                                 onChange={(val) => {
                                     setPage(1);
                                     setSearchValue(val);
                                 }}
+                                dataTestId="users-search"
                             />
                             <Flex gap={10} wrap="wrap">
                                 <div style={{ flex: isMobile ? '1 1 100%' : '1 1 200px' }}>

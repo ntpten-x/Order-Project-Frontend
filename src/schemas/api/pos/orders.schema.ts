@@ -14,6 +14,11 @@ const CategorySchema = z.object({
     display_name: z.string(),
 }).partial().nullable();
 
+const ToppingGroupSchema = z.object({
+    id: z.string(),
+    display_name: z.string().nullable().optional(),
+}).partial().nullable();
+
 const ProductSchema = z.object({
     id: z.string(),
     display_name: z.string(),
@@ -22,7 +27,21 @@ const ProductSchema = z.object({
     price_delivery: z.coerce.number().nullable().optional(),
     category_id: z.string().optional(),
     category: CategorySchema.optional(),
-}).partial().nullable();
+    topping_groups: z.array(ToppingGroupSchema).optional(),
+}).partial().nullable().transform((value) => {
+    if (!value) {
+        return value;
+    }
+
+    const toppingGroups = (value.topping_groups || []).filter(Boolean);
+    return {
+        ...value,
+        topping_groups: toppingGroups,
+        topping_group_ids: toppingGroups
+            .map((toppingGroup) => toppingGroup?.id)
+            .filter((id): id is string => typeof id === 'string' && id.length > 0),
+    };
+});
 
 const SalesOrderDetailSchema = z.object({
     id: z.string().optional(),

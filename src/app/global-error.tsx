@@ -15,7 +15,7 @@ export default function GlobalError({
     <html lang="th">
       <body>
         <ConfigProvider locale={th_TH}>
-          <div className="flex items-center justify-center min-h-screen bg-gray-50 p-4">
+          <div className="flex min-h-[100dvh] items-center justify-center bg-gray-50 p-4">
             <Result
               status="500"
               title="เกิดข้อผิดพลาดร้ายแรง"

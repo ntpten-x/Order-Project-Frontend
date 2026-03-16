@@ -103,7 +103,7 @@ export const orderDetailTypography = orderTypography;
 export const orderDetailStyles = {
   // Page Container
   container: {
-    minHeight: '100vh',
+    minHeight: '100dvh',
     background: orderColors.background,
     paddingBottom: 100,
   } as CSSProperties,
@@ -364,7 +364,7 @@ export const orderDetailStyles = {
   // Action Bar (Floating)
   floatingActions: {
     position: 'fixed' as const,
-    bottom: 120,
+    bottom: 'calc(120px + env(safe-area-inset-bottom, 0px))',
     left: '50%',
     transform: 'translateX(-50%)',
     background: 'rgba(255, 255, 255, 0.98)',
@@ -590,7 +590,7 @@ export const modalStyles = {
     borderTop: `1px solid ${orderColors.borderLight}`,
     background: orderColors.white,
     position: 'sticky' as const,
-    bottom: 0,
+    bottom: 'env(safe-area-inset-bottom, 0px)',
     zIndex: 10,
   } as CSSProperties,
 
@@ -1226,12 +1226,12 @@ export const ordersResponsiveStyles = `
 
     .mobile-fullscreen-modal .ant-modal-content {
       border-radius: 0 !important;
-      min-height: 100vh !important;
+      min-height: 100dvh !important;
     }
 
     .mobile-fullscreen-modal .ant-modal-body {
       padding: 0 !important;
-      max-height: calc(100vh - 60px) !important;
+      max-height: calc(100dvh - 60px) !important;
       overflow-y: auto !important;
       -webkit-overflow-scrolling: touch !important;
     }
@@ -1569,7 +1569,7 @@ export const ordersResponsiveStyles = `
     }
 
     .mobile-fullscreen-modal .ant-modal-body {
-      max-height: calc(100vh - 200px) !important;
+      max-height: calc(100dvh - 200px) !important;
       padding: 0 !important;
     }
   }

@@ -126,6 +126,7 @@ const MENU_NAV_LABEL_BY_RESOURCE_KEY: Record<string, string> = {
     "menu.stock.orders": "รายการ",
     "menu.stock.history": "ประวัติ",
     "menu.stock.ingredients": "วัตถุดิบ",
+    "menu.stock.category": "หมวดหมู่วัตถุดิบ",
     "menu.stock.ingredientsUnit": "หน่วยวัตถุดิบ",
     "menu.users.home": "ผู้ใช้",
     "menu.branch.home": "สาขา",
@@ -1159,7 +1160,7 @@ export default function PermissionsPage() {
     }
 
     return (
-        <div style={{ padding: isMobile ? 12 : 24, background: "#f6f8fb", minHeight: "100vh" }}>
+        <div style={{ padding: isMobile ? 12 : 24, background: "#f6f8fb", minHeight: "100dvh" }}>
             <Row gutter={[isMobile ? 12 : 16, isMobile ? 12 : 16]}>
                 <Col span={24}>
                     <Card bordered={false}>

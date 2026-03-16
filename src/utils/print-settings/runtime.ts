@@ -274,7 +274,7 @@ export function reservePrintWindow(title: string): Window | null {
   <style>
     body {
       margin: 0;
-      min-height: 100vh;
+      min-height: 100dvh;
       display: grid;
       place-items: center;
       font-family: "Noto Sans Thai", Tahoma, sans-serif;
@@ -856,7 +856,7 @@ export function buildPdfPreviewWindowHtml(options: {
     }
     .preview-frame {
       width: 100%;
-      height: calc(100vh - 110px);
+      height: calc(100dvh - 110px);
       border: 1px solid var(--border);
       border-radius: 18px;
       background: #ffffff;
@@ -887,7 +887,7 @@ export function buildPdfPreviewWindowHtml(options: {
       }
       .preview-frame {
         height: auto;
-        min-height: 100vh;
+        min-height: 100dvh;
         border: 0;
         border-radius: 0;
         box-shadow: none;

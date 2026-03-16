@@ -25,7 +25,7 @@ export default function Error({
   return (
     <PageContainer
       style={{
-        minHeight: "100vh",
+        minHeight: "100dvh",
         display: "flex",
         alignItems: "center",
       }}

@@ -840,7 +840,7 @@ export default function TableQrCodePage() {
         }
     }, [bulkExportFormat, bulkExporting, buildCustomerUrl, captureBulkRenderedQr, fetchAllTablesForBulkExport, openQrPrintExport, waitForNextFrame]);
 
-    if (isChecking) return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์การใช้งาน..." />;
+    if (isChecking) return <AccessGuardFallback message="กำลังตรวจสอบการใช้งาน..." />;
     if (!isAuthorized) return <AccessGuardFallback message="คุณไม่มีสิทธิ์เข้าถึงหน้านี้ กำลังพากลับ..." tone="danger" />;
     if (permissionLoading) return <AccessGuardFallback message="กำลังโหลดสิทธิ์ผู้ใช้งาน..." />;
 
@@ -882,7 +882,7 @@ export default function TableQrCodePage() {
                         </Space>
                     </SearchBar>
                     <PageSection title="รายการ QR โต๊ะ" extra={<Space size={8} wrap>{refreshing ? <Tag color="processing">กำลังอัปเดตข้อมูล</Tag> : null}<Text strong>{total} รายการ</Text></Space>}>
-                        {loading && tables.length === 0 ? <PageState status="loading" /> : error && tables.length === 0 ? <PageState status="error" title="โหลดรายการ QR โต๊ะไม่สำเร็จ" error={error} onRetry={() => void fetchQrCodes()} /> : tables.length === 0 ? <UIEmptyState title={debouncedSearch.trim() ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีรายการโต๊ะ'} description={debouncedSearch.trim() ? 'ลองเปลี่ยนคำค้นหาหรือตัวกรอง' : 'เพิ่มโต๊ะในหน้าจัดการโต๊ะก่อน แล้วระบบจะสร้าง QR ให้โดยอัตโนมัติ'} /> : <Space direction="vertical" size={14} style={{ width: '100%' }}><div className="qr-cards-grid">{tables.map((table) => <TableQrCard key={table.id} table={table} customerUrl={buildCustomerUrl(table.customer_path)} canRotate={canRotateQr} rotating={rotatingId === table.id} exporting={exportingId === table.id} onOpen={handleOpenCustomerPage} onRotate={handleRotateQr} onExport={handleOpenSingleTableExportModal} onPreviewQr={setPreviewTable} />)}</div><div style={{ marginTop: 12 }}><ListPagination page={page} total={total} pageSize={pageSize} loading={loading || refreshing} onPageChange={setPage} onPageSizeChange={setPageSize} activeColor="#2563eb" /></div></Space>}
+                        {loading && tables.length === 0 ? <PageState status="loading" /> : error && tables.length === 0 ? <PageState status="error" title="โหลดรายการ QR โต๊ะไม่สำเร็จ" error={error} onRetry={() => void fetchQrCodes()} /> : tables.length === 0 ? <UIEmptyState title={debouncedSearch.trim() ? 'ไม่พบข้อมูลที่ค้นหา' : 'ยังไม่มีรายการโต๊ะ'} description={debouncedSearch.trim() ? 'ลองปรับคำค้นหาหรือตัวกรอง' : 'เปิดโต๊ะให้ใช้งานก่อน แล้วระบบจะสร้าง QR ให้อัตโนมัติ'} /> : <Space direction="vertical" size={14} style={{ width: '100%' }}><div className="qr-cards-grid">{tables.map((table) => <TableQrCard key={table.id} table={table} customerUrl={buildCustomerUrl(table.customer_path)} canRotate={canRotateQr} rotating={rotatingId === table.id} exporting={exportingId === table.id} onOpen={handleOpenCustomerPage} onRotate={handleRotateQr} onExport={handleOpenSingleTableExportModal} onPreviewQr={setPreviewTable} />)}</div><div style={{ marginTop: 12 }}><ListPagination page={page} total={total} pageSize={pageSize} loading={loading || refreshing} onPageChange={setPage} onPageSizeChange={setPageSize} activeColor="#2563eb" /></div></Space>}
                     </PageSection>
                 </PageStack>
             </PageContainer>
@@ -970,7 +970,7 @@ export default function TableQrCodePage() {
 
                     <Radio.Group value={bulkExportFormat} onChange={(event) => setBulkExportFormat(event.target.value as ExportFormat)} style={{ width: '100%' }} disabled={bulkExporting}>
                         {false && <Space direction="vertical" size={10} style={{ width: '100%' }}>
-                            <Radio value="pdf">PDF รวมทุกโต๊ะ (1 ไฟล์)</Radio>
+                            <Radio value="pdf">PDF ของทุกโต๊ะ (1 ไฟล์)</Radio>
                             <Radio value="png">ZIP ของ PNG (แยกไฟล์ต่อโต๊ะ)</Radio>
                         </Space>}
                         <Space direction="vertical" size={10} style={{ width: '100%' }}>
@@ -986,7 +986,7 @@ export default function TableQrCodePage() {
                                 {bulkExportProgress.total > 0
                                     ? `${bulkExportProgress.current}/${bulkExportProgress.total} รายการ`
                                     : 'กำลังเริ่มต้น'}
-                                {bulkExportProgress.skipped > 0 ? `, ข้าม ${bulkExportProgress.skipped} รายการที่ไม่มีลิงก์ลูกค้า` : ''}
+                                {bulkExportProgress.skipped > 0 ? `, ข้าม ${bulkExportProgress.skipped} รายการที่ยังไม่มีลิงก์ลูกค้า` : ''}
                             </Text>
                         </div>
                     )}                </Space>
@@ -1015,7 +1015,7 @@ export default function TableQrCodePage() {
                     </Radio.Group>
                 </Space>
             </Modal>
-            <Modal title={`โต๊ะ ${previewTable?.table_name || ''}`} open={Boolean(previewTable)} onCancel={() => setPreviewTable(null)} footer={null} centered destroyOnClose styles={{ body: { padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' } }} width={400}>
+            <Modal title={`โต๊ะ ${previewTable?.table_name || ''}`} open={Boolean(previewTable)} onCancel={() => setPreviewTable(null)} footer={null} centered destroyOnClose styles={{ body: { padding: '24px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '16px' } }} width="min(400px, calc(100vw - 16px))">
                 {previewTable?.customer_path ? <div style={{ background: '#fff', padding: '16px', borderRadius: '16px', boxShadow: '0 4px 20px rgba(0,0,0,0.08)', border: '1px solid #f1f5f9', display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}><DynamicQRCode value={buildCustomerUrl(previewTable.customer_path)} size={280} /></div> : null}
                 <Text type="secondary" style={{ textAlign: 'center', marginTop: 8 }}>ให้ลูกค้าสแกน QR Code นี้เพื่อเปิดเมนูและสั่งอาหาร</Text>
             </Modal>
@@ -1038,4 +1038,3 @@ export default function TableQrCodePage() {
         </div>
     );
 }
-

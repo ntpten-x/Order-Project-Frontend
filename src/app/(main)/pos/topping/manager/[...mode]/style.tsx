@@ -6,8 +6,6 @@ import { Tag, Typography, Button } from "antd";
 import { CheckCircleFilled, SaveOutlined, ShopOutlined } from "@ant-design/icons";
 import {
     createManagePageStyles,
-    ManageActionButtons,
-    ManagePageHeader,
 } from "../../../../../../theme/pos/manage.shared";
 import { isSupportedImageSource, normalizeImageSource } from "../../../../../../utils/image/source";
 import { Category } from "../../../../../../types/api/pos/category";
@@ -147,7 +145,7 @@ interface ActionButtonsProps {
     onCancel: () => void;
 }
 
-export const ActionButtons = ({ isEdit, loading, onCancel }: ActionButtonsProps) => (
+export const ActionButtons = ({ loading, onCancel }: ActionButtonsProps) => (
     <div style={pageStyles.actionButtons}>
         <Button
             size="large"

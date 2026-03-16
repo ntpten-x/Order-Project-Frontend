@@ -228,8 +228,9 @@ const AppHeader: React.FC = () => {
             style={{
               position: 'absolute',
               top: 'calc(100% + 8px)',
-              right: isMobile ? -8 : 0, // Adjust alignment for mobile padding
-              width: 260,
+              right: 0,
+              width: isMobile ? 'min(260px, calc(100vw - 32px))' : 260,
+              maxWidth: 'calc(100vw - 32px)',
               background: '#ffffff',
               borderRadius: token.borderRadiusLG,
               boxShadow: '0 10px 40px rgba(0, 0, 0, 0.12)',

@@ -9,7 +9,7 @@ import React from 'react';
 const STYLES = `
 /* ─── Foundations ──────────────────────────────────────── */
 .ps-page {
-    min-height: 100vh;
+    min-height: 100dvh;
     background: #f5f7fa;
     padding-bottom: 40px;
 }
@@ -371,7 +371,7 @@ const STYLES = `
 /* ─── Sticky save bar (bottom) ───────────────────────── */
 .ps-save-bar {
     position: fixed;
-    bottom: 0;
+    bottom: env(safe-area-inset-bottom, 0px);
     left: 0;
     right: 0;
     z-index: 100;
@@ -379,7 +379,7 @@ const STYLES = `
     align-items: center;
     justify-content: center;
     gap: 12px;
-    padding: 12px 20px;
+    padding: 12px 20px calc(12px + env(safe-area-inset-bottom, 0px));
     background: rgba(255, 255, 255, 0.92);
     backdrop-filter: blur(12px);
     border-top: 1px solid #e2e8f0;

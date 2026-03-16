@@ -1,23 +1,10 @@
 "use client";
 
-import React from "react";
-
 export default function StockBuyingPageStyle() {
   return (
     <style jsx global>{`
-      @keyframes stockBuyingFadeInUp {
-        from {
-          opacity: 0;
-          transform: translateY(12px);
-        }
-        to {
-          opacity: 1;
-          transform: translateY(0);
-        }
-      }
-
       .stock-buying-shell {
-        min-height: 100vh;
+        min-height: 100dvh;
         background:
           radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 24%),
           linear-gradient(180deg, #f8fbff 0%, #f3f6fb 100%);
@@ -31,65 +18,42 @@ export default function StockBuyingPageStyle() {
         padding: 16px 0;
       }
 
-      .stock-buying-hero-panel,
-      .stock-buying-section-card,
-      .stock-buying-item-card,
-      .stock-buying-summary-card,
-      .stock-buying-footer-card {
+      .stock-buying-hero-panel {
         background: rgba(255, 255, 255, 0.92);
         border: 1px solid rgba(148, 163, 184, 0.18);
         box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
         backdrop-filter: blur(14px);
-      }
-
-      .stock-buying-hero-panel,
-      .stock-buying-section-card,
-      .stock-buying-summary-card,
-      .stock-buying-footer-card {
         border-radius: 24px;
-      }
-
-      .stock-buying-hero-panel {
         padding: 18px;
       }
 
-      .stock-buying-hero-top,
-      .stock-buying-title-wrap,
-      .stock-buying-title-line,
-      .stock-buying-hero-actions,
-      .stock-buying-section-head,
-      .stock-buying-item-head,
-      .stock-buying-item-controls,
-      .stock-buying-item-stats,
-      .stock-buying-summary-row,
-      .stock-buying-footer-card,
-      .stock-buying-modal-item {
+      .stock-buying-hero-header {
         display: flex;
         justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+      }
+
+      .stock-buying-hero-header-left {
+        display: flex;
+        align-items: center;
         gap: 12px;
+        min-width: 0;
+        flex: 1;
       }
 
-      .stock-buying-hero-top,
-      .stock-buying-title-wrap,
-      .stock-buying-title-line,
-      .stock-buying-item-head {
-        align-items: flex-start;
-      }
-
-      .stock-buying-title-wrap,
-      .stock-buying-title-copy,
-      .stock-buying-summary-card {
+      .stock-buying-title-group {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
         min-width: 0;
       }
 
-      .stock-buying-title-wrap {
-        flex: 1;
-      }
-
-      .stock-buying-title-copy {
-        display: grid;
-        gap: 6px;
-        flex: 1;
+      .stock-buying-hero-header-right {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        flex-shrink: 0;
       }
 
       .stock-buying-title-icon,
@@ -115,12 +79,6 @@ export default function StockBuyingPageStyle() {
         color: #1d4ed8 !important;
       }
 
-      .stock-buying-eyebrow {
-        display: block;
-        color: #64748b;
-        font-size: 13px;
-      }
-
       .stock-buying-title {
         margin: 0 !important;
         color: #0f172a !important;
@@ -131,136 +89,8 @@ export default function StockBuyingPageStyle() {
         font-size: 14px;
       }
 
-      .stock-buying-mode-tag {
-        margin-inline-end: 0 !important;
-        border-radius: 999px;
-        padding-inline: 10px;
-        font-weight: 700;
-      }
-
-      .stock-buying-mode-tag.editable {
-        color: #15803d;
-        background: #f0fdf4;
-        border-color: #bbf7d0;
-      }
-
-      .stock-buying-mode-tag.readonly {
-        color: #b45309;
-        background: #fffbeb;
-        border-color: #fde68a;
-      }
-
-      .stock-buying-hero-actions {
-        flex-wrap: wrap;
-        justify-content: flex-end;
-      }
-
       .stock-buying-hero-btn {
         border-radius: 14px;
-        font-weight: 600;
-      }
-
-      .stock-buying-stats-toggle {
-        width: 100%;
-        margin-top: 14px;
-        padding: 12px 14px;
-        border: 1px solid #dbeafe;
-        background: #eff6ff;
-        border-radius: 18px;
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        cursor: pointer;
-        transition: background 0.2s ease;
-      }
-
-      .stock-buying-stats-toggle:hover {
-        background: #e0f2fe;
-      }
-
-      .stock-buying-stats-toggle-label {
-        display: block;
-        color: #64748b;
-        font-size: 13px;
-      }
-
-      .stock-buying-stats-toggle-value {
-        color: #0f172a;
-        font-size: 15px;
-        font-weight: 700;
-      }
-
-      .stock-buying-stats-toggle-icon {
-        color: #2563eb;
-      }
-
-      .stock-buying-stats-row {
-        display: grid;
-        grid-template-columns: repeat(4, minmax(0, 1fr));
-        gap: 12px;
-        margin-top: 14px;
-      }
-
-      .stock-buying-stat-card {
-        padding: 16px;
-        border-radius: 18px;
-        background: #ffffff;
-        border: 1px solid #e2e8f0;
-        display: grid;
-        gap: 4px;
-      }
-
-      .stock-buying-stat-value {
-        font-size: 24px;
-        font-weight: 800;
-        line-height: 1.1;
-      }
-
-      .stock-buying-stat-label {
-        color: #64748b;
-        font-size: 13px;
-      }
-
-      .stock-buying-hero-toolbar {
-        margin-top: 14px;
-        display: grid;
-        grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
-        gap: 12px;
-        align-items: center;
-      }
-
-      .stock-buying-search {
-        min-width: 0;
-      }
-
-      .stock-buying-search-input {
-        border-radius: 16px !important;
-        background: #ffffff !important;
-        border: 1px solid #e2e8f0 !important;
-      }
-
-      .stock-buying-search-input .ant-input {
-        background: transparent !important;
-      }
-
-      .stock-buying-search-icon {
-        color: #94a3b8;
-      }
-
-      .stock-buying-hero-meta {
-        display: flex;
-        justify-content: flex-end;
-        gap: 8px;
-        flex-wrap: wrap;
-      }
-
-      .stock-buying-hero-meta span {
-        padding: 6px 10px;
-        border-radius: 999px;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-        color: #475569;
-        font-size: 12px;
         font-weight: 600;
       }
 
@@ -275,30 +105,21 @@ export default function StockBuyingPageStyle() {
       }
 
       .stock-buying-layout {
-        display: grid;
-        grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.78fr);
-        gap: 18px;
-        align-items: start;
-        margin-top: 8px;
+        display: flex;
+        width: 100%;
       }
 
-      .stock-buying-main,
-      .stock-buying-aside {
-        min-width: 0;
-      }
-
-      .stock-buying-aside {
+      .stock-buying-sidebar-sticky {
         position: sticky;
-        top: 224px;
-      }
-
-      .stock-buying-section-card {
-        padding: 18px;
+        top: 100px;
+        z-index: 10;
       }
 
       .stock-buying-section-head {
+        display: flex;
+        justify-content: space-between;
         align-items: flex-start;
-        margin-bottom: 16px;
+        gap: 12px;
       }
 
       .stock-buying-section-title {
@@ -321,168 +142,212 @@ export default function StockBuyingPageStyle() {
         gap: 14px;
       }
 
-      .stock-buying-item-card {
-        padding: 18px;
-        border-radius: 22px;
-        animation: stockBuyingFadeInUp 0.32s ease both;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-      }
-
-      .stock-buying-item-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 18px 36px rgba(15, 23, 42, 0.08);
-      }
-
-      .stock-buying-item-identity {
+      .stock-buying-item-card-v3 {
+        position: relative;
+        padding-left: 12px;
+        background: #ffffff;
+        border: 1px solid rgba(241, 245, 249, 0.9);
+        box-shadow: 0 10px 25px rgba(15, 23, 42, 0.02);
+        border-radius: 20px;
+        overflow: hidden;
+        transition: all 0.25s ease;
         display: flex;
-        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .stock-buying-item-card-v3:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 16px 36px rgba(15, 23, 42, 0.06);
+        border-color: rgba(37, 99, 235, 0.1);
+      }
+
+      .stock-buying-item-status-bar {
+        position: absolute;
+        top: 0;
+        left: 0;
+        bottom: 0;
+        width: 6px;
+      }
+
+      .item-v3-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 16px 16px 0 12px;
+      }
+
+      .item-v3-identity {
+        display: flex;
+        align-items: center;
         gap: 14px;
         min-width: 0;
         flex: 1;
       }
 
-      .stock-buying-item-copy {
+      .item-v3-copy {
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
         min-width: 0;
-        display: grid;
-        gap: 4px;
       }
 
-      .stock-buying-item-title-row {
+      .item-v3-title-row {
         display: flex;
         align-items: center;
         gap: 10px;
         flex-wrap: wrap;
       }
 
-      .stock-buying-item-description {
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
-      }
-
-      .stock-buying-item-status {
-        display: inline-flex;
-        align-items: center;
-        padding: 4px 10px;
-        border-radius: 999px;
-        border: 1px solid;
-        font-size: 12px;
-        font-weight: 700;
-      }
-
-      .stock-buying-item-toggle {
+      .item-v3-toggle {
         flex-shrink: 0;
       }
 
-      .stock-buying-item-stats {
-        margin-top: 14px;
-        color: #475569;
-        font-size: 13px;
-        flex-wrap: wrap;
+      .item-v3-body {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 16px;
+        padding: 0 16px 16px 12px;
       }
 
-      .stock-buying-item-stats span {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 6px 10px;
+      .item-v3-stats {
+        display: flex;
+        gap: 8px;
+        flex: 1;
+        min-width: 0;
+      }
+
+      .item-v3-stat-box {
+        background: #f8fafc;
         border-radius: 12px;
-        background: #f8fafc;
-        border: 1px solid #e2e8f0;
-      }
-
-      .stock-buying-item-controls {
-        margin-top: 14px;
-        align-items: end;
-      }
-
-      .stock-buying-item-quick-actions {
+        padding: 8px 12px;
         display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
+        flex-direction: column;
+        gap: 2px;
+        flex: 1;
+        min-width: 0;
+        border: 1px solid #f1f5f9;
+        transition: all 0.2s ease;
       }
 
-      .stock-buying-item-quick-actions .ant-btn,
-      .stock-buying-qty-box .ant-btn,
-      .stock-buying-footer-card .ant-btn {
-        border-radius: 14px;
-        font-weight: 600;
+      .item-v3-stat-box.active {
+        background: #f0fdf4;
+        border-color: #dcfce7;
       }
 
-      .stock-buying-qty-box {
-        display: grid;
-        gap: 8px;
-        min-width: min(100%, 280px);
+      .item-v3-stat-label {
+        font-size: 11px;
+        color: #64748b;
+        font-weight: 500;
+        white-space: nowrap;
       }
 
-      .stock-buying-qty-box .ant-input-number {
-        border-radius: 0;
-      }
-
-      .stock-buying-qty-box .ant-input-number-input {
-        text-align: center;
-        font-weight: 700;
-      }
-
-      .stock-buying-summary-card {
-        padding: 20px;
-        display: grid;
-        gap: 18px;
-      }
-
-      .stock-buying-summary-block {
-        display: grid;
-        gap: 8px;
-      }
-
-      .stock-buying-summary-code {
-        margin: 0 !important;
-      }
-
-      .stock-buying-summary-row {
-        margin-bottom: 8px;
-      }
-
-      .stock-buying-summary-grid {
-        display: grid;
-        grid-template-columns: repeat(2, minmax(0, 1fr));
-        gap: 12px;
-      }
-
-      .stock-buying-summary-grid > div {
-        padding: 14px;
-        background: #f8fafc;
-        border-radius: 18px;
-      }
-
-      .stock-buying-summary-grid .ant-typography {
-        margin: 0;
-      }
-
-      .stock-buying-pill-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-      }
-
-      .stock-buying-footer {
-        position: fixed;
-        left: 16px;
-        right: 16px;
-        bottom: 18px;
-        z-index: 40;
-      }
-
-      .stock-buying-footer-card {
-        padding: 16px 18px;
-        align-items: center;
-      }
-
-      .stock-buying-footer-main {
-        font-size: 16px;
+      .item-v3-stat-value {
+        font-size: 15px;
         font-weight: 700;
         color: #0f172a;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+
+      .item-v3-quick-actions {
+        display: flex;
+        gap: 8px;
+        flex-shrink: 0;
+      }
+
+      .item-v3-quick-actions .ant-btn {
+        height: 38px;
+        padding: 0 16px;
+        font-size: 13px;
+        font-weight: 700;
+        border-radius: 12px;
+        border: 1px solid transparent;
+      }
+
+      .item-v3-quick-actions .btn-match {
+        background: #ecfdf5 !important;
+        border-color: #a7f3d0 !important;
+        color: #065f46 !important;
+      }
+
+      .item-v3-quick-actions .btn-match:hover {
+        background: #d1fae5 !important;
+        border-color: #059669 !important;
+      }
+
+      .item-v3-quick-actions .btn-skip {
+        background: #fef2f2 !important;
+        border-color: #fecaca !important;
+        color: #b91c1c !important;
+      }
+
+      .item-v3-quick-actions .btn-skip:hover {
+        background: #fee2e2 !important;
+        border-color: #dc2626 !important;
+      }
+
+      .item-v3-footer {
+        display: flex;
+        justify-content: center;
+        padding: 0 16px 16px 12px;
+        margin-top: auto;
+      }
+
+      .item-v3-qty-box {
+        display: flex;
+        align-items: center;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 12px;
+        overflow: hidden;
+        width: 100%;
+        max-width: 180px;
+      }
+
+      .item-v3-qty-box .ant-btn {
+        height: 38px;
+        width: 42px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border: none !important;
+      }
+
+      .item-v3-qty-box .btn-minus {
+        background: #fff1f2 !important;
+        color: #e11d48 !important;
+      }
+
+      .item-v3-qty-box .btn-minus:hover {
+        background: #fee2e2 !important;
+      }
+
+      .item-v3-qty-box .btn-plus {
+        background: #f0fdf4 !important;
+        color: #10b981 !important;
+      }
+
+      .item-v3-qty-box .btn-plus:hover {
+        background: #d1fae5 !important;
+      }
+
+      .item-v3-qty-box .ant-input-number {
+        flex: 1;
+        text-align: center;
+        border: none !important;
+        box-shadow: none !important;
+        background: transparent;
+      }
+
+      .item-v3-qty-box .ant-input-number-input {
+        text-align: center !important;
+        font-weight: 700;
+        color: #000000;
+        height: 38px !important;
+        padding: 0 !important;
       }
 
       .stock-buying-modal-summary {
@@ -491,30 +356,13 @@ export default function StockBuyingPageStyle() {
         gap: 12px;
       }
 
-      .stock-buying-modal-summary > div,
-      .stock-buying-modal-item {
-        background: #f8fafc;
-        border-radius: 16px;
-        padding: 12px 14px;
-      }
-
       .stock-buying-modal-list {
         display: grid;
         gap: 8px;
       }
 
-      .stock-buying-modal-item {
-        align-items: center;
-      }
-
-      @media screen and (max-width: 1200px) {
-        .stock-buying-stats-row,
-        .stock-buying-hero-toolbar,
-        .stock-buying-layout {
-          grid-template-columns: 1fr;
-        }
-
-        .stock-buying-aside {
+      @media screen and (max-width: 991px) {
+        .stock-buying-sidebar-sticky {
           position: static;
           top: auto;
         }
@@ -529,52 +377,50 @@ export default function StockBuyingPageStyle() {
           padding: 12px 0;
         }
 
-        .stock-buying-hero-panel,
-        .stock-buying-section-card,
-        .stock-buying-summary-card,
-        .stock-buying-item-card {
+        .stock-buying-hero-panel {
           padding: 16px;
         }
 
-        .stock-buying-hero-top,
-        .stock-buying-title-wrap,
-        .stock-buying-title-line,
-        .stock-buying-hero-actions,
-        .stock-buying-section-head,
-        .stock-buying-item-head,
-        .stock-buying-item-controls,
-        .stock-buying-item-stats,
-        .stock-buying-footer-card,
-        .stock-buying-modal-item {
+        .stock-buying-hero-header {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 12px;
+        }
+
+        .stock-buying-hero-header-right {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 8px;
+          width: 100%;
+        }
+
+        .stock-buying-section-head {
           flex-direction: column;
           align-items: stretch;
         }
 
-        .stock-buying-mode-tag {
-          width: fit-content;
-        }
-
-        .stock-buying-hero-meta {
-          justify-content: flex-start;
-        }
-
-        .stock-buying-item-toggle {
-          width: 100%;
-        }
-
-        .stock-buying-item-toggle .ant-switch {
-          width: 100%;
-        }
-
-        .stock-buying-summary-grid,
         .stock-buying-modal-summary {
           grid-template-columns: 1fr;
         }
+      }
 
-        .stock-buying-footer {
-          left: 12px;
-          right: 12px;
-          bottom: 12px;
+      @media screen and (max-width: 640px) {
+        .item-v3-body {
+          flex-direction: column;
+          align-items: stretch;
+          gap: 12px;
+        }
+
+        .item-v3-quick-actions {
+          justify-content: flex-end;
+        }
+
+        .item-v3-footer {
+          justify-content: stretch;
+        }
+
+        .item-v3-qty-box {
+          max-width: 100%;
         }
       }
     `}</style>

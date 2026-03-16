@@ -90,7 +90,7 @@ export default function OfflinePage() {
             <PageContainer
                 maxWidth={1180}
                 style={{
-                    minHeight: "100vh",
+                    minHeight: "100dvh",
                     paddingTop: 12,
                     paddingBottom: 32,
                 }}
