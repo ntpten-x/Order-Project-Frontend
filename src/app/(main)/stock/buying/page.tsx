@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Alert,
   App,
@@ -9,7 +9,6 @@ import {
   Col,
   Divider,
   Empty,
-  Input,
   InputNumber,
   Modal,
   Progress,
@@ -24,12 +23,9 @@ import {
   ArrowLeftOutlined,
   CheckCircleOutlined,
   CheckSquareOutlined,
-  DownOutlined,
   MinusOutlined,
   PlusOutlined,
   ReloadOutlined,
-  SearchOutlined,
-  UpOutlined,
 } from "@ant-design/icons";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -53,7 +49,6 @@ const { Text, Title } = Typography;
 interface PurchaseItemState {
   ingredient_id: string;
   display_name: string;
-  description?: string;
   unit_label: string;
   img_url?: string | null;
   ordered_quantity: number;
@@ -61,14 +56,38 @@ interface PurchaseItemState {
   is_purchased: boolean;
 }
 
-function formatDateTime(value?: string): string {
-  if (!value) return "-";
-  return new Date(value).toLocaleString("th-TH", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+function areItemsEqual(left: PurchaseItemState[], right: PurchaseItemState[]): boolean {
+  if (left.length !== right.length) return false;
+
+  return left.every((item, index) => {
+    const other = right[index];
+    return (
+      other &&
+      item.ingredient_id === other.ingredient_id &&
+      item.ordered_quantity === other.ordered_quantity &&
+      item.actual_quantity === other.actual_quantity &&
+      item.is_purchased === other.is_purchased
+    );
+  });
+}
+
+function mergeDraftItems(
+  serverItems: PurchaseItemState[],
+  draftItems: PurchaseItemState[]
+): PurchaseItemState[] {
+  const draftByIngredient = new Map(
+    draftItems.map((item) => [item.ingredient_id, item] as const)
+  );
+
+  return serverItems.map((serverItem) => {
+    const draftItem = draftByIngredient.get(serverItem.ingredient_id);
+    if (!draftItem) return serverItem;
+
+    return {
+      ...serverItem,
+      actual_quantity: draftItem.actual_quantity,
+      is_purchased: draftItem.is_purchased,
+    };
   });
 }
 
@@ -78,35 +97,16 @@ function getOrderCode(id?: string): string {
 
 function buildItems(order: Order | null): PurchaseItemState[] {
   if (!order?.ordersItems) return [];
+
   return order.ordersItems.map((item) => ({
     ingredient_id: item.ingredient_id,
     display_name: item.ingredient?.display_name || "-",
-    description: item.ingredient?.description || "",
     unit_label: item.ingredient?.unit?.display_name || "หน่วย",
     img_url: item.ingredient?.img_url,
     ordered_quantity: Number(item.quantity_ordered || 0),
     actual_quantity: Number(item.ordersDetail?.actual_quantity ?? item.quantity_ordered ?? 0),
     is_purchased: Boolean(item.ordersDetail?.is_purchased),
   }));
-}
-
-function areItemStatesEqual(left: PurchaseItemState[], right: PurchaseItemState[]): boolean {
-  if (left.length !== right.length) return false;
-  return left.every((item, index) => {
-    const compare = right[index];
-    return (
-      item.ingredient_id === compare?.ingredient_id &&
-      item.actual_quantity === compare?.actual_quantity &&
-      item.ordered_quantity === compare?.ordered_quantity &&
-      item.is_purchased === compare?.is_purchased
-    );
-  });
-}
-
-function matchesItem(item: PurchaseItemState, search: string): boolean {
-  if (!search) return true;
-  const haystacks = [item.display_name, item.description || "", item.unit_label];
-  return haystacks.some((value) => value.toLowerCase().includes(search));
 }
 
 function getDiffMeta(item: PurchaseItemState): {
@@ -160,6 +160,9 @@ export default function StockBuyingPage() {
   const requestRef = useRef<AbortController | null>(null);
   const refreshTimerRef = useRef<number | null>(null);
   const hasLoadedRef = useRef(false);
+  const itemsRef = useRef<PurchaseItemState[]>([]);
+  const serverItemsRef = useRef<PurchaseItemState[]>([]);
+  const hasDraftChangesRef = useRef(false);
 
   const { user, loading: authLoading } = useAuth();
   const { socket } = useSocket();
@@ -178,14 +181,23 @@ export default function StockBuyingPage() {
   const [csrfToken, setCsrfToken] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
-  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
-  const [searchText, setSearchText] = useState("");
-  const [statsExpanded, setStatsExpanded] = useState(true);
+  const [hasDraftChanges, setHasDraftChanges] = useState(false);
 
   const isEditable = canUpdateOrders && order?.status === OrderStatus.PENDING;
 
+  const syncDraftState = useCallback((nextItems: PurchaseItemState[]) => {
+    itemsRef.current = nextItems;
+    const nextHasDraftChanges = !areItemsEqual(nextItems, serverItemsRef.current);
+    hasDraftChangesRef.current = nextHasDraftChanges;
+    setHasDraftChanges(nextHasDraftChanges);
+    setItems(nextItems);
+  }, []);
+
   const fetchOrder = useCallback(
-    async ({ silent = false }: { silent?: boolean } = {}) => {
+    async ({
+      silent = false,
+      preserveDraft = false,
+    }: { silent?: boolean; preserveDraft?: boolean } = {}) => {
       if (!orderId || !canViewOrders) return;
 
       requestRef.current?.abort();
@@ -206,10 +218,16 @@ export default function StockBuyingPage() {
 
         if (requestRef.current !== controller) return;
 
+        const nextServerItems = buildItems(payload);
+        serverItemsRef.current = nextServerItems;
         setOrder(payload);
-        setItems(buildItems(payload));
-        setLastSyncedAt(new Date());
-        setRefreshError(null);
+        if (preserveDraft && hasDraftChangesRef.current && payload.status === OrderStatus.PENDING) {
+          syncDraftState(mergeDraftItems(nextServerItems, itemsRef.current));
+          setRefreshError("ข้อมูลใบสั่งซื้อถูกอัปเดตจากระบบระหว่างที่กำลังแก้ไข ร่างที่กรอกไว้ยังถูกเก็บไว้ กรุณาตรวจสอบก่อนยืนยัน");
+        } else {
+          syncDraftState(nextServerItems);
+          setRefreshError(null);
+        }
         hasLoadedRef.current = true;
       } catch (caughtError) {
         if ((caughtError as Error)?.name === "AbortError") return;
@@ -232,7 +250,7 @@ export default function StockBuyingPage() {
         }
       }
     },
-    [canViewOrders, orderId]
+    [canViewOrders, orderId, syncDraftState]
   );
 
   useEffect(() => {
@@ -256,6 +274,17 @@ export default function StockBuyingPage() {
     };
   }, [canUpdateOrders, messageApi, user?.id]);
 
+  const ensureCsrfToken = useCallback(async (): Promise<string> => {
+    if (csrfToken) return csrfToken;
+
+    const token = await authService.getCsrfToken();
+    if (token) {
+      setCsrfToken(token);
+    }
+
+    return token;
+  }, [csrfToken]);
+
   useEffect(() => {
     if (!orderId || !canViewOrders) return;
     void fetchOrder({ silent: hasLoadedRef.current });
@@ -275,7 +304,7 @@ export default function StockBuyingPage() {
 
       if (refreshTimerRef.current) window.clearTimeout(refreshTimerRef.current);
       refreshTimerRef.current = window.setTimeout(() => {
-        void fetchOrder({ silent: true });
+        void fetchOrder({ silent: true, preserveDraft: true });
       }, 220);
     };
 
@@ -295,8 +324,9 @@ export default function StockBuyingPage() {
 
   const setPurchased = (ingredientId: string, checked: boolean) => {
     if (!isEditable) return;
-    setItems((prev) =>
-      prev.map((item) =>
+
+    syncDraftState(
+      itemsRef.current.map((item) =>
         item.ingredient_id === ingredientId
           ? {
               ...item,
@@ -310,9 +340,10 @@ export default function StockBuyingPage() {
 
   const setActualQuantity = (ingredientId: string, value: number | null) => {
     if (!isEditable) return;
+
     const qty = Math.max(0, Math.trunc(Number(value || 0)));
-    setItems((prev) =>
-      prev.map((item) =>
+    syncDraftState(
+      itemsRef.current.map((item) =>
         item.ingredient_id === ingredientId
           ? {
               ...item,
@@ -332,8 +363,9 @@ export default function StockBuyingPage() {
 
   const setMatchRequired = (ingredientId: string) => {
     if (!isEditable) return;
-    setItems((prev) =>
-      prev.map((item) =>
+
+    syncDraftState(
+      itemsRef.current.map((item) =>
         item.ingredient_id === ingredientId
           ? { ...item, actual_quantity: item.ordered_quantity, is_purchased: true }
           : item
@@ -343,8 +375,9 @@ export default function StockBuyingPage() {
 
   const markAllAsPurchased = () => {
     if (!isEditable) return;
-    setItems((prev) =>
-      prev.map((item) => ({
+
+    syncDraftState(
+      itemsRef.current.map((item) => ({
         ...item,
         is_purchased: true,
         actual_quantity: item.ordered_quantity,
@@ -353,7 +386,6 @@ export default function StockBuyingPage() {
   };
 
   const totals = useMemo(() => {
-    const required = items.reduce((acc, item) => acc + item.ordered_quantity, 0);
     const actual = items.reduce((acc, item) => acc + (item.is_purchased ? item.actual_quantity : 0), 0);
     const matched = items.filter(
       (item) => item.is_purchased && item.actual_quantity === item.ordered_quantity
@@ -365,39 +397,21 @@ export default function StockBuyingPage() {
       (item) => item.is_purchased && item.actual_quantity > item.ordered_quantity
     ).length;
     const selected = items.filter((item) => item.is_purchased).length;
-    return { required, actual, matched, missing, over, selected };
-  }, [items]);
 
-  const baselineItems = useMemo(() => buildItems(order), [order]);
-  const hasChanges = useMemo(() => !areItemStatesEqual(items, baselineItems), [baselineItems, items]);
+    return { actual, matched, missing, over, selected };
+  }, [items]);
 
   const completionPercent = useMemo(() => {
     if (items.length === 0) return 0;
     return Math.round((totals.selected / items.length) * 100);
   }, [items.length, totals.selected]);
 
-  const deferredSearchText = useDeferredValue(searchText.trim().toLowerCase());
-
-  const visibleItems = useMemo(
-    () => items.filter((item) => matchesItem(item, deferredSearchText)),
-    [deferredSearchText, items]
-  );
-
-  const summaryCards = useMemo(
-    () => [
-      { label: "ทั้งหมด", value: items.length, color: "#6366f1" },
-      { label: "ยืนยันแล้ว", value: totals.selected, color: "#2563eb" },
-      { label: "ตรงแผน", value: totals.matched, color: "#16a34a" },
-      { label: "ต่างจากแผน", value: totals.missing + totals.over, color: "#f59e0b" },
-    ],
-    [items.length, totals.matched, totals.missing, totals.over, totals.selected]
-  );
-
   const confirmPurchase = async () => {
     if (!orderId || !isEditable) return;
 
     setConfirming(true);
     try {
+      const token = await ensureCsrfToken();
       await ordersService.confirmPurchase(
         orderId,
         items.map((item) => ({
@@ -406,7 +420,7 @@ export default function StockBuyingPage() {
           is_purchased: item.is_purchased,
         })),
         undefined,
-        csrfToken
+        token
       );
 
       messageApi.success("บันทึกผลการซื้อเรียบร้อย");
@@ -483,7 +497,7 @@ export default function StockBuyingPage() {
                   <Title level={4} className="stock-buying-title">
                     {order ? getOrderCode(order.id) : "กำลังโหลด..."}
                   </Title>
-                  {order?.create_date && (
+                  {order?.create_date ? (
                     <Text type="secondary" className="stock-buying-subtitle">
                       {new Date(order.create_date).toLocaleDateString("th-TH", {
                         day: "numeric",
@@ -491,16 +505,17 @@ export default function StockBuyingPage() {
                         year: "numeric",
                       })}
                     </Text>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
               <div className="stock-buying-hero-header-right">
                 <Button
                   icon={<ReloadOutlined />}
-                  onClick={() => void fetchOrder({ silent: true })}
+                  onClick={() => void fetchOrder({ silent: true, preserveDraft: false })}
                   loading={refreshing}
                   className="stock-buying-hero-btn"
+                  data-testid="stock-buying-refresh"
                 >
                   รีเฟรช
                 </Button>
@@ -510,15 +525,13 @@ export default function StockBuyingPage() {
                   icon={<CheckCircleOutlined />}
                   onClick={markAllAsPurchased}
                   disabled={!isEditable || items.length === 0}
-                  className="stock-buying-hero-btn stock-buying-primary-glow"
+                  className="stock-buying-hero-btn"
                   data-testid="stock-buying-match-all"
                 >
                   ตรงตามแผนทั้งหมด
                 </Button>
               </div>
             </div>
-
-
 
             {order?.remark ? (
               <div className="stock-buying-note">
@@ -530,7 +543,15 @@ export default function StockBuyingPage() {
         </section>
 
         {loading && !order ? (
-          <PageSection style={{ display: 'flex', justifyContent: 'center', padding: '120px 0', background: 'transparent', border: 'none' }}>
+          <PageSection
+            style={{
+              display: "flex",
+              justifyContent: "center",
+              padding: "120px 0",
+              background: "transparent",
+              border: "none",
+            }}
+          >
             <Spin size="large" />
           </PageSection>
         ) : error && !order ? (
@@ -563,6 +584,7 @@ export default function StockBuyingPage() {
                   message="ซิงก์ข้อมูลล่าสุดไม่สำเร็จ"
                   description={refreshError}
                   style={{ marginBottom: 16, borderRadius: 16 }}
+                  data-testid="stock-buying-refresh-alert"
                 />
               ) : null}
 
@@ -570,31 +592,56 @@ export default function StockBuyingPage() {
                 <Alert
                   type="info"
                   showIcon
-                  message="ใบซื้อนี้ไม่อยู่ในสถานะรอตรวจรับ"
+                  message="ใบซื้อนี้ไม่ได้อยู่ในสถานะรอตรวจรับ"
                   description="ยังดูรายละเอียดได้ตามปกติ แต่ไม่สามารถแก้จำนวนหรือยืนยันผลการซื้อซ้ำได้"
                   style={{ marginBottom: 16, borderRadius: 16 }}
                 />
               ) : null}
 
-              <Card 
-                bordered={false} 
+              {hasDraftChanges && isEditable ? (
+                <Alert
+                  type="info"
+                  showIcon
+                  message="มีการแก้ไขค้างอยู่"
+                  description="ระบบจะเก็บร่างที่กำลังกรอกไว้ระหว่างการอัปเดตแบบเรียลไทม์ ถ้าต้องการข้อมูลล่าสุดจากเซิร์ฟเวอร์ให้กดรีเฟรช"
+                  style={{ marginBottom: 16, borderRadius: 16 }}
+                  data-testid="stock-buying-draft-warning"
+                />
+              ) : null}
+
+              <Card
+                bordered={false}
                 style={{ borderRadius: 24, boxShadow: "0 10px 30px rgba(0,0,0,0.02)" }}
                 bodyStyle={{ padding: "20px" }}
               >
-                <div className="stock-buying-section-head" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 }}>
+                <div
+                  className="stock-buying-section-head"
+                  style={{
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "flex-start",
+                    marginBottom: 20,
+                  }}
+                >
                   <div>
-                    <Title level={4} className="stock-buying-section-title" style={{ margin: 0, color: '#1e293b' }}>
+                    <Title
+                      level={4}
+                      className="stock-buying-section-title"
+                      style={{ margin: 0, color: "#1e293b" }}
+                    >
                       รายการวัตถุดิบ
                     </Title>
                     <Text type="secondary" style={{ fontSize: 13 }}>
-                      {deferredSearchText
-                        ? `แสดง ${visibleItems.length.toLocaleString()} จาก ${items.length.toLocaleString()} รายการ`
-                        : `${items.length.toLocaleString()} รายการในใบซื้อ`}
+                      {items.length.toLocaleString()} รายการในใบซื้อ
                     </Text>
                   </div>
-                  <div className="stock-buying-section-meta" style={{ display: 'flex', gap: 8 }}>
-                    <Tag color="cyan" style={{ borderRadius: 8, margin: 0 }}>{totals.selected.toLocaleString()} ยืนยันแล้ว</Tag>
-                    <Tag color="warning" style={{ borderRadius: 8, margin: 0 }}>{(totals.missing + totals.over).toLocaleString()} ต่างจากแผน</Tag>
+                  <div className="stock-buying-section-meta" style={{ display: "flex", gap: 8 }}>
+                    <Tag color="cyan" style={{ borderRadius: 8, margin: 0 }}>
+                      {totals.selected.toLocaleString()} ยืนยันแล้ว
+                    </Tag>
+                    <Tag color="warning" style={{ borderRadius: 8, margin: 0 }}>
+                      {(totals.missing + totals.over).toLocaleString()} ต่างจากแผน
+                    </Tag>
                   </div>
                 </div>
 
@@ -605,16 +652,9 @@ export default function StockBuyingPage() {
                       description="ไม่มีรายการวัตถุดิบในใบซื้อ"
                     />
                   </div>
-                ) : visibleItems.length === 0 ? (
-                  <div className="stock-buying-empty">
-                    <Empty
-                      image={Empty.PRESENTED_IMAGE_SIMPLE}
-                      description="ไม่พบรายการที่ค้นหา"
-                    />
-                  </div>
                 ) : (
-                  <div className="stock-buying-list" style={{ display: 'grid', gap: 16 }}>
-                    {visibleItems.map((item) => {
+                  <div className="stock-buying-list" style={{ display: "grid", gap: 16 }}>
+                    {items.map((item) => {
                       const diffMeta = getDiffMeta(item);
 
                       return (
@@ -623,8 +663,11 @@ export default function StockBuyingPage() {
                           className="stock-buying-item-card-v3"
                           data-testid={`stock-buying-item-${item.ingredient_id}`}
                         >
-                          <div className="stock-buying-item-status-bar" style={{ background: diffMeta.color }} />
-                          
+                          <div
+                            className="stock-buying-item-status-bar"
+                            style={{ background: diffMeta.color }}
+                          />
+
                           <div className="item-v3-header">
                             <div className="item-v3-identity">
                               <StockImageThumb
@@ -635,15 +678,17 @@ export default function StockBuyingPage() {
                               />
                               <div className="item-v3-copy">
                                 <div className="item-v3-title-row">
-                                  <Text strong style={{ fontSize: 16 }}>{item.display_name}</Text>
-                                  <Tag 
-                                    style={{ 
-                                      color: diffMeta.color, 
-                                      background: diffMeta.background, 
+                                  <Text strong style={{ fontSize: 16 }}>
+                                    {item.display_name}
+                                  </Text>
+                                  <Tag
+                                    style={{
+                                      color: diffMeta.color,
+                                      background: diffMeta.background,
                                       border: `1px solid ${diffMeta.borderColor}`,
                                       borderRadius: 8,
                                       margin: 0,
-                                      fontSize: 11
+                                      fontSize: 11,
                                     }}
                                   >
                                     {diffMeta.label}
@@ -667,12 +712,20 @@ export default function StockBuyingPage() {
                             <div className="item-v3-stats">
                               <div className="item-v3-stat-box">
                                 <span className="item-v3-stat-label">สั่งซื้อ</span>
-                                <span className="item-v3-stat-value">{item.ordered_quantity.toLocaleString()} <Text type="secondary" style={{ fontSize: 13 }}>{item.unit_label}</Text></span>
+                                <span className="item-v3-stat-value">
+                                  {item.ordered_quantity.toLocaleString()}{" "}
+                                  <Text type="secondary" style={{ fontSize: 13 }}>
+                                    {item.unit_label}
+                                  </Text>
+                                </span>
                               </div>
-                              <div className={`item-v3-stat-box ${item.is_purchased ? 'active' : ''}`}>
+                              <div className={`item-v3-stat-box ${item.is_purchased ? "active" : ""}`}>
                                 <span className="item-v3-stat-label">ซื้อจริง</span>
                                 <span className="item-v3-stat-value">
-                                  {item.is_purchased ? item.actual_quantity.toLocaleString() : "0"} <Text type="secondary" style={{ fontSize: 13 }}>{item.unit_label}</Text>
+                                  {item.is_purchased ? item.actual_quantity.toLocaleString() : "0"}{" "}
+                                  <Text type="secondary" style={{ fontSize: 13 }}>
+                                    {item.unit_label}
+                                  </Text>
                                 </span>
                               </div>
                             </div>
@@ -710,6 +763,7 @@ export default function StockBuyingPage() {
                                 disabled={!isEditable}
                                 controls={false}
                                 bordered={false}
+                                data-testid={`stock-buying-qty-${item.ingredient_id}`}
                               />
                               <Button
                                 className="btn-plus"
@@ -729,50 +783,135 @@ export default function StockBuyingPage() {
 
             <Col xs={24} lg={8}>
               <div className="stock-buying-sidebar-sticky">
-                <Card 
-                  style={{ borderRadius: 24, boxShadow: "0 16px 40px rgba(15, 23, 42, 0.04)", border: "1px solid rgba(226, 232, 240, 0.6)" }}
+                <Card
+                  style={{
+                    borderRadius: 24,
+                    boxShadow: "0 16px 40px rgba(15, 23, 42, 0.04)",
+                    border: "1px solid rgba(226, 232, 240, 0.6)",
+                  }}
                   bodyStyle={{ padding: "24px" }}
                 >
-                  <Title level={5} style={{ marginBottom: 20, color: '#334155' }}>สรุปความคืบหน้า</Title>
-                  
+                  <Title level={5} style={{ marginBottom: 20, color: "#334155" }}>
+                    สรุปความคืบหน้า
+                  </Title>
+
                   <div style={{ display: "flex", justifyContent: "center", marginBottom: 24 }}>
-                    <Progress 
-                      type="circle" 
-                      percent={completionPercent} 
-                      width={130} 
+                    <Progress
+                      type="circle"
+                      percent={completionPercent}
+                      width={130}
                       strokeWidth={10}
-                      strokeColor={{ '0%': '#10b981', '100%': '#2563eb' }} 
+                      strokeColor={{ "0%": "#10b981", "100%": "#2563eb" }}
                       format={(percent) => (
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                          <span style={{ fontSize: 22, fontWeight: 800, color: '#1e293b' }}>{percent}%</span>
-                          <span style={{ fontSize: 11, color: '#64748b', fontWeight: 500 }}>ตรวจแล้ว</span>
+                        <div
+                          style={{
+                            display: "flex",
+                            flexDirection: "column",
+                            alignItems: "center",
+                          }}
+                        >
+                          <span style={{ fontSize: 22, fontWeight: 800, color: "#1e293b" }}>
+                            {percent}%
+                          </span>
+                          <span style={{ fontSize: 11, color: "#64748b", fontWeight: 500 }}>
+                            ตรวจแล้ว
+                          </span>
                         </div>
                       )}
                     />
                   </div>
-                  
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 24 }}>
-                    <div style={{ background: "#f8fafc", padding: "14px 12px", borderRadius: 16, textAlign: "center", border: "1px solid #f1f5f9" }}>
-                      <Text type="secondary" style={{ fontSize: 13, fontWeight: 500 }}>ทั้งหมด</Text>
-                      <Title level={4} style={{ margin: "4px 0 0", color: '#0f172a' }}>{items.length}</Title>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1fr 1fr",
+                      gap: 12,
+                      marginBottom: 24,
+                    }}
+                  >
+                    <div
+                      style={{
+                        background: "#f8fafc",
+                        padding: "14px 12px",
+                        borderRadius: 16,
+                        textAlign: "center",
+                        border: "1px solid #f1f5f9",
+                      }}
+                    >
+                      <Text type="secondary" style={{ fontSize: 13, fontWeight: 500 }}>
+                        ทั้งหมด
+                      </Text>
+                      <Title level={4} style={{ margin: "4px 0 0", color: "#0f172a" }}>
+                        {items.length}
+                      </Title>
                     </div>
-                    <div style={{ background: "#ecfdf5", padding: "14px 12px", borderRadius: 16, textAlign: "center" }}>
-                      <Text type="success" style={{ fontSize: 13, fontWeight: 500 }}>ยืนยันแล้ว</Text>
-                      <Title level={4} style={{ margin: "4px 0 0", color: "#047857" }}>{totals.selected}</Title>
+                    <div
+                      style={{
+                        background: "#ecfdf5",
+                        padding: "14px 12px",
+                        borderRadius: 16,
+                        textAlign: "center",
+                      }}
+                    >
+                      <Text type="success" style={{ fontSize: 13, fontWeight: 500 }}>
+                        ยืนยันแล้ว
+                      </Text>
+                      <Title level={4} style={{ margin: "4px 0 0", color: "#047857" }}>
+                        {totals.selected}
+                      </Title>
                     </div>
-                    <div style={{ background: "#fffbeb", padding: "14px 12px", borderRadius: 16, textAlign: "center" }}>
-                      <Text style={{ fontSize: 13, color: "#d97706", fontWeight: 500 }}>ตรงแผน</Text>
-                      <Title level={4} style={{ margin: "4px 0 0", color: "#b45309" }}>{totals.matched}</Title>
+                    <div
+                      style={{
+                        background: "#fffbeb",
+                        padding: "14px 12px",
+                        borderRadius: 16,
+                        textAlign: "center",
+                      }}
+                    >
+                      <Text style={{ fontSize: 13, color: "#d97706", fontWeight: 500 }}>
+                        ตรงแผน
+                      </Text>
+                      <Title level={4} style={{ margin: "4px 0 0", color: "#b45309" }}>
+                        {totals.matched}
+                      </Title>
                     </div>
-                    <div style={{ background: "#fef2f2", padding: "14px 12px", borderRadius: 16, textAlign: "center" }}>
-                      <Text type="danger" style={{ fontSize: 13, fontWeight: 500 }}>ต่างจากแผน</Text>
-                      <Title level={4} style={{ margin: "4px 0 0", color: "#dc2626" }}>{totals.missing + totals.over}</Title>
+                    <div
+                      style={{
+                        background: "#fef2f2",
+                        padding: "14px 12px",
+                        borderRadius: 16,
+                        textAlign: "center",
+                      }}
+                    >
+                      <Text type="danger" style={{ fontSize: 13, fontWeight: 500 }}>
+                        ต่างจากแผน
+                      </Text>
+                      <Title level={4} style={{ margin: "4px 0 0", color: "#dc2626" }}>
+                        {totals.missing + totals.over}
+                      </Title>
                     </div>
                   </div>
 
-                  <div style={{ background: '#f8fafc', padding: 14, borderRadius: 16, marginBottom: 24, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <Text style={{ color: '#64748b', fontSize: 13, fontWeight: 500 }}>รายการที่ตรวจรับ</Text>
-                    <Title level={4} style={{ margin: 0, color: '#0f172a' }}>{totals.actual.toLocaleString()} <span style={{ fontSize: 13, fontWeight: 400, color: '#64748b' }}>รายการ</span></Title>
+                  <div
+                    style={{
+                      background: "#f8fafc",
+                      padding: 14,
+                      borderRadius: 16,
+                      marginBottom: 24,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                    }}
+                  >
+                    <Text style={{ color: "#64748b", fontSize: 13, fontWeight: 500 }}>
+                      จำนวนที่ตรวจรับ
+                    </Text>
+                    <Title level={4} style={{ margin: 0, color: "#0f172a" }}>
+                      {totals.actual.toLocaleString()}{" "}
+                      <span style={{ fontSize: 13, fontWeight: 400, color: "#64748b" }}>
+                        หน่วย
+                      </span>
+                    </Title>
                   </div>
 
                   <Divider style={{ margin: "16px 0" }} />
@@ -784,6 +923,7 @@ export default function StockBuyingPage() {
                     icon={<CheckCircleOutlined style={{ fontSize: 17 }} />}
                     onClick={() => setConfirmModalOpen(true)}
                     disabled={!isEditable || items.length === 0}
+                    data-testid="stock-buying-confirm-open"
                     style={{
                       height: 50,
                       borderRadius: 16,
@@ -791,7 +931,7 @@ export default function StockBuyingPage() {
                       fontSize: 15,
                       background: "linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%)",
                       border: "none",
-                      boxShadow: "0 8px 16px rgba(37, 99, 235, 0.15)"
+                      boxShadow: "0 8px 16px rgba(37, 99, 235, 0.15)",
                     }}
                   >
                     ยืนยันการตรวจรับ
@@ -801,10 +941,7 @@ export default function StockBuyingPage() {
             </Col>
           </Row>
         )}
-
       </PageContainer>
-
-
 
       <Modal
         open={confirmModalOpen}
@@ -821,56 +958,72 @@ export default function StockBuyingPage() {
         }
         destroyOnClose
         width={680}
-        okButtonProps={{ 
+        okButtonProps={{
           "data-testid": "stock-buying-confirm-submit",
-          style: { borderRadius: 12, height: 40, fontWeight: 600 }
+          style: { borderRadius: 12, height: 40, fontWeight: 600 },
         }}
         cancelButtonProps={{
-          style: { borderRadius: 12, height: 40 }
+          style: { borderRadius: 12, height: 40 },
         }}
       >
         <Space direction="vertical" size={16} style={{ width: "100%", marginTop: 12 }}>
-          <div className="stock-buying-modal-summary" style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+          <div className="stock-buying-modal-summary">
             <div style={{ background: "#f8fafc", padding: 14, borderRadius: 16, textAlign: "center" }}>
-              <Text type="secondary" style={{ fontSize: 13 }}>รายการทั้งหมด</Text>
-              <Title level={4} style={{ margin: "4px 0 0" }}>{items.length.toLocaleString()} รายการ</Title>
+              <Text type="secondary" style={{ fontSize: 13 }}>
+                รายการทั้งหมด
+              </Text>
+              <Title level={4} style={{ margin: "4px 0 0" }}>
+                {items.length.toLocaleString()} รายการ
+              </Title>
             </div>
             <div style={{ background: "#ecfdf5", padding: 14, borderRadius: 16, textAlign: "center" }}>
-              <Text type="success" style={{ fontSize: 13 }}>ซื้อสำเร็จ</Text>
-              <Title level={4} style={{ margin: "4px 0 0", color: "#065f46" }}>{totals.selected.toLocaleString()} รายการ</Title>
+              <Text type="success" style={{ fontSize: 13 }}>
+                ซื้อสำเร็จ
+              </Text>
+              <Title level={4} style={{ margin: "4px 0 0", color: "#065f46" }}>
+                {totals.selected.toLocaleString()} รายการ
+              </Title>
             </div>
             <div style={{ background: "#eff6ff", padding: 14, borderRadius: 16, textAlign: "center" }}>
-              <Text style={{ fontSize: 13, color: "#1d4ed8" }}>ซื้อรวมจริง</Text>
-              <Title level={4} style={{ margin: "4px 0 0", color: "#1e3a8a" }}>{totals.actual.toLocaleString()} รายการ</Title>
+              <Text style={{ fontSize: 13, color: "#1d4ed8" }}>
+                จำนวนซื้อจริง
+              </Text>
+              <Title level={4} style={{ margin: "4px 0 0", color: "#1e3a8a" }}>
+                {totals.actual.toLocaleString()} หน่วย
+              </Title>
             </div>
           </div>
 
           <div style={{ marginTop: 8 }}>
             <div style={{ paddingBottom: 12 }}>
-              <Text strong style={{ fontSize: 15 }}>รายละเอียดวัตถุดิบ</Text>
+              <Text strong style={{ fontSize: 15 }}>
+                รายละเอียดวัตถุดิบ
+              </Text>
             </div>
-            
-            <div 
-              className="stock-buying-modal-list" 
-              style={{ 
-                maxHeight: 380, 
-                overflowY: "auto", 
-                border: "1px solid #e2e8f0", 
-                borderRadius: 18, 
-                padding: "12px 16px" 
+
+            <div
+              className="stock-buying-modal-list"
+              style={{
+                maxHeight: 380,
+                overflowY: "auto",
+                border: "1px solid #e2e8f0",
+                borderRadius: 18,
+                padding: "12px 16px",
               }}
             >
-              <div style={{ 
-                display: "grid", 
-                gridTemplateColumns: "1.5fr 0.8fr 0.8fr 0.9fr", 
-                gap: 12, 
-                paddingBottom: 10, 
-                borderBottom: "1px solid #e2e8f0", 
-                marginBottom: 8, 
-                fontWeight: 700, 
-                color: "#1e293b",
-                fontSize: 13
-              }}>
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "1.5fr 0.8fr 0.8fr 0.9fr",
+                  gap: 12,
+                  paddingBottom: 10,
+                  borderBottom: "1px solid #e2e8f0",
+                  marginBottom: 8,
+                  fontWeight: 700,
+                  color: "#1e293b",
+                  fontSize: 13,
+                }}
+              >
                 <span>วัตถุดิบ</span>
                 <span>สั่ง</span>
                 <span>ซื้อจริง</span>
@@ -878,33 +1031,48 @@ export default function StockBuyingPage() {
               </div>
 
               {items.map((item) => {
-                const diff = (item.is_purchased ? item.actual_quantity : 0) - item.ordered_quantity;
-                
-                const getDiffTag = () => {
-                  if (!item.is_purchased) return <Tag style={{ borderRadius: 6, margin: 0 }}>ไม่ได้ซื้อ</Tag>;
-                  if (diff === 0) return <Tag color="success" style={{ borderRadius: 6, margin: 0 }}>พอดี</Tag>;
-                  if (diff > 0) return <Tag color="processing" style={{ borderRadius: 6, margin: 0 }}>เกิน {diff}</Tag>;
-                  return <Tag color="error" style={{ borderRadius: 6, margin: 0 }}>ขาด {Math.abs(diff)}</Tag>;
-                };
+                const diffMeta = getDiffMeta(item);
 
                 return (
-                  <div 
-                    key={item.ingredient_id} 
-                    style={{ 
-                      display: "grid", 
-                      gridTemplateColumns: "1.5fr 0.8fr 0.8fr 0.9fr", 
-                      gap: 12, 
-                      alignItems: "center", 
-                      padding: "10px 0", 
-                      borderBottom: "1px solid #f1f5f9" 
+                  <div
+                    key={item.ingredient_id}
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "1.5fr 0.8fr 0.8fr 0.9fr",
+                      gap: 12,
+                      alignItems: "center",
+                      padding: "10px 0",
+                      borderBottom: "1px solid #f1f5f9",
                     }}
                   >
-                    <Text strong style={{ fontSize: 14, color: "#0f172a" }}>{item.display_name}</Text>
-                    <Text type="secondary" style={{ fontSize: 14 }}>{item.ordered_quantity}</Text>
-                    <Text strong={item.is_purchased} style={{ fontSize: 14, color: item.is_purchased ? "#0f172a" : "#94a3b8" }}>
+                    <Text strong style={{ fontSize: 14, color: "#0f172a" }}>
+                      {item.display_name}
+                    </Text>
+                    <Text type="secondary" style={{ fontSize: 14 }}>
+                      {item.ordered_quantity}
+                    </Text>
+                    <Text
+                      strong={item.is_purchased}
+                      style={{
+                        fontSize: 14,
+                        color: item.is_purchased ? "#0f172a" : "#94a3b8",
+                      }}
+                    >
                       {item.is_purchased ? item.actual_quantity : 0}
                     </Text>
-                    <div style={{ display: "flex", alignItems: "center" }}>{getDiffTag()}</div>
+                    <div style={{ display: "flex", alignItems: "center" }}>
+                      <Tag
+                        style={{
+                          color: diffMeta.color,
+                          background: diffMeta.background,
+                          border: `1px solid ${diffMeta.borderColor}`,
+                          borderRadius: 6,
+                          margin: 0,
+                        }}
+                      >
+                        {diffMeta.label}
+                      </Tag>
+                    </div>
                   </div>
                 );
               })}

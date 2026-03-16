@@ -1,6 +1,5 @@
 import { getProxyUrl } from "../../lib/proxy-utils";
 import { Order, OrderStatus } from "../../types/api/stock/orders";
-import { OrdersDetail } from "../../types/api/stock/ordersDetail";
 import {
     normalizeBackendPaginated,
     throwBackendHttpError,
@@ -166,36 +165,6 @@ export const ordersService = {
         }
 
         return unwrapBackendData(await response.json()) as Order;
-    },
-
-    updatePurchaseDetail: async (
-        data: {
-            orders_item_id: string;
-            actual_quantity: number;
-            purchased_by_id: string;
-            is_purchased?: boolean;
-        },
-        cookie?: string,
-        csrfToken?: string
-    ): Promise<OrdersDetail> => {
-        const url = getProxyUrl("POST", "/stock/ordersDetail/update");
-        const headers = getHeaders(cookie) as Record<string, string>;
-        if (csrfToken) {
-            headers["X-CSRF-Token"] = csrfToken;
-        }
-
-        const response = await fetch(url!, {
-            method: "POST",
-            headers,
-            body: JSON.stringify(data),
-        });
-
-        if (!response.ok) {
-            const errorData = await response.json().catch(() => ({}));
-            throwBackendHttpError(response, errorData, "อัปเดตรายการตรวจรับไม่สำเร็จ");
-        }
-
-        return unwrapBackendData(await response.json()) as OrdersDetail;
     },
 
     deleteOrder: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {

@@ -10,7 +10,6 @@ import {
     ReloadOutlined,
     ShopOutlined,
     ShoppingOutlined,
-    TagsOutlined,
 } from "@ant-design/icons";
 import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
 import StockImageThumb from "../../../../components/stock/StockImageThumb";
@@ -34,9 +33,9 @@ import { ingredientsService } from "../../../../services/stock/ingredients.servi
 import { StockCategory } from "../../../../types/api/stock/category";
 import { Ingredients } from "../../../../types/api/stock/ingredients";
 import { RealtimeEvents } from "../../../../utils/realtimeEvents";
-import IngredientsPageStyle, { globalStyles, pageStyles } from "./style";
+import { pageStyles } from "./style";
 
-const { Paragraph, Text } = Typography;
+const { Text } = Typography;
 
 type StatusFilter = "all" | "active" | "inactive";
 type CategoryFilter = "all" | "uncategorized" | string;
@@ -74,10 +73,9 @@ const IngredientCard = ({
 }: IngredientCardProps) => {
     return (
         <div
-            className="product-card"
+            data-testid={`stock-ingredient-card-${ingredient.id}`}
             style={{
                 ...pageStyles.ingredientCard(ingredient.is_active),
-                borderRadius: 16,
                 cursor: canUpdate ? "pointer" : "default",
             }}
             onClick={() => {
@@ -85,7 +83,7 @@ const IngredientCard = ({
                 onEdit(ingredient);
             }}
         >
-            <div className="product-card-inner" style={pageStyles.ingredientCardInner}>
+            <div style={pageStyles.ingredientCardInner}>
                 <div
                     style={{
                         width: 64,
@@ -164,6 +162,7 @@ const IngredientCard = ({
                         <Button
                             type="text"
                             icon={<EditOutlined />}
+                            data-testid={`stock-ingredient-edit-${ingredient.id}`}
                             onClick={(event) => {
                                 event.stopPropagation();
                                 onEdit(ingredient);
@@ -183,6 +182,7 @@ const IngredientCard = ({
                             danger
                             loading={deletingId === ingredient.id}
                             icon={deletingId === ingredient.id ? undefined : <DeleteOutlined />}
+                            data-testid={`stock-ingredient-delete-${ingredient.id}`}
                             onClick={(event) => {
                                 event.stopPropagation();
                                 onDelete(ingredient);
@@ -219,8 +219,6 @@ export default function IngredientsPage() {
     const canUpdate = can("stock.ingredients.page", "update");
     const canDelete = can("stock.ingredients.page", "delete");
     const canViewCategory = can("stock.category.page", "view");
-    const canCreateCategory = can("stock.category.page", "create");
-
     const [csrfToken, setCsrfToken] = useState("");
     const [ingredients, setIngredients] = useState<Ingredients[]>([]);
     const [categories, setCategories] = useState<StockCategory[]>([]);
@@ -239,6 +237,17 @@ export default function IngredientsPage() {
     const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
 
     const deferredSearchText = useDeferredValue(searchText.trim());
+
+    const ensureCsrfToken = useCallback(async (): Promise<string> => {
+        if (csrfToken) return csrfToken;
+
+        const token = await authService.getCsrfToken();
+        if (token) {
+            setCsrfToken(token);
+        }
+
+        return token;
+    }, [csrfToken]);
 
     useEffect(() => {
         if (initRef.current) return;
@@ -431,6 +440,12 @@ export default function IngredientsPage() {
         [categories, categoryFilter]
     );
 
+    useEffect(() => {
+        if (categoryFilter === "all" || categoryFilter === "uncategorized") return;
+        if (categories.some((category) => category.id === categoryFilter)) return;
+        setCategoryFilter("all");
+    }, [categories, categoryFilter]);
+
     const handleAdd = () => {
         if (!canCreate) {
             messageApi.warning("คุณไม่มีสิทธิ์เพิ่มวัตถุดิบ");
@@ -464,7 +479,8 @@ export default function IngredientsPage() {
             onOk: async () => {
                 setDeletingId(ingredient.id);
                 try {
-                    await ingredientsService.delete(ingredient.id, undefined, csrfToken);
+                    const token = await ensureCsrfToken();
+                    await ingredientsService.delete(ingredient.id, undefined, token);
                     const shouldMoveToPreviousPage = page > 1 && ingredients.length === 1;
                     setIngredients((prev) => prev.filter((item) => item.id !== ingredient.id));
                     setTotalIngredients((prev) => Math.max(prev - 1, 0));
@@ -491,6 +507,7 @@ export default function IngredientsPage() {
 
         setUpdatingStatusId(ingredient.id);
         try {
+            const token = await ensureCsrfToken();
             const updated = await ingredientsService.update(
                 ingredient.id,
                 {
@@ -502,7 +519,7 @@ export default function IngredientsPage() {
                     is_active: next,
                 },
                 undefined,
-                csrfToken
+                token
             );
             setIngredients((prev) => prev.map((item) => (item.id === ingredient.id ? updated : item)));
             messageApi.success(next ? "เปิดใช้งานวัตถุดิบแล้ว" : "ปิดใช้งานวัตถุดิบแล้ว");
@@ -522,10 +539,7 @@ export default function IngredientsPage() {
     }
 
     return (
-        <div className="stock-ingredients-list-page" style={pageStyles.container}>
-            <IngredientsPageStyle />
-            <style>{globalStyles}</style>
-
+        <div style={pageStyles.container} data-testid="stock-ingredients-page">
             <UIPageHeader
                 title="วัตถุดิบ"
                 icon={<ShoppingOutlined />}
@@ -534,10 +548,26 @@ export default function IngredientsPage() {
                         <Button
                             icon={<ReloadOutlined />}
                             loading={refreshing}
-                            onClick={() => void fetchIngredients({ background: ingredients.length > 0 })}
+                            onClick={() => {
+                                if (canViewCategory) {
+                                    const params = new URLSearchParams();
+                                    params.set("sort_created", "new");
+                                    void stockCategoryService.findAll(undefined, params).then((data) => {
+                                        setCategories(Array.isArray(data) ? data : []);
+                                    }).catch(() => {
+                                        setCategories([]);
+                                    });
+                                }
+                                void fetchIngredients({ background: ingredients.length > 0 });
+                            }}
                         />
                         {canCreate ? (
-                            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                            <Button
+                                type="primary"
+                                icon={<PlusOutlined />}
+                                onClick={handleAdd}
+                                data-testid="stock-ingredients-add"
+                            >
                                 เพิ่มวัตถุดิบ
                             </Button>
                         ) : null}
@@ -548,14 +578,16 @@ export default function IngredientsPage() {
             <PageContainer>
                 <PageStack>
                     <SearchBar>
-                        <SearchInput
-                            placeholder="ค้นหาวัตถุดิบ"
-                            value={searchText}
-                            onChange={(value) => {
-                                setPage(1);
-                                setSearchText(value);
-                            }}
-                        />
+                        <div data-testid="stock-ingredients-search">
+                            <SearchInput
+                                placeholder="ค้นหาวัตถุดิบ"
+                                value={searchText}
+                                onChange={(value) => {
+                                    setPage(1);
+                                    setSearchText(value);
+                                }}
+                            />
+                        </div>
                         <Space wrap size={10} style={{ justifyContent: "space-between", width: "100%" }}>
                             <Space wrap size={10}>
                                 <ModalSelector<StatusFilter>

@@ -10,6 +10,7 @@ export interface Ingredients {
     unit_id: string;
     category_id: string | null;
     create_date?: string;
+    update_date?: string;
     unit?: IngredientsUnit;
     category?: StockCategory | null;
 }

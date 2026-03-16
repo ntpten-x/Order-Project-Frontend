@@ -4,8 +4,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   Badge,
   Button,
-  Card,
-  Divider,
   Drawer,
   Empty,
   Grid,
@@ -20,7 +18,6 @@ import {
 import {
   CloseOutlined,
   DeleteOutlined,
-  EditOutlined,
   MinusOutlined,
   PlusOutlined,
   ShoppingCartOutlined,
@@ -46,15 +43,12 @@ export default function CartDrawer() {
   const { user } = useAuth();
   const { can } = useEffectivePermissions({ enabled: Boolean(user?.id) });
   const canCreateOrders = can("stock.orders.page", "create");
-  const { items, clearCart, itemCount, updateItemNote, updateQuantity } = useCart();
+  const { items, clearCart, itemCount, updateQuantity } = useCart();
 
   const [open, setOpen] = useState(false);
   const [csrfToken, setCsrfToken] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [remark, setRemark] = useState("");
-  const [noteModalOpen, setNoteModalOpen] = useState(false);
-  const [editingIngredientId, setEditingIngredientId] = useState<string | null>(null);
-  const [noteInput, setNoteInput] = useState("");
   const [isCheckout, setIsCheckout] = useState(false);
 
   useEffect(() => {
@@ -85,15 +79,16 @@ export default function CartDrawer() {
     void run();
   }, [open]);
 
-  const totalRequired = useMemo(
-    () => items.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
-    [items]
-  );
+  const ensureCsrfToken = async (): Promise<string> => {
+    if (csrfToken) return csrfToken;
 
-  const notedItemsCount = useMemo(
-    () => items.filter((item) => item.note?.trim()).length,
-    [items]
-  );
+    const token = await authService.getCsrfToken();
+    if (token) {
+      setCsrfToken(token);
+    }
+
+    return token;
+  };
 
   const createOrder = async () => {
     if (!canCreateOrders) {
@@ -109,26 +104,23 @@ export default function CartDrawer() {
       return;
     }
 
-    const noteLines = items
-      .filter((item) => item.note?.trim())
-      .map((item) => `${item.ingredient.display_name}: ${item.note?.trim()}`);
-
-    const mergedRemark = [remark.trim(), noteLines.length ? `หมายเหตุรายสินค้า\n- ${noteLines.join("\n- ")}` : ""]
-      .filter(Boolean)
-      .join("\n\n");
-
     setSubmitting(true);
     try {
+      const token = await ensureCsrfToken();
+      if (!token) {
+        throw new Error("Unable to load CSRF token");
+      }
+
       await ordersService.createOrder(
         {
           items: items.map((item) => ({
             ingredient_id: item.ingredient.id,
             quantity_ordered: Number(item.quantity || 0),
           })),
-          remark: mergedRemark || undefined,
+          remark: remark.trim() || undefined,
         },
         undefined,
-        csrfToken
+        token
       );
 
       message.success("สร้างใบซื้อเรียบร้อย");
@@ -153,27 +145,6 @@ export default function CartDrawer() {
       centered: true,
       onOk: clearCart,
     });
-  };
-
-  const openNoteModal = (ingredientId: string, currentNote?: string) => {
-    setEditingIngredientId(ingredientId);
-    setNoteInput(currentNote || "");
-    setNoteModalOpen(true);
-  };
-
-  const saveNote = () => {
-    if (!editingIngredientId) return;
-    updateItemNote(editingIngredientId, noteInput.trim());
-    setNoteModalOpen(false);
-    setEditingIngredientId(null);
-    setNoteInput("");
-    message.success("บันทึกหมายเหตุแล้ว");
-  };
-
-  const closeNoteModal = () => {
-    setNoteModalOpen(false);
-    setEditingIngredientId(null);
-    setNoteInput("");
   };
 
   return (
@@ -255,6 +226,7 @@ export default function CartDrawer() {
                 onChange={(event) => setRemark(event.target.value)}
                 maxLength={600}
                 style={{ borderRadius: 12 }}
+                data-testid="stock-cart-remark"
               />
               <Button
                 type="primary"
@@ -271,6 +243,7 @@ export default function CartDrawer() {
                   fontSize: 18,
                   borderRadius: 14,
                 }}
+                data-testid="stock-cart-submit"
               >
                 ยืนยันการตั้งใบสั่งซื้อ
               </Button>
@@ -285,6 +258,15 @@ export default function CartDrawer() {
                   {itemCount} รายการ
                 </Text>
               </div>
+              <Input.TextArea
+                rows={3}
+                placeholder="หมายเหตุรวมของใบซื้อ..."
+                value={remark}
+                onChange={(event) => setRemark(event.target.value)}
+                maxLength={600}
+                style={{ borderRadius: 12 }}
+                data-testid="stock-cart-remark"
+              />
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginTop: 8 }}>
                 <Button
                   size="large"
@@ -302,9 +284,28 @@ export default function CartDrawer() {
                   disabled={items.length === 0}
                   style={{ borderRadius: 12, height: 48, fontWeight: 700, background: "#10b981" }}
                 >
-                  สร้างใบสั่งเสนอ
+                  ตรวจสอบใบสั่งซื้อ
                 </Button>
               </div>
+              <Button
+                type="primary"
+                block
+                size="large"
+                loading={submitting}
+                disabled={items.length === 0 || !canCreateOrders}
+                onClick={() => void createOrder()}
+                style={{
+                  background: `linear-gradient(135deg, ${posColors.success} 0%, #059669 100%)`,
+                  border: "none",
+                  height: 56,
+                  fontWeight: 700,
+                  fontSize: 18,
+                  borderRadius: 14,
+                }}
+                data-testid="stock-cart-submit"
+              >
+                ยืนยันการตั้งใบสั่งซื้อ
+              </Button>
             </div>
           )
         }
@@ -317,7 +318,6 @@ export default function CartDrawer() {
               style={{ marginTop: 48 }}
             />
           ) : isCheckout ? (
-            /* Checkout View Body */
             <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
               <section>
                 <Title level={5} style={{ marginBottom: 16 }}>รายการที่สั่ง</Title>
@@ -328,10 +328,7 @@ export default function CartDrawer() {
                     <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 0", borderBottom: "1px dashed #e2e8f0" }}>
                       <Space>
                         <StockImageThumb src={item.ingredient.img_url} alt={item.ingredient.display_name} size={40} />
-                        <div>
-                          <Text strong style={{ fontSize: 17 }}>{item.ingredient.display_name}</Text>
-                          {item.note?.trim() && <div style={{ fontSize: 12, color: "#64748b" }}>โน้ต: {item.note}</div>}
-                        </div>
+                        <Text strong style={{ fontSize: 17 }}>{item.ingredient.display_name}</Text>
                       </Space>
                       <Text style={{ fontWeight: 600 }}>x{item.quantity} {item.ingredient.unit?.display_name}</Text>
                     </div>
@@ -350,7 +347,6 @@ export default function CartDrawer() {
               </section>
             </div>
           ) : (
-            /* Cart View Body */
             <Space direction="vertical" size={12} style={{ width: "100%" }}>
               {items.map((item) => {
                 const unitLabel = item.ingredient.unit?.display_name || "หน่วย";
@@ -366,15 +362,8 @@ export default function CartDrawer() {
                           </div>
                           <Button type="text" danger icon={<DeleteOutlined />} onClick={() => updateQuantity(item.ingredient.id, 0)} />
                         </div>
-
-                        {item.note?.trim() && (
-                          <div style={{ margin: "4px 0 8px 0", padding: "6px 10px", background: "#f1f5f9", borderRadius: 8, fontSize: 13, color: "#475569" }}>
-                            {item.note}
-                          </div>
-                        )}
-
-                        </div>
                       </div>
+                    </div>
 
                     <div style={{ display: "flex", justifyContent: "center", alignItems: "center", marginTop: 12, paddingTop: 12, borderTop: "1px solid #f1f5f9" }}>
                       <div style={{
@@ -395,7 +384,7 @@ export default function CartDrawer() {
                         <InputNumber
                           min={1}
                           value={item.quantity}
-                          onChange={(v) => updateQuantity(item.ingredient.id, Number(v || 1))}
+                          onChange={(value) => updateQuantity(item.ingredient.id, Number(value || 1))}
                           controls={false}
                           bordered={false}
                           style={{
@@ -432,25 +421,7 @@ export default function CartDrawer() {
           )}
         </div>
       </Drawer>
-
-      <Modal
-        open={noteModalOpen}
-        onCancel={closeNoteModal}
-        onOk={saveNote}
-        okText="บันทึก"
-        cancelText="ยกเลิก"
-        title="หมายเหตุรายสินค้า"
-        centered
-      >
-        <Input.TextArea
-          rows={4}
-          placeholder="เช่น ร้านที่ต้องการ คุณภาพที่ต้องการ หรือข้อจำกัดของสินค้ารายการนี้"
-          value={noteInput}
-          onChange={(event) => setNoteInput(event.target.value)}
-          maxLength={240}
-          showCount
-        />
-      </Modal>
     </>
   );
 }
+

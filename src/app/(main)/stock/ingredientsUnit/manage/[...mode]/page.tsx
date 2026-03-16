@@ -6,8 +6,6 @@ import {
     AppstoreOutlined,
     DeleteOutlined,
     ExclamationCircleOutlined,
-    ExperimentOutlined,
-    InfoCircleOutlined,
     SaveOutlined,
     UnorderedListOutlined,
 } from "@ant-design/icons";
@@ -23,7 +21,7 @@ import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
 import { AccessGuardFallback } from "../../../../../../components/pos/AccessGuard";
 import IngredientsUnitManageStyle, { pageStyles } from "./style";
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
 type ManageMode = "add" | "edit";
 
@@ -208,7 +206,11 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
     }
 
     return (
-        <div className="stock-ingredients-unit-manage-page" style={pageStyles.container}>
+        <div
+            className="stock-ingredients-unit-manage-page"
+            style={pageStyles.container}
+            data-testid="stock-ingredients-unit-manage-page"
+        >
             <IngredientsUnitManageStyle />
 
             <UIPageHeader
@@ -263,7 +265,12 @@ export default function IngredientsUnitManagePage({ params }: { params: { mode: 
                                                 { max: 100, message: "ความยาวต้องไม่เกิน 100 ตัวอักษร" },
                                             ]}
                                         >
-                                            <Input size="large" maxLength={100} placeholder="เช่น กิโลกรัม, แพ็ก, กล่อง..." />
+                                            <Input
+                                                size="large"
+                                                maxLength={100}
+                                                placeholder="เช่น กิโลกรัม, แพ็ก, กล่อง..."
+                                                data-testid="stock-ingredients-unit-display-name-input"
+                                            />
                                         </Form.Item>
 
                                         <div style={{ padding: 16, background: "#f8fafc", borderRadius: 14, marginBottom: 18 }}>

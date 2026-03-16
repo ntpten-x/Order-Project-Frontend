@@ -6,10 +6,8 @@ import {
     AppstoreOutlined,
     DeleteOutlined,
     ExclamationCircleOutlined,
-    InfoCircleOutlined,
     SaveOutlined,
     TagsOutlined,
-    UnorderedListOutlined,
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { useAuth } from "../../../../../../contexts/AuthContext";
@@ -23,7 +21,7 @@ import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
 import { AccessGuardFallback } from "../../../../../../components/pos/AccessGuard";
 import StockCategoryManageStyle, { pageStyles } from "./style";
 
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
 type ManageMode = "add" | "edit";
 
@@ -74,6 +72,17 @@ export default function StockCategoryManagePage({ params }: { params: { mode: st
         () => (isEdit ? "แก้ไขหมวดหมู่วัตถุดิบ" : "เพิ่มหมวดหมู่วัตถุดิบ"),
         [isEdit]
     );
+
+    const ensureCsrfToken = useCallback(async (): Promise<string> => {
+        if (csrfToken) return csrfToken;
+
+        const token = await authService.getCsrfToken();
+        if (token) {
+            setCsrfToken(token);
+        }
+
+        return token;
+    }, [csrfToken]);
 
     useEffect(() => {
         if (!isValidMode || (mode === "edit" && !id)) {
@@ -148,16 +157,17 @@ export default function StockCategoryManagePage({ params }: { params: { mode: st
         setError(null);
 
         try {
+            const token = await ensureCsrfToken();
             const payload = {
                 display_name: values.display_name.trim(),
                 is_active: Boolean(values.is_active),
             };
 
             if (isEdit && id) {
-                await stockCategoryService.update(id, payload, undefined, csrfToken);
+                await stockCategoryService.update(id, payload, undefined, token);
                 messageApi.success("บันทึกการแก้ไขหมวดหมู่วัตถุดิบเรียบร้อย");
             } else {
-                await stockCategoryService.create(payload, undefined, csrfToken);
+                await stockCategoryService.create(payload, undefined, token);
                 messageApi.success("สร้างหมวดหมู่วัตถุดิบเรียบร้อย");
             }
 
@@ -184,7 +194,8 @@ export default function StockCategoryManagePage({ params }: { params: { mode: st
             onOk: async () => {
                 setDeleting(true);
                 try {
-                    await stockCategoryService.delete(id, undefined, csrfToken);
+                    const token = await ensureCsrfToken();
+                    await stockCategoryService.delete(id, undefined, token);
                     messageApi.success("ลบหมวดหมู่วัตถุดิบเรียบร้อย");
                     router.replace("/stock/category");
                 } catch (err) {
@@ -208,7 +219,7 @@ export default function StockCategoryManagePage({ params }: { params: { mode: st
     }
 
     return (
-        <div className="stock-category-manage-page" style={pageStyles.container}>
+        <div className="stock-category-manage-page" style={pageStyles.container} data-testid="stock-category-manage-page">
             <StockCategoryManageStyle />
 
             <UIPageHeader
@@ -216,7 +227,7 @@ export default function StockCategoryManagePage({ params }: { params: { mode: st
                 onBack={() => router.replace("/stock/category")}
                 actions={
                     isEdit && canDelete ? (
-                        <Button danger icon={<DeleteOutlined />} onClick={handleDelete} loading={deleting}>
+                        <Button danger icon={<DeleteOutlined />} onClick={handleDelete} loading={deleting} data-testid="stock-category-delete">
                             ลบ
                         </Button>
                     ) : null
@@ -263,7 +274,7 @@ export default function StockCategoryManagePage({ params }: { params: { mode: st
                                                 { max: 100, message: "ความยาวต้องไม่เกิน 100 ตัวอักษร" },
                                             ]}
                                         >
-                                            <Input size="large" maxLength={100} placeholder="เครื่องดื่ม, อาหาร, ของหวาน..." />
+                                            <Input size="large" maxLength={100} placeholder="เครื่องดื่ม, อาหาร, ของหวาน..." data-testid="stock-category-display-name-input" />
                                         </Form.Item>
 
                                         <div style={{ padding: 16, background: "#f8fafc", borderRadius: 14, marginBottom: 18 }}>
@@ -280,7 +291,7 @@ export default function StockCategoryManagePage({ params }: { params: { mode: st
 
                                         <div style={{ display: "flex", gap: 12 }}>
                                             <Button size="large" onClick={() => router.replace("/stock/category")} style={{ flex: 1 }}>ยกเลิก</Button>
-                                            <Button type="primary" htmlType="submit" size="large" icon={<SaveOutlined />} loading={submitting} style={{ flex: 2 }}>
+                                            <Button type="primary" htmlType="submit" size="large" icon={<SaveOutlined />} loading={submitting} style={{ flex: 2 }} data-testid="stock-category-submit">
                                                 บันทึกข้อมูล
                                             </Button>
                                         </div>

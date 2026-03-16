@@ -12,11 +12,9 @@ import {
 } from "@ant-design/icons";
 import { useRouter } from "next/navigation";
 import { AccessGuardFallback } from "../../../../../../components/pos/AccessGuard";
-import StockImageThumb from "../../../../../../components/stock/StockImageThumb";
 import PageContainer from "../../../../../../components/ui/page/PageContainer";
 import PageSection from "../../../../../../components/ui/page/PageSection";
 import UIPageHeader from "../../../../../../components/ui/page/PageHeader";
-import { ModalSelector } from "../../../../../../components/ui/select/ModalSelector";
 import { useAuth } from "../../../../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../../../../hooks/useEffectivePermissions";
 import { authService } from "../../../../../../services/auth.service";
@@ -30,7 +28,7 @@ import { isSupportedImageSource, normalizeImageSource } from "../../../../../../
 import { pageStyles, ManagePageStyles, IngredientPreview } from "./style";
 
 const { TextArea } = Input;
-const { Title, Text, Paragraph } = Typography;
+const { Title, Text } = Typography;
 
 type ManageMode = "add" | "edit";
 
@@ -39,7 +37,7 @@ type IngredientFormValues = {
     description?: string;
     img_url?: string;
     unit_id: string;
-    category_id?: string;
+    category_id?: string | null;
     is_active: boolean;
 };
 
@@ -56,13 +54,6 @@ function getCategoryLoadErrorMessage(error: unknown): string {
 
     return `${fallback} (${message})`;
 }
-
-const selectorStyle: React.CSSProperties = {
-    minHeight: 48,
-    borderRadius: 14,
-    borderColor: "#d9d9d9",
-    padding: "12px 14px",
-};
 
 const formatDate = (raw?: string | Date) => {
     if (!raw) return "-";
@@ -91,7 +82,6 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
     const canUpdate = can("stock.ingredients.page", "update");
     const canDelete = can("stock.ingredients.page", "delete");
     const canViewCategory = can("stock.category.page", "view");
-    const canCreateCategory = can("stock.category.page", "create");
     const canAccessPage = isEdit ? canUpdate : isAdd ? canCreate : false;
 
     const [csrfToken, setCsrfToken] = useState("");
@@ -108,12 +98,22 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
 
     const displayName = Form.useWatch("display_name", form) || "";
     const imageUrl = Form.useWatch("img_url", form) || "";
-    const description = Form.useWatch("description", form) || "";
     const selectedUnitId = Form.useWatch("unit_id", form);
     const selectedCategoryId = Form.useWatch("category_id", form);
     const isActive = Form.useWatch("is_active", form);
 
     const title = useMemo(() => (isEdit ? "แก้ไขวัตถุดิบ" : "เพิ่มวัตถุดิบ"), [isEdit]);
+
+    const ensureCsrfToken = useCallback(async (): Promise<string> => {
+        if (csrfToken) return csrfToken;
+
+        const token = await authService.getCsrfToken();
+        if (token) {
+            setCsrfToken(token);
+        }
+
+        return token;
+    }, [csrfToken]);
 
     useEffect(() => {
         if (!isValidMode || (mode === "edit" && !id)) {
@@ -196,7 +196,7 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                     description: ingredientData.description || "",
                     img_url: ingredientData.img_url || "",
                     unit_id: ingredientData.unit_id,
-                    category_id: ingredientData.category_id || undefined,
+                    category_id: ingredientData.category_id || null,
                     is_active: ingredientData.is_active,
                 });
                 setOriginalIngredient(ingredientData);
@@ -204,7 +204,7 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                 form.setFieldsValue({
                     description: "",
                     img_url: "",
-                    category_id: undefined,
+                    category_id: null,
                     is_active: true,
                 });
                 setOriginalIngredient(null);
@@ -235,15 +235,6 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
         };
     }, [fetchPageData]);
 
-    const selectedUnit = useMemo(
-        () => units.find((unit) => unit.id === selectedUnitId) || null,
-        [selectedUnitId, units]
-    );
-    const selectedCategory = useMemo(
-        () => categories.find((category) => category.id === selectedCategoryId) || null,
-        [categories, selectedCategoryId]
-    );
-
     const unitOptions = useMemo(
         () =>
             units
@@ -255,20 +246,7 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                 })),
         [selectedUnitId, units]
     );
-    const categoryOptions = useMemo(
-        () =>
-            categories
-                .filter((category) => category.is_active || category.id === selectedCategoryId)
-                .map((category) => ({
-                    label: category.is_active ? category.display_name : `${category.display_name} (ปิดใช้งาน)`,
-                    value: category.id,
-                    searchLabel: category.display_name,
-                })),
-        [categories, selectedCategoryId]
-    );
-
     const hasAvailableUnits = unitOptions.length > 0;
-    const normalizedImageUrl = normalizeImageSource(imageUrl);
 
     const onFinish = async (values: IngredientFormValues) => {
         if (!hasAvailableUnits) {
@@ -280,6 +258,7 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
         setError(null);
 
         try {
+            const token = await ensureCsrfToken();
             const payload = {
                 display_name: values.display_name.trim(),
                 description: values.description?.trim() || "",
@@ -290,10 +269,10 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
             };
 
             if (isEdit && id) {
-                await ingredientsService.update(id, payload, undefined, csrfToken);
+                await ingredientsService.update(id, payload, undefined, token);
                 messageApi.success("บันทึกการแก้ไขวัตถุดิบเรียบร้อย");
             } else {
-                await ingredientsService.create(payload, undefined, csrfToken);
+                await ingredientsService.create(payload, undefined, token);
                 messageApi.success("สร้างวัตถุดิบเรียบร้อย");
             }
 
@@ -320,7 +299,8 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
             onOk: async () => {
                 setDeleting(true);
                 try {
-                    await ingredientsService.delete(id, undefined, csrfToken);
+                    const token = await ensureCsrfToken();
+                    await ingredientsService.delete(id, undefined, token);
                     messageApi.success("ลบวัตถุดิบเรียบร้อย");
                     router.replace("/stock/ingredients");
                 } catch (err) {
@@ -344,15 +324,15 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
     }
 
     return (
-        <div style={pageStyles.container}>
+        <div style={pageStyles.container} data-testid="stock-ingredient-manage-page">
             <ManagePageStyles />
-            
+
             <UIPageHeader
                 title={title}
                 onBack={() => router.replace("/stock/ingredients")}
                 actions={
                     isEdit && canDelete ? (
-                        <Button danger icon={<DeleteOutlined />} onClick={handleDelete} loading={deleting}>
+                        <Button danger icon={<DeleteOutlined />} onClick={handleDelete} loading={deleting} data-testid="stock-ingredient-delete">
                             ลบ
                         </Button>
                     ) : null
@@ -362,19 +342,20 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
             <PageContainer maxWidth={1040}>
                 <PageSection style={{ background: "transparent", border: "none" }}>
                     {loading ? (
-                        <div style={{ display: 'flex', justifyContent: 'center', padding: '80px 0' }}>
+                        <div style={{ display: "flex", justifyContent: "center", padding: "80px 0" }}>
                             <Spin size="large" />
                         </div>
                     ) : (
                         <Row gutter={[20, 20]}>
                             <Col xs={24} lg={15}>
                                 <Card bordered={false} style={{ borderRadius: 20 }}>
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-                                        <AppstoreOutlined style={{ fontSize: 20, color: '#0e7490' }} />
+                                    <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 20 }}>
+                                        <AppstoreOutlined style={{ fontSize: 20, color: "#0e7490" }} />
                                         <Title level={5} style={{ margin: 0 }}>ข้อมูลวัตถุดิบ</Title>
                                     </div>
 
                                     {error ? <Alert type="error" showIcon style={{ marginBottom: 20 }} message={error} /> : null}
+                                    {categoryLoadError ? <Alert type="warning" showIcon style={{ marginBottom: 20 }} message={categoryLoadError} /> : null}
                                     {!hasAvailableUnits ? (
                                         <Alert
                                             type="warning"
@@ -390,7 +371,7 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                                         layout="vertical"
                                         requiredMark={false}
                                         autoComplete="off"
-                                        initialValues={{ description: "", img_url: "", category_id: undefined, is_active: true }}
+                                        initialValues={{ description: "", img_url: "", category_id: null, is_active: true }}
                                         onFinish={(values) => void onFinish(values)}
                                     >
                                         <Form.Item
@@ -401,22 +382,27 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                                                 { max: 100, message: "ความยาวต้องไม่เกิน 100 ตัวอักษร" },
                                             ]}
                                         >
-                                            <Input size="large" maxLength={100} placeholder="เช่น น้ำตาลทราย" />
+                                            <Input
+                                                size="large"
+                                                maxLength={100}
+                                                placeholder="เช่น น้ำตาลทราย"
+                                                data-testid="stock-ingredient-display-name-input"
+                                            />
                                         </Form.Item>
 
                                         <Row gutter={12}>
                                             <Col xs={24} md={12}>
                                                 <Form.Item name="unit_id" label={<span style={{ fontWeight: 600 }}>หน่วยนับ</span>} rules={[{ required: true, message: "กรุณาเลือกหน่วยนับ" }]}>
-                                                    <div onClick={() => setIsUnitModalVisible(true)} style={{ padding: '10px 16px', borderRadius: 12, border: '2px solid #e2e8f0', cursor: 'pointer', minHeight: 46, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                        <span>{selectedUnitId ? units.find((u) => u.id === selectedUnitId)?.display_name : 'เลือกหน่วยนับ'}</span>
+                                                    <div onClick={() => setIsUnitModalVisible(true)} data-testid="stock-ingredient-unit-picker" style={{ padding: "10px 16px", borderRadius: 12, border: "2px solid #e2e8f0", cursor: "pointer", minHeight: 46, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                        <span>{selectedUnitId ? units.find((u) => u.id === selectedUnitId)?.display_name : "เลือกหน่วยนับ"}</span>
                                                         <DownOutlined />
                                                     </div>
                                                 </Form.Item>
                                             </Col>
                                             <Col xs={24} md={12}>
                                                 <Form.Item name="category_id" label={<span style={{ fontWeight: 600 }}>หมวดหมู่</span>}>
-                                                    <div onClick={() => setIsCategoryModalVisible(true)} style={{ padding: '10px 16px', borderRadius: 12, border: '2px solid #e2e8f0', cursor: 'pointer', minHeight: 46, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                        <span>{selectedCategoryId ? categories.find((c) => c.id === selectedCategoryId)?.display_name : 'เลือกหมวดหมู่'}</span>
+                                                    <div onClick={() => setIsCategoryModalVisible(true)} data-testid="stock-ingredient-category-picker" style={{ padding: "10px 16px", borderRadius: 12, border: "2px solid #e2e8f0", cursor: "pointer", minHeight: 46, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                                                        <span>{selectedCategoryId ? categories.find((c) => c.id === selectedCategoryId)?.display_name : "เลือกหมวดหมู่"}</span>
                                                         <DownOutlined />
                                                     </div>
                                                 </Form.Item>
@@ -444,11 +430,11 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                                             <TextArea rows={4} maxLength={500} placeholder="รายละเอียดสินค้า, หมายเหตุ" />
                                         </Form.Item>
 
-                                        <div style={{ padding: 16, background: '#f8fafc', borderRadius: 14, marginBottom: 18 }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div style={{ padding: 16, background: "#f8fafc", borderRadius: 14, marginBottom: 18 }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                                                 <div>
                                                     <Text strong>สถานะการใช้งาน</Text>
-                                                    <Text type="secondary" style={{ display: 'block', fontSize: 13 }}>เปิดใช้งานเพื่อเรียกใช้งานในแสตคหม้อต้ม</Text>
+                                                    <Text type="secondary" style={{ display: "block", fontSize: 13 }}>เปิดใช้งานเพื่อให้เลือกวัตถุดิบนี้ในระบบสต็อกได้</Text>
                                                 </div>
                                                 <Form.Item name="is_active" valuePropName="checked" noStyle>
                                                     <Switch checked={Boolean(isActive)} />
@@ -456,9 +442,9 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                                             </div>
                                         </div>
 
-                                        <div style={{ display: 'flex', gap: 12 }}>
-                                            <Button size="large" onClick={() => router.replace('/stock/ingredients')} style={{ flex: 1 }}>ยกเลิก</Button>
-                                            <Button type="primary" htmlType="submit" size="large" icon={<SaveOutlined />} loading={submitting} disabled={!hasAvailableUnits} style={{ flex: 2 }}>
+                                        <div style={{ display: "flex", gap: 12 }}>
+                                            <Button size="large" onClick={() => router.replace("/stock/ingredients")} style={{ flex: 1 }}>ยกเลิก</Button>
+                                            <Button type="primary" htmlType="submit" size="large" icon={<SaveOutlined />} loading={submitting} disabled={!hasAvailableUnits} style={{ flex: 2 }} data-testid="stock-ingredient-submit">
                                                 บันทึกข้อมูล
                                             </Button>
                                         </div>
@@ -467,9 +453,9 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                             </Col>
 
                             <Col xs={24} lg={9}>
-                                <div style={{ display: 'grid', gap: 14 }}>
+                                <div style={{ display: "grid", gap: 14 }}>
                                     <Card style={{ borderRadius: 20 }}>
-                                        <Title level={5} style={{ color: '#0e7490', marginBottom: 16 }}>ตัวอย่างการแสดงผล</Title>
+                                        <Title level={5} style={{ color: "#0e7490", marginBottom: 16 }}>ตัวอย่างการแสดงผล</Title>
                                         <IngredientPreview
                                             name={displayName}
                                             imageUrl={imageUrl}
@@ -481,11 +467,11 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
 
                                     {isEdit && originalIngredient ? (
                                         <Card style={{ borderRadius: 16 }}>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 10 }}>
-                                                <ExclamationCircleOutlined style={{ color: '#0e7490' }} />
+                                            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                                                <ExclamationCircleOutlined style={{ color: "#0e7490" }} />
                                                 <Text strong>รายละเอียด</Text>
                                             </div>
-                                            <Text type="secondary" style={{ display: 'block' }}>สร้างเมื่อ: {formatDate(originalIngredient.create_date)}</Text>
+                                            <Text type="secondary" style={{ display: "block" }}>สร้างเมื่อ: {formatDate(originalIngredient.create_date)}</Text>
                                         </Card>
                                     ) : null}
                                 </div>
@@ -494,24 +480,35 @@ export default function IngredientsManagePage({ params }: { params: { mode: stri
                     )}
                 </PageSection>
             </PageContainer>
-            
+
             <Modal title="เลือกหมวดหมู่" open={isCategoryModalVisible} onCancel={() => setIsCategoryModalVisible(false)} footer={null} centered width="min(400px, calc(100vw - 16px))">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
-                    {categories.filter(c => c.is_active).map((cat) => (
-                        <div key={cat.id} onClick={() => { form.setFieldsValue({ category_id: cat.id }); setIsCategoryModalVisible(false); }} style={{ padding: '14px 18px', border: '2px solid', borderRadius: 12, cursor: 'pointer', background: selectedCategoryId === cat.id ? '#ecfeff' : '#fff', borderColor: selectedCategoryId === cat.id ? '#0e7490' : '#e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span>{cat.display_name}</span>
-                            {selectedCategoryId === cat.id ? <CheckCircleOutlined style={{ color: '#0e7490' }} /> : null}
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: "60vh", overflowY: "auto" }}>
+                    <div
+                        onClick={() => {
+                            form.setFieldsValue({ category_id: null });
+                            setIsCategoryModalVisible(false);
+                        }}
+                        data-testid="stock-ingredient-category-clear"
+                        style={{ padding: "14px 18px", border: "2px solid", borderRadius: 12, cursor: "pointer", background: !selectedCategoryId ? "#ecfeff" : "#fff", borderColor: !selectedCategoryId ? "#0e7490" : "#e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "center" }}
+                    >
+                        <span>ไม่เลือกหมวดหมู่</span>
+                        {!selectedCategoryId ? <CheckCircleOutlined style={{ color: "#0e7490" }} /> : null}
+                    </div>
+                    {categories.filter((cat) => cat.is_active || cat.id === selectedCategoryId).map((cat) => (
+                        <div key={cat.id} onClick={() => { form.setFieldsValue({ category_id: cat.id }); setIsCategoryModalVisible(false); }} data-testid={`stock-ingredient-category-option-${cat.id}`} style={{ padding: "14px 18px", border: "2px solid", borderRadius: 12, cursor: "pointer", background: selectedCategoryId === cat.id ? "#ecfeff" : "#fff", borderColor: selectedCategoryId === cat.id ? "#0e7490" : "#e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span>{cat.is_active ? cat.display_name : `${cat.display_name} (ปิดใช้งาน)`}</span>
+                            {selectedCategoryId === cat.id ? <CheckCircleOutlined style={{ color: "#0e7490" }} /> : null}
                         </div>
                     ))}
                 </div>
             </Modal>
 
             <Modal title="เลือกหน่วยนับ" open={isUnitModalVisible} onCancel={() => setIsUnitModalVisible(false)} footer={null} centered width="min(400px, calc(100vw - 16px))">
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh', overflowY: 'auto' }}>
-                    {units.filter(u => u.is_active).map((unit) => (
-                        <div key={unit.id} onClick={() => { form.setFieldsValue({ unit_id: unit.id }); setIsUnitModalVisible(false); }} style={{ padding: '14px 18px', border: '2px solid', borderRadius: 12, cursor: 'pointer', background: selectedUnitId === unit.id ? '#ecfeff' : '#fff', borderColor: selectedUnitId === unit.id ? '#0e7490' : '#e5e7eb', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                            <span>{unit.display_name}</span>
-                            {selectedUnitId === unit.id ? <CheckCircleOutlined style={{ color: '#0e7490' }} /> : null}
+                <div style={{ display: "flex", flexDirection: "column", gap: 10, maxHeight: "60vh", overflowY: "auto" }}>
+                    {units.filter((unit) => unit.is_active || unit.id === selectedUnitId).map((unit) => (
+                        <div key={unit.id} onClick={() => { form.setFieldsValue({ unit_id: unit.id }); setIsUnitModalVisible(false); }} data-testid={`stock-ingredient-unit-option-${unit.id}`} style={{ padding: "14px 18px", border: "2px solid", borderRadius: 12, cursor: "pointer", background: selectedUnitId === unit.id ? "#ecfeff" : "#fff", borderColor: selectedUnitId === unit.id ? "#0e7490" : "#e5e7eb", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                            <span>{unit.is_active ? unit.display_name : `${unit.display_name} (ปิดใช้งาน)`}</span>
+                            {selectedUnitId === unit.id ? <CheckCircleOutlined style={{ color: "#0e7490" }} /> : null}
                         </div>
                     ))}
                 </div>

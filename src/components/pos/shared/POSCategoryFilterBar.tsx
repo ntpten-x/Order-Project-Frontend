@@ -15,6 +15,7 @@ type POSCategoryFilterBarProps = {
   selectedCategory?: string;
   categories: CategoryOption[];
   isPending?: boolean;
+  searchInputTestId?: string;
   searchInputRef?: React.Ref<InputRef>;
   onSearchChange: (value: string) => void;
   onSelectCategory: (categoryId?: string) => void;
@@ -26,6 +27,7 @@ export function POSCategoryFilterBar({
   selectedCategory,
   categories,
   isPending = false,
+  searchInputTestId,
   searchInputRef,
   onSearchChange,
   onSelectCategory,
@@ -52,6 +54,7 @@ export function POSCategoryFilterBar({
             onChange={(e) => onSearchChange(e.target.value)}
             className="pos-product-search"
             style={{ borderRadius: 16, height: 44 }}
+            data-testid={searchInputTestId}
           />
         )}
 

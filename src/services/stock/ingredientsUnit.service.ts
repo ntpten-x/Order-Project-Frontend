@@ -8,26 +8,6 @@ import {
 
 const BASE_PATH = "/stock/ingredientsUnit";
 
-function getListPath(): string {
-    return typeof window !== "undefined" ? `${BASE_PATH}/getAll` : BASE_PATH;
-}
-
-function getDetailPath(id: string): string {
-    return typeof window !== "undefined" ? `${BASE_PATH}/getById/${id}` : `${BASE_PATH}/${id}`;
-}
-
-function getCreatePath(): string {
-    return typeof window !== "undefined" ? `${BASE_PATH}/create` : BASE_PATH;
-}
-
-function getUpdatePath(id: string): string {
-    return typeof window !== "undefined" ? `${BASE_PATH}/update/${id}` : `${BASE_PATH}/${id}`;
-}
-
-function getDeletePath(id: string): string {
-    return typeof window !== "undefined" ? `${BASE_PATH}/delete/${id}` : `${BASE_PATH}/${id}`;
-}
-
 const getHeaders = (cookie?: string, contentType: string = "application/json"): HeadersInit => {
     const headers: Record<string, string> = {};
     if (contentType) headers["Content-Type"] = contentType;
@@ -41,7 +21,7 @@ export const ingredientsUnitService = {
         searchParams?: URLSearchParams,
         options?: { signal?: AbortSignal }
     ): Promise<{ data: IngredientsUnit[]; total: number; page: number; last_page: number }> => {
-        let url = getProxyUrl("GET", getListPath());
+        let url = getProxyUrl("GET", BASE_PATH);
         if (searchParams) {
             url += `?${searchParams.toString()}`;
         }
@@ -62,7 +42,7 @@ export const ingredientsUnitService = {
     },
 
     findAll: async (cookie?: string, searchParams?: URLSearchParams): Promise<IngredientsUnit[]> => {
-        let url = getProxyUrl("GET", getListPath());
+        let url = getProxyUrl("GET", BASE_PATH);
         if (searchParams) {
             url += `?${searchParams.toString()}`;
         }
@@ -82,7 +62,7 @@ export const ingredientsUnitService = {
     },
 
     findOne: async (id: string, cookie?: string, options?: { signal?: AbortSignal }): Promise<IngredientsUnit> => {
-        const url = getProxyUrl("GET", getDetailPath(id));
+        const url = getProxyUrl("GET", `${BASE_PATH}/${id}`);
 
         const response = await fetch(url!, {
             cache: "no-store",
@@ -100,7 +80,7 @@ export const ingredientsUnitService = {
     },
 
     create: async (data: Partial<IngredientsUnit>, cookie?: string, csrfToken?: string): Promise<IngredientsUnit> => {
-        const url = getProxyUrl("POST", getCreatePath());
+        const url = getProxyUrl("POST", BASE_PATH);
         const headers = getHeaders(cookie) as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
@@ -125,7 +105,7 @@ export const ingredientsUnitService = {
         cookie?: string,
         csrfToken?: string
     ): Promise<IngredientsUnit> => {
-        const url = getProxyUrl("PUT", getUpdatePath(id));
+        const url = getProxyUrl("PUT", `${BASE_PATH}/${id}`);
         const headers = getHeaders(cookie) as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
@@ -145,7 +125,7 @@ export const ingredientsUnitService = {
     },
 
     delete: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
-        const url = getProxyUrl("DELETE", getDeletePath(id));
+        const url = getProxyUrl("DELETE", `${BASE_PATH}/${id}`);
         const headers = getHeaders(cookie, "") as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 

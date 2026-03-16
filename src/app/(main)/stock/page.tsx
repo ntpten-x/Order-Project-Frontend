@@ -1,65 +1,38 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import {
-  App,
-  Alert,
-  Badge,
-  Button,
-  Card,
-  Empty,
-  List,
-  Pagination,
-  Segmented,
-  Typography,
-  Spin,
-} from "antd";
-import {
-  ReloadOutlined,
-  SearchOutlined,
-  ShoppingCartOutlined,
-  ShoppingOutlined,
-} from "@ant-design/icons";
+import { useCallback, useEffect, useRef, useState, useTransition } from "react";
+import { ReloadOutlined, ShoppingOutlined } from "@ant-design/icons";
+import { App, Alert, Button, Pagination, Spin, Typography } from "antd";
 
-import IngredientCard from "../../../components/stock/IngredientCard";
-import CartDrawer from "../../../components/stock/CartDrawer";
-import StockImageThumb from "../../../components/stock/StockImageThumb";
 import { AccessGuardFallback } from "../../../components/pos/AccessGuard";
-import { SearchInput } from "../../../components/ui/input/SearchInput";
+import { POSCategoryFilterBar } from "../../../components/pos/shared/POSCategoryFilterBar";
+import { POSSharedStyles, posLayoutStyles } from "../../../components/pos/shared/style";
+import CartDrawer from "../../../components/stock/CartDrawer";
+import IngredientCard from "../../../components/stock/IngredientCard";
 import PageContainer from "../../../components/ui/page/PageContainer";
 import UIPageHeader from "../../../components/ui/page/PageHeader";
-import PageSection from "../../../components/ui/page/PageSection";
 import PageStack from "../../../components/ui/page/PageStack";
 import PageState from "../../../components/ui/states/PageState";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../hooks/useEffectivePermissions";
-import { ingredientsService } from "../../../services/stock/ingredients.service";
-import { Ingredients } from "../../../types/api/stock/ingredients";
-import { useDebouncedValue } from "../../../utils/useDebouncedValue";
-import { StockCategory } from "../../../types/api/stock/category";
+import { useSocket } from "../../../hooks/useSocket";
 import { stockCategoryService } from "../../../services/stock/category.service";
-import { POSCategoryFilterBar } from "../../../components/pos/shared/POSCategoryFilterBar";
-import { POSSharedStyles, posLayoutStyles } from "../../../components/pos/shared/style";
+import { ingredientsService } from "../../../services/stock/ingredients.service";
+import { StockCategory } from "../../../types/api/stock/category";
+import { Ingredients } from "../../../types/api/stock/ingredients";
+import { useRealtimeRefresh } from "../../../utils/pos/realtime";
+import { RealtimeEvents } from "../../../utils/realtimeEvents";
+import { useDebouncedValue } from "../../../utils/useDebouncedValue";
 import StockPageStyle from "./style";
 
-const { Text, Title } = Typography;
-
-type SortCreated = "old" | "new";
-
-function formatDateTime(value?: string): string {
-  if (!value) return "-";
-  return new Date(value).toLocaleString("th-TH", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
+const { Text } = Typography;
+const PAGE_SIZE = 12;
+const SORT_CREATED = "new";
 
 export default function StockShoppingPage() {
   const { message: messageApi } = App.useApp();
   const { user } = useAuth();
+  const { socket } = useSocket();
   const { can, loading: permissionsLoading } = useEffectivePermissions({
     enabled: Boolean(user?.id),
   });
@@ -70,8 +43,6 @@ export default function StockShoppingPage() {
   const [ingredients, setIngredients] = useState<Ingredients[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(12);
-  const [sortCreated, setSortCreated] = useState<SortCreated>("new");
   const [searchText, setSearchText] = useState("");
   const debouncedSearch = useDebouncedValue(searchText.trim(), 250);
 
@@ -82,22 +53,34 @@ export default function StockShoppingPage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<unknown>(null);
-  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
 
   const abortRef = useRef<AbortController | null>(null);
   const hasLoadedRef = useRef(false);
 
-  useEffect(() => {
-    const loadCategories = async () => {
-      try {
-        const data = await stockCategoryService.findAll();
-        setCategories(data);
-      } catch (error) {
-        console.error("Failed to load categories", error);
-      }
-    };
-    void loadCategories();
+  const loadCategories = useCallback(async () => {
+    try {
+      const params = new URLSearchParams({
+        status: "active",
+        sort_created: SORT_CREATED,
+      });
+      const data = await stockCategoryService.findAll(undefined, params);
+      setCategories(data);
+    } catch (caughtError) {
+      setCategories([]);
+      console.error("Failed to load categories", caughtError);
+    }
   }, []);
+
+  useEffect(() => {
+    if (!canViewOrders) return;
+    void loadCategories();
+  }, [canViewOrders, loadCategories]);
+
+  useEffect(() => {
+    if (!selectedCategory) return;
+    if (categories.some((category) => category.id === selectedCategory)) return;
+    setSelectedCategory(undefined);
+  }, [categories, selectedCategory]);
 
   const loadIngredients = useCallback(
     async (options?: { silent?: boolean }) => {
@@ -116,9 +99,10 @@ export default function StockShoppingPage() {
       const params = new URLSearchParams({
         status: "active",
         page: String(page),
-        limit: String(pageSize),
-        sort_created: sortCreated,
+        limit: String(PAGE_SIZE),
+        sort_created: SORT_CREATED,
       });
+
       if (debouncedSearch) params.set("q", debouncedSearch);
       if (selectedCategory) params.set("category_id", selectedCategory);
 
@@ -126,6 +110,7 @@ export default function StockShoppingPage() {
         const payload = await ingredientsService.findAllPaginated(undefined, params, {
           signal: controller.signal,
         });
+
         if (controller.signal.aborted) return;
         if (payload.last_page > 0 && page > payload.last_page) {
           setPage(payload.last_page);
@@ -133,15 +118,20 @@ export default function StockShoppingPage() {
         }
 
         hasLoadedRef.current = true;
+        setError(null);
         setIngredients(payload.data);
         setTotal(payload.total);
-        setLastSyncedAt(new Date());
       } catch (caughtError) {
         if ((caughtError as { name?: string })?.name === "AbortError") return;
-        setError(caughtError);
-        if (!silent) {
+
+        if (!silent || !hasLoadedRef.current) {
+          setError(caughtError);
           messageApi.error(
             caughtError instanceof Error ? caughtError.message : "โหลดรายการวัตถุดิบไม่สำเร็จ"
+          );
+        } else {
+          messageApi.warning(
+            caughtError instanceof Error ? caughtError.message : "รีเฟรชรายการวัตถุดิบไม่สำเร็จ"
           );
         }
       } finally {
@@ -151,7 +141,14 @@ export default function StockShoppingPage() {
         }
       }
     },
-    [debouncedSearch, messageApi, page, pageSize, sortCreated, selectedCategory]
+    [debouncedSearch, messageApi, page, selectedCategory]
+  );
+
+  const refreshCatalog = useCallback(
+    async (options?: { silent?: boolean }) => {
+      await Promise.allSettled([loadCategories(), loadIngredients(options)]);
+    },
+    [loadCategories, loadIngredients]
   );
 
   useEffect(() => {
@@ -165,6 +162,22 @@ export default function StockShoppingPage() {
     };
   }, []);
 
+  useRealtimeRefresh({
+    socket,
+    events: [
+      RealtimeEvents.stockCategories.create,
+      RealtimeEvents.stockCategories.update,
+      RealtimeEvents.stockCategories.delete,
+      RealtimeEvents.ingredients.create,
+      RealtimeEvents.ingredients.update,
+      RealtimeEvents.ingredients.delete,
+    ],
+    enabled: Boolean(canViewOrders),
+    debounceMs: 250,
+    onRefresh: () => {
+      void refreshCatalog({ silent: true });
+    },
+  });
 
   if (permissionsLoading) {
     return <PageState status="loading" title="กำลังตรวจสอบสิทธิ์การใช้งาน" />;
@@ -185,8 +198,11 @@ export default function StockShoppingPage() {
         actions={
           <Button
             icon={<ReloadOutlined />}
-            onClick={() => void loadIngredients({ silent: true })}
+            onClick={() => {
+              void refreshCatalog({ silent: true });
+            }}
             loading={refreshing}
+            data-testid="stock-catalog-refresh"
           />
         }
       />
@@ -195,7 +211,6 @@ export default function StockShoppingPage() {
         <div className="stock-order-layout">
           <main className="stock-order-main">
             <PageStack gap={16}>
-
               {!canCreateOrders ? (
                 <Alert
                   type="warning"
@@ -209,6 +224,7 @@ export default function StockShoppingPage() {
               <POSCategoryFilterBar
                 categories={categories}
                 searchQuery={searchText}
+                searchInputTestId="stock-catalog-search"
                 selectedCategory={selectedCategory}
                 isPending={isFilterPending}
                 onSearchChange={(value) => {
@@ -223,64 +239,66 @@ export default function StockShoppingPage() {
                 }}
               />
 
-              <>
-
-                {loading && !hasLoadedRef.current ? (
-                  <div style={{ display: "flex", justifyContent: "center", padding: "80px 0" }}>
-                    <Spin size="large" />
-                  </div>
-                ) : error ? (
+              {loading && !hasLoadedRef.current ? (
+                <div style={{ display: "flex", justifyContent: "center", padding: "80px 0" }}>
+                  <Spin size="large" />
+                </div>
+              ) : error ? (
+                <PageState
+                  status="error"
+                  title="โหลดรายการวัตถุดิบไม่สำเร็จ"
+                  error={error}
+                  onRetry={() => void loadIngredients()}
+                />
+              ) : ingredients.length === 0 ? (
+                <div className="stock-order-empty">
                   <PageState
-                    status="error"
-                    title="โหลดรายการวัตถุดิบไม่สำเร็จ"
-                    error={error}
-                    onRetry={() => void loadIngredients()}
+                    status="empty"
+                    title="ไม่พบวัตถุดิบในเงื่อนไขนี้"
+                    description="ลองเปลี่ยนคำค้นหา หรือกดรีเฟรชข้อมูลอีกครั้ง"
+                    action={
+                      <Button icon={<ReloadOutlined />} onClick={() => void loadIngredients()}>
+                        โหลดใหม่
+                      </Button>
+                    }
                   />
-                ) : ingredients.length === 0 ? (
-                  <div className="stock-order-empty">
-                    <PageState
-                      status="empty"
-                      title="ไม่พบวัตถุดิบในเงื่อนไขนี้"
-                      description="ลองเปลี่ยนคำค้นหา หรือกดรีเฟรชข้อมูลอีกครั้ง"
-                      action={
-                        <Button icon={<ReloadOutlined />} onClick={() => void loadIngredients()}>
-                          โหลดใหม่
-                        </Button>
-                      }
+                </div>
+              ) : (
+                <>
+                  <div style={posLayoutStyles.productGrid} className="pos-product-grid pos-product-grid-mobile">
+                    {ingredients.map((ingredient) => (
+                      <IngredientCard
+                        key={ingredient.id}
+                        ingredient={ingredient}
+                        orderingEnabled={canCreateOrders}
+                      />
+                    ))}
+                  </div>
+
+                  <div
+                    className="pos-pagination-container"
+                    style={{ ...posLayoutStyles.paginationContainer, position: "relative" }}
+                  >
+                    <div
+                      className="pos-pagination-total"
+                      style={{ position: "absolute", left: 0, top: "50%", transform: "translateY(-50%)" }}
+                    >
+                      <Text type="secondary" style={{ fontSize: 13 }}>
+                        ทั้งหมด {total.toLocaleString()} รายการ
+                      </Text>
+                    </div>
+                    <Pagination
+                      current={page}
+                      pageSize={PAGE_SIZE}
+                      total={total}
+                      showSizeChanger={false}
+                      onChange={(nextPage) => setPage(nextPage)}
                     />
                   </div>
-                ) : (
-                  <>
-                    <div style={posLayoutStyles.productGrid} className="pos-product-grid pos-product-grid-mobile">
-                      {ingredients.map((ingredient) => (
-                        <IngredientCard
-                          key={ingredient.id}
-                          ingredient={ingredient}
-                          orderingEnabled={canCreateOrders}
-                        />
-                      ))}
-                    </div>
-
-                    <div className="pos-pagination-container" style={{ ...posLayoutStyles.paginationContainer, position: 'relative' }}>
-                      <div className="pos-pagination-total" style={{ position: 'absolute', left: 0, top: '50%', transform: 'translateY(-50%)' }}>
-                        <Text type="secondary" style={{ fontSize: 13 }}>
-                          ทั้งหมด {total.toLocaleString()} รายการ
-                        </Text>
-                      </div>
-                      <Pagination
-                        current={page}
-                        pageSize={pageSize}
-                        total={total}
-                        showSizeChanger={false}
-                        onChange={(nextPage) => setPage(nextPage)}
-                      />
-                    </div>
-                  </>
-                )}
-              </>
+                </>
+              )}
             </PageStack>
           </main>
-
         </div>
       </PageContainer>
 

@@ -1,42 +1,38 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  App,
-  Button,
-  Grid,
-  Input,
-  Modal,
-  Pagination,
-  Radio,
-  Segmented,
-  Skeleton,
-  Tag,
-  Typography,
-} from "antd";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   CheckSquareOutlined,
   ClockCircleOutlined,
   CloseCircleOutlined,
   EditOutlined,
   EyeOutlined,
-  HistoryOutlined,
   PrinterOutlined,
   ReloadOutlined,
-  SearchOutlined,
   ShoppingCartOutlined,
   SyncOutlined,
   UnorderedListOutlined,
 } from "@ant-design/icons";
+import {
+  App,
+  Button,
+  Modal,
+  Radio,
+  Segmented,
+  Skeleton,
+  Tag,
+  Typography,
+} from "antd";
 import { useRouter } from "next/navigation";
 
 import { AccessGuardFallback } from "../../../../components/pos/AccessGuard";
 import EditOrderModal from "../../../../components/stock/EditOrderModal";
 import OrderDetailModal from "../../../../components/stock/OrderDetailModal";
+import { SearchInput } from "../../../../components/ui/input/SearchInput";
+import ListPagination from "../../../../components/ui/pagination/ListPagination";
 import PageContainer from "../../../../components/ui/page/PageContainer";
 import UIPageHeader from "../../../../components/ui/page/PageHeader";
 import PageSection from "../../../../components/ui/page/PageSection";
-import ListPagination from "../../../../components/ui/pagination/ListPagination";
 import PageState from "../../../../components/ui/states/PageState";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../../hooks/useEffectivePermissions";
@@ -45,66 +41,25 @@ import { authService } from "../../../../services/auth.service";
 import { ordersService } from "../../../../services/stock/orders.service";
 import { PrintPreset } from "../../../../types/api/pos/printSettings";
 import { Order, OrderStatus } from "../../../../types/api/stock/orders";
-import { useDebouncedValue } from "../../../../utils/useDebouncedValue";
+import { applyPresetToDocument } from "../../../../utils/print-settings/defaults";
 import {
   closePrintWindow,
   getPrintSettings,
   primePrintResources,
   reservePrintWindow,
 } from "../../../../utils/print-settings/runtime";
-import { applyPresetToDocument } from "../../../../utils/print-settings/defaults";
 import { LegacyRealtimeEvents, RealtimeEvents } from "../../../../utils/realtimeEvents";
+import { useDebouncedValue } from "../../../../utils/useDebouncedValue";
 import { buildStockOrderPrintHtml } from "./print";
 import ItemsPageStyle from "./style";
 
 const { Text } = Typography;
 
-type OrderFilterStatus = "all" | OrderStatus;
 type SortCreated = "old" | "new";
 type StockOrderPrintMode = "a4" | "receipt";
 type ReceiptPaperPreset = Extract<PrintPreset, "thermal_58mm" | "thermal_80mm">;
+
 const ITEMS_PAGE_STATUS = OrderStatus.PENDING;
-
-type StatusTabConfig = {
-  key: OrderFilterStatus;
-  label: string;
-  icon: React.ReactNode;
-  activeBg: string;
-  activeShadow: string;
-};
-
-
-
-const STATUS_TABS: StatusTabConfig[] = [
-  {
-    key: OrderStatus.PENDING,
-    label: "รอดำเนินการ",
-    icon: <ClockCircleOutlined />,
-    activeBg: "linear-gradient(135deg, #f59e0b 0%, #d97706 100%)",
-    activeShadow: "0 4px 12px rgba(245, 158, 11, 0.25)",
-  },
-  {
-    key: OrderStatus.COMPLETED,
-    label: "เสร็จสิ้น",
-    icon: <CheckSquareOutlined />,
-    activeBg: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
-    activeShadow: "0 4px 12px rgba(34, 197, 94, 0.22)",
-  },
-  {
-    key: OrderStatus.CANCELLED,
-    label: "ยกเลิก",
-    icon: <CloseCircleOutlined />,
-    activeBg: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
-    activeShadow: "0 4px 12px rgba(239, 68, 68, 0.22)",
-  },
-  {
-    key: "all",
-    label: "ทั้งหมด",
-    icon: <UnorderedListOutlined />,
-    activeBg: "linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)",
-    activeShadow: "0 4px 12px rgba(59, 130, 246, 0.24)",
-  },
-];
 
 function formatDateTime(value?: string): string {
   if (!value) return "-";
@@ -119,10 +74,12 @@ function formatDateTime(value?: string): string {
 
 function formatTimeSince(value?: string): string {
   if (!value) return "-";
+
   const diffMinutes = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 60000));
   if (diffMinutes < 1) return "เมื่อกี้";
   if (diffMinutes < 60) return `${diffMinutes} นาทีที่แล้ว`;
   if (diffMinutes < 1440) return `${Math.floor(diffMinutes / 60)} ชม.ที่แล้ว`;
+
   return formatDateTime(value);
 }
 
@@ -134,13 +91,6 @@ function getOrderLineCount(order: Order): number {
   return order.ordersItems?.length || 0;
 }
 
-function getOrderQuantity(order: Order): number {
-  return (order.ordersItems || []).reduce(
-    (sum, item) => sum + Number(item.quantity_ordered || 0),
-    0
-  );
-}
-
 function getStatusMeta(status: OrderStatus): {
   label: string;
   color: string;
@@ -149,7 +99,7 @@ function getStatusMeta(status: OrderStatus): {
 } {
   if (status === OrderStatus.COMPLETED) {
     return {
-      label: "เสร็จสิ้น",
+      label: "เสร็จสมบูรณ์แล้ว",
       color: "#15803d",
       background: "#f0fdf4",
       borderColor: "#bbf7d0",
@@ -166,7 +116,7 @@ function getStatusMeta(status: OrderStatus): {
   }
 
   return {
-    label: "รอดำเนินการ",
+    label: "กำลังดำเนินการ",
     color: "#b45309",
     background: "#fffbeb",
     borderColor: "#fde68a",
@@ -177,7 +127,6 @@ type StockOrderCardProps = {
   order: Order;
   index: number;
   canUpdateOrders: boolean;
-  isMobile: boolean;
   onView: (order: Order) => void;
   onPrint: (order: Order) => void;
   onEdit: (order: Order) => void;
@@ -189,7 +138,6 @@ function StockOrderCard({
   order,
   index,
   canUpdateOrders,
-  isMobile,
   onView,
   onPrint,
   onEdit,
@@ -205,30 +153,39 @@ function StockOrderCard({
     <div
       className="stock-items-card-wrapper"
       style={{
-        background: '#ffffff',
+        background: "#ffffff",
         borderRadius: 20,
-        border: '1px solid #E2E8F0',
-        boxShadow: '0 2px 12px rgba(15,23,42,0.04)',
-        padding: '16px 20px',
+        border: "1px solid #E2E8F0",
+        boxShadow: "0 2px 12px rgba(15,23,42,0.04)",
+        padding: "16px 20px",
         marginBottom: 16,
-        overflow: 'hidden',
-        transition: 'all 0.25s ease',
-        animation: 'fadeInUp 0.35s ease both',
+        overflow: "hidden",
+        transition: "all 0.25s ease",
+        animation: "stockItemsFadeInUp 0.35s ease both",
         animationDelay: `${index * 0.04}s`,
-        cursor: 'pointer',
+        cursor: "pointer",
       }}
       onClick={() => onView(order)}
     >
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-start",
+          marginBottom: 12,
+        }}
+      >
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 6 }}>
-            <span style={{ fontSize: 16, fontWeight: 700, color: '#1E293B' }}>{getOrderCode(order.id)}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
+            <span style={{ fontSize: 16, fontWeight: 700, color: "#1E293B" }}>
+              {getOrderCode(order.id)}
+            </span>
             <span
               style={{
-                display: 'inline-flex',
-                alignItems: 'center',
+                display: "inline-flex",
+                alignItems: "center",
                 gap: 5,
-                padding: '4px 10px',
+                padding: "4px 10px",
                 borderRadius: 20,
                 background: statusMeta.background,
                 color: statusMeta.color,
@@ -241,16 +198,17 @@ function StockOrderCard({
                 style={{
                   width: 6,
                   height: 6,
-                  borderRadius: '50%',
+                  borderRadius: "50%",
                   background: statusMeta.color,
-                  display: 'inline-block',
+                  display: "inline-block",
                 }}
               />
               {statusMeta.label}
             </span>
           </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 12, color: '#64748B', fontSize: 13 }}>
-            <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, color: "#64748B", fontSize: 13 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
               <ClockCircleOutlined style={{ fontSize: 14 }} />
               {formatDateTime(order.create_date)}
             </span>
@@ -258,60 +216,96 @@ function StockOrderCard({
           </div>
         </div>
 
-        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14, color: '#64748B', fontSize: 13, textAlign: 'right' }}>
+        <div
+          style={{
+            display: "flex",
+            flexWrap: "wrap",
+            gap: 14,
+            color: "#64748B",
+            fontSize: 13,
+            textAlign: "right",
+          }}
+        >
           <div>
-            <span style={{ display: 'block', fontWeight: 600, color: '#0F172A' }}>{getOrderLineCount(order)} รายการ</span>
+            <span style={{ display: "block", fontWeight: 600, color: "#0F172A" }}>
+              {getOrderLineCount(order)} รายการ
+            </span>
           </div>
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', marginBottom: 16, borderTop: '1px solid #F1F5F9', paddingTop: 12 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "flex-end",
+          marginBottom: 16,
+          borderTop: "1px solid #F1F5F9",
+          paddingTop: 12,
+        }}
+      >
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', gap: 12, marginBottom: 8, color: '#64748B', fontSize: 13 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 8, color: "#64748B", fontSize: 13 }}>
             <span>ผู้สั่งซื้อ: {order.ordered_by?.name || order.ordered_by?.username || "-"}</span>
             <span>อัปเดตล่าสุด: {formatDateTime(order.update_date)}</span>
           </div>
 
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
             {previewItems.map((item) => (
-              <Tag 
-                key={item.id} 
-                style={{ 
-                  borderRadius: 8, 
-                  background: '#F8FAFC', 
-                  border: '1px solid #E2E8F0', 
-                  color: '#475569', 
+              <Tag
+                key={item.id}
+                style={{
+                  borderRadius: 8,
+                  background: "#F8FAFC",
+                  border: "1px solid #E2E8F0",
+                  color: "#475569",
                   fontWeight: 500,
-                  marginRight: 0 
+                  marginRight: 0,
                 }}
               >
                 {item.ingredient?.display_name || "-"} x{Number(item.quantity_ordered || 0)}
               </Tag>
             ))}
             {extraItems > 0 ? (
-              <Tag style={{ borderRadius: 8, background: '#EFF6FF', border: '1px solid #DBEAFE', color: '#2563EB', fontWeight: 600, marginRight: 0 }}>
+              <Tag
+                style={{
+                  borderRadius: 8,
+                  background: "#EFF6FF",
+                  border: "1px solid #DBEAFE",
+                  color: "#2563EB",
+                  fontWeight: 600,
+                  marginRight: 0,
+                }}
+              >
                 +{extraItems} รายการ
               </Tag>
             ) : null}
           </div>
         </div>
-
-
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12, borderTop: '1px solid #F1F5F9', paddingTop: 14 }}>
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          gap: 12,
+          borderTop: "1px solid #F1F5F9",
+          paddingTop: 14,
+        }}
+      >
         {order.remark ? (
-          <div style={{ flex: 1, color: '#64748B', fontSize: 13 }}>
-            <span style={{ fontWeight: 600, color: '#475569', marginRight: 6 }}>หมายเหตุ:</span>
+          <div style={{ flex: 1, color: "#64748B", fontSize: 13 }}>
+            <span style={{ fontWeight: 600, color: "#475569", marginRight: 6 }}>หมายเหตุ:</span>
             {order.remark}
           </div>
         ) : (
           <div style={{ flex: 1 }} />
         )}
 
-        <div 
-          style={{ display: 'flex', gap: 8, flexWrap: 'wrap', justifyContent: 'flex-end' }}
-          onClick={(e) => e.stopPropagation()} 
+        <div
+          style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}
+          onClick={(event) => event.stopPropagation()}
         >
           <Button
             icon={<EyeOutlined />}
@@ -343,7 +337,7 @@ function StockOrderCard({
             icon={<CheckSquareOutlined />}
             onClick={() => onReceive(order)}
             disabled={!canMutate}
-            style={{ borderRadius: 10, background: '#6366F1', borderColor: '#6366F1' }}
+            style={{ borderRadius: 10, background: "#6366F1", borderColor: "#6366F1" }}
             data-testid={`stock-order-receive-${order.id}`}
           >
             ตรวจรับ
@@ -369,8 +363,6 @@ function StockOrderCard({
 export default function StockOrdersQueuePage() {
   const router = useRouter();
   const { message: messageApi } = App.useApp();
-  const screens = Grid.useBreakpoint();
-  const isMobile = !screens.md;
   const { socket } = useSocket();
   const { user } = useAuth();
   const { can, loading: permissionsLoading } = useEffectivePermissions({
@@ -385,17 +377,14 @@ export default function StockOrdersQueuePage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
-  const [lastPage, setLastPage] = useState(1);
-  const statusFilter: OrderFilterStatus = ITEMS_PAGE_STATUS;
   const [sortCreated, setSortCreated] = useState<SortCreated>("new");
   const [searchText, setSearchText] = useState("");
-  const debouncedSearch = useDebouncedValue(searchText.trim(), 300);
+  const debouncedSearch = useDebouncedValue(searchText.trim(), 250);
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<unknown>(null);
   const [refreshError, setRefreshError] = useState<string | null>(null);
-  const [lastSyncedAt, setLastSyncedAt] = useState<Date | null>(null);
   const [csrfToken, setCsrfToken] = useState("");
 
   const [editingOrder, setEditingOrder] = useState<Order | null>(null);
@@ -409,12 +398,6 @@ export default function StockOrdersQueuePage() {
   const abortRef = useRef<AbortController | null>(null);
   const refreshTimerRef = useRef<number | null>(null);
   const hasLoadedRef = useRef(false);
-  const orderCountRef = useRef(0);
-
-  useEffect(() => {
-    orderCountRef.current = orders.length;
-  }, [orders.length]);
-
   const loadOrders = useCallback(
     async (options?: { silent?: boolean }) => {
       const silent = Boolean(options?.silent) && hasLoadedRef.current;
@@ -433,14 +416,17 @@ export default function StockOrdersQueuePage() {
         page: String(page),
         limit: String(pageSize),
         sort_created: sortCreated,
+        status: ITEMS_PAGE_STATUS,
       });
-      params.set("status", ITEMS_PAGE_STATUS);
-      if (debouncedSearch) params.set("q", debouncedSearch);
+      if (debouncedSearch) {
+        params.set("q", debouncedSearch);
+      }
 
       try {
         const payload = await ordersService.getAllOrders(undefined, params, {
           signal: controller.signal,
         });
+
         if (controller.signal.aborted) return;
         if (payload.last_page > 0 && page > payload.last_page) {
           setPage(payload.last_page);
@@ -454,15 +440,15 @@ export default function StockOrdersQueuePage() {
           )
         );
         setTotal(payload.total);
-        setLastPage(payload.last_page);
-        setLastSyncedAt(new Date());
         setRefreshError(null);
         setError(null);
       } catch (caughtError) {
         if ((caughtError as { name?: string })?.name === "AbortError") return;
+
         const nextMessage =
           caughtError instanceof Error ? caughtError.message : "โหลดคิวใบสั่งซื้อไม่สำเร็จ";
-        if (silent && orderCountRef.current > 0) {
+
+        if (silent && hasLoadedRef.current) {
           setRefreshError(nextMessage);
         } else {
           setError(caughtError);
@@ -495,22 +481,38 @@ export default function StockOrdersQueuePage() {
 
   useEffect(() => {
     let mounted = true;
+
     const run = async () => {
       try {
         const token = await authService.getCsrfToken();
         if (mounted) setCsrfToken(token);
       } catch {
-        if (mounted) messageApi.error("โหลดโทเคนความปลอดภัยไม่สำเร็จ");
+        if (mounted) {
+          messageApi.error("โหลดโทเคนความปลอดภัยไม่สำเร็จ");
+        }
       }
     };
+
     void run();
     return () => {
       mounted = false;
     };
   }, [messageApi]);
 
+  const ensureCsrfToken = useCallback(async (): Promise<string> => {
+    if (csrfToken) return csrfToken;
+
+    const token = await authService.getCsrfToken();
+    if (token) {
+      setCsrfToken(token);
+    }
+
+    return token;
+  }, [csrfToken]);
+
   useEffect(() => {
     if (!socket || !canViewOrders) return;
+
     const queueRefresh = () => {
       if (refreshTimerRef.current) window.clearTimeout(refreshTimerRef.current);
       refreshTimerRef.current = window.setTimeout(() => {
@@ -551,7 +553,8 @@ export default function StockOrdersQueuePage() {
         cancelText: "ปิด",
         onOk: async () => {
           try {
-            await ordersService.updateStatus(order.id, OrderStatus.CANCELLED, undefined, csrfToken);
+            const token = await ensureCsrfToken();
+            await ordersService.updateStatus(order.id, OrderStatus.CANCELLED, undefined, token);
             messageApi.success("ยกเลิกใบสั่งซื้อแล้ว");
             void loadOrders({ silent: true });
           } catch (caughtError) {
@@ -562,7 +565,7 @@ export default function StockOrdersQueuePage() {
         },
       });
     },
-    [canUpdateOrders, csrfToken, loadOrders, messageApi]
+    [canUpdateOrders, ensureCsrfToken, loadOrders, messageApi]
   );
 
   const openPrintModal = useCallback((order: Order) => {
@@ -572,6 +575,7 @@ export default function StockOrdersQueuePage() {
 
   const handleConfirmPrint = useCallback(async () => {
     if (!printingOrder) return;
+
     const popup = reservePrintWindow(`ใบสั่งซื้อ ${getOrderCode(printingOrder.id)}`);
     if (!popup) {
       messageApi.error("เบราว์เซอร์บล็อกหน้าต่างพิมพ์ กรุณาอนุญาตป๊อปอัป");
@@ -585,20 +589,14 @@ export default function StockOrdersQueuePage() {
         printMode === "a4"
           ? printSettings.documents.purchase_order
           : {
-              ...applyPresetToDocument(
-                printSettings.documents.purchase_order,
-                receiptPaperPreset
-              ),
+              ...applyPresetToDocument(printSettings.documents.purchase_order, receiptPaperPreset),
               margin_top: 3,
               margin_right: 3,
               margin_bottom: 3,
               margin_left: 3,
               density: "compact" as const,
               line_spacing: 1.12,
-              font_scale: Math.min(
-                printSettings.documents.purchase_order.font_scale || 100,
-                100
-              ),
+              font_scale: Math.min(printSettings.documents.purchase_order.font_scale || 100, 100),
             };
 
       popup.document.open();
@@ -620,29 +618,6 @@ export default function StockOrdersQueuePage() {
       setPrinting(false);
     }
   }, [messageApi, printMode, printingOrder, receiptPaperPreset]);
-
-  const pageStats = useMemo(() => {
-    const pending = orders.filter((order) => order.status === OrderStatus.PENDING).length;
-    const completed = orders.filter((order) => order.status === OrderStatus.COMPLETED).length;
-    const cancelled = orders.filter((order) => order.status === OrderStatus.CANCELLED).length;
-    const lines = orders.reduce((sum, order) => sum + getOrderLineCount(order), 0);
-    const quantity = orders.reduce((sum, order) => sum + getOrderQuantity(order), 0);
-
-    return { pending, completed, cancelled, lines, quantity };
-  }, [orders]);
-
-  const tabCounts = useMemo(
-    () => ({
-      all: statusFilter === "all" ? total : total,
-      [OrderStatus.PENDING]:
-        statusFilter === OrderStatus.PENDING ? total : pageStats.pending,
-      [OrderStatus.COMPLETED]:
-        statusFilter === OrderStatus.COMPLETED ? total : pageStats.completed,
-      [OrderStatus.CANCELLED]:
-        statusFilter === OrderStatus.CANCELLED ? total : pageStats.cancelled,
-    }),
-    [pageStats.cancelled, pageStats.completed, pageStats.pending, statusFilter, total]
-  );
 
   if (permissionsLoading) {
     return <PageState status="loading" title="กำลังตรวจสอบสิทธิ์การใช้งาน" />;
@@ -667,25 +642,27 @@ export default function StockOrdersQueuePage() {
         title="รายการใบสั่งซื้อสต็อก"
         icon={<UnorderedListOutlined />}
         actions={
-          <div className="stock-items-header-actions">
-
-            <Button
-              icon={refreshing ? <SyncOutlined spin /> : <ReloadOutlined />}
-              onClick={() => void loadOrders({ silent: true })}
-              loading={loading && !hasLoadedRef.current}
-            />
-          </div>
+          <Button
+            icon={refreshing ? <SyncOutlined spin /> : <ReloadOutlined />}
+            onClick={() => void loadOrders({ silent: true })}
+            loading={loading && !hasLoadedRef.current}
+            data-testid="stock-orders-refresh"
+          />
         }
       />
 
       <PageContainer maxWidth={1440}>
-
-
-
-
-
-
         <div className="stock-items-toolbar">
+          <div style={{ width: "100%", maxWidth: 420 }} data-testid="stock-orders-search">
+            <SearchInput
+              placeholder="ค้นหาใบสั่งซื้อ"
+              value={searchText}
+              onChange={(value) => {
+                setSearchText(value);
+                setPage(1);
+              }}
+            />
+          </div>
           <Segmented<SortCreated>
             className="stock-items-segmented"
             value={sortCreated}
@@ -698,13 +675,11 @@ export default function StockOrdersQueuePage() {
               { label: "เก่าก่อน", value: "old" },
             ]}
           />
-
-
         </div>
 
         <PageSection title="รายการใบสั่งซื้อ" extra={<Text strong>{total.toLocaleString()} รายการ</Text>}>
           {refreshError ? (
-            <div className="stock-items-feedback stock-items-feedback-danger">
+            <div style={{ marginBottom: 16 }}>
               <Text>{refreshError}</Text>
             </div>
           ) : null}
@@ -712,7 +687,7 @@ export default function StockOrdersQueuePage() {
           {isInitialLoading ? (
             <div className="stock-items-list">
               {[1, 2, 3].map((value) => (
-                <div key={value} className="stock-items-card">
+                <div key={value}>
                   <Skeleton active paragraph={{ rows: 3 }} />
                 </div>
               ))}
@@ -728,11 +703,7 @@ export default function StockOrdersQueuePage() {
             <PageState
               status="empty"
               title="ไม่พบใบสั่งซื้อในตัวกรองนี้"
-              description={
-                debouncedSearch
-                  ? "ลองเปลี่ยนคำค้นหาหรือสลับสถานะที่ต้องการดู"
-                  : "เมื่อมีใบสั่งซื้อ ระบบจะแสดงรายการที่นี่"
-              }
+              description="เมื่อมีใบสั่งซื้อ ระบบจะแสดงรายการที่นี่"
               action={
                 canCreateOrders ? (
                   <Button
@@ -754,7 +725,6 @@ export default function StockOrdersQueuePage() {
                     order={order}
                     index={index}
                     canUpdateOrders={canUpdateOrders}
-                    isMobile={isMobile}
                     onView={(target) => setViewingOrder(target)}
                     onPrint={openPrintModal}
                     onEdit={(target) => setEditingOrder(target)}
@@ -806,7 +776,9 @@ export default function StockOrdersQueuePage() {
       >
         <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
           <Text type="secondary">
-            {printingOrder ? `ใบสั่งซื้อ ${getOrderCode(printingOrder.id)}` : "เลือกรูปแบบการพิมพ์"}
+            {printingOrder
+              ? `ใบสั่งซื้อ ${getOrderCode(printingOrder.id)}`
+              : "เลือกรูปแบบการพิมพ์"}
           </Text>
 
           <Radio.Group

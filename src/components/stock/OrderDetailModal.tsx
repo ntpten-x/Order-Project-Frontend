@@ -76,6 +76,7 @@ export default function OrderDetailModal({ order, open, onClose, hideActualMetri
             footer={null}
             width={900}
             style={{ maxWidth: "95vw" }}
+            data-testid="stock-order-detail-modal"
             title={
                 <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                     <Title level={5} style={{ margin: 0 }}>
@@ -188,7 +189,7 @@ export default function OrderDetailModal({ order, open, onClose, hideActualMetri
                 </Card>
 
                 <div style={{ display: "flex", justifyContent: "flex-end" }}>
-                    <Button onClick={onClose} type="primary">
+                    <Button onClick={onClose} type="primary" data-testid="stock-order-detail-close">
                         ปิด
                     </Button>
                 </div>

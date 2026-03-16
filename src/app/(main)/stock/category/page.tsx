@@ -15,7 +15,7 @@ import { useGlobalLoading } from '../../../../contexts/pos/GlobalLoadingContext'
 import { useSocket } from '../../../../hooks/useSocket';
 import { authService } from '../../../../services/auth.service';
 import { readCache, writeCache } from '../../../../utils/pos/cache';
-import StockCategoryPageStyle, { pageStyles, globalStyles } from './style';
+import { pageStyles } from './style';
 import { AccessGuardFallback } from '../../../../components/pos/AccessGuard';
 import PageContainer from '../../../../components/ui/page/PageContainer';
 import PageSection from '../../../../components/ui/page/PageSection';
@@ -43,7 +43,7 @@ type CategoryCachePayload = {
     total: number;
 };
 
-const CATEGORY_CACHE_KEY = 'stock:category:list:default-v1';
+const CATEGORY_CACHE_PREFIX = 'stock:category:list';
 const CATEGORY_CACHE_TTL_MS = 60 * 1000;
 
 interface CategoryCardProps {
@@ -79,10 +79,9 @@ const CategoryCard = ({
 }: CategoryCardProps) => {
     return (
         <div
-            className="stock-category-card"
+            data-testid={`stock-category-card-${category.id}`}
             style={{
                 ...pageStyles.categoryCard(category.is_active),
-                borderRadius: 16,
                 cursor: canUpdate ? 'pointer' : 'default',
             }}
             onClick={() => {
@@ -144,6 +143,7 @@ const CategoryCard = ({
                         <Button
                             type="text"
                             icon={<EditOutlined />}
+                            data-testid={`stock-category-edit-${category.id}`}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onEdit(category);
@@ -163,6 +163,7 @@ const CategoryCard = ({
                             danger
                             loading={deletingId === category.id}
                             icon={deletingId === category.id ? undefined : <DeleteOutlined />}
+                            data-testid={`stock-category-delete-${category.id}`}
                             onClick={(e) => {
                                 e.stopPropagation();
                                 onDelete(category);
@@ -192,6 +193,7 @@ export default function StockCategoryPage() {
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [hasCachedSnapshot, setHasCachedSnapshot] = useState(false);
     const [csrfToken, setCsrfToken] = useState<string>("");
+    const [activeBranchId, setActiveBranchId] = useState<string | null>(null);
     const requestRef = useRef<AbortController | null>(null);
     const cacheHydratedRef = useRef(false);
     
@@ -237,6 +239,23 @@ export default function StockCategoryPage() {
         [createdSort, debouncedSearch, filters.status, page, pageSize]
     );
 
+    const categoryCacheKey = useMemo(() => {
+        const scopeKey = activeBranchId || user?.branch_id || 'no-branch';
+        const userKey = user?.id || 'anonymous';
+        return `${CATEGORY_CACHE_PREFIX}:${userKey}:${scopeKey}:default-v2`;
+    }, [activeBranchId, user?.branch_id, user?.id]);
+
+    const ensureCsrfToken = useCallback(async (): Promise<string> => {
+        if (csrfToken) return csrfToken;
+
+        const token = await authService.getCsrfToken();
+        if (token) {
+            setCsrfToken(token);
+        }
+
+        return token;
+    }, [csrfToken]);
+
     useEffect(() => {
         let mounted = true;
         const run = async () => {
@@ -255,33 +274,67 @@ export default function StockCategoryPage() {
     }, [messageApi, user?.id]);
 
     useEffect(() => {
+        if (!user?.id) {
+            setActiveBranchId(null);
+            return;
+        }
+
+        let mounted = true;
+        fetch('/api/auth/active-branch', { credentials: 'include', cache: 'no-store' })
+            .then((response) => response.json().catch(() => null))
+            .then((payload: { active_branch_id?: string | null } | null) => {
+                if (!mounted) return;
+                setActiveBranchId(typeof payload?.active_branch_id === 'string' ? payload.active_branch_id : null);
+            })
+            .catch(() => {
+                if (mounted) setActiveBranchId(null);
+            });
+
+        const handleActiveBranchChanged = (event: Event) => {
+            const detail = (event as CustomEvent<{ activeBranchId?: string | null }>).detail;
+            setActiveBranchId(typeof detail?.activeBranchId === 'string' ? detail.activeBranchId : null);
+        };
+
+        window.addEventListener('active-branch-changed', handleActiveBranchChanged as EventListener);
+        return () => {
+            mounted = false;
+            window.removeEventListener('active-branch-changed', handleActiveBranchChanged as EventListener);
+        };
+    }, [user?.id]);
+
+    useEffect(() => {
         return () => {
             requestRef.current?.abort();
         };
     }, []);
 
     useEffect(() => {
-        if (!isUrlReady || !user || !canView || !isDefaultListView || cacheHydratedRef.current) {
+        cacheHydratedRef.current = false;
+        setHasCachedSnapshot(false);
+    }, [categoryCacheKey]);
+
+    useEffect(() => {
+        if (!isUrlReady || !user || !canView || !isDefaultListView || cacheHydratedRef.current || !categoryCacheKey) {
             return;
         }
 
         cacheHydratedRef.current = true;
-        const cached = readCache<CategoryCachePayload>(CATEGORY_CACHE_KEY, CATEGORY_CACHE_TTL_MS);
+        const cached = readCache<CategoryCachePayload>(categoryCacheKey, CATEGORY_CACHE_TTL_MS);
         if (!cached) return;
 
         setCategories(cached.items || []);
         setTotal(cached.total || 0);
         setHasCachedSnapshot(true);
         setLoading(false);
-    }, [user, canView, isDefaultListView, isUrlReady, setTotal]);
+    }, [user, canView, categoryCacheKey, isDefaultListView, isUrlReady, setTotal]);
 
     useEffect(() => {
-        if (!isDefaultListView || loading) return;
-        writeCache<CategoryCachePayload>(CATEGORY_CACHE_KEY, {
+        if (!isDefaultListView || loading || !categoryCacheKey) return;
+        writeCache<CategoryCachePayload>(categoryCacheKey, {
             items: categories,
             total,
         });
-    }, [categories, isDefaultListView, loading, total]);
+    }, [categories, categoryCacheKey, isDefaultListView, loading, total]);
 
     const fetchCategories = useCallback(
         async (options?: { background?: boolean }) => {
@@ -379,7 +432,8 @@ export default function StockCategoryPage() {
             onOk: async () => {
                 setDeletingId(category.id);
                 try {
-                    await stockCategoryService.delete(category.id, undefined, csrfToken);
+                    const token = await ensureCsrfToken();
+                    await stockCategoryService.delete(category.id, undefined, token);
                     const shouldMoveToPreviousPage = page > 1 && categories.length === 1;
                     setCategories((prev) => prev.filter((item) => item.id !== category.id));
                     setTotal((prev) => Math.max(prev - 1, 0));
@@ -405,11 +459,12 @@ export default function StockCategoryPage() {
         }
         setUpdatingStatusId(category.id);
         try {
+            const token = await ensureCsrfToken();
             const updated = await stockCategoryService.update(
                 category.id,
                 { display_name: category.display_name, is_active: next },
                 undefined,
-                csrfToken
+                token
             );
             setCategories((prev) => prev.map((item) => (item.id === category.id ? updated : item)));
             messageApi.success(next ? 'เปิดใช้งานหมวดหมู่แล้ว' : 'ปิดใช้งานหมวดหมู่แล้ว');
@@ -429,10 +484,7 @@ export default function StockCategoryPage() {
     }
 
     return (
-        <div className="category-page" style={pageStyles.container}>
-            <StockCategoryPageStyle />
-            <style>{globalStyles}</style>
-
+        <div style={pageStyles.container} data-testid="stock-category-page">
             <UIPageHeader
                 title="หมวดหมู่วัตถุดิบ"
                 icon={<TagsOutlined />}
@@ -440,7 +492,7 @@ export default function StockCategoryPage() {
                     <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchCategories({ background: categories.length > 0 })} />
                         {canCreateCategory ? (
-                            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd} data-testid="stock-category-add">
                                 เพิ่มหมวดหมู่
                             </Button>
                         ) : null}
@@ -451,11 +503,13 @@ export default function StockCategoryPage() {
             <PageContainer>
                 <PageStack>
                     <SearchBar>
+                        <div data-testid="stock-category-search">
                         <SearchInput
                             placeholder="ค้นหา"
                             value={searchText}
                             onChange={setSearchText}
                         />
+                        </div>
                         <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
                             <Space wrap size={10}>
                                 <ModalSelector<StatusFilter>

@@ -1,7 +1,5 @@
 'use client';
 
-import React from 'react';
-
 export default function ItemsPageStyle() {
   return (
     <style jsx global>{`
@@ -10,6 +8,7 @@ export default function ItemsPageStyle() {
           opacity: 0;
           transform: translateY(12px);
         }
+
         to {
           opacity: 1;
           transform: translateY(0);
@@ -22,16 +21,9 @@ export default function ItemsPageStyle() {
         padding-bottom: 120px;
       }
 
-      .stock-items-header-actions {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-      }
-
       .stock-items-toolbar {
         display: flex;
         align-items: center;
-        justify-content: space-between;
         gap: 12px;
         padding: 12px;
         margin-bottom: 16px;
@@ -60,7 +52,9 @@ export default function ItemsPageStyle() {
       }
 
       .stock-items-card-wrapper {
-        transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.25s ease !important;
+        transition:
+          transform 0.25s cubic-bezier(0.4, 0, 0.2, 1),
+          box-shadow 0.25s ease !important;
       }
 
       .stock-items-card-wrapper:hover {
@@ -80,7 +74,6 @@ export default function ItemsPageStyle() {
         }
 
         .stock-items-toolbar {
-          flex-direction: column;
           align-items: stretch;
         }
       }

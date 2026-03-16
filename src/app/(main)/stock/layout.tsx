@@ -1,24 +1,20 @@
 "use client";
 
-import React from "react";
-import { Layout } from "antd";
+import type { ReactNode } from "react";
 import StockBottomNavigation from "../../../components/stock/StockBottomNavigation";
-
 import { CartProvider } from "../../../contexts/stock/CartContext";
 
 export default function MainLayout({
   children,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <CartProvider>
-      <Layout style={{ minHeight: "100%", background: "transparent" }}>
-        <Layout.Content style={{ background: "transparent" }}>
-          {children}
-        </Layout.Content>
+      <div style={{ minHeight: "100%", background: "transparent" }}>
+        <div style={{ background: "transparent" }}>{children}</div>
         <StockBottomNavigation />
-      </Layout>
+      </div>
     </CartProvider>
   );
 }

@@ -33,7 +33,7 @@ import { useListState } from '../../../../hooks/pos/useListState';
 import { useRealtimeRefresh } from '../../../../utils/pos/realtime';
 import { useAuth } from '../../../../contexts/AuthContext';
 import { ingredientsUnitService } from '../../../../services/stock/ingredientsUnit.service';
-import IngredientsUnitPageStyle, { pageStyles, globalStyles } from './style';
+import { pageStyles } from './style';
 
 const { Text } = Typography;
 
@@ -82,7 +82,6 @@ const UnitCard = ({
             className="stock-ingredients-unit-card"
             style={{
                 ...pageStyles.unitCard(unit.is_active),
-                borderRadius: 16,
                 cursor: canUpdate ? 'pointer' : 'default',
             }}
             onClick={() => {
@@ -222,10 +221,10 @@ export default function IngredientsUnitPage() {
     const { socket } = useSocket();
     const { user, loading: authLoading } = useAuth();
     const { can, loading: permissionLoading } = useEffectivePermissions({ enabled: Boolean(user?.id) });
-    const canCreateUnit = can('stock.ingredientsUnit.page', 'create');
-    const canUpdateUnit = can('stock.ingredientsUnit.page', 'update');
-    const canDeleteUnit = can('stock.ingredientsUnit.page', 'delete');
-    const canView = can('stock.ingredientsUnit.page', 'view');
+    const canCreateUnit = can('stock.ingredients_unit.page', 'create');
+    const canUpdateUnit = can('stock.ingredients_unit.page', 'update');
+    const canDeleteUnit = can('stock.ingredients_unit.page', 'delete');
+    const canView = can('stock.ingredients_unit.page', 'view');
 
     const isDefaultListView = useMemo(
         () =>
@@ -429,10 +428,7 @@ export default function IngredientsUnitPage() {
     }
 
     return (
-        <div className="ingredients-unit-page" style={pageStyles.container}>
-            <IngredientsUnitPageStyle />
-            <style>{globalStyles}</style>
-
+        <div style={pageStyles.container} data-testid="stock-ingredients-unit-page">
             <UIPageHeader
                 title="หน่วยนับวัตถุดิบ"
                 icon={<ExperimentOutlined />}
@@ -440,7 +436,12 @@ export default function IngredientsUnitPage() {
                     <Space size={10} wrap>
                         <Button icon={<ReloadOutlined />} loading={refreshing} onClick={() => void fetchUnits({ background: units.length > 0 })} />
                         {canCreateUnit ? (
-                            <Button type="primary" icon={<PlusOutlined />} onClick={handleAdd}>
+                            <Button
+                                type="primary"
+                                icon={<PlusOutlined />}
+                                onClick={handleAdd}
+                                data-testid="stock-ingredients-unit-add"
+                            >
                                 เพิ่มหน่วยนับ
                             </Button>
                         ) : null}
@@ -451,11 +452,13 @@ export default function IngredientsUnitPage() {
             <PageContainer>
                 <PageStack>
                     <SearchBar>
-                        <SearchInput
-                            placeholder="ค้นหา"
-                            value={searchText}
-                            onChange={setSearchText}
-                        />
+                        <div data-testid="stock-ingredients-unit-search">
+                            <SearchInput
+                                placeholder="ค้นหา"
+                                value={searchText}
+                                onChange={setSearchText}
+                            />
+                        </div>
                         <Space wrap size={10} style={{ justifyContent: 'space-between', width: '100%' }}>
                             <Space wrap size={10}>
                                 <ModalSelector<StatusFilter>

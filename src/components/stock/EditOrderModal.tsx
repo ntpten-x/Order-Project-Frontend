@@ -136,6 +136,17 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
         };
     }, [open]);
 
+    const ensureCsrfToken = async (): Promise<string> => {
+        if (csrfToken) return csrfToken;
+
+        const token = await authService.getCsrfToken();
+        if (token) {
+            setCsrfToken(token);
+        }
+
+        return token;
+    };
+
     const availableIngredients = useMemo(() => {
         const selectedIds = new Set(items.map((item) => item.ingredient_id));
         return ingredients.filter((ingredient) => !selectedIds.has(ingredient.id));
@@ -179,6 +190,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
 
         setSaving(true);
         try {
+            const token = await ensureCsrfToken();
             await ordersService.updateOrder(
                 order.id,
                 items.map((item) => ({
@@ -186,7 +198,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                     quantity_ordered: item.quantity_ordered,
                 })),
                 undefined,
-                csrfToken
+                token
             );
             message.success("บันทึกการแก้ไขใบซื้อเรียบร้อย");
             onSuccess();
@@ -206,6 +218,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
             width={980}
             style={{ maxWidth: "96vw", top: isMobile ? 8 : 24 }}
             styles={{ body: { padding: isMobile ? 12 : 16 } }}
+            data-testid="stock-order-edit-modal"
             title={
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                     <Title level={5} style={{ margin: 0 }}>
@@ -332,7 +345,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                                     }))}
                                     showSearch
                                     trigger={
-                                        <Button type="primary" size="small" icon={<PlusOutlined />} style={{ borderRadius: 6 }}>
+                                        <Button type="primary" size="small" icon={<PlusOutlined />} style={{ borderRadius: 6 }} data-testid="stock-order-edit-add-item">
                                             เพิ่ม
                                         </Button>
                                     }
@@ -401,6 +414,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                                                                     icon={<DeleteOutlined />}
                                                                     onClick={() => removeItem(item.ingredient_id)}
                                                                     disabled={!isPending}
+                                                                    data-testid={`stock-order-edit-remove-${item.ingredient_id}`}
                                                                 >
                                                                     {!isMobile ? "ลบ" : undefined}
                                                                 </Button>
@@ -448,6 +462,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                                                                     }
                                                                     style={{ width: 56, height: 32 }}
                                                                     disabled={!isPending}
+                                                                    data-testid={`stock-order-edit-qty-${item.ingredient_id}`}
                                                                 />
                                                                 <Button
                                                                     icon={<PlusOutlined style={{ fontSize: 13 }} />}
@@ -507,6 +522,7 @@ export default function EditOrderModal({ order, open, onClose, onSuccess }: Edit
                             loading={saving}
                             disabled={!isPending || items.length === 0}
                             style={{ flex: isMobile ? 1 : undefined }}
+                            data-testid="stock-order-edit-save"
                         >
                             บันทึกการแก้ไข
                         </Button>

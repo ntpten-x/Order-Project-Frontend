@@ -120,6 +120,7 @@ export default function IngredientCard({
               style={posLayoutStyles.addButton}
               onClick={handleAdd}
               disabled={!orderingEnabled}
+              data-testid={`stock-catalog-add-${ingredient.id}`}
             >
               เพิ่ม
             </Button>

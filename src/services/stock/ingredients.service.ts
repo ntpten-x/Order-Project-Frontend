@@ -8,22 +8,6 @@ import {
 
 const BASE_PATH = "/stock/ingredients";
 
-function getDetailPath(id: string): string {
-    return typeof window !== "undefined" ? `${BASE_PATH}/getById/${id}` : `${BASE_PATH}/${id}`;
-}
-
-function getCreatePath(): string {
-    return typeof window !== "undefined" ? `${BASE_PATH}/create` : BASE_PATH;
-}
-
-function getUpdatePath(id: string): string {
-    return typeof window !== "undefined" ? `${BASE_PATH}/update/${id}` : `${BASE_PATH}/${id}`;
-}
-
-function getDeletePath(id: string): string {
-    return typeof window !== "undefined" ? `${BASE_PATH}/delete/${id}` : `${BASE_PATH}/${id}`;
-}
-
 const getHeaders = (cookie?: string, contentType: string = "application/json"): HeadersInit => {
     const headers: Record<string, string> = {};
     if (contentType) headers["Content-Type"] = contentType;
@@ -78,7 +62,7 @@ export const ingredientsService = {
     },
 
     findOne: async (id: string, cookie?: string, options?: { signal?: AbortSignal }): Promise<Ingredients> => {
-        const url = getProxyUrl("GET", getDetailPath(id));
+        const url = getProxyUrl("GET", `${BASE_PATH}/${id}`);
 
         const response = await fetch(url!, {
             cache: "no-store",
@@ -96,7 +80,7 @@ export const ingredientsService = {
     },
 
     create: async (data: Partial<Ingredients>, cookie?: string, csrfToken?: string): Promise<Ingredients> => {
-        const url = getProxyUrl("POST", getCreatePath());
+        const url = getProxyUrl("POST", BASE_PATH);
         const headers = getHeaders(cookie) as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
@@ -121,7 +105,7 @@ export const ingredientsService = {
         cookie?: string,
         csrfToken?: string
     ): Promise<Ingredients> => {
-        const url = getProxyUrl("PUT", getUpdatePath(id));
+        const url = getProxyUrl("PUT", `${BASE_PATH}/${id}`);
         const headers = getHeaders(cookie) as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
@@ -141,7 +125,7 @@ export const ingredientsService = {
     },
 
     delete: async (id: string, cookie?: string, csrfToken?: string): Promise<void> => {
-        const url = getProxyUrl("DELETE", getDeletePath(id));
+        const url = getProxyUrl("DELETE", `${BASE_PATH}/${id}`);
         const headers = getHeaders(cookie, "") as Record<string, string>;
         if (csrfToken) headers["X-CSRF-Token"] = csrfToken;
 
