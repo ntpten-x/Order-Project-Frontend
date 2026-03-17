@@ -40,6 +40,7 @@ import PageContainer from '../../../components/ui/page/PageContainer';
 import PageStack from '../../../components/ui/page/PageStack';
 import UIPageHeader from '../../../components/ui/page/PageHeader';
 import { AccessGuardFallback } from '../../../components/pos/AccessGuard';
+import { branchService } from '../../../services/branch.service';
 import { useAuth } from '../../../contexts/AuthContext';
 import { useEffectivePermissions } from '../../../hooks/useEffectivePermissions';
 import { useSocket } from '../../../hooks/useSocket';
@@ -232,8 +233,9 @@ export default function PrintSettingPage() {
     const [saving, setSaving] = useState(false);
     const [printing, setPrinting] = useState(false);
     const [hasIncomingUpdate, setHasIncomingUpdate] = useState(false);
+    const [branchLabel, setBranchLabel] = useState(() => user?.branch?.branch_name || 'สาขาปัจจุบัน');
 
-    const branchName = user?.branch?.branch_name || 'สาขาปัจจุบัน';
+    const branchName = branchLabel;
 
     /* ─── Data logic (same as original) ────────────────────────────────── */
 
@@ -268,10 +270,59 @@ export default function PrintSettingPage() {
         });
     }, [fetchSettings, isAuthorized, isChecking, permissionLoading]);
 
+    useEffect(() => {
+        if (!isAuthorized || typeof window === 'undefined') return undefined;
+
+        const handleBranchChanged = () => {
+            if (isDirtyRef.current) {
+                message.warning('มีการเปลี่ยนสาขา ระบบจะโหลดค่าการพิมพ์ของสาขาใหม่');
+            }
+            void fetchSettings({ silent: true, forceRefresh: true });
+        };
+
+        window.addEventListener('active-branch-changed', handleBranchChanged as EventListener);
+        return () => window.removeEventListener('active-branch-changed', handleBranchChanged as EventListener);
+    }, [fetchSettings, isAuthorized]);
+
     const isDirty = useMemo(() => JSON.stringify(settings) !== JSON.stringify(savedSettings), [settings, savedSettings]);
     const isDirtyRef = useRef(isDirty);
 
     useEffect(() => { isDirtyRef.current = isDirty; }, [isDirty]);
+
+    useEffect(() => {
+        const settingsBranchId = settings.branch_id;
+        const fallbackLabel = user?.branch?.branch_name || 'สาขาปัจจุบัน';
+
+        if (!settingsBranchId) {
+            setBranchLabel(fallbackLabel);
+            return;
+        }
+
+        if (user?.branch?.id === settingsBranchId && user.branch.branch_name) {
+            setBranchLabel(user.branch.branch_name);
+            return;
+        }
+
+        let active = true;
+        branchService
+            .getById(settingsBranchId)
+            .then((branch) => {
+                if (!active) return;
+                const label = branch.branch_code
+                    ? `${branch.branch_name} (${branch.branch_code})`
+                    : branch.branch_name;
+                setBranchLabel(label);
+            })
+            .catch(() => {
+                if (active) {
+                    setBranchLabel(settingsBranchId);
+                }
+            });
+
+        return () => {
+            active = false;
+        };
+    }, [settings.branch_id, user?.branch?.branch_name, user?.branch?.id]);
 
     useRealtimeRefresh({
         socket,

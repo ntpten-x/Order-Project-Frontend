@@ -40,6 +40,31 @@ let printSettingsStrictInflight: Promise<BranchPrintSettings> | null = null;
 let shopProfileCache: PrintShopProfile | null = null;
 let shopProfileCacheExpiresAt = 0;
 let shopProfileInflight: Promise<PrintShopProfile | null> | null = null;
+let branchScopedCacheListenersRegistered = false;
+
+function invalidateShopProfileCache(): void {
+    shopProfileCache = null;
+    shopProfileCacheExpiresAt = 0;
+    shopProfileInflight = null;
+}
+
+function invalidateBranchScopedRuntimeCaches(): void {
+    invalidatePrintSettingsCache();
+    invalidateShopProfileCache();
+}
+
+function registerBranchScopedCacheListeners(): void {
+    if (branchScopedCacheListenersRegistered || typeof window === "undefined") {
+        return;
+    }
+
+    const handler = () => {
+        invalidateBranchScopedRuntimeCaches();
+    };
+
+    window.addEventListener("active-branch-changed", handler as EventListener);
+    branchScopedCacheListenersRegistered = true;
+}
 
 function escapeHtml(value: unknown): string {
     return String(value ?? "")
@@ -159,6 +184,8 @@ export function hydratePrintSettingsCache(
 export function invalidatePrintSettingsCache(): void {
     hydratePrintSettingsCache(null);
 }
+
+registerBranchScopedCacheListeners();
 
 export async function getPrintSettings(options?: {
     forceRefresh?: boolean;

@@ -29,7 +29,11 @@ export const userService = {
             throwBackendHttpError(response, errorData, "Unable to fetch users");
         }
 
-        return normalizeBackendPaginated<User>(await response.json());
+        const normalized = normalizeBackendPaginated<User>(await response.json());
+        return {
+            ...normalized,
+            data: UsersResponseSchema.parse(normalized.data) as unknown as User[],
+        };
     },
 
     getAllUsers: async (cookie?: string, searchParams?: URLSearchParams): Promise<User[]> => {

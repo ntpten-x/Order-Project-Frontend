@@ -249,8 +249,8 @@ function CheckCard({ item }: { item: HealthCheckItem }) {
 
 export default function HealthSystemPage() {
     const router = useRouter();
-    const { isAuthorized, isChecking, user } = useRoleGuard({
-        requiredRole: "Admin",
+    const { isAuthorized, isChecking } = useRoleGuard({
+        requiredPermission: { resourceKey: "health_system.page", action: "view" },
         unauthorizedMessage: "หน้านี้สำหรับผู้ดูแลระบบเท่านั้น",
         redirectUnauthorized: "/",
     });
@@ -319,7 +319,7 @@ export default function HealthSystemPage() {
         return <AccessGuardFallback message="กำลังตรวจสอบสิทธิ์..." />;
     }
 
-    if (!isAuthorized || user?.role !== "Admin") {
+    if (!isAuthorized) {
         return <AccessGuardFallback message="หน้านี้สำหรับผู้ดูแลระบบเท่านั้น" tone="danger" />;
     }
 

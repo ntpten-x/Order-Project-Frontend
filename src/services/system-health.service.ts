@@ -1,6 +1,7 @@
 import { getProxyUrl } from "../lib/proxy-utils";
 import { throwBackendHttpError, unwrapBackendData } from "../utils/api/backendResponse";
 import { SystemHealthReport } from "../types/api/system-health";
+import { SystemHealthReportSchema } from "../schemas/api/system-health.schema";
 
 const BASE_PATH = "/system/health";
 const REQUEST_TIMEOUT_MS = 10_000;
@@ -53,6 +54,8 @@ export const systemHealthService = {
             throwBackendHttpError(response, errorPayload, "Failed to fetch system health");
         }
 
-        return unwrapBackendData<SystemHealthReport>(await response.json());
+        return SystemHealthReportSchema.parse(
+            unwrapBackendData<SystemHealthReport>(await response.json())
+        ) as SystemHealthReport;
     },
 };

@@ -36,10 +36,11 @@ import { AuditLog, AuditActionType } from "../../../types/api/audit";
 import { AuditPageStyles, pageStyles, StatsCard, SearchBar } from "./style";
 import { useAuth } from "../../../contexts/AuthContext";
 import { useEffectivePermissions } from "../../../hooks/useEffectivePermissions";
+import { auditService } from "../../../services/audit.service";
 import { branchService } from "../../../services/branch.service";
 import { useDebouncedValue } from "../../../utils/useDebouncedValue";
 import type { CreatedSort } from "../../../components/ui/pagination/ListPagination";
-import { DEFAULT_CREATED_SORT, parseCreatedSort } from "../../../lib/list-sort";
+import { parseCreatedSort } from "../../../lib/list-sort";
 import { ModalSelector } from "../../../components/ui/select/ModalSelector";
 import { useRoleGuard } from "../../../utils/pos/accessControl";
 import { AccessGuardFallback } from "../../../components/pos/AccessGuard";
@@ -53,6 +54,8 @@ type AuditResponse = {
     page: number;
     totalPages: number;
 };
+
+const AUDIT_DEFAULT_SORT: CreatedSort = "new";
 
 function formatActionLabel(value: string) {
     return value.replace(/_/g, " / ");
@@ -90,7 +93,7 @@ export default function AuditPage() {
     const [dateRange, setDateRange] = useState<[Dayjs | null, Dayjs | null] | null>(null);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(20);
-    const [createdSort, setCreatedSort] = useState<CreatedSort>(DEFAULT_CREATED_SORT);
+    const [createdSort, setCreatedSort] = useState<CreatedSort>(AUDIT_DEFAULT_SORT);
     const [selectedLog, setSelectedLog] = useState<AuditLog | null>(null);
     const debouncedSearch = useDebouncedValue(search, 300);
     const debouncedEntityType = useDebouncedValue(entityType ?? "", 300);
@@ -129,7 +132,7 @@ export default function AuditPage() {
         setActionType(actionParam);
         setEntityType(entityParam);
         setBranchFilter(branchParam);
-        setCreatedSort(parseCreatedSort(sortParam));
+        setCreatedSort(sortParam ? parseCreatedSort(sortParam) : AUDIT_DEFAULT_SORT);
         if ((startDate && startDate.isValid()) || (endDate && endDate.isValid())) {
             setDateRange([startDate && startDate.isValid() ? startDate : null, endDate && endDate.isValid() ? endDate : null]);
         }
@@ -147,7 +150,7 @@ export default function AuditPage() {
         if (actionType) params.set("action_type", actionType);
         if (debouncedEntityType.trim()) params.set("entity_type", debouncedEntityType.trim());
         if (branchFilter) params.set("branch_id", branchFilter);
-        if (createdSort !== DEFAULT_CREATED_SORT) params.set("sort_created", createdSort);
+        if (createdSort !== AUDIT_DEFAULT_SORT) params.set("sort_created", createdSort);
         if (startDateIso) params.set("start_date", startDateIso);
         if (endDateIso) params.set("end_date", endDateIso);
 
@@ -202,23 +205,7 @@ export default function AuditPage() {
             if (startDateIso) params.set("start_date", startDateIso);
             if (endDateIso) params.set("end_date", endDateIso);
 
-            const response = await fetch(`/api/audit/logs?${params.toString()}`, {
-                cache: "no-store",
-            });
-            const json = await response.json().catch(() => ({}));
-            if (!response.ok) {
-                const errorMessage = (json as { error?: string }).error;
-                throw new Error(errorMessage || "โหลดข้อมูล Audit ไม่สำเร็จ");
-            }
-            const payload = json as AuditResponse;
-            const normalized = {
-                ...payload,
-                data: (payload.data || []).map((item) => ({
-                    ...item,
-                    created_at: new Date(item.created_at),
-                })),
-            };
-            return normalized;
+            return auditService.getLogs(undefined, params);
         },
         placeholderData: (prev) => prev,
         staleTime: 60 * 1000,
@@ -349,7 +336,7 @@ export default function AuditPage() {
         setEntityType(undefined);
         setDateRange(null);
         if (canViewBranches) setBranchFilter(undefined);
-        setCreatedSort(DEFAULT_CREATED_SORT);
+        setCreatedSort(AUDIT_DEFAULT_SORT);
         setPage(1);
         setPageSize(20);
     };
@@ -479,8 +466,8 @@ export default function AuditPage() {
                                         title="เลือกการเรียงลำดับ"
                                         value={createdSort}
                                         options={[
-                                            { label: "เก่าก่อน", value: "old" },
                                             { label: "ใหม่ก่อน", value: "new" },
+                                            { label: "เก่าก่อน", value: "old" },
                                         ]}
                                         onChange={(val) => {
                                             setPage(1);
